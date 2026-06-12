@@ -1,170 +1,38 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { recordBatchCheckpoint, recordBatchCheckpointInputSchema } from "../../src/batch-checkpoint.ts";
-import { runCli, type CliDeps } from "../../src/cli.ts";
-import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
-import {
-	buildGetFeedbackPayloadManifest,
-	buildPrepareRunPayloadManifest,
-	getFeedbackPayloadManifestInputSchema,
-	prepareRunPayloadManifestInputSchema,
-	type PrepareRunPayloadManifestInput,
-} from "../../src/payload-manifest.ts";
-import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
-import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
+import { GOLDEN_V1_ROOT, REPO_ROOT } from "../support/golden.ts";
+import { runScenario } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
-const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
-const tempDirs: string[] = [];
-
-interface GoldenCase {
-	name: string;
-	inputPath: string;
-	expectedPath: string;
-}
-
-const getFeedbackPayloadManifestCases = await goldenCases("get-feedback-payload-manifest");
-const prepareRunPayloadManifestCases = await goldenCases("prepare-run-payload-manifest");
-const buildResolveThreadBatchPayloadCases = await goldenCases("build-resolve-thread-batch-payload");
-const recordBatchCheckpointCases = await goldenCases("record-batch-checkpoint");
-const finalizeRunCases = await goldenCases("finalize-run");
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function goldenCases(operation: string): Promise<GoldenCase[]> {
-	const operationDir = join(GOLDEN_ROOT, operation);
-	const entries = await readdir(operationDir, { withFileTypes: true });
-	const cases = entries
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => ({
-			name: entry.name,
-			inputPath: join(operationDir, entry.name, "input.json"),
-			expectedPath: join(operationDir, entry.name, "expected.json"),
-		}));
-	cases.sort((left: GoldenCase, right: GoldenCase) => left.name.localeCompare(right.name));
-	return cases;
-}
-
-async function readJson(path: string): Promise<unknown> {
-	return JSON.parse(await readFile(path, "utf8"));
-}
-
-async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-payload-finalization-"));
-	tempDirs.push(dir);
-	return dir;
-}
-
-function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin"> = {}) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy }),
-			cwd: REPO_ROOT,
-			env: { PATH: "/fake/bin" },
-			stdin: deps.stdin,
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-	};
-}
-
-describe("payload manifest TypeScript parity", () => {
-	for (const goldenCase of getFeedbackPayloadManifestCases) {
-		test(`get-feedback payload manifest matches golden ${goldenCase.name}`, async () => {
-			const input = await readJson(goldenCase.inputPath);
-			const expected = await readJson(goldenCase.expectedPath);
-
-			expect(buildGetFeedbackPayloadManifest(getFeedbackPayloadManifestInputSchema.parse(input))).toEqual(expected);
-		});
-	}
-
-	for (const goldenCase of prepareRunPayloadManifestCases) {
-		test(`prepare-run payload manifest matches golden ${goldenCase.name}`, async () => {
-			const input = await readJson(goldenCase.inputPath);
-			const expected = await readJson(goldenCase.expectedPath);
-
-			const parsedInput: PrepareRunPayloadManifestInput = prepareRunPayloadManifestInputSchema.parse(input);
-
-			expect(buildPrepareRunPayloadManifest(parsedInput)).toEqual(expected);
-		});
-	}
-});
-
-describe("resolve-thread batch payload TypeScript parity", () => {
-	for (const goldenCase of buildResolveThreadBatchPayloadCases) {
-		test(`matches golden ${goldenCase.name}`, async () => {
-			const input = await readJson(goldenCase.inputPath);
-			const expected = await readJson(goldenCase.expectedPath);
-
-			expect(buildResolveThreadBatchPayload(buildResolveThreadBatchPayloadInputSchema.parse(input))).toEqual(expected);
-		});
-	}
-});
-
-describe("batch checkpoint TypeScript helper parity", () => {
-	for (const goldenCase of recordBatchCheckpointCases) {
-		test(`matches golden ${goldenCase.name}`, async () => {
-			const input = await readJson(goldenCase.inputPath);
-			const expected = await readJson(goldenCase.expectedPath);
-
-			expect(recordBatchCheckpoint(recordBatchCheckpointInputSchema.parse(input))).toEqual(expected);
-		});
-	}
-});
-
-describe("finalize-run TypeScript parity", () => {
-	for (const goldenCase of finalizeRunCases) {
-		test(`matches golden ${goldenCase.name}`, async () => {
-			const input = await readJson(goldenCase.inputPath);
-			const expected = await readJson(goldenCase.expectedPath);
-
-			expect(finalizeRun(finalizeRunInputSchema.parse(input))).toEqual(expected);
-		});
-	}
-});
+const makeTempDir = useTempDirs();
 
 describe("managed payload/finalization CLI operations", () => {
 	test("build-resolve-thread-batch-payload and finalize-run run without legacy fallback", async () => {
-		const buildPayload = await readFile(join(GOLDEN_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
-		const buildRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json"]);
+		const buildPayload = await readFile(join(GOLDEN_V1_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
+		const buildRun = runScenario(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await buildRun.exit).toBe(0);
 		expect(JSON.parse(buildRun.stdout.join("")).data.payload_ready).toBe(true);
 
-		const finalizePayload = await readFile(join(GOLDEN_ROOT, "finalize-run/all-feedback-addressed/input.json"), "utf8");
-		const finalizeRunResult = runWithNoFallback(["exec", "finalize-run", "--payload-json", finalizePayload, "--format", "json"]);
+		const finalizePayload = await readFile(join(GOLDEN_V1_ROOT, "finalize-run/all-feedback-addressed/input.json"), "utf8");
+		const finalizeRunResult = runScenario(["exec", "finalize-run", "--payload-json", finalizePayload, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await finalizeRunResult.exit).toBe(0);
 		expect(JSON.parse(finalizeRunResult.stdout.join("")).data.ready_to_stop).toBe(true);
 	});
 
 	test("build-resolve-thread-batch-payload accepts --payload-file and rejects mixed payload sources", async () => {
-		const buildPayload = await readFile(join(GOLDEN_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
-		const tempDir = await makeTempDir();
+		const buildPayload = await readFile(join(GOLDEN_V1_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
+		const tempDir = await makeTempDir("pr-address-payload-finalization-");
 		const payloadPath = join(tempDir, "build-payload.json");
 		await writeFile(payloadPath, buildPayload, "utf8");
 
-		const fileRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-file", payloadPath, "--format", "json"]);
+		const fileRun = runScenario(["exec", "build-resolve-thread-batch-payload", "--payload-file", payloadPath, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await fileRun.exit).toBe(0);
 		expect(JSON.parse(fileRun.stdout.join("")).data.payload_ready).toBe(true);
 
-		const conflictRun = runWithNoFallback(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--payload-file", payloadPath, "--format", "json"]);
+		const conflictRun = runScenario(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--payload-file", payloadPath, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await conflictRun.exit).toBe(2);
 		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
 		expect(conflictEnvelope.error_type).toBe("invalid_request");
@@ -172,7 +40,7 @@ describe("managed payload/finalization CLI operations", () => {
 	});
 
 	test("read-feedback-detail reads allowed raw payload pointers without legacy fallback", async () => {
-		const tempDir = await makeTempDir();
+		const tempDir = await makeTempDir("pr-address-payload-finalization-");
 		const payloadPath = join(tempDir, "20260603t123456z-0001-feedback.raw.json");
 		await writeFile(
 			payloadPath,
@@ -180,7 +48,7 @@ describe("managed payload/finalization CLI operations", () => {
 			"utf8",
 		);
 
-		const run = runWithNoFallback(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json"]);
+		const run = runScenario(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json"], { cwd: REPO_ROOT });
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({

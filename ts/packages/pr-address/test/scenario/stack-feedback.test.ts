@@ -1,15 +1,13 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import type { PayloadClock } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
-import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
+import { normalizePayloadBytes } from "../support/golden.ts";
+import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fixedClock, runScenario, runScenarioWithLegacy, type ScenarioRun } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
 interface FixtureArtifact {
 	relative_path: string;
@@ -56,28 +54,14 @@ const FIXTURE_DIR = new URL("../fixtures/stack-orchestration/", import.meta.url)
 const prepFixture = JSON.parse(await readFile(new URL("stack-feedback-prep.json", FIXTURE_DIR), "utf8")) as StackFeedbackPrepFixture;
 const planFixture = JSON.parse(await readFile(new URL("stack-feedback-plan.json", FIXTURE_DIR), "utf8")) as StackFeedbackPlanFixture;
 
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
+const makeTempDir = useTempDirs();
 
 async function makePayloadRoot(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-feedback-"));
-	tempDirs.push(dir);
-	return join(dir, "payload-root");
+	return join(await makeTempDir("pr-address-stack-feedback-"), "payload-root");
 }
 
 async function makeScratchDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-feedback-input-"));
-	tempDirs.push(dir);
-	return dir;
-}
-
-function fixedClock(iso: string): PayloadClock {
-	const instant = new Date(iso);
-	return () => instant;
+	return makeTempDir("pr-address-stack-feedback-input-");
 }
 
 function fixtureGithubGateway(): InMemoryPrAddressGitHubGateway {
@@ -98,44 +82,6 @@ function payloadEnv(mode: "session" | "root-only" | null, root: string | null, s
 	return { ASDL_PAYLOAD_ROOT: root };
 }
 
-/**
- * Artifacts that embed the absolute payload root have root-length-dependent
- * byte sizes, so embedded `payload_bytes` values cannot be byte-compared
- * across machines. Callers normalize them and separately assert one reference
- * against the real file size.
- */
-function normalizePayloadBytes(text: string): string {
-	return text.replace(/"payload_bytes": \d+/g, '"payload_bytes": 0');
-}
-
-interface ManagedRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-}
-
-function runManaged(args: readonly string[], options: { github?: PrAddressGitHubGateway | undefined; env: NodeJS.ProcessEnv; clockIso: string; stdin?: string | undefined }): ManagedRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock(options.clockIso) }),
-			cwd: "/repo",
-			env: options.env,
-			stdin: async () => options.stdin ?? "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-	};
-}
-
 async function expectArtifacts(root: string, artifacts: readonly FixtureArtifact[]): Promise<void> {
 	for (const artifact of artifacts) {
 		const actualText = await readFile(join(root, artifact.relative_path), "utf8");
@@ -148,10 +94,10 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 	for (const prepCase of prepFixture.cases) {
 		test(`matches the Python envelope for ${prepCase.name}`, async () => {
 			const root = prepCase.payload_env === null ? null : await makePayloadRoot();
-			const run = runManaged(["exec", ...prepCase.args], {
+			const run = runScenario(["exec", ...prepCase.args], {
 				github: fixtureGithubGateway(),
 				env: payloadEnv(prepCase.payload_env, root, prepFixture.session_id),
-				clockIso: prepFixture.clock_iso,
+				payloadClock: fixedClock(prepFixture.clock_iso),
 			});
 
 			expect(await run.exit).toBe(prepCase.expected_exit_code);
@@ -163,10 +109,10 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 
 	test("reports the stack summary reference size from the real artifact", async () => {
 		const root = await makePayloadRoot();
-		const run = runManaged(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
 			github: fixtureGithubGateway(),
 			env: payloadEnv("session", root, prepFixture.session_id),
-			clockIso: prepFixture.clock_iso,
+			payloadClock: fixedClock(prepFixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -184,10 +130,10 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 			discussionCommentsFailurePrNumbers: new Set([101]),
 			reviewsFailurePrNumbers: new Set([102]),
 		});
-		const run = runManaged(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
 			github,
 			env: payloadEnv("session", root, prepFixture.session_id),
-			clockIso: prepFixture.clock_iso,
+			payloadClock: fixedClock(prepFixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(2);
@@ -200,10 +146,10 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 	});
 
 	test("rejects unknown options without invoking the gateway", async () => {
-		const run = runManaged(["exec", "stack-feedback-prep", "--bogus", "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-prep", "--bogus", "--format", "json"], {
 			github: fixtureGithubGateway(),
 			env: { PATH: "/fake/bin" },
-			clockIso: prepFixture.clock_iso,
+			payloadClock: fixedClock(prepFixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(2);
@@ -215,16 +161,16 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 });
 
 describe("stack-feedback-prep stack-reference input", () => {
-	function runPrep(args: readonly string[], root: string, stdin = ""): ManagedRun {
-		return runManaged(["exec", "stack-feedback-prep", ...args, "--format", "json"], {
+	function runPrep(args: readonly string[], root: string, stdin = ""): ScenarioRun {
+		return runScenario(["exec", "stack-feedback-prep", ...args, "--format", "json"], {
 			github: fixtureGithubGateway(),
 			env: payloadEnv("session", root, prepFixture.session_id),
-			clockIso: prepFixture.clock_iso,
+			payloadClock: fixedClock(prepFixture.clock_iso),
 			stdin,
 		});
 	}
 
-	function errorEnvelope(run: ManagedRun): { error_type: string; message: string } {
+	function errorEnvelope(run: ScenarioRun): { error_type: string; message: string } {
 		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 	}
 
@@ -309,9 +255,9 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 	for (const planCase of planFixture.cases) {
 		test(`matches the Python envelope for ${planCase.name}`, async () => {
 			const root = planCase.payload_env === null ? null : await makePayloadRoot();
-			const run = runManaged(["exec", "stack-feedback-plan", "--payload-json", planCase.payload_json_template, ...planCase.extra_args, "--format", "json"], {
+			const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", planCase.payload_json_template, ...planCase.extra_args, "--format", "json"], {
 				env: payloadEnv(planCase.payload_env, root, planFixture.session_id),
-				clockIso: planFixture.clock_iso,
+				payloadClock: fixedClock(planFixture.clock_iso),
 			});
 
 			expect(await run.exit).toBe(planCase.expected_exit_code);
@@ -323,9 +269,9 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 
 	test("reports invalid_json for malformed plan payloads", async () => {
 		const root = await makePayloadRoot();
-		const run = runManaged(["exec", "stack-feedback-plan", "--payload-json", "{", "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", "{", "--format", "json"], {
 			env: payloadEnv("session", root, planFixture.session_id),
-			clockIso: planFixture.clock_iso,
+			payloadClock: fixedClock(planFixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(2);
@@ -337,10 +283,10 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 describe("stack-feedback-plan reference and file inputs", () => {
 	const validPlanCase = requiredPlanCase("valid-full");
 
-	function runPlan(args: readonly string[], root: string): ManagedRun {
-		return runManaged(["exec", "stack-feedback-plan", ...args, "--format", "json"], {
+	function runPlan(args: readonly string[], root: string): ScenarioRun {
+		return runScenario(["exec", "stack-feedback-plan", ...args, "--format", "json"], {
 			env: payloadEnv("session", root, planFixture.session_id),
-			clockIso: planFixture.clock_iso,
+			payloadClock: fixedClock(planFixture.clock_iso),
 		});
 	}
 
@@ -348,7 +294,7 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		return JSON.parse(validPlanCase.payload_json_template) as { prep: unknown; classifications: unknown };
 	}
 
-	function errorEnvelope(run: ManagedRun): { error_type: string; message: string } {
+	function errorEnvelope(run: ScenarioRun): { error_type: string; message: string } {
 		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 	}
 
@@ -465,24 +411,14 @@ describe("stack feedback usage-error guards", () => {
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {
 		test(`rejects ${usageErrorArgs.join(" ")} without the legacy CLI`, async () => {
-			const stdout: string[] = [];
-			const stderr: string[] = [];
-			const legacy = new InMemoryLegacyPrAddressGateway([0]);
-			const exit = await runCli(["exec", ...usageErrorArgs], {
-				context: fakePrAddressContext({ legacy }),
-				cwd: "/repo",
-				env: { PATH: "/fake/bin" },
-				stdin: async () => "",
-				stdout: (text) => stdout.push(text),
-				stderr: (text) => stderr.push(text),
-			});
+			const run = runScenarioWithLegacy(["exec", ...usageErrorArgs]);
 
-			expect(exit).toBe(2);
-			expect(stdout.join("")).toBe("");
-			expect(stderr.join("")).toBe(
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toBe(
 				"error: option '--stdout-mode <value>' argument 'bogus' is invalid. Allowed choices are full, compact.\n",
 			);
-			expect(legacy.calls).toEqual([]);
+			expect(run.legacy.calls).toEqual([]);
 		});
 	}
 });

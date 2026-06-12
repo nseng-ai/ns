@@ -1,24 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import {
 	discussionComment,
-	fakePrAddressContext,
 	InMemoryPrAddressGitGateway,
 	InMemoryPrAddressGitHubGateway,
 	review,
 	reviewThread,
 } from "../support/in-memory-pr-address-gateways.ts";
+import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
 
 const REPO_CONTEXT_MESSAGE = "pr-address must run inside the target git repository (gh resolves the repo from the current directory).";
-
-interface CliRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
-}
 
 interface MachineEnvelope {
 	exit_code: number;
@@ -32,27 +23,8 @@ interface RunOptions {
 	stdin?: string | undefined;
 }
 
-function run(args: readonly string[], options: RunOptions = {}): CliRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({
-				legacy,
-				...(options.github === undefined ? {} : { github: options.github }),
-				...(options.git === undefined ? {} : { git: options.git }),
-			}),
-			cwd: "/tmp/not-a-repo",
-			env: { PATH: "/fake/bin" },
-			stdin: async () => options.stdin ?? "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		legacy,
-	};
+function run(args: readonly string[], options: RunOptions = {}): ScenarioRunWithLegacy {
+	return runScenarioWithLegacy(args, { ...options, cwd: "/tmp/not-a-repo" });
 }
 
 function feedbackGithub(): InMemoryPrAddressGitHubGateway {

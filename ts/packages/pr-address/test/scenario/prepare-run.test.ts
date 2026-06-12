@@ -1,14 +1,12 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import type { PayloadClock } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary, RestructuredFile } from "../../src/gateways.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fixedClock, runScenario } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
 type GithubVariant = "default" | "no-pr" | "lookup-failure" | "unresolve-failure";
 type GitVariant = "default" | "detached" | "branch-failure" | "restructured-failure";
@@ -40,22 +38,10 @@ interface PrepareRunFixture {
 
 const fixture = JSON.parse(await readFile(new URL("../fixtures/prepare-run/prepare-run.json", import.meta.url), "utf8")) as PrepareRunFixture;
 
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
+const makeTempDir = useTempDirs();
 
 async function makePayloadRoot(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-prepare-run-"));
-	tempDirs.push(dir);
-	return join(dir, "payload-root");
-}
-
-function fixedClock(iso: string): PayloadClock {
-	const instant = new Date(iso);
-	return () => instant;
+	return join(await makeTempDir("pr-address-prepare-run-"), "payload-root");
 }
 
 function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGateway {
@@ -84,36 +70,6 @@ function gitGatewayFor(variant: GitVariant): InMemoryPrAddressGitGateway {
 	return new InMemoryPrAddressGitGateway({ currentBranch: "feature", restructuredFiles: fixture.gateway.restructured_files });
 }
 
-interface ManagedRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	github: InMemoryPrAddressGitHubGateway;
-}
-
-function runManaged(args: readonly string[], options: { github: InMemoryPrAddressGitHubGateway; git: InMemoryPrAddressGitGateway; env: NodeJS.ProcessEnv }): ManagedRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return {
-		exit: runCli(args, {
-			context: { legacy, github: options.github, git: options.git, payloadClock: fixedClock(fixture.clock_iso) },
-			cwd: "/repo",
-			env: options.env,
-			stdin: async () => "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		github: options.github,
-	};
-}
-
 describe("prepare-run parity with the Python CLI", () => {
 	for (const prepareCase of fixture.cases) {
 		test(`matches the Python envelope for ${prepareCase.name}`, async () => {
@@ -124,10 +80,11 @@ describe("prepare-run parity with the Python CLI", () => {
 				env = prepareCase.payload_env === "session" ? { ASDL_PAYLOAD_ROOT: root, ASDL_PAYLOAD_SESSION_ID: fixture.session_id } : { ASDL_PAYLOAD_ROOT: root };
 			}
 
-			const run = runManaged(["exec", ...prepareCase.args], {
+			const run = runScenario(["exec", ...prepareCase.args], {
 				github: githubGatewayFor(prepareCase.github),
 				git: gitGatewayFor(prepareCase.git),
 				env,
+				payloadClock: fixedClock(fixture.clock_iso),
 			});
 
 			expect(await run.exit).toBe(prepareCase.expected_exit_code);
@@ -141,24 +98,28 @@ describe("prepare-run parity with the Python CLI", () => {
 
 	test("reopens only contested threads through the mutation gateway", async () => {
 		const root = await makePayloadRoot();
-		const run = runManaged(["exec", "prepare-run", "--format", "json"], {
-			github: githubGatewayFor("default"),
+		const github = githubGatewayFor("default");
+		const run = runScenario(["exec", "prepare-run", "--format", "json"], {
+			github,
 			git: gitGatewayFor("default"),
 			env: { ASDL_PAYLOAD_ROOT: root, ASDL_PAYLOAD_SESSION_ID: fixture.session_id },
+			payloadClock: fixedClock(fixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.github.unresolvedThreadIds).toEqual(["PRRT_contested"]);
+		expect(github.unresolvedThreadIds).toEqual(["PRRT_contested"]);
 	});
 
 	test("records no reopens when the unresolve mutation fails", async () => {
-		const run = runManaged(["exec", "prepare-run", "--format", "json", "--payload-mode", "inline"], {
-			github: githubGatewayFor("unresolve-failure"),
+		const github = githubGatewayFor("unresolve-failure");
+		const run = runScenario(["exec", "prepare-run", "--format", "json", "--payload-mode", "inline"], {
+			github,
 			git: gitGatewayFor("default"),
 			env: { PATH: "/fake/bin" },
+			payloadClock: fixedClock(fixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.github.unresolvedThreadIds).toEqual([]);
+		expect(github.unresolvedThreadIds).toEqual([]);
 	});
 });

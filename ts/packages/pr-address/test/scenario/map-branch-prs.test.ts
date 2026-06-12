@@ -1,15 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { fakePrAddressContext, InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
-
-interface CliRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
-}
+import { InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
+import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
 
 interface MachineEnvelope {
 	exit_code: number;
@@ -24,23 +16,8 @@ interface MapBranchPrsData {
 	summary: { requested: number; matched: number; missing: number };
 }
 
-function runWithGithub(args: readonly string[], options: { github?: InMemoryPrAddressGitHubGateway | undefined; stdin?: string | undefined } = {}): CliRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }) }),
-			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
-			stdin: async () => options.stdin ?? "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		legacy,
-	};
+function runWithGithub(args: readonly string[], options: { github?: InMemoryPrAddressGitHubGateway | undefined; stdin?: string | undefined } = {}): ScenarioRunWithLegacy {
+	return runScenarioWithLegacy(args, options);
 }
 
 function stackedGithub(): InMemoryPrAddressGitHubGateway {
@@ -53,7 +30,7 @@ function stackedGithub(): InMemoryPrAddressGitHubGateway {
 	});
 }
 
-function parseEnvelope(run: CliRun): MachineEnvelope {
+function parseEnvelope(run: ScenarioRunWithLegacy): MachineEnvelope {
 	return JSON.parse(run.stdout.join("")) as MachineEnvelope;
 }
 

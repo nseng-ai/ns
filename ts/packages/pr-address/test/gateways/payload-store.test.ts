@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
+
+import { useTempDirs } from "../support/temp.ts";
 
 import { readJsonPayloadArtifact, readJsonPayloadArtifactValue, resolveJsonPointer } from "../../src/payload-lookup.ts";
 import {
@@ -40,21 +41,14 @@ const FIXTURE_DIR = new URL("../fixtures/payload-store/", import.meta.url);
 const writeParityFixture = (await readJsonFixture("write-parity.json")) as WriteParityFixture;
 const errorParityFixture = (await readJsonFixture("error-parity.json")) as ErrorParityFixture;
 const isPosix = process.platform !== "win32";
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
+const makeScopedTempDir = useTempDirs();
 
 async function readJsonFixture(name: string): Promise<unknown> {
 	return JSON.parse(await readFile(new URL(name, FIXTURE_DIR), "utf8"));
 }
 
 async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-payload-store-"));
-	tempDirs.push(dir);
-	return dir;
+	return makeScopedTempDir("pr-address-payload-store-");
 }
 
 function fixedClock(isoTimestamps: readonly string[]): PayloadClock {

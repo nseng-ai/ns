@@ -2,10 +2,9 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "../../src/gateways.ts";
-import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { runScenario } from "../support/run-scenario.ts";
 
 type GithubVariant = "default" | "lookup-failure";
 
@@ -39,32 +38,10 @@ function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGatewa
 	});
 }
 
-function runManaged(args: readonly string[], github: InMemoryPrAddressGitHubGateway): { exit: Promise<number>; stdout: string[]; stderr: string[] } {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy, github }),
-			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
-			stdin: async () => "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-	};
-}
-
 describe("summarize-feedback parity with the Python CLI", () => {
 	for (const summarizeCase of fixture.cases) {
 		test(`matches the Python envelope for ${summarizeCase.name}`, async () => {
-			const run = runManaged(["exec", ...summarizeCase.args], githubGatewayFor(summarizeCase.github));
+			const run = runScenario(["exec", ...summarizeCase.args], { github: githubGatewayFor(summarizeCase.github) });
 
 			expect(await run.exit).toBe(summarizeCase.expected_exit_code);
 			expect(run.stdout.join("")).toBe(summarizeCase.expected_envelope_text);
@@ -74,7 +51,7 @@ describe("summarize-feedback parity with the Python CLI", () => {
 	test("requires an integer PR number argument", async () => {
 		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
 		// error (stderr, exit 2), never a machine envelope — click parity.
-		const run = runManaged(["exec", "summarize-feedback", "abc", "--format", "json"], githubGatewayFor("default"));
+		const run = runScenario(["exec", "summarize-feedback", "abc", "--format", "json"], { github: githubGatewayFor("default") });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");

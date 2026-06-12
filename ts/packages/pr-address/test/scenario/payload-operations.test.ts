@@ -1,14 +1,14 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import { PayloadStore, type PayloadClock, type PayloadResult } from "../../src/payload-store.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
-import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
-import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
+import { normalizePayloadBytes } from "../support/golden.ts";
+import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
 interface GetFeedbackPayloadFixture {
 	session_id: string;
@@ -69,26 +69,14 @@ const getFeedbackFixture = (await readJsonFixture("get-feedback-payload.json")) 
 const readFeedbackDetailsFixture = (await readJsonFixture("read-feedback-details.json")) as ReadFeedbackDetailsFixture;
 const recordBatchCheckpointFixture = (await readJsonFixture("record-batch-checkpoint.json")) as RecordBatchCheckpointFixture;
 
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
+const makeTempDir = useTempDirs();
 
 async function readJsonFixture(name: string): Promise<unknown> {
 	return JSON.parse(await readFile(new URL(name, FIXTURE_DIR), "utf8"));
 }
 
 async function makePayloadRoot(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-payload-operations-"));
-	tempDirs.push(dir);
-	return join(dir, "payload-root");
-}
-
-function fixedClock(iso: string): PayloadClock {
-	const instant = new Date(iso);
-	return () => instant;
+	return join(await makeTempDir("pr-address-payload-operations-"), "payload-root");
 }
 
 function expectOk<T>(result: PayloadResult<T>): T {
@@ -96,52 +84,11 @@ function expectOk<T>(result: PayloadResult<T>): T {
 	return result.value;
 }
 
-/**
- * Artifacts that embed the absolute payload root have a root-length-dependent
- * byte size, so `payload_bytes` cannot be byte-compared across machines.
- * Callers normalize it here and separately assert it against the real file size.
- */
-function normalizePayloadBytes(text: string): string {
-	return text.replace(/"payload_bytes": \d+/g, '"payload_bytes": 0');
-}
-
 function payloadBytesOfReference(envelopeText: string, referenceKey: string): number {
 	const envelope = JSON.parse(envelopeText) as { data: Record<string, { payload_bytes: number }> };
 	const reference = envelope.data[referenceKey];
 	if (reference === undefined) throw new Error(`envelope is missing data.${referenceKey}`);
 	return reference.payload_bytes;
-}
-
-interface ManagedRunOptions {
-	github?: PrAddressGitHubGateway | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	payloadClock?: PayloadClock | undefined;
-}
-
-function runManaged(args: readonly string[], options: ManagedRunOptions = {}) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({
-				legacy,
-				...(options.github === undefined ? {} : { github: options.github }),
-				...(options.payloadClock === undefined ? {} : { payloadClock: options.payloadClock }),
-			}),
-			cwd: "/repo",
-			env: options.env ?? { PATH: "/fake/bin" },
-			stdin: async () => "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-	};
 }
 
 async function writeRawArtifact(root: string, artifact: PayloadArtifactSpec, clockIso: string): Promise<void> {
@@ -158,7 +105,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 			discussionComments: { [getFeedbackFixture.pr_number]: getFeedbackFixture.gateway.discussion_comments },
 		});
 
-		const run = runManaged(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
+		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
 			github,
 			env: { ASDL_PAYLOAD_ROOT: root, ASDL_PAYLOAD_SESSION_ID: getFeedbackFixture.session_id },
 			payloadClock: fixedClock(getFeedbackFixture.clock_iso),
@@ -171,7 +118,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 
 	test("fails with the Python payload_session_required envelope when no session id is available", async () => {
 		const root = await makePayloadRoot();
-		const run = runManaged(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
+		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
 			github: new InMemoryPrAddressGitHubGateway(),
 			env: { ASDL_PAYLOAD_ROOT: root },
 		});
@@ -188,7 +135,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 			discussionComments: { [getFeedbackFixture.pr_number]: getFeedbackFixture.gateway.discussion_comments },
 		});
 
-		const run = runManaged(
+		const run = runScenario(
 			["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--payload-session-id", getFeedbackFixture.session_id, "--format", "json"],
 			{ github, env: { ASDL_PAYLOAD_ROOT: root }, payloadClock: fixedClock(getFeedbackFixture.clock_iso) },
 		);
@@ -199,23 +146,24 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 });
 
 describe("read-feedback-details parity with the Python CLI", () => {
-	test("selects details into a summary artifact and reports lookup failures byte-for-byte", async () => {
+	async function seedDetailsRoot(): Promise<string> {
 		const root = await makePayloadRoot();
 		for (const artifact of readFeedbackDetailsFixture.artifacts) {
 			await writeRawArtifact(root, artifact, readFeedbackDetailsFixture.raw_clock_iso);
 		}
+		return root;
+	}
 
-		const successRun = runManaged(
-			[
-				"exec",
-				"read-feedback-details",
-				"--selection-json",
-				readFeedbackDetailsFixture.success.selection_json_template.replaceAll("{ROOT}", root),
-				"--format",
-				"json",
-			],
+	function runSelection(selectionJsonTemplate: string, root: string): ScenarioRun {
+		return runScenario(
+			["exec", "read-feedback-details", "--selection-json", selectionJsonTemplate.replaceAll("{ROOT}", root), "--format", "json"],
 			{ payloadClock: fixedClock(readFeedbackDetailsFixture.summary_clock_iso) },
 		);
+	}
+
+	test("selects details into a summary artifact byte-for-byte", async () => {
+		const root = await seedDetailsRoot();
+		const successRun = runSelection(readFeedbackDetailsFixture.success.selection_json_template, root);
 		expect(await successRun.exit).toBe(0);
 		const successEnvelope = successRun.stdout.join("");
 		expect(normalizePayloadBytes(successEnvelope)).toBe(
@@ -224,13 +172,18 @@ describe("read-feedback-details parity with the Python CLI", () => {
 		const summaryText = await readFile(join(root, readFeedbackDetailsFixture.success.expected_summary_relative_path), "utf8");
 		expect(summaryText).toBe(readFeedbackDetailsFixture.success.expected_summary_text.replaceAll("{ROOT}", root));
 		expect(payloadBytesOfReference(successEnvelope, "selected_payload_reference")).toBe(Buffer.byteLength(summaryText, "utf8"));
+	});
 
-		// Error cases run after the success write so role/path failures can target the summary artifact.
+	test("reports lookup failures byte-for-byte", async () => {
+		const root = await seedDetailsRoot();
+		// The not-raw-role case targets the summary artifact; materialize it as
+		// explicit setup by replaying the success selection (the fixed clock
+		// makes the artifact path deterministic).
+		const setupRun = runSelection(readFeedbackDetailsFixture.success.selection_json_template, root);
+		expect(await setupRun.exit).toBe(0);
+
 		for (const errorCase of readFeedbackDetailsFixture.error_cases) {
-			const run = runManaged(
-				["exec", "read-feedback-details", "--selection-json", errorCase.selection_json_template.replaceAll("{ROOT}", root), "--format", "json"],
-				{ payloadClock: fixedClock(readFeedbackDetailsFixture.summary_clock_iso) },
-			);
+			const run = runSelection(errorCase.selection_json_template, root);
 			expect(await run.exit, errorCase.name).toBe(errorCase.expected_exit_code);
 			expect(run.stdout.join(""), errorCase.name).toBe(errorCase.expected_envelope_text.replaceAll("{ROOT}", root));
 		}
@@ -245,7 +198,7 @@ describe("record-batch-checkpoint parity with the Python CLI", () => {
 				await writeRawArtifact(root, checkpointCase.raw_artifact, recordBatchCheckpointFixture.raw_clock_iso);
 			}
 
-			const run = runManaged(
+			const run = runScenario(
 				["exec", "record-batch-checkpoint", "--payload-json", checkpointCase.input_json_template.replaceAll("{ROOT}", root), "--format", "json"],
 				{ payloadClock: fixedClock(recordBatchCheckpointFixture.summary_clock_iso) },
 			);
