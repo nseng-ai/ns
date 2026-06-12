@@ -10,6 +10,7 @@ import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAns
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { BundlePersistenceState } from "./bundle.ts";
+import type { InterrogationViewPort } from "./interrogation-controller.ts";
 import { chatFrameMeta, chatHint, chatScrollWindow, buildChatLines, type ChatLine } from "./interrogation-render.ts";
 import { scopeForRegion, type InterrogationScope } from "./interrogation-prompt.ts";
 import type { TranscriptState } from "./interrogation-transcript.ts";
@@ -86,19 +87,11 @@ interface ContentFrame {
 	scroll: number;
 }
 
-export interface InterrogationViewPort {
-	getState: () => TranscriptState;
-	bundleOrdinal: number | null;
-	ask: (question: string, scope: InterrogationScope) => void;
-	abortTurn: () => void;
-}
-
 interface ChatFrame {
 	type: "chat";
-	port: InterrogationViewPort | null;
+	interrogation: { type: "ready"; port: InterrogationViewPort } | { type: "degraded"; reason: string };
 	scope: InterrogationScope;
 	scrollFromBottom: number;
-	degradedReason: string | null;
 }
 
 type ViewFrame = OverviewFrame | BaseDetailFrame | TurnListFrame | ContentFrame | ChatFrame;
@@ -244,9 +237,6 @@ export class ProfilerView implements Component {
 			case "content":
 				this.handleContentInput(data, frame);
 				return;
-			case "chat":
-				this.handleChatInput(data, frame);
-				return;
 		}
 	}
 
@@ -345,7 +335,7 @@ export class ProfilerView implements Component {
 			case "content":
 				return frame.source.meta;
 			case "chat":
-				return chatFrameMeta({ ordinal: frame.port?.bundleOrdinal ?? null, scope: frame.scope });
+				return chatFrameMeta({ ordinal: frame.interrogation.type === "ready" ? frame.interrogation.port.bundleOrdinal : null, scope: frame.scope });
 		}
 	}
 
@@ -540,8 +530,8 @@ export class ProfilerView implements Component {
 
 	private composeChatBody(frame: ChatFrame, innerWidth: number, bodyHeight: number): string[] {
 		const editor = this.ensureChatEditor();
-		const state = frame.port?.getState() ?? unavailableTranscript(frame.degradedReason);
-		editor.disableSubmit = state.isStreaming || frame.port === null;
+		const state = frame.interrogation.type === "ready" ? frame.interrogation.port.state : unavailableTranscript(frame.interrogation.reason);
+		editor.disableSubmit = state.isStreaming || frame.interrogation.type === "degraded";
 		const editorLines = editor.render(innerWidth);
 		const transcriptHeight = Math.max(1, bodyHeight - editorLines.length - 2);
 		const allLines = buildChatLines(state, innerWidth);
@@ -549,7 +539,7 @@ export class ProfilerView implements Component {
 		this.replaceFrame(frame, { ...frame, scrollFromBottom: window.scrollFromBottom });
 		const visible = window.lines.map((line) => this.renderChatLine(line, innerWidth));
 		const separator = this.theme.fg("dim", "─".repeat(innerWidth));
-		return pinFooter([...visible, separator, ...editorLines], this.theme.fg("dim", chatHint({ isStreaming: state.isStreaming, isDegraded: frame.port === null })), bodyHeight);
+		return pinFooter([...visible, separator, ...editorLines], this.theme.fg("dim", chatHint({ isStreaming: state.isStreaming, isDegraded: frame.interrogation.type === "degraded" })), bodyHeight);
 	}
 
 	private renderChatLine(line: ChatLine, innerWidth: number): string {
@@ -562,12 +552,12 @@ export class ProfilerView implements Component {
 		const editor = new Editor(this.tui, { borderColor: (text) => this.theme.fg("border", text), selectList: getSelectListTheme() }, { paddingX: 0 });
 		editor.onSubmit = (text) => {
 			const frame = this.topFrame();
-			if (frame.type !== "chat" || frame.port === null) return;
+			if (frame.type !== "chat" || frame.interrogation.type !== "ready") return;
 			const question = text.trim();
 			if (question.length === 0) return;
 			editor.addToHistory(question);
 			editor.setText("");
-			frame.port.ask(question, frame.scope);
+			void frame.interrogation.port.ask(question, frame.scope);
 			this.requestRender();
 		};
 		this.chatEditor = editor;
@@ -647,7 +637,7 @@ export class ProfilerView implements Component {
 			return;
 		}
 		if (data === "\u0003") {
-			frame.port?.abortTurn();
+			if (frame.interrogation.type === "ready") void frame.interrogation.port.abortTurn();
 			this.requestRender();
 			return;
 		}
@@ -661,7 +651,7 @@ export class ProfilerView implements Component {
 			this.requestRender();
 			return;
 		}
-		if (frame.port === null) return;
+		if (frame.interrogation.type === "degraded") return;
 		this.ensureChatEditor().handleInput(data);
 		this.requestRender();
 	}
@@ -683,11 +673,12 @@ export class ProfilerView implements Component {
 
 	private openChatFrame(scope: InterrogationScope): void {
 		const result = this.onOpenInterrogation(scope);
-		if (result.ok) {
-			this.frames.push({ type: "chat", port: result.port, scope, scrollFromBottom: 0, degradedReason: null });
-			return;
-		}
-		this.frames.push({ type: "chat", port: null, scope, scrollFromBottom: 0, degradedReason: result.reason });
+		this.frames.push({
+			type: "chat",
+			interrogation: result.ok ? { type: "ready", port: result.port } : { type: "degraded", reason: result.reason },
+			scope,
+			scrollFromBottom: 0,
+		});
 	}
 
 	private scopeForFrame(frame: ViewFrame): InterrogationScope {
@@ -720,11 +711,11 @@ function frameInnerWidth(width: number): number {
 	return Math.max(16, width - 4);
 }
 
-function unavailableTranscript(reason: string | null): TranscriptState {
+function unavailableTranscript(reason: string): TranscriptState {
 	return {
 		entries: [
 			{ type: "notice", text: "Interrogation is unavailable for this snapshot." },
-			{ type: "notice", text: `Reason: ${reason ?? "No unavailable reason was provided."}` },
+			{ type: "notice", text: `Reason: ${reason}` },
 		],
 		isStreaming: false,
 	};

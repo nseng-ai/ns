@@ -244,8 +244,8 @@ export function bundlePersistenceLine(state: BundlePersistenceState): string {
 		case "failed":
 			return `bundle: unavailable · ${state.message}`;
 		case "persisted": {
-			const reused = state.reused ? " · reused" : "";
-			return `bundle: #${state.ordinal} · ${formatByteSize(state.byteSize)} · session ${formatByteSize(state.sessionTotalBytes)}${reused}`;
+			const reuseLabel = state.isReused ? " · reused" : "";
+			return `bundle: #${state.ordinal} · ${formatByteSize(state.byteSize)} · session ${formatByteSize(state.sessionTotalBytes)}${reuseLabel}`;
 		}
 	}
 }

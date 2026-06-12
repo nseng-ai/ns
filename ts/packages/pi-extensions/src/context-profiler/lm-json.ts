@@ -1,3 +1,5 @@
+import { errorMessage } from "./errors.ts";
+
 export type LmJsonParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 type SafeParseResult<T> = { success: true; data: T } | { success: false };
@@ -13,7 +15,7 @@ export function parseLmJson<T>(text: string, schema: SafeParseSchema<T>, options
 	try {
 		parsed = JSON.parse(jsonText);
 	} catch (error) {
-		return { ok: false, error: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
+		return { ok: false, error: `invalid JSON: ${errorMessage(error)}` };
 	}
 	const result = schema.safeParse(parsed);
 	if (!result.success) return { ok: false, error: options.invalidShapeError };

@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import type { BuildSystemPromptOptions, ContextUsage } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
+import { errorMessage } from "./errors.ts";
 import type { DelegationClaim, EpisodeAnnotation } from "./model.ts";
-import type { EpisodeAnalysisStatus } from "./segmentation.ts";
+import type { SegmentationBatchOutcome } from "./segmentation.ts";
 
 export const BUNDLE_MANIFEST_VERSION = 1;
 export const MESSAGES_FILE_NAME = "messages.jsonl";
@@ -58,7 +59,7 @@ export function buildBundleSnapshot(options: BuildBundleSnapshotOptions): BuildB
 			}
 			lines.push(json);
 		} catch (error) {
-			return unserializable(index + 1, error instanceof Error ? error.message : String(error));
+			return unserializable(index + 1, errorMessage(error));
 		}
 	}
 	const messagesJsonl = `${lines.join("\n")}${lines.length === 0 ? "" : "\n"}`;
@@ -95,24 +96,27 @@ export function computeBundleContentHash(messagesJsonl: string): string {
 export const bundleManifestReadSchema = z.object({
 	version: z.literal(BUNDLE_MANIFEST_VERSION),
 	contentHash: z.string(),
+	sessionId: z.string(),
+	model: z.string(),
+	turnCount: z.number(),
+	capturedAt: z.string(),
 });
+
+export type BundleManifestSummary = z.infer<typeof bundleManifestReadSchema>;
+
+export interface PersistedBundle {
+	ordinal: number;
+	dir: string;
+	byteSize: number;
+	sessionTotalBytes: number;
+	isReused: boolean;
+	manifest: BundleManifestSummary;
+}
 
 export type BundlePersistenceState =
 	| { type: "pending" }
 	| { type: "skipped"; reason: "no-provider-context"; message: string }
-	| {
-		type: "persisted";
-		ordinal: number;
-		dir: string;
-		contentHash: string;
-		byteSize: number;
-		sessionTotalBytes: number;
-		reused: boolean;
-		sessionId: string;
-		model: string;
-		turnCount: number;
-		capturedAt: string;
-	}
+	| ({ type: "persisted" } & PersistedBundle)
 	| { type: "failed"; message: string };
 
 export interface EpisodesFileEpisode extends EpisodeAnnotation {
@@ -133,13 +137,8 @@ export interface EpisodesFile {
 	episodes: EpisodesFileEpisode[];
 }
 
-export type EpisodesFileOutcome =
-	| { type: "ready"; episodes: readonly EpisodeAnnotation[]; summary: string | null; delegations: readonly DelegationClaim[]; analysis: readonly EpisodeAnalysisStatus[] }
-	| { type: "segmentation-error"; message: string }
-	| { type: "skipped"; reason: "too-few-turns" };
-
 export function buildEpisodesFileJson(options: {
-	outcome: EpisodesFileOutcome;
+	outcome: SegmentationBatchOutcome;
 	contentHash: string;
 	analysisModel: string;
 	generatedAt?: Date;
@@ -156,7 +155,7 @@ export function buildEpisodesFileJson(options: {
 	return `${JSON.stringify(file, null, 2)}\n`;
 }
 
-function segmentationForOutcome(outcome: EpisodesFileOutcome): EpisodesFileSegmentation {
+function segmentationForOutcome(outcome: SegmentationBatchOutcome): EpisodesFileSegmentation {
 	switch (outcome.type) {
 		case "ready":
 			return { type: "ready", summary: outcome.summary, delegations: [...outcome.delegations] };
@@ -167,7 +166,7 @@ function segmentationForOutcome(outcome: EpisodesFileOutcome): EpisodesFileSegme
 	}
 }
 
-function episodesForOutcome(outcome: EpisodesFileOutcome): EpisodesFileEpisode[] {
+function episodesForOutcome(outcome: SegmentationBatchOutcome): EpisodesFileEpisode[] {
 	if (outcome.type !== "ready") return [];
 	return outcome.episodes.map((episode, index): EpisodesFileEpisode => {
 		const status = outcome.analysis[index] ?? "ready";

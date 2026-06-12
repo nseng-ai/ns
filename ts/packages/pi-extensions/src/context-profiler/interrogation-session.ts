@@ -1,4 +1,4 @@
-import type { Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import {
 	DefaultResourceLoader,
 	SessionManager,
@@ -10,6 +10,7 @@ import {
 	type AgentSessionEventListener,
 	type ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
+import { errorMessage } from "./errors.ts";
 import { INTERROGATION_TOOLS } from "./interrogation-prompt.ts";
 
 export type InterrogationEvent =
@@ -35,7 +36,7 @@ export interface InterrogationSessionFactory {
 	create(options: {
 		bundleDir: string;
 		systemPrompt: string;
-		model: Model<any>;
+		model: Model<Api>;
 		modelRegistry: ModelRegistry;
 	}): Promise<CreateInterrogationSessionResult>;
 }
@@ -101,7 +102,7 @@ export function createPiInterrogationSessionFactory(): InterrogationSessionFacto
 				});
 				return { ok: true, value: new PiInterrogationSession(session) };
 			} catch (error) {
-				return { ok: false, error: { code: "spawn-failed", message: error instanceof Error ? error.message : String(error) } };
+				return { ok: false, error: { code: "spawn-failed", message: errorMessage(error) } };
 			}
 		},
 	};
@@ -127,7 +128,7 @@ class PiInterrogationSession implements InterrogationSession {
 			await this.session.prompt(text, { expandPromptTemplates: false });
 			return { ok: true };
 		} catch (error) {
-			return { ok: false, error: { code: "prompt-failed", message: error instanceof Error ? error.message : String(error) } };
+			return { ok: false, error: { code: "prompt-failed", message: errorMessage(error) } };
 		}
 	}
 

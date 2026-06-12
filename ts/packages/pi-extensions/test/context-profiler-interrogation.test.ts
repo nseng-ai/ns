@@ -1,4 +1,6 @@
 import { describe, expect, test } from "vitest";
+import type { Api, AssistantMessage, Model } from "@earendil-works/pi-ai";
+import { AuthStorage, ModelRegistry, type AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 import { InterrogationController } from "../src/context-profiler/interrogation-controller.ts";
 import { buildInterrogationSystemPrompt, buildInterrogationUserMessage, scopeForRegion } from "../src/context-profiler/interrogation-prompt.ts";
@@ -7,6 +9,36 @@ import { mapAgentSessionEvent } from "../src/context-profiler/interrogation-sess
 import { applyInterrogationEvent, appendUser, createTranscript } from "../src/context-profiler/interrogation-transcript.ts";
 import type { LiveRegion } from "../src/context-profiler/model.ts";
 import { FakeInterrogationSession, FakeInterrogationSessionFactory } from "./context-profiler-fakes.ts";
+
+const TEST_MODEL: Model<Api> = {
+	id: "m",
+	name: "test model",
+	api: "anthropic-messages",
+	provider: "p",
+	baseUrl: "https://example.invalid",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: 100_000,
+	maxTokens: 4_096,
+};
+
+function createTestModelRegistry(): ModelRegistry {
+	return ModelRegistry.inMemory(AuthStorage.inMemory());
+}
+
+function testAssistantMessage(): AssistantMessage {
+	return {
+		role: "assistant",
+		content: [],
+		api: "anthropic-messages",
+		provider: "p",
+		model: "m",
+		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+		stopReason: "stop",
+		timestamp: 0,
+	};
+}
 
 const REGION: LiveRegion = {
 	id: "ep-1",
@@ -44,8 +76,21 @@ describe("interrogation core", () => {
 	});
 
 	test("maps SDK deltas and tool events", () => {
-		expect(mapAgentSessionEvent({ type: "message_update", message: { role: "assistant" }, assistantMessageEvent: { type: "text_delta", delta: "hi" } } as never)).toEqual({ type: "assistant-delta", text: "hi" });
-		expect(mapAgentSessionEvent({ type: "tool_execution_start", toolName: "read", args: { path: "messages.jsonl" }, toolCallId: "1" } as never)).toEqual({ type: "tool-start", name: "read", summary: "{\"path\":\"messages.jsonl\"}" });
+		const message = testAssistantMessage();
+		const textDeltaEvent = {
+			type: "message_update",
+			message,
+			assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "hi", partial: message },
+		} satisfies AgentSessionEvent;
+		const toolStartEvent = {
+			type: "tool_execution_start",
+			toolName: "read",
+			args: { path: "messages.jsonl" },
+			toolCallId: "1",
+		} satisfies AgentSessionEvent;
+
+		expect(mapAgentSessionEvent(textDeltaEvent)).toEqual({ type: "assistant-delta", text: "hi" });
+		expect(mapAgentSessionEvent(toolStartEvent)).toEqual({ type: "tool-start", name: "read", summary: "{\"path\":\"messages.jsonl\"}" });
 	});
 
 	test("unavailable chat chrome keeps long reasons out of one-line truncated areas", () => {
@@ -66,9 +111,16 @@ describe("interrogation core", () => {
 		const session = new FakeInterrogationSession({ events: [{ type: "assistant-delta", text: "ok" }, { type: "assistant-end" }] });
 		const factory = new FakeInterrogationSessionFactory({ ok: true, value: session });
 		const controller = new InterrogationController({
-			bundle: { ordinal: 3, dir: "/bundle", contentHash: "abc", byteSize: 1, sessionTotalBytes: 1, reused: false, sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
-			model: { provider: "p", id: "m" } as never,
-			modelRegistry: {} as never,
+			bundle: {
+				ordinal: 3,
+				dir: "/bundle",
+				byteSize: 1,
+				sessionTotalBytes: 1,
+				isReused: false,
+				manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+			},
+			model: TEST_MODEL,
+			modelRegistry: createTestModelRegistry(),
 			factory,
 			onTranscriptChange: () => {},
 		});

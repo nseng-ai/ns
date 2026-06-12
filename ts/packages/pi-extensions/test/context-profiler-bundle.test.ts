@@ -79,7 +79,17 @@ describe("context-profiler bundle", () => {
 		const state = captureCurrentState(ctx, createProfilerState());
 		const profile = makeProfile(sequentialTurns(1), { liveSource: "session-context" });
 		const store = new FakeBundleStore({
-			persistResult: { ok: true, value: { ordinal: 1, dir: "/bundle", contentHash: "abc", byteSize: 1, sessionTotalBytes: 1, reused: false, sessionId: "sid", model: "p/m", turnCount: 1, capturedAt: "now" } },
+			persistResult: {
+				ok: true,
+				value: {
+					ordinal: 1,
+					dir: "/bundle",
+					byteSize: 1,
+					sessionTotalBytes: 1,
+					isReused: false,
+					manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 1, capturedAt: "now" },
+				},
+			},
 		});
 
 		const result = startBundlePersist({ store, state, profile, sessionId: "sid", onUpdate: () => {} });

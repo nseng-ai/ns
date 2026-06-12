@@ -21,8 +21,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { buildEpisodeAnalysisPayload } from "./analysis.ts";
 import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
-import { buildBundleSnapshot, buildEpisodesFileJson, type BundlePersistenceState, type EpisodesFileOutcome } from "./bundle.ts";
-import type { BundleStore, PersistedBundle, WriteEpisodesFileResult } from "./bundle-store.ts";
+import { buildBundleSnapshot, buildEpisodesFileJson, type BundlePersistenceState, type PersistedBundle } from "./bundle.ts";
+import type { BundleStore, WriteEpisodesFileResult } from "./bundle-store.ts";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
@@ -40,8 +40,10 @@ import {
 	repairDelegations,
 	repairEpisodes,
 	type EpisodeAnalysisStatus,
+	type SegmentationBatchOutcome,
 	type SegmentationState,
 } from "./segmentation.ts";
+import { errorMessage } from "./errors.ts";
 
 /** Last successful segmentation, reused while the snapshot fingerprint holds. */
 export interface SegmentationCacheEntry {
@@ -189,11 +191,10 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 			options.onUpdate({ type: "failed", message: result.error.message });
 			return null;
 		}
-		const persisted = persistenceStateFromBundle(result.value);
-		options.onUpdate(persisted);
+		options.onUpdate({ type: "persisted", ...result.value });
 		return result.value;
 	}, (error: unknown) => {
-		options.onUpdate({ type: "failed", message: error instanceof Error ? error.message : String(error) });
+		options.onUpdate({ type: "failed", message: errorMessage(error) });
 		return null;
 	});
 	return { initial: { type: "pending" }, whenPersisted };
@@ -205,22 +206,6 @@ function noProviderContextMessage(state: ProfilerState, profile: ProfileSnapshot
 	return `No context messages are available for this snapshot. The profiler can still show ${profile.liveTurns.length.toLocaleString()} ${profile.liveSource} turn(s), but interrogation requires a bundle built from provider or reconstructed session context. Press r or reopen /context-profiler to retry. Debug: contextEvents=${state.contextEventCount.toLocaleString()} (last=${lastContext}); beforeAgentStartEvents=${state.beforeAgentStartEventCount.toLocaleString()} (last=${lastBeforeAgentStart}); latestContextMessages=null; liveSource=${profile.liveSource}.`;
 }
 
-function persistenceStateFromBundle(bundle: PersistedBundle): BundlePersistenceState {
-	return {
-		type: "persisted",
-		ordinal: bundle.ordinal,
-		dir: bundle.dir,
-		contentHash: bundle.contentHash,
-		byteSize: bundle.byteSize,
-		sessionTotalBytes: bundle.sessionTotalBytes,
-		reused: bundle.reused,
-		sessionId: bundle.sessionId,
-		model: bundle.model,
-		turnCount: bundle.turnCount,
-		capturedAt: bundle.capturedAt,
-	};
-}
-
 export interface StartSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
@@ -229,11 +214,6 @@ export interface StartSegmentationOptions {
 	force: boolean;
 	onUpdate: (segmentation: SegmentationState) => void;
 }
-
-export type SegmentationBatchOutcome =
-	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; delegations: DelegationClaim[]; analysis: EpisodeAnalysisStatus[] }
-	| { type: "segmentation-error"; message: string }
-	| { type: "skipped"; reason: "too-few-turns" };
 
 /**
  * Startup segmentation + per-episode analysis controller. Detaching gates view
@@ -246,21 +226,22 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	completion: Promise<SegmentationBatchOutcome>;
 } {
 	const { gateway, profile, state, force, onUpdate } = options;
-	let detached = false;
+	let isDetached = false;
 	const detach = (): void => {
-		detached = true;
+		isDetached = true;
 	};
 	if (profile.liveTurns.length < MIN_TURNS_FOR_SEGMENTATION) {
 		return { initial: { type: "idle" }, detach, completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }) };
 	}
 	const fingerprint = computeSegmentationFingerprint(profile);
-	const controller = new AbortController();
+	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
+	const signal = new AbortController().signal;
 	const emitReady = (ready: ReadyStateOptions): void => {
-		if (detached) return;
+		if (isDetached) return;
 		onUpdate(readyState(ready));
 	};
 	const emitError = (message: string): void => {
-		if (detached) return;
+		if (isDetached) return;
 		onUpdate({ type: "error", message });
 	};
 	const cached = state.segmentationCache;
@@ -275,8 +256,8 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			summary: cached.summary,
 			delegations: cached.delegations,
 			analysis,
-			controller,
-			canWriteCache: () => !detached,
+			signal,
+			canWriteCache: () => !isDetached,
 			onUpdate: emitReady,
 		});
 		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
@@ -286,18 +267,12 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 		profile,
 		state,
 		fingerprint,
-		controller,
-		canWriteCache: () => !detached,
+		signal,
+		canWriteCache: () => !isDetached,
 		onReady: emitReady,
 		onError: emitError,
 	});
 	return { initial: { type: "loading" }, detach, completion };
-}
-
-/** Backward-compatible wrapper for older tests/callers; abort now means detach. */
-export function startSegmentation(options: StartSegmentationOptions): { initial: SegmentationState; abort: () => void } {
-	const batch = startSegmentationBatch(options);
-	return { initial: batch.initial, abort: batch.detach };
 }
 
 interface RunFreshSegmentationOptions {
@@ -305,7 +280,7 @@ interface RunFreshSegmentationOptions {
 	profile: ProfileSnapshot;
 	state: ProfilerState;
 	fingerprint: string;
-	controller: AbortController;
+	signal: AbortSignal;
 	canWriteCache: () => boolean;
 	onReady: (ready: ReadyStateOptions) => void;
 	onError: (message: string) => void;
@@ -315,9 +290,9 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 	const payload = buildSegmentationPayload(options.profile);
 	let result: Awaited<ReturnType<AnalysisModelGateway["segmentTurns"]>>;
 	try {
-		result = await options.gateway.segmentTurns({ json: payload.json }, { signal: options.controller.signal });
+		result = await options.gateway.segmentTurns({ json: payload.json }, { signal: options.signal });
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
+		const message = errorMessage(error);
 		options.onError(message);
 		return { type: "segmentation-error", message };
 	}
@@ -330,7 +305,7 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 	const summary = result.value.summary;
 	const analysis = initialAnalysisStatuses(episodes);
 	if (options.canWriteCache()) {
-		options.state.segmentationCache = { fingerprint: options.fingerprint, episodes, summary, delegations };
+		rememberSegmentationCache(options.state, { fingerprint: options.fingerprint, episodes, summary, delegations });
 		options.onReady({ episodes, summary, delegations, analysis });
 	}
 	return runMissingEpisodeAnalysis({
@@ -342,7 +317,7 @@ async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promi
 		summary,
 		delegations,
 		analysis,
-		controller: options.controller,
+		signal: options.signal,
 		canWriteCache: options.canWriteCache,
 		onUpdate: options.onReady,
 	});
@@ -357,7 +332,7 @@ interface RunEpisodeAnalysisOptions {
 	summary: string | null;
 	delegations: readonly DelegationClaim[];
 	analysis: EpisodeAnalysisStatus[];
-	controller: AbortController;
+	signal: AbortSignal;
 	canWriteCache: () => boolean;
 	onUpdate: (ready: ReadyStateOptions) => void;
 }
@@ -379,7 +354,7 @@ async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Pr
 			delegations: options.delegations,
 		});
 		try {
-			const result = await options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.controller.signal });
+			const result = await options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.signal });
 			if (!result.ok) {
 				if (result.error.code !== "aborted") {
 					analysis[episodeIndex] = { type: "error", message: result.error.message };
@@ -396,7 +371,7 @@ async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Pr
 			analysis[episodeIndex] = "ready";
 			emitAnalysisUpdate(options, episodes, analysis);
 		} catch (error) {
-			analysis[episodeIndex] = { type: "error", message: error instanceof Error ? error.message : String(error) };
+			analysis[episodeIndex] = { type: "error", message: errorMessage(error) };
 			emitAnalysisUpdate(options, episodes, analysis);
 		}
 	});
@@ -408,7 +383,7 @@ function emitAnalysisUpdate(options: RunEpisodeAnalysisOptions, episodes: readon
 	if (!options.canWriteCache()) return;
 	const currentCache = options.state.segmentationCache;
 	if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-	options.state.segmentationCache = { ...currentCache, episodes: [...episodes] };
+	rememberSegmentationCache(options.state, { ...currentCache, episodes: [...episodes] });
 	options.onUpdate({ episodes, summary: options.summary, delegations: options.delegations, analysis });
 }
 
@@ -423,23 +398,12 @@ export interface JoinEpisodesWriteOptions {
 export function joinEpisodesWrite(options: JoinEpisodesWriteOptions): void {
 	void Promise.all([options.whenPersisted, options.completion]).then(async ([bundle, outcome]) => {
 		if (bundle === null) return;
-		const json = buildEpisodesFileJson({ outcome: episodesFileOutcome(outcome), contentHash: bundle.contentHash, analysisModel: options.analysisModel });
+		const json = buildEpisodesFileJson({ outcome, contentHash: bundle.manifest.contentHash, analysisModel: options.analysisModel });
 		const result = await options.store.writeEpisodesFile({ bundleDir: bundle.dir, json });
 		options.onResult?.(result);
 	}).catch((error: unknown) => {
-		options.onResult?.({ ok: false, error: { code: "io-error", message: error instanceof Error ? error.message : String(error) } });
+		options.onResult?.({ ok: false, error: { code: "io-error", message: errorMessage(error) } });
 	});
-}
-
-function episodesFileOutcome(outcome: SegmentationBatchOutcome): EpisodesFileOutcome {
-	switch (outcome.type) {
-		case "ready":
-			return outcome;
-		case "segmentation-error":
-			return outcome;
-		case "skipped":
-			return outcome;
-	}
 }
 
 interface ReadyStateOptions {
@@ -461,6 +425,10 @@ function readyState(options: ReadyStateOptions): SegmentationState {
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
 	return episodes.map((episode): EpisodeAnalysisStatus => hasAnalysisVerdicts(episode) ? "ready" : "loading");
+}
+
+function rememberSegmentationCache(state: ProfilerState, entry: SegmentationCacheEntry): void {
+	state.segmentationCache = entry;
 }
 
 function hasAnalysisVerdicts(episode: EpisodeAnnotation): boolean {

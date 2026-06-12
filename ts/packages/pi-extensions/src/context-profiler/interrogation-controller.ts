@@ -1,23 +1,30 @@
-import type { Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
-import type { PersistedBundle } from "./bundle-store.ts";
+import type { PersistedBundle } from "./bundle.ts";
 import { buildInterrogationSystemPrompt, buildInterrogationUserMessage, scopesEqual, type InterrogationScope } from "./interrogation-prompt.ts";
 import type { InterrogationSession, InterrogationSessionFactory } from "./interrogation-session.ts";
 import { appendNotice, appendUser, applyInterrogationEvent, createTranscript, type TranscriptState } from "./interrogation-transcript.ts";
 
 export type InterrogationAvailability = { ok: true } | { ok: false; reason: string };
 
+export interface InterrogationViewPort {
+	readonly state: TranscriptState;
+	readonly bundleOrdinal: number;
+	ask(question: string, scope: InterrogationScope): Promise<void>;
+	abortTurn(): Promise<void>;
+}
+
 export interface InterrogationControllerOptions {
 	bundle: PersistedBundle;
-	model: Model<any> | undefined;
+	model: Model<Api>;
 	modelRegistry: ModelRegistry;
 	factory: InterrogationSessionFactory;
 	onTranscriptChange: (state: TranscriptState) => void;
 }
 
-export class InterrogationController {
+export class InterrogationController implements InterrogationViewPort {
 	private readonly bundle: PersistedBundle;
-	private readonly model: Model<any> | undefined;
+	private readonly model: Model<Api>;
 	private readonly modelRegistry: ModelRegistry;
 	private readonly factory: InterrogationSessionFactory;
 	private readonly onTranscriptChange: (state: TranscriptState) => void;
@@ -51,18 +58,17 @@ export class InterrogationController {
 	async ensureStarted(): Promise<InterrogationAvailability> {
 		if (this.session !== null) return { ok: true };
 		if (this.unavailableReason !== null) return { ok: false, reason: this.unavailableReason };
-		if (this.model === undefined) return this.markUnavailable("host session has no selected model");
 		if (this.isStarting) return { ok: false, reason: "interrogation agent is still spawning" };
 		this.isStarting = true;
 		this.emitNotice("spawning interrogation agent…");
 		const result = await this.factory.create({
 			bundleDir: this.bundle.dir,
 			systemPrompt: buildInterrogationSystemPrompt({
-				sessionId: this.bundle.sessionId,
+				sessionId: this.bundle.manifest.sessionId,
 				bundleDir: this.bundle.dir,
-				model: this.bundle.model,
-				turnCount: this.bundle.turnCount,
-				capturedAt: this.bundle.capturedAt,
+				model: this.bundle.manifest.model,
+				turnCount: this.bundle.manifest.turnCount,
+				capturedAt: this.bundle.manifest.capturedAt,
 			}),
 			model: this.model,
 			modelRegistry: this.modelRegistry,
