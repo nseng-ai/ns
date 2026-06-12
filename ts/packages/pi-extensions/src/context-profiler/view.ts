@@ -10,7 +10,7 @@ import { Editor, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAns
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { getSelectListTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import type { BundlePersistenceState } from "./bundle.ts";
-import type { InterrogationViewPort } from "./interrogation-controller.ts";
+import type { InterrogationAttachment } from "./interrogation-controller.ts";
 import { chatFrameMeta, chatHint, chatScrollWindow, buildChatLines, type ChatLine } from "./interrogation-render.ts";
 import { scopeForRegion, type InterrogationScope } from "./interrogation-prompt.ts";
 import type { TranscriptState } from "./interrogation-transcript.ts";
@@ -89,7 +89,7 @@ interface ContentFrame {
 
 interface ChatFrame {
 	type: "chat";
-	interrogation: { type: "ready"; port: InterrogationViewPort } | { type: "degraded"; reason: string };
+	interrogation: InterrogationAttachment;
 	scope: InterrogationScope;
 	scrollFromBottom: number;
 }
@@ -108,7 +108,7 @@ export interface ProfilerViewOptions {
 	segmentation: SegmentationState;
 	persistence: BundlePersistenceState;
 	onClose: () => void;
-	onOpenInterrogation: (scope: InterrogationScope) => { ok: true; port: InterrogationViewPort } | { ok: false; reason: string };
+	onOpenInterrogation: (scope: InterrogationScope) => InterrogationAttachment;
 	/** Re-snapshot for `r`; the returned pair replaces the frozen one. */
 	onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
 }
@@ -117,7 +117,7 @@ export class ProfilerView implements Component {
 	private readonly tui: TUI;
 	private readonly theme: Theme;
 	private readonly onClose: () => void;
-	private readonly onOpenInterrogation: (scope: InterrogationScope) => { ok: true; port: InterrogationViewPort } | { ok: false; reason: string };
+	private readonly onOpenInterrogation: (scope: InterrogationScope) => InterrogationAttachment;
 	private readonly onRefresh: () => { profile: ProfileSnapshot; segmentation: SegmentationState; persistence: BundlePersistenceState };
 	private profile: ProfileSnapshot;
 	private segmentation: SegmentationState;
@@ -672,10 +672,9 @@ export class ProfilerView implements Component {
 	}
 
 	private openChatFrame(scope: InterrogationScope): void {
-		const result = this.onOpenInterrogation(scope);
 		this.frames.push({
 			type: "chat",
-			interrogation: result.ok ? { type: "ready", port: result.port } : { type: "degraded", reason: result.reason },
+			interrogation: this.onOpenInterrogation(scope),
 			scope,
 			scrollFromBottom: 0,
 		});

@@ -23,6 +23,7 @@ import { buildEpisodeAnalysisPayload } from "./analysis.ts";
 import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
 import { buildBundleSnapshot, buildEpisodesFileJson, type BundlePersistenceState, type PersistedBundle } from "./bundle.ts";
 import type { BundleStore, WriteEpisodesFileResult } from "./bundle-store.ts";
+import { errorMessage } from "./errors.ts";
 import {
 	buildBaseRegions,
 	buildLiveRegions,
@@ -43,7 +44,6 @@ import {
 	type SegmentationBatchOutcome,
 	type SegmentationState,
 } from "./segmentation.ts";
-import { errorMessage } from "./errors.ts";
 
 /** Last successful segmentation, reused while the snapshot fingerprint holds. */
 export interface SegmentationCacheEntry {
@@ -57,7 +57,6 @@ export interface ProfilerState {
 	lastPromptOptions: BuildSystemPromptOptions | null;
 	lastSystemPrompt: string | null;
 	latestContext: CapturedContext | null;
-	segmentationCache: SegmentationCacheEntry | null;
 }
 
 export function createProfilerState(): ProfilerState {
@@ -65,7 +64,6 @@ export function createProfilerState(): ProfilerState {
 		lastPromptOptions: null,
 		lastSystemPrompt: null,
 		latestContext: null,
-		segmentationCache: null,
 	};
 }
 
@@ -188,6 +186,16 @@ export interface SegmentationCacheAccess {
 	write(entry: SegmentationCacheEntry): void;
 }
 
+export function createSegmentationCacheCell(): SegmentationCacheAccess {
+	let cache: SegmentationCacheEntry | null = null;
+	return {
+		read: () => cache,
+		write: (entry) => {
+			cache = entry;
+		},
+	};
+}
+
 export interface StartSegmentationOptions {
 	gateway: AnalysisModelGateway;
 	profile: ProfileSnapshot;
@@ -195,6 +203,11 @@ export interface StartSegmentationOptions {
 	/** Bypass the fingerprint cache and always recompute (the `r` refresh path). */
 	force: boolean;
 	onUpdate: (segmentation: SegmentationState) => void;
+}
+
+interface SegmentationSink {
+	commitReady(data: ReadyStateOptions): void;
+	emitError(message: string): void;
 }
 
 /**
@@ -218,110 +231,68 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 	const fingerprint = computeSegmentationFingerprint(profile);
 	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
 	const signal = new AbortController().signal;
-	const emitReady = (ready: ReadyStateOptions): void => {
-		if (isDetached) return;
-		onUpdate(readyState(ready));
-	};
-	const emitError = (message: string): void => {
-		if (isDetached) return;
-		onUpdate({ type: "error", message });
+	const sink: SegmentationSink = {
+		commitReady(data) {
+			if (isDetached) return;
+			// New batches synchronously detach previous batches before this factory returns;
+			// `.finally()` cleanup is only a later idempotent backstop.
+			cache.write({ fingerprint, episodes: [...data.episodes], summary: data.summary, delegations: [...data.delegations] });
+			onUpdate(readyState(data));
+		},
+		emitError(message) {
+			if (isDetached) return;
+			onUpdate({ type: "error", message });
+		},
 	};
 	const cached = cache.read();
 	if (!force && cached !== null && cached.fingerprint === fingerprint) {
 		const analysis = initialAnalysisStatuses(cached.episodes);
-		const completion = runMissingEpisodeAnalysis({
-			gateway,
-			profile,
-			cache,
-			fingerprint,
-			episodes: cached.episodes,
-			summary: cached.summary,
-			delegations: cached.delegations,
-			analysis,
-			signal,
-			canWriteCache: () => !isDetached,
-			onUpdate: emitReady,
-		});
+		const completion = runMissingEpisodeAnalysis(gateway, profile, signal, sink, cached.episodes, cached.summary, cached.delegations, analysis);
 		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
 	}
-	const completion = runFreshSegmentation({
-		gateway,
-		profile,
-		cache,
-		fingerprint,
-		signal,
-		canWriteCache: () => !isDetached,
-		onReady: emitReady,
-		onError: emitError,
-	});
+	const completion = runFreshSegmentation(gateway, profile, signal, sink);
 	return { initial: { type: "loading" }, detach, completion };
 }
 
-interface RunFreshSegmentationOptions {
-	gateway: AnalysisModelGateway;
-	profile: ProfileSnapshot;
-	cache: SegmentationCacheAccess;
-	fingerprint: string;
-	signal: AbortSignal;
-	canWriteCache: () => boolean;
-	onReady: (ready: ReadyStateOptions) => void;
-	onError: (message: string) => void;
-}
-
-async function runFreshSegmentation(options: RunFreshSegmentationOptions): Promise<SegmentationBatchOutcome> {
-	const payload = buildSegmentationPayload(options.profile);
+async function runFreshSegmentation(
+	gateway: AnalysisModelGateway,
+	profile: ProfileSnapshot,
+	signal: AbortSignal,
+	sink: SegmentationSink,
+): Promise<SegmentationBatchOutcome> {
+	const payload = buildSegmentationPayload(profile);
 	let result: Awaited<ReturnType<AnalysisModelGateway["segmentTurns"]>>;
 	try {
-		result = await options.gateway.segmentTurns({ json: payload.json }, { signal: options.signal });
+		result = await gateway.segmentTurns({ json: payload.json }, { signal });
 	} catch (error) {
 		const message = errorMessage(error);
-		options.onError(message);
+		sink.emitError(message);
 		return { type: "segmentation-error", message };
 	}
 	if (!result.ok) {
-		if (result.error.code !== "aborted") options.onError(result.error.message);
+		if (result.error.code !== "aborted") sink.emitError(result.error.message);
 		return { type: "segmentation-error", message: result.error.message };
 	}
-	const episodes = repairEpisodes(result.value.episodes, options.profile.liveTurns);
-	const delegations = repairDelegations(result.value.delegations, options.profile.liveTurns);
+	const episodes = repairEpisodes(result.value.episodes, profile.liveTurns);
+	const delegations = repairDelegations(result.value.delegations, profile.liveTurns);
 	const summary = result.value.summary;
 	const analysis = initialAnalysisStatuses(episodes);
-	if (options.canWriteCache()) {
-		options.cache.write({ fingerprint: options.fingerprint, episodes, summary, delegations });
-		options.onReady({ episodes, summary, delegations, analysis });
-	}
-	return runMissingEpisodeAnalysis({
-		gateway: options.gateway,
-		profile: options.profile,
-		cache: options.cache,
-		fingerprint: options.fingerprint,
-		episodes,
-		summary,
-		delegations,
-		analysis,
-		signal: options.signal,
-		canWriteCache: options.canWriteCache,
-		onUpdate: options.onReady,
-	});
+	sink.commitReady({ episodes, summary, delegations, analysis });
+	return runMissingEpisodeAnalysis(gateway, profile, signal, sink, episodes, summary, delegations, analysis);
 }
 
-interface RunEpisodeAnalysisOptions {
-	gateway: AnalysisModelGateway;
-	profile: ProfileSnapshot;
-	cache: SegmentationCacheAccess;
-	fingerprint: string;
-	episodes: readonly EpisodeAnnotation[];
-	summary: string | null;
-	delegations: readonly DelegationClaim[];
-	analysis: EpisodeAnalysisStatus[];
-	signal: AbortSignal;
-	canWriteCache: () => boolean;
-	onUpdate: (ready: ReadyStateOptions) => void;
-}
-
-async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Promise<SegmentationBatchOutcome> {
-	const episodes = options.episodes.map((episode) => ({ ...episode }));
-	const analysis = [...options.analysis];
+async function runMissingEpisodeAnalysis(
+	gateway: AnalysisModelGateway,
+	profile: ProfileSnapshot,
+	signal: AbortSignal,
+	sink: SegmentationSink,
+	episodesInput: readonly EpisodeAnnotation[],
+	summary: string | null,
+	delegations: readonly DelegationClaim[],
+	analysisInput: readonly EpisodeAnalysisStatus[],
+): Promise<SegmentationBatchOutcome> {
+	const episodes = episodesInput.map((episode) => ({ ...episode }));
+	const analysis = [...analysisInput];
 	const tasks = episodes.map(async (episode, episodeIndex) => {
 		if (hasAnalysisVerdicts(episode)) {
 			analysis[episodeIndex] = "ready";
@@ -329,18 +300,18 @@ async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Pr
 		}
 		analysis[episodeIndex] = "loading";
 		const payload = buildEpisodeAnalysisPayload({
-			profile: options.profile,
+			profile,
 			episodes,
 			episodeIndex,
-			summary: options.summary,
-			delegations: options.delegations,
+			summary,
+			delegations,
 		});
 		try {
-			const result = await options.gateway.analyzeEpisode({ json: payload.json }, { signal: options.signal });
+			const result = await gateway.analyzeEpisode({ json: payload.json }, { signal });
 			if (!result.ok) {
 				if (result.error.code !== "aborted") {
 					analysis[episodeIndex] = { type: "error", message: result.error.message };
-					emitAnalysisUpdate(options, episodes, analysis);
+					sink.commitReady({ episodes, summary, delegations, analysis });
 				}
 				return;
 			}
@@ -351,33 +322,67 @@ async function runMissingEpisodeAnalysis(options: RunEpisodeAnalysisOptions): Pr
 				...(result.value.summary === null ? {} : { analysisSummary: result.value.summary }),
 			};
 			analysis[episodeIndex] = "ready";
-			emitAnalysisUpdate(options, episodes, analysis);
+			sink.commitReady({ episodes, summary, delegations, analysis });
 		} catch (error) {
 			analysis[episodeIndex] = { type: "error", message: errorMessage(error) };
-			emitAnalysisUpdate(options, episodes, analysis);
+			sink.commitReady({ episodes, summary, delegations, analysis });
 		}
 	});
 	await Promise.all(tasks);
-	return { type: "ready", episodes, summary: options.summary, delegations: [...options.delegations], analysis };
+	return { type: "ready", episodes, summary, delegations: [...delegations], analysis };
 }
 
-function emitAnalysisUpdate(options: RunEpisodeAnalysisOptions, episodes: readonly EpisodeAnnotation[], analysis: readonly EpisodeAnalysisStatus[]): void {
-	if (!options.canWriteCache()) return;
-	const currentCache = options.cache.read();
-	if (currentCache === null || currentCache.fingerprint !== options.fingerprint) return;
-	options.cache.write({ ...currentCache, episodes: [...episodes] });
-	options.onUpdate({ episodes, summary: options.summary, delegations: options.delegations, analysis });
+export interface StartProfilerWorkOptions {
+	store: BundleStore;
+	gateway: AnalysisModelGateway;
+	state: ProfilerState;
+	profile: ProfileSnapshot;
+	sessionId: string;
+	cache: SegmentationCacheAccess;
+	force: boolean;
+	onSegmentationUpdate: (segmentation: SegmentationState) => void;
+	onPersistenceUpdate: (state: BundlePersistenceState) => void;
+	onEpisodesWriteResult?: (result: WriteEpisodesFileResult) => void;
 }
 
-export interface JoinEpisodesWriteOptions {
+export function startProfilerWork(options: StartProfilerWorkOptions): {
+	initialSegmentation: SegmentationState;
+	initialPersistence: BundlePersistenceState;
+	detach: () => void;
+} {
+	const persist = startBundlePersist({
+		store: options.store,
+		state: options.state,
+		profile: options.profile,
+		sessionId: options.sessionId,
+		onUpdate: options.onPersistenceUpdate,
+	});
+	const segmentation = startSegmentationBatch({
+		gateway: options.gateway,
+		profile: options.profile,
+		cache: options.cache,
+		force: options.force,
+		onUpdate: options.onSegmentationUpdate,
+	});
+	scheduleEpisodesWrite({
+		whenPersisted: persist.whenPersisted,
+		completion: segmentation.completion,
+		store: options.store,
+		analysisModel: options.gateway.analysisModel,
+		onResult: options.onEpisodesWriteResult,
+	});
+	return { initialSegmentation: segmentation.initial, initialPersistence: persist.initial, detach: segmentation.detach };
+}
+
+interface ScheduleEpisodesWriteOptions {
 	whenPersisted: Promise<PersistedBundle | null>;
 	completion: Promise<SegmentationBatchOutcome>;
 	store: BundleStore;
 	analysisModel: string;
-	onResult?: (result: WriteEpisodesFileResult) => void;
+	onResult: ((result: WriteEpisodesFileResult) => void) | undefined;
 }
 
-export function joinEpisodesWrite(options: JoinEpisodesWriteOptions): void {
+function scheduleEpisodesWrite(options: ScheduleEpisodesWriteOptions): void {
 	void Promise.all([options.whenPersisted, options.completion]).then(async ([bundle, outcome]) => {
 		if (bundle === null) return;
 		const json = buildEpisodesFileJson({ outcome, contentHash: bundle.manifest.contentHash, analysisModel: options.analysisModel });

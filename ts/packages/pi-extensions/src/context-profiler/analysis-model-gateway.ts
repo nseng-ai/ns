@@ -53,6 +53,7 @@ export interface EpisodeAnalysisRequest {
 }
 
 export interface AnalysisModelGateway {
+	readonly analysisModel: string;
 	segmentTurns(request: SegmentationRequest, options: { signal: AbortSignal }): Promise<SegmentationCallResult>;
 	analyzeEpisode(request: EpisodeAnalysisRequest, options: { signal: AbortSignal }): Promise<EpisodeAnalysisCallResult>;
 }
@@ -62,6 +63,7 @@ export function createCodexAnalysisModelGateway(
 	overrides: { completeFn?: CompleteSimpleFunction } = {},
 ): AnalysisModelGateway {
 	return {
+		analysisModel: `${ANALYSIS_MODEL_PROVIDER}/${ANALYSIS_MODEL_ID}`,
 		async segmentTurns(request, options) {
 			return callAnalysisModel({
 				registry,

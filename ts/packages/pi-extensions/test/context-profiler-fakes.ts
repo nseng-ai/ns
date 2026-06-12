@@ -94,15 +94,16 @@ export class FakeBundleStore implements BundleStore {
 export class FakeInterrogationSession implements InterrogationSession {
 	private readonly events: InterrogationEvent[];
 	private readonly askResult: AskResult;
+	private readonly gate: Promise<void> | null;
 	private listeners: Array<(event: InterrogationEvent) => void> = [];
 	private isDisposedValue = false;
-	private isStreamingValue = false;
 	private readonly asks: string[] = [];
 	private aborts = 0;
 
-	constructor(options: { events?: readonly InterrogationEvent[]; askResult?: AskResult } = {}) {
+	constructor(options: { events?: readonly InterrogationEvent[]; askResult?: AskResult; gate?: Promise<void> } = {}) {
 		this.events = [...(options.events ?? [])];
 		this.askResult = options.askResult ?? { ok: true };
+		this.gate = options.gate ?? null;
 	}
 
 	get askLog(): readonly string[] {
@@ -126,21 +127,15 @@ export class FakeInterrogationSession implements InterrogationSession {
 
 	async ask(text: string): Promise<AskResult> {
 		this.asks.push(text);
-		this.isStreamingValue = true;
+		if (this.gate !== null) await this.gate;
 		for (const event of this.events) {
 			for (const listener of this.listeners) listener(event);
 		}
-		this.isStreamingValue = false;
 		return this.askResult;
 	}
 
 	async abortTurn(): Promise<void> {
 		this.aborts += 1;
-		this.isStreamingValue = false;
-	}
-
-	isStreaming(): boolean {
-		return this.isStreamingValue;
 	}
 
 	dispose(): void {
@@ -175,6 +170,7 @@ export class FakeInterrogationSessionFactory implements InterrogationSessionFact
 }
 
 export class FakeSegmentationGateway implements AnalysisModelGateway {
+	readonly analysisModel = "openai-codex/gpt-5.4-mini";
 	private readonly result: SegmentationCallResult;
 	private readonly analysisResult: EpisodeAnalysisCallResult;
 	private readonly gate: Promise<void> | null;
