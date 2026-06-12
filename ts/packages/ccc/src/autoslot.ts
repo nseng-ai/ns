@@ -1,36 +1,24 @@
-import {
-	commitPreparedCheckpointMessageWithAsdlDev,
-	prepareCheckpointMessageWithAsdlDev,
-	type ExtensionExec,
-} from "./autobranch/asdl-dev-checkpoint.ts";
+import type { ExtensionAPI } from "@asdl/pi-extension-runtime/cmux/types";
+import { buildAutobranchFlowInput, type AutobranchCommandContext } from "./autobranch.ts";
 import { createAutobranchCheckpointFlow, parseAutobranchArgs, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
-import { checkoutAutoslot, type AutoslotCheckoutExecAPI } from "./autoslot-checkout.ts";
+import { checkoutSlot } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "code:autoslot";
 const STATUS_KEY = "autoslot";
 
-export interface AutoslotCommandContext {
-	cwd: string;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-		setStatus(key: string, value: string | undefined): void;
-	};
-	waitForIdle(): Promise<void>;
-}
-
-export interface AutoslotExtensionAPI extends ExtensionExec, AutoslotCheckoutExecAPI {
+export interface AutoslotExtensionAPI extends Pick<ExtensionAPI, "exec"> {
 	registerCommand(
 		name: string,
 		options: {
 			description?: string;
-			handler(args: string, ctx: AutoslotCommandContext): Promise<void> | void;
+			handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void;
 		},
 	): void;
 }
 
 export interface AutoslotFlowInput extends AutobranchFlowInput {
-	slotExec: AutoslotCheckoutExecAPI;
+	slotExec: Pick<ExtensionAPI, "exec">;
 }
 
 export function registerAutoslotCommand(pi: AutoslotExtensionAPI): void {
@@ -59,9 +47,9 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 		return;
 	}
 
-	input.setStatus("checking out current branch slot…");
+	input.setStatus("checking out branch slot…");
 	try {
-		const slot = await checkoutAutoslot(input.slotExec, input.cwd);
+		const slot = await checkoutSlot(input.slotExec, input.cwd, { kind: "current" });
 		if (!slot.ok) {
 			input.notify([`Autoslot created ${createdBranch.branchName}, but slot checkout failed.`, "", slot.error].join("\n"), "error");
 			return;
@@ -82,28 +70,14 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 }
 
-async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutoslotCommandContext, args: ParsedAutobranchArgs): Promise<void> {
+async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
 	await ctx.waitForIdle();
 	try {
 		await createAutoslotFlow({
-			cwd: ctx.cwd,
-			args,
-			exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
+			...buildAutobranchFlowInput(pi, ctx, args, STATUS_KEY),
 			slotExec: pi,
-			prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot),
-			commitPreparedCheckpointMessage: (message) => commitPreparedCheckpointMessageWithAsdlDev(pi, ctx.cwd, message),
-			notify: (message, level) => notify(ctx, message, level),
-			setStatus: (message) => setStatus(ctx, message),
 		});
 	} finally {
-		setStatus(ctx, undefined);
+		ctx.ui.setStatus(STATUS_KEY, undefined);
 	}
-}
-
-function notify(ctx: AutoslotCommandContext, message: string, level: "info" | "warning" | "error" | "success"): void {
-	ctx.ui.notify(message, level === "success" ? "info" : level);
-}
-
-function setStatus(ctx: AutoslotCommandContext, message: string | undefined): void {
-	ctx.ui.setStatus(STATUS_KEY, message);
 }

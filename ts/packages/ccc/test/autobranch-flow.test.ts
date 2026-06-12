@@ -178,7 +178,7 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
-		expect(result).toEqual({ ok: true, mode: "latest_commit", branchName: "test-branch", isCleanAfter: true, summary: "abc123d Update committed feature" });
+		expect(result).toEqual({ ok: true, branchName: "test-branch", isCleanAfter: true });
 		expect(harness.events).not.toContain("prepare");
 		expect(harness.events.some((event) => event.includes("stash push"))).toBe(false);
 		expect(eventIndex(harness.events, "exec:git rev-list --parents -n 1 HEAD")).toBeGreaterThan(-1);
@@ -202,7 +202,7 @@ describe("createAutobranchCheckpointFlow", () => {
 
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
-		expect(result).toEqual({ ok: true, mode: "dirty", branchName: "test-branch", isCleanAfter: true, summary: "abc123 [cp] Update checkpoint tests" });
+		expect(result).toEqual({ ok: true, branchName: "test-branch", isCleanAfter: true });
 		expect(harness.events).toContain("prepare");
 		expect(eventIndex(harness.events, "exec:git stash push")).toBeGreaterThan(-1);
 		expect(eventIndex(harness.events, "exec:gt create test-branch")).toBeGreaterThan(-1);

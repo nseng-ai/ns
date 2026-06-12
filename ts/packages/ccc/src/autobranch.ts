@@ -3,7 +3,7 @@ import {
 	prepareCheckpointMessageWithAsdlDev,
 	type ExtensionExec,
 } from "./autobranch/asdl-dev-checkpoint.ts";
-import { createAutobranchCheckpointFlow, parseAutobranchArgs } from "./autobranch/flow.ts";
+import { createAutobranchCheckpointFlow, parseAutobranchArgs, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 
 const COMMAND_NAME = "code:autobranch";
@@ -37,24 +37,32 @@ export function registerAutobranchCommand(pi: AutobranchExtensionAPI): void {
 	});
 }
 
-async function createAutobranchCheckpoint(pi: AutobranchExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
-	await ctx.waitForIdle();
-	await createAutobranchCheckpointFlow({
+export function buildAutobranchFlowInput(
+	pi: ExtensionExec,
+	ctx: AutobranchCommandContext,
+	args: ParsedAutobranchArgs,
+	statusKey = STATUS_KEY,
+): AutobranchFlowInput {
+	return {
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
 		prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot),
 		commitPreparedCheckpointMessage: (message) => commitPreparedCheckpointMessageWithAsdlDev(pi, ctx.cwd, message),
 		notify: (message, level) => notify(ctx, message, level),
-		setStatus: (message) => setStatus(ctx, message),
-	});
+		setStatus: (message) => setStatus(ctx, statusKey, message),
+	};
 }
 
+async function createAutobranchCheckpoint(pi: AutobranchExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
+	await ctx.waitForIdle();
+	await createAutobranchCheckpointFlow(buildAutobranchFlowInput(pi, ctx, args));
+}
 
 function notify(ctx: AutobranchCommandContext, message: string, level: "info" | "warning" | "error" | "success"): void {
 	ctx.ui.notify(message, level === "success" ? "info" : level);
 }
 
-function setStatus(ctx: AutobranchCommandContext, message: string | undefined): void {
-	ctx.ui.setStatus(STATUS_KEY, message);
+function setStatus(ctx: AutobranchCommandContext, statusKey: string, message: string | undefined): void {
+	ctx.ui.setStatus(statusKey, message);
 }

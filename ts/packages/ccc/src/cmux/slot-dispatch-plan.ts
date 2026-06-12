@@ -23,7 +23,7 @@ import { formatCommand, formatShellArg } from "@asdl/core/exec";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
-import type { SlotCheckoutTarget } from "./slot.ts";
+import type { SlotCheckoutTarget } from "../slot-checkout.ts";
 import { repositoryNameFromPath } from "./worktree-description.ts";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";

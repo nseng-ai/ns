@@ -57,9 +57,7 @@ export async function createLatestCommitAutobranchFlow(input: LatestCommitAutobr
 
 	return {
 		ok: true,
-		mode: "latest_commit",
 		branchName: prepared.plan.branchName,
 		isCleanAfter: isClean,
-		summary: transaction.commitSummary,
 	};
 }

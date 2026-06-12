@@ -1,18 +1,10 @@
 import { formatCommand, formatOutputSection } from "@asdl/core/exec";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
+import { checkoutSlot, type SlotCheckoutTarget } from "../slot-checkout.ts";
 import { getWorktreeDescription } from "./worktree-description.ts";
 import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 
-const SLOT_TIMEOUT_MS = 30_000;
 const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
-
-export interface SlotCheckoutTarget {
-	slotName: string;
-	branchName: string;
-	worktreePath: string;
-	isAlreadyAssigned: boolean;
-}
 
 export interface OpenBranchInCmuxSlotOptions {
 	pi: Pick<ExtensionAPI, "exec">;
@@ -36,12 +28,14 @@ export async function openBranchInCmuxSlot(
 ): Promise<SlotCheckoutTarget | { error: string }> {
 	const { pi, cwd, branchName, command, notify, onStatus, successMessage } = options;
 	onStatus?.("checking out branch slot…");
-	const target = await checkoutSlot(pi, cwd, branchName);
-	if ("error" in target) {
-		notify(formatSlotCheckoutFailure(branchName, target.error), "error");
-		return target;
+	const checkout = await checkoutSlot(pi, cwd, { kind: "branch", branchName });
+	if (!checkout.ok) {
+		const error = { error: checkout.error };
+		notify(formatSlotCheckoutFailure(branchName, checkout.error), "error");
+		return error;
 	}
 
+	const target = checkout.target;
 	onStatus?.("opening cmux workspace…");
 	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
 	const workspaceOptions: OpenCmuxWorkspaceOptions = {
@@ -59,31 +53,6 @@ export async function openBranchInCmuxSlot(
 	}
 
 	notify(successMessage?.(target) ?? `Opened cmux workspace for branch: ${target.branchName}`, "info");
-	return target;
-}
-
-export async function checkoutSlot(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-	branch: string,
-): Promise<SlotCheckoutTarget | { error: string }> {
-	const result = await pi.exec("slot", ["checkout", branch, "--format", "json", "--no-clipboard"], {
-		cwd,
-		timeout: SLOT_TIMEOUT_MS,
-	});
-
-	const parsed = parseMachineEnvelopeData(result.stdout, { label: "slot checkout JSON", stdoutTail: false });
-	if (parsed.type === "failure") {
-		return { error: formatSlotCheckoutCliFailure(parsed) };
-	}
-	if (parsed.type === "invalid") {
-		return { error: "slot checkout failed with unreadable JSON output." };
-	}
-
-	const target = coerceSlotCheckoutTarget(parsed.data);
-	if (target === undefined) {
-		return { error: "slot checkout failed with malformed JSON data." };
-	}
 	return target;
 }
 
@@ -124,31 +93,6 @@ export function buildNewWorkspaceArgs(
 
 function formatSlotCheckoutFailure(branchName: string, cause: string): string {
 	return ["Failed to check out branch slot.", `Branch: ${branchName}`, "", cause].join("\n");
-}
-
-function coerceSlotCheckoutTarget(data: Record<string, unknown>): SlotCheckoutTarget | undefined {
-	if (
-		typeof data.slot_name !== "string" ||
-		typeof data.branch_name !== "string" ||
-		typeof data.worktree_path !== "string" ||
-		typeof data.already_assigned !== "boolean"
-	) {
-		return undefined;
-	}
-	return {
-		slotName: data.slot_name,
-		branchName: data.branch_name,
-		worktreePath: data.worktree_path,
-		isAlreadyAssigned: data.already_assigned,
-	};
-}
-
-function formatSlotCheckoutCliFailure(failure: { exitCode: number; errorType?: string; cliMessage?: string }): string {
-	const status = failure.errorType === undefined ? "" : ` (${failure.errorType})`;
-	if (failure.cliMessage !== undefined) {
-		return `slot checkout failed${status}: ${failure.cliMessage}`;
-	}
-	return `slot checkout failed with exit_code ${failure.exitCode}${status}.`;
 }
 
 function formatCmuxWorkspaceFailure(
