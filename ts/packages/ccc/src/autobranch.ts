@@ -41,6 +41,13 @@ type NoticeLevel = "info" | "warning" | "error" | "success";
 type PrepareCheckpointMessage = (snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">) => Promise<PreparedCheckpointMessage>;
 type CommitPreparedCheckpointMessage = (message: string) => Promise<{ summary: string } | { error: string }>;
 
+interface RunAutobranchFlowOptions {
+	pi: AutobranchExtensionAPI;
+	ctx: AutobranchCommandContext;
+	argsText: string;
+	deps: AutobranchCommandDeps;
+}
+
 export interface AutobranchCommandDeps {
 	prepareCheckpointMessage?: PrepareCheckpointMessage | undefined;
 	commitPreparedCheckpointMessage?: CommitPreparedCheckpointMessage | undefined;
@@ -51,7 +58,7 @@ export function registerAutobranchCommand(pi: AutobranchExtensionAPI, deps: Auto
 	pi.registerCommand(COMMAND_NAME, {
 		description: "Create a Graphite branch from current uncommitted changes, or from the latest commit when the worktree is clean",
 		handler: async (args, ctx) => {
-			await runAutobranchFlow(pi, ctx, args, deps);
+			await runAutobranchFlow({ pi, ctx, argsText: args, deps });
 		},
 	});
 }
@@ -80,12 +87,7 @@ export function buildAutobranchFlowInput({
 	};
 }
 
-async function runAutobranchFlow(
-	pi: AutobranchExtensionAPI,
-	ctx: AutobranchCommandContext,
-	argsText: string,
-	deps: AutobranchCommandDeps,
-): Promise<void> {
+async function runAutobranchFlow({ pi, ctx, argsText, deps }: RunAutobranchFlowOptions): Promise<void> {
 	await ctx.waitForIdle();
 	try {
 		await createAutobranchCheckpointFlow({
