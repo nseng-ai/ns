@@ -16,7 +16,11 @@ export function createTranscript(): TranscriptState {
 }
 
 export function appendUser(state: TranscriptState, text: string): TranscriptState {
-	return { ...state, entries: [...state.entries, { type: "user", text }], isStreaming: true };
+	return { ...state, entries: [...state.entries, { type: "user", text }] };
+}
+
+export function setStreaming(state: TranscriptState, isStreaming: boolean): TranscriptState {
+	return { ...state, isStreaming };
 }
 
 export function appendNotice(state: TranscriptState, text: string): TranscriptState {
@@ -28,7 +32,7 @@ export function applyInterrogationEvent(state: TranscriptState, event: Interroga
 		case "assistant-delta":
 			return appendAssistantDelta(state, event.text);
 		case "assistant-end":
-			return { ...state, isStreaming: false };
+			return state;
 		case "tool-start":
 			return { ...state, entries: [...state.entries, { type: "tool", name: event.name, status: "start", summary: event.summary }] };
 		case "tool-end":
@@ -36,7 +40,7 @@ export function applyInterrogationEvent(state: TranscriptState, event: Interroga
 		case "retry":
 			return appendNotice(state, `retry ${event.attempt}/${event.maxAttempts}: ${event.message}`);
 		case "turn-end":
-			return { ...state, isStreaming: false };
+			return state;
 	}
 }
 

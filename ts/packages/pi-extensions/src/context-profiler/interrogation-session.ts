@@ -28,7 +28,6 @@ export interface InterrogationSession {
 	subscribe(listener: (event: InterrogationEvent) => void): () => void;
 	ask(text: string): Promise<AskResult>;
 	abortTurn(): Promise<void>;
-	isStreaming(): boolean;
 	dispose(): void;
 }
 
@@ -134,10 +133,6 @@ class PiInterrogationSession implements InterrogationSession {
 
 	async abortTurn(): Promise<void> {
 		await this.session.abort();
-	}
-
-	isStreaming(): boolean {
-		return this.session.isStreaming;
 	}
 
 	dispose(): void {

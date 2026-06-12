@@ -1,8 +1,32 @@
 import { describe, expect, test } from "vitest";
 
 import { buildBundleSnapshot, buildEpisodesFileJson, computeBundleContentHash } from "../src/context-profiler/bundle.ts";
-import { captureCurrentState, createProfilerState, startBundlePersist } from "../src/context-profiler/runtime.ts";
-import { FakeBundleStore, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
+import { captureCurrentState, createProfilerState, createSegmentationCacheCell, startBundlePersist, startProfilerWork, type ProfilerState } from "../src/context-profiler/runtime.ts";
+import { FakeBundleStore, FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
+
+const PERSISTED_BUNDLE = {
+	ordinal: 1,
+	dir: "/bundle",
+	byteSize: 1,
+	sessionTotalBytes: 1,
+	isReused: false,
+	manifest: { version: 1, contentHash: "abc", sessionId: "sid", model: "p/m", turnCount: 5, capturedAt: "now" },
+} as const;
+
+function stateWithConversation(): ProfilerState {
+	return {
+		...createProfilerState(),
+		lastSystemPrompt: "system",
+		latestContext: { source: "context-event", messages: [{ role: "user", content: "hello" }] },
+	};
+}
+
+async function settled(): Promise<void> {
+	await Promise.resolve();
+	await Promise.resolve();
+	await Promise.resolve();
+	await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe("context-profiler bundle", () => {
 	test("refuses to build before any conversation context exists", () => {
@@ -152,5 +176,112 @@ describe("context-profiler bundle", () => {
 			segmentation: { type: "skipped", reason: "too-few-turns" },
 			episodes: [],
 		});
+	});
+
+	test("startProfilerWork writes episodes with the gateway analysis model", async () => {
+		const store = new FakeBundleStore({ persistResult: { ok: true, value: PERSISTED_BUNDLE } });
+		const gateway = new FakeSegmentationGateway({
+			result: {
+				ok: true,
+				value: { episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }], summary: null, delegations: [] },
+			},
+		});
+
+		const work = startProfilerWork({
+			store,
+			gateway,
+			state: stateWithConversation(),
+			profile: makeProfile(sequentialTurns(5)),
+			sessionId: "sid",
+			cache: createSegmentationCacheCell(),
+			force: false,
+			onSegmentationUpdate: () => {},
+			onPersistenceUpdate: () => {},
+		});
+		await settled();
+
+		expect(work.initialPersistence).toEqual({ type: "pending" });
+		expect(store.episodesWrites).toHaveLength(1);
+		expect(JSON.parse(store.episodesWrites[0]?.json ?? "{}").analysisModel).toBe(gateway.analysisModel);
+	});
+
+	test("startProfilerWork skips episodes write when persistence is skipped", async () => {
+		const store = new FakeBundleStore({ persistResult: { ok: false, error: { code: "io-error", message: "should not persist" } } });
+		const gateway = new FakeSegmentationGateway({ result: { ok: true, value: { episodes: [], summary: null, delegations: [] } } });
+
+		const work = startProfilerWork({
+			store,
+			gateway,
+			state: createProfilerState(),
+			profile: makeProfile(sequentialTurns(5)),
+			sessionId: "sid",
+			cache: createSegmentationCacheCell(),
+			force: false,
+			onSegmentationUpdate: () => {},
+			onPersistenceUpdate: () => {},
+		});
+		await settled();
+
+		expect(work.initialPersistence).toEqual({ type: "skipped", reason: "empty-context" });
+		expect(store.persistedSnapshots).toEqual([]);
+		expect(store.episodesWrites).toEqual([]);
+	});
+
+	test("startProfilerWork reports episodes write errors", async () => {
+		const resultLog: unknown[] = [];
+		const store = new FakeBundleStore({
+			persistResult: { ok: true, value: PERSISTED_BUNDLE },
+			writeResult: { ok: false, error: { code: "io-error", message: "disk full" } },
+		});
+		const gateway = new FakeSegmentationGateway({ result: { ok: true, value: { episodes: [], summary: null, delegations: [] } } });
+
+		startProfilerWork({
+			store,
+			gateway,
+			state: stateWithConversation(),
+			profile: makeProfile(sequentialTurns(5)),
+			sessionId: "sid",
+			cache: createSegmentationCacheCell(),
+			force: false,
+			onSegmentationUpdate: () => {},
+			onPersistenceUpdate: () => {},
+			onEpisodesWriteResult: (result) => resultLog.push(result),
+		});
+		await settled();
+
+		expect(resultLog).toEqual([{ ok: false, error: { code: "io-error", message: "disk full" } }]);
+	});
+
+	test("startProfilerWork detach gates segmentation updates", async () => {
+		let releaseGate!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			releaseGate = resolve;
+		});
+		const updates: unknown[] = [];
+		const store = new FakeBundleStore({ persistResult: { ok: true, value: PERSISTED_BUNDLE } });
+		const gateway = new FakeSegmentationGateway({
+			result: {
+				ok: true,
+				value: { episodes: [{ startTurn: 1, label: "work", kind: "edit", outcome: "active" }], summary: null, delegations: [] },
+			},
+			gate,
+		});
+
+		const work = startProfilerWork({
+			store,
+			gateway,
+			state: stateWithConversation(),
+			profile: makeProfile(sequentialTurns(5)),
+			sessionId: "sid",
+			cache: createSegmentationCacheCell(),
+			force: false,
+			onSegmentationUpdate: (state) => updates.push(state),
+			onPersistenceUpdate: () => {},
+		});
+		work.detach();
+		releaseGate();
+		await settled();
+
+		expect(updates).toEqual([]);
 	});
 });

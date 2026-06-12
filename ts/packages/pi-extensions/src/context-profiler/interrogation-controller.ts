@@ -3,9 +3,11 @@ import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import type { PersistedBundle } from "./bundle.ts";
 import { buildInterrogationSystemPrompt, buildInterrogationUserMessage, scopesEqual, type InterrogationScope } from "./interrogation-prompt.ts";
 import type { InterrogationSession, InterrogationSessionFactory } from "./interrogation-session.ts";
-import { appendNotice, appendUser, applyInterrogationEvent, createTranscript, type TranscriptState } from "./interrogation-transcript.ts";
+import { appendNotice, appendUser, applyInterrogationEvent, createTranscript, setStreaming, type TranscriptState } from "./interrogation-transcript.ts";
 
 type InterrogationAvailability = { ok: true } | { ok: false; reason: string };
+
+export type InterrogationAttachment = { type: "ready"; port: InterrogationViewPort } | { type: "degraded"; reason: string };
 
 export interface InterrogationViewPort {
 	readonly state: TranscriptState;
@@ -20,7 +22,7 @@ export interface InterrogationControllerOptions {
 	model: Model<Api>;
 	modelRegistry: ModelRegistry;
 	factory: InterrogationSessionFactory;
-	onTranscriptChange: (state: TranscriptState) => void;
+	onTranscriptChange: () => void;
 }
 
 export class InterrogationController implements InterrogationViewPort {
@@ -29,7 +31,7 @@ export class InterrogationController implements InterrogationViewPort {
 	private readonly model: Model<Api>;
 	private readonly modelRegistry: ModelRegistry;
 	private readonly factory: InterrogationSessionFactory;
-	private readonly onTranscriptChange: (state: TranscriptState) => void;
+	private readonly onTranscriptChange: () => void;
 	private transcript: TranscriptState;
 	private session: InterrogationSession | null;
 	private isStarting: boolean;
@@ -87,7 +89,7 @@ export class InterrogationController implements InterrogationViewPort {
 		this.session = result.value;
 		this.session.subscribe((event) => {
 			this.transcript = applyInterrogationEvent(this.transcript, event);
-			this.onTranscriptChange(this.state);
+			this.onTranscriptChange();
 		});
 		this.emitNotice("interrogation agent ready");
 		return { ok: true };
@@ -103,15 +105,18 @@ export class InterrogationController implements InterrogationViewPort {
 		}
 		const session = this.session;
 		if (session === null) return;
-		if (session.isStreaming() || this.transcript.isStreaming) {
+		if (this.transcript.isStreaming) {
 			this.emitNotice("wait for the current answer or press Ctrl+C to abort it");
 			return;
 		}
 		const includeScopePreamble = this.lastScope === null || !scopesEqual(this.lastScope, scope);
 		this.lastScope = scope;
-		this.transcript = appendUser(this.transcript, trimmed);
-		this.onTranscriptChange(this.state);
-		const result = await session.ask(buildInterrogationUserMessage({ question: trimmed, scope, includeScopePreamble }));
+		this.transcript = setStreaming(appendUser(this.transcript, trimmed), true);
+		this.onTranscriptChange();
+		const result = await session.ask(buildInterrogationUserMessage({ question: trimmed, scope, includeScopePreamble })).finally(() => {
+			this.transcript = setStreaming(this.transcript, false);
+			this.onTranscriptChange();
+		});
 		if (!result.ok) this.emitNotice(`prompt failed: ${result.error.message}`);
 	}
 
@@ -134,6 +139,6 @@ export class InterrogationController implements InterrogationViewPort {
 
 	private emitNotice(text: string): void {
 		this.transcript = appendNotice(this.transcript, text);
-		this.onTranscriptChange(this.state);
+		this.onTranscriptChange();
 	}
 }

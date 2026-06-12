@@ -67,6 +67,11 @@ function signal(): AbortSignal {
 }
 
 describe("createCodexAnalysisModelGateway", () => {
+	test("exposes the fixed analysis model identifier", () => {
+		const gateway = createCodexAnalysisModelGateway(makeRegistry());
+		expect(gateway.analysisModel).toBe("openai-codex/gpt-5.4-mini");
+	});
+
 	test("maps a registry miss to model-unavailable", async () => {
 		const gateway = createCodexAnalysisModelGateway(makeRegistry({ hasModel: false }));
 		const result = await gateway.segmentTurns(REQUEST, { signal: signal() });
