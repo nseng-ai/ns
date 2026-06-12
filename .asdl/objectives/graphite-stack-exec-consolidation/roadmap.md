@@ -22,14 +22,15 @@
       Design and implement the tested helper or canonical command sequence that combines branch-to-PR mapping, stack JSON construction, compact `stack-feedback-prep` invocation, and summary/reference output without manual hand-transcribed shell/JQ steps.
       Done: `pr-address exec stack-feedback-preflight` maps `slot gt exec stack-branches` branch JSON to open PRs, writes a frozen stack artifact, runs compact unresolved-only prep, and returns feedback-bearing vs zero-feedback PR partitions; `stack-feedback-prep --stack-reference` reuses the exact frozen stack for drift/final refetches. Evidence: targeted pr-address Vitest scenarios and JSON-schema route tests passed; package TypeScript check passed.
 
-- [ ] Audit additional `slot gt exec` consolidation candidates.
+- [x] Audit additional `slot gt exec` consolidation candidates.
       Decide whether commands such as stack info, descendant subtree/fork structure, or current tracking status should be added now, deferred, or rejected. Keep mutations like `gt submit` and `gt restack` out unless a safety-policy wrapper is explicitly justified.
+      Done: no new `slot gt exec` command is justified. `stack-info` rejected (no consumer needs facts beyond the `stack-branches --format json` payload); arbitrary-root descendant subtree query rejected (delete-stack's narrower case is deliberately human-gated for a destructive operation); tracking-status rejected (already covered by `stack-branches` `untracked_branch` classification). The audit found two display-output-parsing hazards (`gt branch info` `Parent:` extraction in objective-update/parity-review; upstack-children check via `gt log short` in code-gt-restack-resolve) that need only existing Graphite plumbing (`gt parent`/`gt children --no-interactive`) — folded into the documentation-loop row. Mutation wrappers and CCC landing topology stay parked. Full matrix in `updates/2026-06-12-exec-consolidation-candidates-audited.md`.
 
 - [ ] Decide the `asdl-dev submit` `gt log --stack` parser path.
       Audit `ts/packages/asdl-dev/src/submit-pr-metadata-prewrite.ts` and record whether to replace the parser, route it through structured topology facts, or retain it with documented submit-specific rationale.
 
 - [ ] Close the documentation loop.
-      Document the rule that agents must not parse `gt ls`, `gt ls --stack`, or `gt log` for stack topology. Point future workflows to the canonical structured command and document any remaining visual-confirmation-only uses.
+      Document the rule that agents must not parse `gt ls`, `gt ls --stack`, or `gt log` for stack topology. Point future workflows to the canonical structured command and document any remaining visual-confirmation-only uses. Extend the rule to `gt branch info` and execute the candidate audit's guidance migrations: replace `Parent: <branch>` extraction from `gt branch info` in `skills/objective-update/SKILL.md` and `skills/code-workflows/references/parity-review.md` with `gt parent --no-interactive`, and the upstack-children display check in `skills/code-gt-restack-resolve/SKILL.md` with `gt children --no-interactive` or `slot gt exec stack-branches --format json`.
 
 ## Parked
 
