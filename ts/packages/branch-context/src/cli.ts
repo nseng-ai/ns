@@ -9,6 +9,19 @@ import { z } from "zod";
 
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { normalizePlanFilePath, validatePlanSlug } from "@asdl/plans";
+import {
+	attachBranchContextEntry,
+	checkBranchContextEntry,
+	deleteBranchContextEntry,
+	formatAttachEvidence,
+	formatCheckEvidence,
+	formatDeleteEvidence,
+	formatListEvidence,
+	listBranchContextEntries,
+	type BranchContextAttachEvidence,
+	type BranchContextCheckEvidence,
+	type BranchContextDeleteEvidence,
+} from "./attach.ts";
 
 import {
 	buildImplBranchContextPrompt,
@@ -43,8 +56,27 @@ const loadRequestSchema = z.object({
 	include_prompt: z.boolean().optional().describe("Include the implementation prompt in JSON output."),
 });
 
+const attachRequestSchema = z.object({
+	key: z.string().optional().describe("Entry key for --file form."),
+	file: z.string().optional().describe("File to attach for arbitrary-key form."),
+	plan: z.string().optional().describe("Saved plan slug to attach as plan.md."),
+	branch: z.string().optional().describe("Target branch (defaults to current branch)."),
+});
+
+const listRequestSchema = z.object({
+	branch: z.string().optional().describe("Branch to list (defaults to current branch)."),
+});
+
+const keyRequestSchema = z.object({
+	key: z.string().describe("Branch-context entry key."),
+	branch: z.string().optional().describe("Target branch (defaults to current branch)."),
+});
+
 type CreateRequest = z.infer<typeof createRequestSchema>;
 type LoadRequest = z.infer<typeof loadRequestSchema>;
+type AttachRequest = z.infer<typeof attachRequestSchema>;
+type ListRequest = z.infer<typeof listRequestSchema>;
+type KeyRequest = z.infer<typeof keyRequestSchema>;
 
 export interface CliDeps {
 	context?: BranchContextContext | undefined;
@@ -90,6 +122,45 @@ export function buildCli(): ClinkrGroup<BranchContextCliContext> {
 			positionals: { key: { position: 0 } },
 			errorType: BRANCH_CONTEXT_ERROR_TYPE,
 			run: handleLoad,
+		}),
+	);
+	execGroup.command(
+		legacyCommand({
+			name: "attach",
+			description: "Attach a saved plan or file as branch context.",
+			schema: attachRequestSchema,
+			positionals: { key: { position: 0 } },
+			errorType: BRANCH_CONTEXT_ERROR_TYPE,
+			run: handleAttach,
+		}),
+	);
+	execGroup.command(
+		legacyCommand({
+			name: "list",
+			description: "List branch-context entries.",
+			schema: listRequestSchema,
+			errorType: BRANCH_CONTEXT_ERROR_TYPE,
+			run: handleList,
+		}),
+	);
+	execGroup.command(
+		legacyCommand({
+			name: "check",
+			description: "Check whether a branch-context entry exists.",
+			schema: keyRequestSchema,
+			positionals: { key: { position: 0 } },
+			errorType: BRANCH_CONTEXT_ERROR_TYPE,
+			run: handleCheck,
+		}),
+	);
+	execGroup.command(
+		legacyCommand({
+			name: "delete",
+			description: "Delete a branch-context entry.",
+			schema: keyRequestSchema,
+			positionals: { key: { position: 0 } },
+			errorType: BRANCH_CONTEXT_ERROR_TYPE,
+			run: handleDelete,
 		}),
 	);
 	root.group(execGroup);
@@ -144,6 +215,38 @@ async function handleLoad(ctx: BranchContextCliContext, request: LoadRequest): P
 	return { machine, human: formatLoadPlanHuman(plan, promptFile) };
 }
 
+async function handleAttach(ctx: BranchContextCliContext, request: AttachRequest): Promise<LegacyPayload> {
+	const evidence = await attachBranchContextEntry(ctx.context.commands, { key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch }, {
+		cwd: ctx.cwd,
+		git: ctx.context.git,
+		brmem: ctx.context.brmem,
+		...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
+	});
+	return { machine: attachJson(evidence), human: formatAttachEvidence(evidence) };
+}
+
+async function handleList(ctx: BranchContextCliContext, request: ListRequest): Promise<LegacyPayload> {
+	const entries = await listBranchContextEntries(ctx.context.commands, { branch: request.branch }, { cwd: ctx.cwd, git: ctx.context.git, brmem: ctx.context.brmem });
+	const branch = request.branch ?? entries[0]?.branch ?? (await resolveCurrentBranchForDisplay(ctx));
+	return { machine: { entries: entries.map((entry) => ({ namespace: entry.namespace, key: entry.key, branch: entry.branch, ref_name: entry.refName })) }, human: formatListEvidence(branch, entries) };
+}
+
+async function handleCheck(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
+	const evidence = await checkBranchContextEntry(ctx.context.commands, request, { cwd: ctx.cwd, git: ctx.context.git, brmem: ctx.context.brmem });
+	return { machine: checkJson(evidence), human: formatCheckEvidence(evidence) };
+}
+
+async function handleDelete(ctx: BranchContextCliContext, request: KeyRequest): Promise<LegacyPayload> {
+	const evidence = await deleteBranchContextEntry(ctx.context.commands, request, { cwd: ctx.cwd, git: ctx.context.git, brmem: ctx.context.brmem });
+	return { machine: deleteJson(evidence), human: formatDeleteEvidence(evidence) };
+}
+
+async function resolveCurrentBranchForDisplay(ctx: BranchContextCliContext): Promise<string> {
+	const branch = await ctx.context.git.currentBranch({ cwd: ctx.cwd });
+	if (!branch.ok) throw new Error(branch.error.message);
+	return branch.value;
+}
+
 function formatLoadPlanHuman(plan: LoadedAttachedPlan, promptFile: string | undefined): string {
 	if (promptFile !== undefined) {
 		return `${formatLoadedAttachedPlanEvidence(plan)}\nImplementation prompt file: ${promptFile}`;
@@ -170,6 +273,26 @@ interface LoadedPlanJsonOptions {
 	promptFile?: string | undefined;
 	attachedPlanContent?: string | undefined;
 	implementationPrompt?: string | undefined;
+}
+
+function attachJson(evidence: BranchContextAttachEvidence): Record<string, unknown> {
+	return {
+		branch: evidence.branch,
+		namespace: evidence.namespace,
+		key: evidence.key,
+		ref_name: evidence.refName,
+		commit: evidence.commit,
+		source_file: evidence.sourceFile,
+		...(evidence.planSlug === undefined ? {} : { plan_slug: evidence.planSlug }),
+	};
+}
+
+function checkJson(evidence: BranchContextCheckEvidence): Record<string, unknown> {
+	return { branch: evidence.branch, namespace: evidence.namespace, key: evidence.key, present: evidence.present };
+}
+
+function deleteJson(evidence: BranchContextDeleteEvidence): Record<string, unknown> {
+	return { branch: evidence.branch, namespace: evidence.namespace, key: evidence.key, deleted: evidence.deleted };
 }
 
 function loadedPlanJson(plan: LoadedAttachedPlan, options: LoadedPlanJsonOptions = {}): Record<string, unknown> {

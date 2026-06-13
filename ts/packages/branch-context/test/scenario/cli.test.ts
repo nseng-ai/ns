@@ -35,12 +35,16 @@ const EXEC_HELP = [
 	"Run hidden deterministic branch-context operations for agents.",
 	"",
 	"Options:",
-	"  -h, --help            display help for command",
+	"  -h, --help              display help for command",
 	"",
 	"Commands:",
-	"  from-plan [options]   Create a branch context from a saved plan.",
-	"  load [options] [key]  Load a branch-context entry and render the",
-	"                        implementation prompt.",
+	"  from-plan [options]     Create a branch context from a saved plan.",
+	"  load [options] [key]    Load a branch-context entry and render the",
+	"                          implementation prompt.",
+	"  attach [options] [key]  Attach a saved plan or file as branch context.",
+	"  list [options]          List branch-context entries.",
+	"  check [options] [key]   Check whether a branch-context entry exists.",
+	"  delete [options] [key]  Delete a branch-context entry.",
 	"",
 ].join("\n");
 
@@ -684,6 +688,59 @@ describe("branch-context exec", () => {
 		expect(withoutFlags.stdout.join("")).toBe(withFlags.stdout.join(""));
 		// PINNED CLINKR SEMANTICS (behavior change): --include-content/--include-prompt
 		// no longer require --format json; they are accepted and ignored in human mode.
+	});
+
+	test("attach stores an arbitrary file under an exact key", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const sourceFile = join(outsideDir, "notes.md");
+		await writeFile(sourceFile, "# Notes\n", "utf8");
+		const branch = "branch-contextes/manual-context";
+		const run = runWithFakes(["exec", "attach", "notes", "--file", sourceFile, "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "notes", source_file: sourceFile });
+		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: "notes", sourceFile }]);
+	});
+
+	test("list flags the canonical plan entry", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contextes/manual-context";
+		const run = runWithFakes(["exec", "list"], [], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+			brmem: { entries: [{ branch, key: PLAN_KEY }, { branch, key: "notes" }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("- plan.md (plan)");
+		expect(run.stdout.join("")).toContain("- notes");
+	});
+
+	test("check exits successfully for absent entries", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contextes/manual-context";
+		const run = runWithFakes(["exec", "check", "missing", "--format", "json"], [], { cwd: repoRoot, git: { currentBranch: branch } });
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "missing", present: false });
+	});
+
+	test("delete removes an explicit branch-context key", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contextes/manual-context";
+		const run = runWithFakes(["exec", "delete", "notes", "--format", "json"], [], {
+			cwd: repoRoot,
+			git: { currentBranch: branch },
+			brmem: { entries: [{ branch, key: "notes" }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "notes", deleted: true });
+		expect(run.brmem.deleteEntryCalls).toEqual([{ cwd: repoRoot, branch, key: "notes" }]);
 	});
 });
 

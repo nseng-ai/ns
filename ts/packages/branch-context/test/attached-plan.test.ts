@@ -253,6 +253,9 @@ function emptyBrmemGateway(): BranchContextBrmemGateway {
 		async getAttachedPlan() {
 			return { ok: false, error: { code: "unexpected", message: "getAttachedPlan should not be called" } };
 		},
+		async deleteEntry() {
+			return { ok: false, error: { code: "unexpected", message: "deleteEntry should not be called" } };
+		},
 	};
 }
 

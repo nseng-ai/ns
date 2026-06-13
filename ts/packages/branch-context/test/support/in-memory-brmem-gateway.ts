@@ -27,6 +27,7 @@ export interface InMemoryBrmemGatewayState {
 	attachFailure?: BrmemErrorInfo | undefined;
 	listFailure?: BrmemErrorInfo | undefined;
 	getFailure?: BrmemErrorInfo | undefined;
+	deleteFailure?: BrmemErrorInfo | undefined;
 }
 
 export interface BrmemCall {
@@ -61,10 +62,12 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 	private readonly attachFailure: BrmemErrorInfo | undefined;
 	private readonly listFailure: BrmemErrorInfo | undefined;
 	private readonly getFailure: BrmemErrorInfo | undefined;
+	private readonly deleteFailure: BrmemErrorInfo | undefined;
 	private readonly attachmentPresenceLog: BrmemAttachmentCall[] = [];
 	private readonly attachPlanLog: BrmemAttachPlanCall[] = [];
 	private readonly listAttachedPlansLog: BrmemListCall[] = [];
 	private readonly getAttachedPlanLog: BrmemAttachmentCall[] = [];
+	private readonly deleteEntryLog: BrmemAttachmentCall[] = [];
 
 	constructor(state: InMemoryBrmemGatewayState = {}) {
 		for (const entry of state.entries ?? []) {
@@ -74,6 +77,7 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 		this.attachFailure = state.attachFailure;
 		this.listFailure = state.listFailure;
 		this.getFailure = state.getFailure;
+		this.deleteFailure = state.deleteFailure;
 	}
 
 	get attachmentPresenceCalls(): readonly BrmemAttachmentCall[] {
@@ -90,6 +94,10 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 
 	get getAttachedPlanCalls(): readonly BrmemAttachmentCall[] {
 		return copyAttachmentCalls(this.getAttachedPlanLog);
+	}
+
+	get deleteEntryCalls(): readonly BrmemAttachmentCall[] {
+		return copyAttachmentCalls(this.deleteEntryLog);
 	}
 
 	get attachedPlans(): readonly InMemoryAttachedPlanState[] {
@@ -153,6 +161,15 @@ export class InMemoryBranchContextBrmemGateway implements BranchContextBrmemGate
 			return { ok: false, error: { code: "brmem_entry_missing", message: `Attached plan not found: ${params.branch}/${params.key}` } };
 		}
 		return { ok: true, value: { content: entry.content, refName: entry.refName } };
+	}
+
+	async deleteEntry(params: BrmemAttachmentParams): Promise<BrmemResult<void>> {
+		this.deleteEntryLog.push({ cwd: params.cwd, branch: params.branch, key: params.key });
+		if (this.deleteFailure !== undefined) {
+			return { ok: false, error: this.deleteFailure };
+		}
+		this.entries.delete(entryKey(params.branch, params.key));
+		return { ok: true, value: undefined };
 	}
 }
 
