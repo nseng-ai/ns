@@ -114,7 +114,10 @@ export async function loadStackSnapshot(options: LoadStackSnapshotOptions): Prom
 	return success({
 		trunk,
 		current,
+		actualCurrentBranch: current,
+		landingTargetBranch: current,
 		landingBranches: landingBranches.value,
+		remainingLandingBranches: [],
 		descendantBranches: descendantBranches.value,
 		warnings: trunkMarkerWarnings(topology.value, trunk),
 	});

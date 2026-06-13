@@ -1,5 +1,6 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { executeStackLanding, landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
+import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import { landStackFailure } from "./land-stack/errors.ts";
 import { formatFailure, formatFailureNotification, presentBrief, usage } from "./land-stack/presentation.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
@@ -87,18 +88,23 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 				return;
 			}
 
-			if (shape.value.stack.current === shape.value.stack.trunk || shape.value.stack.landingBranches.length === 0) {
+			if (shape.value.stack.actualCurrentBranch === shape.value.stack.trunk || shape.value.stack.landingBranches.length === 0) {
 				presentBrief(
 					ctx,
-					`Current branch is ${shape.value.stack.current}, which is trunk or has no PR path to land. Nothing to do.`,
+					`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
 					"info",
-					`Current branch is ${shape.value.stack.current}, which is trunk or has no PR path to land. Nothing to do.`,
+					`Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
 				);
 				return;
 			}
 
 			if (isIsolatedFastPath(shape.value.stack)) {
 				await runFastLand(pi, ctx, shape.value, { dryRun: args.value.dryRun });
+				return;
+			}
+
+			if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
+				await executeStackLanding(pi, ctx, args.value, { initialShape: shape.value });
 				return;
 			}
 
@@ -112,9 +118,9 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 	return (
-		stack.current !== stack.trunk &&
+		stack.actualCurrentBranch !== stack.trunk &&
 		stack.landingBranches.length === 1 &&
-		stack.landingBranches[0] === stack.current &&
+		stack.landingBranches[0] === stack.actualCurrentBranch &&
 		stack.descendantBranches.length === 0
 	);
 }
@@ -145,10 +151,10 @@ async function confirmStackModeIfNeeded(
 
 function formatUpfrontStackConfirmation(shape: LandingShape): string {
 	const stack = shape.stack;
-	const bottomBranch = stack.landingBranches[0] ?? stack.current;
-	const lines = [`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.current} into ${stack.trunk}?`];
+	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
+	const lines = [`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.actualCurrentBranch} into ${stack.trunk}?`];
 	if (stack.descendantBranches.length > 0) {
-		lines.push(`Descendants above ${stack.current} will not be merged; this command will try to maintain them after landing.`);
+		lines.push(`Descendants above ${stack.actualCurrentBranch} will not be merged; this command will try to maintain them after landing.`);
 	}
 	return lines.join("\n");
 }

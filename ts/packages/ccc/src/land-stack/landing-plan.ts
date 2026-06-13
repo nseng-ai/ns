@@ -19,15 +19,17 @@ import { detectWorktreeConflicts, formatManualWorktreeConflict } from "./worktre
 export async function buildLandingPlan(
 	pi: LandStackExtensionAPI,
 	cwd: string,
-	options: { allowSubmitRequiredState?: boolean; preloadedShape?: LandingShape } = {},
+	options: { allowSubmitRequiredState?: boolean; preloadedShape?: LandingShape; landingBranchLimit?: number } = {},
 ): Promise<LandStackResult<LandingPlan>> {
 	const shape = options.preloadedShape ? success(options.preloadedShape) : await loadLandingShape(pi, cwd);
 	if (shape.type === "failure") return shape;
 
-	const { repoRoot, stack } = shape.value;
-	if (stack.current === stack.trunk || stack.landingBranches.length === 0) {
+	const scopedStack = scopeStackSnapshot(shape.value.stack, options.landingBranchLimit);
+	const { repoRoot } = shape.value;
+	const stack = scopedStack;
+	if (stack.actualCurrentBranch === stack.trunk || stack.landingBranches.length === 0) {
 		return failure(
-			landStackFailure(`Current branch is ${stack.current}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" }),
+			landStackFailure(`Current branch is ${stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`, { level: "info" }),
 		);
 	}
 
@@ -35,7 +37,7 @@ export async function buildLandingPlan(
 	if (cleanRepo.type === "failure") return cleanRepo;
 
 	const landingBranches = stack.landingBranches;
-	const descendantBranches = stack.descendantBranches;
+	const descendantBranches = stack.remainingLandingBranches.length > 0 ? [] : stack.descendantBranches;
 	for (const branch of landingBranches) {
 		const branchExists = await assertLocalBranchExists(pi, repoRoot, branch);
 		if (branchExists.type === "failure") return branchExists;
@@ -55,7 +57,7 @@ export async function buildLandingPlan(
 	if (preflight.type === "failure") return preflight;
 	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
 
-	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot, stack.current, landingBranches);
+	const landingConflicts = await detectWorktreeConflicts(pi, repoRoot, stack.actualCurrentBranch, landingBranches);
 	if (landingConflicts.type === "failure") return landingConflicts;
 	const landingManualConflicts = landingConflicts.value.filter((conflict) => conflict.kind === "manual-worktree");
 	if (landingManualConflicts.length > 0) {
@@ -67,7 +69,7 @@ export async function buildLandingPlan(
 	}
 
 	const descendantConflicts =
-		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot, stack.current, descendantBranches) : success([]);
+		descendantBranches.length > 0 ? await detectWorktreeConflicts(pi, repoRoot, stack.actualCurrentBranch, descendantBranches) : success([]);
 	if (descendantConflicts.type === "failure") return descendantConflicts;
 	const descendantMaintenance = buildDescendantMaintenancePlan(descendantBranches, descendantConflicts.value);
 
@@ -84,6 +86,26 @@ export async function buildLandingPlan(
 		managedSlotConflicts: landingConflicts.value.filter((conflict) => conflict.kind === "managed-slot"),
 		descendantMaintenance,
 	});
+}
+
+export function scopeStackSnapshot(stack: StackSnapshot, landingBranchLimit?: number): StackSnapshot {
+	const actualCurrentBranch = stack.actualCurrentBranch;
+	const fullLandingBranches = stack.landingBranches;
+	const boundedLandingBranches =
+		landingBranchLimit === undefined || landingBranchLimit >= fullLandingBranches.length
+			? fullLandingBranches
+			: fullLandingBranches.slice(0, landingBranchLimit);
+	const remainingLandingBranches =
+		landingBranchLimit === undefined || landingBranchLimit >= fullLandingBranches.length ? [] : fullLandingBranches.slice(landingBranchLimit);
+	const landingTargetBranch = boundedLandingBranches.at(-1) ?? stack.landingTargetBranch;
+	return {
+		...stack,
+		current: actualCurrentBranch,
+		actualCurrentBranch,
+		landingTargetBranch,
+		landingBranches: boundedLandingBranches,
+		remainingLandingBranches,
+	};
 }
 
 function buildDescendantMaintenancePlan(

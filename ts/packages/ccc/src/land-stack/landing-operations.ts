@@ -28,7 +28,7 @@ import type {
 	RestackRequirement,
 	WorktreeConflict,
 } from "./types.ts";
-import { detectWorktreeConflicts, formatConflict, formatSlotConflict, normalizeExistingPath, slotNameFromPath } from "./worktrees.ts";
+import { detectWorktreeConflicts, formatConflict, formatSlotConflict, slotNameFromPath } from "./worktrees.ts";
 import { formatCommandForDisplay, type LandStackCommandStream } from "./command-stream.ts";
 import { formatRestackFailureMessage, formatSubmitFailureMessage, setStatus } from "./presentation.ts";
 
@@ -50,7 +50,7 @@ type GraphiteMaintenanceOutcome =
 	| { kind: "skip" }
 	| { kind: "halt"; failure: LandStackFailure };
 
-interface MergeLoopState {
+export interface MergeLoopState {
 	expectedShas: Map<string, string>;
 	deletedBranches: Set<string>;
 	warnings: LandingWarning[];
@@ -60,6 +60,7 @@ interface MergeLoopState {
 interface GraphiteMaintenanceOptions {
 	commandStream?: LandStackCommandStream;
 	unstreamedPi?: LandStackExtensionAPI;
+	mergeState?: MergeLoopState;
 }
 
 interface GraphiteMaintenanceStep {
@@ -75,7 +76,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	ctx: LandStackCommandContext,
 	plan: LandingPlan,
 ): Promise<LandStackOutcome> {
-	const submitArgs = submitUpdateArgs(plan.stack.current);
+	const submitArgs = submitUpdateArgs(plan.stack.landingTargetBranch);
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
 	const commandLines = restackTarget
@@ -128,7 +129,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 	}
 
-	setStatus(ctx, `submitting ${plan.stack.current}...`);
+	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
 	const result = await exec(pi, "gt", submitArgs, plan.repoRoot, GT_MUTATION_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
@@ -143,7 +144,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {
-	const submitArgs = submitUpdateArgs(plan.stack.current);
+	const submitArgs = submitUpdateArgs(plan.stack.landingTargetBranch);
 	const restackTarget = restackTargetForSubmit(plan);
 	const commands = restackTarget
 		? [formatCommand("gt", restackForSubmitArgs(restackTarget)), formatCommand("gt", submitArgs)]
@@ -209,7 +210,7 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 	}
 	if (plan.prSubmitRequirements.length > 0) {
 		return landStackFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-			suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.current))} manually, inspect PR heads, and rerun /code:land.`,
+			suggestedAction: `Run ${formatCommand("gt", submitUpdateArgs(plan.stack.landingTargetBranch))} manually, inspect PR heads, and rerun /code:land.`,
 		});
 	}
 	return undefined;
@@ -262,7 +263,7 @@ export async function confirmAndFreeManagedSlots(
 	setStatus(ctx, "rechecking landing worktrees...");
 	const cleanRepo = await assertCleanRepo(pi, plan.repoRoot);
 	if (cleanRepo.type === "failure") return cleanRepo;
-	const conflicts = await detectWorktreeConflicts(pi, plan.repoRoot, plan.stack.current, plan.stack.landingBranches);
+	const conflicts = await detectWorktreeConflicts(pi, plan.repoRoot, plan.stack.actualCurrentBranch, plan.stack.landingBranches);
 	if (conflicts.type === "failure") return conflicts;
 	const remaining = conflicts.value.filter((conflict) => conflict.kind !== "current");
 	if (remaining.length > 0) {
@@ -319,6 +320,22 @@ function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 	];
 }
 
+export async function prepareMergeLoopState(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	branches: readonly string[],
+	warnings: LandingWarning[],
+): Promise<LandStackResult<MergeLoopState>> {
+	const backupRefs = await writeLandBackupRefs(pi, repoRoot, [...branches]);
+	if (backupRefs.type === "failure") return backupRefs;
+	return success({
+		expectedShas: new Map(backupRefs.value),
+		deletedBranches: new Set(),
+		warnings,
+		cleanup: { retainedLocalBranches: [] },
+	});
+}
+
 export async function runMergeLoop(
 	pi: LandStackExtensionAPI,
 	ctx: LandStackCommandContext,
@@ -328,14 +345,12 @@ export async function runMergeLoop(
 	options: GraphiteMaintenanceOptions = {},
 ): Promise<LandStackResult<RemainingCleanup>> {
 	const { repoRoot, stack } = plan;
-	const backupRefs = await writeLandBackupRefs(pi, repoRoot, [...stack.landingBranches, ...stack.descendantBranches]);
-	if (backupRefs.type === "failure") return backupRefs;
-	const state: MergeLoopState = {
-		expectedShas: new Map(backupRefs.value),
-		deletedBranches: new Set(),
-		warnings,
-		cleanup: { retainedLocalBranches: [], detachedWorktreeTrunk: undefined },
-	};
+	let state = options.mergeState;
+	if (!state) {
+		const preparedState = await prepareMergeLoopState(pi, repoRoot, [...stack.landingBranches, ...stack.descendantBranches], warnings);
+		if (preparedState.type === "failure") return preparedState;
+		state = preparedState.value;
+	}
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
@@ -570,24 +585,16 @@ async function performGraphiteMaintenance(maintenanceOptions: PerformGraphiteMai
 					commandStream: options.commandStream,
 					repoRoot,
 					branch,
-					trunk: stack.trunk,
 				})
 			: localBranchDeletionFromResult(await exec(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS));
 	switch (deletion.kind) {
 		case "deleted":
 			state.deletedBranches.add(branch);
 			break;
-		case "deleted-after-detach":
-			state.cleanup.detachedWorktreeTrunk = stack.trunk;
-			state.deletedBranches.add(branch);
-			break;
 		case "retained":
 			state.cleanup.retainedLocalBranches.push({ branch: deletion.branch, path: deletion.path });
 			break;
 		case "failed":
-			if (deletion.wasDetachedAtTrunk) {
-				state.cleanup.detachedWorktreeTrunk = stack.trunk;
-			}
 			return failOrWarn(severity, state.warnings, {
 				failure: landStackFailure(`PR #${prNumber} merged, but deleting the local Graphite branch ${branch} failed.`, {
 					commandDisplay: formatCommand("gt", deleteArgs),
@@ -637,8 +644,7 @@ async function performGraphiteMaintenance(maintenanceOptions: PerformGraphiteMai
 	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
 	// expectation for the next iteration's forced refresh target; comparing against
 	// the pre-restack SHA would false-positive on every 3+ branch stack.
-	const next = nextGraphiteMaintenance(plan, index + 1);
-	const nextGetTarget = next.kind === "required-next-landing" || next.kind === "optional-descendant" ? next.branch : undefined;
+	const nextGetTarget = nextForcedRefreshBranchAfterMaintaining(plan, maintenance.branch);
 	if (nextGetTarget !== undefined) {
 		const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
 		if (refreshedSha.type === "failure") {
@@ -752,6 +758,11 @@ function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphite
 		return { kind: "none" };
 	}
 
+	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
+	if (nextFutureLandingBranch) {
+		return { kind: "required-next-landing", branch: nextFutureLandingBranch };
+	}
+
 	if (plan.descendantMaintenance.kind === "auto") {
 		return { kind: "optional-descendant", branch: plan.descendantMaintenance.targetBranch };
 	}
@@ -759,6 +770,17 @@ function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphite
 		return { kind: "skip-descendant" };
 	}
 	return { kind: "none" };
+}
+
+function nextForcedRefreshBranchAfterMaintaining(plan: LandingPlan, maintainedBranch: string): string | undefined {
+	const futureRefreshOrder = [
+		...plan.stack.landingBranches,
+		...plan.stack.remainingLandingBranches,
+		...(plan.descendantMaintenance.kind === "auto" ? [plan.descendantMaintenance.targetBranch] : []),
+	];
+	const maintainedIndex = futureRefreshOrder.indexOf(maintainedBranch);
+	if (maintainedIndex < 0) return undefined;
+	return futureRefreshOrder[maintainedIndex + 1];
 }
 
 function skippedDescendantMaintenanceWarning(plan: LandingPlan, branch: string): LandingWarning {
@@ -802,18 +824,16 @@ interface DeleteFinalLocalGraphiteBranchOptions {
 	commandStream: LandStackCommandStream;
 	repoRoot: string;
 	branch: string;
-	trunk: string;
 }
 
 type LocalBranchDeletion =
 	| { kind: "deleted" }
-	| { kind: "deleted-after-detach" }
 	| { kind: "retained"; branch: string; path: string }
-	| { kind: "failed"; result: ExecResult; wasDetachedAtTrunk: boolean };
+	| { kind: "failed"; result: ExecResult };
 
 function localBranchDeletionFromResult(result: ExecResult): LocalBranchDeletion {
 	if (result.code === 0) return { kind: "deleted" };
-	return { kind: "failed", result, wasDetachedAtTrunk: false };
+	return { kind: "failed", result };
 }
 
 function assertNever(value: never): never {
@@ -821,7 +841,7 @@ function assertNever(value: never): never {
 }
 
 async function deleteFinalLocalGraphiteBranch(options: DeleteFinalLocalGraphiteBranchOptions): Promise<LocalBranchDeletion> {
-	const { pi, commandStream, repoRoot, branch, trunk } = options;
+	const { pi, commandStream, repoRoot, branch } = options;
 	const deleteArgs = ["delete", branch, "-f", "-q"];
 	const commandDisplay = formatCommand("gt", deleteArgs);
 	commandStream.start(commandDisplay);
@@ -835,37 +855,12 @@ async function deleteFinalLocalGraphiteBranch(options: DeleteFinalLocalGraphiteB
 	const checkout = !result.killed ? parseGitCheckedOutElsewhere(result) : undefined;
 	if (!checkout) {
 		commandStream.finish(commandDisplay, finish);
-		return { kind: "failed", result: finish.result, wasDetachedAtTrunk: false };
+		return { kind: "failed", result: finish.result };
 	}
 
-	if (normalizeExistingPath(checkout.path) !== normalizeExistingPath(repoRoot)) {
-		const checkedOutFinish = finalDeleteSkippedFinish(result, branch);
-		commandStream.finish(commandDisplay, checkedOutFinish);
-		return { kind: "retained", branch, path: checkout.path };
-	}
-
-	commandStream.finish(commandDisplay, {
-		result,
-		note: `branch ${branch} checked out in this worktree; detaching at ${trunk} and retrying`,
-	});
-	const detachArgs = ["switch", "--detach", trunk];
-	const detachDisplay = formatCommand("git", detachArgs);
-	commandStream.start(detachDisplay);
-	const detach = await execRaw(pi, "git", detachArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
-	const detachFinish = normalizeCommandFinish("git", detachArgs, detach);
-	commandStream.finish(detachDisplay, detachFinish);
-	if (detachFinish.result.code !== 0) {
-		return { kind: "retained", branch, path: checkout.path };
-	}
-
-	commandStream.start(commandDisplay);
-	const retry = await execRaw(pi, "gt", deleteArgs, repoRoot, GT_MUTATION_TIMEOUT_MS);
-	const retryFinish = normalizeCommandFinish("gt", deleteArgs, retry);
-	commandStream.finish(commandDisplay, retryFinish);
-	if (retryFinish.result.code !== 0) {
-		return { kind: "failed", result: retryFinish.result, wasDetachedAtTrunk: true };
-	}
-	return { kind: "deleted-after-detach" };
+	const checkedOutFinish = finalDeleteSkippedFinish(result, branch);
+	commandStream.finish(commandDisplay, checkedOutFinish);
+	return { kind: "retained", branch, path: checkout.path };
 }
 
 function finalDeleteSkippedFinish(result: ExecResult, branch: string): CommandStreamFinish {
