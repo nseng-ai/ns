@@ -30,8 +30,9 @@
       Audit `ts/packages/asdl-dev/src/submit-pr-metadata-prewrite.ts` and record whether to replace the parser, route it through structured topology facts, or retain it with documented submit-specific rationale.
       Done: retained as deterministic, tested, submit-specific gateway parsing rather than agent-facing Graphite topology guidance. `slot gt exec stack-branches --format json` would replace only the branch-list/current/trunk slice while adding a TypeScript-to-Python CLI dependency and would not provide existing-PR links or submit-specific current-PR verification. `submit-format.ts`'s buffered `gt branch info --no-interactive` output is retained as current-PR verification diagnostics, not stack-topology parsing. Rationale and retained risks in `updates/2026-06-12-asdl-dev-submit-parser-retained.md`.
 
-- [ ] Close the documentation loop.
+- [x] Close the documentation loop.
       Document the rule that agents must not parse `gt ls`, `gt ls --stack`, or `gt log` for stack topology. Point future workflows to the canonical structured command and document any remaining visual-confirmation-only uses. Extend the rule to `gt branch info` and execute the candidate audit's guidance migrations: replace `Parent: <branch>` extraction from `gt branch info` in `skills/objective-update/SKILL.md` and `skills/code-workflows/references/parity-review.md` with `gt parent --no-interactive`, and the upstack-children display check in `skills/code-gt-restack-resolve/SKILL.md` with `gt children --no-interactive` or `slot gt exec stack-branches --format json`.
+      Done: repo-wide Graphite guidance now says agents must not parse human-facing `gt ls`, `gt ls --stack`, `gt log`, or `gt branch info` output for machine topology decisions. Objective Update and parity-review base discovery now use `gt parent --no-interactive`; restack scope gating now uses `gt children --no-interactive` and points richer topology to `slot gt exec stack-branches --format json`; remaining `gt ls`/`gt log` restack mentions are explicitly visual-confirmation-only. Evidence: `just dprint-check` passed.
 
 ## Parked
 

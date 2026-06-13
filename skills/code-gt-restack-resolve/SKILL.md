@@ -48,8 +48,7 @@ When the engine's Driver contract asks for overrides, use:
 - **Extra bail-out condition:** a conflict surfaces in a branch **outside the
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
-- **Post-completion checks:** `gt log` / `gt ls` confirm a clean stack rooted
-  correctly
+- **Post-completion checks:** `git status` is clean; `slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
 
 ## When to use
 
@@ -83,8 +82,10 @@ When the engine's Driver contract asks for overrides, use:
 
 - `git status` must show a **clean working tree** — a rebase cannot start dirty.
   If dirty, stop and ask the user to commit or stash first.
-- Confirm the current branch is gt-tracked (it appears in `gt ls` / `gt log`;
-  an untracked branch errors with a `gt track` hint).
+- Confirm the current branch is gt-tracked with non-display plumbing such as
+  `gt parent --no-interactive` or `gt children --no-interactive`; an untracked
+  branch errors with a `gt track` hint. Do not parse `gt ls`, `gt log`, or
+  `gt branch info` display output for this decision.
 - **If a rebase is already in progress** (`git status` shows "interactive rebase
   in progress" / "Unmerged paths"), do **not** start a new restack — jump
   straight to the **Loop** at the resolve step, following the `graphite` skill's
@@ -102,13 +103,14 @@ Set `RESTACK_SCOPE` before running any restack command.
 Rules:
 
 - **Single-PR / tip stacks: never ask about scope.** _Before_ choosing scope or
-  prompting, check whether any branch is stacked on top of the current one
-  (`gt log short` / `gt ls` — look for children above the current `◉`). If there
-  are none, full and downstack are the **same** operation: skip the scope
+  prompting, run `gt children --no-interactive` for the current branch. If it
+  succeeds with empty stdout, no branch is stacked directly above the current
+  branch, so full and downstack are the **same** operation: skip the scope
   question entirely and run plain `gt restack` (no `--downstack` needed — the
   result is identical). There are no upstack slots to free either, so skip the
   consolidation prompt too unless an in-scope **ancestor** is checked out in
-  another slot.
+  another slot. If richer topology is needed, use
+  `slot gt exec stack-branches --format json` instead of reading display output.
 - When in doubt, ask — **but only when scope actually changes the outcome**
   (i.e., the current branch has upstack descendants).
 - Do not auto-checkout to the tip. Run the command from the user's current
@@ -150,8 +152,10 @@ loops per conflict until the selected restack command reports nothing left.
 
 When the selected restack command reports there is nothing left to restack:
 
-- Run a final `git status` (clean) and `gt log` / `gt ls` to confirm a clean
-  stack rooted correctly.
+- Run a final `git status` (clean) and `slot gt exec stack-branches --format json`
+  for structured topology confirmation. `gt log` / `gt ls` may be shown as
+  human visual confirmation only; do not parse their display output for machine
+  decisions.
 - Regenerate any auto-generated files that were touched (per
   `code-resolve-merge-conflicts` step 7) and stage/commit them as appropriate.
 - For a **full-scope** restack, run a final scoped verification from the stack
