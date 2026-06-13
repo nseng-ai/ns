@@ -15,6 +15,7 @@ import {
 	residualPreMergeFailure,
 	runMergeLoop,
 	type MergeLoopState,
+	type PreMergeConfirmation,
 } from "./land-stack/landing-operations.ts";
 import {
 	formatChunkedPlan,
@@ -147,7 +148,7 @@ async function executeSinglePlanLanding(singleOptions: ExecuteSinglePlanLandingO
 		}
 	}
 
-	const readyPlan = await preparePlanForMerge(runtimePi, ctx, plan, landed, landedChunks, commandStream);
+	const readyPlan = await preparePlanForMerge({ runtimePi, ctx, plan, landed, landedChunks, commandStream });
 	if (readyPlan.type === "failure") return readyPlan;
 
 	const mergeOutcome = await runMergeLoop(runtimePi, ctx, readyPlan.value, landed, warnings, {
@@ -245,7 +246,15 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 		}
 		finalPlan = plan.value;
 
-		const readyPlan = await preparePlanForMerge(runtimePi, ctx, plan.value, landed, landedChunks, commandStream);
+		const readyPlan = await preparePlanForMerge({
+			runtimePi,
+			ctx,
+			plan: plan.value,
+			landed,
+			landedChunks,
+			commandStream,
+			preMergeConfirmation: "already-approved",
+		});
 		if (readyPlan.type === "failure") return;
 		finalPlan = readyPlan.value;
 
@@ -286,16 +295,21 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 	presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
 }
 
-async function preparePlanForMerge(
-	runtimePi: LandStackExtensionAPI,
-	ctx: LandStackCommandContext,
-	plan: LandingPlan,
-	landed: readonly LandedPr[],
-	landedChunks: readonly LandedChunk[],
-	commandStream: LandStackCommandStream,
-): Promise<LandStackResult<LandingPlan>> {
+interface PreparePlanForMergeOptions {
+	runtimePi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	landed: readonly LandedPr[];
+	landedChunks: readonly LandedChunk[];
+	commandStream: LandStackCommandStream;
+	preMergeConfirmation?: PreMergeConfirmation;
+}
+
+async function preparePlanForMerge(options: PreparePlanForMergeOptions): Promise<LandStackResult<LandingPlan>> {
+	const { runtimePi, ctx, plan, landed, landedChunks, commandStream } = options;
+	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
-		const slotOutcome = await confirmAndFreeManagedSlots(runtimePi, ctx, plan);
+		const slotOutcome = await confirmAndFreeManagedSlots({ pi: runtimePi, ctx, plan, confirmation: preMergeConfirmation });
 		if (slotOutcome.type === "failure") {
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: slotOutcome.failure });
 			return slotOutcome;
@@ -303,7 +317,7 @@ async function preparePlanForMerge(
 	}
 
 	if (plan.prSubmitRequirements.length > 0) {
-		const submitOutcome = await confirmAndSubmitRequiredPrUpdates(runtimePi, ctx, plan);
+		const submitOutcome = await confirmAndSubmitRequiredPrUpdates({ pi: runtimePi, ctx, plan, confirmation: preMergeConfirmation });
 		if (submitOutcome.type === "failure") {
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: submitOutcome.failure });
 			return submitOutcome;

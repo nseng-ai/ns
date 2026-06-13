@@ -390,7 +390,13 @@ function numberedDb(start: number, end: number, options: { trunk?: string; curre
 	]);
 }
 
-function numberedPreflight(options: { start?: number; end: number; current: number; planEnd?: number | undefined }): ScriptedExec[] {
+function numberedPreflight(options: {
+	start?: number;
+	end: number;
+	current: number;
+	planEnd?: number | undefined;
+	prShaOverrides?: Record<number, string> | undefined;
+}): ScriptedExec[] {
 	const start = options.start ?? 1;
 	const planEnd = options.planEnd ?? options.end;
 	const currentBranch = numberedBranch(options.current);
@@ -401,15 +407,17 @@ function numberedPreflight(options: { start?: number; end: number; current: numb
 		...localBranchChecks(planBranches),
 		...planBranches.flatMap((branch) => {
 			const index = Number(branch.replace("feature-", ""));
+			const localSha = numberedSha(index);
+			const prSha = options.prShaOverrides?.[index] ?? localSha;
 			return [
-				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${numberedSha(index)}\n` }),
+				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${localSha}\n` }),
 				step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
 					stdout: prStdout(
 						prSnapshot({
 							number: 200 + index,
 							branch,
 							base: index === start ? TRUNK : numberedBranch(index - 1),
-							sha: numberedSha(index),
+							sha: prSha,
 							title: `PR ${200 + index}`,
 						}),
 					),
@@ -1285,11 +1293,15 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		const message = notifications[0]?.message ?? "";
+		expect(message).toContain("Land 11 PRs in 2 chunks.");
 		expect(message).toContain("Total PRs: 11");
 		expect(message).toContain("Chunk size: 8");
 		expect(message).toContain("Chunks: 2");
 		expect(message).toContain("1. PRs 1-8: feature-1 -> feature-2 -> feature-3 -> feature-4 -> feature-5 -> feature-6 -> feature-7 -> feature-8");
 		expect(message).toContain("2. PRs 9-11: feature-9 -> feature-10 -> feature-11");
+		expect(message).toContain("This single confirmation covers the full chunked landing operation");
+		expect(message).not.toContain("First chunk preflight");
+		expect(message).not.toContain("prompts remain explicit");
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "update-ref")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && ["get", "delete", "restack", "submit"].includes(call.args[0] ?? ""))).toBe(false);
@@ -1315,9 +1327,38 @@ describe("land-stack command scenarios", () => {
 
 		pi.assertDone();
 		expect(confirmations.map((confirmation) => confirmation.title)).toEqual(["Land this stack in chunks?"]);
+		expect(confirmations[0]?.message).toContain("Land 11 PRs in 2 chunks.");
 		expect(confirmations[0]?.message).toContain("Chunks: 2");
 		expect(confirmations[0]?.message).toContain("1. PRs 1-8");
 		expect(confirmations[0]?.message).toContain("2. PRs 9-11");
+		expect(confirmations[0]?.message).not.toContain("First chunk preflight");
+		expect(confirmations[0]?.message).not.toContain("prompts remain explicit");
+		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("interactive auto-chunk runs later-chunk submit/update without a second confirmation", async () => {
+		const stalePrSha = "0".repeat(40);
+		const submitArgs = ["submit", "--branch", "feature-11", "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"];
+		const script = [
+			...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+			...backupRefStepsForNumberedBranches(1, 11),
+			...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) => mergeNumberedBranch(index, { next: index + 1 })),
+			...numberedPreflight({ start: 9, end: 11, current: 11, prShaOverrides: { 9: stalePrSha } }),
+			submitRestackRecheckStep({ branch: "feature-9", parent: TRUNK }),
+			submitRestackRecheckStep({ branch: "feature-10", parent: "feature-9" }),
+			submitRestackRecheckStep({ branch: "feature-11", parent: "feature-10" }),
+			step("gt", submitArgs),
+			...numberedPreflight({ start: 9, end: 11, current: 11 }),
+			mergeNumberedBranch(9, { next: 10 }),
+			mergeNumberedBranch(10, { next: 11 }),
+			mergeNumberedBranch(11, { finalCheckedOut: true }),
+		].flat();
+		const { pi, notifications, confirmations, messages } = await runLandStack("", script, { confirms: [true] });
+
+		pi.assertDone();
+		expect(confirmations.map((confirmation) => confirmation.title)).toEqual(["Land this stack in chunks?"]);
+		expect(pi.execCalls.some((call) => call.command === "gt" && sameArgs(call.args, submitArgs))).toBe(true);
 		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");
 		expect(notifications.at(-1)?.level).toBe("success");
 	});

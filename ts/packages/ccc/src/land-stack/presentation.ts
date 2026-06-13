@@ -113,7 +113,10 @@ export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string 
 	const fullLandingBranches = [...plan.stack.landingBranches, ...plan.stack.remainingLandingBranches];
 	const chunks = chunkBranches(fullLandingBranches, chunkSize);
 	const lines = [
-		`Land Graphite stack path automatically in chunks: ${[plan.stack.trunk, ...fullLandingBranches].join(" -> ")}`,
+		`Land ${fullLandingBranches.length} PRs in ${chunks.length} chunks.`,
+		"",
+		"Path:",
+		`${plan.stack.trunk} -> ${fullLandingBranches.join(" -> ")}`,
 		"",
 		`Current branch: ${plan.stack.actualCurrentBranch}`,
 		`Trunk branch: ${plan.stack.trunk}`,
@@ -121,7 +124,7 @@ export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string 
 		`Chunk size: ${chunkSize}`,
 		`Chunks: ${chunks.length}`,
 		"",
-		"Chunk breakdown:",
+		"Chunks:",
 	];
 	chunks.forEach((chunk, index) => {
 		const start = index * chunkSize + 1;
@@ -130,10 +133,8 @@ export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string 
 	});
 	lines.push(
 		"",
-		"One global confirmation covers this full chunked operation. Managed slot cleanup and gt restack/submit-update prompts remain explicit if needed.",
-		"",
-		"First chunk preflight:",
-		...indentLines(formatPlan(plan), "  "),
+		"This single confirmation covers the full chunked landing operation, including required managed-slot cleanup and Graphite restack/submit/update if encountered.",
+		"The command will squash-merge PRs in order, refresh/delete local Graphite branches where safe, and stop on first failure.",
 	);
 	return lines.join("\n");
 }
@@ -176,7 +177,7 @@ export function usage(): string {
 		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree.",
 		"",
 		"Options:",
-		"  --yes, -y    Skip stack/global landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+		"  --yes, -y    Skip stack/global landing confirmation. In single-plan mode, landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation; in chunked mode, --yes approves the full chunked operation.",
 		"  --dry-run    Show the full or chunked plan and exit before mutating refs or PRs.",
 		"  --help, -h   Show this help.",
 	].join("\n");
