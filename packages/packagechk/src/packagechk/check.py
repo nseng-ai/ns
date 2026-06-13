@@ -3,7 +3,7 @@ from __future__ import annotations
 from packagechk.gateways.registries.gateway import PackageRegistryGateway
 from packagechk.models import PackageCheckReport, Registry, RegistryCheckResult
 
-DEFAULT_REGISTRIES: tuple[Registry, ...] = (Registry.PYPI, Registry.NPM)
+DEFAULT_REGISTRIES: tuple[Registry, ...] = (Registry.PYPI, Registry.NPM, Registry.BREW)
 
 
 def registry_selection(registry_options: tuple[str, ...]) -> tuple[Registry, ...]:

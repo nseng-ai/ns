@@ -254,14 +254,26 @@ def test_packagechk_bare_name_still_dispatches_to_check_api() -> None:
                 lookup_name="sample-name",
             )
         },
+        brew_results={
+            "sample-name": RegistryCheckResult.available(
+                Registry.BREW,
+                input_name="sample-name",
+                lookup_name="sample-name",
+            )
+        },
     )
 
     result = CliRunner().invoke(build_cli(registry_gateway=registry), ["sample-name"])
 
     assert result.exit_code == 0
-    assert result.output.splitlines() == ["pypi: available", "npm: available"]
+    assert result.output.splitlines() == [
+        "pypi: available",
+        "npm: available",
+        "brew: available",
+    ]
     assert registry.pypi_checked_names == ["sample-name"]
     assert registry.npm_checked_names == ["sample-name"]
+    assert registry.brew_checked_names == ["sample-name"]
 
 
 def test_packagechk_legacy_check_options_can_still_come_before_name() -> None:
