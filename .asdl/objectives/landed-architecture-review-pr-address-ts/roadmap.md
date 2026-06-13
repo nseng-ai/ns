@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Deepen classification into one module tested through one interface
-      Merge `classification-shared`, `-validation`, `-planning`, `-operations`, `-template` into one module whose interface is `validate → plan`. Remove `planning.ts:73`'s dependency on the private `FeedbackClassificationValidationArtifacts` struct. Make manifest-view building, semantic-rule checks, and planning internal seams. Test the validate→plan wiring at the one interface; delete the leaf-level tests. (Top recommendation — Strong, ungated.)
+- [x] Deepen classification into one module tested through one interface
+      `classification.ts` now owns schemas, manifest-view construction, validation, planning, and template building behind the public validate/plan/template surface. The former `classification-shared`, `-validation`, `-planning`, and `-template` leaf modules are deleted; the private artifact pipeline is no longer exported. Evidence: local branch diff against Graphite parent `add-pr-address-ts-architecture-review`; `pnpm --dir ts run check` and `pnpm --dir ts run test` passed.
 - [ ] Consolidate stack-feedback prep/plan and unify discussion-triage
       Extract one `discussion-triage` module owning `triageSummary` / `DIRECT_REQUEST_MARKERS` / the hint enum (currently duplicated across `stack-feedback-prep-core` and `stack-feedback-contracts`). Have `plan` consume a triage result through the interface instead of reaching into `prep.stack[].discussion_triage.items[]`. Stop `diff-current` re-deriving the plan/prep wire schemas. Co-locate each result type with its producing module.
 - [ ] Fold the payload store behind a filesystem seam

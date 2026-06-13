@@ -3,9 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { buildPlanFeedbackSchemaDocument, classificationTemplateResultDocSchema } from "../../src/operation-schemas/classification.ts";
-import { buildFeedbackClassificationTemplate } from "../../src/classification-template.ts";
-import { planFeedback } from "../../src/classification-planning.ts";
-import { validateFeedbackClassification } from "../../src/classification-validation.ts";
+import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "../../src/classification.ts";
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, goldenCases, readJson } from "../support/golden.ts";
