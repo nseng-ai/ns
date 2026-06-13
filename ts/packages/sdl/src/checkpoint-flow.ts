@@ -16,7 +16,26 @@ Given git status and diff, output exactly one git commit message:
 - No prose paragraphs, no markdown headers, no code fences, no trailers.
 - No Co-Authored-By trailer.
 - Mention untracked files by filename when they matter.
+- When the diff is compacted, infer from status, paths, and excerpts without claiming exact unseen changes.
 - Optimize for later agents scanning git log, not for a polished PR description.`;
+
+const CHECKPOINT_DIFF_PROMPT_CHAR_LIMIT = 24_000;
+const CHECKPOINT_PER_FILE_EXCERPT_CHAR_LIMIT = 1_500;
+const CHECKPOINT_CHANGED_PATH_LIMIT = 120;
+const CHECKPOINT_CHANGED_PATH_CHAR_LIMIT = 6_000;
+const CHECKPOINT_FINAL_SUMMARY_RESERVE_CHARS = 500;
+const CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT = 4_000;
+const CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT = 4_000;
+
+interface CheckpointDiffPromptSection {
+	text: string;
+	wasCompacted: boolean;
+}
+
+interface DiffFileSection {
+	path: string;
+	text: string;
+}
 
 export interface CommandResult {
 	code: number;
@@ -70,11 +89,15 @@ export async function prepareCheckpointMessage(input: {
 }
 
 export function buildCheckpointUserPrompt(input: CheckpointPromptInput): string {
-	const base = `Draft a checkpoint commit message for this pending git state.\n\n## git status --porcelain\n\n${promptBlock(input.status, "(clean)")}\n\n## git diff HEAD\n\n${promptBlock(input.diff, "(no tracked diff; rely on untracked filenames in status)")}\n`;
+	const diffSection = buildCheckpointDiffPromptSection({ diff: input.diff });
+	const diffHeading = diffSection.wasCompacted ? "## git diff HEAD (compacted)" : "## git diff HEAD";
+	const base = `Draft a checkpoint commit message for this pending git state.\n\n## git status --porcelain\n\n${promptBlock(input.status, "(clean)")}\n\n${diffHeading}\n\n${diffSection.text}\n`;
 	if (!input.previousDraft || !input.validationFeedback) {
 		return base;
 	}
-	return `${base}\n## previous invalid draft\n\n${input.previousDraft.trim()}\n\n## validation feedback\n\n${input.validationFeedback}\n\nRewrite the checkpoint message so it satisfies every validation rule. Return only the corrected commit message.\n`;
+	const previousDraft = compactPromptText(input.previousDraft, CHECKPOINT_REPAIR_PREVIOUS_DRAFT_CHAR_LIMIT, "previous invalid draft");
+	const validationFeedback = compactPromptText(input.validationFeedback, CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT, "validation feedback");
+	return `${base}\n## previous invalid draft\n\n${previousDraft}\n\n## validation feedback\n\n${validationFeedback}\n\nRewrite the checkpoint message so it satisfies every validation rule. Return only the corrected commit message.\n`;
 }
 
 export async function createCommitWithPreparedMessage(input: {
@@ -106,6 +129,123 @@ export async function createCommitWithPreparedMessage(input: {
 	} finally {
 		await rm(tempDir, { force: true, recursive: true });
 	}
+}
+
+function buildCheckpointDiffPromptSection(input: {
+	diff: string;
+	maxChars?: number;
+	perFileExcerptChars?: number;
+}): CheckpointDiffPromptSection {
+	const maxChars = input.maxChars ?? CHECKPOINT_DIFF_PROMPT_CHAR_LIMIT;
+	const perFileExcerptChars = input.perFileExcerptChars ?? CHECKPOINT_PER_FILE_EXCERPT_CHAR_LIMIT;
+	const trimmedDiff = input.diff.trimEnd();
+	if (trimmedDiff.trim().length === 0) {
+		return { text: "(no tracked diff; rely on untracked filenames in status)", wasCompacted: false };
+	}
+	if (trimmedDiff.length <= maxChars) {
+		return { text: trimmedDiff, wasCompacted: false };
+	}
+
+	const fileSections = parseDiffFileSections(trimmedDiff);
+	if (fileSections.length === 0) {
+		return { text: buildHeadTailCompactedDiff(trimmedDiff, maxChars), wasCompacted: true };
+	}
+
+	return { text: buildFileSectionCompactedDiff(trimmedDiff, fileSections, maxChars, perFileExcerptChars), wasCompacted: true };
+}
+
+function parseDiffFileSections(diff: string): DiffFileSection[] {
+	const headers = [...diff.matchAll(/^diff --git .*$/gm)];
+	return headers.map((header, index) => {
+		const start = header.index ?? 0;
+		const next = headers[index + 1];
+		const end = next?.index ?? diff.length;
+		const text = diff.slice(start, end).trimEnd();
+		return { path: parseDiffHeaderPath(header[0]), text };
+	});
+}
+
+function parseDiffHeaderPath(header: string): string {
+	const match = header.match(/^diff --git a\/(.+?) b\/(.+)$/);
+	if (!match) return header.replace(/^diff --git\s+/, "");
+	const before = match[1] ?? "";
+	const after = match[2] ?? "";
+	return before === after ? after : `${before} -> ${after}`;
+}
+
+function buildFileSectionCompactedDiff(
+	diff: string,
+	fileSections: readonly DiffFileSection[],
+	maxChars: number,
+	perFileExcerptChars: number,
+): string {
+	const paths = fileSections.map((section) => section.path);
+	let output = `Large diff compacted for checkpoint message generation.\nOriginal diff character count: ${diff.length}\nDetected file sections: ${fileSections.length}\n\n${buildChangedPathList(paths)}\n\nPer-file excerpts:\n`;
+	let omittedFileSections = 0;
+	let omittedCharacters = 0;
+	let includedFileSections = 0;
+
+	for (const section of fileSections) {
+		const finalReserve = CHECKPOINT_FINAL_SUMMARY_RESERVE_CHARS;
+		const remainingChars = maxChars - output.length - finalReserve;
+		const blockOverhead = `\n### ${section.path}\n\n\`\`\`diff\n\n\`\`\`\n`.length + 80;
+		const availableExcerptChars = Math.min(perFileExcerptChars, remainingChars - blockOverhead);
+		if (availableExcerptChars <= 0) {
+			omittedFileSections += 1;
+			omittedCharacters += section.text.length;
+			continue;
+		}
+		const excerpt = section.text.slice(0, availableExcerptChars).trimEnd();
+		const omittedFromSection = section.text.length - excerpt.length;
+		omittedCharacters += omittedFromSection;
+		includedFileSections += 1;
+		const omission = omittedFromSection > 0 ? `\n[... omitted ${omittedFromSection} chars from this file ...]` : "";
+		output += `\n### ${section.path}\n\n\`\`\`diff\n${excerpt}${omission}\n\`\`\`\n`;
+	}
+
+	output += `\nOmitted summary: ${omittedFileSections} file sections not excerpted; ${omittedCharacters} characters omitted from excerpted or omitted file sections; ${includedFileSections} file sections excerpted.\n`;
+	return truncateToMaxChars(output, maxChars);
+}
+
+function buildChangedPathList(paths: readonly string[]): string {
+	let output = `Changed paths (showing 0 of ${paths.length}):`;
+	let shown = 0;
+	for (const path of paths.slice(0, CHECKPOINT_CHANGED_PATH_LIMIT)) {
+		const line = `\n- ${path}`;
+		if (output.length + line.length > CHECKPOINT_CHANGED_PATH_CHAR_LIMIT) break;
+		output += line;
+		shown += 1;
+	}
+	if (shown < paths.length) {
+		output += `\n- ... omitted ${paths.length - shown} more paths`;
+	}
+	return output.replace(`showing 0 of ${paths.length}`, `showing ${shown} of ${paths.length}`);
+}
+
+function buildHeadTailCompactedDiff(diff: string, maxChars: number): string {
+	const marker = `\n[... omitted ${diff.length - maxChars} chars from compacted diff without file sections ...]\n`;
+	const header = `Large diff compacted for checkpoint message generation.\nOriginal diff character count: ${diff.length}\nDetected file sections: 0\nNo diff --git file sections were detected; using head/tail excerpt.\n\n\`\`\`diff\n`;
+	const footer = `\n\`\`\`\n`;
+	const excerptBudget = Math.max(0, maxChars - header.length - marker.length - footer.length);
+	const headChars = Math.ceil(excerptBudget / 2);
+	const tailChars = Math.floor(excerptBudget / 2);
+	return `${header}${diff.slice(0, headChars).trimEnd()}${marker}${diff.slice(diff.length - tailChars).trimStart()}${footer}`;
+}
+
+function truncateToMaxChars(value: string, maxChars: number): string {
+	if (value.length <= maxChars) return value;
+	const marker = "\n[... compacted checkpoint diff section truncated to prompt budget ...]\n";
+	return `${value.slice(0, Math.max(0, maxChars - marker.length)).trimEnd()}${marker}`;
+}
+
+function compactPromptText(value: string, maxChars: number, label: string): string {
+	const trimmed = value.trim();
+	if (trimmed.length <= maxChars) return trimmed;
+	let preservedChars = Math.max(0, maxChars - 80);
+	let marker = `\n[... omitted ${trimmed.length - preservedChars} chars from ${label} ...]\n`;
+	preservedChars = Math.max(0, maxChars - marker.length);
+	marker = `\n[... omitted ${trimmed.length - preservedChars} chars from ${label} ...]\n`;
+	return `${trimmed.slice(0, preservedChars).trimEnd()}${marker}`;
 }
 
 function promptBlock(value: string, emptyPlaceholder: string): string {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "@asdl/sdl/checkpoint-flow";
+import { buildCheckpointUserPrompt, createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "@asdl/sdl/checkpoint-flow";
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/text-generation";
 
 const validMessage = `[cp] Update checkpoint tests
@@ -34,6 +34,56 @@ function ok(stdout = "", stderr = ""): CommandResult {
 function fail(stderr: string): CommandResult {
 	return { code: 1, stdout: "", stderr };
 }
+
+function largeDiffWithSentinel(): string {
+	return [
+		"diff --git a/src/large-one.ts b/src/large-one.ts",
+		"index 1111111..2222222 100644",
+		"--- a/src/large-one.ts",
+		"+++ b/src/large-one.ts",
+		"@@ -1,2 +1,2 @@",
+		`+${"a".repeat(30_000)}`,
+		"FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR",
+		"diff --git a/src/large-two.ts b/src/large-two.ts",
+		"index 3333333..4444444 100644",
+		"--- a/src/large-two.ts",
+		"+++ b/src/large-two.ts",
+		"@@ -1 +1 @@",
+		"+small follow-up",
+	].join("\n");
+}
+
+describe("buildCheckpointUserPrompt", () => {
+	test("ordinary small diff remains present in the prompt", () => {
+		const prompt = buildCheckpointUserPrompt({
+			status: " M src/app.ts\n",
+			diff: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n",
+		});
+
+		expect(prompt).toContain("## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts");
+		expect(prompt).toContain("+export const value = true;");
+		expect(prompt).not.toContain("Large diff compacted");
+	});
+
+	test("large diff is compacted with paths and omitted markers", () => {
+		const prompt = buildCheckpointUserPrompt({ status: " M src/large-one.ts\n M src/large-two.ts\n", diff: largeDiffWithSentinel() });
+
+		expect(prompt.length).toBeLessThan(26_000);
+		expect(prompt).toContain("Large diff compacted for checkpoint message generation.");
+		expect(prompt).toContain("Detected file sections: 2");
+		expect(prompt).toContain("- src/large-one.ts");
+		expect(prompt).toContain("- src/large-two.ts");
+		expect(prompt).toContain("[... omitted ");
+		expect(prompt).toContain("Omitted summary:");
+		expect(prompt).not.toContain("FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
+	});
+
+	test("empty diff keeps the existing untracked-file placeholder", () => {
+		const prompt = buildCheckpointUserPrompt({ status: "?? notes.md\n", diff: "\n" });
+
+		expect(prompt).toContain("(no tracked diff; rely on untracked filenames in status)");
+	});
+});
 
 describe("prepareCheckpointMessage", () => {
 	test("valid first model draft returns after one generation call", async () => {
@@ -81,6 +131,54 @@ describe("prepareCheckpointMessage", () => {
 		expect(textGeneration.calls[1]?.prompt).toContain("## validation feedback");
 		expect(textGeneration.calls[1]?.prompt).toContain("too_many_bullets");
 		expect(textGeneration.calls[1]?.prompt).not.toContain("deterministic validation feedback");
+	});
+
+	test("repair prompt for large diff stays compacted", async () => {
+		const textGeneration = new ScriptedTextGenerationGateway([
+			{ ok: true, text: fourBulletMessage },
+			{ ok: true, text: validMessage },
+		]);
+
+		const result = await prepareCheckpointMessage({
+			status: " M src/large-one.ts\n M src/large-two.ts\n",
+			diff: largeDiffWithSentinel(),
+			modelRef: "openai-codex/gpt-5.4-mini",
+			textGeneration,
+		});
+
+		expect(result.ok).toBe(true);
+		expect(textGeneration.calls).toHaveLength(2);
+		for (const call of textGeneration.calls) {
+			expect(call.prompt.length).toBeLessThan(27_000);
+			expect(call.prompt).toContain("Large diff compacted for checkpoint message generation.");
+			expect(call.prompt).toContain("- src/large-one.ts");
+			expect(call.prompt).not.toContain("FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
+		}
+		expect(textGeneration.calls[1]?.prompt).toContain("## previous invalid draft");
+		expect(textGeneration.calls[1]?.prompt).toContain("## validation feedback");
+	});
+
+	test("repair prompt caps oversized invalid model output", async () => {
+		const oversizedInvalidDraft = `not a checkpoint message ${"q".repeat(30_000)}\nREPAIR_DRAFT_SENTINEL_SHOULD_NOT_APPEAR`;
+		const textGeneration = new ScriptedTextGenerationGateway([
+			{ ok: true, text: oversizedInvalidDraft },
+			{ ok: true, text: validMessage },
+		]);
+
+		const result = await prepareCheckpointMessage({
+			status: " M file.ts\n",
+			diff: "diff --git a/file.ts b/file.ts\n+code\n",
+			modelRef: "openai-codex/gpt-5.4-mini",
+			textGeneration,
+		});
+
+		expect(result.ok).toBe(true);
+		const repairPrompt = textGeneration.calls[1]?.prompt ?? "";
+		expect(repairPrompt.length).toBeLessThan(35_000);
+		expect(repairPrompt).toContain("[... omitted ");
+		expect(repairPrompt).toContain("chars from previous invalid draft");
+		expect(repairPrompt).toContain("chars from validation feedback");
+		expect(repairPrompt).not.toContain("REPAIR_DRAFT_SENTINEL_SHOULD_NOT_APPEAR");
 	});
 
 	test("invalid first and second drafts return failure instead of template recovery", async () => {
