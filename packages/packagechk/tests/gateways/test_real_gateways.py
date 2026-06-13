@@ -187,6 +187,109 @@ def test_real_gateway_rejects_invalid_npm_name_before_fetching() -> None:
     assert urls == []
 
 
+def test_real_gateway_maps_brew_200_to_taken_with_metadata() -> None:
+    urls: list[str] = []
+
+    def fetch_response(url: str, timeout_seconds: float) -> RegistryHttpResponse:
+        urls.append(url)
+        assert timeout_seconds == 5.0
+        return RegistryHttpResponse(
+            status_code=200,
+            json_body={
+                "versions": {"stable": "1.25.0"},
+                "desc": "Internet file retriever",
+            },
+        )
+
+    result = RealPackageRegistryGateway(response_fetcher=fetch_response).check_brew("wget")
+
+    assert result.registry is Registry.BREW
+    assert result.status is CheckStatus.TAKEN
+    assert result.input_name == "wget"
+    assert result.lookup_name == "wget"
+    assert result.package_url == "https://formulae.brew.sh/formula/wget"
+    assert result.latest_version == "1.25.0"
+    assert result.description == "Internet file retriever"
+    assert urls == ["https://formulae.brew.sh/api/formula/wget.json"]
+
+
+def test_real_gateway_maps_brew_200_with_missing_metadata_to_taken() -> None:
+    gateway = RealPackageRegistryGateway(
+        response_fetcher=lambda _url, _timeout_seconds: RegistryHttpResponse(
+            status_code=200,
+            json_body={"versions": {"stable": None}, "desc": 123},
+        )
+    )
+
+    result = gateway.check_brew("sample-name")
+
+    assert result.status is CheckStatus.TAKEN
+    assert result.package_url == "https://formulae.brew.sh/formula/sample-name"
+    assert result.latest_version is None
+    assert result.description is None
+
+
+def test_real_gateway_maps_brew_404_to_available() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
+
+    result = gateway.check_brew("available-name")
+
+    assert result.status is CheckStatus.AVAILABLE
+    assert result.lookup_name == "available-name"
+
+
+def test_real_gateway_maps_unexpected_brew_status_to_error() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 503)
+
+    result = gateway.check_brew("sample-name")
+
+    assert result.status is CheckStatus.ERROR
+    assert "unexpected HTTP status 503" in result.message
+
+
+def test_real_gateway_maps_brew_fetch_failure_to_error() -> None:
+    def fetch_status_code(_url: str, _timeout_seconds: float) -> int:
+        raise OSError("network unavailable")
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_brew("sample-name")
+
+    assert result.status is CheckStatus.ERROR
+    assert "network unavailable" in result.message
+
+
+def test_real_gateway_rejects_invalid_brew_formula_name_before_fetching() -> None:
+    urls: list[str] = []
+
+    def fetch_status_code(url: str, _timeout_seconds: float) -> int:
+        urls.append(url)
+        return 200
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_brew("Bad-Name")
+
+    assert result.status is CheckStatus.INVALID
+    assert "lowercase" in result.message
+    assert urls == []
+
+
+def test_real_gateway_escapes_brew_formula_names() -> None:
+    urls: list[str] = []
+
+    def fetch_status_code(url: str, _timeout_seconds: float) -> int:
+        urls.append(url)
+        return 404
+
+    gateway = RealPackageRegistryGateway(status_code_fetcher=fetch_status_code)
+
+    result = gateway.check_brew("node@22")
+
+    assert result.status is CheckStatus.AVAILABLE
+    assert urls == ["https://formulae.brew.sh/api/formula/node%4022.json"]
+
+
 def test_real_pypi_publish_gateway_reports_missing_uv() -> None:
     gateway = RealPypiPublishGateway(tool_finder=lambda _tool_name: False)
 

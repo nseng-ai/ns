@@ -24,12 +24,14 @@ def check_package_name(
             results.append(registry_gateway.check_pypi(package_name))
         elif registry is Registry.NPM:
             results.append(registry_gateway.check_npm(package_name))
+        elif registry is Registry.BREW:
+            results.append(registry_gateway.check_brew(package_name))
         else:
             results.append(
                 RegistryCheckResult.unsupported(
                     registry,
                     input_name=package_name,
-                    message="Homebrew availability checks are not implemented yet",
+                    message=f"{registry.value} availability checks are not supported",
                 )
             )
     return PackageCheckReport(input_name=package_name, results=tuple(results))

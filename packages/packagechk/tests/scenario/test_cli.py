@@ -36,12 +36,13 @@ def test_packagechk_runtime_uses_root_diagnostics_not_legacy_check() -> None:
     assert result.output == "runtime: python\nentry_point: packagechk.cli:main\n"
 
 
-def test_packagechk_rejects_brew_registry_as_not_implemented() -> None:
-    result = CliRunner().invoke(build_cli(), ["sample-name", "--registry", "brew"])
+def test_packagechk_brew_registry_reports_available_formula() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
-    assert result.exit_code == 2
-    assert "brew: unsupported" in result.output
-    assert "Homebrew availability checks are not implemented yet" in result.output
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "brew"])
+
+    assert result.exit_code == 0
+    assert result.output == "brew: available\n"
 
 
 def test_packagechk_checks_default_registries_with_injected_gateway() -> None:
@@ -205,6 +206,26 @@ def test_packagechk_npm_registry_reports_taken() -> None:
     assert result.output == (
         "npm: taken — latest 4.5.6 — Sample npm package — "
         "https://www.npmjs.com/package/sample-name\n"
+    )
+
+
+def test_packagechk_brew_registry_reports_taken_formula() -> None:
+    gateway = RealPackageRegistryGateway(
+        response_fetcher=lambda _url, _timeout_seconds: RegistryHttpResponse(
+            status_code=200,
+            json_body={
+                "versions": {"stable": "1.25.0"},
+                "desc": "Internet file retriever",
+            },
+        )
+    )
+
+    result = CliRunner().invoke(build_cli(gateway), ["wget", "--registry", "brew"])
+
+    assert result.exit_code == 1
+    assert result.output == (
+        "brew: taken — latest 1.25.0 — Internet file retriever — "
+        "https://formulae.brew.sh/formula/wget\n"
     )
 
 
