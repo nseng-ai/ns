@@ -105,7 +105,7 @@ def test_resolve_prompt_exec_reads_repo_prompt(tmp_path: Path) -> None:
     }
 
 
-def test_resolve_prompt_exec_uses_planned_branch_embedded_default(tmp_path: Path) -> None:
+def test_resolve_prompt_exec_uses_plans_write_default(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         build_cli(source=_entry_point_source()),
         [

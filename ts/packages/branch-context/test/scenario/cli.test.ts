@@ -15,6 +15,7 @@ const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "branch-scoped-plan";
 const PLAN_KEY = "plan.md";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
+const PLAN_STORE_REPO_KEY = "gh--owner--repo";
 
 const TOP_LEVEL_HELP = [
 	"Usage: branch-context [options] [command]",
@@ -165,6 +166,19 @@ afterEach(async () => {
 
 async function makeTempDir(prefix = "branch-context-cli-"): Promise<string> {
 	return tempDirs.makeTempDir(prefix);
+}
+
+async function writeSavedPlan(
+	planStoreRoot: string,
+	params: { slug?: string | undefined; branch?: string | undefined; content?: string | undefined } = {},
+): Promise<string> {
+	const slug = params.slug ?? PLAN_SLUG;
+	const branch = params.branch ?? SOURCE_BRANCH;
+	const planDirectory = join(planStoreRoot, PLAN_STORE_REPO_KEY, encodeBranchForPlanPath(branch));
+	await mkdir(planDirectory, { recursive: true });
+	const filePath = join(planDirectory, `${slug}.md`);
+	await writeFile(filePath, params.content ?? "# Saved Plan\n", "utf8");
+	return filePath;
 }
 
 function runWithFakes(args: readonly string[], script: readonly ScriptedExec[] = [], options: RunWithFakesOptions): CliRun {
@@ -704,6 +718,134 @@ describe("branch-context exec", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJson(run)).toMatchObject({ success: true, branch, namespace: BRANCH_CONTEXT_NAMESPACE, key: "notes", source_file: sourceFile });
 		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: "notes", sourceFile }]);
+	});
+
+	test("attach --plan stores a saved plan as plan.md and reports the plan slug", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const sourceFile = await writeSavedPlan(planStoreRoot);
+		const branch = "branch-contexts/manual-context";
+		const run = runWithFakes(["exec", "attach", "--plan", PLAN_SLUG, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { repoRoot, currentBranch: branch },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			success: true,
+			branch,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: PLAN_KEY,
+			source_file: sourceFile,
+			plan_slug: PLAN_SLUG,
+		});
+		expect(run.brmem.attachmentPresenceCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY }]);
+		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile }]);
+	});
+
+	test("attach --plan rejects key and file arguments", async () => {
+		const repoRoot = await makeTempDir();
+		const outsideDir = await makeTempDir();
+		const sourceFile = join(outsideDir, "notes.md");
+		await writeFile(sourceFile, "# Notes\n", "utf8");
+		const message = "Pass either --plan <slug> or <key> --file <path>, not both.";
+		const run = runWithFakes(["exec", "attach", "notes", "--file", sourceFile, "--plan", PLAN_SLUG, "--format", "json"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(jsonFailure(message));
+		expect(run.stderr.join("")).toBe("");
+		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("attach --plan reports missing slugs with available slugs", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		await writeSavedPlan(planStoreRoot, { slug: "available-plan" });
+		const run = runWithFakes(["exec", "attach", "--plan", "missing-plan", "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { repoRoot },
+		});
+
+		expect(await run.exit).toBe(2);
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		const message = String((payload.error as { message: string }).message);
+		expect(message).toContain("No saved plan found for slug `missing-plan`.");
+		expect(message).toContain("Available slugs:");
+		expect(message).toContain("- available-plan");
+		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("attach --plan reports duplicate slug matches", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const first = await writeSavedPlan(planStoreRoot, { branch: "feature/one" });
+		const second = await writeSavedPlan(planStoreRoot, { branch: "feature/two" });
+		const run = runWithFakes(["exec", "attach", "--plan", PLAN_SLUG, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { repoRoot },
+		});
+
+		expect(await run.exit).toBe(2);
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		const message = String((payload.error as { message: string }).message);
+		expect(message).toContain(`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`);
+		expect(message).toContain(first);
+		expect(message).toContain(second);
+		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("attach reports missing source arguments", async () => {
+		const repoRoot = await makeTempDir();
+		const message = "Attach requires either --plan <slug> or <key> --file <path>.";
+		const run = runWithFakes(["exec", "attach", "--format", "json"], [], { cwd: repoRoot });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(jsonFailure(message));
+		expect(run.stderr.join("")).toBe("");
+		expect(run.brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("attach --plan honors --branch without requiring a current branch", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const sourceFile = await writeSavedPlan(planStoreRoot);
+		const branch = "branch-contexts/override";
+		const run = runWithFakes(["exec", "attach", "--plan", PLAN_SLUG, "--branch", branch, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { repoRoot, currentBranch: { type: "detached" } },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({ success: true, branch, key: PLAN_KEY, source_file: sourceFile, plan_slug: PLAN_SLUG });
+		expect(run.git.currentBranchCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: PLAN_KEY, sourceFile }]);
+	});
+
+	test("attach --plan fails on detached HEAD without --branch", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		await writeSavedPlan(planStoreRoot);
+		const run = runWithFakes(["exec", "attach", "--plan", PLAN_SLUG, "--format", "json"], [], {
+			cwd: repoRoot,
+			planStoreRoot,
+			git: { repoRoot, currentBranch: { type: "detached" } },
+		});
+
+		expect(await run.exit).toBe(2);
+		const payload = parseJson(run);
+		expect(payload.success).toBe(false);
+		expect(String((payload.error as { message: string }).message)).toContain("Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.");
+		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
+		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
 	test("list flags the canonical plan entry", async () => {

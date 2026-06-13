@@ -90,19 +90,28 @@ export async function createBranchContextFromFile(
 		signal: options.signal,
 	});
 
-	const attach = await attachBranchContext({
-		brmem,
-		cwd: options.cwd,
-		branch: operation.branch,
-		key: operation.key,
-		sourceFile,
-		signal: options.signal,
-		skipPresenceCheck: true,
-		failureContext: {
+	let attach: BrmemPutData;
+	try {
+		attach = await attachBranchContext({
+			brmem,
+			cwd: options.cwd,
+			branch: operation.branch,
+			key: operation.key,
+			sourceFile,
+			signal: options.signal,
+		});
+	} catch (error) {
+		throw partialFailureError({
+			title: attachFailureTitle(error instanceof AttachBranchContextError ? error.code : "unknown"),
+			branch: operation.branch,
 			branchCreation: operation.branchCreation,
 			startPoint,
-		},
-	});
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: operation.key,
+			sourceFile,
+			cause: formatErrorMessage(error),
+		});
+	}
 
 	return buildEvidence({ data: attach, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
 }
@@ -397,17 +406,9 @@ export interface AttachBranchContextOptions {
 	key: string;
 	sourceFile: string;
 	signal?: AbortSignal | undefined;
-	skipPresenceCheck?: boolean | undefined;
-	failureContext?: {
-		branchCreation: BranchCreationMethod;
-		startPoint: string;
-	};
 }
 
 export async function attachBranchContext(options: AttachBranchContextOptions): Promise<BrmemPutData> {
-	if (options.skipPresenceCheck !== true) {
-		await assertBrmemEntryAbsent(options.brmem, options.cwd, options.branch, options.key, options.signal);
-	}
 	const attach = await options.brmem.attachPlan({
 		cwd: options.cwd,
 		branch: options.branch,
@@ -418,19 +419,17 @@ export async function attachBranchContext(options: AttachBranchContextOptions): 
 	if (attach.ok) {
 		return attach.value;
 	}
-	if (options.failureContext !== undefined) {
-		throw partialFailureError({
-			title: attachFailureTitle(attach.error.code),
-			branch: options.branch,
-			branchCreation: options.failureContext.branchCreation,
-			startPoint: options.failureContext.startPoint,
-			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: options.key,
-			sourceFile: options.sourceFile,
-			cause: attach.error.message,
-		});
+	throw new AttachBranchContextError(attach.error.code, attach.error.message);
+}
+
+class AttachBranchContextError extends Error {
+	readonly code: string;
+
+	constructor(code: string, message: string) {
+		super(message);
+		this.name = "AttachBranchContextError";
+		this.code = code;
 	}
-	throw new Error(attach.error.message);
 }
 
 interface CreateBranchContextOptions {

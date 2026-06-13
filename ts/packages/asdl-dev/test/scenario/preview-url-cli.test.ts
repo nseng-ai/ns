@@ -600,7 +600,7 @@ describe("asdl-dev CLI surface pinning", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run).branch).toBe("feature/inline");
 		expect(run.git.currentBranchCalls).toEqual([]);
-		// PINNED QUIRK (clinkr-migration): asdl-dev accepts --flag=value while plans, planned-branch, and pr-address do not.
+		// PINNED QUIRK (clinkr-migration): asdl-dev accepts --flag=value while enriched-plan, branch-context, and pr-address do not.
 	});
 
 	test("pins compact preview-url JSON failure bytes", async () => {

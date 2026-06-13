@@ -38,6 +38,7 @@ export {
 	type BranchContextAttachEvidence,
 	type BranchContextCheckEvidence,
 	type BranchContextDeleteEvidence,
+	type BranchContextListEvidence,
 	type BranchContextPrimitiveOptions,
 } from "./attach.ts";
 export { runCli, type CliDeps } from "./cli.ts";
