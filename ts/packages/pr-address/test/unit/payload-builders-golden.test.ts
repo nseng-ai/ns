@@ -7,7 +7,7 @@ import {
 	buildPrepareRunPayloadManifest,
 	getFeedbackPayloadManifestInputSchema,
 	prepareRunPayloadManifestInputSchema,
-} from "../../src/payload-manifest.ts";
+} from "../../src/payload-store.ts";
 import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
 import { goldenCases, readJson } from "../support/golden.ts";
 

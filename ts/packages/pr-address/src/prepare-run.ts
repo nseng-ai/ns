@@ -1,12 +1,10 @@
 import { z } from "zod";
 
 import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
-import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
-import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
-import { buildPrepareRunPayloadManifest } from "./payload-manifest.ts";
-import { PayloadStore, type PayloadReference } from "./payload-store.ts";
+import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 
 interface PrepareRunInlineFound {
 	payload_mode: "inline";
@@ -57,9 +55,9 @@ export const prepareRunOperation = defineExecOperation({
 
 async function runPrepareRunOperation(ctx: PrAddressExecContext, request: PrepareRunRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway work; preserve that ordering.
-	let store: PayloadStore | undefined;
+	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
-		const storeResult = await PayloadStore.fromEnvironment({
+		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitSessionId: request.payload_session_id ?? null,
 			env: ctx.env,
 			clock: ctx.context.payloadClock,

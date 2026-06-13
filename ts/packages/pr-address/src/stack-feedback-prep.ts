@@ -3,10 +3,9 @@ import { z } from "zod";
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
-import { PayloadStore } from "./payload-store.ts";
+import type { PayloadArtifactStore } from "./payload-store.ts";
 import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput } from "./stack-feedback-prep-contracts.ts";
 import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-prep-core.ts";
-import { duplicateValues, pythonTupleRepr } from "./string-values.ts";
 
 const stackFeedbackPrepParseSchema = z.object({
 	stack_json: z.string().optional(),
@@ -29,7 +28,7 @@ export const stackFeedbackPrepOperation = defineExecOperation({
 
 async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the stack JSON; preserve that ordering.
-	const storeResult = await PayloadStore.fromEnvironment({
+	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitSessionId: request.payload_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
@@ -41,6 +40,7 @@ async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request:
 		stackJson: request.stack_json,
 		stackReference: request.stack_reference,
 		stdin: ctx.stdin,
+		store,
 	});
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
@@ -66,6 +66,7 @@ async function resolvePrepStackInput(options: {
 	stackJson: string | undefined;
 	stackReference: string | undefined;
 	stdin: () => Promise<string>;
+	store: PayloadArtifactStore;
 }): Promise<JsonInputResult<{ stack: StackFeedbackPrInput[] }>> {
 	if (options.stackReference === undefined) {
 		return await loadJsonInput({
@@ -89,6 +90,7 @@ async function resolvePrepStackInput(options: {
 		optionName: "--stack-reference",
 		artifactDescription: "a stack JSON payload",
 		schema: stackFeedbackPrepInputSchema,
+		store: options.store,
 	});
 }
 
@@ -102,3 +104,27 @@ function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): st
 	return null;
 }
 
+
+function duplicateValues<T>(values: readonly T[]): T[] {
+	const counts = new Map<T, number>();
+	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+	const seen = new Set<T>();
+	const duplicates: T[] = [];
+	for (const value of values) {
+		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
+			duplicates.push(value);
+			seen.add(value);
+		}
+	}
+	return duplicates;
+}
+
+function pythonRepr(value: string): string {
+	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+}
+
+function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
+	if (parts.length === 1) return `(${parts[0]},)`;
+	return `(${parts.join(", ")})`;
+}

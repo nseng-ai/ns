@@ -4,7 +4,7 @@ import { z } from "zod";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
-import { PayloadStore, type PayloadReference } from "./payload-store.ts";
+import type { PayloadReference } from "./payload-store.ts";
 import {
 	type StackFeedbackPrInput,
 	type StackFeedbackPrepCompactPrResult,
@@ -52,7 +52,7 @@ async function runStackFeedbackPreflightOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackPreflightParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const storeResult = await PayloadStore.fromEnvironment({
+	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitSessionId: request.payload_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,

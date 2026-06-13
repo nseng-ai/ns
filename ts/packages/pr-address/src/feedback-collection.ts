@@ -1,13 +1,11 @@
 import { z } from "zod";
 
 import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
-import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
-import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
-import { RESOLUTION_MARKER } from "./reply-formatting.ts";
-import { PayloadStore, type PayloadReference } from "./payload-store.ts";
+import { buildGetFeedbackPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 
+const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 
 const getFeedbackParseSchema = z.object({
@@ -41,9 +39,9 @@ export const getFeedbackOperation = defineExecOperation({
 
 async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFeedbackRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
-	let store: PayloadStore | undefined;
+	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
-		const storeResult = await PayloadStore.fromEnvironment({
+		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitSessionId: request.payload_session_id ?? null,
 			env: ctx.env,
 			clock: ctx.context.payloadClock,

@@ -5,7 +5,6 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import { loadOperationPayload } from "./json-input.ts";
-import { PayloadStore } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
@@ -21,7 +20,6 @@ import {
 } from "./stack-feedback-plan-contracts.ts";
 import { type StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
-import { duplicateValues, pythonRepr, pythonTupleRepr } from "./string-values.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
@@ -42,7 +40,7 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 
 async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
-	const storeResult = await PayloadStore.fromEnvironment({
+	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitSessionId: request.payload_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
@@ -57,6 +55,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		request,
 		stdin: ctx.stdin,
 		fields: stackFeedbackPlanPayloadFields,
+		store,
 	});
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 	const payloadValue = payloadResult.value;
@@ -404,4 +403,29 @@ function compactInformationalSummary(informational: readonly StackFeedbackPlanIn
 function pythonOrPrNumber(validationPrNumber: number | null, fallbackPrNumber: number): number {
 	if (validationPrNumber === null || validationPrNumber === 0) return fallbackPrNumber;
 	return validationPrNumber;
+}
+
+
+function duplicateValues<T>(values: readonly T[]): T[] {
+	const counts = new Map<T, number>();
+	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+	const seen = new Set<T>();
+	const duplicates: T[] = [];
+	for (const value of values) {
+		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
+			duplicates.push(value);
+			seen.add(value);
+		}
+	}
+	return duplicates;
+}
+
+function pythonRepr(value: string): string {
+	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+}
+
+function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
+	if (parts.length === 1) return `(${parts[0]},)`;
+	return `(${parts.join(", ")})`;
 }

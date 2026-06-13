@@ -19,6 +19,7 @@ import type {
 	RestructuredFile,
 } from "../../src/gateways.ts";
 import type { PrAddressContext } from "../../src/context.ts";
+import { createNodePayloadStoreFactory } from "../../src/payload-store.ts";
 
 /**
  * Build a full PrAddressContext for tests: gateways are required on the
@@ -31,6 +32,7 @@ export function fakePrAddressContext(
 	return {
 		github: new InMemoryPrAddressGitHubGateway(),
 		git: new InMemoryPrAddressGitGateway(),
+		payloadStoreFactory: createNodePayloadStoreFactory(),
 		...overrides,
 	};
 }

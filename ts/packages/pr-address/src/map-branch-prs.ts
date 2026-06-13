@@ -1,11 +1,9 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
-import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
-import { duplicateValues } from "./string-values.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -118,3 +116,17 @@ function lowestNumberedPrByHeadBranch(prs: readonly PRSummary[]): ReadonlyMap<st
 	return byBranch;
 }
 
+
+function duplicateValues<T>(values: readonly T[]): T[] {
+	const counts = new Map<T, number>();
+	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+	const seen = new Set<T>();
+	const duplicates: T[] = [];
+	for (const value of values) {
+		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
+			duplicates.push(value);
+			seen.add(value);
+		}
+	}
+	return duplicates;
+}

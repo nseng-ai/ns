@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler, type JsonSchemaDocument } from "@asdl/clinkr";
 
 import type { PrAddressContext } from "./context.ts";
+import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { buildOperationSchemaDocument } from "./operation-schemas/index.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
@@ -18,6 +19,22 @@ export interface ExecOperation {
 	name: string;
 	schema: z.ZodObject;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
+}
+
+export function gatewayOptions(ctx: PrAddressExecContext): GatewayOptions {
+	return { cwd: ctx.cwd, env: ctx.env };
+}
+
+export function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailure) {
+	return failure("pr_gateway_failure", gatewayFailureMessage(prefix, gatewayFailure));
+}
+
+export function gatewayFailureDetail(gatewayFailure: GatewayFailure): string {
+	return gatewayFailure.stderr ?? gatewayFailure.stdout ?? `exit code ${gatewayFailure.returncode}`;
+}
+
+export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
+	return `${prefix}: ${gatewayFailureDetail(gatewayFailure)}`;
 }
 
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {

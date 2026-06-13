@@ -1,8 +1,6 @@
 import { z } from "zod";
 
 import type { classificationTemplateResultDocSchema } from "./operation-schemas/classification.ts";
-import { isRecord } from "./operation-support.ts";
-import { duplicateValues, pythonReprOrNull as pythonRepr } from "./string-values.ts";
 import {
 	getFeedbackManifestSchema,
 	prepareRunManifestSchema,
@@ -45,6 +43,10 @@ import {
 	type InformationalReason,
 	type PlanSourceKind,
 } from "./feedback-plan-contracts.ts";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export const classificationLocatorSchema = z.looseObject({
 	json_pointer: z.string(),
@@ -1032,4 +1034,24 @@ function classificationLocatorRef(locator: BodyLocator): { json_pointer: string;
 		json_pointer: locator.json_pointer,
 		item_pointer: locator.item_pointer,
 	};
+}
+
+
+function duplicateValues<T>(values: readonly T[]): T[] {
+	const counts = new Map<T, number>();
+	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+	const seen = new Set<T>();
+	const duplicates: T[] = [];
+	for (const value of values) {
+		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
+			duplicates.push(value);
+			seen.add(value);
+		}
+	}
+	return duplicates;
+}
+
+function pythonRepr(value: string | null): string {
+	if (value === null) return "None";
+	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }

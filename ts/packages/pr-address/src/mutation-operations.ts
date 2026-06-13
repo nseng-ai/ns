@@ -2,12 +2,12 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 import { formatErrorMessage } from "@asdl/core";
-import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
-import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
-import { provenanceShapeError, trimOptional } from "./string-values.ts";
+
+export const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
+type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("local_branch"), branch: z.string() }).strict(),
@@ -358,4 +358,124 @@ function resolutionModeArgument(value: string | undefined): { type: "ok"; value:
 
 function invalid(message: string): { type: "error"; errorType: "invalid_request"; message: string } {
 	return { type: "error", errorType: "invalid_request", message };
+}
+
+
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+function provenanceShapeError(provenance: { kind: string; branch?: string; pr_number?: number }): string | null {
+	if (provenance.kind === "local_branch") return trimOptional(provenance.branch) === null ? "kind='local_branch' provenance requires a non-empty branch" : null;
+	if (provenance.kind === "pr" && (provenance.pr_number === undefined || provenance.pr_number <= 0)) {
+		return "kind='pr' provenance requires a positive pr_number";
+	}
+	return null;
+}
+
+const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
+const PRE_EXISTING_REPLY = "Pre-existing issue - this code was moved/restructured, not newly introduced.";
+
+export type ResolutionProvenance = LocalBranchResolutionProvenance | PrResolutionProvenance;
+
+interface LocalBranchResolutionProvenance {
+	kind: "local_branch";
+	branch: string;
+	branch_head_oid: string;
+}
+
+interface PrResolutionProvenance {
+	kind: "pr";
+	pr_number: number;
+	pr_url: string;
+	pr_state: string;
+	pr_head_ref_name: string;
+	pr_head_ref_oid?: string | null | undefined;
+}
+
+interface FormatResolutionReplyOptions {
+	mode: ResolutionReplyMode;
+	message: string | null;
+	commitSha: string | null;
+	provenance?: ResolutionProvenance | null | undefined;
+	timestamp?: string | undefined;
+}
+
+interface FormatReviewReplyOptions {
+	reviewAuthor: string;
+	summaryMarkdown: string;
+	timestamp?: string | undefined;
+}
+
+interface FormatDiscussionReplyOptions {
+	commentAuthor: string;
+	originalBody: string;
+	response: string;
+	timestamp?: string | undefined;
+}
+
+export function formatResolutionReply(options: FormatResolutionReplyOptions): string {
+	const summary = resolutionSummary(options);
+	return [summary, "", `Addressed via _pr-address_ at ${options.timestamp ?? utcTimestamp()}`, RESOLUTION_MARKER].join("\n");
+}
+
+export function formatReviewReply(options: FormatReviewReplyOptions): string {
+	return [`Addressed review feedback from @${options.reviewAuthor}:`, options.summaryMarkdown, "", `_Addressed via pr-address at ${options.timestamp ?? utcTimestamp()}_`].join("\n");
+}
+
+export function formatDiscussionReply(options: FormatDiscussionReplyOptions): string {
+	const quoteBlock = quoteLines(options.originalBody).join("\n");
+	return [`> @${options.commentAuthor} wrote:`, quoteBlock, "", options.response, "", `_Addressed via pr-address at ${options.timestamp ?? utcTimestamp()}_`].join("\n");
+}
+
+function resolutionSummary(options: FormatResolutionReplyOptions): string {
+	switch (options.mode) {
+		case "pre_existing":
+			return PRE_EXISTING_REPLY;
+		case "fixed":
+			return `Fixed in commit ${options.commitSha}: ${options.message}`;
+		case "explained":
+			return `${options.message}`;
+		case "planned":
+			if (options.provenance === null || options.provenance === undefined) throw new Error("mode='planned' requires validated provenance");
+			return plannedResolutionSummary({ message: options.message, provenance: options.provenance });
+	}
+}
+
+function plannedResolutionSummary(options: { message: string | null; provenance: ResolutionProvenance }): string {
+	if (options.message === null) throw new Error("mode='planned' requires a non-empty message");
+	const lines = [`Planned follow-up: ${options.message}`, "", "Provenance:"];
+	if (options.provenance.kind === "local_branch") {
+		lines.push(`- Local branch: \`${options.provenance.branch}\``);
+		lines.push(`- Branch HEAD snapshot: \`${options.provenance.branch_head_oid}\``);
+		return lines.join("\n");
+	}
+	lines.push(`- PR: #${options.provenance.pr_number} ${options.provenance.pr_url}`);
+	lines.push(`- PR state snapshot: ${options.provenance.pr_state}`);
+	if (options.provenance.pr_head_ref_oid !== null && options.provenance.pr_head_ref_oid !== undefined) {
+		lines.push(`- PR head snapshot: \`${options.provenance.pr_head_ref_name}\` at \`${options.provenance.pr_head_ref_oid}\``);
+	} else {
+		lines.push(`- PR head snapshot: \`${options.provenance.pr_head_ref_name}\``);
+	}
+	return lines.join("\n");
+}
+
+function quoteLines(text: string): readonly string[] {
+	const lines = splitLines(text);
+	if (lines.length === 0) return [">"];
+	return lines.map((line) => (line === "" ? "> " : `> ${line}`));
+}
+
+function splitLines(text: string): string[] {
+	if (text === "") return [];
+	const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+	const lines = normalized.split("\n");
+	if (normalized.endsWith("\n")) lines.pop();
+	return lines;
+}
+
+function utcTimestamp(): string {
+	return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }

@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { isRecord } from "./operation-support.ts";
+import type { PayloadArtifactStore, PayloadErrorType } from "./payload-store.ts";
 
 export interface JsonInputError {
-	errorType: "invalid_json" | "invalid_request";
+	errorType: "invalid_json" | "invalid_request" | PayloadErrorType;
 	message: string;
 }
 
@@ -61,6 +61,7 @@ export interface LoadArtifactReferenceOptions<T> {
 	optionName: string;
 	artifactDescription: string;
 	schema: z.ZodType<T>;
+	store?: PayloadArtifactStore | undefined;
 }
 
 export interface ResolveXorSourceInputOptions<T> {
@@ -72,6 +73,7 @@ export interface ResolveXorSourceInputOptions<T> {
 	artifactDescription: string;
 	referenceSchema: z.ZodType<T>;
 	inputName?: string | undefined;
+	store?: PayloadArtifactStore | undefined;
 }
 
 export interface OperationPayloadField<TPayload extends object, TKey extends keyof TPayload & string> {
@@ -89,6 +91,7 @@ export interface LoadOperationPayloadOptions<TPayload extends object> {
 	request: Readonly<Record<string, unknown>>;
 	stdin: () => Promise<string>;
 	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[];
+	store?: PayloadArtifactStore | undefined;
 	canOmitPayloadWhenAllFieldsReferenced?: boolean | undefined;
 }
 
@@ -98,6 +101,17 @@ export interface LoadOperationPayloadOptions<TPayload extends object> {
  * so provenance is deliberately not checked.
  */
 export async function loadArtifactReference<T>(options: LoadArtifactReferenceOptions<T>): Promise<JsonInputResult<T>> {
+	if (options.store !== undefined) {
+		const artifactResult = await options.store.readJsonArtifact({ payloadPath: options.filePath });
+		if (artifactResult.type === "ok") {
+			return parseJsonValueWithSchema({
+				value: artifactResult.value,
+				schema: options.schema,
+				schemaDescription: `${options.commandName} ${options.optionName}`,
+			});
+		}
+	}
+
 	const fileResult = await readJsonInputFile({
 		filePath: options.filePath,
 		commandName: options.commandName,
@@ -144,6 +158,7 @@ export async function resolveXorSourceInput<T>(options: ResolveXorSourceInputOpt
 		optionName: options.optionName,
 		artifactDescription: options.artifactDescription,
 		schema: options.referenceSchema,
+		store: options.store,
 	});
 }
 
@@ -192,6 +207,7 @@ export async function loadOperationPayload<TPayload extends object>(
 			artifactDescription: field.artifactDescription,
 			referenceSchema: field.referenceSchema,
 			inputName: field.inputName,
+			store: options.store,
 		});
 		if (result.type === "error") return result;
 		resolvedPayload[field.key] = result.value;
@@ -209,6 +225,10 @@ export async function loadOperationPayload<TPayload extends object>(
 		}
 	}
 	return { type: "ok", value: finalParseResult.data };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringRequestField(request: Readonly<Record<string, unknown>>, key: string): string | undefined {
@@ -353,7 +373,11 @@ export function parseJsonWithSchema<T>(options: ParseJsonWithSchemaOptions<T>): 
 		};
 	}
 
-	const parseResult = options.schema.safeParse(parsedJson);
+	return parseJsonValueWithSchema({ value: parsedJson, schema: options.schema, schemaDescription: options.schemaDescription });
+}
+
+function parseJsonValueWithSchema<T>(options: { value: unknown; schema: z.ZodType<T>; schemaDescription: string }): JsonInputResult<T> {
+	const parseResult = options.schema.safeParse(options.value);
 	if (!parseResult.success) {
 		return {
 			type: "error",
