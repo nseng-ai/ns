@@ -44,6 +44,13 @@ interface FileSectionCompactedDiffInput {
 	perFileExcerptChars: number;
 }
 
+interface HeadTruncatedTextInput {
+	value: string;
+	maxChars: number;
+	buildMarker: (omittedChars: number) => string;
+	trimInput?: boolean;
+}
+
 export interface CommandResult {
 	code: number;
 	stdout: string;
@@ -238,19 +245,32 @@ function buildHeadTailCompactedDiff(diff: string, maxChars: number): string {
 }
 
 function truncateToMaxChars(value: string, maxChars: number): string {
-	if (value.length <= maxChars) return value;
-	const marker = "\n[... compacted checkpoint diff section truncated to prompt budget ...]\n";
-	return `${value.slice(0, Math.max(0, maxChars - marker.length)).trimEnd()}${marker}`;
+	return truncateHeadWithMarker({
+		value,
+		maxChars,
+		buildMarker: () => "\n[... compacted checkpoint diff section truncated to prompt budget ...]\n",
+	});
 }
 
 function compactPromptText(value: string, maxChars: number, label: string): string {
-	const trimmed = value.trim();
-	if (trimmed.length <= maxChars) return trimmed;
-	let preservedChars = Math.max(0, maxChars - 80);
-	let marker = `\n[... omitted ${trimmed.length - preservedChars} chars from ${label} ...]\n`;
-	preservedChars = Math.max(0, maxChars - marker.length);
-	marker = `\n[... omitted ${trimmed.length - preservedChars} chars from ${label} ...]\n`;
-	return `${trimmed.slice(0, preservedChars).trimEnd()}${marker}`;
+	return truncateHeadWithMarker({
+		value,
+		maxChars,
+		trimInput: true,
+		buildMarker: (omittedChars) => `\n[... omitted ${omittedChars} chars from ${label} ...]\n`,
+	});
+}
+
+function truncateHeadWithMarker(input: HeadTruncatedTextInput): string {
+	const value = input.trimInput === true ? input.value.trim() : input.value;
+	if (value.length <= input.maxChars) return value;
+
+	let marker = input.buildMarker(0);
+	let preservedChars = Math.max(0, input.maxChars - marker.length);
+	marker = input.buildMarker(value.length - preservedChars);
+	preservedChars = Math.max(0, input.maxChars - marker.length);
+	marker = input.buildMarker(value.length - preservedChars);
+	return `${value.slice(0, preservedChars).trimEnd()}${marker}`;
 }
 
 function promptBlock(value: string, emptyPlaceholder: string): string {
