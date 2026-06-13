@@ -1,6 +1,8 @@
 # Cross-Harness Parity Table
 
-Living tracker for the `cross-harness-parity` Objective. One row per Pi extension command or custom tool. Seeded from the 2026-06-03 audit; refresh on every parity-relevant Objective update and via the parity-review workflow's full-sweep mode (the `parity-review` route of the `code-workflows` skill, renamed 2026-06-11 from `internal-code-workflows`). Last full sweep: 2026-06-10; last targeted refresh: 2026-06-12. Shared primitive workstreams with no Pi command/tool yet, such as the subsumed command-output summaries work, stay in `objective.md` and `roadmap.md` until a Pi surface exists.
+Living tracker for the `cross-harness-parity` Objective. One row per Pi extension command or custom tool. Seeded from the 2026-06-03 audit; refresh on every parity-relevant Objective update and via the parity-review workflow's full-sweep mode (the `parity-review` route of the `code-workflows` skill, renamed 2026-06-11 from `internal-code-workflows`). Last full sweep: 2026-06-10; last targeted refresh: 2026-06-13. Shared primitive workstreams with no Pi command/tool yet, such as the subsumed command-output summaries work, stay in `objective.md` and `roadmap.md` until a Pi surface exists.
+
+**Machine-checkable source note:** the v1 accounting contract for command/tool surfaces implemented by `@asdl/pi-extensions` package modules lives in typed TypeScript metadata (`ts/packages/pi-extensions/src/parity.ts`, `parity-registry.ts`) and is enforced by `ts/packages/pi-extensions/test/parity.test.ts`. That Vitest gate registers package modules against a fake Pi host and checks for missing, stale, or duplicate exact metadata; it does not parse this Markdown table and does not cover ad hoc `.pi/extensions/*.ts` adapters or direct `@asdl/ccc` surfaces unless they are exposed through `@asdl/pi-extensions`.
 
 **Parity legend**
 

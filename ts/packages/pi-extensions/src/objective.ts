@@ -3,6 +3,7 @@ import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-env
 import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
+import { definePiSurfaceParity } from "./parity.ts";
 import { expandSkillBlock } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
@@ -469,6 +470,45 @@ const CUSTOM_CLI_COMMANDS: { spec: CustomCliCommandSpec; description: string }[]
 		description: "List active Objectives in this repository without invoking the agent.",
 	},
 ];
+
+export const objectiveParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: OBJECTIVE_LIST_COMMAND_NAME,
+		workflow: "List active Objectives in this repository without invoking the agent",
+		parity: "FULL",
+		cli: "objective list",
+		skill: "objective",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "objective",
+		notes: "Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
+	},
+	...OBJECTIVE_COMMANDS.map((spec) => ({
+		kind: "command",
+		surface: spec.commandName,
+		workflow: spec.description,
+		parity: "FULL",
+		cli: `objective ${spec.commandName.slice("objective:".length)}`,
+		skill: spec.skillName,
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "objective",
+		notes: "Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
+	}) as const),
+	{
+		kind: "command",
+		surface: "objective:stack-impl",
+		workflow: "Pick an active Objective, then invoke the portable Objective stack implementation skill",
+		parity: "FULL",
+		cli: "objective list-candidates plus explicit objective-stack-impl skill invocation",
+		skill: "objective-stack-impl",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "objective",
+		notes: "The public command is registered through @asdl/ccc, but exposed by the @asdl/pi-extensions Objective adapter.",
+	},
+] as const);
 
 async function handleCustomCliCommand(
 	pi: ExtensionAPI,

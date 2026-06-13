@@ -3,8 +3,23 @@ import { join } from "node:path";
 
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
+
+export const prFeedbackWatchParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: PR_FEEDBACK_WATCH_COMMAND_NAME,
+		workflow: "Watch the current branch PR for new feedback and dispatch constrained pr-address runs",
+		parity: "WAIVED",
+		fallback: "Use the pr-address skill/CLI manually when PR feedback is detected or requested outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "pr-feedback-watch",
+		notes: "Pi owns opt-in live polling and prompt injection; pr-address owns the portable feedback normalization and mutation workflow.",
+	},
+] as const);
 export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "code-pr-feedback-watch";
 export const PR_FEEDBACK_WATCH_STATE_TYPE = "code-pr-feedback-watch-state";
 

@@ -1,3 +1,5 @@
+import { definePiSurfaceParity } from "./parity.ts";
+
 const MODEL_SHORTCUTS = [
 	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
 	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.5" },
@@ -5,6 +7,20 @@ const MODEL_SHORTCUTS = [
 	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
 	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
 ] as const satisfies readonly ModelShortcut[];
+
+export const modelShortcutParity = definePiSurfaceParity(
+	MODEL_SHORTCUTS.map((shortcut) => ({
+		kind: "command",
+		surface: shortcut.command,
+		workflow: `Switch the current Pi session model to ${modelRef(shortcut)}`,
+		parity: "WAIVED",
+		fallback: "Use the target harness's own model-selection mechanism before continuing the workflow.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "model-shortcuts",
+		notes: "Model shortcuts are Pi session-local conveniences rather than portable engineering workflow logic.",
+	})),
+);
 
 type NotifyLevel = "info" | "warning" | "error";
 

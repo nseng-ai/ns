@@ -23,9 +23,24 @@ import {
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
 import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
+
+export const dispatchRunnerSubagentParity = definePiSurfaceParity([
+	{
+		kind: "tool",
+		surface: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
+		workflow: "Dispatch a focused runner subagent and return its final text",
+		parity: "WAIVED",
+		fallback: "Manually start a separate agent session with the same focused prompt and report its final answer back to the parent workflow.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "dispatch-runner-subagent",
+		notes: "Tool value is Pi session orchestration and progress capture; non-Pi harnesses can approximate it with manual subagent dispatch.",
+	},
+] as const);
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 

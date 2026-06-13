@@ -13,6 +13,7 @@ import {
 import { formatGrillAskProgressLine, readGrillAskProgress, type GrillAskProgress } from "./grill-ui/progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
 
 export { type GrillAskDetails } from "./grill-ui/result.ts";
@@ -27,6 +28,42 @@ export const GRILL_UI_COMMAND_NAME = "grill-ui";
 export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "grill-with-docs-ui";
 export const GRILL_ASK_TOOL_NAME = "grill_ask";
 export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
+
+export const grillUiParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: GRILL_UI_COMMAND_NAME,
+		workflow: "Start a structured grilling interview",
+		parity: "WAIVED",
+		fallback: "Use the grill-me skill for a prose interview outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "grill-ui",
+		notes: "Structured TUI interaction is Pi-native; portable fallback is the skill workflow.",
+	},
+	{
+		kind: "command",
+		surface: GRILL_WITH_DOCS_UI_COMMAND_NAME,
+		workflow: "Start a docs-aware structured grilling interview",
+		parity: "WAIVED",
+		fallback: "Use the grill-with-docs skill for a prose docs-aware interview outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "grill-ui",
+		notes: "Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
+	},
+	{
+		kind: "tool",
+		surface: GRILL_ASK_TOOL_NAME,
+		workflow: "Ask one structured grill question through Pi UI",
+		parity: "WAIVED",
+		fallback: "Ask the same one-question multiple-choice prompt in prose using grill-me / grill-with-docs guidance.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "grill-ui",
+		notes: "Tool value is the Pi TUI; dependent workflows require prose fallback handling.",
+	},
+] as const);
 export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 
 const UNKNOWN_SELECTION_MESSAGE =

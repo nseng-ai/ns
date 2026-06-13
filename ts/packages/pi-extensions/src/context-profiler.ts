@@ -33,8 +33,23 @@ import {
 import { bundleStatusBarText } from "./context-profiler/render.ts";
 import type { SegmentationState } from "./context-profiler/segmentation.ts";
 import { ProfilerView } from "./context-profiler/view.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
+
+export const contextProfilerParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: CONTEXT_PROFILER_COMMAND_NAME,
+		workflow: "Open a diagnostic overlay explaining session context usage",
+		parity: "WAIVED",
+		fallback: "Use a saved context-profiler bundle and the context-bundle-analysis skill for offline prose analysis outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "context-profiler",
+		notes: "Live context overlay and interrogation UI are Pi session primitives; frozen bundle analysis has a portable skill path.",
+	},
+] as const);
 const STATUS_KEY = "context-profiler";
 
 /** One open overlay: its close callback and, once available, its handle and view. */

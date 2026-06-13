@@ -1,7 +1,34 @@
 import { formatCommand, type ExecResult } from "@asdl/core/exec";
 
+import { definePiSurfaceParity } from "./parity.ts";
+
 export const CHECKPOINT_PREVIEW_COMMAND_NAME = "cp-preview";
 export const CHECKPOINT_PREVIEW_ALIAS_COMMAND_NAME = "checkpoint-preview";
+
+export const checkpointPreviewParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: CHECKPOINT_PREVIEW_COMMAND_NAME,
+		workflow: "Preview a dev-checkpoint commit message without staging or committing",
+		parity: "PARTIAL",
+		trackedGap: "cross-harness-parity roadmap: add an asdl-dev cp preview/dry-run mode or record a durable waiver for the Pi-only preview UX.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "checkpoint-preview",
+		notes: "Preview-only UX is a Pi additive helper around the portable checkpoint-message conventions.",
+	},
+	{
+		kind: "command",
+		surface: CHECKPOINT_PREVIEW_ALIAS_COMMAND_NAME,
+		workflow: "Preview a dev-checkpoint commit message without staging or committing",
+		parity: "PARTIAL",
+		trackedGap: "cross-harness-parity roadmap: keep the checkpoint-preview alias aligned with the cp-preview preview/dry-run parity decision.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "checkpoint-preview",
+		notes: "Alias registration is accounted separately because it is an exact live Pi command surface.",
+	},
+] as const);
 
 const STATUS_KEY = CHECKPOINT_PREVIEW_COMMAND_NAME;
 const MESSAGE_TYPE = "checkpoint-preview-output";
