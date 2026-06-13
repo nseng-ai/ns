@@ -23,7 +23,7 @@ export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";
 export const BRANCH = "cmux-summary-hooks";
 export const PLAN_SLUG = "cmux-summary-hooks";
-export const PLAN_KEY = `${PLAN_SLUG}.md`;
+export const PLAN_KEY = "plan.md";
 export const SOURCE_BRANCH = "source-branch";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 export const FAST_MODEL: ModelInfo = { provider: "openai-codex", id: "gpt-5.4-mini" };
@@ -370,10 +370,10 @@ export function brmemPutJson(repoRoot: string, planFile: string): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			namespace: "planned-branch",
+			namespace: "branch-context",
 			key: PLAN_KEY,
 			branch: PLAN_SLUG,
-			ref_name: `refs/brmem/ns/planned-branch/${PLAN_SLUG}:${PLAN_KEY}`,
+			ref_name: `refs/brmem/ns/branch-context/${PLAN_SLUG}:${PLAN_KEY}`,
 			commit: START_POINT,
 			source_file: planFile,
 			repo_root: repoRoot,
@@ -425,7 +425,7 @@ export async function writeTempSkill(body: string): Promise<string> {
 export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string, options: { fileName?: string; content?: string } = {}): Promise<string> {
 	const directoryPath = cmuxPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
-	const planFile = join(directoryPath, options.fileName ?? PLAN_KEY);
+	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}.md`);
 	await writeFile(planFile, options.content ?? "# Plan\n", "utf8");
 	return planFile;
 }
@@ -452,14 +452,14 @@ export function skillCommand(skillName: string, path: string): SkillCommandInfo 
 	};
 }
 
-export function plannedBranchOutputEntry(branch: string): unknown {
+export function branchContextOutputEntry(branch: string): unknown {
 	const slug = branch.split("/").filter((segment) => segment.length > 0).at(-1) ?? branch;
-	const key = `${slug}.md`;
+	const key = PLAN_KEY;
 	const encodedBranch = branch.replaceAll("/", "---");
 	return {
 		message: {
-			customType: "planned-branch-output",
-			content: "Created planned branch and attached plan.",
+			customType: "branch-context-output",
+			content: "Created branch context and attached plan.",
 			details: {
 				status: "success",
 				evidence: {
@@ -467,9 +467,9 @@ export function plannedBranchOutputEntry(branch: string): unknown {
 					branch,
 					branchCreation: "graphite",
 					startPoint: START_POINT,
-					namespace: "planned-branch",
+					namespace: "branch-context",
 					key,
-					refName: `refs/brmem/ns/planned-branch/${encodedBranch}:${key}`,
+					refName: `refs/brmem/ns/branch-context/${encodedBranch}:${key}`,
 					commit: START_POINT,
 					sourceFile: `/plans/${key}`,
 				},

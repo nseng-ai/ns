@@ -5,4 +5,4 @@ export {
 	normalizePlanContentSlugOutput,
 	truncatePlanContentForSlug,
 	type PlanContentSlugEvidence,
-} from "@asdl/planned-branch";
+} from "@asdl/branch-context";

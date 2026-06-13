@@ -68,11 +68,11 @@ install-pr-address: ts-install
     chmod +x "$HOME/.local/bin/pr-address"
     @echo "installed: $HOME/.local/bin/pr-address (canonical checkout: {{justfile_directory()}})"
 
-# Link the planned-branch bin through pnpm so `planned-branch` is on PATH.
+# Link the branch-context bin through pnpm so `branch-context` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
-link-planned-branch: ts-install
-    cd {{justfile_directory()}}/ts/packages/planned-branch && pnpm link
-    @echo "linked: planned-branch (pnpm global bin)"
+link-branch-context: ts-install
+    cd {{justfile_directory()}}/ts/packages/branch-context && pnpm link
+    @echo "linked: branch-context (pnpm global bin)"
 
 test:
     uv run pytest -n auto --ignore-glob='*/integration/*'

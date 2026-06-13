@@ -423,13 +423,13 @@ describe("formatPlanBranchEvidence", () => {
 			summary: "Plan the branch-creating flow.",
 		});
 
-		expect(text).toContain("Created planned branch and attached plan.");
+		expect(text).toContain("Created branch context and attached plan.");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
 		expect(text).toContain("Branch creation: graphite");
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain("Ref: refs/brmem/ns/planned-branch/planned-branches---wire-create-planned-branch-command");
+		expect(text).toContain("Ref: refs/brmem/ns/branch-context/planned-branches---wire-create-planned-branch-command");
 		expect(text).toContain("Commit: abc123");
 		expect(text).toContain("Source file: /tmp/plan.md");
 		expect(text).toContain("Summary: Plan the branch-creating flow.");

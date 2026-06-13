@@ -1,57 +1,57 @@
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 import type { ExecResult } from "@asdl/core/exec";
-import type { PlannedBranchEvidence } from "@asdl/planned-branch";
+import type { BranchContextEvidence } from "@asdl/branch-context";
 
-export interface PlannedBranchUpAndImplHost {
+export interface BranchContextUpAndImplHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
 }
 
-export interface PlannedBranchUpAndImplNewSessionContext {
+export interface BranchContextUpAndImplNewSessionContext {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
-export interface PlannedBranchUpAndImplNewSessionOptions {
+export interface BranchContextUpAndImplNewSessionOptions {
 	parentSession?: string;
-	withSession?(ctx: PlannedBranchUpAndImplNewSessionContext): Promise<void> | void;
+	withSession?(ctx: BranchContextUpAndImplNewSessionContext): Promise<void> | void;
 }
 
-export interface PlannedBranchUpAndImplContext {
+export interface BranchContextUpAndImplContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: LaunchStatusUi;
 	sessionManager?: {
 		getSessionFile?(): string | undefined;
 	};
-	newSession(options?: PlannedBranchUpAndImplNewSessionOptions): Promise<{ cancelled: boolean }>;
+	newSession(options?: BranchContextUpAndImplNewSessionOptions): Promise<{ cancelled: boolean }>;
 }
 
-export interface PlannedBranchUpAndImplLaunchOptions {
-	host: PlannedBranchUpAndImplHost;
-	ctx: PlannedBranchUpAndImplContext;
+export interface BranchContextUpAndImplLaunchOptions {
+	host: BranchContextUpAndImplHost;
+	ctx: BranchContextUpAndImplContext;
 	statusKey: string;
-	evidence: Pick<PlannedBranchEvidence, "branch" | "key">;
+	evidence: Pick<BranchContextEvidence, "branch" | "key">;
 	signal?: AbortSignal;
 }
 
-export type PlannedBranchUpAndImplLaunchPhase = "checkout" | "new-session";
+export type BranchContextUpAndImplLaunchPhase = "checkout" | "new-session";
 
-export type PlannedBranchUpAndImplLaunchResult =
+export type BranchContextUpAndImplLaunchResult =
 	| { type: "launched"; branch: string; key: string; parentSession?: string }
 	| { type: "cancelled"; branch: string; key: string; parentSession?: string }
-	| { type: "failed"; branch: string; key: string; phase: PlannedBranchUpAndImplLaunchPhase; message: string; parentSession?: string };
+	| { type: "failed"; branch: string; key: string; phase: BranchContextUpAndImplLaunchPhase; message: string; parentSession?: string };
 
 const CHECKOUT_TIMEOUT_MS = 30_000;
 
-export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAndImplLaunchOptions): Promise<PlannedBranchUpAndImplLaunchResult> {
+export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAndImplLaunchOptions): Promise<BranchContextUpAndImplLaunchResult> {
 	const { branch, key } = options.evidence;
 	const statusUpdater = buildStatusUpdater(options);
 	let isReplacementSessionActive = false;
-	let phase: PlannedBranchUpAndImplLaunchPhase = "checkout";
+	let phase: BranchContextUpAndImplLaunchPhase = "checkout";
 	let parentSession: string | undefined;
 
 	try {
-		setLaunchStatus(statusUpdater, "checking out planned branch…");
-		const checkout = await checkoutPlannedBranch({ host: options.host, cwd: options.ctx.cwd, targetBranch: branch, signal: options.signal });
+		setLaunchStatus(statusUpdater, "checking out branch context…");
+		const checkout = await checkoutBranchContext({ host: options.host, cwd: options.ctx.cwd, targetBranch: branch, signal: options.signal });
 		if (checkout.type === "failed") {
 			return { type: "failed", branch, key, phase: "checkout", message: checkout.message };
 		}
@@ -60,7 +60,7 @@ export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAn
 		setLaunchStatus(statusUpdater, "starting implementation session…");
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const parentSessionPart = parentSession === undefined ? {} : { parentSession };
-		const newSessionOptions: PlannedBranchUpAndImplNewSessionOptions = {
+		const newSessionOptions: BranchContextUpAndImplNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
 				await newCtx.sendUserMessage(`/planned-branch:impl ${key}`);
@@ -93,20 +93,20 @@ export async function runPlannedBranchUpAndImplLaunch(options: PlannedBranchUpAn
 	}
 }
 
-export function formatPlannedBranchUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
+export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
 	return [`git checkout ${targetBranch}`, "/new", `/planned-branch:impl ${key}`].join("\n");
 }
 
 type CheckoutResult = { type: "ok" } | { type: "failed"; message: string };
 
-interface CheckoutPlannedBranchOptions {
-	host: PlannedBranchUpAndImplHost;
+interface CheckoutBranchContextOptions {
+	host: BranchContextUpAndImplHost;
 	cwd: string;
 	targetBranch: string;
 	signal: AbortSignal | undefined;
 }
 
-async function checkoutPlannedBranch(options: CheckoutPlannedBranchOptions): Promise<CheckoutResult> {
+async function checkoutBranchContext(options: CheckoutBranchContextOptions): Promise<CheckoutResult> {
 	const result = await options.host.exec("git", ["checkout", options.targetBranch], {
 		cwd: options.cwd,
 		timeout: CHECKOUT_TIMEOUT_MS,
@@ -130,7 +130,7 @@ function formatCheckoutFailureOutput(result: ExecResult): string {
 	return "(no output)";
 }
 
-function buildStatusUpdater(options: PlannedBranchUpAndImplLaunchOptions): LaunchStatusUpdater {
+function buildStatusUpdater(options: BranchContextUpAndImplLaunchOptions): LaunchStatusUpdater {
 	return {
 		hasUI: options.ctx.hasUI,
 		ui: options.ctx.ui,

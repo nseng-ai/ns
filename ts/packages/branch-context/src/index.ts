@@ -1,0 +1,85 @@
+export {
+	NoAttachedBranchContextEntriesError,
+	NoBranchContextPlanEntryError,
+	buildImplBranchContextPrompt,
+	formatLoadedAttachedPlanEvidence,
+	loadedPlanTitle,
+	loadAttachedPlan,
+	loadBranchContextPlan,
+	normalizeRequestedBranchContextKey,
+	parseBrmemGetContent,
+	parseBrmemListEntries,
+	selectAttachedPlanKey,
+	type AttachedPlanEntry,
+	type LoadAttachedPlanOptions,
+	type LoadedAttachedPlan,
+	type LoadedPlanSource,
+} from "./attached-plan.ts";
+export {
+	RealBranchContextBrmemGateway,
+	parseBrmemPutData,
+	type BrmemAttachmentPresenceResult,
+	type BrmemErrorInfo,
+	type BrmemGetContent,
+	type BrmemPutData,
+	type BrmemResult,
+	type BranchContextBrmemGateway,
+} from "./brmem-gateway.ts";
+export { runCli, type CliDeps } from "./cli.ts";
+export {
+	MAX_PLAN_CONTENT_CHARS,
+	buildPlanContentSlugPrompt,
+	derivePlanContentSlug,
+	normalizePlanContentSlugOutput,
+	truncatePlanContentForSlug,
+	type DerivePlanContentSlugInput,
+	type PlanContentSlugEvidence,
+} from "./plan-content-slug.ts";
+export { createRealBranchContextContext, RealCommandExecApi, type BranchContextContext } from "./context.ts";
+export {
+	RealBranchContextGraphiteGateway,
+	type GraphiteBranchTrackedResult,
+	type GraphiteCheckBranchTrackedParams,
+	type GraphiteErrorInfo,
+	type GraphiteOperationResult,
+	type GraphiteTrackBranchParams,
+	type BranchContextGraphiteGateway,
+} from "./graphite-gateway.ts";
+export {
+	BRANCH_CONTEXT_NAMESPACE,
+	BRANCH_CONTEXT_PLAN_KEY,
+	attachBranchContext,
+	assertBrmemEntryAbsent,
+	buildBranchContextCreateOperation,
+	createBranchContextFromFile,
+	deriveTargetBranch,
+	formatBranchContextCreateFailure,
+	formatBranchContextCreatePreview,
+	formatBranchContextEvidence,
+	normalizeBranchCreationMethod,
+	resolveBranchContextCreatePreviewContext,
+	tryNormalizeBranchCreationMethod,
+	validateTargetBranchName,
+	type BranchCreationMethod,
+	type CreateBranchContextFromFileOptions,
+	type CreateBranchContextFromFileParams,
+	type BranchContextCreateOperation,
+	type BranchContextCreatePreviewContext,
+	type BranchContextEvidence,
+} from "./branch-context-creation.ts";
+export {
+	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	extractBranchContextEvidence,
+	extractBranchContextEvidenceFromSessionEntry,
+	type BranchContextOutputDetails,
+	type BranchContextOutputStatus,
+} from "./session-artifact.ts";
+export {
+	formatExistingBranchContextReuse,
+	resolveExistingBranchContextReuse,
+	type ExistingBranchContextCandidate,
+	type ExistingBranchContextReuse,
+	type ExistingBranchContextReuseSource,
+	type ResolveExistingBranchContextReuseOptions,
+	type ResolveExistingBranchContextReuseParams,
+} from "./existing-branch-reuse.ts";

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt } from "@asdl/planned-branch";
+import { buildPlanContentSlugPrompt } from "@asdl/branch-context";
 import { buildSlugModelArgs } from "@asdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
@@ -31,7 +31,7 @@ import {
 	makeTempDir,
 	missingRevisionResult,
 	notificationMessages,
-	plannedBranchOutputEntry,
+	branchContextOutputEntry,
 	resetCmuxTestEnvironment,
 	savedPlanEntry,
 	skillCommand,
@@ -147,7 +147,7 @@ describe("CCC cmux command suite", () => {
 	test("ccc:workspace:open-branch cancels inferred branch without opening workspace", async () => {
 		const pi = new FakePi();
 		registerCccSlotOpenBranchCommand(pi);
-		const ctx = new FakeCommandContext({ branchEntries: [plannedBranchOutputEntry("feature/latest")] });
+		const ctx = new FakeCommandContext({ branchEntries: [branchContextOutputEntry("feature/latest")] });
 		ctx.shouldConfirm = false;
 
 		await pi.commands.get("ccc:workspace:open-branch")?.handler("", ctx);
@@ -157,16 +157,16 @@ describe("CCC cmux command suite", () => {
 		expect(ctx.notifications.at(-1)?.message).toBe("Cancelled; no cmux workspace was opened.");
 	});
 
-	test("ccc:workspace:open-branch does not infer from text-only planned branch output", async () => {
+	test("ccc:workspace:open-branch does not infer from text-only branch context output", async () => {
 		const pi = new FakePi();
 		registerCccSlotOpenBranchCommand(pi);
 		const ctx = new FakeCommandContext({
 			branchEntries: [
 				{
 					message: {
-						customType: "planned-branch-output",
+						customType: "branch-context-output",
 						content: [
-							"Created planned branch and attached plan.",
+							"Created branch context and attached plan.",
 							"Branch: feature/latest",
 							"Key: feature/latest.md",
 						].join("\n"),
@@ -179,7 +179,7 @@ describe("CCC cmux command suite", () => {
 		await pi.commands.get("ccc:workspace:open-branch")?.handler("", ctx);
 
 		expect(pi.execCalls).toEqual([]);
-		expect(ctx.notifications.at(-1)?.message).toContain("No latest [planned-branch-output] branch found");
+		expect(ctx.notifications.at(-1)?.message).toContain("No latest [branch-context-output] branch found");
 	});
 
 	test("ccc:workspace:dispatch-plan dry-run emits preview without sidebar summary", async () => {
@@ -208,7 +208,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no cmux workspace was opened.");
 		expect(content).toContain(`Path: ${planFile}`);
 		expect(content).toContain(`Saved-plan filename slug: ${SAVED_PLAN_FILENAME_SLUG}`);
-		expect(content).toContain(`Content-derived planned-branch slug: ${PLAN_SLUG}`);
+		expect(content).toContain(`Content-derived branch-context slug: ${PLAN_SLUG}`);
 		expect(content).toContain(`Source branch: ${SOURCE_BRANCH}`);
 		expect(content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
@@ -232,12 +232,12 @@ describe("CCC cmux command suite", () => {
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step("brmem", ["check", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
+				step("brmem", ["check", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
 				gitCurrentBranchStep(),
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
 				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("brmem", ["put", PLAN_KEY, "--namespace", "planned-branch", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {
+				step("brmem", ["put", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {
 					stdout: brmemPutJson(repoRoot, realPlanFile),
 				}),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(PLAN_SLUG) }),
@@ -251,7 +251,7 @@ describe("CCC cmux command suite", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/planned-branch:impl cmux-summary-hooks.md'",
+					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/branch-context:impl plan.md'",
 				], {}),
 			],
 		});
@@ -285,7 +285,7 @@ describe("CCC cmux command suite", () => {
 		await pi.commands.get("ccc:workspace:dispatch-plan")?.handler("--dry-run", ctx);
 
 		pi.assertDone();
-		expect(notificationMessages(ctx).join("\n")).toContain("outside the current local plan store directory");
+		expect(notificationMessages(ctx).join("\n")).toContain("Session saved-plan evidence basename must match slug");
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 		expect(pi.sentMessages).toEqual([]);
 	});

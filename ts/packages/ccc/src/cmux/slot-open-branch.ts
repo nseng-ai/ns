@@ -1,4 +1,4 @@
-import { extractPlannedBranchEvidenceFromSessionEntry } from "@asdl/planned-branch";
+import { extractBranchContextEvidenceFromSessionEntry } from "@asdl/branch-context";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
@@ -14,7 +14,7 @@ interface BranchCandidate {
 	scope: "local" | "remote";
 }
 
-interface PlannedBranchSelection {
+interface BranchContextSelection {
 	branchName: string;
 	key?: string;
 	commit?: string;
@@ -25,7 +25,7 @@ interface PlannedBranchSelection {
 
 type ResolvedBranch =
 	| { inferred: false; branchName: string }
-	| { inferred: true; branchName: string; selection: PlannedBranchSelection }
+	| { inferred: true; branchName: string; selection: BranchContextSelection }
 	| { error: string };
 
 export interface HandleCccSlotOpenBranchOptions {
@@ -47,7 +47,7 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a branch, or the latest planned branch when omitted, in a new cmux workspace.",
+		description: "Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
 		argumentHint: "[branch]",
 		getArgumentCompletions: async (argumentPrefix) => {
 			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
@@ -67,7 +67,7 @@ export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOp
 	const resolved: ResolvedBranch =
 		explicitBranch.length > 0
 			? { branchName: explicitBranch, inferred: false }
-			: await resolveInferredPlannedBranch(ctx);
+			: await resolveInferredBranchContext(ctx);
 
 	if ("error" in resolved) {
 		ctx.ui.notify(resolved.error, "error");
@@ -96,25 +96,25 @@ export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOp
 	}
 }
 
-async function resolveInferredPlannedBranch(ctx: {
+async function resolveInferredBranchContext(ctx: {
 	sessionManager?: { getBranch?: () => unknown[] };
 }): Promise<
-	| { inferred: true; branchName: string; selection: PlannedBranchSelection }
+	| { inferred: true; branchName: string; selection: BranchContextSelection }
 	| { error: string }
 > {
 	const entries = ctx.sessionManager?.getBranch?.() ?? [];
-	const selection = findLatestPlannedBranchSelection(entries);
+	const selection = findLatestBranchContextSelection(entries);
 	if (!selection) {
 		return {
-			error: `Usage: /${COMMAND_NAME} <branch>\nNo latest [planned-branch-output] branch found in the current session branch.`,
+			error: `Usage: /${COMMAND_NAME} <branch>\nNo latest [branch-context-output] branch found in the current session branch.`,
 		};
 	}
 	return { inferred: true, branchName: selection.branchName, selection };
 }
 
-export function findLatestPlannedBranchSelection(entries: unknown[]): PlannedBranchSelection | undefined {
+export function findLatestBranchContextSelection(entries: unknown[]): BranchContextSelection | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
-		const selection = extractPlannedBranchSelection(entries[index]);
+		const selection = extractBranchContextSelection(entries[index]);
 		if (selection !== undefined) {
 			return selection;
 		}
@@ -122,8 +122,8 @@ export function findLatestPlannedBranchSelection(entries: unknown[]): PlannedBra
 	return undefined;
 }
 
-function extractPlannedBranchSelection(entry: unknown): PlannedBranchSelection | undefined {
-	const evidence = extractPlannedBranchEvidenceFromSessionEntry(entry);
+function extractBranchContextSelection(entry: unknown): BranchContextSelection | undefined {
+	const evidence = extractBranchContextEvidenceFromSessionEntry(entry);
 	if (evidence === undefined) {
 		return undefined;
 	}
@@ -146,7 +146,7 @@ async function confirmInferredBranch(
 			notify(message: string, level?: "info" | "warning" | "error"): void;
 		};
 	},
-	selection: PlannedBranchSelection,
+	selection: BranchContextSelection,
 ): Promise<boolean> {
 	if (!ctx.hasUI || ctx.ui.confirm === undefined) {
 		ctx.ui.notify(`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`, "error");
@@ -154,12 +154,12 @@ async function confirmInferredBranch(
 	}
 
 	const details = formatInferredBranchConfirmation(selection);
-	return ctx.ui.confirm("Use planned branch?", details);
+	return ctx.ui.confirm("Use branch context?", details);
 }
 
-function formatInferredBranchConfirmation(selection: PlannedBranchSelection): string {
+function formatInferredBranchConfirmation(selection: BranchContextSelection): string {
 	return [
-		`Use branch "${selection.branchName}" from the latest [planned-branch-output] and open it in a new cmux workspace?`,
+		`Use branch "${selection.branchName}" from the latest [branch-context-output] and open it in a new cmux workspace?`,
 		"",
 		selection.key ? `Key: ${selection.key}` : undefined,
 		selection.branchCreation ? `Branch creation: ${selection.branchCreation}` : undefined,

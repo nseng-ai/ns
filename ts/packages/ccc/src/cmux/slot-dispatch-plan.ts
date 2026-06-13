@@ -1,18 +1,18 @@
 import { basename } from "node:path";
 
 import {
-	PLAN_BRANCH_NAMESPACE,
-	PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
-	buildPlannedBranchCreateOperation,
-	createPlannedBranchFromFile,
+	BRANCH_CONTEXT_NAMESPACE,
+	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	buildBranchContextCreateOperation,
+	createBranchContextFromFile,
 	derivePlanContentSlug,
-	formatPlanBranchEvidence,
-	formatPlannedBranchCreateFailure,
-	formatPlannedBranchCreatePreview,
-	resolvePlannedBranchCreatePreviewContext,
-	type PlannedBranchCreateOperation,
-	type PlannedBranchEvidence,
-} from "@asdl/planned-branch";
+	formatBranchContextEvidence,
+	formatBranchContextCreateFailure,
+	formatBranchContextCreatePreview,
+	resolveBranchContextCreatePreviewContext,
+	type BranchContextCreateOperation,
+	type BranchContextEvidence,
+} from "@asdl/branch-context";
 import {
 	findLatestSessionSavedPlanFile,
 	resolvePlanStoreDirectory,
@@ -55,14 +55,14 @@ interface AttachSlotAndLaunchOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
 	checkout: CurrentCheckout;
-	operation: PlannedBranchCreateOperation;
+	operation: BranchContextCreateOperation;
 }
 
 interface FormatDryRunOptions {
 	plan: ValidatedSessionSavedPlan;
 	checkout: CurrentCheckout;
-	operation: PlannedBranchCreateOperation;
-	plannedBranchPreview: string;
+	operation: BranchContextCreateOperation;
+	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
 }
 
@@ -121,9 +121,9 @@ async function handleCommand(
 		}
 
 		const selectedPlan = selected.plan;
-		setStatus(ctx, "deriving planned-branch slug…");
+		setStatus(ctx, "deriving branch-context slug…");
 		const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedPlan.filePath, cwd: checkout.directory.repoRoot });
-		const operation = buildPlannedBranchCreateOperation({
+		const operation = buildBranchContextCreateOperation({
 			slug: slugEvidence.slug,
 			filePath: selectedPlan.filePath,
 			branchCreation: BRANCH_CREATION,
@@ -131,15 +131,15 @@ async function handleCommand(
 		});
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
-			const previewContext = await resolvePlannedBranchCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot });
-			const plannedBranchPreview = formatPlannedBranchCreatePreview(operation, {
+			const previewContext = await resolveBranchContextCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot });
+			const branchContextPreview = formatBranchContextCreatePreview(operation, {
 				...previewContext,
 				graphiteParentBranch: checkout.directory.sourceBranch,
 			});
-			presentPlannedBranchMessage(
+			presentBranchContextMessage(
 				pi,
 				ctx,
-				formatDryRun({ plan: selectedPlan, checkout, operation, plannedBranchPreview, launchOptions }),
+				formatDryRun({ plan: selectedPlan, checkout, operation, branchContextPreview, launchOptions }),
 				{ status: "dry-run", selectedPlan, targetBranch: operation.branch, key: operation.key, operation },
 				"info",
 			);
@@ -221,17 +221,17 @@ async function resolveCurrentCheckout(
 
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
 	const { pi, ctx, checkout, operation } = options;
-	present(ctx, `Creating Graphite-tracked planned branch ${operation.branch}…`, "info");
+	present(ctx, `Creating Graphite-tracked branch context ${operation.branch}…`, "info");
 	setStatus(ctx, "creating branch and attaching plan…");
-	let evidence: PlannedBranchEvidence;
+	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createPlannedBranchFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot });
+		evidence = await createBranchContextFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot });
 	} catch (error) {
-		present(ctx, formatCccPlannedBranchCreateFailure(operation, error), "error");
+		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
 		return;
 	}
 
-	presentPlannedBranchMessage(pi, ctx, formatPlanBranchEvidence(evidence), { status: "success", evidence }, "info");
+	presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", evidence }, "info");
 
 	const launchOptions = getPiLaunchOptions(pi, ctx);
 	const launched = await openBranchInCmuxSlot({
@@ -251,7 +251,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 
 type PresentLevel = Exclude<NotifyLevel, "success">;
 
-function presentPlannedBranchMessage(
+function presentBranchContextMessage(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	content: string,
@@ -260,7 +260,7 @@ function presentPlannedBranchMessage(
 ): void {
 	if (pi.sendMessage) {
 		pi.sendMessage({
-			customType: PLANNED_BRANCH_OUTPUT_MESSAGE_TYPE,
+			customType: BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 			content,
 			display: true,
 			details,
@@ -280,7 +280,7 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 }
 
 function formatDryRun(options: FormatDryRunOptions): string {
-	const { plan, checkout, operation, plannedBranchPreview, launchOptions } = options;
+	const { plan, checkout, operation, branchContextPreview, launchOptions } = options;
 	const launchCommand = formatPiLaunchCommand(operation.key, launchOptions);
 	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${operation.branch}`;
 	return [
@@ -289,7 +289,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		"Selected saved plan:",
 		`Path: ${plan.filePath}`,
 		`Saved-plan filename slug: ${plan.slug}`,
-		`Content-derived planned-branch slug: ${operation.slug}`,
+		`Content-derived branch-context slug: ${operation.slug}`,
 		`Repo key: ${plan.repoKey}`,
 		`Repo root: ${plan.repoRoot}`,
 		`Repo identity source: ${plan.repoIdentitySource}`,
@@ -297,7 +297,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		`Branch path segment: ${plan.branchKey}`,
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		"",
-		plannedBranchPreview,
+		branchContextPreview,
 		formatCommand("slot", ["checkout", operation.branch, "--format", "json", "--no-clipboard"]),
 		[
 			"cmux new-workspace",
@@ -309,8 +309,8 @@ function formatDryRun(options: FormatDryRunOptions): string {
 	].filter((line): line is string => line !== undefined).join("\n");
 }
 
-function formatCccPlannedBranchCreateFailure(operation: PlannedBranchCreateOperation, error: unknown): string {
-	const failure = formatPlannedBranchCreateFailure(operation, error);
+function formatCccBranchContextCreateFailure(operation: BranchContextCreateOperation, error: unknown): string {
+	const failure = formatBranchContextCreateFailure(operation, error);
 	return failure.replace("\n\n", "\nNo cmux workspace was opened.\n\n");
 }
 
@@ -321,13 +321,13 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 		`Branch: ${targetBranch}`,
 		`Slot: ${target.slotName}`,
 		`Worktree: ${target.worktreePath}`,
-		`Attached plan: ${PLAN_BRANCH_NAMESPACE}/${key}`,
+		`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${key}`,
 		`Command: ${formatPiLaunchCommand(key, launchOptions)}`,
 	].join("\n");
 }
 
 function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): string {
-	return buildPiLaunchCommand(`/planned-branch:impl ${key}`, launchOptions);
+	return buildPiLaunchCommand(`/branch-context:impl ${key}`, launchOptions);
 }
 
 function formatUnexpectedError(error: unknown): string {
