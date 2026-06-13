@@ -95,7 +95,7 @@ def build_cli(
         "registry_options",
         type=click.Choice(REGISTRY_CHOICES),
         multiple=True,
-        help="Registry to check. May be repeated. Defaults to PyPI and npm.",
+        help="Registry to check. May be repeated. Defaults to PyPI, npm, and Homebrew.",
     )
     @click.option("--json", "json_output", is_flag=True, help="Emit JSON output.")
     @click.version_option(package_version(), prog_name="packagechk")

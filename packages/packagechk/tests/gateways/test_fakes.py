@@ -22,26 +22,34 @@ def test_fake_registry_gateway_returns_configured_results_and_tracks_names() -> 
         input_name="sample-name",
         lookup_name="sample-name",
     )
+    brew_result = RegistryCheckResult.available(
+        Registry.BREW,
+        input_name="sample-name",
+        lookup_name="sample-name",
+    )
     gateway = FakePackageRegistryGateway(
         pypi_results={"sample-name": pypi_result},
         npm_results={"sample-name": npm_result},
+        brew_results={"sample-name": brew_result},
     )
 
     assert gateway.check_pypi("sample-name") == pypi_result
     assert gateway.check_npm("sample-name") == npm_result
+    assert gateway.check_brew("sample-name") == brew_result
     assert gateway.pypi_checked_names == ["sample-name"]
     assert gateway.npm_checked_names == ["sample-name"]
+    assert gateway.brew_checked_names == ["sample-name"]
 
 
 def test_fake_registry_gateway_returns_error_for_unconfigured_names() -> None:
     gateway = FakePackageRegistryGateway()
 
-    result = gateway.check_pypi("unknown-name")
+    result = gateway.check_brew("unknown-name")
 
-    assert result.registry is Registry.PYPI
+    assert result.registry is Registry.BREW
     assert result.status is CheckStatus.ERROR
     assert result.input_name == "unknown-name"
-    assert "no fake PyPI result configured" in result.message
+    assert "no fake Homebrew result configured" in result.message
 
 
 def test_fake_pypi_publish_gateway_records_operations_and_returns_artifacts() -> None:

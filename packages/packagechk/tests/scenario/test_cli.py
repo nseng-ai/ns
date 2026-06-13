@@ -36,12 +36,13 @@ def test_packagechk_runtime_uses_root_diagnostics_not_legacy_check() -> None:
     assert result.output == "runtime: python\nentry_point: packagechk.cli:main\n"
 
 
-def test_packagechk_rejects_brew_registry_as_not_implemented() -> None:
-    result = CliRunner().invoke(build_cli(), ["sample-name", "--registry", "brew"])
+def test_packagechk_brew_registry_reports_available_formula() -> None:
+    gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
-    assert result.exit_code == 2
-    assert "brew: unsupported" in result.output
-    assert "Homebrew availability checks are not implemented yet" in result.output
+    result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--registry", "brew"])
+
+    assert result.exit_code == 0
+    assert result.output == "brew: available\n"
 
 
 def test_packagechk_checks_default_registries_with_injected_gateway() -> None:
@@ -60,14 +61,22 @@ def test_packagechk_checks_default_registries_with_injected_gateway() -> None:
                 lookup_name="sample-name",
             )
         },
+        brew_results={
+            "sample-name": RegistryCheckResult.available(
+                Registry.BREW,
+                input_name="sample-name",
+                lookup_name="sample-name",
+            )
+        },
     )
 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
 
     assert result.exit_code == 1
-    assert result.output.splitlines() == ["pypi: available", "npm: taken"]
+    assert result.output.splitlines() == ["pypi: available", "npm: taken", "brew: available"]
     assert gateway.pypi_checked_names == ["sample-name"]
     assert gateway.npm_checked_names == ["sample-name"]
+    assert gateway.brew_checked_names == ["sample-name"]
 
 
 def test_packagechk_json_output_is_structured() -> None:
@@ -208,6 +217,26 @@ def test_packagechk_npm_registry_reports_taken() -> None:
     )
 
 
+def test_packagechk_brew_registry_reports_taken_formula() -> None:
+    gateway = RealPackageRegistryGateway(
+        response_fetcher=lambda _url, _timeout_seconds: RegistryHttpResponse(
+            status_code=200,
+            json_body={
+                "versions": {"stable": "1.25.0"},
+                "desc": "Internet file retriever",
+            },
+        )
+    )
+
+    result = CliRunner().invoke(build_cli(gateway), ["wget", "--registry", "brew"])
+
+    assert result.exit_code == 1
+    assert result.output == (
+        "brew: taken — latest 1.25.0 — Internet file retriever — "
+        "https://formulae.brew.sh/formula/wget\n"
+    )
+
+
 def test_packagechk_npm_registry_accepts_scoped_names() -> None:
     gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
@@ -237,18 +266,22 @@ def test_packagechk_npm_registry_rejects_uppercase_names_without_rewriting() -> 
     assert "must be lowercase" in result.output
 
 
-def test_packagechk_default_registries_exit_zero_when_both_available() -> None:
+def test_packagechk_default_registries_exit_zero_when_all_available() -> None:
     gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name"])
 
     assert result.exit_code == 0
-    assert result.output.splitlines() == ["pypi: available", "npm: available"]
+    assert result.output.splitlines() == [
+        "pypi: available",
+        "npm: available",
+        "brew: available",
+    ]
 
 
 def test_packagechk_default_registries_exit_one_when_any_registry_is_taken() -> None:
     def fetch_status_code(url: str, _timeout_seconds: float) -> int:
-        if "pypi.org" in url:
+        if "pypi.org" in url or "formulae.brew.sh" in url:
             return 404
         return 200
 
@@ -260,6 +293,7 @@ def test_packagechk_default_registries_exit_one_when_any_registry_is_taken() -> 
     assert result.output.splitlines() == [
         "pypi: available",
         "npm: taken — https://www.npmjs.com/package/sample-name",
+        "brew: available",
     ]
 
 
@@ -279,7 +313,7 @@ def test_packagechk_default_registries_exit_two_when_any_registry_errors() -> No
     assert "registry unavailable" in result.output
 
 
-def test_packagechk_default_json_output_includes_both_registries_and_schema_version() -> None:
+def test_packagechk_default_json_output_includes_all_registries_and_schema_version() -> None:
     gateway = RealPackageRegistryGateway(status_code_fetcher=lambda _url, _timeout_seconds: 404)
 
     result = CliRunner().invoke(build_cli(gateway), ["sample-name", "--json"])
@@ -289,5 +323,9 @@ def test_packagechk_default_json_output_includes_both_registries_and_schema_vers
     assert payload["schema_version"] == 1
     assert payload["name"] == "sample-name"
     assert payload["exit_code"] == 0
-    assert [item["registry"] for item in payload["results"]] == ["pypi", "npm"]
-    assert [item["status"] for item in payload["results"]] == ["available", "available"]
+    assert [item["registry"] for item in payload["results"]] == ["pypi", "npm", "brew"]
+    assert [item["status"] for item in payload["results"]] == [
+        "available",
+        "available",
+        "available",
+    ]

@@ -15,3 +15,7 @@ class PackageRegistryGateway(ABC):
     @abstractmethod
     def check_npm(self, package_name: str) -> RegistryCheckResult:
         """Check npm package-name availability."""
+
+    @abstractmethod
+    def check_brew(self, package_name: str) -> RegistryCheckResult:
+        """Check Homebrew formula-name availability."""
