@@ -3,6 +3,7 @@ import { basename } from "node:path";
 
 import { z } from "zod";
 
+import { isRecord } from "@asdl/core";
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
@@ -323,11 +324,6 @@ function detailKindForPointer(pointer: string): DetailKind | null {
 	}
 	return null;
 }
-
-function isRecord(value: unknown): value is { [key: string]: JsonValue } {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 
 function pythonRepr(value: string): string {
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;

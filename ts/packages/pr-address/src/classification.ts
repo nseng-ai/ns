@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isRecord } from "@asdl/core";
 import type { classificationTemplateResultDocSchema } from "./operation-schemas/classification.ts";
 import {
 	getFeedbackManifestSchema,
@@ -43,10 +44,6 @@ import {
 	type InformationalReason,
 	type PlanSourceKind,
 } from "./feedback-plan-contracts.ts";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export const classificationLocatorSchema = z.looseObject({
 	json_pointer: z.string(),

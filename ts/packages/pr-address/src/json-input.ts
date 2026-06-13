@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
+import { isRecord } from "@asdl/core";
 import type { PayloadArtifactStore, PayloadErrorType } from "./payload-store.ts";
 
 export interface JsonInputError {
@@ -225,10 +226,6 @@ export async function loadOperationPayload<TPayload extends object>(
 		}
 	}
 	return { type: "ok", value: finalParseResult.data };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringRequestField(request: Readonly<Record<string, unknown>>, key: string): string | undefined {
