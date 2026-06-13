@@ -103,6 +103,37 @@ process.exit(7);
 		expect(result.killed).toBe(false);
 	});
 
+	test("writes optional input to child stdin", async () => {
+		const script = writeChildScript(`
+process.stdin.setEncoding("utf8");
+let input = "";
+process.stdin.on("data", (chunk) => {
+	input += chunk;
+});
+process.stdin.on("end", () => {
+	process.stdout.write(input.toUpperCase());
+});
+`);
+
+		const result = await runCommand(process.execPath, [script], { input: "hello stdin" });
+
+		expect(result.code).toBe(0);
+		expect(result.stdout).toBe("HELLO STDIN");
+		expect(result.stderr).toBe("");
+		expect(result.killed).toBe(false);
+	});
+
+	test("stdin EPIPE does not crash when the child exits early", async () => {
+		const script = writeChildScript(`
+process.exit(0);
+`);
+
+		const result = await runCommand(process.execPath, [script], { input: "x".repeat(1_000_000) });
+
+		expect(result.code).toBe(0);
+		expect(result.killed).toBe(false);
+	});
+
 	test("streams stdout and stderr chunks while preserving buffered output", async () => {
 		const script = writeChildScript(`
 process.stdout.write("first stdout\\n");

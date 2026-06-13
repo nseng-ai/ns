@@ -8,8 +8,9 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { runCheckpointCommand } from "./checkpoint.ts";
-import { createRealSdlContext, type SdlContext } from "./context.ts";
+import { createRealSdlCommandContext } from "./context.ts";
+import { runCp } from "./cp-command.ts";
+import type { SdlContext } from "./sdk.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
 
 export interface SdlCliDeps {
@@ -57,14 +58,9 @@ Environment:
 			summary: COMMAND_SUMMARIES.cp,
 			schema: z.object({}),
 			run: async (ctx) => {
-				const result = await runCheckpointCommand({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					gateway: ctx.context.checkpoint,
-					textGeneration: ctx.context.textGeneration,
-				});
-				writeCommandResultOutput(result, ctx);
-				return result.exitCode;
+				const result = await runCp(ctx.context);
+				writeSdlResultOutput(result, ctx);
+				return result.ok ? 0 : result.exitCode;
 			},
 		}),
 	);
@@ -84,21 +80,21 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 		process.stderr.write(text);
 	});
 
-	const context = deps.context ?? createRealSdlContext();
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
+	const context = deps.context ?? createRealSdlCommandContext({ cwd, env });
 	const contextWithIO: SdlCliContext = { context, cwd, env, stdout, stderr };
 	const io = resolveIo({ stdout, stderr });
 	return buildCli().run(args, { context: contextWithIO, io });
 }
 
-function writeCommandResultOutput(result: { stdout: string; stderr: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {
-	if (result.stdout !== "") {
-		deps.stdout(result.stdout);
+function writeSdlResultOutput(result: { ok: true; message: string } | { ok: false; message: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {
+	const output = `${result.message}\n`;
+	if (result.ok) {
+		deps.stdout(output);
+		return;
 	}
-	if (result.stderr !== "") {
-		deps.stderr(result.stderr);
-	}
+	deps.stderr(output);
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
