@@ -1,3 +1,5 @@
+import { readStdin } from "@asdl/core/stdin";
+
 import type { BrmemGateway } from "./gateway.ts";
 import { RealGitBrmemGateway } from "./real-git-gateway.ts";
 
@@ -14,18 +16,6 @@ export function createRealBrmemContext(options: { cwd?: string | undefined } = {
 		gateway: new RealGitBrmemGateway(cwd),
 		cwd,
 		env: process.env,
-		stdin: readProcessStdin,
+		stdin: readStdin,
 	};
-}
-
-async function readProcessStdin(): Promise<string> {
-	return await new Promise<string>((resolveStdin, reject) => {
-		let data = "";
-		process.stdin.setEncoding("utf8");
-		process.stdin.on("data", (chunk) => {
-			data += chunk;
-		});
-		process.stdin.on("error", reject);
-		process.stdin.on("end", () => resolveStdin(data));
-	});
 }
