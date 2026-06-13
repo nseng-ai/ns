@@ -1,9 +1,13 @@
 import { buildFeedbackManifestView } from "./classification-shared.ts";
 import { type BodyLocator } from "./feedback-manifest-contracts.ts";
+import { classificationTemplateResultDocSchema } from "./operation-schemas/classification.ts";
+import { type z } from "zod";
+
+type ClassificationTemplateResult = z.infer<typeof classificationTemplateResultDocSchema>;
 
 const FILL_DISPOSITION_PLACEHOLDER = "<fill: actionable|informational>";
 
-export function buildFeedbackClassificationTemplate(manifest: unknown): { type: "ok"; value: unknown } | { type: "error"; message: string } {
+export function buildFeedbackClassificationTemplate(manifest: unknown): { type: "ok"; value: ClassificationTemplateResult } | { type: "error"; message: string } {
 	const viewResult = buildFeedbackManifestView(manifest);
 	if (viewResult.view === null || viewResult.errors.length > 0) {
 		const firstError = viewResult.errors[0];

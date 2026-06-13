@@ -19,7 +19,7 @@ import {
 } from "./feedback-plan-contracts.ts";
 import { isRecord } from "./operation-support.ts";
 
-const classificationLocatorSchema = z.looseObject({
+export const classificationLocatorSchema = z.looseObject({
 	json_pointer: z.string(),
 	item_pointer: z.string().nullable().default(null),
 });
