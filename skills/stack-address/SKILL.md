@@ -147,6 +147,21 @@ with no feedback in the scan summary but produce no plan items for them. If
 `data.summary` has zero reviews, zero unresolved review threads, and zero
 discussion comments across the stack, report the clean scan and stop.
 
+Quick transcript-safe artifact refs (read referenced artifacts when full data is required):
+
+```bash
+jq -r '.data.stack_summary_reference.payload_path' stack-prep.compact.json
+
+jq -r '.data.stack[] |
+  [.pr_number,.branch,
+   .manifest_summary_reference.payload_path,
+   .classification_template_reference.payload_path,
+   .raw_feedback_reference.payload_path] | @tsv' \
+  stack-prep.compact.json
+
+jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json
+```
+
 Classification rules:
 
 - Default initial classification to unresolved review threads only.
@@ -161,6 +176,14 @@ Classification rules:
   `classification_template.classification_template`, compact manifests, payload
   locators, classifier rules, and strict JSON output. Prefer one focused
   subagent per PR when model routing is available.
+- Direct parent-session classification may skip a classifier subagent only when
+  the whole stack has at most three simple unresolved inline review-thread
+  comments, they are clearly bot/roaster automation, there are no actionable
+  PR-level reviews or non-obvious discussion comments, and `read-feedback-details`
+  is sufficient. Ambiguity, human sensitivity, cross-cutting impact, or mixed
+  feedback sources require the normal classifier packet/subagent path. Direct
+  classification still produces exact strict classification JSON and runs
+  `stack-feedback-plan`; only subagent dispatch is skipped.
 
 ### 3. Validate and display stack plan
 
@@ -189,7 +212,18 @@ Plan display rules:
   approval-required work, informational review-thread decisions, and non-
   automation discussion comments that may need reply.
 - Display PR/branch, source kind, review/comment/thread identity, path/line,
-  summary, action summary, complexity, and approval requirement.
+  summary, action summary, complexity, and approval requirement. Use this shape;
+  omit unavailable path/line:
+
+  ```text
+  Plan:
+  - PR #<n> <branch>
+    item: <source_kind> <id> at <path>:<line>
+    summary: <summary>
+    action: <action_summary>
+    complexity: <complexity>; approval_required: <yes/no>
+  ```
+
 - Auto-proceed only for approved `pre_existing`, `local`, and `single_file`
   items after local verification.
 
@@ -216,6 +250,10 @@ Create from stack tip:
 ```bash
 gt create <branch-name> -m "Address PR stack feedback"
 ```
+
+Graphite may print `No staged changes; creating a branch with no commit.` before
+edits. This is expected if `gt create` succeeds and the agent is intentionally
+applying changes afterward; do not ignore other Graphite errors.
 
 ### 5. Execute approved batches
 
@@ -329,6 +367,12 @@ Report:
 - Manual next steps: review local omnibus commits, run
   `gt submit --no-interactive` when ready, wait for CI, and re-request review if
   needed.
+
+Never push or submit unless the user explicitly asks for that extra step. If
+the user reports a successful manual `gt submit`, record the omnibus PR number
+or URL if provided, then stop. Do not push, submit, mutate GitHub feedback,
+re-resolve threads, rerun mutation helpers, or continue implementation unless
+the user explicitly asks for another action.
 
 ## Push-down status
 
