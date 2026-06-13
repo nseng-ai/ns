@@ -75,7 +75,6 @@ def _request(*, model: str = "sonnet") -> HarnessReviewRequest:
             local_diff=LocalDiff(
                 base_ref="master",
                 diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-                changed_paths=("app.py",),
             ),
         ),
     )
@@ -201,7 +200,7 @@ def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
             default_model="sonnet",
         ),
         target=DiffReviewTarget(
-            local_diff=LocalDiff(base_ref="main", diff_text=diff, changed_paths=("app.py",)),
+            local_diff=LocalDiff(base_ref="main", diff_text=diff),
         ),
     )
 
