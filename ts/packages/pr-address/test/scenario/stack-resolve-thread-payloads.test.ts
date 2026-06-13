@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runScenario, runScenarioWithLegacy } from "../support/run-scenario.ts";
+import { runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 interface BuildStackResolveThreadPayloadsCase {
@@ -171,10 +171,9 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 	});
 
 	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {
-		const run = runScenarioWithLegacy(["exec", "build-stack-resolve-thread-payloads", "--json-schema"]);
+		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--json-schema"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 	});

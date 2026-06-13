@@ -9,14 +9,12 @@ from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.gh.pr_testing import FakePRGateway
-from asdl_core.gh.types import PRSummary
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.plugin import AsdlPluginSpec
 from asdl_handoff.cli import plugin as handoff_plugin
 from asdl_handoff.cli.handoff.context import HandoffCliContext
 from asdl_handoff.cli.handoff.group import build_handoff_group
 from asdl_objectives.context import ObjectiveCliContext
-from asdl_pr_address.cli.pr_address.context import PrAddressCliContext
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
@@ -211,47 +209,6 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["data"]["handoffs"][0]["slug"] == "root-json"
-
-
-def test_pr_address_plugin_integration() -> None:
-    parent = click.Group("test")
-    ep = FakePluginEntryPoint(
-        name="pr_address",
-        value="asdl_pr_address.cli.plugin:build_pr_address_plugin",
-    )
-
-    discover_plugins(parent, source=_entry_point_source(ep))
-
-    runner = CliRunner()
-    ctx = PrAddressCliContext(
-        pr_gateway=FakePRGateway(
-            prs=[
-                PRSummary(
-                    number=99,
-                    title="Add feature",
-                    url="https://github.com/dagster-io/asdl/pull/99",
-                    head_ref_name="feature",
-                    base_ref_name="master",
-                    state="OPEN",
-                )
-            ]
-        ),
-        git_gateway=FakeGitGateway(),
-    )
-    obj = build_clinkr_context_object(lambda: ctx)
-
-    # Plugin mounts at expected subgroup name; exec subgroup is hidden, so it
-    # must not appear in top-level help output.
-    result = runner.invoke(parent, ["pr-address", "--help"])
-    assert result.exit_code == 0
-    assert "exec" not in result.output
-
-    # A representative operation routes correctly through the plugin path,
-    # confirming the exec subgroup is still invocable despite being hidden.
-    result = runner.invoke(parent, ["pr-address", "exec", "summarize-feedback", "99"], obj=obj)
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.output)
-    assert output["pr"]["number"] == 99
 
 
 def test_slots_plugin_integration(tmp_path: Path) -> None:

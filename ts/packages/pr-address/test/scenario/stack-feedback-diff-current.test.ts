@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const newTempDir = useTempDirs();
@@ -23,11 +23,11 @@ interface DiffEnvelope {
 	};
 }
 
-function runDiffWithArgs(args: readonly string[], stdinText = ""): ScenarioRunWithLegacy {
-	return runScenarioWithLegacy(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { stdin: stdinText });
+function runDiffWithArgs(args: readonly string[], stdinText = ""): ScenarioRun {
+	return runScenario(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { stdin: stdinText });
 }
 
-function runDiff(payload: unknown): ScenarioRunWithLegacy {
+function runDiff(payload: unknown): ScenarioRun {
 	return runDiffWithArgs([], JSON.stringify(payload));
 }
 
@@ -39,7 +39,6 @@ describe("stack-feedback-diff-current", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(true);
 		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });
@@ -78,7 +77,7 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		return { ...currentPrep({ shouldIncludeResolved: true, threads: [thread()] }), summary: { prs: 1 } };
 	}
 
-	function errorEnvelope(run: ScenarioRunWithLegacy): { error_type: string; message: string } {
+	function errorEnvelope(run: ScenarioRun): { error_type: string; message: string } {
 		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 	}
 
@@ -92,7 +91,6 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		const run = runDiffWithArgs(["--stack-plan-reference", planPath, "--current-prep-reference", prepPath]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(true);
 		expect(envelope.data.summary).toMatchObject({ planned_still_unresolved: 1, new_unresolved_threads: 0 });

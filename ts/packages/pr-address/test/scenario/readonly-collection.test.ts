@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { discussionComment, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
-import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 interface Envelope {
@@ -13,8 +13,8 @@ interface Envelope {
 
 const makeTempDir = useTempDirs();
 
-function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): ScenarioRunWithLegacy {
-	return runScenarioWithLegacy(args, { github, env });
+function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): ScenarioRun {
+	return runScenario(args, { github, env });
 }
 
 describe("read-only GitHub-backed operations", () => {
@@ -35,7 +35,6 @@ describe("read-only GitHub-backed operations", () => {
 		const inlineData = parseEnvelope(inlineRun.stdout.join("")).data;
 		expect(inlineData.payload_mode).toBe("inline");
 		expect((inlineData.reviews as Array<{ id: string }>).map((item) => item.id)).toEqual(["changes"]);
-		expect(inlineRun.legacy.calls).toEqual([]);
 
 		const tempDir = await makeTempDir("pr-address-readonly-collection-");
 		const root = join(tempDir, "payload-root");
@@ -45,7 +44,6 @@ describe("read-only GitHub-backed operations", () => {
 			ASDL_PAYLOAD_SESSION_ID: "sess-readonly",
 		});
 		expect(await payloadRun.exit).toBe(0);
-		expect(payloadRun.legacy.calls).toEqual([]);
 		const payloadData = parseEnvelope(payloadRun.stdout.join("")).data;
 		expect(payloadData.payload_mode).toBe("payload");
 		const reference = payloadData.payload_reference as { payload_path: string; descriptor: string; role: string };

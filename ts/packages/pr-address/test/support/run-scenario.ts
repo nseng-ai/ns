@@ -1,8 +1,6 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { PrAddressContext } from "../../src/context.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PayloadClock } from "../../src/payload-store.ts";
-import { InMemoryLegacyPrAddressGateway } from "./in-memory-legacy-pr-address-gateway.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
 
 export interface ScenarioRunOptions {
@@ -21,45 +19,16 @@ export interface ScenarioRun {
 	stderr: string[];
 }
 
-export interface ScenarioRunWithLegacy extends ScenarioRun {
-	legacy: InMemoryLegacyPrAddressGateway;
-}
-
-/**
- * Drive the CLI in process with a legacy gateway that throws on any
- * invocation — the default for tests where reaching the legacy Python
- * fallback would itself be a failure.
- */
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
-	const throwingLegacy: LegacyPrAddressGateway = {
-		run: async () => {
-			throw new Error("unexpected legacy fallback");
-		},
-	};
-	return runWithLegacyGateway(args, throwingLegacy, options);
-}
-
-/**
- * Drive the CLI in process with a recording fake legacy gateway, exposed on
- * the result for call assertions. Exit codes are replayed in order.
- */
-export function runScenarioWithLegacy(
-	args: readonly string[],
-	options: ScenarioRunOptions & { legacyExitCodes?: readonly number[] | undefined } = {},
-): ScenarioRunWithLegacy {
-	const legacy = new InMemoryLegacyPrAddressGateway(options.legacyExitCodes ?? [0]);
-	return { ...runWithLegacyGateway(args, legacy, options), legacy };
-}
-
 export function fixedClock(iso: string): PayloadClock {
 	const instant = new Date(iso);
 	return () => instant;
 }
 
-function runWithLegacyGateway(args: readonly string[], legacy: LegacyPrAddressGateway, options: ScenarioRunOptions): ScenarioRun {
+/** Drive the CLI in process against in-memory fakes. */
+export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const overrides: Partial<PrAddressContext> & { legacy: LegacyPrAddressGateway } = { legacy };
+	const overrides: Partial<PrAddressContext> = {};
 	if (options.github !== undefined) overrides.github = options.github;
 	if (options.git !== undefined) overrides.git = options.git;
 	if (options.payloadClock !== undefined) overrides.payloadClock = options.payloadClock;

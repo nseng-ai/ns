@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
 import { normalizePayloadBytes } from "../support/golden.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
-import { fixedClock, runScenario, runScenarioWithLegacy, type ScenarioRun } from "../support/run-scenario.ts";
+import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 interface FixtureArtifact {
@@ -411,14 +411,13 @@ describe("stack feedback usage-error guards", () => {
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {
 		test(`rejects ${usageErrorArgs.join(" ")} without the legacy CLI`, async () => {
-			const run = runScenarioWithLegacy(["exec", ...usageErrorArgs]);
+			const run = runScenario(["exec", ...usageErrorArgs]);
 
 			expect(await run.exit).toBe(2);
 			expect(run.stdout.join("")).toBe("");
 			expect(run.stderr.join("")).toBe(
 				"error: option '--stdout-mode <value>' argument 'bogus' is invalid. Allowed choices are full, compact.\n",
 			);
-			expect(run.legacy.calls).toEqual([]);
 		});
 	}
 });

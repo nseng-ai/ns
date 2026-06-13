@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { PayloadClock } from "../../src/payload-store.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import {
 	discussionComment,
 	fakePrAddressContext,
@@ -24,7 +23,6 @@ interface ManagedRun {
 	exit: Promise<number>;
 	stdout: string[];
 	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
 }
 
 interface Envelope<T = unknown> {
@@ -84,10 +82,9 @@ async function makePayloadRoot(): Promise<string> {
 function runPreflight(args: readonly string[], options: { github?: InMemoryPrAddressGitHubGateway | undefined; stdin?: string | undefined; root: string }): ManagedRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(["exec", "stack-feedback-preflight", ...args, "--format", "json"], {
-			context: fakePrAddressContext({ legacy, ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock() }),
+			context: fakePrAddressContext({ ...(options.github === undefined ? {} : { github: options.github }), payloadClock: fixedClock() }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: options.root, ASDL_PAYLOAD_SESSION_ID: SESSION_ID },
 			stdin: async () => options.stdin ?? "",
@@ -96,7 +93,6 @@ function runPreflight(args: readonly string[], options: { github?: InMemoryPrAdd
 		}),
 		stdout,
 		stderr,
-		legacy,
 	};
 }
 
@@ -131,7 +127,6 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.exit_code).toBe(0);
 		expect(envelope.data?.payload_session_id).toBe(SESSION_ID);
@@ -212,7 +207,6 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		const run = runPreflight(["--stdout-mode", "bogus"], { root, github: feedbackGithub(), stdin: JSON.stringify({ branches: ["feature-a"] }) });
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls).toEqual([]);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe(
 			"error: option '--stdout-mode <value>' argument 'bogus' is invalid. Allowed choices are full, compact.\n",

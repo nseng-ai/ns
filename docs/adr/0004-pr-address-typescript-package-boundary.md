@@ -33,3 +33,7 @@ The fallback creates temporary duplication, including the Python package version
 - **Python plugin shim now:** adds another compatibility layer without advancing the TypeScript standalone boundary.
 - **npm prod default now:** requires distribution work for unreleased software before local behavior needs it.
 - **No runtime fallback:** would break unported operation behavior during the migration window.
+
+## Update
+
+The migration is now complete: the `asdl pr-address` plugin and the Python `packages/asdl-pr-address` package have been removed, and the standalone TypeScript `pr-address` CLI (installed via `just install-pr-address`) is the sole surface. The Python fallback described above no longer exists.

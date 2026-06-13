@@ -13,14 +13,17 @@ you do not have to adopt the whole suite first.
 ```bash
 uv tool install asdl-slots
 uv tool install brmem
-uv tool install asdl-pr-address
 uv tool install aretro
 uv tool install asdl-objectives
 uv tool install roaster
 ```
 
 Each package provides its own console script, such as `slot`, `brmem`, or
-`pr-address`.
+`roaster`.
+
+`pr-address` is a TypeScript tool. Install it from an asdl checkout with
+`just install-pr-address`, which places a `pr-address` shim on your `PATH`
+(it requires Node 24 or newer).
 
 ## Umbrella command
 

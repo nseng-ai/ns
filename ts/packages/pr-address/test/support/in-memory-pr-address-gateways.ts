@@ -19,7 +19,6 @@ import type {
 	RestructuredFile,
 } from "../../src/gateways.ts";
 import type { PrAddressContext } from "../../src/context.ts";
-import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
 /**
  * Build a full PrAddressContext for tests: gateways are required on the
@@ -27,7 +26,7 @@ import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
  * fakes (empty GitHub state; git inside a work tree on `main`).
  */
 export function fakePrAddressContext(
-	overrides: Partial<PrAddressContext> & { legacy: LegacyPrAddressGateway },
+	overrides: Partial<PrAddressContext> = {},
 ): PrAddressContext {
 	return {
 		github: new InMemoryPrAddressGitHubGateway(),

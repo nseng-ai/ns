@@ -7,7 +7,7 @@ import {
 	review,
 	reviewThread,
 } from "../support/in-memory-pr-address-gateways.ts";
-import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 
 const REPO_CONTEXT_MESSAGE = "pr-address must run inside the target git repository (gh resolves the repo from the current directory).";
 
@@ -23,8 +23,8 @@ interface RunOptions {
 	stdin?: string | undefined;
 }
 
-function run(args: readonly string[], options: RunOptions = {}): ScenarioRunWithLegacy {
-	return runScenarioWithLegacy(args, { ...options, cwd: "/tmp/not-a-repo" });
+function run(args: readonly string[], options: RunOptions = {}): ScenarioRun {
+	return runScenario(args, { ...options, cwd: "/tmp/not-a-repo" });
 }
 
 function feedbackGithub(): InMemoryPrAddressGitHubGateway {
@@ -47,7 +47,6 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 		expect(envelope.exit_code).toBe(2);
 		expect(envelope.error_type).toBe("repo_context_required");
 		expect(envelope.message).toBe(REPO_CONTEXT_MESSAGE);
-		expect(repoRun.legacy.calls).toEqual([]);
 	});
 
 	test("human format reports the repo-context failure on stderr", async () => {

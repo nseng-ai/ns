@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
-import { runScenarioWithLegacy } from "../support/run-scenario.ts";
+import { runScenario } from "../support/run-scenario.ts";
 
 interface MachineEnvelope {
 	exit_code: number;
@@ -26,18 +26,17 @@ function stackedGithub(): InMemoryPrAddressGitHubGateway {
 	});
 }
 
-function parseEnvelope(run: Awaited<ReturnType<typeof runScenarioWithLegacy>>): MachineEnvelope {
+function parseEnvelope(run: Awaited<ReturnType<typeof runScenario>>): MachineEnvelope {
 	return JSON.parse(run.stdout.join("")) as MachineEnvelope;
 }
 
 describe("pr-address exec map-branch-prs", () => {
 	test("maps all branches to open PRs in input order with exit 0", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-b", "feature-a"] }),
 		});
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exit_code).toBe(0);
 		expect(envelope.data?.branch_prs).toEqual([
@@ -49,7 +48,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("returns exit 1 with full data and a message naming missing branches", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
@@ -63,7 +62,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("accepts the payload via --branches-json", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["feature-a"] }), "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["feature-a"] }), "--format", "json"], {
 			github: stackedGithub(),
 		});
 		expect(await run.exit).toBe(0);
@@ -77,7 +76,7 @@ describe("pr-address exec map-branch-prs", () => {
 				prSummary({ number: 21, head_ref_name: "feature-shared" }),
 			],
 		});
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
@@ -86,7 +85,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects duplicate branches with invalid_request", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "feature-a"] }),
 		});
@@ -97,7 +96,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects an empty branches array with invalid_request", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: [] }),
 		});
@@ -108,7 +107,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects blank branch names with invalid_request", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "  "] }),
 		});
@@ -117,13 +116,13 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects empty stdin with invalid_request", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "" });
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_request");
 	});
 
 	test("rejects malformed JSON with invalid_json", async () => {
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "{not json" });
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "{not json" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_json");
 	});
@@ -131,7 +130,7 @@ describe("pr-address exec map-branch-prs", () => {
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
 		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
 		// error (stderr, exit 2), never a machine envelope — click parity.
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "extra", "--format", "json"], { github: stackedGithub() });
+		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], { github: stackedGithub() });
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("error: too many arguments for 'map-branch-prs'. Expected 0 arguments but got 1.\n");
@@ -141,7 +140,7 @@ describe("pr-address exec map-branch-prs", () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			listOpenPrsFailure: { stderr: "gh: network down", stdout: "", returncode: 1 },
 		});
-		const run = runScenarioWithLegacy(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-a"] }),
 		});
