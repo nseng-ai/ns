@@ -1,7 +1,7 @@
 import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
 import { z } from "zod";
 
-import { buildFeedbackClassificationTemplate } from "./classification-core.ts";
+import { buildFeedbackClassificationTemplate } from "./classification-packet.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
