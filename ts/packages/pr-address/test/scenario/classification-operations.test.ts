@@ -3,18 +3,11 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
+import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
 import { runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeTempDir = useTempDirs();
-
-function asWrapperInput(value: unknown): { manifest: unknown; classification: unknown } {
-	if (typeof value !== "object" || value === null || !("manifest" in value) || !("classification" in value)) {
-		throw new TypeError("golden input must be a manifest/classification wrapper");
-	}
-	return value as { manifest: unknown; classification: unknown };
-}
 
 describe("managed classification/planning CLI operations", () => {
 	test("classification-template accepts stdin, inline JSON, and file JSON without legacy fallback", async () => {

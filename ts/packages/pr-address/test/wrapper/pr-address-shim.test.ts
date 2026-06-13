@@ -1,30 +1,19 @@
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, test } from "vitest";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, test } from "vitest";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
+import { REPO_ROOT } from "../support/golden.ts";
+import { useTempDirs } from "../support/temp.ts";
+
+const makeTempDir = useTempDirs();
+
 const SHIM_TEMPLATE = join(REPO_ROOT, "ts/packages/pr-address/scripts/pr-address-shim");
 const CANONICAL_TOKEN = "@@ASDL_CANONICAL_CHECKOUT@@";
 
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-shim-"));
-	tempDirs.push(dir);
-	return dir;
-}
-
 /** Renders the shim template into an installed `pr-address` the way `just install-pr-address` does. */
 async function installShim(canonicalCheckout: string): Promise<string> {
-	const dir = await makeTempDir();
+	const dir = await makeTempDir("pr-address-shim-");
 	const template = await readFile(SHIM_TEMPLATE, "utf8");
 	const shimPath = join(dir, "pr-address");
 	await writeFile(shimPath, template.replaceAll(CANONICAL_TOKEN, canonicalCheckout), "utf8");
@@ -34,7 +23,7 @@ async function installShim(canonicalCheckout: string): Promise<string> {
 
 /** Creates a git repository that looks like an asdl checkout, with a fake CLI that echoes its arguments. */
 async function makeFakeCheckout(options: { shouldIncludeNodeModules: boolean }): Promise<string> {
-	const dir = await makeTempDir();
+	const dir = await makeTempDir("pr-address-shim-");
 	spawnSync("git", ["init", "--quiet", dir], { encoding: "utf8" });
 	await mkdir(join(dir, "ts/packages/pr-address/src"), { recursive: true });
 	await writeFile(
@@ -85,7 +74,7 @@ describe("pr-address shim", () => {
 	});
 
 	test("falls back to the baked canonical checkout outside a checkout", async () => {
-		const outsideDir = await makeTempDir();
+		const outsideDir = await makeTempDir("pr-address-shim-");
 		const shimPath = await installShim(REPO_ROOT);
 
 		const result = runShim(shimPath, ["--version"], { cwd: outsideDir, isOutsideCheckout: true });
@@ -95,7 +84,7 @@ describe("pr-address shim", () => {
 	});
 
 	test("forwards runtime diagnostics to the TypeScript CLI", async () => {
-		const outsideDir = await makeTempDir();
+		const outsideDir = await makeTempDir("pr-address-shim-");
 		const shimPath = await installShim(REPO_ROOT);
 
 		const result = runShim(shimPath, ["--runtime"], { cwd: outsideDir, isOutsideCheckout: true });
@@ -116,7 +105,7 @@ describe("pr-address shim", () => {
 	});
 
 	test("fails clearly when no checkout is available", async () => {
-		const outsideDir = await makeTempDir();
+		const outsideDir = await makeTempDir("pr-address-shim-");
 		const shimPath = await installShim("/nonexistent/canonical/checkout");
 
 		const result = runShim(shimPath, ["--help"], { cwd: outsideDir, isOutsideCheckout: true });

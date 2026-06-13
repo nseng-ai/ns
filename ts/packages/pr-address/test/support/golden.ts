@@ -23,6 +23,9 @@ export async function goldenCases(operation: string): Promise<GoldenCase[]> {
 			inputPath: join(operationDir, entry.name, "input.json"),
 			expectedPath: join(operationDir, entry.name, "expected.json"),
 		}));
+	if (cases.length === 0) {
+		throw new Error(`goldenCases(${JSON.stringify(operation)}) found zero cases in ${operationDir}`);
+	}
 	cases.sort((left: GoldenCase, right: GoldenCase) => left.name.localeCompare(right.name));
 	return cases;
 }
@@ -39,4 +42,11 @@ export async function readJson(path: string): Promise<unknown> {
  */
 export function normalizePayloadBytes(text: string): string {
 	return text.replace(/"payload_bytes": \d+/g, '"payload_bytes": 0');
+}
+
+export function asWrapperInput(value: unknown): { manifest: unknown; classification: unknown } {
+	if (typeof value !== "object" || value === null || !("manifest" in value) || !("classification" in value)) {
+		throw new TypeError("golden input must be a manifest/classification wrapper");
+	}
+	return value as { manifest: unknown; classification: unknown };
 }

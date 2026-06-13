@@ -8,18 +8,11 @@ import { planFeedback } from "../../src/classification-planning.ts";
 import { validateFeedbackClassification } from "../../src/classification-validation.ts";
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
-import { GOLDEN_V1_ROOT, goldenCases, readJson } from "../support/golden.ts";
+import { asWrapperInput, GOLDEN_V1_ROOT, goldenCases, readJson } from "../support/golden.ts";
 
 const classificationTemplateCases = await goldenCases("classification-template");
 const validationCases = await goldenCases("validate-feedback-classification");
 const planningCases = await goldenCases("plan-feedback");
-
-function asWrapperInput(value: unknown): { manifest: unknown; classification: unknown } {
-	if (typeof value !== "object" || value === null || !("manifest" in value) || !("classification" in value)) {
-		throw new TypeError("golden input must be a manifest/classification wrapper");
-	}
-	return value as { manifest: unknown; classification: unknown };
-}
 
 describe("classification-template TypeScript parity", () => {
 	for (const goldenCase of classificationTemplateCases) {

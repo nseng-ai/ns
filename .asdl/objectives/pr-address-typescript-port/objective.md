@@ -47,7 +47,7 @@ As of 2026-06-10 this record also owns the TS-package quality remediation absorb
 - The `asdl pr-address ...` plugin is retired rather than ported; the standalone CLI is the only invocation surface after cutover.
 - Python fallback has a short explicit retirement phase ending in full in-repo deletion of `packages/asdl-pr-address`; the published PyPI `asdl-pr-address==0.1.1` artifact remains the external frozen rollback.
 - Lessons from the `pr-address` port feed back into the umbrella porting playbook for later capability slices.
-- Parity corrections hold: `--format=json` produces JSON envelopes wherever `--format json` does; non-integer forms like `1e2`/`0x10` are rejected where click's `int` rejects them.
+- Parity corrections hold: `--format=json` produces JSON envelopes wherever `--format json` does; decimal integer parsing rejects non-canonical forms such as `1e2`, `0x10`, `+5`, whitespace-padded values, and `1_000` under the TypeScript clinkr shell. The `+5`/whitespace/underscore cases are an accepted stricter-than-click contract, not an accidental parity gap.
 - Each wire contract (plan items, manifests, checkpoint, stack plan, compact summaries, classification packet) has exactly one canonical Zod definition; producers type against `z.infer`; the `--json-schema` doc routes import rather than restate; the two contradictory classification-template route schemas are unified.
 - No source file in the package exceeds 1,000 lines; `operation-schemas.ts` and `classification-core.ts` are decomposed.
 - One operation table drives dispatch, schema routing, and help; the dead exports identified by the review (`LEGACY_EXEC_OPERATIONS`, `isTsManaged`, `raw-exit`, and peers) are gone; `PrAddressContext` gateways are required and the `missing_gateway` branch class is deleted.
@@ -114,6 +114,7 @@ Assumptions:
 - `prepare-run`'s contested-thread reopen is a GitHub write (`unresolve_review_thread`) already covered by the ported TypeScript mutation gateway and fakes; porting it did not require new live-write validation. Confirmed 2026-06-09.
 - Managed-operation envelope output now matches Python `json.dumps(..., indent=2)` `ensure_ascii` escaping for non-ASCII content; this was a latent TypeScript parity gap closed during the `prepare-run-summarize` branch.
 - Confirmed 2026-06-12: the package-local payload/reference helper path no longer relies on the known broad generic empty-payload cast or the prepare-run manifest parity test's double-cast laundering. PR #1350 corroborates the fix: field-reference-only payload loading starts from an explicit record accumulator, and the parity test consumes the exported prepare-run manifest input type directly.
+- Decided 2026-06-13: the TypeScript clinkr integer parser's durable contract is optional leading `-` plus ASCII decimal digits only. Inputs such as `+5`, whitespace-padded numbers, and `1_000` remain usage errors even though Python click accepts them; this stricter contract is pinned by clinkr tests and should not be reopened by generic click-parity wording.
 
 Decided (2026-06-09 endgame decisions):
 
@@ -143,7 +144,10 @@ Risks:
 - How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
 - What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
-- Should the `stack-feedback-prep` parallel-fetch phase flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way)?
+
+Resolved 2026-06-12 (structural/dedup group):
+
+- `stack-feedback-prep` parallel fetch is on by default. Failures still resolve to the first failure in input order; artifact writes remain sequential in stack order; fixture-visible stdout, exit behavior, sequence numbers, and filenames remain byte-identical. The accepted compatibility tradeoff is that partial-failure disk state may contain fewer per-PR artifacts than Python.
 
 Decided 2026-06-12 (dead-code sweep):
 
