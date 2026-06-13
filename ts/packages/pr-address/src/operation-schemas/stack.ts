@@ -147,7 +147,7 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 export const stackFeedbackPrepRequestSchema = z.object({
 	stack_json: nullableStringSchema.optional(),
 	stack_reference: nullableStringSchema.optional(),
-	payload_session_id: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
@@ -205,6 +205,7 @@ const stackFeedbackPrepSummarySchema = z.object({
 
 const stackFeedbackPrepResultSchema = z.object({
 	payload_session_id: z.string(),
+	harness_session_id_digest: nullableStringSchema.optional(),
 	include_resolved: z.boolean().optional(),
 	stack: z.array(stackFeedbackPrepPrResultSchema),
 	stack_summary_reference: payloadReferenceSchema.nullable().optional(),
@@ -227,6 +228,7 @@ const stackFeedbackPrepCompactPrResultSchema = z.object({
 
 const stackFeedbackPrepCompactResultSchema = z.object({
 	payload_session_id: z.string(),
+	harness_session_id_digest: nullableStringSchema.optional(),
 	include_resolved: z.boolean().optional(),
 	summary: stackFeedbackPrepSummarySchema,
 	stack_summary_reference: payloadReferenceSchema,
@@ -239,7 +241,7 @@ export const stackFeedbackPrepResultUnionSchema = z.union([stackFeedbackPrepResu
 
 export const stackFeedbackPreflightRequestSchema = z.object({
 	branches_json: nullableStringSchema.optional(),
-	payload_session_id: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 });
 
@@ -255,6 +257,7 @@ const stackFeedbackPreflightCompactZeroPrSchema = z.object({
 
 const stackFeedbackPreflightCompactResultSchema = z.object({
 	payload_session_id: z.string(),
+	harness_session_id_digest: nullableStringSchema.optional(),
 	mapping_summary: mapBranchPrsSummarySchema,
 	stack_reference: payloadReferenceSchema,
 	stack_summary_reference: payloadReferenceSchema,
@@ -271,7 +274,7 @@ export const stackFeedbackPlanRequestSchema = z.object({
 	payload_json: nullableStringSchema.optional(),
 	payload_file: nullableStringSchema.optional(),
 	prep_reference: nullableStringSchema.optional(),
-	payload_session_id: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 });
 
@@ -385,6 +388,7 @@ const stackFeedbackPlanSummarySchema = z.object({
 const stackFeedbackPlanResultSchema = z.object({
 	valid: z.boolean(),
 	payload_session_id: z.string(),
+	harness_session_id_digest: nullableStringSchema.optional(),
 	pr_count: z.int(),
 	validation: stackFeedbackPlanValidationSummarySchema,
 	batches: z.array(stackFeedbackPlanBatchSchema).optional(),
@@ -427,6 +431,7 @@ const stackFeedbackPlanCompactInformationalSummarySchema = z.object({
 const stackFeedbackPlanCompactResultSchema = z.object({
 	valid: z.boolean(),
 	payload_session_id: z.string(),
+	harness_session_id_digest: nullableStringSchema.optional(),
 	pr_count: z.int(),
 	validation: stackFeedbackPlanValidationSummarySchema,
 	batches: z.array(stackFeedbackPlanCompactBatchSchema).optional(),

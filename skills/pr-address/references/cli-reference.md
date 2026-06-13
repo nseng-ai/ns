@@ -96,15 +96,10 @@ full feedback envelope to a store-owned `.raw.json` payload. The manifest carrie
 `payload_reference.payload_path` plus item-level body locators; it does not paste
 full review bodies into the main transcript.
 
-Payload mode requires one caller-supplied payload session id, passed with
-`--payload-session-id <id>` or the `ASDL_PAYLOAD_SESSION_ID` environment
-variable. The id must be a lowercase safe path segment matching
-`^[a-z0-9][a-z0-9._-]{0,127}$`. Use the same id for every payload feedback
-command in one skill invocation.
+Payload mode requires a raw harness session id from `HARNESS_SESSION_ID` or a manual `--harness-session-id <id>` override. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
 
 Use `--payload-mode inline` only as an explicit debugging or migration escape
-hatch. Inline mode prints the full raw payload and does not require a payload
-session id.
+hatch. Inline mode prints the full raw payload and does not require a harness session id.
 
 ## ID scoping
 

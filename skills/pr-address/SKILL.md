@@ -76,7 +76,6 @@ example:
 
 ```bash
 pr-address exec prepare-run \
-  --payload-session-id pr-address-20260604t120000z-a1 \
   --format json
 ```
 
@@ -100,14 +99,7 @@ files belonging to each batch (see step 4).
 
 Run the prerequisite checks above before fetching any feedback.
 
-Choose one payload session id for this skill invocation. It must be a lowercase
-safe path segment matching `^[a-z0-9][a-z0-9._-]{0,127}$`. Example:
-`pr-address-20260604t120000z-a1`.
-
-Pass the same id to every default payload feedback command with
-`--payload-session-id <payload-session-id>`, or set
-`ASDL_PAYLOAD_SESSION_ID=<payload-session-id>` in the command environment. Do
-not rely on commands to invent a session id.
+Compliant harnesses provide `HARNESS_SESSION_ID` for payload feedback commands. Pi injects it for Bash tool calls through `.pi/extensions/harness-session.ts`. For manual or non-Pi debugging, pass `--harness-session-id <raw-harness-id>` or set `HARNESS_SESSION_ID=<raw-harness-id>` in the command environment. Do not rely on commands to invent a session id.
 
 If the surrounding harness is in a planning-only mode, stop after printing the
 execution plan. Do not edit files, commit, or call GitHub mutation commands.
@@ -118,7 +110,6 @@ Use the composite helper in default payload mode:
 
 ```bash
 pr-address exec prepare-run \
-  --payload-session-id <payload-session-id> \
   --format json
 ```
 
@@ -458,7 +449,6 @@ run deterministic finalization:
 ```bash
 pr-address exec get-feedback <pr_number> \
   --include-resolved \
-  --payload-session-id <payload-session-id> \
   --format json
 
 # Put the final get-feedback data object and all record-batch-checkpoint data
@@ -505,5 +495,5 @@ Do not run `git push`. Do not run `gt submit`.
 The skill validates classification before acting and may keep the validated
 packet in scratch context for this run. After each executed batch,
 `record-batch-checkpoint` can write a compact `.summary.json` checkpoint artifact
-inside the same payload session. Treat checkpoint artifacts as audit evidence,
+inside the same derived payload session. Treat checkpoint artifacts as audit evidence,
 not as a hidden task database or automatic resume queue.

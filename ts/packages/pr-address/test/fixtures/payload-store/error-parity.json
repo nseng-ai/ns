@@ -13,18 +13,8 @@
     },
     {
       "name": "session_required",
-      "error_type": "payload_session_required",
-      "message": "Payload artifact mode requires a session id from an explicit option or ASDL_PAYLOAD_SESSION_ID."
-    },
-    {
-      "name": "session_invalid_env",
-      "error_type": "payload_session_invalid",
-      "message": "Payload session id must be a safe segment: 'Bad Session'"
-    },
-    {
-      "name": "session_invalid_explicit",
-      "error_type": "payload_session_invalid",
-      "message": "Payload session id must be a safe segment: 'UPPER'"
+      "error_type": "harness_session_required",
+      "message": "Payload artifact mode requires HARNESS_SESSION_ID from the harness or --harness-session-id."
     },
     {
       "name": "open_relative_root",

@@ -241,6 +241,7 @@ interface ActiveSession {
 	ctx: ExtensionContext;
 	cwd: string;
 	abortController: AbortController;
+	harnessSessionId: string;
 	isClosed: boolean;
 }
 
@@ -249,7 +250,6 @@ interface FeedbackSnapshot {
 	items: FeedbackItemKey[];
 	ignoredItems: IgnoredFeedbackItem[];
 	headRefOid?: string | undefined;
-	payloadSessionId: string;
 }
 
 interface WatchStatus {
@@ -633,7 +633,6 @@ class PrFeedbackWatchController {
 	private lastRestFingerprintKey: string | undefined;
 	private restSinceIso: string | undefined;
 	private lastHeavyFallbackAt = 0;
-	private payloadSessionSequence = 0;
 	private runner: PrAddressRunner | undefined;
 
 	constructor(pi: ExtensionAPI, options: PrFeedbackWatchExtensionOptions) {
@@ -643,11 +642,13 @@ class PrFeedbackWatchController {
 
 	activate(ctx: ExtensionContext): void {
 		this.closeActiveSession();
+		const sessionId = ++this.nextSessionId;
 		this.activeSession = {
-			id: ++this.nextSessionId,
+			id: sessionId,
 			ctx,
 			cwd: ctx.cwd,
 			abortController: new AbortController(),
+			harnessSessionId: `pr-feedback-watch-${sessionId}`,
 			isClosed: false,
 		};
 		this.restoreState(ctx);
@@ -950,10 +951,9 @@ class PrFeedbackWatchController {
 	private async loadSnapshot(session: ActiveSession): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
 		const runner = await this.resolveRunner(session);
 		if (runner.type === "failed") return runner;
-		const payloadSessionId = this.nextPayloadSessionId();
 		const result = await this.pi.exec(
 			runner.runner.command,
-			[...runner.runner.baseArgs, "exec", "prepare-run", "--payload-session-id", payloadSessionId, "--format", "json"],
+			[...runner.runner.baseArgs, "exec", "prepare-run", "--harness-session-id", session.harnessSessionId, "--format", "json"],
 			{ cwd: session.cwd, timeout: COMMAND_TIMEOUT_MS, signal: session.abortController.signal },
 		);
 		if (result.killed || result.code !== 0) {
@@ -980,7 +980,6 @@ class PrFeedbackWatchController {
 				items: filtered.actionableTriggerItems,
 				ignoredItems: filtered.ignoredItems,
 				headRefOid,
-				payloadSessionId,
 			},
 		};
 	}
@@ -1138,11 +1137,6 @@ class PrFeedbackWatchController {
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
 	}
 
-	private nextPayloadSessionId(): string {
-		this.payloadSessionSequence += 1;
-		const pr = this.state.prNumber === undefined ? "unknown" : String(this.state.prNumber);
-		return `pr-feedback-watch-${pr}-${this.payloadSessionSequence}`;
-	}
 }
 
 async function resolveRepoRoot(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {

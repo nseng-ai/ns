@@ -153,7 +153,7 @@
 			"git": "default",
 			"payload_env": "root-only",
 			"expected_exit_code": 2,
-			"expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"payload_session_required\",\n  \"message\": \"Payload artifact mode requires a session id from an explicit option or ASDL_PAYLOAD_SESSION_ID.\"\n}\n"
+			"expected_envelope_text": "{\n  \"exit_code\": 2,\n  \"error_type\": \"harness_session_required\",\n  \"message\": \"Payload artifact mode requires HARNESS_SESSION_ID from the harness or --harness-session-id.\"\n}\n"
 		},
 		{
 			"name": "inline-found",

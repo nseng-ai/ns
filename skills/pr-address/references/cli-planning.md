@@ -313,7 +313,6 @@ payload only needs `classifications`:
 printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
       --prep-reference /path/to/payload-sessions/.../stack-feedback-prep.summary.json \
-      --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PLAN_COMPACT"
@@ -324,7 +323,6 @@ The embedded form remains available:
 ```bash
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
-      --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PLAN_COMPACT"
@@ -332,14 +330,14 @@ printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification"
 
 **Input fields:**
 
-| Field                              | Required | Description                                                                           |
-| ---------------------------------- | -------- | ------------------------------------------------------------------------------------- |
-| `prep`                             | source   | Complete `data` object from `stack-feedback-prep`; omit when using `--prep-reference` |
-| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                       |
-| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                        |
-| `prep_reference`                   | source   | `--prep-reference <path>`: read the prep data object from a saved prep artifact file  |
-| `payload_session_id`               | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules   |
-| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows  |
+| Field                              | Required | Description                                                                                   |
+| ---------------------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `prep`                             | source   | Complete `data` object from `stack-feedback-prep`; omit when using `--prep-reference`         |
+| `classifications[].pr_number`      | yes      | PR number matching exactly one prep stack entry                                               |
+| `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                                |
+| `prep_reference`                   | source   | `--prep-reference <path>`: read the prep data object from a saved prep artifact file          |
+| `harness_session_id`               | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
+| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows          |
 
 Exactly one prep source is required: the embedded `prep` payload key or
 `--prep-reference`. Passing both fails with `exit_code: 2`, as does a missing,

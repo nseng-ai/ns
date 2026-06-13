@@ -181,7 +181,7 @@ describe("pr-address CLI", () => {
 	test("accepts plain decimal integers before reaching later gateway validation", async () => {
 		const prRun = runScenario(["exec", "get-feedback", "123", "--format=json"]);
 		expect(await prRun.exit).toBe(2);
-		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "payload_session_required" });
+		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "harness_session_required" });
 
 		const bodyCharsRun = runScenario(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json"]);
 		expect(await bodyCharsRun.exit).toBe(1);

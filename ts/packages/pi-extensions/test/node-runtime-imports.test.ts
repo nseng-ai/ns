@@ -16,6 +16,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/dispatch-runner-subagent.ts",
 	".pi/extensions/grill-ui.ts",
 	".pi/extensions/handoff.ts",
+	".pi/extensions/harness-session.ts",
 	".pi/extensions/code-workflows.ts",
 	".pi/extensions/just-fix.ts",
 	".pi/extensions/objective.ts",

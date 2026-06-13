@@ -24,6 +24,7 @@ interface StackFeedbackPreflightFullResult extends StackFeedbackPrepResult {
 
 interface StackFeedbackPreflightCompactResult {
 	payload_session_id: string;
+	harness_session_id_digest: string | null;
 	mapping_summary: MapBranchPrsResult["summary"];
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
@@ -34,7 +35,7 @@ interface StackFeedbackPreflightCompactResult {
 
 const stackFeedbackPreflightParseSchema = z.object({
 	branches_json: z.string().optional(),
-	payload_session_id: z.string().optional(),
+	harness_session_id: z.string().optional(),
 	stdout_mode: z.enum(["full", "compact"]).default("full"),
 });
 
@@ -53,7 +54,7 @@ async function runStackFeedbackPreflightOperation(
 	request: z.output<typeof stackFeedbackPreflightParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
 	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitSessionId: request.payload_session_id ?? null,
+		explicitHarnessSessionId: request.harness_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
 	});
@@ -121,6 +122,7 @@ function compactPreflightResult(result: StackFeedbackPreflightFullResult, stackS
 	const compact = compactPrepResult(result, stackSummaryReference);
 	return {
 		payload_session_id: compact.payload_session_id,
+		harness_session_id_digest: compact.harness_session_id_digest,
 		mapping_summary: result.mapping_summary,
 		stack_reference: result.stack_reference,
 		stack_summary_reference: compact.stack_summary_reference,

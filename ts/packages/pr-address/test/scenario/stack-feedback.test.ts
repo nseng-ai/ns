@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
 import { normalizePayloadBytes } from "../support/golden.ts";
+import { expectedHarnessSessionRelativePath, expectedHarnessSessionText } from "../support/harness-session.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -78,15 +79,16 @@ function numberKeyed<T>(record: Record<string, T>): Map<number, T> {
 
 function payloadEnv(mode: "session" | "root-only" | null, root: string | null, sessionId: string): NodeJS.ProcessEnv {
 	if (mode === null || root === null) return { PATH: "/fake/bin" };
-	if (mode === "session") return { ASDL_PAYLOAD_ROOT: root, ASDL_PAYLOAD_SESSION_ID: sessionId };
+	if (mode === "session") return { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
 	return { ASDL_PAYLOAD_ROOT: root };
 }
 
-async function expectArtifacts(root: string, artifacts: readonly FixtureArtifact[]): Promise<void> {
+async function expectArtifacts(root: string, artifacts: readonly FixtureArtifact[], rawHarnessSessionId: string): Promise<void> {
 	for (const artifact of artifacts) {
-		const actualText = await readFile(join(root, artifact.relative_path), "utf8");
-		const expectedText = artifact.text.replaceAll("{ROOT}", root);
-		expect(normalizePayloadBytes(actualText), artifact.relative_path).toBe(normalizePayloadBytes(expectedText));
+		const artifactRelativePath = expectedHarnessSessionRelativePath(artifact.relative_path, rawHarnessSessionId);
+		const actualText = await readFile(join(root, artifactRelativePath), "utf8");
+		const expectedText = expectedHarnessSessionText(artifact.text.replaceAll("{ROOT}", root), rawHarnessSessionId);
+		expect(normalizePayloadBytes(actualText), artifactRelativePath).toBe(normalizePayloadBytes(expectedText));
 	}
 }
 
@@ -101,9 +103,12 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 			});
 
 			expect(await run.exit).toBe(prepCase.expected_exit_code);
-			const expectedEnvelope = root === null ? prepCase.expected_envelope_text : prepCase.expected_envelope_text.replaceAll("{ROOT}", root);
+			const expectedEnvelope =
+				root === null
+					? prepCase.expected_envelope_text
+					: expectedHarnessSessionText(prepCase.expected_envelope_text.replaceAll("{ROOT}", root), prepFixture.session_id);
 			expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
-			if (prepCase.artifacts !== undefined && root !== null) await expectArtifacts(root, prepCase.artifacts);
+			if (prepCase.artifacts !== undefined && root !== null) await expectArtifacts(root, prepCase.artifacts, prepFixture.session_id);
 		});
 	}
 
@@ -261,9 +266,12 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 			});
 
 			expect(await run.exit).toBe(planCase.expected_exit_code);
-			const expectedEnvelope = root === null ? planCase.expected_envelope_text : planCase.expected_envelope_text.replaceAll("{ROOT}", root);
-			expect(run.stdout.join("")).toBe(expectedEnvelope);
-			if (planCase.artifacts !== undefined && root !== null) await expectArtifacts(root, planCase.artifacts);
+			const expectedEnvelope =
+				root === null
+					? planCase.expected_envelope_text
+					: expectedHarnessSessionText(planCase.expected_envelope_text.replaceAll("{ROOT}", root), planFixture.session_id);
+			expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
+			if (planCase.artifacts !== undefined && root !== null) await expectArtifacts(root, planCase.artifacts, planFixture.session_id);
 		});
 	}
 
@@ -308,7 +316,9 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: template.classifications })], root);
 
 		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
-		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
+		expect(normalizePayloadBytes(run.stdout.join(""))).toBe(
+			normalizePayloadBytes(expectedHarnessSessionText(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root), planFixture.session_id)),
+		);
 	});
 
 	test("accepts --payload-file for the full plan payload", async () => {
@@ -320,7 +330,9 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		const run = runPlan(["--payload-file", payloadPath], root);
 
 		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
-		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
+		expect(normalizePayloadBytes(run.stdout.join(""))).toBe(
+			normalizePayloadBytes(expectedHarnessSessionText(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root), planFixture.session_id)),
+		);
 	});
 
 	test("rejects --prep-reference combined with an embedded prep key", async () => {

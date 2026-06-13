@@ -13,7 +13,7 @@
           }
         ]
       },
-      "payload_session_id": {
+      "harness_session_id": {
         "anyOf": [
           {
             "type": "string"
@@ -41,6 +41,16 @@
         "properties": {
           "payload_session_id": {
             "type": "string"
+          },
+          "harness_session_id_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "include_resolved": {
             "type": "boolean"
@@ -1993,6 +2003,16 @@
         "properties": {
           "payload_session_id": {
             "type": "string"
+          },
+          "harness_session_id_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "mapping_summary": {
             "type": "object",
