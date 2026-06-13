@@ -124,6 +124,24 @@ def test_check_happy_empty_lockfile(tmp_path: Path) -> None:
     assert "All skills OK" in result.output
 
 
+def test_check_happy_invoke_only_local_skill(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    skill_md = tmp_path / "skills" / "my-skill" / "SKILL.md"
+    skill_md.write_text(
+        "---\nname: my-skill\ndisable-model-invocation: true\n---\n", encoding="utf-8"
+    )
+    sidecar = tmp_path / "skills" / "my-skill" / "agents" / "openai.yaml"
+    sidecar.parent.mkdir()
+    sidecar.write_text("policy:\n  allow_implicit_invocation: false\n", encoding="utf-8")
+    _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert "All skills OK" in result.output
+
+
 # ---------------------------------------------------------------------------
 # Local skill issues
 # ---------------------------------------------------------------------------
@@ -337,6 +355,34 @@ def test_check_local_skill_description_too_long(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "invalid description: exceeds maximum length of 1024 characters" in result.output
     assert "got 1025" in result.output
+
+
+def test_check_local_invoke_only_flag_without_sidecar(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    (tmp_path / "skills" / "my-skill" / "SKILL.md").write_text(
+        "---\nname: my-skill\ndisable-model-invocation: true\n---\n", encoding="utf-8"
+    )
+    _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "skills/my-skill/agents/openai.yaml missing for invoke-only skill" in result.output
+
+
+def test_check_local_sidecar_without_invoke_only_flag(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    sidecar = tmp_path / "skills" / "my-skill" / "agents" / "openai.yaml"
+    sidecar.parent.mkdir()
+    sidecar.write_text("policy:\n  allow_implicit_invocation: false\n", encoding="utf-8")
+    _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "exists but SKILL.md does not set disable-model-invocation: true" in result.output
 
 
 # ---------------------------------------------------------------------------
