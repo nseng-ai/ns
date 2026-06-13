@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
+import { isRecord } from "./operation-support.ts";
+
 export interface JsonInputError {
 	errorType: "invalid_json" | "invalid_request";
 	message: string;
@@ -87,7 +89,7 @@ export interface LoadOperationPayloadOptions<TPayload extends object> {
 	request: Readonly<Record<string, unknown>>;
 	stdin: () => Promise<string>;
 	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[];
-	payloadOptionalWhenAllFieldsReferenced?: boolean | undefined;
+	canOmitPayloadWhenAllFieldsReferenced?: boolean | undefined;
 }
 
 /**
@@ -104,7 +106,12 @@ export async function loadArtifactReference<T>(options: LoadArtifactReferenceOpt
 	});
 	if (fileResult.type === "error") return fileResult;
 
-	return parseJsonWithSchema(fileResult.value, options.schema, `${options.commandName} ${options.optionName} file`, `${options.commandName} ${options.optionName}`);
+	return parseJsonWithSchema({
+		text: fileResult.value,
+		schema: options.schema,
+		jsonDescription: `${options.commandName} ${options.optionName} file`,
+		schemaDescription: `${options.commandName} ${options.optionName}`,
+	});
 }
 
 /** Resolve one input from exactly one source: an embedded payload key or its reference option. */
@@ -159,7 +166,7 @@ export async function loadOperationPayload<TPayload extends object>(
 	const hasAllReferences =
 		options.fields.length > 0 &&
 		options.fields.every((field) => stringRequestField(options.request, operationPayloadReferenceKey(field.key)) !== undefined);
-	const shouldLoadPayload = hasPayloadOption || (options.payloadOptionalWhenAllFieldsReferenced !== true || !hasAllReferences);
+	const shouldLoadPayload = hasPayloadOption || (options.canOmitPayloadWhenAllFieldsReferenced !== true || !hasAllReferences);
 	const resolvedPayload: Record<string, unknown> = {};
 	if (shouldLoadPayload) {
 		const payloadResult = await loadJsonInput({
@@ -213,7 +220,12 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 	const textResult = await readJsonInputText(options);
 	if (textResult.type === "error") return textResult;
 
-	return parseJsonWithSchema(textResult.value, options.schema, `${options.commandName} ${options.inputDescription}`, `${options.commandName} ${options.inputDescription}`);
+	return parseJsonWithSchema({
+		text: textResult.value,
+		schema: options.schema,
+		jsonDescription: `${options.commandName} ${options.inputDescription}`,
+		schemaDescription: `${options.commandName} ${options.inputDescription}`,
+	});
 }
 
 export interface LoadJsonRecordOptions extends ReadJsonInputTextOptions {}
@@ -239,7 +251,7 @@ export async function loadJsonRecord(options: LoadJsonRecordOptions): Promise<Js
 		};
 	}
 
-	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+	if (!isRecord(parsed)) {
 		return {
 			type: "error",
 			error: {
@@ -249,7 +261,7 @@ export async function loadJsonRecord(options: LoadJsonRecordOptions): Promise<Js
 		};
 	}
 
-	return { type: "ok", value: parsed as Record<string, unknown> };
+	return { type: "ok", value: parsed };
 }
 
 async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
@@ -320,27 +332,34 @@ function jsonParseMessage(error: unknown): string {
  * @param jsonDescription - Descriptor for JSON parsing errors (e.g., "demo payload")
  * @param schemaDescription - Descriptor for schema validation errors (e.g., "demo payload")
  */
-function parseJsonWithSchema<T>(text: string, schema: z.ZodType<T>, jsonDescription: string, schemaDescription: string): JsonInputResult<T> {
+export interface ParseJsonWithSchemaOptions<T> {
+	text: string;
+	schema: z.ZodType<T>;
+	jsonDescription: string;
+	schemaDescription: string;
+}
+
+export function parseJsonWithSchema<T>(options: ParseJsonWithSchemaOptions<T>): JsonInputResult<T> {
 	let parsedJson: unknown;
 	try {
-		parsedJson = JSON.parse(text);
+		parsedJson = JSON.parse(options.text);
 	} catch (error) {
 		return {
 			type: "error",
 			error: {
 				errorType: "invalid_json",
-				message: `Invalid ${jsonDescription}: ${jsonParseMessage(error)}`,
+				message: `Invalid ${options.jsonDescription}: ${jsonParseMessage(error)}`,
 			},
 		};
 	}
 
-	const parseResult = schema.safeParse(parsedJson);
+	const parseResult = options.schema.safeParse(parsedJson);
 	if (!parseResult.success) {
 		return {
 			type: "error",
 			error: {
 				errorType: "invalid_request",
-				message: `Invalid ${schemaDescription}: ${z.prettifyError(parseResult.error)}`,
+				message: `Invalid ${options.schemaDescription}: ${z.prettifyError(parseResult.error)}`,
 			},
 		};
 	}

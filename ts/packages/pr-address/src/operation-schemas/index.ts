@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { type JsonSchemaDocument } from "@asdl/clinkr";
 
 import {
@@ -30,7 +29,7 @@ import {
 	resolveThreadWithReplyResultSchema,
 } from "./mutation.ts";
 import { buildResolveThreadBatchPayloadResultSchema, finalizeRunResultSchema, recordBatchCheckpointResultSchema } from "./payload.ts";
-import { buildStackResolveThreadPayloadsRequestSchema, payloadJsonOrFileRequestSchema, stackFeedbackDiffCurrentRequestSchema } from "./shared.ts";
+import { buildStackResolveThreadPayloadsRequestSchema, payloadJsonOrFileRequestSchema, schemaDocument, stackFeedbackDiffCurrentRequestSchema } from "./shared.ts";
 import {
 	buildStackResolveThreadPayloadsResultSchema,
 	stackFeedbackDiffCurrentResultSchema,
@@ -61,13 +60,6 @@ import {
 // - Fields with Python defaults use `.optional()`; explicit-null fields use `.nullable()`.
 
 // --- document registry --------------------------------------------------------------
-
-function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): JsonSchemaDocument {
-	return {
-		input_json_schema: z.toJSONSchema(requestSchema),
-		output_json_schema: z.toJSONSchema(resultSchema),
-	};
-}
 
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
 	["build-resolve-thread-batch-payload", () => schemaDocument(payloadJsonOrFileRequestSchema, buildResolveThreadBatchPayloadResultSchema)],

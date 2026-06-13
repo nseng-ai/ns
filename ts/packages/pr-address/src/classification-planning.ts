@@ -94,7 +94,7 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 	const lookup = classifiedLookup(artifacts.classificationPacket);
 	const { actions, informational } = partitionPlanItems(view, lookup);
 	const batches = batchesForActions(actions);
-	const result: FeedbackPlanResult = {
+	return feedbackPlanResultSchema.parse({
 		valid: true,
 		manifest_kind: view.kind,
 		pr_number: view.prNumber,
@@ -104,8 +104,7 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 		batches,
 		informational,
 		warnings: planningWarnings(view),
-	};
-	return result;
+	});
 }
 
 function classifiedLookup(packet: FeedbackClassificationPacket): ClassifiedLookup {
@@ -179,72 +178,66 @@ function discussionSourceFields(comment: DiscussionCommentManifestItem): PlanSou
 }
 
 function reviewActionItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewActionItem {
-	const result: FeedbackPlanReviewActionItem = {
+	return feedbackPlanReviewActionItemSchema.parse({
 		...planSourceItemBase("review", item.summary, reviewSourceFields(review)),
 		source_kind: "review",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
-	};
-	return result;
+	});
 }
 
 function threadActionItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadActionItem {
-	const result: FeedbackPlanThreadActionItem = {
+	return feedbackPlanThreadActionItemSchema.parse({
 		...planSourceItemBase("review_thread", item.summary, threadSourceFields(thread, item)),
 		source_kind: "review_thread",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
-	};
-	return result;
+	});
 }
 
 function discussionActionItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionActionItem {
-	const result: FeedbackPlanDiscussionActionItem = {
+	return feedbackPlanDiscussionActionItemSchema.parse({
 		...planSourceItemBase("discussion_comment", item.summary, discussionSourceFields(comment)),
 		source_kind: "discussion_comment",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: false,
 		needs_reply: item.needs_reply,
-	};
-	return result;
+	});
 }
 
 function reviewInformationalItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewInformationalItem {
-	const result: FeedbackPlanReviewInformationalItem = {
+	return feedbackPlanReviewInformationalItemSchema.parse({
 		...planSourceItemBase("review", item.summary, reviewSourceFields(review)),
 		source_kind: "review",
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
-	};
-	return result;
+	});
 }
 
 function threadInformationalItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadInformationalItem {
-	const result: FeedbackPlanThreadInformationalItem = {
+	return feedbackPlanThreadInformationalItemSchema.parse({
 		...planSourceItemBase("review_thread", item.summary, threadSourceFields(thread, item)),
 		source_kind: "review_thread",
 		informational_reason: item.informational_reason,
 		user_decision_required: true,
 		allowed_decisions: [...INFORMATIONAL_THREAD_DECISIONS],
-	};
-	return result;
+	});
 }
 
 function discussionInformationalItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionInformationalItem {
-	const result: FeedbackPlanDiscussionInformationalItem = {
+	return feedbackPlanDiscussionInformationalItemSchema.parse({
 		...planSourceItemBase("discussion_comment", item.summary, discussionSourceFields(comment)),
 		source_kind: "discussion_comment",
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
-	};
-	return result;
+	});
 }
 
 function planSourceItemBase(sourceKind: PlanSourceKind, summary: string, fields: PlanSourceItemFields): { source_kind: PlanSourceKind; summary: string } & Required<PlanSourceItemFields> {

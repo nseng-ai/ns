@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type JsonSchemaDocument } from "@asdl/clinkr";
 
 import { ACTION_COMPLEXITIES, INFORMATIONAL_REASONS } from "../feedback-plan-contracts.ts";
 
@@ -118,3 +119,10 @@ export const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSch
 export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({
 	stack_plan_reference: nullableStringSchema.optional(),
 });
+
+export function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): JsonSchemaDocument {
+	return {
+		input_json_schema: z.toJSONSchema(requestSchema),
+		output_json_schema: z.toJSONSchema(resultSchema),
+	};
+}

@@ -8,7 +8,6 @@ import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanA
 import { loadOperationPayload } from "./json-input.ts";
 import { PayloadStore } from "./payload-store.ts";
 import {
-	pythonTupleRepr,
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
 	triageSummary,
@@ -22,7 +21,7 @@ import {
 	type StackPrepPrResultInput,
 	type StackPrepResultInput,
 } from "./stack-feedback-contracts.ts";
-import { duplicateValues, pythonRepr } from "./string-values.ts";
+import { duplicateValues, pythonRepr, pythonTupleRepr } from "./string-values.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),

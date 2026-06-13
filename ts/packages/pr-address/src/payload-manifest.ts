@@ -66,6 +66,9 @@ export const prepareRunPayloadManifestInputSchema = z.object({
 	returncode: z.number().int().nullable().optional(),
 });
 
+export type GetFeedbackPayloadManifestInput = z.input<typeof getFeedbackPayloadManifestInputSchema>;
+export type PrepareRunPayloadManifestInput = z.input<typeof prepareRunPayloadManifestInputSchema>;
+
 type Review = PRReview;
 type ReviewComment = PRReviewThread["comments"][number];
 type ReviewThread = PRReviewThread;
@@ -119,7 +122,7 @@ export interface PrepareRunPayloadManifest {
 	returncode: number | null;
 }
 
-export function buildGetFeedbackPayloadManifest(input: z.input<typeof getFeedbackPayloadManifestInputSchema>): GetFeedbackPayloadManifest {
+export function buildGetFeedbackPayloadManifest(input: GetFeedbackPayloadManifestInput): GetFeedbackPayloadManifest {
 	return {
 		payload_mode: "payload",
 		payload_reference: input.payload_reference,
@@ -131,7 +134,7 @@ export function buildGetFeedbackPayloadManifest(input: z.input<typeof getFeedbac
 	};
 }
 
-export function buildPrepareRunPayloadManifest(input: z.input<typeof prepareRunPayloadManifestInputSchema>): PrepareRunPayloadManifest {
+export function buildPrepareRunPayloadManifest(input: PrepareRunPayloadManifestInput): PrepareRunPayloadManifest {
 	const reviews = input.reviews ?? [];
 	const reviewThreads = input.review_threads ?? [];
 	const discussionComments = input.discussion_comments ?? [];

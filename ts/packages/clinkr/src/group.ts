@@ -422,12 +422,18 @@ function parseNumberValue(value: string): number {
 }
 
 function parseIntegerValue(value: string): number {
+	const parsed = parseStrictInteger(value);
+	if (parsed === null) {
+		throw new InvalidArgumentError("expected an integer");
+	}
+	return parsed;
+}
+
+function parseStrictInteger(value: string): number | null {
 	// TS clinkr is stricter than click: decimal digits only, no leading +, no
 	// whitespace, no underscores. Click accepts "+5", " 5 ", and "1_000"; TS
 	// intentionally rejects them. Parity arbitration belongs to pr-address-typescript-port.
-	if (!/^-?\d+$/.test(value)) {
-		throw new InvalidArgumentError("expected an integer");
-	}
+	if (!/^-?\d+$/.test(value)) return null;
 	return Number(value);
 }
 

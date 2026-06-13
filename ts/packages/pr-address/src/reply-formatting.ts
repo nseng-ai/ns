@@ -4,6 +4,10 @@ export type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
 export const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 export const PRE_EXISTING_REPLY = "Pre-existing issue - this code was moved/restructured, not newly introduced.";
 
+export function validResolutionModesText(): string {
+	return VALID_RESOLUTION_MODES.join(", ");
+}
+
 export type ResolutionProvenance = LocalBranchResolutionProvenance | PrResolutionProvenance;
 
 export interface LocalBranchResolutionProvenance {

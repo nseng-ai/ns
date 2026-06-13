@@ -9,6 +9,7 @@ import {
 	manifestKindSchema,
 	nullableIntSchema,
 	nullableStringSchema,
+	schemaDocument,
 	validationErrorCodeSchema,
 	validationItemKindSchema,
 } from "./shared.ts";
@@ -182,22 +183,13 @@ const classificationTemplateResultSchema = z
 // --- schema document builders for classification trio -----------------------------
 
 export function buildClassificationTemplateSchemaDocument(): JsonSchemaDocument {
-	return {
-		input_json_schema: z.toJSONSchema(classificationTemplateRequestSchema),
-		output_json_schema: z.toJSONSchema(classificationTemplateResultSchema),
-	};
+	return schemaDocument(classificationTemplateRequestSchema, classificationTemplateResultSchema);
 }
 
 export function buildValidateFeedbackClassificationSchemaDocument(): JsonSchemaDocument {
-	return {
-		input_json_schema: z.toJSONSchema(validateFeedbackClassificationRequestSchema),
-		output_json_schema: z.toJSONSchema(feedbackPlanningValidationResultSchema),
-	};
+	return schemaDocument(validateFeedbackClassificationRequestSchema, feedbackPlanningValidationResultSchema);
 }
 
 export function buildPlanFeedbackSchemaDocument(): JsonSchemaDocument {
-	return {
-		input_json_schema: z.toJSONSchema(planFeedbackRequestSchema),
-		output_json_schema: z.toJSONSchema(feedbackPlanResultSchema),
-	};
+	return schemaDocument(planFeedbackRequestSchema, feedbackPlanResultSchema);
 }
