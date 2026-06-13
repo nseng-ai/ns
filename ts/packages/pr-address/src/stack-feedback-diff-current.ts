@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
-import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
+import { loadJsonInput, resolveXorSourceInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
@@ -63,18 +63,6 @@ const stackFeedbackDiffCurrentInputSchema = z.looseObject({
 	current_prep: z.unknown().optional(),
 });
 
-// Cheap structural checks for reference-option artifacts; `diffStackFeedbackCurrent`
-// still performs the deep semantic validation on whatever these accept.
-const stackPlanReferenceShapeSchema = z.looseObject({
-	valid: z.boolean(),
-	batches: z.array(z.unknown()),
-	validation: z.looseObject({}),
-});
-const currentPrepReferenceShapeSchema = z.looseObject({
-	stack: z.array(z.unknown()),
-	summary: z.looseObject({}),
-});
-
 type StackFeedbackPlanItem = z.infer<typeof stackFeedbackPlanItemSchema>;
 type StackFeedbackPlanResult = z.infer<typeof stackFeedbackPlanResultSchema>;
 type StackFeedbackPrepResult = z.infer<typeof stackFeedbackPrepResultSchema>;
@@ -125,22 +113,24 @@ export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOpera
 		payload = payloadResult.value;
 	}
 
-	const stackPlanResult = await resolveDiffInput({
+	const stackPlanResult = await resolveXorSourceInput({
+		commandName: "stack-feedback-diff-current",
 		embeddedValue: payload.stack_plan,
 		embeddedKey: "stack_plan",
 		referencePath: stackPlanReferencePath,
 		optionName: "--stack-plan-reference",
 		artifactDescription: "a stack-feedback-plan data artifact",
-		shapeSchema: stackPlanReferenceShapeSchema,
+		referenceSchema: z.unknown(),
 	});
 	if (stackPlanResult.type === "error") return { type: "exit", exit: failure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
-	const currentPrepResult = await resolveDiffInput({
+	const currentPrepResult = await resolveXorSourceInput({
+		commandName: "stack-feedback-diff-current",
 		embeddedValue: payload.current_prep,
 		embeddedKey: "current_prep",
 		referencePath: currentPrepReferencePath,
 		optionName: "--current-prep-reference",
 		artifactDescription: "a stack-feedback-prep data artifact",
-		shapeSchema: currentPrepReferenceShapeSchema,
+		referenceSchema: z.unknown(),
 	});
 	if (currentPrepResult.type === "error") return { type: "exit", exit: failure(currentPrepResult.error.errorType, currentPrepResult.error.message) };
 
@@ -150,45 +140,6 @@ export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOpera
 		type: "exit",
 		exit: negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result),
 	};
-}
-
-/** Resolve one diff input from at most one source: the embedded payload key or its reference option. */
-async function resolveDiffInput(options: {
-	embeddedValue: unknown;
-	embeddedKey: string;
-	referencePath: string | undefined;
-	optionName: string;
-	artifactDescription: string;
-	shapeSchema: z.ZodType<unknown>;
-}): Promise<JsonInputResult<unknown>> {
-	if (options.referencePath === undefined) {
-		if (options.embeddedValue === undefined) {
-			return {
-				type: "error",
-				error: {
-					errorType: "invalid_request",
-					message: `stack-feedback-diff-current requires a ${options.embeddedKey} input via the payload ${options.embeddedKey} key or ${options.optionName}.`,
-				},
-			};
-		}
-		return { type: "ok", value: options.embeddedValue };
-	}
-	if (options.embeddedValue !== undefined) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_request",
-				message: `stack-feedback-diff-current cannot mix an embedded ${options.embeddedKey} payload key with ${options.optionName}; pass exactly one ${options.embeddedKey} source.`,
-			},
-		};
-	}
-	return await loadArtifactReference({
-		filePath: options.referencePath,
-		commandName: "stack-feedback-diff-current",
-		optionName: options.optionName,
-		artifactDescription: options.artifactDescription,
-		schema: options.shapeSchema,
-	});
 }
 
 export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {

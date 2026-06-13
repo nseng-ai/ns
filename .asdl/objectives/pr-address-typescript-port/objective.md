@@ -144,12 +144,15 @@ Risks:
 - What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
 - Should the `stack-feedback-prep` parallel-fetch phase flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way)?
 - Is `writeTextArtifact` (no production caller) needed by upcoming log-artifact operations, or should it be deleted in the dead-code sweep?
-- Shape layer for reference validation: delete (downstream validators like `invalid_stack_plan_shape` already speak) or keep-but-canonical (earlier "wrong file at this path" diagnostics)? One rule must win for all three reference options.
 
 Decided 2026-06-10 (consolidation):
 
 - Spec-driven option/schema generation from the payload spec (the former payload-reference #5b) dissolves into this record's pr-address clinkr shell migration rather than landing standalone, per the overlap note's own recommendation.
 - Final ownership of `loadOperationPayload` is package-local in this record for now. `@asdl/clinkr` should not grow first-class payload/reference support until at least one second consumer proves the seam.
+
+Resolved 2026-06-12 (payload/reference consolidation):
+
+- Reference-backed `stack_plan` and `current_prep` inputs receive exactly the validation their embedded equivalents receive. The shallow reference-shape schemas are deleted; downstream validators own `invalid_stack_plan_shape`, `invalid_current_prep_shape`, and related semantic diagnostics. `--prep-reference` keeps full schema validation because the embedded `prep` payload is schema-typed at the same boundary.
 
 Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
 
