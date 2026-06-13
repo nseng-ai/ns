@@ -13,17 +13,15 @@ const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.m
 
 // Operations whose schema documents were ported in this slice and must hold
 // structural semantic parity with the captured Python (Pydantic) fixtures.
-// Fixture input schemas for stack-feedback-plan, stack-feedback-prep,
-// stack-feedback-diff-current, build-stack-resolve-thread-payloads, and
-// build-resolve-thread-batch-payload additionally carry TypeScript-owned option
-// fields (payload_file and artifact reference options) that intentionally extend
-// the original Python contract.
+// Fixture input schemas for stack-feedback-diff-current,
+// build-stack-resolve-thread-payloads, and build-resolve-thread-batch-payload
+// additionally carry TypeScript-owned option fields (payload_file and artifact
+// reference options) that intentionally extend the original Python contract.
 const PARITY_OPERATIONS = [
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
 	"finalize-run",
-	"get-feedback",
-	"prepare-run",
+
 	"read-feedback-detail",
 	"read-feedback-details",
 	"record-batch-checkpoint",
@@ -32,8 +30,7 @@ const PARITY_OPERATIONS = [
 	"resolve-thread-batch",
 	"resolve-thread-with-reply",
 	"stack-feedback-diff-current",
-	"stack-feedback-plan",
-	"stack-feedback-prep",
+
 	"summarize-feedback",
 ] as const;
 
@@ -42,9 +39,10 @@ const PARITY_OPERATIONS = [
 // not held to the structural parity bar (pre-existing dialect/coverage gaps).
 const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-feedback-classification", "plan-feedback"] as const;
 
-// TypeScript-only operations with no Python counterpart; their fixtures are
-// captured from the TypeScript `--json-schema` output, not Python parity.
-const TS_ONLY_OPERATIONS = ["map-branch-prs", "stack-feedback-preflight"] as const;
+// TypeScript-owned operations with no current Python parity contract. This
+// includes helpers whose harness-session input contract intentionally diverged
+// from the captured Python fixtures.
+const TS_ONLY_OPERATIONS = ["get-feedback", "map-branch-prs", "prepare-run", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep"] as const;
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");

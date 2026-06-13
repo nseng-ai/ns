@@ -2,7 +2,7 @@
 
 Collection and inspection helpers: fetch PR feedback, map stack branches to
 PRs, and read payload details. Shared invocation conventions, the machine
-envelope, payload-session rules, and ID scoping live in [cli-reference.md](cli-reference.md).
+envelope, harness-session rules, and ID scoping live in [cli-reference.md](cli-reference.md).
 
 Helpers in this file:
 
@@ -22,12 +22,12 @@ compact payload manifest by default.
 
 **Input fields:**
 
-| Field                   | Required | Description                                                                                         |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `include_all_threads`   | no       | Include resolved threads for reference (default false)                                              |
-| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
-| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration                     |
-| `payload_session_id`    | payload  | Required in payload mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+| Field                   | Required | Description                                                                                   |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `include_all_threads`   | no       | Include resolved threads for reference (default false)                                        |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)       |
+| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration               |
+| `harness_session_id`    | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
 **Default payload output fields (under `data`):**
 
@@ -70,7 +70,6 @@ under `data` and should not be the default skill path.
 
 ```bash
 pr-address exec prepare-run \
-  --payload-session-id pr-address-20260604t120000z-a1 \
   --format json
 ```
 
@@ -83,13 +82,13 @@ read-only triage when the PR number is already known.
 
 **Input fields:**
 
-| Field                   | Required | Description                                                                                         |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `pr_number`             | yes      | PR number                                                                                           |
-| `include_resolved`      | no       | Include resolved review threads in the manifest (default false)                                     |
-| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)             |
-| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration                     |
-| `payload_session_id`    | payload  | Required in payload mode unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules |
+| Field                   | Required | Description                                                                                   |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `pr_number`             | yes      | PR number                                                                                     |
+| `include_resolved`      | no       | Include resolved review threads in the manifest (default false)                               |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)       |
+| `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration               |
+| `harness_session_id`    | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
 **Default payload output fields (under `data`):**
 
@@ -111,7 +110,6 @@ and rejects resolved threads as actionable work.
 
 ```bash
 pr-address exec get-feedback 630 \
-  --payload-session-id pr-address-20260604t120000z-a1 \
   --format json
 ```
 
@@ -133,24 +131,23 @@ also available.
 ```bash
 slot gt exec stack-branches \
   | pr-address exec stack-feedback-preflight \
-      --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json
 ```
 
 **Input fields:**
 
-| Field                | Required | Description                                                                                  |
-| -------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `branches`           | yes      | Non-empty array of branch names; no blanks and no duplicates                                 |
-| `stdout_mode`        | no       | `full` by default for compatibility; use `--stdout-mode compact` for stack-address workflows |
-| `payload_session_id` | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules          |
+| Field                | Required | Description                                                                                   |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `branches`           | yes      | Non-empty array of branch names; no blanks and no duplicates                                  |
+| `stdout_mode`        | no       | `full` by default for compatibility; use `--stdout-mode compact` for stack-address workflows  |
+| `harness_session_id` | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
 **Compact output fields (under `data`):**
 
 | Field                     | Description                                                                                          |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `payload_session_id`      | Payload session used for the stack run                                                               |
+| `payload_session_id`      | Derived payload-store session id used for the stack run                                              |
 | `mapping_summary`         | Branch coverage counts: `requested`, `matched`, `missing`                                            |
 | `stack_reference`         | Payload artifact containing the frozen `{"stack":[...]}` JSON for later exact refetches              |
 | `stack_summary_reference` | Whole-stack full prep artifact from `stack-feedback-prep`                                            |
@@ -188,7 +185,6 @@ not create untracked repository files.
 ```bash
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
   | pr-address exec stack-feedback-prep \
-      --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PREP_COMPACT"
@@ -196,19 +192,19 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
 
 **Input fields:**
 
-| Field                   | Required | Description                                                                              |
-| ----------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `stack[].pr_number`     | yes      | PR number                                                                                |
-| `stack[].branch`        | yes      | Stack branch name; must be non-empty and unique                                          |
-| `stack[].title`         | no       | PR title for provenance                                                                  |
-| `stack[].url`           | no       | PR URL for provenance                                                                    |
-| `stack[].head_ref_name` | no       | PR head ref for provenance                                                               |
-| `stack[].base_ref_name` | no       | PR base ref for provenance                                                               |
-| `stack_reference`       | no       | Payload artifact path containing `{"stack":[...]}`; mutually exclusive with `stack_json` |
-| `include_resolved`      | no       | Include resolved review threads in manifests (default false)                             |
-| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)  |
-| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows     |
-| `payload_session_id`    | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules      |
+| Field                   | Required | Description                                                                                   |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `stack[].pr_number`     | yes      | PR number                                                                                     |
+| `stack[].branch`        | yes      | Stack branch name; must be non-empty and unique                                               |
+| `stack[].title`         | no       | PR title for provenance                                                                       |
+| `stack[].url`           | no       | PR URL for provenance                                                                         |
+| `stack[].head_ref_name` | no       | PR head ref for provenance                                                                    |
+| `stack[].base_ref_name` | no       | PR base ref for provenance                                                                    |
+| `stack_reference`       | no       | Payload artifact path containing `{"stack":[...]}`; mutually exclusive with `stack_json`      |
+| `include_resolved`      | no       | Include resolved review threads in manifests (default false)                                  |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)       |
+| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows          |
+| `harness_session_id`    | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
 The stack must be non-empty and have unique PR numbers and branch names. Use
 `--stack-reference` for drift/final refetches that must reuse the exact frozen
@@ -218,7 +214,7 @@ stack from `stack-feedback-preflight`.
 
 | Field                                       | Description                                                             |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `payload_session_id`                        | Payload session used for the stack run                                  |
+| `payload_session_id`                        | Derived payload-store session id used for the stack run                 |
 | `include_resolved`                          | Whether resolved review threads were included in the stack manifests    |
 | `stack[]`                                   | One compact prep result per PR                                          |
 | `stack[].manifest`                          | Compact get-feedback manifest with locators, not body text              |

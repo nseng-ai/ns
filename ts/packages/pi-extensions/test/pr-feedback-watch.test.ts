@@ -164,8 +164,8 @@ function envelope(data: object): string {
 	return JSON.stringify({ exit_code: 0, data });
 }
 
-function prepareStep(data: object, sessionId: string): ScriptedExec {
-	return step("pr-address", ["exec", "prepare-run", "--payload-session-id", sessionId, "--format", "json"], {
+function prepareStep(data: object, harnessSessionId: string): ScriptedExec {
+	return step("pr-address", ["exec", "prepare-run", "--harness-session-id", harnessSessionId, "--format", "json"], {
 		result: { stdout: envelope(data) },
 	});
 }
@@ -388,7 +388,7 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("empty command starts and baselines existing feedback without dispatching", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -401,7 +401,7 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("once without dispatch-existing baselines current feedback", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep()]);
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -413,7 +413,7 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("once with dispatch-existing sends constrained prompt", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), cleanStep()]);
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -427,7 +427,7 @@ describe("pr feedback watch extension", () => {
 
 	test("unchanged cheap poll avoids heavy work", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -447,13 +447,13 @@ describe("pr feedback watch extension", () => {
 	test("after baseline, a new comment dispatches once", async () => {
 		const changedRest = { reviewComments: [reviewCommentRestItem(11)] };
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
 			...restFingerprintSteps(changedRest),
 			cleanStep(),
-			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-123-2"),
+			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-1"),
 			headOidStep(),
 			...restFingerprintSteps(changedRest),
 		]);
@@ -472,13 +472,13 @@ describe("pr feedback watch extension", () => {
 	test("changed REST fingerprint with no actionable manifest items advances without dispatch", async () => {
 		const changedRest = { discussion: [{ id: 92, updated_at: "2026-06-07T00:00:30Z", author: "schrockn" }] };
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
 			...restFingerprintSteps(changedRest),
 			cleanStep(),
-			prepareStep(compactManifest([10]), "pr-feedback-watch-123-2"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			headOidStep(),
 		]);
 		const ctx = new FakeContext();
@@ -494,7 +494,7 @@ describe("pr feedback watch extension", () => {
 
 	test("dirty tree pauses before heavy normalization after REST changes", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -515,7 +515,7 @@ describe("pr feedback watch extension", () => {
 
 	test("REST failures warn without dispatching or heavy retry before threshold", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -539,7 +539,7 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("start with dispatch-existing pauses on dirty tree", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -552,11 +552,11 @@ describe("pr feedback watch extension", () => {
 
 	test("dirty tree pauses dispatch unless allow-dirty is set", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest(), "pr-feedback-watch-unknown-1"),
+			prepareStep(compactManifest(), "pr-feedback-watch-1"),
 			currentUserStep(),
 			headOidStep(),
 			dirtyStep(),
-			prepareStep(compactManifest(), "pr-feedback-watch-123-2"),
+			prepareStep(compactManifest(), "pr-feedback-watch-1"),
 			headOidStep(),
 			dirtyStep(),
 		]);

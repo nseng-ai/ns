@@ -3,14 +3,14 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
 
-import { formatErrorMessage } from "@asdl/core";
+import { formatErrorMessage, truncatedSha256Digest } from "@asdl/core";
 import { z } from "zod";
 
 import { payloadReferenceSchema } from "./feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "./gateways.ts";
 
 export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
-export const ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
+export const HARNESS_SESSION_ID_ENV = "HARNESS_SESSION_ID";
 
 export const SAFE_SEGMENT_PATTERN_TEXT = "^[a-z0-9][a-z0-9._-]{0,127}$";
 const SAFE_SEGMENT_PATTERN = new RegExp(SAFE_SEGMENT_PATTERN_TEXT);
@@ -18,7 +18,7 @@ const SAFE_SEGMENT_PATTERN = new RegExp(SAFE_SEGMENT_PATTERN_TEXT);
 export const PAYLOAD_FILENAME_PATTERN = /^\d{8}t\d{6}z-(?<sequence>\d+)-(?<descriptor>[a-z0-9][a-z0-9._-]{0,127})\.(?<role>raw|summary|log)\.(?<extension>json|txt)$/;
 
 export type PayloadErrorType =
-	| "payload_session_required"
+	| "harness_session_required"
 	| "payload_session_invalid"
 	| "payload_root_invalid"
 	| "payload_directory_unsafe"
@@ -40,6 +40,7 @@ export interface PayloadArtifactStore {
 	readonly root: string;
 	readonly sessionId: string;
 	readonly payloadDir: string;
+	readonly harnessSessionIdDigest: string | null;
 	writeJsonArtifact(options: { descriptor: string; role: JsonPayloadRole; payload: unknown }): Promise<PayloadResult<PayloadReference>>;
 	writeTextArtifact(options: { descriptor: string; role: LogPayloadRole; text: string }): Promise<PayloadResult<PayloadReference>>;
 	readJsonArtifact(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
@@ -87,33 +88,49 @@ export function resolvePayloadRoot(options: { env?: NodeJS.ProcessEnv | undefine
 	return payloadError("payload_root_invalid", `${ASDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${pythonRepr(envValue)}`);
 }
 
-export function resolvePayloadSessionId(explicitSessionId: string | null | undefined, options: { env?: NodeJS.ProcessEnv | undefined } = {}): PayloadResult<string> {
+export interface ResolvedPayloadSession {
+	harnessSessionIdDigest: string;
+	payloadSessionId: string;
+}
+
+export function resolveHarnessSessionId(
+	explicitHarnessSessionId: string | null | undefined,
+	options: { env?: NodeJS.ProcessEnv | undefined } = {},
+): PayloadResult<string> {
 	const sourceEnv = options.env ?? process.env;
-	let sessionId: string;
-	if (explicitSessionId !== undefined && explicitSessionId !== null && explicitSessionId !== "") {
-		sessionId = explicitSessionId;
-	} else {
-		const envSessionId = sourceEnv[ASDL_PAYLOAD_SESSION_ID_ENV];
-		if (envSessionId === undefined || envSessionId === "") {
-			return payloadError(
-				"payload_session_required",
-				`Payload artifact mode requires a session id from an explicit option or ${ASDL_PAYLOAD_SESSION_ID_ENV}.`,
-			);
-		}
-		sessionId = envSessionId;
+	if (explicitHarnessSessionId !== undefined && explicitHarnessSessionId !== null && explicitHarnessSessionId !== "") {
+		return { type: "ok", value: explicitHarnessSessionId };
 	}
-	if (isSafeSegment(sessionId)) return { type: "ok", value: sessionId };
-	return payloadError("payload_session_invalid", `Payload session id must be a safe segment: ${pythonRepr(sessionId)}`);
+	const envHarnessSessionId = sourceEnv[HARNESS_SESSION_ID_ENV];
+	if (envHarnessSessionId !== undefined && envHarnessSessionId !== "") return { type: "ok", value: envHarnessSessionId };
+	return payloadError("harness_session_required", `Payload artifact mode requires ${HARNESS_SESSION_ID_ENV} from the harness or --harness-session-id.`);
+}
+
+export function derivePayloadSessionIdFromHarnessSessionId(rawHarnessSessionId: string): ResolvedPayloadSession {
+	const harnessSessionIdDigest = truncatedSha256Digest(rawHarnessSessionId);
+	return { harnessSessionIdDigest, payloadSessionId: `pr-address-${harnessSessionIdDigest}` };
+}
+
+export function resolvePayloadSession(options: {
+	explicitHarnessSessionId?: string | null | undefined;
+	env?: NodeJS.ProcessEnv | undefined;
+} = {}): PayloadResult<ResolvedPayloadSession> {
+	const harnessSessionId = resolveHarnessSessionId(options.explicitHarnessSessionId, { env: options.env });
+	if (harnessSessionId.type === "error") return harnessSessionId;
+	const payloadSession = derivePayloadSessionIdFromHarnessSessionId(harnessSessionId.value);
+	if (isSafeSegment(payloadSession.payloadSessionId)) return { type: "ok", value: payloadSession };
+	return payloadError("payload_session_invalid", `Derived payload session id must be a safe segment: ${pythonRepr(payloadSession.payloadSessionId)}`);
 }
 
 export interface OpenPayloadStoreOptions {
 	root: string;
 	sessionId: string;
+	harnessSessionIdDigest?: string | null | undefined;
 	clock?: PayloadClock | undefined;
 }
 
 export interface PayloadStoreFromEnvironmentOptions {
-	explicitSessionId?: string | null | undefined;
+	explicitHarnessSessionId?: string | null | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	tempDir?: string | undefined;
 	clock?: PayloadClock | undefined;
@@ -124,12 +141,14 @@ export class PayloadStore implements PayloadArtifactStore {
 	readonly root: string;
 	readonly sessionId: string;
 	readonly payloadDir: string;
+	readonly harnessSessionIdDigest: string | null;
 	private readonly clock: PayloadClock;
 
-	private constructor(options: { root: string; sessionId: string; payloadDir: string; clock: PayloadClock }) {
+	private constructor(options: { root: string; sessionId: string; payloadDir: string; harnessSessionIdDigest: string | null; clock: PayloadClock }) {
 		this.root = options.root;
 		this.sessionId = options.sessionId;
 		this.payloadDir = options.payloadDir;
+		this.harnessSessionIdDigest = options.harnessSessionIdDigest;
 		this.clock = options.clock;
 	}
 
@@ -157,7 +176,13 @@ export class PayloadStore implements PayloadArtifactStore {
 
 		return {
 			type: "ok",
-			value: new PayloadStore({ root: options.root, sessionId: options.sessionId, payloadDir, clock: options.clock ?? defaultClock }),
+			value: new PayloadStore({
+				root: options.root,
+				sessionId: options.sessionId,
+				payloadDir,
+				harnessSessionIdDigest: options.harnessSessionIdDigest ?? null,
+				clock: options.clock ?? defaultClock,
+			}),
 		};
 	}
 
@@ -174,13 +199,18 @@ export class PayloadStore implements PayloadArtifactStore {
 		});
 	}
 
-	/** Open a store using environment-backed root and session-id resolution. */
+	/** Open a store using environment-backed root and harness-session resolution. */
 	static async fromEnvironment(options: PayloadStoreFromEnvironmentOptions = {}): Promise<PayloadResult<PayloadStore>> {
 		const root = resolvePayloadRoot({ env: options.env, tempDir: options.tempDir });
 		if (root.type === "error") return root;
-		const sessionId = resolvePayloadSessionId(options.explicitSessionId, { env: options.env });
-		if (sessionId.type === "error") return sessionId;
-		return await PayloadStore.open({ root: root.value, sessionId: sessionId.value, clock: options.clock });
+		const payloadSession = resolvePayloadSession({ explicitHarnessSessionId: options.explicitHarnessSessionId, env: options.env });
+		if (payloadSession.type === "error") return payloadSession;
+		return await PayloadStore.open({
+			root: root.value,
+			sessionId: payloadSession.value.payloadSessionId,
+			harnessSessionIdDigest: payloadSession.value.harnessSessionIdDigest,
+			clock: options.clock,
+		});
 	}
 
 	/** Write a JSON raw or summary artifact and return its payload reference. */
@@ -324,16 +354,28 @@ export class InMemoryPayloadStoreFactory implements PayloadStoreFactory {
 		const payloadDir = join(options.root, "sessions", options.sessionId, "payloads");
 		return {
 			type: "ok",
-			value: new InMemoryPayloadStore({ root: options.root, sessionId: options.sessionId, payloadDir, clock: options.clock ?? this.clock ?? defaultClock, artifacts: this.artifacts }),
+			value: new InMemoryPayloadStore({
+				root: options.root,
+				sessionId: options.sessionId,
+				payloadDir,
+				harnessSessionIdDigest: options.harnessSessionIdDigest ?? null,
+				clock: options.clock ?? this.clock ?? defaultClock,
+				artifacts: this.artifacts,
+			}),
 		};
 	}
 
 	async fromEnvironment(options: PayloadStoreFromEnvironmentOptions = {}): Promise<PayloadResult<PayloadArtifactStore>> {
 		const root = resolvePayloadRoot({ env: options.env ?? this.env, tempDir: options.tempDir ?? this.tempDir });
 		if (root.type === "error") return root;
-		const sessionId = resolvePayloadSessionId(options.explicitSessionId, { env: options.env ?? this.env });
-		if (sessionId.type === "error") return sessionId;
-		return await this.open({ root: root.value, sessionId: sessionId.value, clock: options.clock ?? this.clock });
+		const payloadSession = resolvePayloadSession({ explicitHarnessSessionId: options.explicitHarnessSessionId, env: options.env ?? this.env });
+		if (payloadSession.type === "error") return payloadSession;
+		return await this.open({
+			root: root.value,
+			sessionId: payloadSession.value.payloadSessionId,
+			harnessSessionIdDigest: payloadSession.value.harnessSessionIdDigest,
+			clock: options.clock ?? this.clock,
+		});
 	}
 
 	async openContainingArtifact(payloadPath: string, options: { clock?: PayloadClock | undefined } = {}): Promise<PayloadResult<PayloadArtifactStore>> {
@@ -347,13 +389,15 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 	readonly root: string;
 	readonly sessionId: string;
 	readonly payloadDir: string;
+	readonly harnessSessionIdDigest: string | null;
 	private readonly clock: PayloadClock;
 	private readonly artifacts: Map<string, string>;
 
-	constructor(options: { root: string; sessionId: string; payloadDir: string; clock: PayloadClock; artifacts: Map<string, string> }) {
+	constructor(options: { root: string; sessionId: string; payloadDir: string; harnessSessionIdDigest: string | null; clock: PayloadClock; artifacts: Map<string, string> }) {
 		this.root = options.root;
 		this.sessionId = options.sessionId;
 		this.payloadDir = options.payloadDir;
+		this.harnessSessionIdDigest = options.harnessSessionIdDigest;
 		this.clock = options.clock;
 		this.artifacts = options.artifacts;
 	}

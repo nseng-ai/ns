@@ -10,7 +10,7 @@ import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-p
 const stackFeedbackPrepParseSchema = z.object({
 	stack_json: z.string().optional(),
 	stack_reference: z.string().optional(),
-	payload_session_id: z.string().optional(),
+	harness_session_id: z.string().optional(),
 	stdout_mode: z.enum(["full", "compact"]).default("full"),
 	include_resolved: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
@@ -29,7 +29,7 @@ export const stackFeedbackPrepOperation = defineExecOperation({
 async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the stack JSON; preserve that ordering.
 	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitSessionId: request.payload_session_id ?? null,
+		explicitHarnessSessionId: request.harness_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
 	});

@@ -50,7 +50,7 @@ export const getFeedbackRequestSchema = z.object({
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
-	payload_session_id: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 export const getFeedbackResultSchema = z.union([getFeedbackInlineResultSchema, getFeedbackPayloadManifestSchema]);
@@ -59,7 +59,7 @@ export const prepareRunRequestSchema = z.object({
 	include_all_threads: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
-	payload_session_id: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 export const prepareRunResultSchema = z.union([prepareRunInlineResultSchema, prepareRunPayloadManifestSchema]);

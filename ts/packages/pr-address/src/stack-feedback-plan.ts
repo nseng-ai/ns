@@ -25,7 +25,7 @@ const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
 	payload_file: z.string().optional(),
 	prep_reference: z.string().optional(),
-	payload_session_id: z.string().optional(),
+	harness_session_id: z.string().optional(),
 	stdout_mode: z.enum(["full", "compact"]).default("full"),
 });
 
@@ -41,7 +41,7 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
 	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitSessionId: request.payload_session_id ?? null,
+		explicitHarnessSessionId: request.harness_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
 	});
@@ -82,7 +82,12 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		})),
 	};
 	if (!validationSummary.all_valid) {
-		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary });
+		const negativeResult = emptyPlanResult({
+			sessionId: store.sessionId,
+			harnessSessionIdDigest: store.harnessSessionIdDigest,
+			prCount: payload.prep.stack.length,
+			validation: validationSummary,
+		});
 		return negative(
 			"Stack feedback classification failed validation; no stack plan produced.",
 			request.stdout_mode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
@@ -96,6 +101,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (!prPlans.every(({ plan }) => plan.valid)) throw new Error("validated stack classifications must produce valid per-PR plans");
 	const resultWithoutReference = mergedStackPlanResult({
 		sessionId: store.sessionId,
+		harnessSessionIdDigest: store.harnessSessionIdDigest,
 		prep: payload.prep,
 		validation: validationSummary,
 		prPlans,
@@ -120,10 +126,16 @@ function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; val
 	return { type: "ok", value: new Map(payload.classifications.map((item) => [item.pr_number, item.classification])) };
 }
 
-function emptyPlanResult(options: { sessionId: string; prCount: number; validation: StackFeedbackPlanValidationSummary }): StackFeedbackPlanResult {
+function emptyPlanResult(options: {
+	sessionId: string;
+	harnessSessionIdDigest: string | null;
+	prCount: number;
+	validation: StackFeedbackPlanValidationSummary;
+}): StackFeedbackPlanResult {
 	return {
 		valid: false,
 		payload_session_id: options.sessionId,
+		harness_session_id_digest: options.harnessSessionIdDigest,
 		pr_count: options.prCount,
 		validation: options.validation,
 		batches: [],
@@ -147,6 +159,7 @@ interface StackDiscussionTriageIndex {
 
 function mergedStackPlanResult(options: {
 	sessionId: string;
+	harnessSessionIdDigest: string | null;
 	prep: StackFeedbackPlanInput["prep"];
 	validation: StackFeedbackPlanValidationSummary;
 	prPlans: readonly PrPlanPair[];
@@ -158,6 +171,7 @@ function mergedStackPlanResult(options: {
 	return {
 		valid: true,
 		payload_session_id: options.sessionId,
+		harness_session_id_digest: options.harnessSessionIdDigest,
 		pr_count: options.prep.stack.length,
 		validation: options.validation,
 		batches,
@@ -359,6 +373,7 @@ function compactPlanResult(result: StackFeedbackPlanResult): unknown {
 	return {
 		valid: result.valid,
 		payload_session_id: result.payload_session_id,
+		harness_session_id_digest: result.harness_session_id_digest,
 		pr_count: result.pr_count,
 		validation: result.validation,
 		batches: result.batches.map((batch) => ({

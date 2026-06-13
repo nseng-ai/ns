@@ -205,7 +205,6 @@ Run a fresh prep with resolved threads immediately before diffing:
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
   | pr-address exec stack-feedback-prep \
       --include-resolved \
-      --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --format json
 ```
 
@@ -246,7 +245,7 @@ Each input requires exactly one source: its embedded payload key or its
 reference option. Mixing a reference with its embedded key fails with
 `exit_code: 2`, as does a missing, unreadable, or non-JSON reference file or a
 referenced file with the wrong artifact shape. References are validated by
-shape, not provenance, so artifacts from any payload session are accepted.
+shape, not provenance, so artifacts from any derived payload session are accepted.
 
 **Output fields (under `data`):**
 

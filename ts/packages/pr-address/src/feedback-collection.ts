@@ -13,7 +13,7 @@ const getFeedbackParseSchema = z.object({
 	include_resolved: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 	payload_mode: z.enum(["inline", "payload"]).default("payload"),
-	payload_session_id: z.string().optional(),
+	harness_session_id: z.string().optional(),
 });
 
 type GetFeedbackRequest = z.output<typeof getFeedbackParseSchema>;
@@ -42,7 +42,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
 		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-			explicitSessionId: request.payload_session_id ?? null,
+			explicitHarnessSessionId: request.harness_session_id ?? null,
 			env: ctx.env,
 			clock: ctx.context.payloadClock,
 		});

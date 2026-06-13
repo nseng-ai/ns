@@ -92,7 +92,6 @@ Recommended final feedback fetch:
 ```bash
 pr-address exec get-feedback 630 \
   --include-resolved \
-  --payload-session-id <payload-session-id> \
   --format json
 ```
 

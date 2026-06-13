@@ -41,7 +41,7 @@ describe("read-only GitHub-backed operations", () => {
 		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json"], github, {
 			PATH: "/fake/bin",
 			ASDL_PAYLOAD_ROOT: root,
-			ASDL_PAYLOAD_SESSION_ID: "sess-readonly",
+			HARNESS_SESSION_ID: "sess-readonly",
 		});
 		expect(await payloadRun.exit).toBe(0);
 		const payloadData = parseEnvelope(payloadRun.stdout.join("")).data;

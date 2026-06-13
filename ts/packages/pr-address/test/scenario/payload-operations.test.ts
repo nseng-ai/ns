@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
 import { normalizePayloadBytes } from "../support/golden.ts";
+import { expectedHarnessSessionRelativePath, expectedHarnessSessionText } from "../support/harness-session.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -107,16 +108,18 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 
 		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
 			github,
-			env: { ASDL_PAYLOAD_ROOT: root, ASDL_PAYLOAD_SESSION_ID: getFeedbackFixture.session_id },
+			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: getFeedbackFixture.session_id },
 			payloadClock: fixedClock(getFeedbackFixture.clock_iso),
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root));
-		expect(await readFile(join(root, getFeedbackFixture.artifact_relative_path), "utf8")).toBe(getFeedbackFixture.expected_artifact_text);
+		expect(run.stdout.join("")).toBe(expectedHarnessSessionText(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root), getFeedbackFixture.session_id));
+		expect(await readFile(join(root, expectedHarnessSessionRelativePath(getFeedbackFixture.artifact_relative_path, getFeedbackFixture.session_id)), "utf8")).toBe(
+			getFeedbackFixture.expected_artifact_text,
+		);
 	});
 
-	test("fails with the Python payload_session_required envelope when no session id is available", async () => {
+	test("fails with the Python harness_session_required envelope when no session id is available", async () => {
 		const root = await makePayloadRoot();
 		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
 			github: new InMemoryPrAddressGitHubGateway(),
@@ -127,7 +130,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		expect(run.stdout.join("")).toBe(getFeedbackFixture.expected_session_required_envelope_text);
 	});
 
-	test("honors an explicit --payload-session-id over the environment", async () => {
+	test("honors an explicit --harness-session-id over the environment", async () => {
 		const root = await makePayloadRoot();
 		const github = new InMemoryPrAddressGitHubGateway({
 			reviews: { [getFeedbackFixture.pr_number]: getFeedbackFixture.gateway.reviews },
@@ -136,12 +139,12 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		});
 
 		const run = runScenario(
-			["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--payload-session-id", getFeedbackFixture.session_id, "--format", "json"],
+			["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--harness-session-id", getFeedbackFixture.session_id, "--format", "json"],
 			{ github, env: { ASDL_PAYLOAD_ROOT: root }, payloadClock: fixedClock(getFeedbackFixture.clock_iso) },
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root));
+		expect(run.stdout.join("")).toBe(expectedHarnessSessionText(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root), getFeedbackFixture.session_id));
 	});
 });
 
