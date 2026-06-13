@@ -38,8 +38,8 @@ const LIST_HELP = [
 	"Options:",
 	"  --plan-store-root <value>  Plan store root directory (relative paths resolve",
 	"                             against cwd).",
-	"  --format <format>          Output format. (choices: \"human\", \"json\", default:",
-	"                             \"human\")",
+	"  --format <format>          Output format. (choices: \"human\", \"json\",",
+	"                             \"markdown\", \"md\", default: \"human\")",
 	"  --json-schema              Print the JSON Schema for this command's",
 	"                             input/output and exit.",
 	"  -h, --help                 display help for command",
@@ -69,8 +69,8 @@ const SAVE_HELP = [
 	"  --summary <value>       Optional saved-plan summary.",
 	"  --stdin                 Read plan content from stdin.",
 	"  --content-file <value>  Read plan content from this file path.",
-	"  --format <format>       Output format. (choices: \"human\", \"json\", default:",
-	"                          \"human\")",
+	"  --format <format>       Output format. (choices: \"human\", \"json\", \"markdown\",",
+	"                          \"md\", default: \"human\")",
 	"  --json-schema           Print the JSON Schema for this command's input/output",
 	"                          and exit.",
 	"  -h, --help              display help for command",
@@ -85,7 +85,8 @@ const RESOLVE_HELP = [
 	"  path               Absolute, @-prefixed, or home-relative plan file path.",
 	"",
 	"Options:",
-	"  --format <format>  Output format. (choices: \"human\", \"json\", default: \"human\")",
+	"  --format <format>  Output format. (choices: \"human\", \"json\", \"markdown\", \"md\",",
+	"                     default: \"human\")",
 	"  --json-schema      Print the JSON Schema for this command's input/output and",
 	"                     exit.",
 	"  -h, --help         display help for command",
@@ -254,7 +255,7 @@ describe("plans list CLI pins", () => {
 	test.each([
 		[["list", "--bogus"], "error: unknown option '--bogus'\n"],
 		[["list", "--format"], "error: option '--format <format>' argument missing\n"],
-		[["list", "--format", "yaml"], "error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json.\n"],
+		[["list", "--format", "yaml"], "error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n"],
 		[["list", "--plan-store-root"], "error: option '--plan-store-root <value>' argument missing\n"],
 	])("prints raw usage error for %j", async (args, message) => {
 		const run = await runWithFakes(args);
@@ -278,7 +279,7 @@ describe("plans list CLI pins", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json.\n");
+		expect(run.stderr.join("")).toBe("error: option '--format <format>' argument 'yaml' is invalid. Allowed choices are human, json, markdown, md.\n");
 		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
 	});
 

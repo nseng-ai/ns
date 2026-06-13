@@ -4,6 +4,7 @@ import { z } from "zod";
 export type FieldKind =
 	| { type: "string" }
 	| { type: "number" }
+	| { type: "integer" }
 	| { type: "boolean" }
 	| { type: "enum"; values: readonly string[] }
 	| { type: "string-array" };
@@ -68,7 +69,11 @@ function unwrapField(field: z.ZodType): UnwrappedField {
 
 function fieldKindFor(commandName: string, key: string, inner: z.ZodType): FieldKind {
 	if (inner instanceof z.ZodString) return { type: "string" };
-	if (inner instanceof z.ZodNumber) return { type: "number" };
+	if (inner instanceof z.ZodNumber) {
+		// zod v4 marks z.int() with format "safeint"; plain z.number() has none.
+		if (inner.format === "safeint") return { type: "integer" };
+		return { type: "number" };
+	}
 	if (inner instanceof z.ZodBoolean) return { type: "boolean" };
 	if (inner instanceof z.ZodEnum) {
 		const values = inner.options;

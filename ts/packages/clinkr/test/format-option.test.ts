@@ -37,10 +37,30 @@ describe("--format dispatch", () => {
 		expect(run.stdout).toBe('{\n  "answer": 42\n}\n');
 	});
 
-	test("an invalid format exits 2 with a raw usage error", async () => {
+	test("--format markdown renders through the human channel", async () => {
+		const run = await runForTest(buildGroup(), ["win", "--format", "markdown"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe('{\n  "answer": 42\n}\n');
+	});
+
+	test("--format md renders through the human channel", async () => {
+		const run = await runForTest(buildGroup(), ["win", "--format", "md"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe('{\n  "answer": 42\n}\n');
+	});
+
+	test("an invalid format exits 2 with a raw usage error listing all four choices", async () => {
 		const run = await runForTest(buildGroup(), ["win", "--format", "bogus"], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toContain("--format");
+		expect(run.stderr).toContain("human, json, markdown, md");
+	});
+
+	test("a repeated --format is last-wins", async () => {
+		const run = await runForTest(buildGroup(), ["win", "--format", "human", "--format", "json"], {
+			context: null,
+		});
+		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
 	});
 });
