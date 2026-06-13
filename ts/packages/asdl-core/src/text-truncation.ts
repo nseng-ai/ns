@@ -5,16 +5,16 @@ export interface HeadTailTextTruncationOptions {
 	buildMarker: (omittedChars: number) => string;
 	headRounding?: "floor" | "ceil";
 	markerOmittedChars?: number;
-	trimHead?: boolean;
-	trimTail?: boolean;
+	shouldTrimHead?: boolean;
+	shouldTrimTail?: boolean;
 }
 
 export interface HeadTextTruncationOptions {
 	value: string;
 	maxChars: number;
 	buildMarker: (omittedChars: number) => string;
-	trimInput?: boolean;
-	trimHead?: boolean;
+	shouldTrimInput?: boolean;
+	shouldTrimHead?: boolean;
 }
 
 export function truncateTextHeadTail(input: HeadTailTextTruncationOptions): string {
@@ -24,13 +24,13 @@ export function truncateTextHeadTail(input: HeadTailTextTruncationOptions): stri
 	const remainingChars = Math.max(0, input.maxChars - marker.length);
 	const headChars = splitHeadChars(remainingChars, input.headRatio, input.headRounding ?? "floor");
 	const tailChars = remainingChars - headChars;
-	const head = maybeTrimEnd(input.value.slice(0, headChars), input.trimHead === true);
-	const tail = maybeTrimStart(tailChars === 0 ? "" : input.value.slice(input.value.length - tailChars), input.trimTail === true);
+	const head = maybeTrimEnd(input.value.slice(0, headChars), input.shouldTrimHead === true);
+	const tail = maybeTrimStart(tailChars === 0 ? "" : input.value.slice(input.value.length - tailChars), input.shouldTrimTail === true);
 	return `${head}${marker}${tail}`;
 }
 
 export function truncateTextHead(input: HeadTextTruncationOptions): string {
-	const value = input.trimInput === true ? input.value.trim() : input.value;
+	const value = input.shouldTrimInput === true ? input.value.trim() : input.value;
 	if (value.length <= input.maxChars) return value;
 
 	let marker = input.buildMarker(0);
@@ -38,7 +38,7 @@ export function truncateTextHead(input: HeadTextTruncationOptions): string {
 	marker = input.buildMarker(value.length - preservedChars);
 	preservedChars = Math.max(0, input.maxChars - marker.length);
 	marker = input.buildMarker(value.length - preservedChars);
-	const head = maybeTrimEnd(value.slice(0, preservedChars), input.trimHead !== false);
+	const head = maybeTrimEnd(value.slice(0, preservedChars), input.shouldTrimHead !== false);
 	return `${head}${marker}`;
 }
 

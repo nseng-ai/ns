@@ -38,7 +38,7 @@ describe("truncateTextHeadTail", () => {
 
 describe("truncateTextHead", () => {
 	test("keeps unbounded values unchanged after optional input trimming", () => {
-		expect(truncateTextHead({ value: " abc \n", maxChars: 3, trimInput: true, buildMarker: () => "..." })).toBe("abc");
+		expect(truncateTextHead({ value: " abc \n", maxChars: 3, shouldTrimInput: true, buildMarker: () => "..." })).toBe("abc");
 	});
 
 	test("recomputes omitted characters after marker length changes", () => {

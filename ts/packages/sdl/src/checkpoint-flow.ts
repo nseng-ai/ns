@@ -241,8 +241,8 @@ function buildHeadTailCompactedDiff(diff: string, maxChars: number): string {
 		headRatio: 0.5,
 		headRounding: "ceil",
 		markerOmittedChars: omittedChars,
-		trimHead: true,
-		trimTail: true,
+		shouldTrimHead: true,
+		shouldTrimTail: true,
 		buildMarker: buildNoFileSectionCompactionMarker,
 	});
 	return `${header}${excerpt}${footer}`;
@@ -264,7 +264,7 @@ function compactPromptText(value: string, maxChars: number, label: string): stri
 	return truncateTextHead({
 		value,
 		maxChars,
-		trimInput: true,
+		shouldTrimInput: true,
 		buildMarker: (omittedChars) => `\n[... omitted ${omittedChars} chars from ${label} ...]\n`,
 	});
 }
