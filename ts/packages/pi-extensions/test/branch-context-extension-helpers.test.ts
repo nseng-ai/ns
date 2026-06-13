@@ -106,7 +106,7 @@ describe("source branch plan path helpers", () => {
 
 	test("encodes branch names as one safe path segment", () => {
 		expect(encodeBranchForPlanPath("main")).toBe("main");
-		expect(encodeBranchForPlanPath("branch-contextes/add-widget")).toBe("branch-contextes---add-widget");
+		expect(encodeBranchForPlanPath("branch-contexts/add-widget")).toBe("branch-contexts---add-widget");
 		expect(encodeBranchForPlanPath("feature/add widget+docs")).toBe("feature---add-widget-docs");
 	});
 
@@ -131,7 +131,7 @@ describe("source branch plan path helpers", () => {
 
 	test("finds the newest saved Markdown plan file", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
-		const sourceBranch = "branch-contextes/add-widget";
+		const sourceBranch = "branch-contexts/add-widget";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await writePlanStoreFile(directoryPath, "older-source-plan.md", 1_700_000_000_000);
 		const newestPath = await writePlanStoreFile(directoryPath, "newer-source-plan.md", 1_800_000_000_000);
@@ -147,7 +147,7 @@ describe("source branch plan path helpers", () => {
 			fileName: "newer-source-plan.md",
 			repoKey: "gh--owner--repo",
 			sourceBranch,
-			branchKey: "branch-contextes---add-widget",
+			branchKey: "branch-contexts---add-widget",
 			directoryPath,
 		});
 	});
@@ -214,20 +214,20 @@ describe("source branch plan path helpers", () => {
 describe("branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
-		expect(parseCreateBranchContextArgs("--dry-run --yes --graphite --branch branch-contextes/add-widget /tmp/my-source-plan.md")).toEqual({
+		expect(parseCreateBranchContextArgs("--dry-run --yes --graphite --branch branch-contexts/add-widget /tmp/my-source-plan.md")).toEqual({
 			help: false,
 			dryRun: true,
 			yes: true,
 			branchCreation: "graphite",
-			branchName: "branch-contextes/add-widget",
+			branchName: "branch-contexts/add-widget",
 			filePath: "/tmp/my-source-plan.md",
 		});
-		expect(parseCreateBranchContextArgs("-y --plain-git --branch=branch-contextes/add-widget @/tmp/my-source-plan.md")).toEqual({
+		expect(parseCreateBranchContextArgs("-y --plain-git --branch=branch-contexts/add-widget @/tmp/my-source-plan.md")).toEqual({
 			help: false,
 			dryRun: false,
 			yes: true,
 			branchCreation: "plain-git",
-			branchName: "branch-contextes/add-widget",
+			branchName: "branch-contexts/add-widget",
 			filePath: "@/tmp/my-source-plan.md",
 		});
 		expect(parseCreateBranchContextArgs("--help").help).toBe(true);
@@ -417,7 +417,7 @@ describe("formatBranchContextEvidence", () => {
 			startPoint: START_POINT,
 			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: PLAN_KEY,
-			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---wire-create-branch-context-command:${PLAN_KEY}`,
+			refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---wire-create-branch-context-command:${PLAN_KEY}`,
 			commit: "abc123",
 			sourceFile: "/tmp/plan.md",
 			summary: "Plan the branch-creating flow.",
@@ -429,7 +429,7 @@ describe("formatBranchContextEvidence", () => {
 		expect(text).toContain(`Start point: ${START_POINT}`);
 		expect(text).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(text).toContain(`Key: ${PLAN_KEY}`);
-		expect(text).toContain("Ref: refs/brmem/ns/branch-context/branch-contextes---wire-create-branch-context-command");
+		expect(text).toContain("Ref: refs/brmem/ns/branch-context/branch-contexts---wire-create-branch-context-command");
 		expect(text).toContain("Commit: abc123");
 		expect(text).toContain("Source file: /tmp/plan.md");
 		expect(text).toContain("Summary: Plan the branch-creating flow.");
@@ -443,19 +443,19 @@ describe("formatSavedPlanFileEvidence", () => {
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
 			repoIdentitySource: "origin-url",
-			sourceBranch: "branch-contextes/add-widget",
-			branchKey: "branch-contextes---add-widget",
-			filePath: "/plans/gh--owner--repo/branch-contextes---add-widget/branch-scoped-plan-extension.md",
+			sourceBranch: "branch-contexts/add-widget",
+			branchKey: "branch-contexts---add-widget",
+			filePath: "/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
 			summary: "Plan the local plan store file.",
 		});
 
 		expect(text).toContain("Saved plan file in local plan store.");
-		expect(text).toContain("Path: /plans/gh--owner--repo/branch-contextes---add-widget/branch-scoped-plan-extension.md");
+		expect(text).toContain("Path: /plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md");
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain(`Repo root: ${ROOT}`);
 		expect(text).toContain("Repo identity source: origin-url");
-		expect(text).toContain("Source branch: branch-contextes/add-widget");
-		expect(text).toContain("Branch path segment: branch-contextes---add-widget");
+		expect(text).toContain("Source branch: branch-contexts/add-widget");
+		expect(text).toContain("Branch path segment: branch-contexts---add-widget");
 		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
 		expect(text).toContain("Summary: Plan the local plan store file.");
 	});

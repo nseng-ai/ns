@@ -66,22 +66,22 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 - **The new baseline** — the live, correctly-tracked branch the work should sit on.
   Re-read its SHA at session start; stacks move, and a baseline that "needs restack"
   will move again once you restack it.
-- **Attached planned-branch plans on every branch you target.** For each source
+- **Attached branch-context plans on every branch you target.** For each source
   branch whose intent may be re-applied, and for each target/baseline branch you
-  may land on, inspect Branch Memory namespace `planned-branch` before reading the
+  may land on, inspect Branch Memory namespace `branch-context` before reading the
   diffs:
 
   ```bash
-  brmem list --namespace planned-branch --branch <branch>
-  brmem get <key> --namespace planned-branch --branch <branch>
+  brmem list --namespace branch-context --branch <branch>
+  brmem get <key> --namespace branch-context --branch <branch>
   ```
 
-  If you are currently on the branch, `planned-branch exec load-plan [key-or-slug]
+  If you are currently on the branch, `branch-context exec load [key]
   --prompt-file <path> --format json` is the higher-level loader for bounded
   stdout; read the returned `implementation_prompt_file`. Treat an attached plan
   as authored intent, not incidental notes.
 - **The PR for each source branch** (`gh pr view <n>`). The PR title and body are
-  usually the cleanest statement of intent after any attached planned-branch plan
+  usually the cleanest statement of intent after any attached branch-context plan
   — read them _before_ the diffs.
 - **Backups.** Snapshot every source tip before touching anything:
   `git update-ref refs/backup/<branch>-prefix <tip>`. This is mandatory — retirement
@@ -92,7 +92,7 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 The thesis is the **intent**, decoupled from any specific hunk. The diffs are
 _evidence_ of intent, not the artifact to salvage.
 
-- **Read intent in source order:** attached planned-branch plan, then PR
+- **Read intent in source order:** attached branch-context plan, then PR
   description, then commit messages, then the diff. Earlier sources are authored
   intent; the diff is reverse-engineering and the last resort.
 - **Dedupe across branches.** If several branches express overlapping intent, collapse

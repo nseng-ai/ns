@@ -6,7 +6,7 @@ import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import { InMemoryBranchContextGraphiteGateway } from "../support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";
-const BRANCH = "branch-contextes/branch-scoped-plan";
+const BRANCH = "branch-contexts/branch-scoped-plan";
 const PARENT_BRANCH = "feature/source-plan";
 
 interface ExecCall {

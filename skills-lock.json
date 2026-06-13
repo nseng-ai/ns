@@ -1,6 +1,21 @@
 {
   "version": 1,
   "skills": {
+    "branch-context": {
+      "source": "skills/branch-context",
+      "sourceType": "local",
+      "computedHash": "d99ae2ede27da4fe21bb9c2a16f7c0b671bdf99a2d1c1399a3795295056fac7a"
+    },
+    "branch-context-create": {
+      "source": "skills/branch-context-create",
+      "sourceType": "local",
+      "computedHash": "ed68686270c4d93b5db08910844cf3e7194ce44e0226daad17cff471c2381d7f"
+    },
+    "branch-context-impl": {
+      "source": "skills/branch-context-impl",
+      "sourceType": "local",
+      "computedHash": "654e01712f357099a809200fb5122e5cebb39943fe8a2a71a6c69d4071ed8321"
+    },
     "branch-retro": {
       "source": "skills/branch-retro",
       "sourceType": "local",
@@ -190,21 +205,6 @@
       "source": "skills/pi-grill-with-docs-ui",
       "sourceType": "local",
       "computedHash": "6e689e74c0f82704af7b81463eb3ff0ed2e52c5fe32ae06e2acd301e7853531c"
-    },
-    "planned-branch": {
-      "source": "skills/planned-branch",
-      "sourceType": "local",
-      "computedHash": "a3493fbdd91fd1be06536fcea69349b3fc5cffab62d99e058ca2c9bb66de2d06"
-    },
-    "planned-branch-create": {
-      "source": "skills/planned-branch-create",
-      "sourceType": "local",
-      "computedHash": "394e29edff95aef62fa67d437930ebfdd398dcd4f53e35e5448b6a01977511de"
-    },
-    "planned-branch-impl": {
-      "source": "skills/planned-branch-impl",
-      "sourceType": "local",
-      "computedHash": "9c661ab639b8ba720d06fdb6baa83775f8de87db8a2102466a2f7353373097d3"
     },
     "pr-address": {
       "source": "skills/pr-address",

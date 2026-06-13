@@ -21,7 +21,7 @@ import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } fro
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
-const PLAN_BRANCH = `branch-contextes/${PLAN_SLUG}`;
+const PLAN_BRANCH = `branch-contexts/${PLAN_SLUG}`;
 const PLAN_KEY = "plan.md";
 const PLAN_REF = `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
@@ -296,7 +296,7 @@ describe("loadAttachedPlan", () => {
 	test("reports a missing plan entry with available keys", () => {
 		expect(() =>
 			selectAttachedPlanKey({
-				branch: "branch-contextes/no-match",
+				branch: "branch-contexts/no-match",
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
 		).toThrow(/No branch-context plan entry[\s\S]*Expected key: plan\.md[\s\S]*- alpha\.md[\s\S]*- beta\.md/);

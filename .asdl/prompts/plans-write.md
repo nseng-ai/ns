@@ -48,7 +48,7 @@ Subagent orchestration opportunities:
 - If no delegation is useful, include `Subagent orchestration opportunities: none` with a one-sentence rationale.
 - For editing subagents in one worktree, recommend sequential dispatch and parent validation after each editing subagent: inspect status and final text, review the git diff for declared scope, run targeted checks, and stop or escalate on unexpected files or failed validation.
 - If suggesting editing or implementation subagents, do not include a `model` recommendation unless a strong implementation model is explicitly required. Review-model defaults are not applicable to editing work.
-- Do not imply that planned-branch runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
+- Do not imply that branch-context runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
 
 Subagent model routing:
 
@@ -77,13 +77,13 @@ Workflow:
 3. Review the final Markdown plan content for hermeticity, proportionality, and completeness.
 4. Call write_saved_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
 5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
-6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any planned-branch tool.
+6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context tool.
 
 Local plan store contract:
 
-- Path convention: ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: ~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
+- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
 - Existing saved plan file: write_saved_plan_file refuses to overwrite it; do not manually choose a replacement slug.
 - Working-tree behavior: no checked-in plan file is created.

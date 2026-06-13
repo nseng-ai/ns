@@ -1,7 +1,7 @@
 # Agent Tooling Vocabulary Survey
 
 **Researched:** 2026-06-12, against live official vendor docs and changelogs.
-**Why it exists:** input to renaming/reframing asdl plan management (planned-branch family) to be additive to the plan systems agent harnesses already ship. This doc records what every major coding-agent product calls the concepts asdl touches: plans, execution instances, standing automation, execution environments, orchestration, and reusable instruction artifacts.
+**Why it exists:** input to renaming/reframing asdl plan management (branch-context family) to be additive to the plan systems agent harnesses already ship. This doc records what every major coding-agent product calls the concepts asdl touches: plans, execution instances, standing automation, execution environments, orchestration, and reusable instruction artifacts.
 **Staleness warning:** this space renames aggressively (see the renames table). Treat anything here as a snapshot, not a contract.
 
 ## The concept frame

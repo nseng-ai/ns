@@ -823,7 +823,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session reuses an explicit branch when the local plan store is missing", async () => {
-		const explicitBranch = "branch-contextes/explicit-target";
+		const explicitBranch = "branch-contexts/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(explicitBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -847,7 +847,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session dry-run describes explicit branch reuse without checkout", async () => {
-		const explicitBranch = "branch-contextes/explicit-target";
+		const explicitBranch = "branch-contexts/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }])]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -873,7 +873,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session reuses the current branch when the local plan store is missing", async () => {
-		const currentBranch = "branch-contextes/current-target";
+		const currentBranch = "branch-contexts/current-target";
 		const pi = new FakePi([gitCurrentBranchStep(currentBranch), brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(currentBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -898,7 +898,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session fails clearly for ambiguous session candidates", async () => {
-		const otherBranch = "branch-contextes/other-target";
+		const otherBranch = "branch-contexts/other-target";
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -927,7 +927,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session surfaces attached-plan key ambiguity on explicit reuse", async () => {
-		const branch = "branch-contextes/custom-target";
+		const branch = "branch-contexts/custom-target";
 		const pi = new FakePi([
 			brmemListAttachedPlansStep(branch, [{ key: "alpha.md" }, { key: "beta.md" }]),
 		]);
@@ -953,7 +953,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session falls through to the current branch when the session candidate fails verification", async () => {
-		const currentBranch = "branch-contextes/current-target";
+		const currentBranch = "branch-contexts/current-target";
 		const pi = new FakePi([
 			brmemListAttachedPlansStep(IMPL_BRANCH, []),
 			gitCurrentBranchStep(currentBranch),
@@ -1024,7 +1024,7 @@ describe("plan workflow commands", () => {
 	});
 
 	test("branch-context:upstack-impl-session resumes when the plan store directory exists but holds no plans", async () => {
-		const explicitBranch = "branch-contextes/explicit-target";
+		const explicitBranch = "branch-contexts/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(explicitBranch)]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -1152,12 +1152,12 @@ describe("plan workflow commands", () => {
 
 	test("branch-context:from-plan branchContextPrefix remains opt-in", async () => {
 		const filePath = await makeNamedPlanFile();
-		const prefixedBranch = `branch-contextes/${PLAN_SLUG}`;
+		const prefixedBranch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "graphite",
-			branchContextPrefix: "branch-contextes/",
+			branchContextPrefix: "branch-contexts/",
 			branchContextOperations: fakes.operations,
 		});
 		const command = pi.commands.get("branch-context:from-plan");
@@ -1173,10 +1173,10 @@ describe("plan workflow commands", () => {
 
 	test("branch-context:from-plan passes explicit target branch while keeping key from slug", async () => {
 		const filePath = await makeNamedPlanFile();
-		const branch = "branch-contextes/custom-target";
+		const branch = "branch-contexts/custom-target";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextPrefix: "branch-contextes/", branchContextOperations: fakes.operations });
+		registerBranchContextExtension(pi, { branchContextPrefix: "branch-contexts/", branchContextOperations: fakes.operations });
 		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes --branch ${branch}`, createContext().ctx);

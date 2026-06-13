@@ -316,7 +316,7 @@ Workflow:
 Local plan store contract:
 - Path convention: ~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contextes/add-widget becomes branch-contextes---add-widget)
+- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
 - Existing saved plan file: write_saved_plan_file refuses to overwrite it; do not manually choose a replacement slug.
 - Working-tree behavior: no checked-in plan file is created.

@@ -10,12 +10,12 @@ import {
 
 const EVIDENCE = {
 	slug: "branch-scoped-plan",
-	branch: "branch-contextes/branch-scoped-plan",
+	branch: "branch-contexts/branch-scoped-plan",
 	branchCreation: "graphite",
 	startPoint: "0123456789abcdef0123456789abcdef01234567",
 	namespace: BRANCH_CONTEXT_NAMESPACE,
 	key: "branch-scoped-plan.md",
-	refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contextes---branch-scoped-plan:branch-scoped-plan.md`,
+	refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/branch-contexts---branch-scoped-plan:branch-scoped-plan.md`,
 	commit: "abc123",
 	sourceFile: "/tmp/branch-scoped-plan.md",
 	summary: "Create the branch.",

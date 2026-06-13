@@ -387,7 +387,7 @@ describe("branch-context exec", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
 			["exec", "from-plan", "--slug", PLAN_SLUG, "--plan-file", planFile, "--branch", branch, "--summary", "Create it", "--format", "json"],
 			[],
@@ -426,7 +426,7 @@ describe("branch-context exec", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
 			[
 				"exec",
@@ -468,7 +468,7 @@ describe("branch-context exec", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
 			[
 				"exec",
@@ -516,7 +516,7 @@ describe("branch-context exec", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
 			[
 				"exec",
@@ -556,7 +556,7 @@ describe("branch-context exec", () => {
 
 	test("load JSON is metadata-only by default", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--format", "json"], [], {
 			cwd: repoRoot,
@@ -614,7 +614,7 @@ describe("branch-context exec", () => {
 	test("load writes the implementation prompt to a file for bounded JSON output", async () => {
 		const repoRoot = await makeTempDir();
 		const promptFile = join(await makeTempDir(), "implementation-prompt.md");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--prompt-file", promptFile, "--format", "json"], [], {
 			cwd: repoRoot,
@@ -642,7 +642,7 @@ describe("branch-context exec", () => {
 
 	test("load can include large JSON fields explicitly", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--include-content", "--include-prompt", "--format", "json"], [], {
 			cwd: repoRoot,
@@ -670,7 +670,7 @@ describe("branch-context exec", () => {
 
 	test("load accepts JSON-only include flags in human mode without changing output", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const fakes = {
 			cwd: repoRoot,
@@ -695,7 +695,7 @@ describe("branch-context exec", () => {
 		const outsideDir = await makeTempDir();
 		const sourceFile = join(outsideDir, "notes.md");
 		await writeFile(sourceFile, "# Notes\n", "utf8");
-		const branch = "branch-contextes/manual-context";
+		const branch = "branch-contexts/manual-context";
 		const run = runWithFakes(["exec", "attach", "notes", "--file", sourceFile, "--format", "json"], [], {
 			cwd: repoRoot,
 			git: { currentBranch: branch },
@@ -708,7 +708,7 @@ describe("branch-context exec", () => {
 
 	test("list flags the canonical plan entry", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/manual-context";
+		const branch = "branch-contexts/manual-context";
 		const run = runWithFakes(["exec", "list"], [], {
 			cwd: repoRoot,
 			git: { currentBranch: branch },
@@ -722,7 +722,7 @@ describe("branch-context exec", () => {
 
 	test("check exits successfully for absent entries", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/manual-context";
+		const branch = "branch-contexts/manual-context";
 		const run = runWithFakes(["exec", "check", "missing", "--format", "json"], [], { cwd: repoRoot, git: { currentBranch: branch } });
 
 		expect(await run.exit).toBe(0);
@@ -731,7 +731,7 @@ describe("branch-context exec", () => {
 
 	test("delete removes an explicit branch-context key", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/manual-context";
+		const branch = "branch-contexts/manual-context";
 		const run = runWithFakes(["exec", "delete", "notes", "--format", "json"], [], {
 			cwd: repoRoot,
 			git: { currentBranch: branch },
@@ -806,7 +806,7 @@ describe("branch-context CLI surface pinning", () => {
 
 	test("accepts --format human explicitly", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n";
 		const run = runWithFakes(["exec", "load", "--format", "human"], [], {
 			cwd: repoRoot,
@@ -825,7 +825,7 @@ describe("branch-context CLI surface pinning", () => {
 		const outsideDir = await makeTempDir();
 		const planFile = join(outsideDir, "plan.md");
 		await writeFile(planFile, "# Plan\n", "utf8");
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const run = runWithFakes(
 			[
 				"exec",
@@ -867,7 +867,7 @@ describe("branch-context CLI surface pinning", () => {
 
 	test("pins load positional placement and duplicate positional error", async () => {
 		const repoRoot = await makeTempDir();
-		const branch = "branch-contextes/branch-scoped-plan";
+		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n";
 		const placedAfterFlag = runWithFakes(["exec", "load", "--format", "json", PLAN_KEY], [], {
 			cwd: repoRoot,

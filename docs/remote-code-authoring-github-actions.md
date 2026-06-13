@@ -719,7 +719,7 @@ Real execution should consume the same plan. If real execution does not consume 
 3. Implement robust dispatch correlation and polling.
 4. Implement no-clone branch/PR/file mutation with atomic commits.
 5. Implement one-shot remote authoring first; it exercises branch creation, PR creation, file commit, dispatch, and metadata.
-6. Add planned-branch/plan-implementation dispatch.
+6. Add branch-context/plan-implementation dispatch.
 7. Add run list/log/cancel/retry parity.
 8. Add session persistence as a first-class model.
 9. Move workflow shell snippets into exec commands.

@@ -1,11 +1,11 @@
 ---
-name: planned-branch-create
-description: Use when a user explicitly wants to create a planned implementation branch from a saved plan and attach that plan as branch-scoped context — "create a planned branch", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/planned-branch:create` handoff. Part of the planned-branch skill family; see the `planned-branch` umbrella for the shared lifecycle and safety contract.
+name: branch-context-create
+description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach that plan as branch-scoped context — "create a branch context", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/branch-context:from-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
-# planned-branch-create
+# branch-context-create
 
-Resolve a saved plan, create a planned branch, and attach the plan in Branch Memory. Part of the planned-branch family — load the `planned-branch` umbrella for the shared lifecycle, storage, and safety model.
+Resolve a saved plan, create a branch context, and attach the plan in Branch Memory. Part of the branch-context family — load the `branch-context` umbrella for the shared lifecycle, storage, and safety model.
 
 ## Commands
 
@@ -18,8 +18,8 @@ enriched-plan exec resolve [absolute-or-home-plan-file.md] --format json
 Create and attach:
 
 ```bash
-planned-branch exec create \
-  --slug <planned-branch-slug> \
+branch-context exec from-plan \
+  --slug <branch-context-slug> \
   --plan-file <absolute-or-home-plan-file.md> \
   [--branch <target-branch>] \
   [--branch-creation plain-git|graphite] \
@@ -27,12 +27,12 @@ planned-branch exec create \
   --format json
 ```
 
-The plan is attached under Branch Memory namespace `planned-branch`, key `<planned-branch-slug>.md`, on the target branch.
+The plan is attached under Branch Memory namespace `branch-context`, key `plan.md`, on the target branch.
 
 ## Workflow
 
 1. Resolve the saved plan first if a path is given or none is known.
-2. Derive `<planned-branch-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch and attached-plan key.
+2. Derive `<branch-context-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch; the attached-plan key remains `plan.md`.
 3. Omit `--branch-creation` for the portable default (`plain-git`); pass `graphite` only when the user, wrapper, or repo policy explicitly wants it.
 4. Pass `--branch` only when the user requested a specific target branch; the key still comes from `--slug`.
 5. Report `branch`, `branch_creation`, `namespace`, `key`, `ref_name`, `commit`, `source_file`, `slug`.

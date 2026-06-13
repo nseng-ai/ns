@@ -26,16 +26,16 @@ for code review and project history.
 
 Architecture and import rules for contributors live in [`AGENTS.md`](./AGENTS.md).
 
-## Planned-Branch Workflow Pointer
+## Branch Context Workflow Pointer
 
-The repo-local Pi planned-branch workflow uses `brmem` as its lower storage
+The repo-local Pi branch-context workflow uses `brmem` as its lower storage
 Adapter for attached plans, but the workflow itself belongs to the Pi/planning
 layer rather than the generic Branch Memory CLI.
 
-See [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md) for
-`/plans:write`, `/planned-branch:create`,
-`/planned-branch:upstack-impl-session`, `/planned-branch:impl`, and the companion agent
-skills over the `plans` and `planned-branch` CLIs.
+See [Branch Context Workflow](../../docs/pi/branch-context-workflow.md) for
+`/enriched-plan:save`, `/branch-context:from-plan`,
+`/branch-context:upstack-impl-session`, `/branch-context:impl`, and the companion agent
+skills over the `enriched-plan` and `branch-context` CLIs.
 
 ## Mental Model
 
@@ -259,5 +259,5 @@ PRs, and the working tree.
 ## See Also
 
 - [`AGENTS.md`](./AGENTS.md): contributor rules for this package.
-- [Planned Branch Workflow](../../docs/pi/planned-branch-workflow.md): repo-local
+- [Branch Context Workflow](../../docs/pi/branch-context-workflow.md): repo-local
   Pi workflow that uses `brmem` as the lower storage Adapter for attached plans.

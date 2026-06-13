@@ -8,7 +8,7 @@ import {
 } from "../src/branch-context-up-and-impl.ts";
 import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
 
-const BRANCH = "branch-contextes/widget-flow";
+const BRANCH = "branch-contexts/widget-flow";
 const KEY = "widget-flow.md";
 const STATUS_KEY = "branch-context:upstack-impl-session";
 
