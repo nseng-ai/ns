@@ -1,7 +1,15 @@
 import { z } from "zod";
 
-export const payloadReferenceSchema = z.looseObject({
+export const payloadReferenceSchema = z.object({
 	payload_path: z.string(),
+	session_id: z.string().optional(),
+	descriptor: z.string().optional(),
+	role: z.string().optional(),
+	created_at_utc: z.string().optional(),
+	sequence: z.number().int().optional(),
+	payload_bytes: z.number().int().optional(),
+	content_type: z.string().optional(),
+	extension: z.string().optional(),
 });
 
 export const feedbackDomainLocatorSchema = z.looseObject({

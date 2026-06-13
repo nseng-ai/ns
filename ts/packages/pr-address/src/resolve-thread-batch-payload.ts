@@ -59,7 +59,7 @@ export interface ResolveThreadBatchItem {
 	mode: ResolutionMode;
 	message: string | null;
 	commit_sha: string | null;
-	provenance: unknown | null;
+	provenance: z.infer<typeof provenanceSchema> | null;
 }
 
 interface SkippedResolveThreadItem {
@@ -347,14 +347,11 @@ function buildSkipDecision(options: {
 function resolveDecisionIssues(options: {
 	subjectLabel: string;
 	batchCommitSha: string | null;
-	mode: string | null;
+	mode: ResolutionMode;
 	message: string | null;
 	itemCommitSha: string | null;
 	provenance: z.infer<typeof provenanceSchema> | null;
 }): Array<{ code: string; message: string }> {
-	if (!isResolutionMode(options.mode)) {
-		return [{ code: "invalid_mode", message: `Resolve decision for ${options.subjectLabel} must use one of: ${VALID_RESOLUTION_MODES.join(", ")}.` }];
-	}
 	const errors: Array<{ code: string; message: string }> = [];
 	if ((options.mode === "fixed" || options.mode === "explained" || options.mode === "planned") && options.message === null) {
 		errors.push({ code: "missing_message", message: `mode='${options.mode}' decision for ${options.subjectLabel} requires a non-empty message.` });

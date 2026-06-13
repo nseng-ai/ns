@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { loadJsonInput, loadOperationPayload, readJsonInputText } from "../../src/json-input.ts";
+import { loadJsonInput, loadOperationPayload, readJsonInputText, type OperationPayloadField } from "../../src/json-input.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeScopedTempDir = useTempDirs();
@@ -126,14 +126,14 @@ describe("JSON input source helpers", () => {
 		const refPath = join(tempDir, "ref.json");
 		await writeFile(refPath, "42", "utf8"); // JSON number
 
-		// Use type assertion to bypass compile-time checks and create runtime mismatch
+		// Use a narrow test-only assertion to create the runtime mismatch that the invariant guards.
 		const fields = [
 			{
 				key: "data" as const,
 				artifactDescription: "test field",
 				referenceSchema: z.number(), // incompatible with payload schema!
 			},
-		] as any;
+		] as unknown as readonly OperationPayloadField<BadPayload, "data">[];
 
 		const promise = loadOperationPayload<BadPayload>({
 			commandName: "test-op",

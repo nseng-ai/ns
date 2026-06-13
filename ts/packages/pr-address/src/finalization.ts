@@ -173,7 +173,7 @@ export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {
 	invalidErrorCount += validateUniqueBatchIds(request, errors);
 	const checkpointSummaries = checkpointSummariesForRequest(request.checkpoints);
 	const skippedItems = skippedItemsForCheckpoints(request.checkpoints);
-	const skippedThreadIds = new Set(skippedItems.filter((item) => item.thread_id !== null).map((item) => item.thread_id as string));
+	const skippedThreadIds = new Set(skippedItems.flatMap((item) => (item.thread_id !== null ? [item.thread_id] : [])));
 	const unresolvedThreads = request.feedback.review_threads.filter((thread) => !thread.is_resolved).map(threadSummary);
 	const unresolvedById = new Map(unresolvedThreads.map((thread) => [String(thread.thread_id), thread]));
 	const unresolvedUnskippedThreads = unresolvedThreads.filter((thread) => !skippedThreadIds.has(String(thread.thread_id)));
