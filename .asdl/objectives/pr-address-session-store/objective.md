@@ -14,9 +14,9 @@ The codebase this Objective targets is now **TypeScript-only**, at `ts/packages/
 
 ### Why the thesis still holds
 
-The composed-payload glue this Objective set out to eliminate survives the TypeScript port unchanged in shape. Helpers still receive agent-composed wrapper JSON:
+The composed-payload glue this Objective set out to eliminate survives the TypeScript port, with one post-reground correction: `validate-feedback-classification` already supports split manifest/classification inputs. Other helpers still receive agent-composed wrapper JSON, and validation still keeps legacy wrapper compatibility:
 
-- `validate-feedback-classification` and `plan-feedback` take a `{manifest, classification}` wrapper (`src/classification-operations.ts`).
+- `plan-feedback` still takes a `{manifest, classification}` wrapper; `validate-feedback-classification` can take split manifest/classification files but still accepts the same wrapper for compatibility (`src/classification-operations.ts`).
 - `build-resolve-thread-batch-payload` takes `{plan, batch_id, commit_sha, decisions}` (`src/resolve-thread-batch-payload.ts`).
 - `record-batch-checkpoint` takes an eight-field composed payload — `plan`, `batch_id`, `commit_sha`, `changed_files`, `validation_commands`, `thread_payload_build`, `thread_resolution_result`, `non_thread_outcomes` (`src/batch-checkpoint.ts`).
 - `resolve-thread-batch` takes `{commit_sha, continue_on_error, items}` and `finalize-run` takes `{feedback, checkpoints}` (`src/mutation-operations.ts`, `src/finalization.ts`).
@@ -113,7 +113,7 @@ Risks:
 - The no-phasing decision (single-PR and stack migrate together) makes the first landable slice large, and the helper surface has grown to ~20 operations since this Objective was first written — the slice is larger than originally scoped. Accepted deliberately to avoid the CLI ever shipping two invocation styles.
 - Removing composed input styles deletes a debugging affordance. `--stdout-mode full` and direct reads of session artifacts remain the debug path.
 - Compact-by-default stdout could hide evidence in edge cases. Mitigated by including errors and warnings verbatim in the digest along with the artifact path to the full envelope.
-- The original evidence (a 2026-06-11 Python run on PR #1274 with "roughly ten ad hoc Python heredocs") no longer describes the live tool — Python is deleted. The underlying composed-JSON glue persists in the TS input contracts above, but the heredoc count and that specific run are historical. A fresh TS single-PR run should be captured to re-quantify the glue before or during the first implementation slice.
+- The original evidence (a 2026-06-11 Python run on PR #1274 with "roughly ten ad hoc Python heredocs") no longer describes the live tool — Python is deleted. A fresh non-mutating TS pass was captured on 2026-06-13 against PR #1427 and recorded in `updates/2026-06-13T143520Z-fresh-typescript-reground-run.md`; it confirmed the composed-JSON glue persists, with one correction: `validate-feedback-classification` already supports split manifest/classification inputs. Because PR #1427 had zero feedback, actionable batch helpers were inventoried from help/source rather than exercised with a real batch.
 
 ## Open Questions
 
