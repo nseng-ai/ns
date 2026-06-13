@@ -59,13 +59,13 @@ package.**
   (Pydantic required-keys → exit 2 vs Zod `looseObject` → exit 1 validation envelope);
   invalid-mode and bad-`--provenance-json` message text. Well-formed inputs behave
   identically.
-- **`resolve-thread-with-reply` single command:** TS is *stricter* (rejects empty
+- **`resolve-thread-with-reply` single command:** TS is _stricter_ (rejects empty
   `thread_id`, wraps gh failures as `pr_gateway_failure`); Python would pass an empty thread
   to GitHub / raise uncaught. TS is the safer side.
 - **`stack-feedback-prep` fetch concurrency:** Python sequential, TS `Promise.all` then
   sequential writes — result shape/ordering preserved by design.
 - **Exotic-line-separator quoting** in discussion replies (Python `splitlines()` vs TS
-  `\n`-only) — only differs on `\v`/`\f`/` ` etc. in original bodies; vanishingly
+  `\n`-only) — only differs on `\v`/`\f`/`` etc. in original bodies; vanishingly
   unlikely in review text.
 
 ## Objective Impact
@@ -79,7 +79,7 @@ package.**
 - **Retire parity test fixtures that assert Python's narrower flag sets.** Several TS
   commands are input-surface supersets (`--payload-file` on `plan-feedback` and the payload
   builders; the `--*-reference` artifact-reference flags on the stack commands). Any fixture
-  asserting Python's narrower option set — or asserting that those flags are *rejected* —
+  asserting Python's narrower option set — or asserting that those flags are _rejected_ —
   will fail once Python is deleted and must be retired as part of `python-deletion`.
 - During `python-deletion`, remove the TS legacy-Python fallback router
   (`ts/packages/pr-address/src/cli.ts:51-61`) in the same change that deletes the Python
