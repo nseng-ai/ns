@@ -10,12 +10,9 @@ import {
 	validateTargetBranchName,
 	type CreateBranchContextFromFileParams,
 } from "../src/branch-context-creation.ts";
+import { createBranchContextContext, type BranchContextContext } from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import type { ExecResult } from "@asdl/core/exec";
-import { RealGitGateway } from "@asdl/core/git";
-import { RealBranchContextBrmemGateway } from "../src/brmem-gateway.ts";
-import type { BranchContextContext } from "../src/context.ts";
-import { RealBranchContextGraphiteGateway } from "../src/graphite-gateway.ts";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -160,12 +157,7 @@ async function makePlanFile(content = "# Test Plan\n\nDo the work.\n"): Promise<
 }
 
 function branchContext(pi: CommandExecApi): BranchContextContext {
-	return {
-		commands: pi,
-		git: new RealGitGateway(pi),
-		brmem: new RealBranchContextBrmemGateway(pi),
-		graphite: new RealBranchContextGraphiteGateway(pi),
-	};
+	return createBranchContextContext(pi);
 }
 
 function putEnvelope(input: { branch: string; key: string; filePath: string; commit?: string; refName?: string }): string {

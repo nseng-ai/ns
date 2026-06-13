@@ -10,12 +10,10 @@ import {
 	normalizeRequestedBranchContextKey,
 	selectAttachedPlanKey,
 } from "../src/attached-plan.ts";
-import { parseBrmemGetContent, parseBrmemListEntries, RealBranchContextBrmemGateway, type AttachedPlanEntry, type BranchContextBrmemGateway } from "../src/brmem-gateway.ts";
-import { BRANCH_CONTEXT_NAMESPACE } from "@asdl/branch-context";
+import { parseBrmemGetContent, parseBrmemListEntries, type AttachedPlanEntry, type BranchContextBrmemGateway } from "../src/brmem-gateway.ts";
+import { BRANCH_CONTEXT_NAMESPACE, createBranchContextContext, type BranchContextContext } from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import type { BranchContextContext } from "../src/context.ts";
-import { RealBranchContextGraphiteGateway } from "../src/graphite-gateway.ts";
+import type { GitGateway } from "@asdl/core/git";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
 
 const ROOT = "/repo";
@@ -239,12 +237,7 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 }
 
 function branchContext(pi: CommandExecApi, overrides: Partial<BranchContextContext> = {}): BranchContextContext {
-	return {
-		commands: overrides.commands ?? pi,
-		git: overrides.git ?? new RealGitGateway(pi),
-		brmem: overrides.brmem ?? new RealBranchContextBrmemGateway(pi),
-		graphite: overrides.graphite ?? new RealBranchContextGraphiteGateway(pi),
-	};
+	return { ...createBranchContextContext(pi), ...overrides };
 }
 
 function emptyBrmemGateway(): BranchContextBrmemGateway {
