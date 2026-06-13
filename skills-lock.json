@@ -6,11 +6,6 @@
       "sourceType": "local",
       "computedHash": "d99ae2ede27da4fe21bb9c2a16f7c0b671bdf99a2d1c1399a3795295056fac7a"
     },
-    "branch-context-create": {
-      "source": "skills/branch-context-create",
-      "sourceType": "local",
-      "computedHash": "ed68686270c4d93b5db08910844cf3e7194ce44e0226daad17cff471c2381d7f"
-    },
     "branch-context-impl": {
       "source": "skills/branch-context-impl",
       "sourceType": "local",
@@ -121,6 +116,11 @@
       "sourceType": "github",
       "skillPath": "skills/fdt-refactor-mock-to-fake/SKILL.md",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
+    },
+    "from-plan": {
+      "source": "skills/from-plan",
+      "sourceType": "local",
+      "computedHash": "ed3037099d5e54ed5544e671400f590652edfd80dee6fa69962220d646c93e74"
     },
     "graphite": {
       "source": "withgraphite/agent-skills",

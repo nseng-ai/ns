@@ -12,7 +12,7 @@ Shared lifecycle, terminology, safety posture, diagnostics, and administration f
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
 - `enriched-plan-save` — save a source-branch plan.
-- `branch-context-create` — create a branch context and attach the plan.
+- `from-plan` — create a branch context from a saved plan and attach it.
 - `branch-context-impl` — load and implement an attached plan.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.

@@ -141,4 +141,4 @@ brmem get plan.md --namespace branch-context --branch <branch>
 
 - Pi commands: `/enriched-plan:save`, `/enriched-plan:grill-and-save`, `/branch-context:from-plan`, `/branch-context:upstack-impl-session`, `/branch-context:impl`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
-- Agent skills: `enriched-plan-save`, `branch-context`, `branch-context-create`, and `branch-context-impl`.
+- Agent skills: `enriched-plan-save`, `branch-context`, `from-plan`, and `branch-context-impl`.
