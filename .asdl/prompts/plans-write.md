@@ -33,6 +33,7 @@ Recommended saved plan sections:
 - Non-negotiable decisions and constraints.
 - Non-trivial planning context, including external/off-repo findings if used.
 - Relevant code areas and implementation slices.
+- Intermediate checkpoint strategy for larger or multi-slice implementation plans.
 - Validation commands and expected results.
 - Risks, assumptions, edge cases, and open questions.
 - Subagent orchestration opportunities.
@@ -49,6 +50,16 @@ Subagent orchestration opportunities:
 - For editing subagents in one worktree, recommend sequential dispatch and parent validation after each editing subagent: inspect status and final text, review the git diff for declared scope, run targeted checks, and stop or escalate on unexpected files or failed validation.
 - If suggesting editing or implementation subagents, do not include a `model` recommendation unless a strong implementation model is explicitly required. Review-model defaults are not applicable to editing work.
 - Do not imply that branch-context runtime will automatically launch, schedule, or parse subagent work. The saved plan should identify opportunities for an implementation agent to use manually.
+
+Implementation checkpoint guidance:
+
+- For larger or multi-slice implementation plans, include an intermediate checkpoint strategy.
+- Implementation agents should use `/code:cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
+- A useful checkpoint is a reviewable implementation slice, not an arbitrary time interval.
+- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `/code:cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
+- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `/code:cp` and reports the commit summary, or the parent reviews the subagent diff and runs `/code:cp` afterward.
+- After each editing subagent, the parent should verify final text/status and the resulting diff or Checkpoint commit summary before dispatching the next editing subagent.
+- Do not imply that branch-context runtime will automatically schedule checkpointing, and do not suggest direct `git commit` as the normal path for intermediate checkpoints.
 
 Subagent model routing:
 
