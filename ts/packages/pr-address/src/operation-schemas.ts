@@ -971,6 +971,7 @@ const stackFeedbackDiffCurrentResultSchema = z.object({
 
 const stackFeedbackPrepRequestSchema = z.object({
 	stack_json: nullableStringSchema.optional(),
+	stack_reference: nullableStringSchema.optional(),
 	payload_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 	include_resolved: z.boolean().optional(),
@@ -1058,6 +1059,36 @@ const stackFeedbackPrepCompactResultSchema = z.object({
 });
 
 const stackFeedbackPrepResultUnionSchema = z.union([stackFeedbackPrepResultSchema, stackFeedbackPrepCompactResultSchema]);
+
+// --- stack-feedback-preflight ------------------------------------------------------
+
+const stackFeedbackPreflightRequestSchema = z.object({
+	branches_json: nullableStringSchema.optional(),
+	payload_session_id: nullableStringSchema.optional(),
+	stdout_mode: z.enum(["full", "compact"]).optional(),
+});
+
+const stackFeedbackPreflightFullResultSchema = stackFeedbackPrepResultSchema.extend({
+	mapping_summary: mapBranchPrsSummarySchema,
+	stack_reference: payloadReferenceSchema,
+});
+
+const stackFeedbackPreflightCompactZeroPrSchema = z.object({
+	pr_number: z.int(),
+	branch: z.string(),
+});
+
+const stackFeedbackPreflightCompactResultSchema = z.object({
+	payload_session_id: z.string(),
+	mapping_summary: mapBranchPrsSummarySchema,
+	stack_reference: payloadReferenceSchema,
+	stack_summary_reference: payloadReferenceSchema,
+	summary: stackFeedbackPrepSummarySchema,
+	stack: z.array(stackFeedbackPrepCompactPrResultSchema),
+	zero_feedback_prs: z.array(stackFeedbackPreflightCompactZeroPrSchema),
+});
+
+const stackFeedbackPreflightResultUnionSchema = z.union([stackFeedbackPreflightFullResultSchema, stackFeedbackPreflightCompactResultSchema]);
 
 // --- stack-feedback-plan -----------------------------------------------------------
 
@@ -1260,6 +1291,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["resolve-thread-with-reply", () => schemaDocument(resolveThreadWithReplyRequestSchema, resolveThreadWithReplyResultSchema)],
 	["stack-feedback-diff-current", () => schemaDocument(stackFeedbackDiffCurrentRequestSchema, stackFeedbackDiffCurrentResultSchema)],
 	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],
+	["stack-feedback-preflight", () => schemaDocument(stackFeedbackPreflightRequestSchema, stackFeedbackPreflightResultUnionSchema)],
 	["stack-feedback-prep", () => schemaDocument(stackFeedbackPrepRequestSchema, stackFeedbackPrepResultUnionSchema)],
 	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],
 	["validate-feedback-classification", buildValidateFeedbackClassificationSchemaDocument],

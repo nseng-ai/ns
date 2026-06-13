@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
-import type { PRSummary } from "./gateways.ts";
+import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
-const mapBranchPrsInputSchema = z.looseObject({
+export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
 });
 
-interface BranchPrEntry {
+export interface BranchPrEntry {
 	branch: string;
 	pr_number: number;
 	title: string;
@@ -19,7 +19,7 @@ interface BranchPrEntry {
 	base_ref_name: string;
 }
 
-interface MapBranchPrsResult {
+export interface MapBranchPrsResult {
 	branch_prs: BranchPrEntry[];
 	missing_branches: string[];
 	summary: { requested: number; matched: number; missing: number };
@@ -42,18 +42,30 @@ export async function runMapBranchPrsOperation(invocation: ExecOperationInvocati
 	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const branches = payloadResult.value.branches;
-	const validationMessage = branchesValidationMessage(branches);
+	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
 	if (validationMessage !== null) return exitFailure("invalid_request", validationMessage);
 
 	const github = githubGateway(invocation);
 	if (github.type === "error") return github.result;
-	const openPrsResult = await github.gateway.listOpenPrs(gatewayOptions(invocation));
-	if (openPrsResult.type === "failure") return exitFailure("pr_gateway_failure", gatewayFailureMessage("Failed to list open PRs", openPrsResult.failure));
+	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, invocation });
+	if (mapping.type === "error") return mapping.result;
+	const result = mapping.value;
+	if (result.missing_branches.length === 0) return { type: "exit", exit: ok(result) };
+	return { type: "exit", exit: negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, result) };
+}
+
+export async function mapBranchesToOpenPrs(options: {
+	branches: readonly string[];
+	github: PrAddressGitHubGateway;
+	invocation: ExecOperationInvocation;
+}): Promise<{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; result: ExecOperationDispatchResult }> {
+	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.invocation));
+	if (openPrsResult.type === "failure") return { type: "error", result: exitFailure("pr_gateway_failure", gatewayFailureMessage("Failed to list open PRs", openPrsResult.failure)) };
 
 	const prsByHeadBranch = lowestNumberedPrByHeadBranch(openPrsResult.value);
 	const branchPrs: BranchPrEntry[] = [];
 	const missingBranches: string[] = [];
-	for (const branch of branches) {
+	for (const branch of options.branches) {
 		const pr = prsByHeadBranch.get(branch);
 		if (pr === undefined) {
 			missingBranches.push(branch);
@@ -68,20 +80,21 @@ export async function runMapBranchPrsOperation(invocation: ExecOperationInvocati
 			base_ref_name: pr.base_ref_name,
 		});
 	}
-	const result: MapBranchPrsResult = {
-		branch_prs: branchPrs,
-		missing_branches: missingBranches,
-		summary: { requested: branches.length, matched: branchPrs.length, missing: missingBranches.length },
+	return {
+		type: "ok",
+		value: {
+			branch_prs: branchPrs,
+			missing_branches: missingBranches,
+			summary: { requested: options.branches.length, matched: branchPrs.length, missing: missingBranches.length },
+		},
 	};
-	if (missingBranches.length === 0) return { type: "exit", exit: ok(result) };
-	return { type: "exit", exit: negative(`No open PR found for branches: ${missingBranches.join(", ")}`, result) };
 }
 
-function branchesValidationMessage(branches: readonly string[]): string | null {
-	if (branches.length === 0) return "map-branch-prs requires at least one branch.";
-	if (!branches.every((branch) => branch.trim() !== "")) return "map-branch-prs requires every branch to be non-empty.";
+export function branchesValidationMessage(branches: readonly string[], commandName: string): string | null {
+	if (branches.length === 0) return `${commandName} requires at least one branch.`;
+	if (!branches.every((branch) => branch.trim() !== "")) return `${commandName} requires every branch to be non-empty.`;
 	const duplicates = duplicateValues(branches);
-	if (duplicates.length > 0) return `map-branch-prs branches contain duplicates: ${duplicates.join(", ")}`;
+	if (duplicates.length > 0) return `${commandName} branches contain duplicates: ${duplicates.join(", ")}`;
 	return null;
 }
 

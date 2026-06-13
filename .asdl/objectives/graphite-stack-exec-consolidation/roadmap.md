@@ -18,8 +18,9 @@
       Update `stack-address` and related PR-address references so the stack branch list comes from the canonical structured helper. Audit other skills that mention `gt ls` or `gt log` and distinguish human visual confirmation from machine topology decisions.
       Done: `stack-address` now verifies and pipes `slot gt exec stack-branches` into `pr-address exec map-branch-prs --format json`; the PR-address `map-branch-prs` reference now documents that zero-jq Graphite-stack pipeline while preserving its Graphite-neutral/direct invocation contract; delete-stack current-stack discovery now uses the structured helper and limits remaining `gt branch info`/`gt ls`/`gt log` mentions to visual/advisory confirmation or verification. Evidence: focused Graphite-reference ripgrep checks passed and `just dprint-check` passed.
 
-- [ ] Consolidate stack-address preflight mechanics.
+- [x] Consolidate stack-address preflight mechanics.
       Design and implement the tested helper or canonical command sequence that combines branch-to-PR mapping, stack JSON construction, compact `stack-feedback-prep` invocation, and summary/reference output without manual hand-transcribed shell/JQ steps.
+      Done: `pr-address exec stack-feedback-preflight` maps `slot gt exec stack-branches` branch JSON to open PRs, writes a frozen stack artifact, runs compact unresolved-only prep, and returns feedback-bearing vs zero-feedback PR partitions; `stack-feedback-prep --stack-reference` reuses the exact frozen stack for drift/final refetches. Evidence: targeted pr-address Vitest scenarios and JSON-schema route tests passed; package TypeScript check passed.
 
 - [ ] Audit additional `slot gt exec` consolidation candidates.
       Decide whether commands such as stack info, descendant subtree/fork structure, or current tracking status should be added now, deferred, or rejected. Keep mutations like `gt submit` and `gt restack` out unless a safety-policy wrapper is explicitly justified.
@@ -31,6 +32,9 @@
       Document the rule that agents must not parse `gt ls`, `gt ls --stack`, or `gt log` for stack topology. Point future workflows to the canonical structured command and document any remaining visual-confirmation-only uses.
 
 ## Parked
+
+- [ ] Consolidate repeated `--stdout-mode` option handling.
+      `stack-feedback-preflight`, `stack-feedback-prep`, and `stack-feedback-plan` each parse the same `full|compact` option locally to preserve current Click fallback behavior. Revisit only if Clinkr grows a shared managed-option helper that can preserve those fallback semantics.
 
 - [ ] General Graphite mutation wrappers.
       Do not pursue wrappers for ordinary `gt create`, `gt modify`, `gt submit`, `gt restack`, or `gt move` unless a later design identifies safety policy that Graphite itself does not provide.

@@ -114,7 +114,7 @@ interface ManagedRun {
 	stderr: string[];
 }
 
-function runManaged(args: readonly string[], options: { github?: PrAddressGitHubGateway | undefined; env: NodeJS.ProcessEnv; clockIso: string }): ManagedRun {
+function runManaged(args: readonly string[], options: { github?: PrAddressGitHubGateway | undefined; env: NodeJS.ProcessEnv; clockIso: string; stdin?: string | undefined }): ManagedRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const legacy: LegacyPrAddressGateway = {
@@ -127,7 +127,7 @@ function runManaged(args: readonly string[], options: { github?: PrAddressGitHub
 			context: { legacy, github: options.github, payloadClock: fixedClock(options.clockIso) },
 			cwd: "/repo",
 			env: options.env,
-			stdin: async () => "",
+			stdin: async () => options.stdin ?? "",
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),
@@ -198,6 +198,97 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 		expect(envelope.error_type).toBe("invalid_request");
 		expect(envelope.message).toContain("--bogus");
+	});
+});
+
+describe("stack-feedback-prep stack-reference input", () => {
+	function runPrep(args: readonly string[], root: string, stdin = ""): ManagedRun {
+		return runManaged(["exec", "stack-feedback-prep", ...args, "--format", "json"], {
+			github: fixtureGithubGateway(),
+			env: payloadEnv("session", root, prepFixture.session_id),
+			clockIso: prepFixture.clock_iso,
+			stdin,
+		});
+	}
+
+	function errorEnvelope(run: ManagedRun): { error_type: string; message: string } {
+		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+	}
+
+	test("reads the same stack from --stack-reference without reading stdin", async () => {
+		const rootFromStdin = await makePayloadRoot();
+		const stdinRun = runPrep(["--stdout-mode", "compact"], rootFromStdin, stackInputJson());
+		expect(await stdinRun.exit).toBe(0);
+		const stdinEnvelope = JSON.parse(stdinRun.stdout.join("")) as { data: { summary: unknown; stack: unknown } };
+
+		const scratch = await makeScratchDir();
+		const stackPath = join(scratch, "stack.json");
+		await writeFile(stackPath, stackInputJson(), "utf8");
+		const rootFromReference = await makePayloadRoot();
+		const referenceRun = runPrep(["--stack-reference", stackPath, "--stdout-mode", "compact"], rootFromReference, "this is not json and must not be read");
+
+		expect(await referenceRun.exit).toBe(0);
+		const referenceEnvelope = JSON.parse(referenceRun.stdout.join("")) as { data: { summary: unknown; stack: Array<{ pr_number: number; branch: string; counts: unknown }> } };
+		expect(referenceEnvelope.data.summary).toEqual(stdinEnvelope.data.summary);
+		expect(referenceEnvelope.data.stack.map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts }))).toEqual(
+			(stdinEnvelope.data.stack as Array<{ pr_number: number; branch: string; counts: unknown }>).map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts })),
+		);
+	});
+
+	test("rejects --stack-reference combined with --stack-json", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const stackPath = join(scratch, "stack.json");
+		await writeFile(stackPath, stackInputJson(), "utf8");
+
+		const run = runPrep(["--stack-reference", stackPath, "--stack-json", stackInputJson()], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("cannot mix --stack-json with --stack-reference");
+	});
+
+	test("rejects missing and malformed --stack-reference artifacts", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+
+		const missingRun = runPrep(["--stack-reference", join(scratch, "missing.json")], root);
+		expect(await missingRun.exit).toBe(2);
+		expect(errorEnvelope(missingRun).message).toContain("must point to an existing file");
+
+		const malformedPath = join(scratch, "malformed.json");
+		await writeFile(malformedPath, "{", "utf8");
+		const malformedRun = runPrep(["--stack-reference", malformedPath], root);
+		expect(await malformedRun.exit).toBe(2);
+		expect(errorEnvelope(malformedRun).error_type).toBe("invalid_json");
+	});
+
+	test("rejects a --stack-reference artifact with the wrong shape", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const stackPath = join(scratch, "wrong.json");
+		await writeFile(stackPath, JSON.stringify({ branch_prs: [] }), "utf8");
+
+		const run = runPrep(["--stack-reference", stackPath], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("stack-feedback-prep --stack-reference must reference a stack JSON payload");
+	});
+
+	test("combines --stack-reference with --include-resolved", async () => {
+		const root = await makePayloadRoot();
+		const scratch = await makeScratchDir();
+		const stackPath = join(scratch, "stack.json");
+		await writeFile(stackPath, stackInputJson(), "utf8");
+
+		const run = runPrep(["--stack-reference", stackPath, "--include-resolved", "--stdout-mode", "compact"], root);
+
+		expect(await run.exit).toBe(0);
+		const envelope = JSON.parse(run.stdout.join("")) as { data: { include_resolved: boolean } };
+		expect(envelope.data.include_resolved).toBe(true);
 	});
 });
 

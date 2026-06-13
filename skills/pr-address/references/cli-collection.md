@@ -8,6 +8,7 @@ Helpers in this file:
 
 - [`prepare-run`](#prepare-run)
 - [`get-feedback`](#get-feedback)
+- [`stack-feedback-preflight`](#stack-feedback-preflight)
 - [`stack-feedback-prep`](#stack-feedback-prep)
 - [`map-branch-prs`](#map-branch-prs)
 - [`read-feedback-detail`](#read-feedback-detail)
@@ -117,6 +118,59 @@ pr-address exec get-feedback 630 \
 If no PR is found, the JSON envelope uses `exit_code: 1` and `data.found=false`.
 Gateway/auth failures use `exit_code: 2`.
 
+### `stack-feedback-preflight`
+
+Initial Graphite-neutral stack feedback preflight. The caller supplies branch
+names (usually from `slot gt exec stack-branches`); the helper maps them to open
+PRs, freezes the exact stack JSON as a payload artifact, runs unresolved-only
+`stack-feedback-prep`, and returns a compact envelope for transcript use. It
+does **not** check `gh auth status`, Graphite topology, or worktree cleanliness;
+those remain agent-side preconditions.
+
+**Invocation:** reads branches JSON from stdin by default. `--branches-json` is
+also available.
+
+```bash
+slot gt exec stack-branches \
+  | pr-address exec stack-feedback-preflight \
+      --payload-session-id pr-stack-address-20260604t120000z-a1 \
+      --stdout-mode compact \
+      --format json
+```
+
+**Input fields:**
+
+| Field                | Required | Description                                                                                  |
+| -------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `branches`           | yes      | Non-empty array of branch names; no blanks and no duplicates                                 |
+| `stdout_mode`        | no       | `full` by default for compatibility; use `--stdout-mode compact` for stack-address workflows |
+| `payload_session_id` | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules          |
+
+**Compact output fields (under `data`):**
+
+| Field                     | Description                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `payload_session_id`      | Payload session used for the stack run                                                               |
+| `mapping_summary`         | Branch coverage counts: `requested`, `matched`, `missing`                                            |
+| `stack_reference`         | Payload artifact containing the frozen `{"stack":[...]}` JSON for later exact refetches              |
+| `stack_summary_reference` | Whole-stack full prep artifact from `stack-feedback-prep`                                            |
+| `summary`                 | Whole-stack PR, feedback, automation, and needs-agent-review counts                                  |
+| `stack[]`                 | Feedback-bearing compact prep rows only                                                              |
+| `zero_feedback_prs[]`     | Identity-only `{pr_number, branch}` rows for PRs with no reviews, unresolved threads, or discussions |
+
+Full mode returns the unfiltered full prep result plus `mapping_summary` and
+`stack_reference`.
+
+**Exit codes:** `0` — every branch matched and prep ran, including a
+zero-feedback stack; `1` — one or more branches lack open PRs (`data` has the
+same shape as `map-branch-prs`, prep does not run, and no artifacts are
+written); `2` — invalid input, missing repo context, payload-store failure, or
+GitHub gateway failure.
+
+For explicit user-approved partial coverage, compose the lower-level helpers:
+run `map-branch-prs`, remove the missing branches by hand, then run
+`stack-feedback-prep` on the approved subset.
+
 ### `stack-feedback-prep`
 
 Fetch feedback for an explicit stack PR list, write payload artifacts, build
@@ -125,9 +179,11 @@ The command is Graphite-neutral: callers provide PR/branch metadata and the
 helper does not call `gt` or `gh` for stack discovery.
 
 **Invocation:** reads stack JSON from stdin by default. `--stack-json` is also
-available. For agent workflows, set `PR_ADDRESS_STACK_PREP_COMPACT` to a path
-outside the worktree root (for example a git-adjacent scratch path) so compact
-stdout does not create untracked repository files.
+available. `--stack-reference <payload_path>` reads a previously frozen stack
+artifact, is mutually exclusive with `--stack-json`, and does not read stdin.
+For agent workflows, set `PR_ADDRESS_STACK_PREP_COMPACT` to a path outside the
+worktree root (for example a git-adjacent scratch path) so compact stdout does
+not create untracked repository files.
 
 ```bash
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
@@ -140,20 +196,23 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
 
 **Input fields:**
 
-| Field                   | Required | Description                                                                             |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------- |
-| `stack[].pr_number`     | yes      | PR number                                                                               |
-| `stack[].branch`        | yes      | Stack branch name; must be non-empty and unique                                         |
-| `stack[].title`         | no       | PR title for provenance                                                                 |
-| `stack[].url`           | no       | PR URL for provenance                                                                   |
-| `stack[].head_ref_name` | no       | PR head ref for provenance                                                              |
-| `stack[].base_ref_name` | no       | PR base ref for provenance                                                              |
-| `include_resolved`      | no       | Include resolved review threads in manifests (default false)                            |
-| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise) |
-| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows    |
-| `payload_session_id`    | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules     |
+| Field                   | Required | Description                                                                              |
+| ----------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `stack[].pr_number`     | yes      | PR number                                                                                |
+| `stack[].branch`        | yes      | Stack branch name; must be non-empty and unique                                          |
+| `stack[].title`         | no       | PR title for provenance                                                                  |
+| `stack[].url`           | no       | PR URL for provenance                                                                    |
+| `stack[].head_ref_name` | no       | PR head ref for provenance                                                               |
+| `stack[].base_ref_name` | no       | PR base ref for provenance                                                               |
+| `stack_reference`       | no       | Payload artifact path containing `{"stack":[...]}`; mutually exclusive with `stack_json` |
+| `include_resolved`      | no       | Include resolved review threads in manifests (default false)                             |
+| `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)  |
+| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows     |
+| `payload_session_id`    | payload  | Required unless `ASDL_PAYLOAD_SESSION_ID` is set; must match the safe-segment rules      |
 
-The stack must be non-empty and have unique PR numbers and branch names.
+The stack must be non-empty and have unique PR numbers and branch names. Use
+`--stack-reference` for drift/final refetches that must reuse the exact frozen
+stack from `stack-feedback-preflight`.
 
 **Full output fields (under `data`, default `--stdout-mode full`):**
 
@@ -188,9 +247,11 @@ classification packet must still classify every discussion comment exactly once.
 ### `map-branch-prs`
 
 Map a list of branch names to their open PRs with a single `gh pr list` call.
-Use this to build the stack JSON for `stack-feedback-prep` instead of running
-one `gh pr list --head <branch>` call per branch. The caller supplies the
-branch names; the helper has no Graphite dependency.
+Use this directly only for lower-level mapping or explicit partial-coverage
+overrides. For normal stack-wide feedback workflows, use
+`stack-feedback-preflight`, which maps branches, freezes stack JSON, and runs the
+initial compact prep in one helper. The caller supplies the branch names; the
+helper has no Graphite dependency.
 
 **Recommended Graphite-stack invocation:** pipe the structured stack branch list
 into the Graphite-neutral mapper:

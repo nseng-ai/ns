@@ -14,7 +14,7 @@ TypeScript-managed local `exec` operation execution:
 - Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
 - Read-only GitHub fetch helpers: `get-feedback` in both inline and default payload-artifact modes
 - Payload detail and stack diff helpers: `read-feedback-detail`, `read-feedback-details`, `stack-feedback-diff-current`
-- Stack orchestration helpers: `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
+- Stack orchestration helpers: `stack-feedback-preflight`, `stack-feedback-prep`, `stack-feedback-plan`, `build-stack-resolve-thread-payloads`
 - Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
 - Composite run preparation and summary: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection) and `summarize-feedback`
 - Mutation helpers: `resolve-thread-with-reply`, `resolve-thread-batch`, `reply-to-review`, `reply-to-discussion`
@@ -22,7 +22,7 @@ TypeScript-managed local `exec` operation execution:
 
 Compatibility-backed behavior that must stay in place for now:
 
-- Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid `--stdout-mode` values for `stack-feedback-prep` and `stack-feedback-plan`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
+- Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid `--stdout-mode` values for `stack-feedback-preflight`, `stack-feedback-prep`, and `stack-feedback-plan`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
 - The Python `asdl pr-address ...` plugin
 
 ## Distribution
