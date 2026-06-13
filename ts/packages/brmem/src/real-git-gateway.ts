@@ -149,7 +149,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		namespace: string;
 		fromBranch: string;
 		toBranch: string;
-		overwrite: boolean;
+		shouldOverwrite: boolean;
 		keyGlob?: string | undefined;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const namespaceValidation = validateNamespaceName(options.namespace);
@@ -169,7 +169,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", destRef], { cwd: this.cwd });
 		const destSha = destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined;
 		if (options.keyGlob === undefined) {
-			return this.copySnapshot({ namespace: options.namespace, toBranch: options.toBranch, sourceRef, sourceSha: sourceSha.stdout.trim(), destRef, overwrite: options.overwrite });
+			return this.copySnapshot({ namespace: options.namespace, toBranch: options.toBranch, sourceRef, sourceSha: sourceSha.stdout.trim(), destRef, shouldOverwrite: options.shouldOverwrite });
 		}
 		return this.copyWithGlob({ ...options, sourceRef, destRef, destSha, keyGlob: options.keyGlob });
 	}
@@ -228,10 +228,10 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		sourceRef: string;
 		sourceSha: string;
 		destRef: string;
-		overwrite: boolean;
+		shouldOverwrite: boolean;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const destEntries = await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
-		if (destEntries.size > 0 && !options.overwrite) {
+		if (destEntries.size > 0 && !options.shouldOverwrite) {
 			return brmemError("copy_conflict", `destination has conflicting entries: ${[...destEntries.keys()].sort().join(", ")}`);
 		}
 		const update = await runGit(this.commands, ["update-ref", options.destRef, options.sourceSha], { cwd: this.cwd });
@@ -249,14 +249,14 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		sourceRef: string;
 		destRef: string;
 		destSha?: string | undefined;
-		overwrite: boolean;
+		shouldOverwrite: boolean;
 		keyGlob: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const sourceMatching = [...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef))].filter(([key]) => keyGlobMatches(key, options.keyGlob));
 		if (sourceMatching.length === 0) return brmemOk({ entries: [] });
 		const destTree = options.destSha === undefined ? new Map<string, string>() : await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
 		const destMatching = [...destTree.keys()].filter((key) => keyGlobMatches(key, options.keyGlob));
-		if (destMatching.length > 0 && !options.overwrite) {
+		if (destMatching.length > 0 && !options.shouldOverwrite) {
 			return brmemError("copy_conflict", `destination has conflicting entries: ${destMatching.sort().join(", ")}`);
 		}
 		for (const key of destMatching) destTree.delete(key);

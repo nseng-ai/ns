@@ -107,8 +107,8 @@ describe("Python and TypeScript brmem storage parity", () => {
 			expectPythonOk(runPythonBrmem(repo, ["put", "slug/body.md", "--branch", "dest", "--file", writeRepoFile(repo, "dest-body.txt", "old body\n")]));
 
 			const gateway = new RealGitBrmemGateway(repo.path);
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: false, keyGlob: "slug/*" })).type).toBe("error");
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: true, keyGlob: "slug/*" })).type).toBe("ok");
+			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "slug/*" })).type).toBe("error");
+			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: true, keyGlob: "slug/*" })).type).toBe("ok");
 
 			const keep = runPythonBrmem(repo, ["get", "keep.md", "--branch", "dest"]);
 			expectPythonOk(keep);

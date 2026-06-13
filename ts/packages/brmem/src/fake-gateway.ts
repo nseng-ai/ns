@@ -136,7 +136,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		namespace: string;
 		fromBranch: string;
 		toBranch: string;
-		overwrite: boolean;
+		shouldOverwrite: boolean;
 		keyGlob?: string | undefined;
 	}) {
 		const error = this.operationErrors.copy;
@@ -151,7 +151,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		const conflicts = [...dest.entries.keys()].filter((key) =>
 			options.keyGlob === undefined ? true : source.entries.has(key) && keyGlobMatches(key, options.keyGlob),
 		);
-		if (conflicts.length > 0 && !options.overwrite) {
+		if (conflicts.length > 0 && !options.shouldOverwrite) {
 			return brmemError("copy_conflict", `destination has conflicting entries: ${conflicts.sort().join(", ")}`);
 		}
 		if (options.keyGlob === undefined) dest.entries.clear();

@@ -74,7 +74,7 @@ export interface BrmemGateway {
 		namespace: string;
 		fromBranch: string;
 		toBranch: string;
-		overwrite: boolean;
+		shouldOverwrite: boolean;
 		keyGlob?: string | undefined;
 	}): Promise<BrmemResult<CopyEntriesResult>>;
 }

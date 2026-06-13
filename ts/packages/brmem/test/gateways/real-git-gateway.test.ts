@@ -56,7 +56,7 @@ describe("RealGitBrmemGateway", () => {
 			const gateway = new RealGitBrmemGateway(repo.path);
 			await gateway.putEntry({ namespace: "notes", branch: "source", key: "body.md", content: "source" });
 			const sourceSha = repo.runGit(["rev-parse", "refs/brmem/ns/notes/source"]).trim();
-			const copied = await gateway.copyEntries({ namespace: "notes", fromBranch: "source", toBranch: "dest", overwrite: true });
+			const copied = await gateway.copyEntries({ namespace: "notes", fromBranch: "source", toBranch: "dest", shouldOverwrite: true });
 			expect(copied).toMatchObject({ type: "ok" });
 			expect(repo.runGit(["rev-parse", "refs/brmem/ns/notes/dest"]).trim()).toBe(sourceSha);
 		} finally {
@@ -72,8 +72,8 @@ describe("RealGitBrmemGateway", () => {
 			await gateway.putEntry({ namespace: "base", branch: "source", key: "foo/sub/x.md", content: "nested" });
 			await gateway.putEntry({ namespace: "base", branch: "dest", key: "foo/body.md", content: "dest" });
 			await gateway.putEntry({ namespace: "base", branch: "dest", key: "keep.txt", content: "keep" });
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: false, keyGlob: "foo/*" })).type).toBe("error");
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: true, keyGlob: "foo/*" })).type).toBe("ok");
+			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
+			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: true, keyGlob: "foo/*" })).type).toBe("ok");
 			expect(await gateway.getEntry({ namespace: "base", branch: "dest", key: "keep.txt" })).toMatchObject({ type: "found" });
 			expect(await gateway.getEntry({ namespace: "base", branch: "dest", key: "foo/sub/x.md" })).toMatchObject({ type: "found" });
 		} finally {

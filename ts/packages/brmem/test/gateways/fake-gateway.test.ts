@@ -80,8 +80,8 @@ describe("FakeBrmemGateway", () => {
 				{ namespace: "base", branch: "dest", key: "keep.txt", content: "keep" },
 			],
 		});
-		expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: false, keyGlob: "foo/*" })).type).toBe("error");
-		const copied = await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: true, keyGlob: "foo/*" });
+		expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
+		const copied = await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: true, keyGlob: "foo/*" });
 		expect(copied).toMatchObject({ type: "ok" });
 		const entries = await gateway.listEntries({ namespace: "base", branch: "dest" });
 		if (entries.type !== "ok") throw new Error("unexpected error");
