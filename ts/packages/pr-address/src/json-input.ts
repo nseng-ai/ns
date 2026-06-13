@@ -216,6 +216,42 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 	return parseJsonWithSchema(textResult.value, options.schema, `${options.commandName} ${options.inputDescription}`, `${options.commandName} ${options.inputDescription}`);
 }
 
+export interface LoadJsonRecordOptions extends ReadJsonInputTextOptions {}
+
+/**
+ * Load JSON input that must be a record/object.
+ * Preserves legacy "JSON must be an object" error wording for byte-level fixture stability.
+ */
+export async function loadJsonRecord(options: LoadJsonRecordOptions): Promise<JsonInputResult<Record<string, unknown>>> {
+	const textResult = await readJsonInputText(options);
+	if (textResult.type === "error") return textResult;
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(textResult.value);
+	} catch (error) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_json",
+				message: `Invalid ${options.commandName} ${options.inputDescription}: ${jsonParseMessage(error)}`,
+			},
+		};
+	}
+
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_request",
+				message: `${options.commandName} ${options.inputDescription} JSON must be an object.`,
+			},
+		};
+	}
+
+	return { type: "ok", value: parsed as Record<string, unknown> };
+}
+
 async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
 	if (options.optionValue !== undefined) return { type: "ok", value: options.optionValue };
 	if (options.filePath !== undefined) {
