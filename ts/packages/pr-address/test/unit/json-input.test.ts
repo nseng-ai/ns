@@ -126,14 +126,15 @@ describe("JSON input source helpers", () => {
 		const refPath = join(tempDir, "ref.json");
 		await writeFile(refPath, "42", "utf8"); // JSON number
 
-		// Use a narrow test-only assertion to create the runtime mismatch that the invariant guards.
+		// Type this test schema as the payload field while deliberately accepting a number at runtime.
+		const incompatibleReferenceSchema = z.custom<BadPayload["data"]>((value) => typeof value === "number");
 		const fields = [
 			{
 				key: "data" as const,
 				artifactDescription: "test field",
-				referenceSchema: z.number(), // incompatible with payload schema!
+				referenceSchema: incompatibleReferenceSchema,
 			},
-		] as unknown as readonly OperationPayloadField<BadPayload, "data">[];
+		] satisfies readonly OperationPayloadField<BadPayload, "data">[];
 
 		const promise = loadOperationPayload<BadPayload>({
 			commandName: "test-op",
@@ -142,7 +143,7 @@ describe("JSON input source helpers", () => {
 			request: { data_reference: refPath },
 			stdin: async () => "",
 			fields,
-			payloadOptionalWhenAllFieldsReferenced: true,
+			canOmitPayloadWhenAllFieldsReferenced: true,
 		});
 
 		await expect(promise).rejects.toThrow(/Operation payload schema rejected individually-validated fields/);

@@ -1,6 +1,7 @@
 import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
 import { z } from "zod";
 
+import { requiredAt } from "./array-values.ts";
 import { buildFeedbackClassificationTemplate } from "./classification-template.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
@@ -166,7 +167,7 @@ export async function prepareStackFeedbackStack(options: {
 		const prepared = await writeStackPrArtifacts({
 			store: options.store,
 			prInput,
-			feedback: requiredAt(fetchedFeedback, index),
+			feedback: requiredAt(fetchedFeedback, index, "per-PR feedback"),
 		});
 		if (prepared.type === "error") return prepared;
 		prResults.push(prepared.value);
@@ -351,10 +352,4 @@ export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryR
 			},
 		})),
 	};
-}
-
-function requiredAt<T>(values: readonly T[], index: number): T {
-	const value = values[index];
-	if (value === undefined) throw new Error(`Missing aligned per-PR feedback at index ${index}.`);
-	return value;
 }

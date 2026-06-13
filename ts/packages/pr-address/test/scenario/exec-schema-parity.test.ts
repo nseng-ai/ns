@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSurfacePlan, type OptionPlan } from "../../../clinkr/src/surface.ts";
+import { buildSurfacePlan } from "../../../clinkr/src/surface.ts";
 import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 import { buildOperationSchemaDocument } from "../../src/operation-schemas/index.ts";
 
@@ -14,18 +14,7 @@ const PARITY_DELTAS: Record<string, string[]> = {};
 describe("pr-address exec operation parse↔doc schema parity", () => {
 	test("every exec operation's parse schema keys match published document schema keys (modulo deltas)", () => {
 		for (const operation of EXEC_OPERATIONS) {
-			const surface = buildSurfacePlan(operation.name, operation.schema);
-			const parseKeys = new Set(surface.options.map((option: OptionPlan) => option.key));
-
-			const document = buildOperationSchemaDocument(operation.name);
-			if (document === undefined) {
-				throw new Error(`No schema document builder for operation '${operation.name}'`);
-			}
-
-			const inputSchema = document.input_json_schema as Record<string, unknown>;
-			const properties = inputSchema.properties as Record<string, unknown> | undefined;
-			const documentKeys = new Set(properties !== undefined ? Object.keys(properties) : []);
-
+			const { parseKeys, documentKeys } = schemaKeysForOperation(operation.name, operation.schema);
 			const allowedDeltas = new Set(PARITY_DELTAS[operation.name] ?? []);
 
 			// Keys in parseKeys but not in documentKeys (extra surface)
@@ -46,16 +35,7 @@ describe("pr-address exec operation parse↔doc schema parity", () => {
 		// Every allowlisted delta must correspond to a real mismatch; stale allowlist
 		// entries are tech debt that obscure the actual delta surface.
 		for (const operation of EXEC_OPERATIONS) {
-			const surface = buildSurfacePlan(operation.name, operation.schema);
-			const parseKeys = new Set(surface.options.map((option: OptionPlan) => option.key));
-
-			const document = buildOperationSchemaDocument(operation.name);
-			if (document === undefined) continue;
-
-			const inputSchema = document.input_json_schema as Record<string, unknown>;
-			const properties = inputSchema.properties as Record<string, unknown> | undefined;
-			const documentKeys = new Set(properties !== undefined ? Object.keys(properties) : []);
-
+			const { parseKeys, documentKeys } = schemaKeysForOperation(operation.name, operation.schema);
 			const allowedDeltas = PARITY_DELTAS[operation.name] ?? [];
 			for (const delta of allowedDeltas) {
 				const isRealDelta =
@@ -67,3 +47,17 @@ describe("pr-address exec operation parse↔doc schema parity", () => {
 		}
 	});
 });
+
+function schemaKeysForOperation(operationName: string, schema: (typeof EXEC_OPERATIONS)[number]["schema"]): { parseKeys: Set<string>; documentKeys: Set<string> } {
+	const surface = buildSurfacePlan(operationName, schema);
+	const parseKeys = new Set(surface.options.map((option) => option.key));
+
+	const document = buildOperationSchemaDocument(operationName);
+	if (document === undefined) {
+		throw new Error(`No schema document builder for operation '${operationName}'`);
+	}
+
+	const inputSchema = document.input_json_schema as Record<string, unknown>;
+	const properties = inputSchema.properties as Record<string, unknown> | undefined;
+	return { parseKeys, documentKeys: new Set(properties !== undefined ? Object.keys(properties) : []) };
+}

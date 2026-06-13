@@ -3,7 +3,6 @@ import { z } from "zod";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import type { OperationPayloadField } from "./json-input.ts";
 import type { PayloadReference } from "./payload-store.ts";
-import { pythonRepr } from "./string-values.ts";
 
 export const DIRECT_REQUEST_MARKERS = ["please", "can you", "could you", "should", "needs", "need to", "fix", "update", "question"] as const;
 
@@ -284,11 +283,4 @@ export function triageSummary(items: StackDiscussionTriageItem[]): StackDiscussi
 		by_reason: byReason,
 		items,
 	};
-}
-
-/** Render values the way a Python f-string renders a tuple, for byte parity with Ensure messages. */
-export function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

@@ -10,7 +10,7 @@ import {
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { isRecord } from "./operation-support.ts";
-import { VALID_RESOLUTION_MODES, type ResolutionReplyMode } from "./reply-formatting.ts";
+import { VALID_RESOLUTION_MODES, validResolutionModesText, type ResolutionReplyMode } from "./reply-formatting.ts";
 import { provenanceShapeError, trimOptional, trimRequired } from "./string-values.ts";
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
@@ -303,7 +303,7 @@ export function buildThreadResolutionDecision(options: {
 	}
 	if (!isResolutionMode(mode)) {
 		return {
-			errors: [{ code: "invalid_mode", message: `Resolve decision for ${options.subjectLabel} must use one of: ${VALID_RESOLUTION_MODES.join(", ")}.` }],
+			errors: [{ code: "invalid_mode", message: `Resolve decision for ${options.subjectLabel} must use one of: ${validResolutionModesText()}.` }],
 			payloadItem: null,
 			skipReason: null,
 		};

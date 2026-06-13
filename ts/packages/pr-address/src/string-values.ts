@@ -44,3 +44,10 @@ export function provenanceShapeError(provenance: { kind: string; branch?: string
 	}
 	return null;
 }
+
+/** Render values the way a Python f-string renders a tuple, for byte parity with Ensure messages. */
+export function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
+	if (parts.length === 1) return `(${parts[0]},)`;
+	return `(${parts.join(", ")})`;
+}

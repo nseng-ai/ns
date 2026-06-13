@@ -128,7 +128,7 @@ async function runStackFeedbackDiffCurrentOperation(
 		payloadSchema: stackFeedbackDiffCurrentInputSchema,
 		request,
 		stdin: ctx.stdin,
-		payloadOptionalWhenAllFieldsReferenced: true,
+		canOmitPayloadWhenAllFieldsReferenced: true,
 		fields: stackFeedbackDiffCurrentPayloadFields,
 	});
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
