@@ -42,14 +42,23 @@ Run read-only checks first:
 git status --short --branch
 git worktree list --porcelain
 gt delete --help
-gt branch info <root_branch>
-gt ls
 slot list --format json
 ```
 
-Use Graphite output (`gt branch info`, `gt ls`, or `gt log`) to discover the
-exact subtree: root plus descendants only. If the descendant set is ambiguous,
-show the evidence and ask instead of inferring.
+For the common/current-stack deletion case, discover the current Graphite stack
+with structured output instead of parsing human Graphite text:
+
+```bash
+slot gt exec stack-branches
+```
+
+Use that helper output as the machine-readable branch list for the current stack.
+The helper covers the current stack branch list; it is not an arbitrary
+root-subtree query. For a narrower `root_branch` plus descendants deletion that
+is not exactly the current stack, treat `gt branch info <root_branch>`, `gt ls`,
+or `gt log` as visual/advisory confirmation only. Show the evidence, preserve
+ancestors and sibling subtrees, and ask instead of inferring when the descendant
+set is ambiguous.
 
 When PR or remote cleanup is requested, check each target branch:
 
@@ -145,5 +154,6 @@ gt ls
 
 Verify no target local branches remain. If remote deletion was authorized,
 verify no `origin/<target>` refs remain. Verify target slots are available or on
-non-target branches. Report any preserved ancestors/siblings and any cleanup
-that failed or was skipped.
+non-target branches. Treat `gt ls` here as visual confirmation only, not as a
+machine-parsed topology source. Report any preserved ancestors/siblings and any
+cleanup that failed or was skipped.

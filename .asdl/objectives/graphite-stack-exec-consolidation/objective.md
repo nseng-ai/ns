@@ -44,7 +44,7 @@ Risks:
 - Graphite's metadata DB is private and schema-versioned; structured helpers must fail closed and provide clear remediation when metadata is missing, stale, or unsupported.
 - Forked stacks can make a linear trunk-to-tip branch list ambiguous. De-risked for the canonical helper: `slot gt exec stack-branches` fails closed by default with a `forked_stack` error naming the fork point and children; `--downstack` is the unambiguous escape hatch, with out-of-scope descendant forks downgraded to warnings.
 - Over-consolidating into one helper could blur domain boundaries between Graphite topology, GitHub PR mapping, and PR feedback collection.
-- Some existing `gt ls`/`gt log` references may be human-only verification guidance; replacing all mentions mechanically could remove useful visual checks.
+- Some existing `gt ls`/`gt log` references may be human-only verification guidance; replacing all mentions mechanically could remove useful visual checks. De-risked for the agent-guidance migration slice: machine-topology guidance in stack-address, PR-address helper docs, and delete-stack now routes through `slot gt exec stack-branches`, while remaining `gt branch info`/`gt ls`/`gt log` references in the edited delete-stack path are explicitly visual/advisory or verification-only.
 - Replacing the TypeScript submit parser may require careful coordination with `asdl-dev` submit metadata behavior and may not be worth doing in the first implementation slice.
 
 ## Open Questions
