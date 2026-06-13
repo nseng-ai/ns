@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 import { formatErrorMessage } from "@asdl/core";
-import { payloadError, pythonRepr, validateContainedArtifactPath, type PayloadResult } from "./payload-store.ts";
+import { payloadError, validateContainedArtifactPath, type PayloadResult } from "./payload-store.ts";
+import { pythonRepr } from "./string-values.ts";
 
 const DEFAULT_JSON_PAYLOAD_ROLES: ReadonlySet<string> = new Set(["raw", "summary"]);
 

@@ -5,6 +5,8 @@ import process from "node:process";
 
 import { formatErrorMessage } from "@asdl/core";
 
+import { pythonRepr } from "./string-values.ts";
+
 export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
 export const ASDL_PAYLOAD_SESSION_ID_ENV = "ASDL_PAYLOAD_SESSION_ID";
 
@@ -294,10 +296,6 @@ export async function validateContainedArtifactPath(payloadPath: string): Promis
 	};
 }
 
-/** Render a string the way Python `repr()` renders ordinary strings, for byte-parity with Python error messages. */
-export function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
 
 export function payloadError(errorType: PayloadErrorType, message: string): { type: "error"; errorType: PayloadErrorType; message: string } {
 	return { type: "error", errorType, message };

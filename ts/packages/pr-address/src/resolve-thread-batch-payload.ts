@@ -10,13 +10,13 @@ import {
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { isRecord } from "./operation-support.ts";
-import { trimOptional, trimRequired } from "./string-values.ts";
+import { VALID_RESOLUTION_MODES, type ResolutionReplyMode } from "./reply-formatting.ts";
+import { provenanceShapeError, trimOptional, trimRequired } from "./string-values.ts";
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE =
 	"build-resolve-thread-batch-payload expects single-PR plan-feedback data, not merged stack-feedback-plan output. For stack runs, pass the stack-feedback-plan data plus explicit (pr_number, thread_id) decisions to build-stack-resolve-thread-payloads.";
 const INVALID_PLAN_SHAPE_MESSAGE = "plan must be the data object returned by per-PR plan-feedback. Do not pass stack-feedback-plan output or raw feedback manifests.";
-const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
 
 const nullableStringSchema = z.string().nullable().default(null);
 
@@ -45,7 +45,7 @@ export const buildResolveThreadBatchPayloadInputSchema = z.looseObject({
 
 type BuildResolveThreadBatchPayloadInput = z.infer<typeof buildResolveThreadBatchPayloadInputSchema>;
 export type ResolveThreadBatchDecision = z.infer<typeof resolveThreadBatchDecisionSchema>;
-type ResolutionMode = (typeof VALID_RESOLUTION_MODES)[number];
+type ResolutionMode = ResolutionReplyMode;
 
 interface BuildResolveThreadBatchPayloadError {
 	code: string;
@@ -383,11 +383,6 @@ function plannedDecisionIssues(subjectLabel: string, itemCommitSha: string | nul
 	return errors;
 }
 
-function provenanceShapeError(provenance: z.infer<typeof provenanceSchema>): string | null {
-	if (provenance.kind === "local_branch") return trimOptional(provenance.branch) === null ? "kind='local_branch' provenance requires a non-empty branch" : null;
-	if (provenance.pr_number <= 0) return "kind='pr' provenance requires a positive pr_number";
-	return null;
-}
 
 function ignoredNonThreadItems(items: readonly FeedbackPlanActionItem[]): unknown[] {
 	const ignored: unknown[] = [];
@@ -476,7 +471,7 @@ function looksLikeStackFeedbackPlan(value: unknown): boolean {
 	return "valid" in value && "payload_session_id" in value && "pr_count" in value && isRecord(validation) && ("all_valid" in validation || "per_pr" in validation);
 }
 
-function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {
+export function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {
 	const seen = new Set<string>();
 	for (const item of items) {
 		if (seen.has(item.thread_id)) return item.thread_id;
@@ -486,8 +481,7 @@ function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[])
 }
 
 function isResolutionMode(value: string | null): value is ResolutionMode {
-	return value === "fixed" || value === "pre_existing" || value === "explained" || value === "planned";
+	return value !== null && VALID_RESOLUTION_MODES.some((mode) => mode === value);
 }
 
 
-export type { BuildResolveThreadBatchPayloadResult, FeedbackPlan, FeedbackPlanActionItem, FeedbackPlanBatch };

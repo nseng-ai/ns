@@ -7,7 +7,7 @@ import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGatew
 import { loadJsonInput } from "./json-input.ts";
 import { gatewayFailureDetail, gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
-import { trimOptional } from "./string-values.ts";
+import { provenanceShapeError, trimOptional } from "./string-values.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("local_branch"), branch: z.string() }).strict(),
@@ -350,11 +350,6 @@ function parseProvenanceJson(value: string | undefined, commandName: string): { 
 	return { type: "ok", value: result.data };
 }
 
-function provenanceShapeError(provenance: ProvenanceInput): string | null {
-	if (provenance.kind === "local_branch") return trimOptional(provenance.branch) === null ? "kind='local_branch' provenance requires a non-empty branch" : null;
-	if (provenance.pr_number <= 0) return "kind='pr' provenance requires a positive pr_number";
-	return null;
-}
 
 function resolutionModeArgument(value: string | undefined): { type: "ok"; value: ResolutionReplyMode } | { type: "error"; message: string } {
 	if (value === "fixed" || value === "pre_existing" || value === "explained" || value === "planned") return { type: "ok", value };

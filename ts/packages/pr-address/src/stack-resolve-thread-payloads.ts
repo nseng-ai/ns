@@ -3,7 +3,7 @@ import { z } from "zod";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
-import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
+import { buildThreadResolutionDecision, firstDuplicatePayloadThreadId, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
 import { trimOptional, trimRequired } from "./string-values.ts";
 
@@ -69,7 +69,7 @@ const stackPlanConsumerSchema = z.looseObject({
 type StackResolveThreadDecision = z.infer<typeof stackResolveThreadDecisionSchema>;
 type StackPlanItem = z.infer<typeof stackPlanItemSchema>;
 /** Serialized `(pr_number, thread_id)` identity used for Map/Set keys. */
-type ThreadKey = string;
+type SerializedThreadKey = string;
 
 interface BuildStackResolveThreadPayloadsError {
 	code: string;
@@ -353,14 +353,14 @@ export function buildStackResolveThreadPayloads(input: unknown): BuildStackResol
 function validateDecisionReferences(options: {
 	decisions: readonly StackResolveThreadDecision[];
 	batchId: string;
-	selectedKeys: ReadonlySet<ThreadKey>;
+	selectedKeys: ReadonlySet<SerializedThreadKey>;
 	selectedByThread: ReadonlyMap<string, readonly StackPlanItem[]>;
-	otherBatchByKey: ReadonlyMap<ThreadKey, string>;
-	informationalKeys: ReadonlySet<ThreadKey>;
+	otherBatchByKey: ReadonlyMap<SerializedThreadKey, string>;
+	informationalKeys: ReadonlySet<SerializedThreadKey>;
 	errors: BuildStackResolveThreadPayloadsError[];
-}): { decisionsByKey: Map<ThreadKey, StackResolveThreadDecision>; duplicateKeys: Set<ThreadKey> } {
-	const decisionsByKey = new Map<ThreadKey, StackResolveThreadDecision>();
-	const duplicateKeys = new Set<ThreadKey>();
+}): { decisionsByKey: Map<SerializedThreadKey, StackResolveThreadDecision>; duplicateKeys: Set<SerializedThreadKey> } {
+	const decisionsByKey = new Map<SerializedThreadKey, StackResolveThreadDecision>();
+	const duplicateKeys = new Set<SerializedThreadKey>();
 	options.decisions.forEach((decision, index) => {
 		const threadId = decision.thread_id.trim();
 		if (threadId === "") {
@@ -516,14 +516,6 @@ function ignoredNonThreadItems(items: readonly StackPlanItem[]): StackIgnoredNon
 	return ignored;
 }
 
-function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {
-	const seen = new Set<string>();
-	for (const item of items) {
-		if (seen.has(item.thread_id)) return item.thread_id;
-		seen.add(item.thread_id);
-	}
-	return null;
-}
 
 function invalidResult(options: {
 	batchId: string;

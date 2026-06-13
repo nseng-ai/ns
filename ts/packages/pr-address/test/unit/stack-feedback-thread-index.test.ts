@@ -2,14 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import {
 	actionableReviewThreadItems,
-	buildStackFeedbackThreadIndex,
 	duplicateThreadKeys,
 	informationalReviewThreadKeys,
 	itemsByThread,
 	knownReviewThreadKeys,
 	otherBatchReviewThreads,
 	plannedPrNumbers,
-	selectedBatchReviewThreadItems,
 	threadKey,
 	threadKeyString,
 	type ThreadIndexBatch,
@@ -67,14 +65,8 @@ describe("stack feedback thread index", () => {
 			],
 		});
 
-		const index = buildStackFeedbackThreadIndex(stackPlan);
-
 		expect(actionableReviewThreadItems(stackPlan).map((item) => item.thread_id)).toEqual(["PRRT_101", "   ", null]);
-		expect(index.actionableReviewThreadKeys).toEqual(new Set([threadKeyString(101, "PRRT_101")]));
 		expect(knownReviewThreadKeys(stackPlan)).toEqual(
-			new Set([threadKeyString(101, "PRRT_101"), threadKeyString(104, "PRRT_INFO")]),
-		);
-		expect(index.knownReviewThreadKeys).toEqual(
 			new Set([threadKeyString(101, "PRRT_101"), threadKeyString(104, "PRRT_INFO")]),
 		);
 		expect(threadKey(101, "  PRRT_101  ")).toEqual([101, "PRRT_101"]);
@@ -112,7 +104,6 @@ describe("stack feedback thread index", () => {
 		});
 
 		expect(plannedPrNumbers(stackPlan)).toEqual([103, 101, 102]);
-		expect(buildStackFeedbackThreadIndex(stackPlan).plannedPrNumbers).toEqual([103, 101, 102]);
 		expect(plannedPrNumbers(fallbackStackPlan)).toEqual([102, 101, 103]);
 	});
 
@@ -129,7 +120,7 @@ describe("stack feedback thread index", () => {
 			informational: [stackThreadItem(105, "PRRT_INFO")],
 		});
 
-		const selectedItems = selectedBatchReviewThreadItems(stackPlan.batches[0]!);
+		const selectedItems = stackPlan.batches[0]!.items.filter((item) => item.source_kind === "review_thread");
 
 		const groupedByThread = new Map(
 			[...itemsByThread(selectedItems)].map(([threadId, items]) => [threadId, items.map((item) => item.pr_number)]),

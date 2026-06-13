@@ -22,28 +22,6 @@ export interface ThreadIndexValidation {
 	readonly per_pr: readonly { readonly pr_number: number }[];
 }
 
-export interface StackFeedbackThreadIndex<TItem extends ThreadIndexItem> {
-	readonly plannedPrNumbers: readonly number[];
-	readonly actionableReviewThreads: readonly TItem[];
-	readonly actionableReviewThreadKeys: ReadonlySet<string>;
-	readonly knownReviewThreadKeys: ReadonlySet<string>;
-	readonly informationalReviewThreadKeys: ReadonlySet<string>;
-}
-
-export function buildStackFeedbackThreadIndex<TItem extends ThreadIndexItem>(
-	stackPlan: ThreadIndexPlan<TItem> & { readonly validation: ThreadIndexValidation },
-): StackFeedbackThreadIndex<TItem> {
-	const actionableItems = actionableReviewThreadItems(stackPlan);
-	const actionableKeys = reviewThreadKeys(actionableItems);
-	const informationalKeys = informationalReviewThreadKeys(stackPlan);
-	return {
-		plannedPrNumbers: plannedPrNumbers(stackPlan),
-		actionableReviewThreads: actionableItems,
-		actionableReviewThreadKeys: actionableKeys,
-		knownReviewThreadKeys: new Set([...actionableKeys, ...informationalKeys]),
-		informationalReviewThreadKeys: informationalKeys,
-	};
-}
 
 export function threadKey(prNumber: number, threadId: string | null | undefined): ThreadKey | null {
 	const trimmed = trimOptional(threadId);
@@ -71,9 +49,6 @@ export function actionableReviewThreadItems<TItem extends ThreadIndexItem>(stack
 	return stackPlan.batches.flatMap((batch) => batch.items.filter((item) => item.source_kind === "review_thread"));
 }
 
-export function selectedBatchReviewThreadItems<TItem extends ThreadIndexItem>(selectedBatch: ThreadIndexBatch<TItem>): TItem[] {
-	return selectedBatch.items.filter((item) => item.source_kind === "review_thread");
-}
 
 export function knownReviewThreadKeys<TItem extends ThreadIndexItem>(stackPlan: ThreadIndexPlan<TItem>): Set<string> {
 	const keys = reviewThreadKeys(actionableReviewThreadItems(stackPlan));

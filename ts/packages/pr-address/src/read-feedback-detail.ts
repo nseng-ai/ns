@@ -8,6 +8,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { loadJsonInput } from "./json-input.ts";
 import { readJsonPayloadArtifact, resolveJsonPointer as resolvePayloadJsonPointer } from "./payload-lookup.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference } from "./payload-store.ts";
+import { pythonRepr } from "./string-values.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -331,6 +332,3 @@ function isJsonValue(value: unknown): value is JsonValue {
 	return Object.values(value).every(isJsonValue);
 }
 
-function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}

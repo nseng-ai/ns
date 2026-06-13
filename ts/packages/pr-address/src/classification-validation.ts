@@ -14,6 +14,7 @@ import {
 	type ValidationItemKind,
 } from "./classification-shared.ts";
 import { type ThreadManifestItem } from "./feedback-manifest-contracts.ts";
+import { pythonReprOrNull as pythonRepr } from "./string-values.ts";
 import { type ActionComplexity, type InformationalReason } from "./feedback-plan-contracts.ts";
 
 type ExactOnceCodePrefix = "review" | "thread" | "thread_comment" | "discussion_comment";
@@ -501,7 +502,3 @@ function kindLabel(kind: ValidationItemKind): string {
 	return kind.replaceAll("_", " ");
 }
 
-function pythonRepr(value: string | null): string {
-	if (value === null) return "None";
-	return `'${value}'`;
-}

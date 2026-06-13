@@ -5,6 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
+import { duplicateValues } from "./string-values.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -117,12 +118,3 @@ function lowestNumberedPrByHeadBranch(prs: readonly PRSummary[]): ReadonlyMap<st
 	return byBranch;
 }
 
-function duplicateValues(values: readonly string[]): string[] {
-	const seen = new Set<string>();
-	const duplicates = new Set<string>();
-	for (const value of values) {
-		if (seen.has(value)) duplicates.add(value);
-		seen.add(value);
-	}
-	return [...duplicates];
-}
