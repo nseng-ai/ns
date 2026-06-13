@@ -292,7 +292,11 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		fields: stackFeedbackPlanPayloadFields,
 	});
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const payload = payloadResult.value as StackFeedbackPlanInput;
+	const payloadValue = payloadResult.value;
+	if (payloadValue.prep === undefined) {
+		throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
+	}
+	const payload: StackFeedbackPlanInput = { ...payloadValue, prep: payloadValue.prep };
 
 	const classificationsResult = classificationsByPr(payload);
 	if (classificationsResult.type === "error") return failure("invalid_request", classificationsResult.message);

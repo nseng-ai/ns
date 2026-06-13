@@ -104,30 +104,7 @@ export async function loadArtifactReference<T>(options: LoadArtifactReferenceOpt
 	});
 	if (fileResult.type === "error") return fileResult;
 
-	let parsedJson: unknown;
-	try {
-		parsedJson = JSON.parse(fileResult.value);
-	} catch (error) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_json",
-				message: `Invalid ${options.commandName} ${options.optionName} file: ${jsonParseMessage(error)}`,
-			},
-		};
-	}
-
-	const parseResult = options.schema.safeParse(parsedJson);
-	if (!parseResult.success) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_request",
-				message: `Invalid ${options.commandName} ${options.optionName}: ${z.prettifyError(parseResult.error)}`,
-			},
-		};
-	}
-	return { type: "ok", value: parseResult.data };
+	return parseJsonWithSchema(fileResult.value, options.schema, `${options.commandName} ${options.optionName} file`, `${options.commandName} ${options.optionName}`);
 }
 
 /** Resolve one input from exactly one source: an embedded payload key or its reference option. */
@@ -182,7 +159,7 @@ export async function loadOperationPayload<TPayload extends object>(
 	const hasAllReferences =
 		options.fields.length > 0 &&
 		options.fields.every((field) => stringRequestField(options.request, operationPayloadReferenceKey(field.key)) !== undefined);
-	const shouldLoadPayload = hasPayloadOption || options.payloadOptionalWhenAllFieldsReferenced !== true || !hasAllReferences;
+	const shouldLoadPayload = hasPayloadOption || (options.payloadOptionalWhenAllFieldsReferenced !== true || !hasAllReferences);
 	const resolvedPayload: Record<string, unknown> = {};
 	if (shouldLoadPayload) {
 		const payloadResult = await loadJsonInput({
@@ -201,7 +178,7 @@ export async function loadOperationPayload<TPayload extends object>(
 	for (const field of options.fields) {
 		const result = await resolveXorSourceInput({
 			commandName: options.commandName,
-			embeddedValue: resolvedPayload[field.key] as TPayload[typeof field.key] | undefined,
+			embeddedValue: resolvedPayload[field.key],
 			embeddedKey: field.key,
 			referencePath: stringRequestField(options.request, operationPayloadReferenceKey(field.key)),
 			optionName: operationPayloadReferenceOption(field.key),
@@ -212,7 +189,19 @@ export async function loadOperationPayload<TPayload extends object>(
 		if (result.type === "error") return result;
 		resolvedPayload[field.key] = result.value;
 	}
-	return { type: "ok", value: resolvedPayload as TPayload };
+	// Validate assembled payload. Every field was individually validated, so this
+	// should never fail unless field specs disagree with payload schema (programmer error).
+	const finalParseResult = options.payloadSchema.safeParse(resolvedPayload);
+	if (!finalParseResult.success) {
+		throw new Error(`Operation payload schema rejected individually-validated fields: ${z.prettifyError(finalParseResult.error)}`);
+	}
+	// All fields in the fields list were resolved and must be present in the validated data.
+	for (const field of options.fields) {
+		if (!(field.key in finalParseResult.data)) {
+			throw new Error(`Operation payload field ${field.key} missing after validation despite successful field resolution.`);
+		}
+	}
+	return { type: "ok", value: finalParseResult.data };
 }
 
 function stringRequestField(request: Readonly<Record<string, unknown>>, key: string): string | undefined {
@@ -224,30 +213,7 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 	const textResult = await readJsonInputText(options);
 	if (textResult.type === "error") return textResult;
 
-	let parsedJson: unknown;
-	try {
-		parsedJson = JSON.parse(textResult.value);
-	} catch (error) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_json",
-				message: `Invalid ${options.commandName} ${options.inputDescription}: ${jsonParseMessage(error)}`,
-			},
-		};
-	}
-
-	const parseResult = options.schema.safeParse(parsedJson);
-	if (!parseResult.success) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_request",
-				message: `Invalid ${options.commandName} ${options.inputDescription}: ${z.prettifyError(parseResult.error)}`,
-			},
-		};
-	}
-	return { type: "ok", value: parseResult.data };
+	return parseJsonWithSchema(textResult.value, options.schema, `${options.commandName} ${options.inputDescription}`, `${options.commandName} ${options.inputDescription}`);
 }
 
 async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
@@ -309,4 +275,38 @@ function fileOptionName(fileOptionNameValue: string | undefined): string {
 function jsonParseMessage(error: unknown): string {
 	if (error instanceof Error) return error.message;
 	return String(error);
+}
+
+/**
+ * Parse JSON text and validate with Zod schema, returning structured errors.
+ * @param text - Raw JSON text to parse
+ * @param schema - Zod schema for validation
+ * @param jsonDescription - Descriptor for JSON parsing errors (e.g., "demo payload")
+ * @param schemaDescription - Descriptor for schema validation errors (e.g., "demo payload")
+ */
+function parseJsonWithSchema<T>(text: string, schema: z.ZodType<T>, jsonDescription: string, schemaDescription: string): JsonInputResult<T> {
+	let parsedJson: unknown;
+	try {
+		parsedJson = JSON.parse(text);
+	} catch (error) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_json",
+				message: `Invalid ${jsonDescription}: ${jsonParseMessage(error)}`,
+			},
+		};
+	}
+
+	const parseResult = schema.safeParse(parsedJson);
+	if (!parseResult.success) {
+		return {
+			type: "error",
+			error: {
+				errorType: "invalid_request",
+				message: `Invalid ${schemaDescription}: ${z.prettifyError(parseResult.error)}`,
+			},
+		};
+	}
+	return { type: "ok", value: parseResult.data };
 }
