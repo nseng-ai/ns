@@ -1,9 +1,9 @@
 ---
-name: from-plan
+name: branch-context-from-plan
 description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context (`plan.md`) — "from plan", "create a branch and attach branch context", "branch this saved plan", "attach this plan to a branch" — or to continue a Pi `/branch-context:from-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
-# from-plan
+# branch-context-from-plan
 
 Resolve a saved plan, create the target branch, and attach `plan.md` as branch context in Branch Memory. Part of the branch-context family — load the `branch-context` umbrella for the shared lifecycle, storage, and safety model.
 

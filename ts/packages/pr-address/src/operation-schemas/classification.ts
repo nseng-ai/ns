@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type JsonSchemaDocument } from "@asdl/clinkr";
 
-import { classificationLocatorSchema } from "../classification-shared.ts";
+import { classificationLocatorSchema } from "../classification.ts";
 import { feedbackPlanResultSchema, feedbackPlanningValidationResultSchema } from "../feedback-plan-contracts.ts";
 import {
 	actionComplexityDocSchema,
@@ -120,7 +120,7 @@ export const classificationTemplateRequestSchema = z
 	})
 	.strict();
 
-// Template schemas using the shared classificationLocatorSchema from classification-shared.ts
+// Template schemas using the shared classificationLocatorSchema from classification.ts
 
 const coveredCommentTemplateSchema = z
 	.object({
