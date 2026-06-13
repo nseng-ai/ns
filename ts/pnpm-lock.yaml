@@ -22,6 +22,9 @@ importers:
       '@asdl/plans':
         specifier: workspace:*
         version: link:packages/plans
+      '@asdl/sdl':
+        specifier: workspace:*
+        version: link:packages/sdl
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.1
@@ -48,6 +51,9 @@ importers:
       '@asdl/plans':
         specifier: workspace:*
         version: link:../plans
+      '@asdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
       '@earendil-works/pi-ai':
         specifier: 0.79.1
         version: 0.79.1(patch_hash=dfce1da0d75d0ff62c609550d6a8d408bf685907faf5639d139ba981dc53e9dc)(ws@8.21.0)(zod@4.4.3)
@@ -90,6 +96,9 @@ importers:
       '@asdl/plans':
         specifier: workspace:*
         version: link:../plans
+      '@asdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
       asdl-dev:
         specifier: workspace:*
         version: link:../asdl-dev
@@ -129,6 +138,9 @@ importers:
       '@asdl/plans':
         specifier: workspace:*
         version: link:../plans
+      '@asdl/sdl':
+        specifier: workspace:*
+        version: link:../sdl
       asdl-dev:
         specifier: workspace:*
         version: link:../asdl-dev
@@ -166,6 +178,27 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/sdl:
+    dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
+      '@asdl/plans':
+        specifier: workspace:*
+        version: link:../plans
+      '@earendil-works/pi-ai':
+        specifier: 0.79.1
+        version: 0.79.1(patch_hash=dfce1da0d75d0ff62c609550d6a8d408bf685907faf5639d139ba981dc53e9dc)(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-coding-agent':
+        specifier: 0.79.1
+        version: 0.79.1(ws@8.21.0)(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

@@ -15,6 +15,7 @@ import { comparePiSurfaceParity, formatParityComparisonFailure, type LivePiSurfa
 import { PI_EXTENSION_PARITY_RECORDS } from "../src/parity-registry.ts";
 import { definePiSurfaceParity } from "../src/parity.ts";
 import type { PiAgentDefinition } from "../src/pi-agent-definition.ts";
+import sdlExtension from "../src/sdl-extension.ts";
 import worktreeStatusExtension from "../src/worktree-status.ts";
 
 interface RegisteredToolLike {
@@ -96,6 +97,7 @@ function collectLivePiExtensionSurfaces(): LivePiSurface[] {
 	registerWithFakeHost(pi, handoffExtension);
 	registerWithFakeHost(pi, modelShortcutExtension);
 	registerWithFakeHost(pi, objectiveExtension);
+	registerWithFakeHost(pi, sdlExtension);
 	registerWithFakeHost(pi, worktreeStatusExtension);
 
 	return pi.surfaces();

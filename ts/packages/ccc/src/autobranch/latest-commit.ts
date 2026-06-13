@@ -1,5 +1,5 @@
-import type { CommandResult } from "asdl-dev/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
+import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
 
 import type { AutobranchFlowResult } from "./flow.ts";
 import { formatLatestCommitPreparationFailure, formatLatestCommitTransactionFailure } from "./latest-commit-formatting.ts";

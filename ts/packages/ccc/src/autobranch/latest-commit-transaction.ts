@@ -1,4 +1,4 @@
-import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatCommandDetails } from "./shared.ts";

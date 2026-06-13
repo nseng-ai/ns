@@ -7,7 +7,7 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
-import { prepareRepairedText } from "./text-repair.ts";
+import { prepareRepairedText } from "@asdl/sdl/text-repair";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".asdl/prompts/pr-description.md";

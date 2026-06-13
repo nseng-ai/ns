@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { runCli } from "asdl-dev/cli";
 import { GENERATED_BODY_MARKER } from "../../src/pr-description.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
+import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
 import type { SubmitPrLink } from "../../src/gt-output.ts";
 import type { SubmitStackNewBranch } from "../../src/submit-pr-metadata-prewrite.ts";
 import type { SubmitCommandOutput, SubmitOutputStream } from "../../src/submit.ts";
@@ -123,7 +123,9 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: asdl-dev submit");
-		expect(help).toContain("gt submit -nps --no-ai --no-interactive");
+		expect(help).toContain("gt submit -nps --no-ai");
+		expect(help).toContain("--no-interactive");
+		expect(help).toContain("SDL_CHECKPOINT_MODEL");
 		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("--restack");

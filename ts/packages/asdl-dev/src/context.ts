@@ -1,11 +1,11 @@
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
-import { RealCheckpointGateway, type CheckpointGateway } from "./checkpoint.ts";
+import { RealCheckpointGateway, type CheckpointGateway } from "@asdl/sdl/checkpoint";
 import { RealGithubPrGateway, type GithubPrGateway } from "./gateways/github-pr.ts";
 import { RealVercelProjectConfigStore, type VercelProjectConfigStore } from "./gateways/project-config.ts";
 import { RealVercelDeploymentGateway, type VercelDeploymentGateway } from "./gateways/vercel.ts";
-import { PiTextGenerationGateway } from "./pi-text-generation.ts";
+import { PiTextGenerationGateway } from "@asdl/sdl/pi-text-generation";
 import { RealSubmitMetadataGateway, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
 import { RealSubmitGateway, type SubmitGateway } from "./submit.ts";
 import { DEFAULT_TEXT_BACKEND, type TextGenerationBackend, type TextGenerationGateway } from "./text-generation.ts";

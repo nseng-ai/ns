@@ -3,10 +3,10 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 	type PreparedCheckpointMessage,
-} from "asdl-dev/checkpoint-flow";
-import { createTextGenerationGateway } from "asdl-dev/context";
-import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
-import { selectCheckpointTextGenerationConfig } from "asdl-dev/text-generation";
+} from "@asdl/sdl/checkpoint-flow";
+import { createTextGenerationGateway } from "@asdl/sdl/context";
+import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
+import { selectCheckpointTextGenerationConfig } from "@asdl/sdl/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 

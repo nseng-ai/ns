@@ -4,7 +4,7 @@ import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-ex
 import { definePiSurfaceParity } from "./parity.ts";
 
 const DEV_COMMAND_NAMES = ["preview-url"] as const;
-const CODE_COMMAND_NAMES = ["cp", "submit", "pr-regen"] as const;
+const CODE_COMMAND_NAMES = ["submit", "pr-regen"] as const;
 
 export const asdlDevExtensionParity = definePiSurfaceParity([
 	{
@@ -22,18 +22,6 @@ export const asdlDevExtensionParity = definePiSurfaceParity([
 ] as const);
 
 export const asdlDevCodeExtensionParity = definePiSurfaceParity([
-	{
-		kind: "command",
-		surface: "code:cp",
-		workflow: "Create a checkpoint commit for the current diff",
-		parity: "FULL",
-		cli: "asdl-dev cp",
-		skill: "code-checkpoint",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "asdl-dev-extension",
-		notes: "Pi command is registered through the code namespace mirror of the asdl-dev CLI checkpoint command.",
-	},
 	{
 		kind: "command",
 		surface: "code:submit",
