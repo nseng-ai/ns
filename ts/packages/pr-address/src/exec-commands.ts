@@ -10,8 +10,9 @@ import { prepareRunOperation } from "./prepare-run.ts";
 import { readFeedbackDetailOperation, readFeedbackDetailsOperation } from "./read-feedback-detail.ts";
 import { buildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { stackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
+import { stackFeedbackPlanOperation } from "./stack-feedback-plan.ts";
 import { stackFeedbackPreflightOperation } from "./stack-feedback-preflight.ts";
-import { stackFeedbackPlanOperation, stackFeedbackPrepOperation } from "./stack-feedback.ts";
+import { stackFeedbackPrepOperation } from "./stack-feedback-prep.ts";
 import { buildStackResolveThreadPayloadsOperation } from "./stack-resolve-thread-payloads.ts";
 import { summarizeFeedbackOperation } from "./summarize-feedback.ts";
 
