@@ -6,7 +6,7 @@ import type { GitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
 
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
-import { selectPrDescriptionTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
+import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "@asdl/sdl/text-repair";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
@@ -156,11 +156,6 @@ export async function resolvePrDescriptionGeneration(input: {
 	cwd: string;
 	git: GitGateway;
 }): Promise<PrDescriptionGenerationResolution> {
-	const modelConfig = selectPrDescriptionTextGenerationConfig(input.env);
-	if (!modelConfig.ok) {
-		return { ok: false, error: modelConfig.error, exitCode: 2 };
-	}
-
 	const repoRoot = await input.git.repoRoot({ cwd: input.cwd });
 	const prompt = await resolvePrDescriptionPrompt({
 		env: input.env,
@@ -171,7 +166,7 @@ export async function resolvePrDescriptionGeneration(input: {
 		return { ok: false, error: prompt.error, exitCode: 2 };
 	}
 
-	return { ok: true, modelRef: modelConfig.value.modelRef, promptText: prompt.text, promptSource: prompt.source };
+	return { ok: true, modelRef: selectPrDescriptionModelRef(input.env), promptText: prompt.text, promptSource: prompt.source };
 }
 
 export async function resolvePrDescriptionPrompt(input: {

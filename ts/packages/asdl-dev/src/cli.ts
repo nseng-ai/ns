@@ -10,19 +10,9 @@ import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { runCheckpointIfPending } from "@asdl/sdl/checkpoint";
-import {
-	CHECKPOINT_MODEL_ENV,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-	LEGACY_TEXT_BACKEND_ENV,
-	TEXT_BACKEND_ENV as SDL_TEXT_BACKEND_ENV,
-} from "@asdl/sdl/text-generation";
+import { CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV } from "@asdl/sdl/text-generation";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
-import {
-	DEFAULT_PR_DESCRIPTION_MODEL_REF,
-	DEFAULT_TEXT_BACKEND,
-	PR_DESCRIPTION_MODEL_ENV,
-	TEXT_BACKEND_ENV,
-} from "./text-generation.ts";
+import { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
@@ -121,7 +111,7 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 
 For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten by submit; use explicit \`asdl-dev pr-regen\` when you intend to replace one.
 
-Automatic checkpointing uses the same model environment variables as \`sdl cp\` when the worktree is dirty: ${SDL_TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}; unset values fall back to ${LEGACY_TEXT_BACKEND_ENV} and ${LEGACY_CHECKPOINT_MODEL_ENV} during the transition.
+Automatic checkpointing uses the same model environment variable as \`sdl cp\` when the worktree is dirty: ${CHECKPOINT_MODEL_ENV}; an unset value falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} during the transition.
 
 PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
 
@@ -178,8 +168,7 @@ If the dry-run says restack is required, interactive invocations ask before runn
 By default this regenerates both the PR title and body, replacing any existing body. The --force flag is accepted for compatibility with older guarded pr-regen workflows.
 
 Environment:
-  ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
-  ${PR_DESCRIPTION_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
+  ${PR_DESCRIPTION_MODEL_ENV}  Model reference for the generated PR description. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
   ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`,
 			summary: COMMAND_SUMMARIES["pr-regen"],
 			schema: z.object({

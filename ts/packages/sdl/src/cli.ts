@@ -10,14 +10,7 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { runCheckpointCommand } from "./checkpoint.ts";
 import { createRealSdlContext, type SdlContext } from "./context.ts";
-import {
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_TEXT_BACKEND,
-	LEGACY_CHECKPOINT_MODEL_ENV,
-	LEGACY_TEXT_BACKEND_ENV,
-	TEXT_BACKEND_ENV,
-} from "./text-generation.ts";
+import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
 
 export interface SdlCliDeps {
 	context?: SdlContext | undefined;
@@ -60,8 +53,7 @@ export function buildCli(): ClinkrGroup<SdlCliContext> {
 			description: `Create a checkpoint commit for the current git diff using a model-authored message.
 
 Environment:
-  ${TEXT_BACKEND_ENV}      Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}. Falls back to ${LEGACY_TEXT_BACKEND_ENV} when unset.
-  ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
+  ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
 			summary: COMMAND_SUMMARIES.cp,
 			schema: z.object({}),
 			run: async (ctx) => {

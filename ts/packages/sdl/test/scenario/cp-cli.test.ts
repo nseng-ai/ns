@@ -174,10 +174,10 @@ describe("sdl cp CLI help and parsing", () => {
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: sdl cp");
 		expect(help).toContain("model-authored");
-		expect(help).toContain("SDL_TEXT_BACKEND");
 		expect(help).toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).toContain("ASDL_DEV_TEXT_BACKEND");
 		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(help).not.toContain("SDL_TEXT_BACKEND");
+		expect(help).not.toContain("ASDL_DEV_TEXT_BACKEND");
 		expect(help).toContain("--json-schema");
 		expect(help).not.toContain("--format");
 	});
@@ -335,16 +335,6 @@ describe("sdl cp CLI behavior", () => {
 		expect(run.stderr.join("")).toBe("Refusing to create checkpoint commit on trunk branch: main\n");
 		expect(run.textGeneration.generateTextCalls).toEqual([]);
 		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
-	});
-
-	test("unknown text backend exits 2 before inspecting git", async () => {
-		const run = runWithFakes(["cp"], {}, { env: { SDL_TEXT_BACKEND: "bogus" } });
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain('Invalid SDL_TEXT_BACKEND="bogus"');
-		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([]);
-		expect(run.textGeneration.generateTextCalls).toEqual([]);
 	});
 
 	test("cp rejects unsupported arguments", async () => {

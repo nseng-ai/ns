@@ -23,9 +23,8 @@ Behavior:
 
 Environment:
 
-- `SDL_TEXT_BACKEND`: text generation backend, currently `pi`.
-- `SDL_CHECKPOINT_MODEL`: backend-native model reference.
+- `SDL_CHECKPOINT_MODEL`: model reference for the checkpoint message.
 
-During the transition from `asdl-dev cp`, unset `SDL_*` values fall back to `ASDL_DEV_TEXT_BACKEND` and `ASDL_DEV_CHECKPOINT_MODEL`.
+During the transition from `asdl-dev cp`, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.

@@ -68,7 +68,7 @@ pnpm --dir ts run asdl-dev submit
 pnpm --dir ts run asdl-dev submit --restack
 ```
 
-Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same checkpoint model environment variables as `sdl cp`: `SDL_TEXT_BACKEND` and `SDL_CHECKPOINT_MODEL`, with transitional fallback to `ASDL_DEV_TEXT_BACKEND` and `ASDL_DEV_CHECKPOINT_MODEL`. After that, it checks readiness with `gt submit -nps --no-ai --no-interactive --dry-run`. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
+Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same checkpoint model environment variable as `sdl cp`: `SDL_CHECKPOINT_MODEL`, with transitional fallback to `ASDL_DEV_CHECKPOINT_MODEL`. After that, it checks readiness with `gt submit -nps --no-ai --no-interactive --dry-run`. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
 
 ### PR descriptions
 
