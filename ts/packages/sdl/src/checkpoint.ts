@@ -85,23 +85,6 @@ export class RealCheckpointGateway implements CheckpointGateway {
 	}
 }
 
-export async function runCheckpointCommand(options: RunCheckpointCommandOptions): Promise<CheckpointCommandResult> {
-	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
-	if (!loaded.ok) {
-		return failure(2, formatCheckpointSnapshotError(loaded.error));
-	}
-
-	const snapshot = loaded.snapshot;
-	if (snapshot.branch === "main" || snapshot.branch === "master") {
-		return failure(1, `Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`);
-	}
-	if (snapshot.clean) {
-		return failure(1, "Working tree is clean; nothing to checkpoint.");
-	}
-
-	return createCheckpointFromSnapshot(options, snapshot, selectCheckpointModelRef(options.env));
-}
-
 export async function runCheckpointIfPending(options: RunCheckpointCommandOptions): Promise<CheckpointIfPendingResult> {
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
 	if (!loaded.ok) {
@@ -147,7 +130,7 @@ async function createCheckpointFromSnapshot(
 	};
 }
 
-function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
+export function formatCheckpointSnapshotError(error: PendingWorktreeError): string {
 	const details = formatPendingWorktreeCommandDetails(error.result);
 	if (error.kind === "not_git_repo") {
 		return `Not inside a git repository.\n${details}`;
