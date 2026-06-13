@@ -1,6 +1,6 @@
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 import type { ExecResult } from "@asdl/core/exec";
-import type { BranchContextEvidence } from "@asdl/branch-context";
+import { BRANCH_CONTEXT_PLAN_KEY, type BranchContextEvidence } from "@asdl/branch-context";
 
 export interface BranchContextUpAndImplHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
@@ -63,7 +63,7 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 		const newSessionOptions: BranchContextUpAndImplNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
-				await newCtx.sendUserMessage("/branch-context:impl");
+				await newCtx.sendUserMessage(formatImplBranchContextCommand(options.evidence.key));
 			},
 		};
 		if (parentSession !== undefined) {
@@ -93,8 +93,13 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 	}
 }
 
-export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string): string {
-	return [`git checkout ${targetBranch}`, "/new", "/branch-context:impl"].join("\n");
+export function formatImplBranchContextCommand(key: string): string {
+	if (key === BRANCH_CONTEXT_PLAN_KEY) return "/branch-context:impl";
+	return `/branch-context:impl ${key}`;
+}
+
+export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
+	return [`git checkout ${targetBranch}`, "/new", formatImplBranchContextCommand(key)].join("\n");
 }
 
 type CheckoutResult = { type: "ok" } | { type: "failed"; message: string };

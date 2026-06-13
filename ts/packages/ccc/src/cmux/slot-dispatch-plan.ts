@@ -22,6 +22,7 @@ import {
 import { formatCommand, formatShellArg } from "@asdl/core/exec";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
+import { formatImplBranchContextCommand } from "../branch-context-up-and-impl.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "../slot-checkout.ts";
 import { repositoryNameFromPath } from "./worktree-description.ts";
@@ -327,7 +328,7 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 }
 
 function formatPiLaunchCommand(key: string, launchOptions: PiLaunchOptions): string {
-	return buildPiLaunchCommand("/branch-context:impl", launchOptions);
+	return buildPiLaunchCommand(formatImplBranchContextCommand(key), launchOptions);
 }
 
 function formatUnexpectedError(error: unknown): string {

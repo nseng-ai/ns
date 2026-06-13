@@ -1,7 +1,8 @@
 import { Text, type Component } from "@earendil-works/pi-tui";
-import { formatBranchContextUpAndImplFollowUpFlow, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
+import { formatBranchContextUpAndImplFollowUpFlow, formatImplBranchContextCommand, runBranchContextUpAndImplLaunch } from "@asdl/ccc/branch-context-up-and-impl";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
+	BRANCH_CONTEXT_PLAN_KEY,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	buildImplBranchContextPrompt,
 	createBranchContextFromFile as createBranchContextFromFilePrimitive,
@@ -574,7 +575,7 @@ export async function resolveCreateBranchContextPreview(
 		branchCreation,
 		slugEvidence,
 		namespace: BRANCH_CONTEXT_NAMESPACE,
-		key: "plan.md",
+		key: BRANCH_CONTEXT_PLAN_KEY,
 	};
 
 	if (selected.type === "explicit") {
@@ -966,7 +967,7 @@ async function runUpAndImplLaunchTail(options: UpAndImplLaunchTailOptions): Prom
 }
 
 function formatUpAndImplDryRunMessage(body: string, branch: string, key: string): string {
-	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch)}`;
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextUpAndImplFollowUpFlow(branch, key)}`;
 }
 
 function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout" | "new-session"): string {
@@ -981,10 +982,11 @@ function formatUpAndImplLaunchFailureTitle(mode: UpAndImplMode, phase: "checkout
 }
 
 function formatUpAndImplCancelledMessage(mode: UpAndImplMode, branch: string, key: string): string {
+	const command = formatImplBranchContextCommand(key);
 	if (mode === "created") {
-		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`;
+		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
 	}
-	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`;
+	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
 }
 
 function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExtensionOptions): ToolDefinition {

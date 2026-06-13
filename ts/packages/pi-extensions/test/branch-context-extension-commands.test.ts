@@ -65,12 +65,15 @@ import {
 	savedPlanSlugStep,
 	sourcePlanEvidence,
 	sourcePlanToolResultEntry,
+	step,
 	validatePlanSlug,
 	writeFile,
 	writePlanStoreFile,
 	writeSavedPlanFile,
 	type ToolUpdate,
 } from "./branch-context-extension-support.ts";
+
+const CUSTOM_PLAN_KEY = "custom-plan.md";
 
 function missingPlanStoreError(): Error {
 	return new NoSavedPlanAvailableError({
@@ -822,6 +825,34 @@ describe("plan workflow commands", () => {
 		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
+	test("branch-context:upstack-impl-session reuses a non-default session-created attached plan", async () => {
+		const pi = new FakePi([
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			gitCheckoutStep(IMPL_BRANCH),
+		]);
+		const fakes = createBranchContextOperationFakes({
+			async resolveSelectedSavedPlanFile() {
+				throw missingPlanStoreError();
+			},
+		});
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
+		const context = createContext([], {
+			sessionEntries: [
+				branchContextOutputMessageEntry("Created branch context and attached custom plan.", {
+					status: "success",
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY }),
+				}),
+			],
+		});
+
+		await command?.handler("--yes", context.ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${CUSTOM_PLAN_KEY}`);
+		expect(context.replacementUserMessages).toEqual([`/branch-context:impl ${CUSTOM_PLAN_KEY}`]);
+	});
+
 	test("branch-context:upstack-impl-session reuses an explicit branch when the local plan store is missing", async () => {
 		const explicitBranch = "branch-contexts/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(explicitBranch)]);
@@ -869,6 +900,36 @@ describe("plan workflow commands", () => {
 		expect(content).toContain("Dry run: no branch would be created, no plan would be attached, no checkout would happen");
 		expect(content).toContain(`git checkout ${explicitBranch}`);
 		expect(content).toContain("/branch-context:impl");
+		expect(context.replacementUserMessages).toEqual([]);
+	});
+
+	test("branch-context:upstack-impl-session dry-run includes non-default keys in the follow-up flow", async () => {
+		const pi = new FakePi([
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+		]);
+		const fakes = createBranchContextOperationFakes({
+			async resolveSelectedSavedPlanFile() {
+				throw missingPlanStoreError();
+			},
+		});
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
+		const context = createContext([], {
+			sessionEntries: [
+				branchContextOutputMessageEntry("Created branch context and attached custom plan.", {
+					status: "success",
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY }),
+				}),
+			],
+		});
+
+		await command?.handler("--dry-run", context.ctx);
+
+		pi.assertDone();
+		const content = pi.sentMessages[0]?.content ?? "";
+		expect(content).toContain(`Branch Memory key: ${CUSTOM_PLAN_KEY}`);
+		expect(content).toContain(`git checkout ${IMPL_BRANCH}`);
+		expect(content).toContain(`/branch-context:impl ${CUSTOM_PLAN_KEY}`);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
@@ -1057,6 +1118,38 @@ describe("plan workflow commands", () => {
 		const content = pi.sentMessages.at(-1)?.content ?? "";
 		expect(content).toContain(
 			`Created branch context, attached the plan, and checked out ${PLAN_SLUG}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`,
+		);
+		expect(context.replacementUserMessages).toEqual([]);
+	});
+
+	test("branch-context:upstack-impl-session reports keyed cancellation recovery", async () => {
+		const pi = new FakePi([
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			gitCheckoutStep(IMPL_BRANCH),
+		]);
+		const fakes = createBranchContextOperationFakes({
+			async resolveSelectedSavedPlanFile() {
+				throw missingPlanStoreError();
+			},
+		});
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
+		const context = createContext([], {
+			sessionEntries: [
+				branchContextOutputMessageEntry("Created branch context and attached custom plan.", {
+					status: "success",
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: CUSTOM_PLAN_KEY }),
+				}),
+			],
+			shouldCancelNewSession: true,
+		});
+
+		await command?.handler("--yes", context.ctx);
+
+		pi.assertDone();
+		const content = pi.sentMessages.at(-1)?.content ?? "";
+		expect(content).toContain(
+			`Reused existing branch context, verified the attached plan, and checked out ${IMPL_BRANCH}, but starting the implementation session was cancelled. Run /branch-context:impl ${CUSTOM_PLAN_KEY} to continue.`,
 		);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
