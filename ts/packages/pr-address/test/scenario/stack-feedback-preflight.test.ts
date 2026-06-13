@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import type { PayloadClock } from "../../src/payload-store.ts";
-import { expectedHarnessSession } from "../support/harness-session.ts";
 import {
 	discussionComment,
 	fakePrAddressContext,
@@ -18,7 +17,6 @@ import {
 
 const CLOCK_ISO = "2026-06-12T12:00:00.000Z";
 const SESSION_ID = "stack-preflight-test";
-const PAYLOAD_SESSION = expectedHarnessSession(SESSION_ID);
 const tempDirs: string[] = [];
 
 interface ManagedRun {
@@ -42,8 +40,7 @@ interface PayloadReference {
 }
 
 interface CompactPreflightData {
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	mapping_summary: { requested: number; matched: number; missing: number };
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
@@ -53,8 +50,7 @@ interface CompactPreflightData {
 }
 
 interface FullPreflightData {
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	mapping_summary: { requested: number; matched: number; missing: number };
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
@@ -119,7 +115,7 @@ function feedbackGithub(): InMemoryPrAddressGitHubGateway {
 
 async function payloadFiles(root: string): Promise<string[]> {
 	try {
-		return await readdir(join(root, "sessions", PAYLOAD_SESSION.payloadSessionId, "payloads"));
+		return await readdir(join(root, "sessions", SESSION_ID, "payloads"));
 	} catch (error) {
 		if (typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "ENOENT") return [];
 		throw error;
@@ -138,8 +134,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.exit_code).toBe(0);
-		expect(envelope.data?.payload_session_id).toBe(PAYLOAD_SESSION.payloadSessionId);
-		expect(envelope.data?.harness_session_id_digest).toBe(PAYLOAD_SESSION.harnessSessionIdDigest);
+		expect(envelope.data?.harness_session_id).toBe(SESSION_ID);
 		expect(envelope.data?.mapping_summary).toEqual({ requested: 3, matched: 3, missing: 0 });
 		expect(envelope.data?.summary).toMatchObject({ prs: 3, reviews: 1, unresolved_review_threads: 1, discussion_comments: 1 });
 		expect(envelope.data?.stack.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch }))).toEqual([

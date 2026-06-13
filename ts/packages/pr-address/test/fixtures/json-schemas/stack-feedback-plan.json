@@ -62,18 +62,8 @@
           "valid": {
             "type": "boolean"
           },
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "pr_count": {
             "type": "integer",
@@ -1263,7 +1253,7 @@
         },
         "required": [
           "valid",
-          "payload_session_id",
+          "harness_session_id",
           "pr_count",
           "validation"
         ],
@@ -1275,18 +1265,8 @@
           "valid": {
             "type": "boolean"
           },
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "pr_count": {
             "type": "integer",
@@ -1873,7 +1853,7 @@
         },
         "required": [
           "valid",
-          "payload_session_id",
+          "harness_session_id",
           "pr_count",
           "validation"
         ],

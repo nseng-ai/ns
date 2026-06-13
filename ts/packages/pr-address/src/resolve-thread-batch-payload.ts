@@ -470,7 +470,7 @@ function hasSingleErrorCode(result: BuildResolveThreadBatchPayloadResult, errorC
 function looksLikeStackFeedbackPlan(value: unknown): boolean {
 	if (!isRecord(value)) return false;
 	const validation = value.validation;
-	return "valid" in value && "payload_session_id" in value && "pr_count" in value && isRecord(validation) && ("all_valid" in validation || "per_pr" in validation);
+	return "valid" in value && "harness_session_id" in value && "pr_count" in value && isRecord(validation) && ("all_valid" in validation || "per_pr" in validation);
 }
 
 export function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {

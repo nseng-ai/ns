@@ -38,6 +38,9 @@ describe("HARNESS_SESSION_ID migration guardrails", () => {
 			"ASDL_PAYLOAD" + "_SESSION_ID",
 			"--payload" + "-session-id",
 			"payload" + "_session_required",
+			"payload" + "_session_id",
+			"harness" + "_session_id_digest",
+			"payload" + "_session_invalid",
 		];
 		const violations: string[] = [];
 

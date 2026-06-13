@@ -246,7 +246,7 @@ function stackPlan(options: { threadId: string }): {
 
 function currentPrep(options: { shouldIncludeResolved: boolean; prNumber?: number | undefined; threads: Array<Record<string, unknown>> }): Record<string, unknown> {
 	return {
-		payload_session_id: "session",
+		harness_session_id: "session",
 		include_resolved: options.shouldIncludeResolved,
 		stack: [
 			{

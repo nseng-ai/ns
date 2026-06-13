@@ -55,18 +55,8 @@
       {
         "type": "object",
         "properties": {
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "include_resolved": {
             "type": "boolean"
@@ -1923,7 +1913,7 @@
           }
         },
         "required": [
-          "payload_session_id",
+          "harness_session_id",
           "stack",
           "summary"
         ],
@@ -1932,18 +1922,8 @@
       {
         "type": "object",
         "properties": {
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "include_resolved": {
             "type": "boolean"
@@ -2380,7 +2360,7 @@
           }
         },
         "required": [
-          "payload_session_id",
+          "harness_session_id",
           "summary",
           "stack_summary_reference",
           "stack"

@@ -23,8 +23,7 @@ interface StackFeedbackPreflightFullResult extends StackFeedbackPrepResult {
 }
 
 interface StackFeedbackPreflightCompactResult {
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	mapping_summary: MapBranchPrsResult["summary"];
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
@@ -121,8 +120,7 @@ function missingBranchesResult(mapping: MapBranchPrsResult): ClinkrExit<unknown>
 function compactPreflightResult(result: StackFeedbackPreflightFullResult, stackSummaryReference: PayloadReference): StackFeedbackPreflightCompactResult {
 	const compact = compactPrepResult(result, stackSummaryReference);
 	return {
-		payload_session_id: compact.payload_session_id,
-		harness_session_id_digest: compact.harness_session_id_digest,
+		harness_session_id: compact.harness_session_id,
 		mapping_summary: result.mapping_summary,
 		stack_reference: result.stack_reference,
 		stack_summary_reference: compact.stack_summary_reference,

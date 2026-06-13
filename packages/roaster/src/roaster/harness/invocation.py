@@ -15,6 +15,7 @@ from typing import Any, TextIO
 
 from pydantic import ValidationError
 
+from roaster.diff_parsing import DiffFile, estimate_tokens
 from roaster.models import (
     ClaudeCodeEmptyOutput,
     ClaudeCodeInvalidFindings,
@@ -26,6 +27,7 @@ from roaster.models import (
     HarnessBinaryMissing,
     HarnessExecutionFailed,
     HarnessInvocationFailed,
+    LocalDiff,
     ModelNotSupportedByHarness,
     ReviewDefinition,
     ReviewExecutionResponse,
@@ -60,6 +62,8 @@ CLAUDE_CODE_NAME = "claude-code"
 _CLAUDE_CODE_MODEL_ALIASES = frozenset({"sonnet", "opus", "haiku"})
 _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
 _PROSE_SNIPPET_MAX_CHARS = 500
+_MAX_PROMPT_DIFF_TOKENS = 120_000
+_MAX_PROMPT_DIFF_FILE_TOKENS = 40_000
 _READ_ONLY_TOOLS = "Bash,Read"
 
 
@@ -97,7 +101,7 @@ def _assemble_review_prompt(
             base_ref=local_diff.base_ref,
             changed_path_count=len(local_diff.changed_paths),
             changed_paths=_changed_paths_block(local_diff.changed_paths),
-            diff_block=_render_prompt_fence(local_diff.diff_text, language="diff"),
+            diff_block=_render_prompt_fence(_prompt_sized_diff(local_diff), language="diff"),
         )
         .strip()
     )
@@ -107,6 +111,53 @@ def _changed_paths_block(changed_paths: tuple[str, ...]) -> str:
     if not changed_paths:
         return "(no changed paths reported)"
     return "\n".join(f"- {path}" for path in changed_paths)
+
+
+def _prompt_sized_diff(local_diff: LocalDiff) -> str:
+    total_tokens = estimate_tokens(local_diff.diff_text)
+    if total_tokens <= _MAX_PROMPT_DIFF_TOKENS:
+        return local_diff.diff_text
+
+    included_segments: list[str] = []
+    omitted_lines: list[str] = []
+    included_tokens = 0
+    for diff_file in local_diff.files:
+        if diff_file.estimated_tokens > _MAX_PROMPT_DIFF_FILE_TOKENS:
+            omitted_lines.append(_omitted_diff_file_line(diff_file, reason="file exceeds cap"))
+            continue
+        if included_tokens + diff_file.estimated_tokens > _MAX_PROMPT_DIFF_TOKENS:
+            omitted_lines.append(_omitted_diff_file_line(diff_file, reason="diff budget exhausted"))
+            continue
+        included_segments.append(diff_file.raw_text)
+        included_tokens += diff_file.estimated_tokens
+
+    header = "\n".join(
+        (
+            "# Roaster note: diff input was capped before sending to the review model.",
+            (
+                f"# Full diff estimate: ~{total_tokens} tokens; "
+                f"prompt diff cap: {_MAX_PROMPT_DIFF_TOKENS} tokens."
+            ),
+            "# Omitted file diffs:",
+            *(omitted_lines or ("# - (none)",)),
+            "# Included file diffs follow.",
+            "",
+        )
+    )
+    body = "".join(included_segments).strip()
+    if not body:
+        return header.rstrip()
+    return f"{header}{body}"
+
+
+def _omitted_diff_file_line(diff_file: DiffFile, *, reason: str) -> str:
+    path = diff_file.path or "(unknown path)"
+    return (
+        f"# - {path} ({diff_file.change_kind}, {diff_file.byte_size} bytes, "
+        f"~{diff_file.estimated_tokens} tokens, "
+        f"+{diff_file.added_lines}/-{diff_file.removed_lines}; "
+        f"{reason})"
+    )
 
 
 def _render_prompt_fence(content: str, *, language: str) -> str:

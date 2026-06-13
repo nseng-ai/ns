@@ -17,14 +17,24 @@
       "message": "Payload artifact mode requires HARNESS_SESSION_ID from the harness or --harness-session-id."
     },
     {
+      "name": "session_invalid_env",
+      "error_type": "harness_session_invalid",
+      "message": "Harness session id must be a safe segment: 'Bad Session'"
+    },
+    {
+      "name": "session_invalid_explicit",
+      "error_type": "harness_session_invalid",
+      "message": "Harness session id must be a safe segment: 'UPPER'"
+    },
+    {
       "name": "open_relative_root",
       "error_type": "payload_root_invalid",
       "message": "Payload root must be an absolute path: relative-root"
     },
     {
       "name": "open_invalid_session",
-      "error_type": "payload_session_invalid",
-      "message": "Payload session id must be a safe segment: 'Session!'"
+      "error_type": "harness_session_invalid",
+      "message": "Harness session id must be a safe segment: 'Session!'"
     },
     {
       "name": "descriptor_value_error",

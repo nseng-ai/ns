@@ -84,7 +84,6 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (!validationSummary.all_valid) {
 		const negativeResult = emptyPlanResult({
 			sessionId: store.sessionId,
-			harnessSessionIdDigest: store.harnessSessionIdDigest,
 			prCount: payload.prep.stack.length,
 			validation: validationSummary,
 		});
@@ -101,7 +100,6 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (!prPlans.every(({ plan }) => plan.valid)) throw new Error("validated stack classifications must produce valid per-PR plans");
 	const resultWithoutReference = mergedStackPlanResult({
 		sessionId: store.sessionId,
-		harnessSessionIdDigest: store.harnessSessionIdDigest,
 		prep: payload.prep,
 		validation: validationSummary,
 		prPlans,
@@ -128,14 +126,12 @@ function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; val
 
 function emptyPlanResult(options: {
 	sessionId: string;
-	harnessSessionIdDigest: string | null;
 	prCount: number;
 	validation: StackFeedbackPlanValidationSummary;
 }): StackFeedbackPlanResult {
 	return {
 		valid: false,
-		payload_session_id: options.sessionId,
-		harness_session_id_digest: options.harnessSessionIdDigest,
+		harness_session_id: options.sessionId,
 		pr_count: options.prCount,
 		validation: options.validation,
 		batches: [],
@@ -159,7 +155,6 @@ interface StackDiscussionTriageIndex {
 
 function mergedStackPlanResult(options: {
 	sessionId: string;
-	harnessSessionIdDigest: string | null;
 	prep: StackFeedbackPlanInput["prep"];
 	validation: StackFeedbackPlanValidationSummary;
 	prPlans: readonly PrPlanPair[];
@@ -170,8 +165,7 @@ function mergedStackPlanResult(options: {
 	const actionItems = batches.flatMap((batch) => batch.items);
 	return {
 		valid: true,
-		payload_session_id: options.sessionId,
-		harness_session_id_digest: options.harnessSessionIdDigest,
+		harness_session_id: options.sessionId,
 		pr_count: options.prep.stack.length,
 		validation: options.validation,
 		batches,
@@ -372,8 +366,7 @@ function informationalDecision(item: StackFeedbackPlanInformationalItem, decisio
 function compactPlanResult(result: StackFeedbackPlanResult): unknown {
 	return {
 		valid: result.valid,
-		payload_session_id: result.payload_session_id,
-		harness_session_id_digest: result.harness_session_id_digest,
+		harness_session_id: result.harness_session_id,
 		pr_count: result.pr_count,
 		validation: result.validation,
 		batches: result.batches.map((batch) => ({
