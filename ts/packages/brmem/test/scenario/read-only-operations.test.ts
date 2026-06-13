@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { FakeBrmemGateway } from "../../src/fake-gateway.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const seededEntries = [
@@ -50,6 +51,23 @@ describe("read-only brmem operations", () => {
 		expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
 			exit_code: 1,
 			data: { namespace: "base", key: "missing", head_sha: null, blob_sha: null, size_bytes: null },
+		});
+	});
+
+	it("get and check --at read historical fake snapshots", async () => {
+		const gateway = new FakeBrmemGateway({ currentBranch: "feat/x" });
+		const first = await gateway.putEntry({ namespace: "branch-context", branch: "feat/x", key: "plan.md", content: "first plan\n" });
+		await gateway.putEntry({ namespace: "branch-context", branch: "feat/x", key: "plan.md", content: "second plan\n" });
+		if (first.type !== "ok") throw new Error("unexpected put failure");
+
+		const get = runScenario(["get", "plan.md", "--namespace", "branch-context", "--at", first.value.commitSha], { gateway });
+		expect(await get.exit).toBe(0);
+		expect(get.stdout.join("")).toBe("first plan\n");
+
+		const check = runScenario(["check", "plan.md", "--namespace", "branch-context", "--at", first.value.commitSha, "--format", "json"], { gateway });
+		expect(await check.exit).toBe(0);
+		expect(JSON.parse(check.stdout.join(""))).toMatchObject({
+			data: { namespace: "branch-context", key: "plan.md", at: first.value.commitSha, head_sha: first.value.commitSha, size_bytes: 11 },
 		});
 	});
 

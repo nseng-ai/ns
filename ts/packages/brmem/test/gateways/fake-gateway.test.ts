@@ -50,6 +50,27 @@ describe("FakeBrmemGateway", () => {
 		expect(afterDelete.value.map((entry) => entry.key)).toEqual(["b"]);
 	});
 
+	it("reads historical Entry content and diagnostics by commit", async () => {
+		const gateway = new FakeBrmemGateway();
+		const first = await gateway.putEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", content: "first\n" });
+		const second = await gateway.putEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", content: "second\n" });
+		if (first.type !== "ok" || second.type !== "ok") throw new Error("unexpected put failure");
+
+		expect(await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md" })).toMatchObject({
+			type: "found",
+			value: { content: "second\n" },
+		});
+		expect(await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: first.value.commitSha })).toMatchObject({
+			type: "found",
+			value: { content: "first\n", at: first.value.commitSha },
+		});
+		expect(await gateway.checkEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: first.value.commitSha })).toMatchObject({
+			type: "found",
+			value: { sizeBytes: 6, headSha: first.value.commitSha },
+		});
+		expect(await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: "unknown" })).toEqual({ type: "missing" });
+	});
+
 	it("copies snapshots and key globs with conflict behavior", async () => {
 		const gateway = new FakeBrmemGateway({
 			entries: [

@@ -42,12 +42,14 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private readonly branchState: FakeBrmemGatewayOptions["currentBranch"];
 	private readonly operationErrors: NonNullable<FakeBrmemGatewayOptions["operationErrors"]>;
 	private readonly snapshots: Map<string, SnapshotState>;
+	private readonly snapshotsByCommit: Map<string, SnapshotState>;
 	private sequence: number;
 
 	constructor(options: FakeBrmemGatewayOptions = {}) {
 		this.branchState = options.currentBranch ?? "main";
 		this.operationErrors = { ...(options.operationErrors ?? {}) };
 		this.snapshots = new Map();
+		this.snapshotsByCommit = new Map();
 		this.sequence = 1;
 		for (const entry of options.entries ?? []) this.seedEntry(entry);
 	}
@@ -73,7 +75,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	async getEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
 		const error = this.operationErrors.get;
 		if (error !== undefined) return brmemOptionalError<EntryContent>(error.code, error.message);
-		const stored = this.snapshots.get(snapshotId(options.namespace, options.branch))?.entries.get(options.key);
+		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
 		if (stored === undefined) return brmemMissing<EntryContent>();
 		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
 		return brmemFound({ content: stored.content, entryLocator: locator, target: options.at ?? locator, at: options.at });
@@ -82,7 +84,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
 		const error = this.operationErrors.check;
 		if (error !== undefined) return brmemOptionalError<EntryDiagnosticResult>(error.code, error.message);
-		const stored = this.snapshots.get(snapshotId(options.namespace, options.branch))?.entries.get(options.key);
+		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
 		if (stored === undefined) return brmemMissing<EntryDiagnosticResult>();
 		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
 		return brmemFound({
@@ -108,6 +110,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 			headDate: "2026-01-01T00:00:00+00:00",
 			blobSha: this.nextSha("blob"),
 		});
+		this.recordSnapshot(commitSha, snapshot);
 		return brmemOk({ commitSha, entry: makeEntryRef(options.namespace, options.key, options.branch) });
 	}
 
@@ -121,6 +124,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		snapshot.entries.delete(options.key);
 		const commitSha = this.nextSha("commit");
 		snapshot.commitSha = commitSha;
+		this.recordSnapshot(commitSha, snapshot);
 		return brmemOk({
 			commitSha,
 			entry: makeEntryRef(options.namespace, options.key, options.branch),
@@ -158,6 +162,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		}
 		for (const [key, value] of sourcePairs) dest.entries.set(key, { ...value });
 		dest.commitSha = this.nextSha("commit");
+		this.recordSnapshot(dest.commitSha, dest);
 		return brmemOk({
 			entries: sourcePairs.map(([key]) => makeEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries),
 		});
@@ -173,6 +178,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 			headDate: seed.headDate ?? "2026-01-01T00:00:00+00:00",
 			blobSha: seed.blobSha ?? this.nextSha("blob"),
 		});
+		this.recordSnapshot(commitSha, snapshot);
 	}
 
 	private ensureSnapshot(namespace: string, branch: string): SnapshotState {
@@ -182,6 +188,15 @@ export class FakeBrmemGateway implements BrmemGateway {
 		const created: SnapshotState = { commitSha: this.nextSha("commit"), entries: new Map() };
 		this.snapshots.set(id, created);
 		return created;
+	}
+
+	private resolveSnapshot(options: { namespace: string; branch: string; at?: string | undefined }): SnapshotState | undefined {
+		if (options.at !== undefined) return this.snapshotsByCommit.get(options.at);
+		return this.snapshots.get(snapshotId(options.namespace, options.branch));
+	}
+
+	private recordSnapshot(commitSha: string, snapshot: SnapshotState): void {
+		this.snapshotsByCommit.set(commitSha, cloneSnapshot(snapshot));
 	}
 
 	private collectEntries(options: {
@@ -217,6 +232,13 @@ function snapshotId(namespace: string, branch: string): string {
 function parseSnapshotId(id: string): { namespace: string; branch: string } {
 	const separator = id.indexOf("\0");
 	return { namespace: id.slice(0, separator), branch: id.slice(separator + 1) };
+}
+
+function cloneSnapshot(snapshot: SnapshotState): SnapshotState {
+	return {
+		commitSha: snapshot.commitSha,
+		entries: new Map([...snapshot.entries].map(([key, value]) => [key, { ...value }])),
+	};
 }
 
 function makeEntryRef(namespace: string, key: string, branch: string): EntryRef {
