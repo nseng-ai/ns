@@ -13,6 +13,9 @@ importers:
 
   .:
     devDependencies:
+      '@asdl/branch-context':
+        specifier: workspace:*
+        version: link:packages/branch-context
       '@asdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc
