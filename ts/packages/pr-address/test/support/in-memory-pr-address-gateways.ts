@@ -50,6 +50,8 @@ export interface InMemoryGitHubState {
 	resolveFailureIds?: ReadonlySet<string> | undefined;
 	unresolveFailureIds?: ReadonlySet<string> | undefined;
 	reactionFailureCommentIds?: ReadonlySet<number> | undefined;
+	reviewsFailurePrNumbers?: ReadonlySet<number> | undefined;
+	discussionCommentsFailurePrNumbers?: ReadonlySet<number> | undefined;
 }
 
 export interface InMemoryGitState {
@@ -76,6 +78,8 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	private readonly resolveFailureIds: ReadonlySet<string>;
 	private readonly unresolveFailureIds: ReadonlySet<string>;
 	private readonly reactionFailureCommentIds: ReadonlySet<number>;
+	private readonly reviewsFailurePrNumbers: ReadonlySet<number>;
+	private readonly discussionCommentsFailurePrNumbers: ReadonlySet<number>;
 	private readonly commentCalls: Array<{ prNumber: number; body: string }> = [];
 	private readonly threadReplyCalls: Array<{ threadId: string; body: string }> = [];
 	private readonly reactionCalls: Array<{ commentId: number; reaction: string }> = [];
@@ -106,6 +110,8 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		this.resolveFailureIds = state.resolveFailureIds ?? new Set();
 		this.unresolveFailureIds = state.unresolveFailureIds ?? new Set();
 		this.reactionFailureCommentIds = state.reactionFailureCommentIds ?? new Set();
+		this.reviewsFailurePrNumbers = state.reviewsFailurePrNumbers ?? new Set();
+		this.discussionCommentsFailurePrNumbers = state.discussionCommentsFailurePrNumbers ?? new Set();
 	}
 
 	get comments(): readonly { prNumber: number; body: string }[] {
@@ -149,6 +155,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getReviews(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
+		if (this.reviewsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
 		return { type: "ok", value: clone(this.reviews.get(prNumber) ?? []) };
 	}
 
@@ -158,6 +165,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
+		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
 		return { type: "ok", value: clone(this.discussionComments.get(prNumber) ?? []) };
 	}
 

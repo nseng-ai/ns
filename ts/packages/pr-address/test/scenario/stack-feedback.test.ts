@@ -175,6 +175,30 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 		expect(reference.payload_bytes).toBe((await stat(reference.payload_path)).size);
 	});
 
+	test("concurrent fetch failures resolve to the first failure in input order", async () => {
+		const root = await makePayloadRoot();
+		const github = new InMemoryPrAddressGitHubGateway({
+			reviews: numberKeyed(prepFixture.gateway.reviews),
+			reviewThreads: numberKeyed(prepFixture.gateway.review_threads),
+			discussionComments: numberKeyed(prepFixture.gateway.discussion_comments),
+			discussionCommentsFailurePrNumbers: new Set([101]),
+			reviewsFailurePrNumbers: new Set([102]),
+		});
+		const run = runManaged(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+			github,
+			env: payloadEnv("session", root, prepFixture.session_id),
+			clockIso: prepFixture.clock_iso,
+		});
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("pr_gateway_failure");
+		// PR 101 fails on its third gateway call while PR 102 fails on its
+		// first; input order, not completion order, decides the reported
+		// failure.
+		expect(envelope.message).toBe("Failed to fetch discussion comments for PR 101: gh auth failed");
+	});
+
 	test("rejects unknown options without invoking the gateway", async () => {
 		const run = runManaged(["exec", "stack-feedback-prep", "--bogus", "--format", "json"], {
 			github: fixtureGithubGateway(),
@@ -264,7 +288,7 @@ describe("stack-feedback-prep stack-reference input", () => {
 		expect(await run.exit).toBe(2);
 		const envelope = errorEnvelope(run);
 		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("stack-feedback-prep --stack-reference must reference a stack JSON payload");
+		expect(envelope.message).toContain("Invalid stack-feedback-prep --stack-reference");
 	});
 
 	test("combines --stack-reference with --include-resolved", async () => {

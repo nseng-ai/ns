@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { buildFeedbackClassificationTemplate } from "./classification-core.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
-import { buildGetFeedbackManifestFromSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
+import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
@@ -142,15 +142,31 @@ export async function prepareStackFeedbackStack(options: {
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
 }): Promise<{ type: "ok"; value: { result: StackFeedbackPrepResult; stackSummaryReference: PayloadReference } } | { type: "error"; exit: ClinkrFailureExit }> {
+	// Phase 1: fetch every PR's feedback concurrently; on failures, the first
+	// failure in input order wins (await all, then scan — never race).
+	const fetchResults = await Promise.all(
+		options.stack.map((prInput) =>
+			fetchStackPrFeedback({
+				ctx: options.ctx,
+				prInput,
+				github: options.github,
+				shouldIncludeResolved: options.shouldIncludeResolved,
+				shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
+			})),
+	);
+	const fetchedFeedback: StackPrFeedback[] = [];
+	for (const fetchResult of fetchResults) {
+		if (fetchResult.type === "error") return fetchResult;
+		fetchedFeedback.push(fetchResult.value);
+	}
+	// Phase 2: write artifacts strictly sequentially in stack order so payload
+	// sequence numbers and filenames stay byte-identical.
 	const prResults: StackFeedbackPrepPrResult[] = [];
-	for (const prInput of options.stack) {
-		const prepared = await prepareStackPr({
-			ctx: options.ctx,
+	for (const [index, prInput] of options.stack.entries()) {
+		const prepared = await writeStackPrArtifacts({
 			store: options.store,
 			prInput,
-			github: options.github,
-			shouldIncludeResolved: options.shouldIncludeResolved,
-			shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
+			feedback: requiredAt(fetchedFeedback, index),
 		});
 		if (prepared.type === "error") return prepared;
 		prResults.push(prepared.value);
@@ -168,26 +184,36 @@ export async function prepareStackFeedbackStack(options: {
 	return { type: "ok", value: { result: { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value }, stackSummaryReference: stackSummaryReference.value } };
 }
 
-async function prepareStackPr(options: {
+interface StackPrFeedback {
+	readonly snapshot: FeedbackSnapshot;
+}
+
+async function fetchStackPrFeedback(options: {
 	ctx: PrAddressExecContext;
-	store: PayloadStore;
 	prInput: StackFeedbackPrInput;
 	github: PrAddressGitHubGateway;
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
-}): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; exit: ClinkrFailureExit }> {
-	const prNumber = options.prInput.pr_number;
+}): Promise<{ type: "ok"; value: StackPrFeedback } | { type: "error"; exit: ClinkrFailureExit }> {
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: options.github,
-		prNumber,
+		prNumber: options.prInput.pr_number,
 		shouldIncludeResolved: options.shouldIncludeResolved,
 		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
 		shouldCountAllReviewThreads: false,
 		ctx: options.ctx,
 	});
 	if (snapshotResult.type === "error") return { type: "error", exit: snapshotResult.exit };
-	const snapshot = snapshotResult.snapshot;
+	return { type: "ok", value: { snapshot: snapshotResult.snapshot } };
+}
 
+async function writeStackPrArtifacts(options: {
+	store: PayloadStore;
+	prInput: StackFeedbackPrInput;
+	feedback: StackPrFeedback;
+}): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; exit: ClinkrFailureExit }> {
+	const prNumber = options.prInput.pr_number;
+	const snapshot = options.feedback.snapshot;
 	const inlineResult = inlineFeedbackResult({
 		prNumber,
 		reviews: snapshot.reviews,
@@ -325,4 +351,10 @@ export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryR
 			},
 		})),
 	};
+}
+
+function requiredAt<T>(values: readonly T[], index: number): T {
+	const value = values[index];
+	if (value === undefined) throw new Error(`Missing aligned per-PR feedback at index ${index}.`);
+	return value;
 }
