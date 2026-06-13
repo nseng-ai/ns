@@ -1,13 +1,12 @@
 import { describe, expect, test } from "vitest";
 
+import { BRANCH_CONTEXT_PLAN_KEY, IMPL_BRANCH_CONTEXT_COMMAND_NAME, formatImplBranchContextCommand } from "@asdl/branch-context";
 import {
 	formatBranchContextUpAndImplFollowUpFlow,
-	formatImplBranchContextCommand,
 	runBranchContextUpAndImplLaunch,
 	type BranchContextUpAndImplContext,
 	type BranchContextUpAndImplNewSessionOptions,
 } from "../src/branch-context-up-and-impl.ts";
-import { BRANCH_CONTEXT_PLAN_KEY } from "@asdl/branch-context";
 import { FakePi, ROOT, step } from "./ccc-test-harness.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
@@ -65,12 +64,12 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		const pi = new FakePi({ script: [checkoutStep()] });
 		const ctx = new FakeUpAndImplContext({ parentSession: "/sessions/source.jsonl" });
 
-		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
+		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
 		expect(pi.execCalls).toEqual([{ command: "git", args: ["checkout", BRANCH], options: { cwd: ROOT, timeout: 30_000 } }]);
 		expect(ctx.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
-		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl widget-flow.md"]);
+		expect(ctx.replacementUserMessages).toEqual([formatImplBranchContextCommand(KEY)]);
 		expect(ctx.statuses).toEqual([
 			{ key: STATUS_KEY, value: "checking out branch context…" },
 			{ key: STATUS_KEY, value: "starting implementation session…" },
@@ -87,29 +86,29 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 			host: pi,
 			ctx,
 			statusKey: STATUS_KEY,
-			evidence: { branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY },
+			target: { branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY },
 		});
 
 		pi.assertDone();
-		expect(ctx.replacementUserMessages).toEqual(["/branch-context:impl"]);
+		expect(ctx.replacementUserMessages).toEqual([formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)]);
 		expect(result).toEqual({ type: "launched", branch: BRANCH, key: BRANCH_CONTEXT_PLAN_KEY });
 	});
 
 	test("formats impl commands from branch-context keys", () => {
-		expect(formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)).toBe("/branch-context:impl");
-		expect(formatImplBranchContextCommand(KEY)).toBe("/branch-context:impl widget-flow.md");
+		expect(formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)).toBe(`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME}`);
+		expect(formatImplBranchContextCommand(KEY)).toBe(`/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${KEY}`);
 	});
 
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, BRANCH_CONTEXT_PLAN_KEY)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl`);
-		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(`git checkout ${BRANCH}\n/new\n/branch-context:impl widget-flow.md`);
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, BRANCH_CONTEXT_PLAN_KEY)).toBe(`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(BRANCH_CONTEXT_PLAN_KEY)}`);
+		expect(formatBranchContextUpAndImplFollowUpFlow(BRANCH, KEY)).toBe(`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(KEY)}`);
 	});
 
 	test("returns checkout failure without starting a new session", async () => {
 		const pi = new FakePi({ script: [checkoutStep({ code: 2, stderr: "checkout failed" })] });
 		const ctx = new FakeUpAndImplContext();
 
-		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
+		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
 		expect(ctx.newSessionParentSessions).toEqual([]);
@@ -131,7 +130,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 			},
 		};
 
-		const result = await runBranchContextUpAndImplLaunch({ host, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
+		const result = await runBranchContextUpAndImplLaunch({ host, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } });
 
 		expect(ctx.newSessionParentSessions).toEqual([]);
 		expect(result).toEqual({ type: "failed", branch: BRANCH, key: KEY, phase: "checkout", message: "git is unavailable" });
@@ -142,7 +141,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		const ctx = new FakeUpAndImplContext();
 		ctx.shouldCancelNewSession = true;
 
-		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
+		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
 		expect(result).toEqual({ type: "cancelled", branch: BRANCH, key: KEY });
@@ -154,7 +153,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		const ctx = new FakeUpAndImplContext();
 		ctx.shouldThrowBeforeReplacement = true;
 
-		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } });
+		const result = await runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } });
 
 		pi.assertDone();
 		expect(result).toEqual({ type: "failed", branch: BRANCH, key: KEY, phase: "new-session", message: "new session failed" });
@@ -166,7 +165,7 @@ describe("branch-context up-and-impl CCC launch orchestration", () => {
 		const ctx = new FakeUpAndImplContext();
 		ctx.shouldThrowDuringReplacementSend = true;
 
-		await expect(runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, evidence: { branch: BRANCH, key: KEY } })).rejects.toThrow(
+		await expect(runBranchContextUpAndImplLaunch({ host: pi, ctx, statusKey: STATUS_KEY, target: { branch: BRANCH, key: KEY } })).rejects.toThrow(
 			"replacement send failed",
 		);
 

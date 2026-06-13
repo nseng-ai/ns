@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt } from "@asdl/branch-context";
+import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@asdl/branch-context";
 import { buildSlugModelArgs } from "@asdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
@@ -18,6 +18,7 @@ import {
 	PLAN_KEY,
 	PLAN_SLUG,
 	PREVIOUS_MODEL,
+	SAVED_PLAN_FILENAME,
 	SOURCE_BRANCH,
 	START_POINT,
 	WORKTREE,
@@ -251,7 +252,7 @@ describe("CCC cmux command suite", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium /branch-context:impl",
+					`pi --provider anthropic --model claude-sonnet-4-5 --thinking medium ${formatImplBranchContextCommand(PLAN_KEY)}`,
 				], {}),
 			],
 		});
@@ -276,7 +277,7 @@ describe("CCC cmux command suite", () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const outsideDir = await makeTempDir();
-		const outsidePlanFile = join(outsideDir, `${PLAN_SLUG}.md`);
+		const outsidePlanFile = join(outsideDir, SAVED_PLAN_FILENAME);
 		await writeFile(outsidePlanFile, "# Outside Plan\n", "utf8");
 		const pi = new FakePi({ script: dispatchValidationScript(repoRoot) });
 		registerCccSlotDispatchPlanCommand(pi, { planStoreRoot });

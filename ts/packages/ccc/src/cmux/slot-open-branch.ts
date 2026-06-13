@@ -1,4 +1,4 @@
-import { extractBranchContextEvidenceFromSessionEntry, type BranchContextEvidence } from "@asdl/branch-context";
+import { findLatestBranchContextEvidence, type BranchContextEvidence } from "@asdl/branch-context";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type {
@@ -94,23 +94,13 @@ async function resolveInferredBranchContext(ctx: {
 	| { error: string }
 > {
 	const entries = ctx.sessionManager?.getBranch?.() ?? [];
-	const evidence = findLatestBranchContextSelection(entries);
+	const evidence = findLatestBranchContextEvidence(entries);
 	if (!evidence) {
 		return {
 			error: `Usage: /${COMMAND_NAME} <branch>\nNo latest [branch-context-output] branch found in the current session branch.`,
 		};
 	}
 	return { inferred: true, branchName: evidence.branch, evidence };
-}
-
-export function findLatestBranchContextSelection(entries: unknown[]): BranchContextEvidence | undefined {
-	for (let index = entries.length - 1; index >= 0; index -= 1) {
-		const evidence = extractBranchContextEvidenceFromSessionEntry(entries[index]);
-		if (evidence !== undefined) {
-			return evidence;
-		}
-	}
-	return undefined;
 }
 
 async function confirmInferredBranch(
