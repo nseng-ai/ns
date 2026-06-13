@@ -7,7 +7,13 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.gt.types import GtCommandFailure, StackInfo, UntrackedBranch
+from asdl_core.gt.types import (
+    GtCommandFailure,
+    StackInfo,
+    StackWalkDiagnostic,
+    UntrackedBranch,
+    render_stack_walk_warning,
+)
 
 
 @dataclass(frozen=True)
@@ -25,13 +31,17 @@ _REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
 def _parse_children(
     branch_name: str,
     raw_children: object,
-    warnings: list[str],
+    diagnostics: list[StackWalkDiagnostic],
 ) -> tuple[str, ...]:
     if raw_children is None:
         return ()
     if not isinstance(raw_children, str):
-        warnings.append(
-            f"children metadata for {branch_name} is not JSON text; treating as no children"
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="load",
+                kind="children_not_text",
+                branch=branch_name,
+            )
         )
         return ()
     if not raw_children:
@@ -40,20 +50,34 @@ def _parse_children(
     try:
         parsed = json.loads(raw_children)
     except json.JSONDecodeError:
-        warnings.append(
-            f"children metadata for {branch_name} is not valid JSON; treating as no children"
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="load",
+                kind="children_invalid_json",
+                branch=branch_name,
+            )
         )
         return ()
 
     if not isinstance(parsed, list):
-        warnings.append(
-            f"children metadata for {branch_name} is not a JSON list; treating as no children"
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="load",
+                kind="children_not_list",
+                branch=branch_name,
+            )
         )
         return ()
 
     children = tuple(child for child in parsed if isinstance(child, str))
     if len(children) != len(parsed):
-        warnings.append(f"children metadata for {branch_name} contains non-string entries")
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="load",
+                kind="children_non_string",
+                branch=branch_name,
+            )
+        )
     return children
 
 
@@ -67,8 +91,8 @@ def _metadata_text(value: object) -> str | None:
 
 def _load_branch_metadata(
     db_path: Path,
-) -> tuple[dict[str, _BranchMetadataRow], list[str]] | GtCommandFailure:
-    warnings: list[str] = []
+) -> tuple[dict[str, _BranchMetadataRow], list[StackWalkDiagnostic]] | GtCommandFailure:
+    diagnostics: list[StackWalkDiagnostic] = []
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
             table_info = connection.execute("PRAGMA table_info(branch_metadata)").fetchall()
@@ -110,22 +134,24 @@ def _load_branch_metadata(
     for record in records:
         branch_name, parent_branch_name, raw_children, validation_result = record
         if not isinstance(branch_name, str) or not branch_name:
-            warnings.append("Graphite metadata row has an empty branch_name; row ignored")
+            diagnostics.append(
+                StackWalkDiagnostic(scope="load", kind="empty_branch_name", branch=None)
+            )
             continue
         parent = _metadata_text(parent_branch_name)
         validation = _metadata_text(validation_result)
         rows[branch_name] = _BranchMetadataRow(
             parent_branch_name=parent,
-            children=_parse_children(branch_name, raw_children, warnings),
+            children=_parse_children(branch_name, raw_children, diagnostics),
             validation_result=validation,
         )
-    return rows, warnings
+    return rows, diagnostics
 
 
 def _walk_ancestors(
     rows: dict[str, _BranchMetadataRow],
     current_branch: str,
-    warnings: list[str],
+    diagnostics: list[StackWalkDiagnostic],
 ) -> tuple[tuple[str, ...], str]:
     ancestor_names_reversed: list[str] = []
     branch = current_branch
@@ -137,15 +163,13 @@ def _walk_ancestors(
         if parent is None:
             return tuple(reversed(ancestor_names_reversed)), branch
         if parent in visited:
-            warnings.append(
-                f"cycle detected in Graphite parent metadata at {parent}; ancestor walk stopped"
-            )
+            diagnostics.append(StackWalkDiagnostic(scope="ancestor", kind="cycle", branch=parent))
             return tuple(reversed(ancestor_names_reversed)), branch
 
         ancestor_names_reversed.append(parent)
         if parent not in rows:
-            warnings.append(
-                f"parent branch {parent} is missing from Graphite metadata; ancestor walk stopped"
+            diagnostics.append(
+                StackWalkDiagnostic(scope="ancestor", kind="missing_row", branch=parent)
             )
             return tuple(reversed(ancestor_names_reversed)), parent
 
@@ -156,7 +180,7 @@ def _walk_ancestors(
 def _walk_first_child_descendants(
     rows: dict[str, _BranchMetadataRow],
     current_branch: str,
-    warnings: list[str],
+    diagnostics: list[StackWalkDiagnostic],
 ) -> tuple[str, ...]:
     descendants: list[str] = []
     branch = current_branch
@@ -165,24 +189,26 @@ def _walk_first_child_descendants(
     while True:
         children = rows[branch].children
         if len(children) > 1:
-            warnings.append(
-                f"branch {branch} has {len(children)} Graphite children; "
-                "descendants follow the first child only"
+            diagnostics.append(
+                StackWalkDiagnostic(
+                    scope="descendant",
+                    kind="fork",
+                    branch=branch,
+                    children=children,
+                )
             )
         if not children:
             return tuple(descendants)
 
         child = children[0]
         if child in visited:
-            warnings.append(
-                f"cycle detected in Graphite children metadata at {child}; descendant walk stopped"
-            )
+            diagnostics.append(StackWalkDiagnostic(scope="descendant", kind="cycle", branch=child))
             return tuple(descendants)
 
         descendants.append(child)
         if child not in rows:
-            warnings.append(
-                f"child branch {child} is missing from Graphite metadata; descendant walk stopped"
+            diagnostics.append(
+                StackWalkDiagnostic(scope="descendant", kind="missing_row", branch=child)
             )
             return tuple(descendants)
 
@@ -190,25 +216,48 @@ def _walk_first_child_descendants(
         branch = child
 
 
-def _add_trunk_marker_warnings(
+def _add_trunk_marker_diagnostics(
     rows: dict[str, _BranchMetadataRow],
     terminus_branch: str,
-    warnings: list[str],
+    diagnostics: list[StackWalkDiagnostic],
 ) -> None:
     marked_trunks = tuple(
         branch for branch, row in rows.items() if row.validation_result == "TRUNK"
     )
     if terminus_branch not in rows:
-        warnings.append("trunk row marker missing")
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="trunk_marker",
+                kind="marker_missing",
+                branch=terminus_branch,
+            )
+        )
         return
     if rows[terminus_branch].validation_result != "TRUNK":
-        warnings.append("trunk row marker missing")
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="trunk_marker",
+                kind="marker_missing",
+                branch=terminus_branch,
+            )
+        )
     if len(marked_trunks) > 1:
-        warnings.append("multiple Graphite metadata rows are marked as trunk")
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="trunk_marker",
+                kind="marker_multiple",
+                branch=terminus_branch,
+                children=marked_trunks,
+            )
+        )
     if marked_trunks and terminus_branch not in marked_trunks:
-        warnings.append(
-            "Graphite metadata trunk marker differs from ancestor-walk terminus: "
-            f"{marked_trunks[0]} != {terminus_branch}"
+        diagnostics.append(
+            StackWalkDiagnostic(
+                scope="trunk_marker",
+                kind="marker_mismatch",
+                branch=terminus_branch,
+                children=marked_trunks,
+            )
         )
 
 
@@ -226,22 +275,23 @@ def read_stack_from_metadata_db(
     loaded = _load_branch_metadata(db_path)
     if isinstance(loaded, GtCommandFailure):
         return loaded
-    rows, warnings = loaded
+    rows, diagnostics = loaded
 
     if current_branch not in rows:
         return UntrackedBranch(
             message=f"current branch is not tracked by Graphite: {current_branch}"
         )
 
-    ancestors, terminus_branch = _walk_ancestors(rows, current_branch, warnings)
-    descendants = _walk_first_child_descendants(rows, current_branch, warnings)
-    _add_trunk_marker_warnings(rows, terminus_branch, warnings)
+    ancestors, terminus_branch = _walk_ancestors(rows, current_branch, diagnostics)
+    descendants = _walk_first_child_descendants(rows, current_branch, diagnostics)
+    _add_trunk_marker_diagnostics(rows, terminus_branch, diagnostics)
 
     return StackInfo(
         trunk=ancestors[0] if ancestors else current_branch,
         current=current_branch,
         ancestors=ancestors,
         children=rows[current_branch].children,
-        warnings=tuple(warnings),
+        warnings=tuple(render_stack_walk_warning(diagnostic) for diagnostic in diagnostics),
         descendants=descendants,
+        diagnostics=tuple(diagnostics),
     )
