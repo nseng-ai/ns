@@ -2,6 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { truncateTextHead, truncateTextHeadTail } from "@asdl/core/text-truncation";
+
 import { formatCheckpointMessage, formatCheckpointValidationFeedback, validateCheckpointMessage } from "./checkpoint-message.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 import { prepareRepairedText } from "./text-repair.ts";
@@ -42,13 +44,6 @@ interface FileSectionCompactedDiffInput {
 	fileSections: readonly DiffFileSection[];
 	maxChars: number;
 	perFileExcerptChars: number;
-}
-
-interface HeadTruncatedTextInput {
-	value: string;
-	maxChars: number;
-	buildMarker: (omittedChars: number) => string;
-	trimInput?: boolean;
 }
 
 export interface CommandResult {
@@ -235,17 +230,30 @@ function buildChangedPathList(paths: readonly string[]): string {
 }
 
 function buildHeadTailCompactedDiff(diff: string, maxChars: number): string {
-	const marker = `\n[... omitted ${diff.length - maxChars} chars from compacted diff without file sections ...]\n`;
+	const omittedChars = diff.length - maxChars;
+	const marker = buildNoFileSectionCompactionMarker(omittedChars);
 	const header = `Large diff compacted for checkpoint message generation.\nOriginal diff character count: ${diff.length}\nDetected file sections: 0\nNo diff --git file sections were detected; using head/tail excerpt.\n\n\`\`\`diff\n`;
 	const footer = `\n\`\`\`\n`;
 	const excerptBudget = Math.max(0, maxChars - header.length - marker.length - footer.length);
-	const headChars = Math.ceil(excerptBudget / 2);
-	const tailChars = Math.floor(excerptBudget / 2);
-	return `${header}${diff.slice(0, headChars).trimEnd()}${marker}${diff.slice(diff.length - tailChars).trimStart()}${footer}`;
+	const excerpt = truncateTextHeadTail({
+		value: diff,
+		maxChars: excerptBudget + marker.length,
+		headRatio: 0.5,
+		headRounding: "ceil",
+		markerOmittedChars: omittedChars,
+		trimHead: true,
+		trimTail: true,
+		buildMarker: buildNoFileSectionCompactionMarker,
+	});
+	return `${header}${excerpt}${footer}`;
+}
+
+function buildNoFileSectionCompactionMarker(omittedChars: number): string {
+	return `\n[... omitted ${omittedChars} chars from compacted diff without file sections ...]\n`;
 }
 
 function truncateToMaxChars(value: string, maxChars: number): string {
-	return truncateHeadWithMarker({
+	return truncateTextHead({
 		value,
 		maxChars,
 		buildMarker: () => "\n[... compacted checkpoint diff section truncated to prompt budget ...]\n",
@@ -253,24 +261,12 @@ function truncateToMaxChars(value: string, maxChars: number): string {
 }
 
 function compactPromptText(value: string, maxChars: number, label: string): string {
-	return truncateHeadWithMarker({
+	return truncateTextHead({
 		value,
 		maxChars,
 		trimInput: true,
 		buildMarker: (omittedChars) => `\n[... omitted ${omittedChars} chars from ${label} ...]\n`,
 	});
-}
-
-function truncateHeadWithMarker(input: HeadTruncatedTextInput): string {
-	const value = input.trimInput === true ? input.value.trim() : input.value;
-	if (value.length <= input.maxChars) return value;
-
-	let marker = input.buildMarker(0);
-	let preservedChars = Math.max(0, input.maxChars - marker.length);
-	marker = input.buildMarker(value.length - preservedChars);
-	preservedChars = Math.max(0, input.maxChars - marker.length);
-	marker = input.buildMarker(value.length - preservedChars);
-	return `${value.slice(0, preservedChars).trimEnd()}${marker}`;
 }
 
 function promptBlock(value: string, emptyPlaceholder: string): string {

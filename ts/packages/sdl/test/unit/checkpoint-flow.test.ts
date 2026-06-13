@@ -78,6 +78,22 @@ describe("buildCheckpointUserPrompt", () => {
 		expect(prompt).not.toContain("FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
 	});
 
+	test("large diff without file sections uses a bounded head and tail excerpt", () => {
+		const prompt = buildCheckpointUserPrompt({
+			status: " M generated.txt\n",
+			diff: `${"head".repeat(7_000)}\nMIDDLE_SENTINEL_SHOULD_NOT_APPEAR\n${"tail".repeat(7_000)}`,
+		});
+
+		expect(prompt.length).toBeLessThan(26_000);
+		expect(prompt).toContain("Detected file sections: 0");
+		expect(prompt).toContain("No diff --git file sections were detected; using head/tail excerpt.");
+		expect(prompt).toContain("[... omitted ");
+		expect(prompt).toContain("chars from compacted diff without file sections");
+		expect(prompt).toContain("headheadhead");
+		expect(prompt).toContain("tailtailtail");
+		expect(prompt).not.toContain("MIDDLE_SENTINEL_SHOULD_NOT_APPEAR");
+	});
+
 	test("empty diff keeps the existing untracked-file placeholder", () => {
 		const prompt = buildCheckpointUserPrompt({ status: "?? notes.md\n", diff: "\n" });
 

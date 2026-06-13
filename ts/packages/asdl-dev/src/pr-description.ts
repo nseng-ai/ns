@@ -4,10 +4,11 @@ import process from "node:process";
 
 import type { GitGateway } from "@asdl/core/git";
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { truncateTextHeadTail } from "@asdl/core/text-truncation";
+import { prepareRepairedText } from "@asdl/sdl/text-repair";
 
 import type { PrCommitMessage } from "./gateways/github-pr.ts";
 import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-generation.ts";
-import { prepareRepairedText } from "@asdl/sdl/text-repair";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".asdl/prompts/pr-description.md";
@@ -282,12 +283,12 @@ export function filterLockfileSections(diff: string): string {
 }
 
 export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
-	if (diff.length <= maxChars) return diff;
-	const marker = `\n[... TRUNCATED ${diff.length - maxChars} chars ...]\n`;
-	const remaining = Math.max(0, maxChars - marker.length);
-	const headChars = Math.floor(remaining * 0.7);
-	const tailChars = remaining - headChars;
-	return `${diff.slice(0, headChars)}${marker}${diff.slice(diff.length - tailChars)}`;
+	return truncateTextHeadTail({
+		value: diff,
+		maxChars,
+		headRatio: 0.7,
+		buildMarker: (omittedChars) => `\n[... TRUNCATED ${omittedChars} chars ...]\n`,
+	});
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
