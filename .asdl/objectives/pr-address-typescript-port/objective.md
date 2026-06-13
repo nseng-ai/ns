@@ -22,7 +22,7 @@ As of 2026-06-10 this record also owns the TS-package quality remediation absorb
 - Contract consolidation: one canonical Zod schema per wire shape (plan, manifest, checkpoint, stack-plan, summaries, classification packet), `z.infer` producer types, deletion of hand-written mirror interfaces and `unknown`-washing seams.
 - Structural decomposition of the two >1,300-line files (`operation-schemas.ts`, `classification-core.ts`) along boundaries the import graph already proves.
 - Deduplication: a single operation table (registry + schema docs + help), a shared operation-support layer, a shared thread-decision engine between the single-PR and stack resolve-payload builders, and ports of the Python `thread_index` / `string_values` shared modules.
-- Test-suite hardening and fixture regeneration/provenance machinery on the Python side while the reference is in-repo.
+- Test-suite hardening while the Python reference is in-repo, specifically real git/GitHub adapter tests and json-schema comparator failure-mode tests. Fixture regeneration, drift detection, and provenance stamps are deliberately out of scope.
 - Payload/reference consolidation: one shared XOR-source resolver in `json-input.ts`, one reference-validation/diagnostics rule, a package-local declarative `loadOperationPayload` per-operation payload spec, and stdin-edge documentation plus scenario pinning. Do not extract first-class clinkr payload/reference support from this Objective unless a second consumer outside pr-address proves the seam in a later decision.
 
 ## Non-Goals
@@ -52,7 +52,7 @@ As of 2026-06-10 this record also owns the TS-package quality remediation absorb
 - No source file in the package exceeds 1,000 lines; `operation-schemas.ts` and `classification-core.ts` are decomposed.
 - One operation table drives dispatch, schema routing, and help; the dead exports identified by the review (`LEGACY_EXEC_OPERATIONS`, `isTsManaged`, `raw-exit`, and peers) are gone; `PrAddressContext` gateways are required and the `missing_gateway` branch class is deleted.
 - The single-PR and stack resolve-payload builders share a thread-decision engine; the `trimRequired` divergence is eliminated by a shared string-values module.
-- Real GitHub/git gateway adapters and the json-schema-parity comparator have their own tests; captured-Python fixtures have a regeneration path and provenance, established while the Python reference is in-repo.
+- Real GitHub/git gateway adapters and the json-schema-parity comparator have their own tests. Captured-Python fixture regeneration, drift detection, and provenance stamps are deliberately out of scope.
 - Exactly one implementation of the embedded-key-XOR-reference-option policy exists, in `json-input.ts`; the three prior implementations are deleted and all three reference-backed operations call it.
 - Exactly one rule governs reference artifact validation and diagnostics across `--prep-reference`, `--stack-plan-reference`, and `--current-prep-reference`; the duplicated `stackPlanReferenceShapeSchema` copies are gone.
 - A declarative payload spec drives payload + reference resolution for the reference-backed operations; the stdin-with-fully-reference-backed-inputs behavior is documented and pinned by a scenario test.
@@ -142,7 +142,6 @@ Risks:
 - How should TypeScript output handle Python/Pydantic compatibility details such as explicit `null` fields in otherwise optional manifest/template data?
 - Which command-runtime pieces deserve extraction only after a second operation slice or later capability proves the same seam?
 - What are the exact build inputs, runtime requirements, and refresh story for the bundled installed-skill artifact (Node version floor, single-file vs directory bundle, how installed skills pick up new bundles)?
-- Should the fixture regeneration entry point live as a pytest in `packages/asdl-pr-address/tests/` (drift-detection with `--update`) or as a standalone capture script? The thermo review leaned toward the pytest form so the Python suite guards freshness while both implementations coexist.
 - Should the `stack-feedback-prep` parallel-fetch phase flip on before or after cutover, given fetch-failure disk-state differs from Python under partial failure (stdout/exit parity is preserved either way)?
 - Is `writeTextArtifact` (no production caller) needed by upcoming log-artifact operations, or should it be deleted in the dead-code sweep?
 - Shape layer for reference validation: delete (downstream validators like `invalid_stack_plan_shape` already speak) or keep-but-canonical (earlier "wrong file at this path" diagnostics)? One rule must win for all three reference options.

@@ -36,6 +36,16 @@ function threadNode(overrides: Record<string, unknown> = {}): Record<string, unk
 	};
 }
 
+describe("RealPrAddressGitHubGateway.getPr", () => {
+	test("distinguishes lookup misses from command failures", async () => {
+		const miss = await gatewayReturning({ stdout: "", stderr: "no pull requests found for branch", exitCode: 1 }).getPr(1157, { cwd: "/repo" });
+		expect(miss).toEqual({ type: "miss", stderr: "no pull requests found for branch", returncode: 1 });
+
+		const failure = await gatewayReturning({ stdout: "partial", stderr: "gh auth failed", exitCode: 4 }).getPr(1157, { cwd: "/repo" });
+		expect(failure).toEqual({ type: "failure", failure: { stdout: "partial", stderr: "gh auth failed", returncode: 4 } });
+	});
+});
+
 describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 	test("issues the exact gh GraphQL command with cwd and env passthrough", async () => {
 		const requests: ProcessRequest[] = [];
@@ -154,8 +164,18 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 		expect(result).toEqual({ type: "failure", failure: { stdout, stderr: JSON.stringify(errors), returncode: 0 } });
 	});
 
-	test("drops comments with a null databaseId", async () => {
-		const nodes = [threadNode({ comments: { nodes: [commentNode({ databaseId: null }), commentNode({ databaseId: 7 })] } })];
+	test("defaults a missing comments.nodes shape to an empty comment list", async () => {
+		const nodes = [threadNode({ comments: {} })];
+		const gateway = gatewayReturning({ stdout: graphqlResponse(nodes), stderr: "", exitCode: 0 });
+
+		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") expect(result.value[0]?.comments).toEqual([]);
+	});
+
+	test("drops comments with null or non-numeric ids", async () => {
+		const nodes = [threadNode({ comments: { nodes: [commentNode({ databaseId: null }), commentNode({ databaseId: undefined, id: "node-id" }), commentNode({ databaseId: 7 })] } })];
 		const gateway = gatewayReturning({ stdout: graphqlResponse(nodes), stderr: "", exitCode: 0 });
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });

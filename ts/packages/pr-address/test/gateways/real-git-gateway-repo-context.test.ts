@@ -6,6 +6,42 @@ function gatewayReturning(result: ProcessResult): RealPrAddressGitGateway {
 	return new RealPrAddressGitGateway({ runProcess: async () => result });
 }
 
+describe("RealPrAddressGitGateway.getRestructuredFiles", () => {
+	test("parses rename and copy status lines while ignoring ordinary changes", async () => {
+		const requests: ProcessRequest[] = [];
+		const gateway = new RealPrAddressGitGateway({
+			runProcess: async (request) => {
+				requests.push(request);
+				return {
+					stdout: "R100\tsrc/old.ts\tsrc/new.ts\nC75\tsrc/base.ts\tsrc/copy.ts\nM\tsrc/edit.ts\nRbad\tsrc/weird.ts\tsrc/weird-new.ts\n",
+					stderr: "",
+					exitCode: 0,
+				};
+			},
+		});
+
+		const result = await gateway.getRestructuredFiles("master", { cwd: "/repo", env: { PATH: "/fake/bin" } });
+
+		expect(result).toEqual({
+			type: "ok",
+			value: [
+				{ status: "R100", old_path: "src/old.ts", new_path: "src/new.ts", similarity: 100 },
+				{ status: "C75", old_path: "src/base.ts", new_path: "src/copy.ts", similarity: 75 },
+				{ status: "Rbad", old_path: "src/weird.ts", new_path: "src/weird-new.ts", similarity: null },
+			],
+		});
+		expect(requests).toEqual([
+			{
+				command: "git",
+				args: ["diff", "--name-status", "-M", "-C", "origin/master...HEAD"],
+				cwd: "/repo",
+				env: { PATH: "/fake/bin" },
+				timeout: 10_000,
+			},
+		]);
+	});
+});
+
 describe("RealPrAddressGitGateway.isInsideWorkTree", () => {
 	test("issues the exact git command with cwd, env, and timeout", async () => {
 		const requests: ProcessRequest[] = [];
