@@ -25,6 +25,7 @@ export interface ExecOptions {
 	signal?: AbortSignal;
 	onStdout?: (text: string) => void;
 	onStderr?: (text: string) => void;
+	input?: string;
 }
 
 export type CommandRunner = (executable: string, args: readonly string[], options?: ExecOptions) => Promise<ExecResult>;
@@ -71,7 +72,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 
 		const spawnOptions: SpawnOptions = {
 			shell: false,
-			stdio: ["ignore", "pipe", "pipe"],
+			stdio: options.input === undefined ? ["ignore", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
 		};
 		if (options.cwd !== undefined) {
 			spawnOptions.cwd = options.cwd;
@@ -102,6 +103,12 @@ export async function runCommand(command: string, args: readonly string[], optio
 		};
 
 		const child = spawn(command, [...args], spawnOptions);
+		child.stdin?.on("error", () => {
+			// The child may exit or close stdin before optional input is fully written; the process exit result remains authoritative.
+		});
+		if (options.input !== undefined) {
+			child.stdin?.end(options.input);
+		}
 		if (options.timeout !== undefined && options.timeout > 0) {
 			timeoutTimer = setTimeout(() => {
 				hasTimedOut = true;

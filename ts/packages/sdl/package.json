@@ -9,8 +9,10 @@
     "./checkpoint-message": "./src/checkpoint-message.ts",
     "./cli": "./src/cli.ts",
     "./context": "./src/context.ts",
+    "./cp-command": "./src/cp-command.ts",
     "./pending-worktree": "./src/pending-worktree.ts",
     "./pi-text-generation": "./src/pi-text-generation.ts",
+    "./sdk": "./src/sdk.ts",
     "./text-generation": "./src/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
   },
@@ -27,7 +29,7 @@
     "@asdl/plans": "workspace:*",
     "@earendil-works/pi-ai": "0.79.1",
     "@earendil-works/pi-coding-agent": "0.79.1",
+    "jiti": "2.7.0",
     "zod": "^4.4.3"
-  },
-  "devDependencies": {}
+  }
 }
