@@ -12,6 +12,7 @@ from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 
 Severity = Literal["info", "warning", "error"]
+DiffChangeKind = Literal["added", "modified", "deleted", "renamed", "copied"]
 StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
 
 
@@ -258,12 +259,46 @@ class ReviewCatalog:
 
 
 @dataclass(frozen=True)
+class DiffFile:
+    """One file's slice of a unified diff, with size metrics."""
+
+    path: str
+    old_path: str | None
+    change_kind: DiffChangeKind
+    raw_text: str
+    is_binary: bool
+    added_lines: int
+    removed_lines: int
+    hunk_count: int
+    byte_size: int
+    estimated_tokens: int
+
+
+@dataclass(frozen=True)
 class LocalDiff:
     """Diff content to review."""
 
     base_ref: str
     diff_text: str
     changed_paths: tuple[str, ...] = ()
+    files: tuple[DiffFile, ...] = ()
+
+    @classmethod
+    def from_diff_text(
+        cls,
+        *,
+        base_ref: str,
+        diff_text: str,
+        changed_paths: tuple[str, ...] = (),
+    ) -> LocalDiff:
+        from roaster.diff_parsing import parse_unified_diff
+
+        return cls(
+            base_ref=base_ref,
+            diff_text=diff_text,
+            changed_paths=changed_paths,
+            files=parse_unified_diff(diff_text),
+        )
 
 
 @dataclass(frozen=True)

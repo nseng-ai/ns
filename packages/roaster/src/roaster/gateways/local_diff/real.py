@@ -55,7 +55,7 @@ class RealLocalDiffGateway(LocalDiffGateway):
                 stderr or f"Unable to list changed paths against origin/{resolved_base_ref}."
             )
 
-        return LocalDiff(
+        return LocalDiff.from_diff_text(
             base_ref=resolved_base_ref,
             diff_text=diff_result.stdout,
             changed_paths=tuple(
