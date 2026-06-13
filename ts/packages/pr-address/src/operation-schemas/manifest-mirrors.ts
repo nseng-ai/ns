@@ -27,7 +27,9 @@ const feedbackDomainLocatorSchema = z.object({
 	author: nullableStringSchema.optional(),
 });
 
-export const bodyLocatorSchema = z.object({
+// Full body locator with domain metadata and char count; distinct from the 2-field
+// classificationLocatorSchema used in classification-shared.ts and classification.ts.
+export const manifestBodyLocatorSchema = z.object({
 	body_chars: z.int(),
 	json_pointer: z.string(),
 	item_pointer: nullableStringSchema.optional(),
@@ -48,7 +50,7 @@ const reviewManifestItemSchema = z.object({
 	author: z.string(),
 	state: prReviewStateSchema,
 	submitted_at: z.string(),
-	body_locator: bodyLocatorSchema,
+	body_locator: manifestBodyLocatorSchema,
 });
 
 const threadCommentManifestItemSchema = z.object({
@@ -58,7 +60,7 @@ const threadCommentManifestItemSchema = z.object({
 	line: nullableIntSchema,
 	start_line: nullableIntSchema,
 	created_at: z.string(),
-	body_locator: bodyLocatorSchema,
+	body_locator: manifestBodyLocatorSchema,
 });
 
 const threadManifestItemSchema = z.object({
@@ -77,7 +79,7 @@ const discussionCommentManifestItemSchema = z.object({
 	comment_id: z.int(),
 	author: z.string(),
 	url: z.string(),
-	body_locator: bodyLocatorSchema,
+	body_locator: manifestBodyLocatorSchema,
 });
 
 export const getFeedbackPayloadManifestSchema = z.object({

@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { type JsonSchemaDocument } from "@asdl/clinkr";
 
 import {
 	buildClassificationTemplateSchemaDocument,
 	buildPlanFeedbackSchemaDocument,
 	buildValidateFeedbackClassificationSchemaDocument,
-	type JsonSchemaDocument,
-} from "../classification-schemas.ts";
+} from "./classification.ts";
 import {
 	getFeedbackRequestSchema,
 	getFeedbackResultSchema,
@@ -44,7 +44,11 @@ import {
 
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
 //
-// These schemas mirror the legacy Python (Pydantic) request/result contracts at the
+// Schema document builders are organized in operation-schemas/ subdirectory:
+// - classification.ts: classification trio (template, validate, plan) — legacy TS-owned schemas
+// - collection.ts, mutation.ts, payload.ts, stack.ts: parity-pinned operation schemas
+//
+// Parity-pinned schemas mirror the legacy Python (Pydantic) request/result contracts at the
 // structural-semantic level: property sets, required-ness, types, enums, and explicit
 // nullability match the Python documents, while dialect details (titles, `$defs`
 // naming, integer bounds) may differ. Parity is enforced against captured Python

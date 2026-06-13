@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { buildPlanFeedbackSchemaDocument } from "../../src/classification-schemas.ts";
+import { buildPlanFeedbackSchemaDocument, classificationTemplateResultDocSchema } from "../../src/operation-schemas/classification.ts";
 import { buildFeedbackClassificationTemplate } from "../../src/classification-template.ts";
 import { planFeedback } from "../../src/classification-planning.ts";
 import { validateFeedbackClassification } from "../../src/classification-validation.ts";
@@ -31,7 +31,11 @@ describe("classification-template TypeScript parity", () => {
 			const actual = buildFeedbackClassificationTemplate((input as { manifest: unknown }).manifest);
 
 			expect(actual.type).toBe("ok");
-			if (actual.type === "ok") expect(actual.value).toEqual(expected);
+			if (actual.type === "ok") {
+				expect(actual.value).toEqual(expected);
+				// Schema validation guard: ensure builder output always parses the doc schema
+				expect(() => classificationTemplateResultDocSchema.parse(actual.value)).not.toThrow();
+			}
 		});
 	}
 });

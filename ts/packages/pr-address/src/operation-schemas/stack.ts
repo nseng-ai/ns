@@ -5,7 +5,7 @@ import {
 	feedbackClassificationValidationErrorSchema,
 } from "./classification.ts";
 import { mapBranchPrsSummarySchema } from "./collection.ts";
-import { bodyLocatorSchema, feedbackCountsSchema, getFeedbackPayloadManifestSchema } from "./manifest-mirrors.ts";
+import { manifestBodyLocatorSchema, feedbackCountsSchema, getFeedbackPayloadManifestSchema } from "./manifest-mirrors.ts";
 import { resolveThreadBatchPayloadSchema } from "./payload.ts";
 import {
 	discussionTriageReasonSchema,
@@ -160,7 +160,7 @@ const stackDiscussionTriageItemSchema = z.object({
 	author: z.string(),
 	classification_hint: z.enum(["automation", "human_like", "needs_agent_review"]),
 	reason: discussionTriageReasonSchema,
-	body_locator: bodyLocatorSchema,
+	body_locator: manifestBodyLocatorSchema,
 });
 
 const stackDiscussionTriageSummarySchema = z.object({
@@ -304,7 +304,7 @@ const stackFeedbackPlanItemSchema = z.object({
 	thread_id: nullableStringSchema.optional(),
 	discussion_comment_id: nullableIntSchema.optional(),
 	covered_comment_ids: z.array(z.int()).optional(),
-	body_locator: bodyLocatorSchema.nullable().optional(),
+	body_locator: manifestBodyLocatorSchema.nullable().optional(),
 	thread_item_pointer: nullableStringSchema.optional(),
 	path: nullableStringSchema.optional(),
 	line: nullableIntSchema.optional(),
@@ -337,7 +337,7 @@ const stackFeedbackPlanInformationalItemSchema = z.object({
 	thread_id: nullableStringSchema.optional(),
 	discussion_comment_id: nullableIntSchema.optional(),
 	covered_comment_ids: z.array(z.int()).optional(),
-	body_locator: bodyLocatorSchema.nullable().optional(),
+	body_locator: manifestBodyLocatorSchema.nullable().optional(),
 	thread_item_pointer: nullableStringSchema.optional(),
 	path: nullableStringSchema.optional(),
 	line: nullableIntSchema.optional(),
