@@ -2,7 +2,7 @@
 
 TypeScript implementation of the public `pr-address` standalone CLI.
 
-This package owns the package boundary and direct Node CLI entrypoint for `pr-address`. Every `pr-address exec ...` operation executes in TypeScript; the legacy Python CLI remains only as a compatibility fallback for a few click usage-error shapes (see "Compatibility-backed behavior" below).
+This package owns the package boundary and direct Node CLI entrypoint for `pr-address`. Every `pr-address exec ...` operation — including argv parsing, usage errors, and every `--json-schema` route — executes in TypeScript; the legacy Python CLI remains only as a compatibility fallback for genuinely unknown exec operation names (see "Compatibility-backed behavior" below).
 
 ## Current migration status
 
@@ -22,8 +22,10 @@ TypeScript-managed local `exec` operation execution:
 
 Compatibility-backed behavior that must stay in place for now:
 
-- Invalid `--payload-mode` values for `get-feedback` and `prepare-run`, invalid `--stdout-mode` values for `stack-feedback-preflight`, `stack-feedback-prep`, and `stack-feedback-plan`, and non-integer `--body-chars` values for `summarize-feedback` (click usage-error rendering)
+- Genuinely unknown `pr-address exec <operation>` names delegate to the legacy Python CLI verbatim (same args, stdio, and exit code)
 - The Python `asdl pr-address ...` plugin
+
+Argv usage errors (unknown/missing options, excess arguments, non-integer values, invalid `--payload-mode`/`--stdout-mode`/`--format` choices) are rendered by commander in TypeScript as raw stderr exit-2 errors — click parity, with no legacy invocation.
 
 ## Distribution
 

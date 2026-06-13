@@ -18,8 +18,9 @@
 - [ ] Migrate `@asdl/planned-branch` to clinkr.
 - [ ] Migrate `asdl-dev` to clinkr.
   - The flag-syntax question is resolved: commander natively supports both `--flag=value` and `--flag value`, so clinkr offers both globally with no normalization layer. Remaining stress here is the open question about pi-ai-dependent commands (streaming vs the envelope model).
-- [ ] Migrate the `@asdl/pr-address` CLI shell to clinkr, preserving legacy-Python fallback dispatch.
+- [x] Migrate the `@asdl/pr-address` CLI shell to clinkr, preserving legacy-Python fallback dispatch.
   - Coordinate with `pr-address-typescript-port` and `pr-address-ts-thermo-review-followups`; this objective owns only the CLI shell, not operation semantics or Python retirement.
+  - Completion evidence (2026-06-12): the consumer migration was executed under `pr-address-typescript-port` (branches `pr-address-ts/clinkr-parity-extensions` + `pr-address-ts/clinkr-shell`); the framework gained three reusable parity extensions in `@asdl/clinkr`: strict-integer `z.int()` field kind (click-strict digits-only parsing on options and positionals), the 4-choice `--format` (`human|json|markdown|md`, markdown/md collapsing to the human renderer), and the per-command `schemaDocument` override for pre-clinkr pinned `--json-schema` documents.
 - [ ] Update the umbrella objective `port-asdl-toolkit-to-typescript`.
   - Progress its clinkr roadmap row, record `@asdl/clinkr` as the answer to its package-identity open question, and note ledger impact.
 

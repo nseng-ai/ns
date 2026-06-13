@@ -52,12 +52,16 @@ installing checkout everywhere else. It requires `node` (Node 24 or newer).
 
 Compatibility-backed behavior that must remain for now:
 
-- a small set of malformed-option usage errors (invalid `--payload-mode`,
-  invalid `--stdout-mode`, non-integer `--body-chars`) still render through the
-  legacy Python CLI
+- genuinely unknown `pr-address exec <operation>` names delegate to the legacy
+  Python CLI verbatim
 - the Python `asdl pr-address ...` plugin
 - the explicit manual rollback to the published legacy Python package
   (`uvx --from asdl-pr-address==0.1.1 pr-address ...`)
+
+Malformed argv (unknown/missing options, excess arguments, non-integer values,
+invalid `--payload-mode`/`--stdout-mode`/`--format` choices) is rejected in
+TypeScript as a raw stderr usage error with exit code 2 — never a JSON
+envelope, and never via the legacy CLI.
 
 Do not treat this migration status as permission to delete the Python
 compatibility package. Plugin cutover and final retirement require an explicit
