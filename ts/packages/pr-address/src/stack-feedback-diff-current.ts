@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok } from "@asdl/clinkr";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
-import { loadJsonInput, resolveXorSourceInput } from "./json-input.ts";
+import { loadOperationPayload, operationPayloadValueOptions, type OperationPayloadField } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
@@ -62,6 +62,19 @@ const stackFeedbackDiffCurrentInputSchema = z.looseObject({
 	stack_plan: z.unknown().optional(),
 	current_prep: z.unknown().optional(),
 });
+type StackFeedbackDiffCurrentInput = z.infer<typeof stackFeedbackDiffCurrentInputSchema>;
+const stackFeedbackDiffCurrentPayloadFields = [
+	{
+		key: "stack_plan",
+		artifactDescription: "a stack-feedback-plan data artifact",
+		referenceSchema: z.unknown(),
+	},
+	{
+		key: "current_prep",
+		artifactDescription: "a stack-feedback-prep data artifact",
+		referenceSchema: z.unknown(),
+	},
+] as const satisfies readonly OperationPayloadField<StackFeedbackDiffCurrentInput, keyof StackFeedbackDiffCurrentInput & string>[];
 
 type StackFeedbackPlanItem = z.infer<typeof stackFeedbackPlanItemSchema>;
 type StackFeedbackPlanResult = z.infer<typeof stackFeedbackPlanResultSchema>;
@@ -90,51 +103,19 @@ interface DiffCurrentResult {
 }
 
 export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file", "--stack-plan-reference", "--current-prep-reference"]);
+	const options = parseManagedOptions(invocation.args, operationPayloadValueOptions(stackFeedbackDiffCurrentPayloadFields));
 	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
-	const stackPlanReferencePath = options.options.values.get("--stack-plan-reference");
-	const currentPrepReferencePath = options.options.values.get("--current-prep-reference");
-	const hasExplicitPayload = options.options.values.has("--payload-json") || options.options.values.has("--payload-file");
-
-	let payload: { stack_plan?: unknown; current_prep?: unknown } = {};
-	// With both inputs reference-backed, no payload is required at all.
-	if (hasExplicitPayload || stackPlanReferencePath === undefined || currentPrepReferencePath === undefined) {
-		const payloadResult = await loadJsonInput({
-			optionValue: options.options.values.get("--payload-json"),
-			filePath: options.options.values.get("--payload-file"),
-			commandName: "stack-feedback-diff-current",
-			inputDescription: "stack feedback diff JSON payload",
-			optionName: "--payload-json",
-			fileOptionName: "--payload-file",
-			schema: stackFeedbackDiffCurrentInputSchema,
-			stdin: invocation.deps.stdin,
-		});
-		if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
-		payload = payloadResult.value;
-	}
-
-	const stackPlanResult = await resolveXorSourceInput({
+	const payloadResult = await loadOperationPayload(invocation, {
 		commandName: "stack-feedback-diff-current",
-		embeddedValue: payload.stack_plan,
-		embeddedKey: "stack_plan",
-		referencePath: stackPlanReferencePath,
-		optionName: "--stack-plan-reference",
-		artifactDescription: "a stack-feedback-plan data artifact",
-		referenceSchema: z.unknown(),
+		inputDescription: "stack feedback diff JSON payload",
+		payloadSchema: stackFeedbackDiffCurrentInputSchema,
+		values: options.options.values,
+		payloadOptionalWhenAllFieldsReferenced: true,
+		fields: stackFeedbackDiffCurrentPayloadFields,
 	});
-	if (stackPlanResult.type === "error") return { type: "exit", exit: failure(stackPlanResult.error.errorType, stackPlanResult.error.message) };
-	const currentPrepResult = await resolveXorSourceInput({
-		commandName: "stack-feedback-diff-current",
-		embeddedValue: payload.current_prep,
-		embeddedKey: "current_prep",
-		referencePath: currentPrepReferencePath,
-		optionName: "--current-prep-reference",
-		artifactDescription: "a stack-feedback-prep data artifact",
-		referenceSchema: z.unknown(),
-	});
-	if (currentPrepResult.type === "error") return { type: "exit", exit: failure(currentPrepResult.error.errorType, currentPrepResult.error.message) };
+	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
 
-	const result = diffStackFeedbackCurrent({ stack_plan: stackPlanResult.value, current_prep: currentPrepResult.value });
+	const result = diffStackFeedbackCurrent(payloadResult.value as { stack_plan: unknown; current_prep: unknown });
 	if (result.valid && result.safe_to_resolve_planned) return { type: "exit", exit: ok(result) };
 	return {
 		type: "exit",

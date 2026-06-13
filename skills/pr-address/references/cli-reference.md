@@ -77,6 +77,12 @@ All `pr-address exec <command> --format json` helpers:
 - Support `--json-schema` to print JSON schemas for input/output/error shapes
   and exit without running the operation.
 
+For helpers that accept payload fields by reference, e.g.
+`stack-feedback-diff-current --stack-plan-reference ... --current-prep-reference ...`,
+stdin is ignored only when every payload field is supplied by reference and no
+explicit `--payload-json`/`--payload-file` is passed. In all other cases, keep
+using exactly one payload source.
+
 ```bash
 pr-address exec resolve-thread-with-reply \
   PRRT_kw... fixed "Updated the guard." abc1234 --format json
