@@ -57,8 +57,12 @@ export interface ParsedArgs {
 
 export interface StackSnapshot {
 	trunk: string;
+	/** Actual branch checked out in this worktree when landing started. */
 	current: string;
+	actualCurrentBranch: string;
+	landingTargetBranch: string;
 	landingBranches: string[];
+	remainingLandingBranches: string[];
 	descendantBranches: string[];
 	warnings: string[];
 }
@@ -146,6 +150,12 @@ export interface LandedPr {
 	url?: string;
 }
 
+export interface LandedChunk {
+	index: number;
+	landingTargetBranch: string;
+	landed: LandedPr[];
+}
+
 export interface CommandStreamPrLink {
 	number: number;
 	url: string;
@@ -171,7 +181,6 @@ export interface RetainedLocalBranchCleanup {
 
 export interface RemainingCleanup {
 	retainedLocalBranches: RetainedLocalBranchCleanup[];
-	detachedWorktreeTrunk: string | undefined;
 }
 
 export interface CommandStreamFinish {

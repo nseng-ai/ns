@@ -18,3 +18,6 @@ export const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefNam
 export const MAX_OUTPUT_TAIL_LINES = 40;
 export const MAX_OUTPUT_TAIL_CHARS = 4_000;
 export const MAX_COMMAND_STREAM_OUTPUT_LINES = 4;
+
+export const AUTO_CHUNK_LANDING_THRESHOLD = 10;
+export const AUTO_CHUNK_LANDING_SIZE = 8;

@@ -58,6 +58,14 @@ const DB_SINGLE_BRANCH = metadataDbJson([
 
 const BRANCH_SHAS: Record<string, string> = { "feature-a": SHA_A, "feature-b": SHA_B, [DESCENDANT]: SHA_C };
 
+function numberedBranch(index: number): string {
+	return `feature-${index}`;
+}
+
+function numberedSha(index: number): string {
+	return index.toString(16).padStart(2, "0").repeat(20);
+}
+
 type MessageRenderer = Parameters<NonNullable<LandStackExtensionAPI["registerMessageRenderer"]>>[1];
 type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0] & {
 	options?: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[1];
@@ -366,6 +374,127 @@ function localBranchChecks(branches: string[]): ScriptedExec[] {
 	return branches.map((branch) => step("git", ["show-ref", "--verify", `refs/heads/${branch}`]));
 }
 
+function numberedDb(start: number, end: number, options: { trunk?: string; current?: number } = {}): string {
+	const trunk = options.trunk ?? TRUNK;
+	const current = options.current ?? end;
+	return metadataDbJson([
+		{ branch: trunk, children: start <= end ? [numberedBranch(start)] : [], trunk: true },
+		...Array.from({ length: end - start + 1 }, (_, offset) => {
+			const index = start + offset;
+			return {
+				branch: numberedBranch(index),
+				parent: index === start ? trunk : numberedBranch(index - 1),
+				children: index === current ? [] : [numberedBranch(index + 1)],
+			};
+		}),
+	]);
+}
+
+function numberedPreflight(options: { start?: number; end: number; current: number; planEnd?: number | undefined }): ScriptedExec[] {
+	const start = options.start ?? 1;
+	const planEnd = options.planEnd ?? options.end;
+	const currentBranch = numberedBranch(options.current);
+	const planBranches = Array.from({ length: planEnd - start + 1 }, (_, offset) => numberedBranch(start + offset));
+	return [
+		...repoIntro({ current: currentBranch, dbRows: numberedDb(start, options.end, { current: options.current }) }),
+		...cleanRepoChecks(),
+		...localBranchChecks(planBranches),
+		...planBranches.flatMap((branch) => {
+			const index = Number(branch.replace("feature-", ""));
+			return [
+				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${numberedSha(index)}\n` }),
+				step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
+					stdout: prStdout(
+						prSnapshot({
+							number: 200 + index,
+							branch,
+							base: index === start ? TRUNK : numberedBranch(index - 1),
+							sha: numberedSha(index),
+							title: `PR ${200 + index}`,
+						}),
+					),
+				}),
+			];
+		}),
+		step("git", ["worktree", "list", "--porcelain"], { stdout: worktreeOutput([{ path: ROOT, branch: currentBranch }]) }),
+	];
+}
+
+function backupRefStepsForNumberedBranches(start: number, end: number): ScriptedExec[] {
+	const shas: Record<string, string> = {};
+	for (let index = start; index <= end; index += 1) {
+		shas[numberedBranch(index)] = numberedSha(index);
+	}
+	return backupRefSteps(
+		Array.from({ length: end - start + 1 }, (_, offset) => numberedBranch(start + offset)),
+		{ shas },
+	);
+}
+
+function elevenPrChunkLandingScript(): ScriptedExec[] {
+	return [
+		...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+		...backupRefStepsForNumberedBranches(1, 11),
+		...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) => mergeNumberedBranch(index, { next: index + 1 })),
+		...numberedPreflight({ start: 9, end: 11, current: 11 }),
+		mergeNumberedBranch(9, { next: 10 }),
+		mergeNumberedBranch(10, { next: 11 }),
+		mergeNumberedBranch(11, { finalCheckedOut: true }),
+	].flat();
+}
+
+function mergeNumberedBranch(index: number, options: { next?: number | undefined; finalCheckedOut?: boolean; mergeCode?: number } = {}): ScriptedExec[] {
+	const branch = numberedBranch(index);
+	const sha = numberedSha(index);
+	const prNumber = 200 + index;
+	const steps: ScriptedExec[] = [
+		step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], { stdout: `${sha}\n` }),
+		step("gh", ["pr", "view", branch, "--json", PR_FIELDS], {
+			stdout: prStdout(prSnapshot({ number: prNumber, branch, base: TRUNK, sha, title: `PR ${prNumber}` })),
+		}),
+		step("gh", expectedSquashMergeArgs({ number: prNumber, sha, title: `PR ${prNumber}` }), {
+			code: options.mergeCode ?? 0,
+			stderr: options.mergeCode ? "merge blocked" : "",
+		}),
+		step("gh", ["pr", "view", String(prNumber), "--json", PR_FIELDS], {
+			stdout: prStdout(
+				prSnapshot({
+					number: prNumber,
+					branch,
+					base: TRUNK,
+					sha,
+					state: "MERGED",
+					mergedAt: "2026-05-22T00:00:00Z",
+					title: `PR ${prNumber}`,
+				}),
+			),
+		}),
+	];
+	if (options.mergeCode) {
+		return steps.slice(0, 3);
+	}
+	if (options.next !== undefined) {
+		const nextBranch = numberedBranch(options.next);
+		steps.push(
+			guardShaStep(nextBranch, numberedSha(options.next)),
+			step("gt", ["get", nextBranch, "--downstack", "--no-restack", "--no-checkout", "--force", "--no-interactive"]),
+			childrenRecheckStep(branch, [nextBranch]),
+			step("gt", ["delete", branch, "-f", "-q"]),
+			step("gt", ["restack", "--branch", nextBranch, "--upstack", "--no-interactive"]),
+		);
+		if (options.next < 11) {
+			steps.push(guardShaStep(numberedBranch(options.next + 1), numberedSha(options.next + 1)));
+		}
+		steps.push(step("gt", ["submit", "--branch", nextBranch, "--no-stack", "--update-only", "--no-edit", "--no-ai", "--no-interactive"]));
+		return steps;
+	}
+	steps.push(
+		childrenRecheckStep(branch, []),
+		step("gt", ["delete", branch, "-f", "-q"], options.finalCheckedOut ? { code: 1, stderr: `fatal: '${branch}' is already checked out at '/repo'\n` } : undefined),
+	);
+	return steps;
+}
+
 function initialBranchPlans(options: { featureBBase?: string | undefined } = {}): ScriptedExec[] {
 	return [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], { stdout: `${SHA_A}\n` }),
@@ -520,7 +649,10 @@ function singleBranchShape(): LandingShape {
 		stack: {
 			trunk: TRUNK,
 			current: "feature-a",
+			actualCurrentBranch: "feature-a",
+			landingTargetBranch: "feature-a",
 			landingBranches: ["feature-a"],
+			remainingLandingBranches: [],
 			descendantBranches: [],
 			warnings: [],
 		},
@@ -840,7 +972,10 @@ describe("land-stack pure helpers", () => {
 			stack: {
 				trunk: TRUNK,
 				current: CURRENT,
+				actualCurrentBranch: CURRENT,
+				landingTargetBranch: CURRENT,
 				landingBranches: ["feature-a", CURRENT],
+				remainingLandingBranches: [],
 				descendantBranches: [DESCENDANT],
 				warnings: ["off-column branch ignored"],
 			},
@@ -1130,6 +1265,83 @@ describe("land-stack command scenarios", () => {
 		expect(notifications[0]?.message).toContain("Dry run only; no PRs or local refs were changed.");
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(false);
+	});
+
+	test("auto-chunk does not trigger at exactly ten PRs", async () => {
+		const { pi, confirmations } = await runLandStack("", numberedPreflight({ end: 10, current: 10 }), { confirms: [false] });
+
+		pi.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Land this stack path?");
+		expect(confirmations[0]?.message).not.toContain("automatically in chunks");
+	});
+
+	test("auto-chunk dry-run triggers at eleven PRs and shows 8 plus 3 chunks without mutation", async () => {
+		const { pi, notifications, confirmations } = await runLandStack(
+			"--dry-run",
+			numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+		);
+
+		pi.assertDone();
+		expect(confirmations).toEqual([]);
+		const message = notifications[0]?.message ?? "";
+		expect(message).toContain("Total PRs: 11");
+		expect(message).toContain("Chunk size: 8");
+		expect(message).toContain("Chunks: 2");
+		expect(message).toContain("1. PRs 1-8: feature-1 -> feature-2 -> feature-3 -> feature-4 -> feature-5 -> feature-6 -> feature-7 -> feature-8");
+		expect(message).toContain("2. PRs 9-11: feature-9 -> feature-10 -> feature-11");
+		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "update-ref")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && ["get", "delete", "restack", "submit"].includes(call.args[0] ?? ""))).toBe(false);
+	});
+
+	test("auto-chunk with --yes lands eleven PRs as 8 plus 3 without per-chunk confirmation or backup rotation", async () => {
+		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", elevenPrChunkLandingScript());
+
+		pi.assertDone();
+		expect(confirmations).toEqual([]);
+		expect(pi.execCalls.filter((call) => call.command === "git" && sameArgs(call.args, BACKUP_ROTATION_ARGS))).toHaveLength(1);
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "switch" && call.args.includes("--detach"))).toBe(false);
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Landed 11 PRs across 2 chunks:");
+		expect(streamText).toContain("Chunk 1 through feature-8");
+		expect(streamText).toContain("Chunk 2 through feature-11");
+		expect(streamText).toContain("Local branch feature-11 was kept (still checked out at /repo); delete it manually or run gt sync.");
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("interactive auto-chunk asks one global confirmation before landing chunks", async () => {
+		const { pi, notifications, confirmations, messages } = await runLandStack("", elevenPrChunkLandingScript(), { confirms: [true] });
+
+		pi.assertDone();
+		expect(confirmations.map((confirmation) => confirmation.title)).toEqual(["Land this stack in chunks?"]);
+		expect(confirmations[0]?.message).toContain("Chunks: 2");
+		expect(confirmations[0]?.message).toContain("1. PRs 1-8");
+		expect(confirmations[0]?.message).toContain("2. PRs 9-11");
+		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("auto-chunk failure in later chunk hard-stops and reports landed chunks", async () => {
+		const script = [
+			...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+			...backupRefStepsForNumberedBranches(1, 11),
+			...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) => mergeNumberedBranch(index, { next: index + 1 })),
+			...numberedPreflight({ start: 9, end: 11, current: 11 }),
+			mergeNumberedBranch(9, { next: 10 }),
+			mergeNumberedBranch(10, { mergeCode: 1 }),
+		].flat();
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("Already landed by chunk:");
+		expect(streamText).toContain("Chunk 1 through feature-8");
+		expect(streamText).toContain("Chunk 2 through feature-11: #209 feature-9");
+		expect(streamText).toContain("Fix the reported issue, then rerun /code:land");
+		expect(streamText).toContain("Failed at: #210 feature-10");
+		expect(pi.execCalls.some((call) => call.command === "gh" && sameArgs(call.args, expectedSquashMergeArgs({ number: 211, sha: numberedSha(11), title: "PR 211" })))).toBe(false);
 	});
 
 	test("--dry-run treats descendant slot checkouts as skipped maintenance", async () => {
@@ -1630,7 +1842,7 @@ describe("land-stack command scenarios", () => {
 		expect(commandMessagesText(messages)).toContain("✓ $ gt delete feature-a -f -q — branch feature-a already absent");
 	});
 
-	test("detaches current worktree at trunk and retries final local Graphite delete", async () => {
+	test("retains final local Graphite branch when it is checked out in this worktree", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
@@ -1640,44 +1852,16 @@ describe("land-stack command scenarios", () => {
 				code: 1,
 				stderr: "fatal: 'feature-a' is already checked out at '/repo'\n",
 			}),
-			step("git", ["switch", "--detach", TRUNK]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("success");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1 — branch feature-a checked out in this worktree; detaching at main and retrying");
-		expect(streamText).toContain("✓ $ git switch --detach main");
-		expect(streamText).toContain("✓ $ gt delete feature-a -f -q");
-		expect(streamText).toContain("This worktree was detached at main to delete the final landed local branch.");
+		expect(streamText).not.toContain("git switch --detach");
+		expect(streamText).toContain("✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually with gt sync or direct branch deletion");
+		expect(streamText).toContain("Local branch feature-a was kept (still checked out at /repo); delete it manually or run gt sync.");
 		expect(streamText).not.toContain("Completed with 1 warning:");
-	});
-
-	test("reports a warning when final local Graphite delete retry fails after detach", async () => {
-		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
-		const script = [
-			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
-			...backupRefSteps(["feature-a"]),
-			...mergeSteps.slice(0, -1),
-			step("gt", ["delete", "feature-a", "-f", "-q"], {
-				code: 1,
-				stderr: "fatal: 'feature-a' is already checked out at '/repo'\n",
-			}),
-			step("git", ["switch", "--detach", TRUNK]),
-			step("gt", ["delete", "feature-a", "-f", "-q"], { code: 1, stderr: "ERROR: authentication failed\n" }),
-		];
-		const { pi, notifications, messages } = await runLandStack("--yes", script);
-
-		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
-		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit 1");
-		expect(streamText).toContain("Completed with 1 warning:");
-		expect(streamText).toContain("All target PRs were merged, but deleting the local Graphite branch feature-a failed.");
-		expect(streamText).toContain("This worktree was detached at main to delete the final landed local branch.");
-		expect(streamText).not.toContain("was kept (still checked out");
 	});
 
 	test("treats final local Graphite delete checkout conflict in another worktree as successful landing", async () => {
@@ -1708,27 +1892,6 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).not.toContain("Failed at:");
 	});
 
-	test("final local Graphite delete detach failure falls back to successful landing with retained branch", async () => {
-		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
-		const script = [
-			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
-			...backupRefSteps(["feature-a"]),
-			...mergeSteps.slice(0, -1),
-			step("gt", ["delete", "feature-a", "-f", "-q"], {
-				code: 1,
-				stderr: "fatal: 'feature-a' is already checked out at '/repo'\n",
-			}),
-			step("git", ["switch", "--detach", TRUNK], { code: 1, stderr: "switch failed" }),
-		];
-		const { pi, notifications, messages } = await runLandStack("--yes", script);
-
-		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("success");
-		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("✗ $ git switch --detach main — exit 1");
-		expect(streamText).toContain("Local branch feature-a was kept (still checked out at /repo); delete it manually or run gt sync.");
-		expect(streamText).not.toContain("Completed with 1 warning:");
-	});
 
 	test("treats unexpected final local Graphite delete failure as a post-landing warning", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
