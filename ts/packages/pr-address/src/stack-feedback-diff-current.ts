@@ -2,62 +2,19 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
+import { stackFeedbackPlanConsumerResultSchema, type StackFeedbackPlanConsumerItem, type StackFeedbackPlanConsumerResult } from "./stack-feedback-plan-contracts.ts";
+import {
+	stackFeedbackPrepResultWithManifestSchema,
+	type StackFeedbackPrepPrWithManifest,
+	type StackFeedbackPrepResultWithManifest,
+	type StackFeedbackPrepThreadManifestItem,
+} from "./stack-feedback-prep-contracts.ts";
 import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys, plannedPrNumbers, threadKey, threadKeyString, type ThreadKey } from "./stack-feedback-thread-index.ts";
 import { duplicateValues, trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
-
-const nullableStringSchema = z.string().nullable().default(null);
-const threadManifestItemSchema = z.looseObject({
-	thread_id: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_resolved: z.boolean(),
-	is_outdated: z.boolean(),
-	comment_count: z.number().int().default(0),
-});
-const stackFeedbackPlanItemMetadataSchema = z.looseObject({
-	pr_number: z.number().int(),
-	branch: z.string(),
-	title: nullableStringSchema,
-	source_batch_id: nullableStringSchema,
-	approval_required: z.boolean().default(false),
-});
-const stackFeedbackPlanItemSchema = z.union([
-	feedbackPlanActionItemSchema.and(stackFeedbackPlanItemMetadataSchema),
-	feedbackPlanInformationalItemSchema.and(stackFeedbackPlanItemMetadataSchema),
-]);
-const stackFeedbackPlanBatchSchema = z.looseObject({
-	batch_id: z.string(),
-	complexity: z.string(),
-	approval_required: z.boolean(),
-	items: z.array(stackFeedbackPlanItemSchema).default([]),
-});
-const stackFeedbackValidationPrSchema = z.looseObject({ pr_number: z.number().int(), valid: z.boolean().default(true), counts: z.unknown().optional(), errors: z.array(z.unknown()).default([]) });
-const stackFeedbackValidationSummarySchema = z.looseObject({ all_valid: z.boolean().default(true), per_pr: z.array(stackFeedbackValidationPrSchema).default([]) });
-const stackFeedbackPlanResultSchema = z.looseObject({
-	valid: z.boolean(),
-	payload_session_id: z.string().optional(),
-	pr_count: z.number().int().default(0),
-	validation: stackFeedbackValidationSummarySchema,
-	batches: z.array(stackFeedbackPlanBatchSchema).default([]),
-	informational: z.array(stackFeedbackPlanItemSchema).default([]),
-});
-const stackFeedbackPrepPrSchema = z.looseObject({
-	pr_number: z.number().int(),
-	branch: z.string(),
-	title: nullableStringSchema,
-	url: nullableStringSchema,
-	manifest: z.looseObject({ review_threads: z.array(threadManifestItemSchema).default([]) }),
-});
-const stackFeedbackPrepResultSchema = z.looseObject({
-	include_resolved: z.boolean().default(false),
-	stack: z.array(stackFeedbackPrepPrSchema).default([]),
-});
 // Either wire payload key may be omitted when its reference option supplies it.
 const stackFeedbackDiffCurrentInputSchema = z.looseObject({
 	stack_plan: z.unknown().optional(),
@@ -77,11 +34,10 @@ const stackFeedbackDiffCurrentPayloadFields = [
 	},
 ] as const satisfies readonly OperationPayloadField<StackFeedbackDiffCurrentInput, keyof StackFeedbackDiffCurrentInput & string>[];
 
-type StackFeedbackPlanItem = z.infer<typeof stackFeedbackPlanItemSchema>;
-type StackFeedbackPlanResult = z.infer<typeof stackFeedbackPlanResultSchema>;
-type StackFeedbackPrepResult = z.infer<typeof stackFeedbackPrepResultSchema>;
-type StackFeedbackPrepPr = z.infer<typeof stackFeedbackPrepPrSchema>;
-type ThreadManifestItem = z.infer<typeof threadManifestItemSchema>;
+type StackFeedbackPlanItem = StackFeedbackPlanConsumerItem;
+type StackFeedbackPlanResult = StackFeedbackPlanConsumerResult;
+type StackFeedbackPrepResult = StackFeedbackPrepResultWithManifest;
+type StackFeedbackPrepPr = StackFeedbackPrepPrWithManifest;
 
 interface DiffCurrentError {
 	code: string;
@@ -144,9 +100,9 @@ async function runStackFeedbackDiffCurrentOperation(
 }
 
 export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {
-	const stackPlanResult = stackFeedbackPlanResultSchema.safeParse(request.stack_plan);
+	const stackPlanResult = stackFeedbackPlanConsumerResultSchema.safeParse(request.stack_plan);
 	if (!stackPlanResult.success) return invalidResult([errorItem("invalid_stack_plan_shape", INVALID_STACK_PLAN_SHAPE_MESSAGE)]);
-	const currentPrepResult = stackFeedbackPrepResultSchema.safeParse(request.current_prep);
+	const currentPrepResult = stackFeedbackPrepResultWithManifestSchema.safeParse(request.current_prep);
 	if (!currentPrepResult.success) return invalidResult([errorItem("invalid_current_prep_shape", INVALID_CURRENT_PREP_SHAPE_MESSAGE)]);
 
 	const stackPlan = stackPlanResult.data;
@@ -166,7 +122,7 @@ function diffValidStackFeedback(options: {
 	currentPrep: StackFeedbackPrepResult;
 	plannedActionable: readonly StackFeedbackPlanItem[];
 	plannedKnownKeys: ReadonlySet<string>;
-	currentByKey: ReadonlyMap<string, ThreadManifestItem>;
+	currentByKey: ReadonlyMap<string, StackFeedbackPrepThreadManifestItem>;
 	warnings: readonly string[];
 }): DiffCurrentResult {
 	const plannedStillUnresolved: unknown[] = [];
@@ -327,8 +283,8 @@ function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanIte
 	return errors;
 }
 
-function currentThreadsByKey(currentPrep: StackFeedbackPrepResult): { currentByKey: ReadonlyMap<string, ThreadManifestItem>; errors: readonly DiffCurrentError[] } {
-	const currentByKey = new Map<string, ThreadManifestItem>();
+function currentThreadsByKey(currentPrep: StackFeedbackPrepResult): { currentByKey: ReadonlyMap<string, StackFeedbackPrepThreadManifestItem>; errors: readonly DiffCurrentError[] } {
+	const currentByKey = new Map<string, StackFeedbackPrepThreadManifestItem>();
 	const errors: DiffCurrentError[] = [];
 	for (const prResult of currentPrep.stack) {
 		for (const thread of prResult.manifest.review_threads) {
@@ -364,7 +320,7 @@ function validateStackMembership(stackPlan: StackFeedbackPlanResult, currentPrNu
 	return errors;
 }
 
-function materialMetadataMismatch(plannedItem: StackFeedbackPlanItem, currentThread: ThreadManifestItem): string[] {
+function materialMetadataMismatch(plannedItem: StackFeedbackPlanItem, currentThread: StackFeedbackPrepThreadManifestItem): string[] {
 	const changed: string[] = [];
 	if (plannedItem.path !== currentThread.path) changed.push("path");
 	if (plannedItem.line !== currentThread.line) changed.push("line");

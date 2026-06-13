@@ -6,13 +6,12 @@ import { loadJsonInput } from "./json-input.ts";
 import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import {
-	compactPrepResult,
-	prepareStackFeedbackStack,
 	type StackFeedbackPrInput,
 	type StackFeedbackPrepCompactPrResult,
 	type StackFeedbackPrepCompactResult,
 	type StackFeedbackPrepResult,
-} from "./stack-feedback-prep-core.ts";
+} from "./stack-feedback-prep-contracts.ts";
+import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-prep-core.ts";
 
 interface FrozenStackArtifact {
 	stack: StackFeedbackPrInput[];

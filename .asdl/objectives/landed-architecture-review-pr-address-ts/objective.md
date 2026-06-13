@@ -40,10 +40,10 @@ Risks:
 
 - **Python parity gate (not de-risked):** Candidate 1 and the parity-dependent parts of Candidate 5 are blocked on the legacy Python `--json-schema` parity requirement retiring (ADR-0004 frames the Python path as temporary). If parity must hold longer than expected, those rows stay blocked and the largest LOC win is deferred.
 - **Golden-test coupling:** Several shallow modules (`string-values`, `reply-formatting`) exist for byte-for-byte Python parity under golden tests. Inlining them prematurely would break parity tests; they must be flagged, not deleted, until parity stops mattering.
-- **Hidden coupling on merge (de-risked for classification):** The classification slice surfaced only expected callers, and they now import the curated `classification.ts` surface; final sweeps found no references to the old leaf module paths or the leaked validation artifact helper.
+- **Hidden coupling on merge (de-risked for classification and stack-feedback triage):** The classification slice surfaced only expected callers, and they now import the curated `classification.ts` surface. The stack-feedback triage slice gave discussion triage one owner and moved prep/plan/diff-current consumers onto focused producer-owned contracts. Final sweeps found no references to the old classification leaf module paths or leaked helper.
 
 ## Open Questions
 
 - Is the legacy Python `--json-schema` parity requirement still live, or close enough to retirement that Candidate 1 can be pulled now rather than parked?
 - Should the payload filesystem seam reuse an existing `@asdl/core` filesystem gateway if one exists, or define a pr-address-local port?
-- For the stack-feedback `contracts.ts` hub (286 LOC mixing wire schemas, result types, and operation field specs): decompose it as part of Candidate 3, or as a separate follow-up?
+- For stack-feedback, what follow-up contract seams remain after the triage/prep/plan/diff-current slice if later stack operations expose new ownership drift?

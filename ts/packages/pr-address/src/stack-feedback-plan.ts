@@ -9,17 +9,18 @@ import { PayloadStore } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
-	triageSummary,
 	type DecisionKind,
 	type StackFeedbackAutomationDiscussionSummary,
+	type StackFeedbackDecisionDocketItem,
+	type StackFeedbackPlanBatch,
 	type StackFeedbackPlanInput,
 	type StackFeedbackPlanInformationalItem,
 	type StackFeedbackPlanItem,
 	type StackFeedbackPlanResult,
 	type StackFeedbackPlanValidationSummary,
-	type StackPrepPrResultInput,
-	type StackPrepResultInput,
-} from "./stack-feedback-contracts.ts";
+} from "./stack-feedback-plan-contracts.ts";
+import { type StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
+import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
 import { duplicateValues, pythonRepr, pythonTupleRepr } from "./string-values.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
@@ -136,8 +137,13 @@ function emptyPlanResult(options: { sessionId: string; prCount: number; validati
 }
 
 interface PrPlanPair {
-	prResult: StackPrepPrResultInput;
+	prResult: StackFeedbackPrepPrResultInput;
 	plan: FeedbackPlanningResult;
+}
+
+interface StackDiscussionTriageIndex {
+	summary: StackFeedbackAutomationDiscussionSummary;
+	itemByKey: ReadonlyMap<string, StackDiscussionTriageItem>;
 }
 
 function mergedStackPlanResult(options: {
@@ -148,7 +154,7 @@ function mergedStackPlanResult(options: {
 }): StackFeedbackPlanResult {
 	const batches = mergedBatches(options.prPlans);
 	const informational = mergedInformational(options.prPlans);
-	const automationSummary = automationDiscussionSummary(options.prep);
+	const triageIndex = buildStackDiscussionTriageIndex(options.prep);
 	const actionItems = batches.flatMap((batch) => batch.items);
 	return {
 		valid: true,
@@ -157,20 +163,20 @@ function mergedStackPlanResult(options: {
 		validation: options.validation,
 		batches,
 		informational,
-		automation_discussion_summary: automationSummary,
-		decision_docket: decisionDocket(options.prep, batches, informational),
+		automation_discussion_summary: triageIndex.summary,
+		decision_docket: decisionDocket(triageIndex, batches, informational),
 		stack_plan_reference: null,
 		summary: {
 			actionable_items: actionItems.length,
 			approval_required_items: actionItems.filter((item) => item.approval_required).length,
 			informational_items: informational.length,
-			automation_discussion_comments: automationSummary.automation_like,
+			automation_discussion_comments: triageIndex.summary.automation_like,
 		},
 	};
 }
 
-function mergedBatches(prPlans: readonly PrPlanPair[]): import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[] {
-	const batches: import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[] = [];
+function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[] {
+	const batches: StackFeedbackPlanBatch[] = [];
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items: StackFeedbackPlanItem[] = [];
 		for (const { prResult, plan } of prPlans) {
@@ -186,7 +192,7 @@ function mergedBatches(prPlans: readonly PrPlanPair[]): import("./stack-feedback
 	return batches;
 }
 
-function actionItem(prResult: StackPrepPrResultInput, sourceBatch: FeedbackPlanBatch, item: FeedbackPlanActionItem): StackFeedbackPlanItem {
+function actionItem(prResult: StackFeedbackPrepPrResultInput, sourceBatch: FeedbackPlanBatch, item: FeedbackPlanActionItem): StackFeedbackPlanItem {
 	return {
 		pr_number: prResult.pr_number,
 		branch: prResult.branch,
@@ -223,7 +229,7 @@ function mergedInformational(prPlans: readonly PrPlanPair[]): StackFeedbackPlanI
 	return items;
 }
 
-function informationalItem(prResult: StackPrepPrResultInput, item: FeedbackPlanInformationalItem): StackFeedbackPlanInformationalItem {
+function informationalItem(prResult: StackFeedbackPrepPrResultInput, item: FeedbackPlanInformationalItem): StackFeedbackPlanInformationalItem {
 	return {
 		pr_number: prResult.pr_number,
 		branch: prResult.branch,
@@ -255,28 +261,42 @@ function requiredInformationalReason(reason: string | null): string {
 	throw new Error("Validated informational feedback item is missing informational_reason.");
 }
 
-function automationDiscussionSummary(prep: StackFeedbackPlanInput["prep"]): StackFeedbackAutomationDiscussionSummary {
-	const items = prep.stack.flatMap((prResult) => prResult.discussion_triage.items);
+function buildStackDiscussionTriageIndex(prep: StackFeedbackPlanInput["prep"]): StackDiscussionTriageIndex {
+	const itemByKey = new Map<string, StackDiscussionTriageItem>();
+	const items: StackDiscussionTriageItem[] = [];
+	for (const prResult of prep.stack) {
+		for (const item of prResult.discussion_triage.items) {
+			items.push(item);
+			itemByKey.set(discussionTriageKey(prResult.pr_number, item.comment_id), item);
+		}
+	}
 	const summary = triageSummary(items);
 	return {
-		automation_like: summary.automation_like,
-		human_like: summary.human_like,
-		needs_agent_review: summary.needs_agent_review,
-		by_reason: summary.by_reason,
+		summary: {
+			automation_like: summary.automation_like,
+			human_like: summary.human_like,
+			needs_agent_review: summary.needs_agent_review,
+			by_reason: summary.by_reason,
+		},
+		itemByKey,
 	};
 }
 
+function discussionTriageKey(prNumber: number, discussionCommentId: number): string {
+	return `${prNumber}\u0000${discussionCommentId}`;
+}
+
 function decisionDocket(
-	prep: StackFeedbackPlanInput["prep"],
-	batches: readonly import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[],
+	triageIndex: StackDiscussionTriageIndex,
+	batches: readonly StackFeedbackPlanBatch[],
 	informational: readonly StackFeedbackPlanInformationalItem[],
-): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem[] {
-	const docket: import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem[] = [];
+): StackFeedbackDecisionDocketItem[] {
+	const docket: StackFeedbackDecisionDocketItem[] = [];
 	for (const batch of batches) {
 		for (const item of batch.items) {
 			if (item.approval_required) {
 				docket.push(actionDecision(item, "approval_required_action"));
-			} else if (item.source_kind === "discussion_comment" && !isAutomationDiscussion(prep, item.pr_number, item.discussion_comment_id)) {
+			} else if (item.source_kind === "discussion_comment" && !isAutomationDiscussion(triageIndex, item.pr_number, item.discussion_comment_id)) {
 				docket.push(actionDecision(item, "discussion_comment_action"));
 			}
 		}
@@ -284,25 +304,21 @@ function decisionDocket(
 	for (const item of informational) {
 		if (item.user_decision_required) {
 			docket.push(informationalDecision(item, "informational_review_thread"));
-		} else if (item.source_kind === "discussion_comment" && !isAutomationDiscussion(prep, item.pr_number, item.discussion_comment_id)) {
+		} else if (item.source_kind === "discussion_comment" && !isAutomationDiscussion(triageIndex, item.pr_number, item.discussion_comment_id)) {
 			docket.push(informationalDecision(item, "discussion_comment_review"));
 		}
 	}
 	return docket;
 }
 
-function isAutomationDiscussion(prep: StackFeedbackPlanInput["prep"], prNumber: number, discussionCommentId: number | null): boolean {
+function isAutomationDiscussion(triageIndex: StackDiscussionTriageIndex, prNumber: number, discussionCommentId: number | null): boolean {
 	if (discussionCommentId === null) return false;
-	for (const prResult of prep.stack) {
-		if (prResult.pr_number !== prNumber) continue;
-		for (const item of prResult.discussion_triage.items) {
-			if (item.comment_id === discussionCommentId) return item.classification_hint === "automation";
-		}
-	}
-	return false;
+	const item = triageIndex.itemByKey.get(discussionTriageKey(prNumber, discussionCommentId));
+	if (item === undefined) return false;
+	return isAutomationDiscussionTriageItem(item);
 }
 
-function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem {
+function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind): StackFeedbackDecisionDocketItem {
 	return {
 		decision_kind: decisionKind,
 		pr_number: item.pr_number,
@@ -321,7 +337,7 @@ function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind)
 	};
 }
 
-function informationalDecision(item: StackFeedbackPlanInformationalItem, decisionKind: DecisionKind): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem {
+function informationalDecision(item: StackFeedbackPlanInformationalItem, decisionKind: DecisionKind): StackFeedbackDecisionDocketItem {
 	return {
 		decision_kind: decisionKind,
 		pr_number: item.pr_number,
