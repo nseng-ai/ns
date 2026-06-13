@@ -7,7 +7,6 @@ import {
 	buildPrepareRunPayloadManifest,
 	getFeedbackPayloadManifestInputSchema,
 	prepareRunPayloadManifestInputSchema,
-	type PrepareRunPayloadManifestInput,
 } from "../../src/payload-manifest.ts";
 import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
 import { goldenCases, readJson } from "../support/golden.ts";
@@ -33,7 +32,7 @@ describe("payload manifest TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			const parsedInput: PrepareRunPayloadManifestInput = prepareRunPayloadManifestInputSchema.parse(input);
+			const parsedInput = prepareRunPayloadManifestInputSchema.parse(input);
 
 			expect(buildPrepareRunPayloadManifest(parsedInput)).toEqual(expected);
 		});

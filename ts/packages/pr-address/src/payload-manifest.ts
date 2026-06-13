@@ -1,11 +1,9 @@
 import { z } from "zod";
 
+import { payloadReferenceSchema, type PayloadReference } from "./feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "./gateways.ts";
-const payloadReferenceSchema = z.looseObject({
-	payload_path: z.string(),
-});
 
-const reviewSchema = z.looseObject({
+const reviewInputSchema = z.object({
 	id: z.string(),
 	author: z.string(),
 	body: z.string(),
@@ -13,96 +11,68 @@ const reviewSchema = z.looseObject({
 	submitted_at: z.string(),
 });
 
-const reviewCommentSchema = z.looseObject({
+const reviewCommentInputSchema = z.object({
 	id: z.number().int(),
 	body: z.string(),
 	author: z.string(),
 	path: z.string(),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
+	line: z.number().int().nullable(),
+	start_line: z.number().int().nullable(),
 	created_at: z.string(),
 });
 
-const reviewThreadSchema = z.looseObject({
+const reviewThreadInputSchema = z.object({
 	id: z.string(),
 	path: z.string(),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
+	line: z.number().int().nullable(),
+	start_line: z.number().int().nullable(),
 	is_resolved: z.boolean(),
 	is_outdated: z.boolean(),
-	comments: z.array(reviewCommentSchema).default([]),
+	comments: z.array(reviewCommentInputSchema).readonly(),
 });
 
-const discussionCommentSchema = z.looseObject({
+const discussionCommentInputSchema = z.object({
 	id: z.number().int(),
 	body: z.string(),
 	author: z.string(),
 	url: z.string(),
 });
 
-export const getFeedbackPayloadManifestInputSchema = z.looseObject({
+export const getFeedbackPayloadManifestInputSchema = z.object({
 	payload_reference: payloadReferenceSchema,
 	pr_number: z.number().int(),
-	reviews: z.array(reviewSchema).default([]),
-	review_threads: z.array(reviewThreadSchema).default([]),
-	discussion_comments: z.array(discussionCommentSchema).default([]),
+	reviews: z.array(reviewInputSchema).readonly(),
+	review_threads: z.array(reviewThreadInputSchema).readonly(),
+	discussion_comments: z.array(discussionCommentInputSchema).readonly(),
 });
 
-export const prepareRunPayloadManifestInputSchema = z.looseObject({
+export const prepareRunPayloadManifestInputSchema = z.object({
 	payload_reference: payloadReferenceSchema,
 	found: z.boolean(),
-	current_branch: z.string().nullable().default(null),
-	number: z.number().int().nullable().default(null),
-	title: z.string().nullable().default(null),
-	url: z.string().nullable().default(null),
-	head_ref_name: z.string().nullable().default(null),
-	base_ref_name: z.string().nullable().default(null),
-	state: z.string().nullable().default(null),
-	reviews: z.array(reviewSchema).default([]),
-	review_threads: z.array(reviewThreadSchema).default([]),
-	discussion_comments: z.array(discussionCommentSchema).default([]),
-	reopened_thread_ids: z.array(z.string()).default([]),
-	restructured_files: z.array(z.unknown()).default([]),
-	warnings: z.array(z.string()).default([]),
-	error: z.string().nullable().default(null),
-	returncode: z.number().int().nullable().default(null),
+	current_branch: z.string().nullable().optional(),
+	number: z.number().int().nullable().optional(),
+	title: z.string().nullable().optional(),
+	url: z.string().nullable().optional(),
+	head_ref_name: z.string().nullable().optional(),
+	base_ref_name: z.string().nullable().optional(),
+	state: z.string().nullable().optional(),
+	reviews: z.array(reviewInputSchema).readonly().optional(),
+	review_threads: z.array(reviewThreadInputSchema).readonly().optional(),
+	discussion_comments: z.array(discussionCommentInputSchema).readonly().optional(),
+	reopened_thread_ids: z.array(z.string()).readonly().optional(),
+	restructured_files: z.array(z.unknown()).readonly().optional(),
+	warnings: z.array(z.string()).readonly().optional(),
+	error: z.string().nullable().optional(),
+	returncode: z.number().int().nullable().optional(),
 });
 
-interface PayloadReference {
-	payload_path: string;
-}
 type Review = PRReview;
 type ReviewComment = PRReviewThread["comments"][number];
 type ReviewThread = PRReviewThread;
 type DiscussionComment = PRDiscussionComment;
-interface GetFeedbackPayloadManifestInput {
-	payload_reference: PayloadReference;
-	pr_number: number;
-	reviews: readonly PRReview[];
-	review_threads: readonly PRReviewThread[];
-	discussion_comments: readonly PRDiscussionComment[];
-}
-export interface PrepareRunPayloadManifestInput {
-	payload_reference: PayloadReference;
-	found: boolean;
-	current_branch?: string | null | undefined;
-	number?: number | null | undefined;
-	title?: string | null | undefined;
-	url?: string | null | undefined;
-	head_ref_name?: string | null | undefined;
-	base_ref_name?: string | null | undefined;
-	state?: string | null | undefined;
-	reviews?: readonly PRReview[] | undefined;
-	review_threads?: readonly PRReviewThread[] | undefined;
-	discussion_comments?: readonly PRDiscussionComment[] | undefined;
-	reopened_thread_ids?: readonly string[] | undefined;
-	restructured_files?: readonly unknown[] | undefined;
-	warnings?: readonly string[] | undefined;
-	error?: string | null | undefined;
-	returncode?: number | null | undefined;
-}
 
-interface FeedbackCounts {
+// FeedbackCounts with index signature to match looseObject schema usage in stack-feedback
+interface FeedbackCounts extends Record<string, unknown> {
 	reviews: number;
 	review_threads: number;
 	unresolved_review_threads: number;
@@ -117,7 +87,39 @@ interface FeedbackCollections {
 	discussion_comments: readonly DiscussionComment[];
 }
 
-export function buildGetFeedbackPayloadManifest(input: GetFeedbackPayloadManifestInput): unknown {
+export interface GetFeedbackPayloadManifest {
+	payload_mode: "payload";
+	payload_reference: PayloadReference;
+	pr_number: number;
+	counts: FeedbackCounts;
+	reviews: unknown[];
+	review_threads: unknown[];
+	discussion_comments: Array<{ comment_id: number; author: string; url: string; body_locator: unknown }>;
+}
+
+export interface PrepareRunPayloadManifest {
+	payload_mode: "payload";
+	payload_reference: PayloadReference;
+	found: boolean;
+	current_branch: string | null;
+	number: number | null;
+	title: string | null;
+	url: string | null;
+	head_ref_name: string | null;
+	base_ref_name: string | null;
+	state: string | null;
+	counts: FeedbackCounts | null;
+	reviews: unknown[];
+	review_threads: unknown[];
+	discussion_comments: unknown[];
+	reopened_thread_ids: string[];
+	restructured_files: unknown[];
+	warnings: string[];
+	error: string | null;
+	returncode: number | null;
+}
+
+export function buildGetFeedbackPayloadManifest(input: z.input<typeof getFeedbackPayloadManifestInputSchema>): GetFeedbackPayloadManifest {
 	return {
 		payload_mode: "payload",
 		payload_reference: input.payload_reference,
@@ -129,7 +131,7 @@ export function buildGetFeedbackPayloadManifest(input: GetFeedbackPayloadManifes
 	};
 }
 
-export function buildPrepareRunPayloadManifest(input: PrepareRunPayloadManifestInput): unknown {
+export function buildPrepareRunPayloadManifest(input: z.input<typeof prepareRunPayloadManifestInputSchema>): PrepareRunPayloadManifest {
 	const reviews = input.reviews ?? [];
 	const reviewThreads = input.review_threads ?? [];
 	const discussionComments = input.discussion_comments ?? [];
@@ -238,7 +240,7 @@ function threadCommentBodyLocator(options: { comment: ReviewComment; thread: Rev
 	};
 }
 
-function discussionManifestItems(discussionComments: readonly DiscussionComment[]): unknown[] {
+function discussionManifestItems(discussionComments: readonly DiscussionComment[]): Array<{ comment_id: number; author: string; url: string; body_locator: unknown }> {
 	return discussionComments.map((comment, commentIndex) => {
 		const itemPointer = `/data/discussion_comments/${commentIndex}`;
 		return {
