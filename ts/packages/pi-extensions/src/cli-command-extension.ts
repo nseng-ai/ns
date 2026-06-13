@@ -119,6 +119,21 @@ export interface CliCommandOutputDetails {
 	level: "info" | "warning" | "error";
 }
 
+export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
+	availableCommands: readonly TCommand[];
+	names: readonly string[];
+	missingCommandLabel: string;
+}): TCommand[] {
+	const commandsByName = new Map(options.availableCommands.map((command) => [command.name, command]));
+	return options.names.map((name) => {
+		const command = commandsByName.get(name);
+		if (command === undefined) {
+			throw new Error(`Missing ${options.missingCommandLabel} command: ${name}`);
+		}
+		return command;
+	});
+}
+
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {
 	assertValidCommandSpec(spec);
 	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);

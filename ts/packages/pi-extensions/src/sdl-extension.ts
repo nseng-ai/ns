@@ -1,6 +1,6 @@
 import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 
-import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-extension.ts";
+import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 const SDL_COMMAND_NAMES = ["cp"] as const;
@@ -30,12 +30,9 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {
-	const commandsByName = new Map(listSdlCommands().map((command) => [command.name, command]));
-	return names.map((name) => {
-		const command = commandsByName.get(name);
-		if (command === undefined) {
-			throw new Error(`Missing sdl command: ${name}`);
-		}
-		return command;
+	return selectCliCommands({
+		availableCommands: listSdlCommands(),
+		names,
+		missingCommandLabel: "sdl",
 	});
 }

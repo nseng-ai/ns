@@ -1,6 +1,6 @@
 import { listAsdlDevCommands, runCli, type AsdlDevCommandInfo } from "asdl-dev/cli";
 
-import { registerCliCommandExtension, type ExtensionAPI } from "./cli-command-extension.ts";
+import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 const DEV_COMMAND_NAMES = ["preview-url"] as const;
@@ -67,12 +67,9 @@ export function asdlDevCodeExtension(pi: ExtensionAPI): void {
 }
 
 function selectAsdlDevCommands(names: readonly string[]): AsdlDevCommandInfo[] {
-	const commandsByName = new Map(listAsdlDevCommands().map((command) => [command.name, command]));
-	return names.map((name) => {
-		const command = commandsByName.get(name);
-		if (command === undefined) {
-			throw new Error(`Missing asdl-dev command: ${name}`);
-		}
-		return command;
+	return selectCliCommands({
+		availableCommands: listAsdlDevCommands(),
+		names,
+		missingCommandLabel: "asdl-dev",
 	});
 }
