@@ -116,7 +116,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
   - When variants exist, pick only the relevant reference file(s) and note that choice.
 - Safety and fallback: If a skill can't be applied cleanly, state the issue, pick the next-best approach, and continue.
 
-Skill-authoring and skill-management conventions live in `docs/skill-conventions.md` — read it before creating, editing, installing, renaming, or publishing skills, or before touching anything under `skills/` or `.agents/skills/`. One fact from it is load-bearing repo-wide: real directories under `.agents/skills/` are vendored third-party code, excluded from linting, typechecking, review, and cleanup expectations — details in `docs/skill-conventions.md`.
+Skill-authoring and skill-management conventions live in `docs/skill-conventions.md` — read it before creating, editing, installing, renaming, or publishing skills, or before touching anything under `skills/` or `.agents/skills/`. One fact from it is load-bearing repo-wide: real directories under `.agents/skills/` are vendored third-party code; all code review agents must ignore their embedded upstream code for normal linting, typechecking, review, and cleanup expectations, and should only flag integration-boundary issues unless explicitly asked to review the vendored dependency itself — details in `docs/skill-conventions.md`.
 
 ## Code Conventions
 

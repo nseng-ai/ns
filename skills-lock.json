@@ -288,6 +288,20 @@
       "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
       "computedHash": "9052b01b46b1d8dbf94c45f9313ec1983443f9a460e83d49cdc7fe0f640ca476"
     },
+    "ts-morph-analyze": {
+      "source": "dafthunk-com/dafthunk",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ts-morph-analyze/SKILL.md",
+      "sourceRef": "c33e5447e64235652826c5a522b79eeb3875be6e",
+      "computedHash": "0c02d5c25dfbc804467dd178bba1ca7c064629f7a36b30bfbc3c10c43395c8f7"
+    },
+    "ts-morph-refactor": {
+      "source": "dafthunk-com/dafthunk",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ts-morph-refactor/SKILL.md",
+      "sourceRef": "c33e5447e64235652826c5a522b79eeb3875be6e",
+      "computedHash": "af3633b4a64b6d2780b503d0784b9540b28b120b5f6d92ef5598b343d7a4c90a"
+    },
     "typescript-fake-driven-testing": {
       "source": "skills/typescript-fake-driven-testing",
       "sourceType": "local",
