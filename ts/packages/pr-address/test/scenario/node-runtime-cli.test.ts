@@ -1,23 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
+
+import { useTempDirs } from "../support/temp.ts";
 
 const TS_WORKSPACE_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const CLI_SOURCE_PATH = "packages/pr-address/src/cli.ts";
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
+const makeScopedTempDir = useTempDirs();
 
 async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-node-runtime-"));
-	tempDirs.push(dir);
-	return dir;
+	return makeScopedTempDir("pr-address-node-runtime-");
 }
 
 describe("pr-address Node runtime CLI entrypoint", () => {

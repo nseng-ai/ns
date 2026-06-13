@@ -36,6 +36,22 @@ export function fakePrAddressContext(
 	};
 }
 
+/**
+ * PINNED FAKE ERROR STRINGS. Envelope fixtures and golden expectations embed
+ * these literals byte-for-byte (e.g. fixtures/summarize-feedback/*.json,
+ * fixtures/prepare-run/*.json); renaming the values breaks parity pins.
+ */
+export const FAKE_GH_AUTH_FAILED_STDERR = "gh auth failed";
+export const FAKE_PR_LOOKUP_MISS_STDERR = "no PR found";
+export const FAKE_REACTION_FAILED_STDERR = "reaction failed";
+export const FAKE_THREAD_REPLY_REJECTED_STDERR = "GitHub rejected the thread reply";
+export const FAKE_THREAD_RESOLVE_REJECTED_STDERR = "GitHub rejected the thread resolve";
+export const FAKE_THREAD_UNRESOLVE_REJECTED_STDERR = "GitHub rejected the thread unresolve";
+
+export function fakePrLookupMissStderr(prNumber: number): string {
+	return `no PR found for PR ${prNumber}`;
+}
+
 export interface InMemoryGitHubState {
 	prs?: readonly PRSummary[] | undefined;
 	prsByBranch?: ReadonlyMap<string, PRSummary> | Record<string, PRSummary> | undefined;
@@ -135,7 +151,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPr(prNumber: number, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
+		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
 		if (this.missingPrNumbers.has(prNumber)) return prLookupMiss(prNumber);
 		const pr = this.prsByNumber.get(prNumber);
 		if (pr === undefined) return prLookupMiss(prNumber);
@@ -143,7 +159,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPrForBranch(branch: string, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailureBranches.has(branch)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
+		if (this.lookupFailureBranches.has(branch)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
 		const pr = this.prsByBranch.get(branch);
 		if (pr === undefined) return lookupMiss();
 		return { type: "found", pr: clone(pr) };
@@ -155,7 +171,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getReviews(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
-		if (this.reviewsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
+		if (this.reviewsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
 		return { type: "ok", value: clone(this.reviews.get(prNumber) ?? []) };
 	}
 
@@ -165,7 +181,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
-		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: "gh auth failed", stdout: "", returncode: 4 } };
+		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
 		return { type: "ok", value: clone(this.discussionComments.get(prNumber) ?? []) };
 	}
 
@@ -177,7 +193,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async addPrDiscussionCommentReaction(commentId: number, reaction: string, _options: GatewayOptions): Promise<GatewayResult<Reaction>> {
-		if (this.reactionFailureCommentIds.has(commentId)) return { type: "failure", failure: { stderr: "reaction failed", stdout: "", returncode: 1 } };
+		if (this.reactionFailureCommentIds.has(commentId)) return { type: "failure", failure: { stderr: FAKE_REACTION_FAILED_STDERR, stdout: "", returncode: 1 } };
 		this.reactionCalls.push({ commentId, reaction });
 		const id = this.nextReactionId;
 		this.nextReactionId += 1;
@@ -185,7 +201,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async addReviewThreadReply(threadId: string, body: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewComment>> {
-		if (this.threadReplyFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread reply", stdout: "", returncode: 1 } };
+		if (this.threadReplyFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_REPLY_REJECTED_STDERR, stdout: "", returncode: 1 } };
 		this.threadReplyCalls.push({ threadId, body });
 		const id = this.nextReviewCommentId;
 		this.nextReviewCommentId += 1;
@@ -193,13 +209,13 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async resolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		if (this.resolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread resolve", stdout: "", returncode: 1 } };
+		if (this.resolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_RESOLVE_REJECTED_STDERR, stdout: "", returncode: 1 } };
 		this.resolvedIds.push(threadId);
 		return { type: "ok", value: { thread_id: threadId, is_resolved: true } };
 	}
 
 	async unresolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		if (this.unresolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: "GitHub rejected the thread unresolve", stdout: "", returncode: 1 } };
+		if (this.unresolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_UNRESOLVE_REJECTED_STDERR, stdout: "", returncode: 1 } };
 		this.unresolvedIds.push(threadId);
 		return { type: "ok", value: { thread_id: threadId, is_resolved: false } };
 	}
@@ -270,12 +286,12 @@ export function prSummary(overrides: Partial<PRSummary> = {}): PRSummary {
 type PRReviewCommentForFactory = PRReviewThread["comments"][number];
 
 function lookupMiss(): PRLookupMiss {
-	return { type: "miss", stderr: "no PR found", returncode: 1 };
+	return { type: "miss", stderr: FAKE_PR_LOOKUP_MISS_STDERR, returncode: 1 };
 }
 
 /** Mirrors the Python FakePRGateway miss text for number-keyed PR lookups. */
 function prLookupMiss(prNumber: number): PRLookupMiss {
-	return { type: "miss", stderr: `no PR found for PR ${prNumber}`, returncode: 1 };
+	return { type: "miss", stderr: fakePrLookupMissStderr(prNumber), returncode: 1 };
 }
 
 function stringMap<T>(value: ReadonlyMap<string, T> | Record<string, T> | undefined): ReadonlyMap<string, T> {

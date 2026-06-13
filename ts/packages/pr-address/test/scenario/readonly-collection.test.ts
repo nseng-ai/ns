@@ -1,48 +1,20 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { discussionComment, fakePrAddressContext, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
-
-interface CliRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
-}
+import { discussionComment, InMemoryPrAddressGitHubGateway, review, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
+import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
 interface Envelope {
 	data: Record<string, unknown>;
 }
 
-const tempDirs: string[] = [];
+const makeTempDir = useTempDirs();
 
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): CliRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy, github }),
-			cwd: "/repo",
-			env,
-			stdin: async () => "",
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		legacy,
-	};
+function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubGateway, env: NodeJS.ProcessEnv = { PATH: "/fake/bin" }): ScenarioRunWithLegacy {
+	return runScenarioWithLegacy(args, { github, env });
 }
 
 describe("read-only GitHub-backed operations", () => {
@@ -65,8 +37,7 @@ describe("read-only GitHub-backed operations", () => {
 		expect((inlineData.reviews as Array<{ id: string }>).map((item) => item.id)).toEqual(["changes"]);
 		expect(inlineRun.legacy.calls).toEqual([]);
 
-		const tempDir = await mkdtemp(join(tmpdir(), "pr-address-readonly-collection-"));
-		tempDirs.push(tempDir);
+		const tempDir = await makeTempDir("pr-address-readonly-collection-");
 		const root = join(tempDir, "payload-root");
 		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json"], github, {
 			PATH: "/fake/bin",

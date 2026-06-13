@@ -1,31 +1,15 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
+import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
-const tempDirs: string[] = [];
+const newTempDir = useTempDirs();
 
-afterEach(async () => {
-	const dirs = tempDirs.splice(0);
-	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "pr-address-stack-diff-"));
-	tempDirs.push(dir);
-	return dir;
-}
-
-interface CliRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
+function makeTempDir(): Promise<string> {
+	return newTempDir("pr-address-stack-diff-");
 }
 
 interface DiffEnvelope {
@@ -39,26 +23,11 @@ interface DiffEnvelope {
 	};
 }
 
-function runDiffWithArgs(args: readonly string[], stdinText = ""): CliRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
-	return {
-		exit: runCli(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], {
-			context: fakePrAddressContext({ legacy }),
-			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
-			stdin: async () => stdinText,
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		legacy,
-	};
+function runDiffWithArgs(args: readonly string[], stdinText = ""): ScenarioRunWithLegacy {
+	return runScenarioWithLegacy(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { stdin: stdinText });
 }
 
-function runDiff(payload: unknown): CliRun {
+function runDiff(payload: unknown): ScenarioRunWithLegacy {
 	return runDiffWithArgs([], JSON.stringify(payload));
 }
 
@@ -109,7 +78,7 @@ describe("stack-feedback-diff-current reference inputs", () => {
 		return { ...currentPrep({ shouldIncludeResolved: true, threads: [thread()] }), summary: { prs: 1 } };
 	}
 
-	function errorEnvelope(run: CliRun): { error_type: string; message: string } {
+	function errorEnvelope(run: ScenarioRunWithLegacy): { error_type: string; message: string } {
 		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 	}
 

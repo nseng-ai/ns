@@ -4,11 +4,9 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { runCli } from "../../src/cli.ts";
 import { EXEC_OPERATION_NAMES } from "../../src/exec-commands.ts";
-import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
-import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
+import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 
@@ -47,29 +45,8 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 // captured from the TypeScript `--json-schema` output, not Python parity.
 const TS_ONLY_OPERATIONS = ["map-branch-prs", "stack-feedback-preflight"] as const;
 
-interface CliRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	legacy: InMemoryLegacyPrAddressGateway;
-}
-
-function runWithFakeLegacy(args: readonly string[]): CliRun {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const legacy = new InMemoryLegacyPrAddressGateway([0]);
-	return {
-		exit: runCli(args, {
-			context: fakePrAddressContext({ legacy }),
-			cwd: "/repo",
-			env: { PATH: "/fake/bin" },
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
-		legacy,
-	};
+function runWithFakeLegacy(args: readonly string[]): ScenarioRunWithLegacy {
+	return runScenarioWithLegacy(args);
 }
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
