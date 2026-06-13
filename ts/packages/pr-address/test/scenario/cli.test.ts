@@ -11,7 +11,7 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import { EXEC_OPERATION_NAMES, EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
-import { operationSchemaDocumentNames } from "../../src/operation-schemas.ts";
+import { operationSchemaDocumentNames } from "../../src/operation-schemas/index.ts";
 import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
