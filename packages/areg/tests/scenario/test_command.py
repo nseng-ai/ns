@@ -10,8 +10,7 @@ from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
-
-_CODEX_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n"
+from areg.invoke_only import CODEX_OPENAI_POLICY as _CODEX_OPENAI_POLICY
 
 
 def _ctx(project_dir: Path) -> AregContext:
