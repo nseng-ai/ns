@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
+import { loadJsonInput, loadOperationPayload, readJsonInputText } from "../../src/json-input.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeScopedTempDir = useTempDirs();
@@ -114,5 +114,37 @@ describe("JSON input source helpers", () => {
 		});
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid_request");
+	});
+
+	test("loadOperationPayload throws invariant error when payload schema disagrees with field specs", async () => {
+		// Deliberately create an inconsistent operation spec: the payload schema expects
+		// a string field, but the reference schema validates it as a number. This models
+		// a programmer error where field specs disagree with the payload schema.
+		type BadPayload = { data: string }; // payload schema expects string
+		const payloadSchema = z.object({ data: z.string() });
+		const tempDir = await makeTempDir();
+		const refPath = join(tempDir, "ref.json");
+		await writeFile(refPath, "42", "utf8"); // JSON number
+
+		// Use type assertion to bypass compile-time checks and create runtime mismatch
+		const fields = [
+			{
+				key: "data" as const,
+				artifactDescription: "test field",
+				referenceSchema: z.number(), // incompatible with payload schema!
+			},
+		] as any;
+
+		const promise = loadOperationPayload<BadPayload>({
+			commandName: "test-op",
+			inputDescription: "test payload",
+			payloadSchema,
+			request: { data_reference: refPath },
+			stdin: async () => "",
+			fields,
+			payloadOptionalWhenAllFieldsReferenced: true,
+		});
+
+		await expect(promise).rejects.toThrow(/Operation payload schema rejected individually-validated fields/);
 	});
 });

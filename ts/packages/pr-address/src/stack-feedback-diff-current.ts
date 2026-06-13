@@ -132,8 +132,13 @@ async function runStackFeedbackDiffCurrentOperation(
 		fields: stackFeedbackDiffCurrentPayloadFields,
 	});
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
+	const payloadValue = payloadResult.value;
+	if (payloadValue.stack_plan === undefined || payloadValue.current_prep === undefined) {
+		throw new Error("stack-feedback-diff-current payload fields missing despite field resolution");
+	}
+	const diffRequest = { stack_plan: payloadValue.stack_plan, current_prep: payloadValue.current_prep };
 
-	const result = diffStackFeedbackCurrent(payloadResult.value as { stack_plan: unknown; current_prep: unknown });
+	const result = diffStackFeedbackCurrent(diffRequest);
 	if (result.valid && result.safe_to_resolve_planned) return ok(result);
 	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result);
 }
