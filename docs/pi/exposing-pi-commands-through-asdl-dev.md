@@ -22,6 +22,12 @@ Consolidation has three rules:
 
 Do not add a new Pi command first and later make the CLI shell out to Pi. Pi should be a runtime surface over the CLI, not the canonical implementation for headless developer tasks.
 
+## Harness-neutral references
+
+Durable documentation, saved implementation plans, public skills, and agent-facing instructions should cite the native CLI command when a workflow has both a CLI and a Pi slash-command adapter. This keeps the instruction usable by Pi, Claude Code, Codex, shell-only agents, humans, and tests.
+
+Use harness-specific command names only when the subject is that runtime surface itself: registration, command discovery, UI behavior, slash-command argument restoration, or Pi-only session semantics. Otherwise, describe the adapter as secondary to the CLI. For checkpoint creation, write `sdl cp` in plans and docs; mention `/sdl:cp` only when discussing the Pi adapter over `sdl cp`.
+
 ## What the migrations established
 
 The stack around `asdl-dev preview-url`, former `asdl-dev cp`, and `asdl-dev submit` created this boundary. The current checkpoint slice applies the same pattern through `sdl cp` and `/sdl:cp`:

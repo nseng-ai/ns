@@ -93,8 +93,9 @@ describe("buildWritePlanPrompt", () => {
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("/sdl:cp");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("sdl cp");
 		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
 		expect(checkedInContent).toContain(
 			"`Subagent orchestration opportunities: none` with a one-sentence rationale",
@@ -102,8 +103,12 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("launch-readiness quality bar");
 		expect(checkedInContent).toContain("Prefer ordered waves");
 		expect(checkedInContent).toContain("recommend sequential dispatch and parent validation");
+		expect(checkedInContent).toContain("Harness-neutral command guidance:");
+		expect(checkedInContent).toContain("Prefer native CLI commands");
+		expect(checkedInContent).toContain("harness-specific adapter");
 		expect(checkedInContent).toContain("Implementation checkpoint guidance:");
-		expect(checkedInContent).toContain("/sdl:cp");
+		expect(checkedInContent).toContain("sdl cp");
+		expect(checkedInContent).not.toContain("/sdl:cp");
 		expect(checkedInContent).not.toContain("/code:cp");
 		expect(checkedInContent).toContain("coherent standalone");
 		expect(checkedInContent).toContain("checkpoint ownership");

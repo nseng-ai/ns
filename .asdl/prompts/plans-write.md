@@ -27,6 +27,13 @@ External research/context contract:
 - If external findings may become stale, mark what should be revalidated during implementation.
 - Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
 
+Harness-neutral command guidance:
+
+- Prefer native CLI commands in durable saved plans, documentation, and agent-facing instructions when a workflow has both a CLI and a harness-specific adapter.
+- Mention Pi slash commands, Claude commands, Codex commands, or other harness-specific affordances only when the plan is explicitly about that harness runtime or UI surface.
+- For checkpointing guidance, write `sdl cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
+- If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
+
 Recommended saved plan sections:
 
 - Goal and user-visible outcome.
@@ -54,10 +61,10 @@ Subagent orchestration opportunities:
 Implementation checkpoint guidance:
 
 - For larger or multi-slice implementation plans, include an intermediate checkpoint strategy.
-- Implementation agents should use `/sdl:cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
+- Implementation agents should run `sdl cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
 - A useful checkpoint is a reviewable implementation slice, not an arbitrary time interval.
-- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `/sdl:cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
-- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `/sdl:cp` and reports the commit summary, or the parent reviews the subagent diff and runs `/sdl:cp` afterward.
+- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `sdl cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
+- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `sdl cp` and reports the commit summary, or the parent reviews the subagent diff and runs `sdl cp` afterward.
 - After each editing subagent, the parent should verify final text/status and the resulting diff or Checkpoint commit summary before dispatching the next editing subagent.
 - Do not imply that branch-context runtime will automatically schedule checkpointing, and do not suggest direct `git commit` as the normal path for intermediate checkpoints.
 
