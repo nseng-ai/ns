@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatErrorMessage, isRecord } from "../src/primitives.ts";
+import { formatErrorMessage, isRecord, truncatedSha256Digest } from "../src/primitives.ts";
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {
@@ -28,5 +28,11 @@ describe("formatErrorMessage", () => {
 	test("stringifies non-Error values", () => {
 		expect(formatErrorMessage("boom")).toBe("boom");
 		expect(formatErrorMessage(123)).toBe("123");
+	});
+});
+
+describe("truncatedSha256Digest", () => {
+	test("returns the first 32 hex characters of a SHA256 digest", () => {
+		expect(truncatedSha256Digest("/tmp/session.jsonl")).toBe("29e67821bedc391a811d7fd8fcdf12be");
 	});
 });

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { truncatedSha256Digest } from "@asdl/core";
 
 const HARNESS_SESSION_ENTRY_TYPE = "asdl-harness-session-id";
 const HARNESS_SESSION_ENV = "HARNESS_SESSION_ID";
@@ -95,8 +95,7 @@ async function resolveHarnessSessionId(pi: ExtensionAPI, sessionManager: Session
 }
 
 function sessionFileHarnessSessionId(sessionFile: string): string {
-	const digest = createHash("sha256").update(sessionFile).digest("hex").slice(0, 32);
-	return `pi-session-file-${digest}`;
+	return `pi-session-file-${truncatedSha256Digest(sessionFile)}`;
 }
 
 function restoreHarnessSessionId(entries: readonly unknown[]): string | null {

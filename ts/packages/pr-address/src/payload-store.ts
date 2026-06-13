@@ -1,10 +1,9 @@
-import { createHash } from "node:crypto";
 import { chmod, lstat, mkdir, open, readdir, readFile, stat, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import process from "node:process";
 
-import { formatErrorMessage } from "@asdl/core";
+import { formatErrorMessage, truncatedSha256Digest } from "@asdl/core";
 import { z } from "zod";
 
 import { payloadReferenceSchema } from "./feedback-manifest-contracts.ts";
@@ -108,7 +107,7 @@ export function resolveHarnessSessionId(
 }
 
 export function derivePayloadSessionIdFromHarnessSessionId(rawHarnessSessionId: string): ResolvedPayloadSession {
-	const harnessSessionIdDigest = createHash("sha256").update(rawHarnessSessionId, "utf8").digest("hex").slice(0, 32);
+	const harnessSessionIdDigest = truncatedSha256Digest(rawHarnessSessionId);
 	return { harnessSessionIdDigest, payloadSessionId: `pr-address-${harnessSessionIdDigest}` };
 }
 
