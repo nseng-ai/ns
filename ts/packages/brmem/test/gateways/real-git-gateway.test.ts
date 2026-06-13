@@ -8,9 +8,9 @@ import { createTempGitRepo } from "../support/temp-git-repo.ts";
 describe("RealGitBrmemGateway", () => {
 	it("runs git through the injected command executor", async () => {
 		const commands = new RecordingCommands([{ command: "git", args: ["branch", "--show-current"], result: { stdout: "feat/x\n" } }]);
-		const gateway = new RealGitBrmemGateway("/repo", commands);
+		const gateway = new RealGitBrmemGateway("/work", commands);
 
-		expect(await gateway.currentBranch({ cwd: "/work" })).toEqual({ type: "ok", value: "feat/x" });
+		expect(await gateway.currentBranch()).toEqual({ type: "ok", value: "feat/x" });
 		expect(commands.calls).toEqual([{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/work", env: process.env } }]);
 	});
 
@@ -81,13 +81,25 @@ describe("RealGitBrmemGateway", () => {
 		}
 	});
 
+	it("flags a glob conflict for a destination Entry that matches the glob but is absent from source", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			await gateway.putEntry({ namespace: "base", branch: "source", key: "foo/body.md", content: "source" });
+			await gateway.putEntry({ namespace: "base", branch: "dest", key: "foo/orphan.md", content: "orphan" });
+			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
+		} finally {
+			repo.cleanup();
+		}
+	});
+
 	it("maps invalid branch names and detached current branch to structured errors", async () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
 			expect((await gateway.putEntry({ namespace: "base", branch: "bad---branch", key: "a", content: "A" })).type).toBe("error");
 			repo.runGit(["checkout", "--detach"]);
-			expect(await gateway.currentBranch({ cwd: repo.path })).toMatchObject({ type: "error", error: { code: "detached_head" } });
+			expect(await gateway.currentBranch()).toMatchObject({ type: "error", error: { code: "detached_head" } });
 		} finally {
 			repo.cleanup();
 		}

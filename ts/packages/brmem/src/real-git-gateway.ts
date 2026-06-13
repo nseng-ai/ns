@@ -42,8 +42,8 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		this.commands = commands;
 	}
 
-	async currentBranch(options: { cwd: string }): Promise<BrmemResult<string>> {
-		const result = await runGit(this.commands, ["branch", "--show-current"], { cwd: options.cwd });
+	async currentBranch(): Promise<BrmemResult<string>> {
+		const result = await runGit(this.commands, ["branch", "--show-current"], { cwd: this.cwd });
 		if (result.code !== 0) return gitError("current_branch_failed", "Could not resolve current branch.", result);
 		const branch = result.stdout.trim();
 		if (branch.length === 0) return brmemError("detached_head", "Could not resolve current branch; HEAD appears detached.");

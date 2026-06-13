@@ -11,7 +11,7 @@ describe("FakeBrmemGateway", () => {
 				{ namespace: "notes", branch: "feat/x", key: "plan/body.md", content: "named content" },
 			],
 		});
-		expect(await gateway.currentBranch({ cwd: "/repo" })).toEqual({ type: "ok", value: "feat/x" });
+		expect(await gateway.currentBranch()).toEqual({ type: "ok", value: "feat/x" });
 		expect(await gateway.getEntry({ namespace: "base", branch: "feat/x", key: "scratch" })).toMatchObject({
 			type: "found",
 			value: { content: "base content" },
@@ -86,5 +86,15 @@ describe("FakeBrmemGateway", () => {
 		const entries = await gateway.listEntries({ namespace: "base", branch: "dest" });
 		if (entries.type !== "ok") throw new Error("unexpected error");
 		expect(entries.value.map((entry) => entry.key)).toEqual(["foo/body.md", "foo/sub/x.md", "keep.txt"]);
+	});
+
+	it("flags a glob conflict for a destination Entry that matches the glob but is absent from source", async () => {
+		const gateway = new FakeBrmemGateway({
+			entries: [
+				{ namespace: "base", branch: "source", key: "foo/body.md", content: "source" },
+				{ namespace: "base", branch: "dest", key: "foo/orphan.md", content: "orphan" },
+			],
+		});
+		expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
 	});
 });

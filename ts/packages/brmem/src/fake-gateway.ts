@@ -54,7 +54,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		for (const entry of options.entries ?? []) this.seedEntry(entry);
 	}
 
-	async currentBranch(_options: { cwd: string }) {
+	async currentBranch() {
 		if (typeof this.branchState === "string") return brmemOk(this.branchState);
 		if (this.branchState?.type === "error") return brmemError(this.branchState.code, this.branchState.message);
 		return brmemError("detached_head", "Could not resolve current branch; HEAD appears detached.");
@@ -144,7 +144,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		);
 		if (sourcePairs.length === 0) return brmemOk({ entries: [] });
 		const conflicts = [...dest.entries.keys()].filter((key) =>
-			options.keyGlob === undefined ? true : source.entries.has(key) && keyGlobMatches(key, options.keyGlob),
+			options.keyGlob === undefined ? true : keyGlobMatches(key, options.keyGlob),
 		);
 		if (conflicts.length > 0 && !options.shouldOverwrite) {
 			return brmemError("copy_conflict", `destination has conflicting entries: ${conflicts.sort().join(", ")}`);

@@ -28,7 +28,7 @@ export async function resolveEntryRequest(
 }
 
 export async function resolveCurrentBranch(ctx: BrmemCliContext): Promise<string | ClinkrExit<never>> {
-	const branch = await ctx.gateway.currentBranch({ cwd: ctx.cwd });
+	const branch = await ctx.gateway.currentBranch();
 	if (branch.type === "error") return failure(branch.error.code, branch.error.message);
 	return branch.value;
 }

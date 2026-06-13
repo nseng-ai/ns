@@ -11,8 +11,6 @@ export interface EntryRef {
 	namespace: string;
 	key: string;
 	branch: string;
-	/** Legacy Python-compatible field name for the Entry Locator, not the Snapshot Ref. */
-	refName: string;
 	entryLocator: string;
 }
 
@@ -34,7 +32,7 @@ export function normalizeNamespaceOption(namespace: string | undefined | null): 
 	return namespace ?? BASE_NAMESPACE;
 }
 
-export function isBaseNamespace(namespace: string): boolean {
+function isBaseNamespace(namespace: string): boolean {
 	return namespace === BASE_NAMESPACE;
 }
 
@@ -46,11 +44,11 @@ export function namespaceValueLabel(namespace: string): string {
 	return isBaseNamespace(namespace) ? "(base)" : namespace;
 }
 
-export function namespaceSortKey(namespace: string): readonly [number, string] {
+function namespaceSortKey(namespace: string): readonly [number, string] {
 	return isBaseNamespace(namespace) ? [0, ""] : [1, namespace];
 }
 
-export function entrySortKey(entry: Pick<EntryRef, "namespace" | "key" | "branch">): readonly [number, string, string, string] {
+function entrySortKey(entry: Pick<EntryRef, "namespace" | "key" | "branch">): readonly [number, string, string, string] {
 	const [namespaceRank, namespaceName] = namespaceSortKey(entry.namespace);
 	return [namespaceRank, namespaceName, entry.key, entry.branch];
 }
@@ -130,12 +128,12 @@ export function snapshotRefPrefixes(): readonly string[] {
 	return [`${BRMEM_REF_PREFIX}/${BRMEM_BASE_SEGMENT}/`, `${BRMEM_REF_PREFIX}/${BRMEM_NS_SEGMENT}/`];
 }
 
-export function toEntryRef(namespace: string, key: string, branch: string): BrmemResult<EntryRef> {
+function toEntryRef(namespace: string, key: string, branch: string): BrmemResult<EntryRef> {
 	const locator = buildEntryLocator(namespace, key, branch);
 	if (locator.type === "error") return locator;
 	const snapshotRef = buildSnapshotRef(namespace, branch);
 	if (snapshotRef.type === "error") return snapshotRef;
-	return brmemOk({ namespace, key, branch, refName: locator.value, entryLocator: locator.value });
+	return brmemOk({ namespace, key, branch, entryLocator: locator.value });
 }
 
 export function mustSnapshotRef(namespace: string, branch: string): string {

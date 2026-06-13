@@ -28,7 +28,7 @@ export interface CopyEntriesResult {
 }
 
 export interface BrmemGateway {
-	currentBranch(options: { cwd: string }): Promise<BrmemResult<string>>;
+	currentBranch(): Promise<BrmemResult<string>>;
 
 	listEntries(options: {
 		namespace: string;
