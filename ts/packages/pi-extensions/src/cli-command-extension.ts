@@ -58,6 +58,11 @@ export interface CliCommandRunDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	/**
+	 * Emits transient live-progress text for the Pi widget/status path only.
+	 * Text sent here is not included in the final rendered command result; use
+	 * stdout/stderr for output that should remain visible after the command ends.
+	 */
 	onOutput?: (stream: OutputStreamName, text: string) => void;
 	confirm?: CliCommandConfirmPrompt;
 }
