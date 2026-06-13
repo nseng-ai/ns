@@ -13,10 +13,17 @@ from asdl_core.git.types import DetachedHead
 from asdl_core.git.types import GitCommandFailure as GitFailure
 from asdl_core.gt.types import (
     GtCommandFailure,
+    StackFork,
     StackInfo,
-    StackWalkDiagnostic,
+    TrunkMarkerProblem,
     UntrackedBranch,
-    render_stack_walk_warning,
+    WalkCycle,
+    WalkRowMissing,
+    render_ancestor_termination,
+    render_children_corruption,
+    render_descendant_termination,
+    render_stack_fork,
+    render_trunk_marker_problem,
 )
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
 from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
@@ -48,111 +55,56 @@ def render_stack_branches(result: SlotGtStackBranchesResult) -> None:
         click.echo(warning, err=True)
 
 
-def _marker_diagnostics(stack: StackInfo) -> tuple[StackWalkDiagnostic, ...]:
-    return tuple(
-        diagnostic for diagnostic in stack.diagnostics if diagnostic.scope == "trunk_marker"
-    )
-
-
-def _first_full_scope_fork(stack: StackInfo) -> StackWalkDiagnostic | None:
-    for diagnostic in stack.diagnostics:
-        if diagnostic.scope == "descendant" and diagnostic.kind == "fork":
-            return diagnostic
-    return None
-
-
-def _is_load_children_diagnostic(diagnostic: StackWalkDiagnostic) -> bool:
-    return diagnostic.scope == "load" and diagnostic.kind in {
-        "children_not_text",
-        "children_invalid_json",
-        "children_not_list",
-        "children_non_string",
-    }
-
-
-def _is_relevant_full_scope_load_diagnostic(
-    diagnostic: StackWalkDiagnostic, stack: StackInfo
-) -> bool:
-    if not _is_load_children_diagnostic(diagnostic):
-        return False
-    return diagnostic.branch in {stack.current, *stack.descendants}
-
-
-def _inconsistent_full_scope_diagnostics(
-    stack: StackInfo,
-) -> tuple[StackWalkDiagnostic, ...]:
-    return tuple(
-        diagnostic
-        for diagnostic in stack.diagnostics
-        if (
-            diagnostic.scope in {"ancestor", "descendant"}
-            and diagnostic.kind in {"cycle", "missing_row"}
-        )
-        or _is_relevant_full_scope_load_diagnostic(diagnostic, stack)
-    )
-
-
-def _inconsistent_downstack_diagnostics(
-    stack: StackInfo,
-) -> tuple[StackWalkDiagnostic, ...]:
-    return tuple(
-        diagnostic
-        for diagnostic in stack.diagnostics
-        if diagnostic.scope == "ancestor" and diagnostic.kind in {"cycle", "missing_row"}
-    )
-
-
-def _downstack_warnings(stack: StackInfo) -> tuple[str, ...]:
-    return tuple(
-        render_stack_walk_warning(diagnostic)
-        for diagnostic in stack.diagnostics
-        if diagnostic.scope == "descendant" and diagnostic.kind in {"fork", "cycle", "missing_row"}
-    )
-
-
-def _render_joined_diagnostics(diagnostics: tuple[StackWalkDiagnostic, ...]) -> str:
-    return "; ".join(render_stack_walk_warning(diagnostic) for diagnostic in diagnostics)
-
-
-def _fail_inconsistent(diagnostics: tuple[StackWalkDiagnostic, ...]) -> None:
+def _fail_inconsistent(messages: tuple[str, ...]) -> None:
     Ensure.fail(
         error_type="stack_metadata_inconsistent",
-        message=_render_joined_diagnostics(diagnostics),
+        message="; ".join(messages),
     )
 
 
-def _fail_forked_stack(diagnostic: StackWalkDiagnostic) -> None:
-    children = ", ".join(diagnostic.children)
+def _fail_forked_stack(fork: StackFork) -> None:
+    children = ", ".join(fork.children)
     Ensure.fail(
         error_type="forked_stack",
         message=(
-            f"Graphite stack forks at '{diagnostic.branch}' with children: {children}. "
+            f"Graphite stack forks at '{fork.branch}' with children: {children}. "
             "Check out the intended tip and rerun, or pass `--downstack`."
         ),
     )
 
 
-def _validate_stack_diagnostics(stack: StackInfo, *, downstack: bool) -> tuple[str, ...]:
-    marker_diagnostics = _marker_diagnostics(stack)
-    if marker_diagnostics:
-        _fail_inconsistent(marker_diagnostics)
+def _validate_stack_integrity(stack: StackInfo, *, downstack: bool) -> tuple[str, ...]:
+    marker = stack.trunk_marker
+    if isinstance(marker, TrunkMarkerProblem):
+        _fail_inconsistent(render_trunk_marker_problem(marker))
 
     if stack.current == stack.trunk:
         return ()
 
+    walk = stack.descendant_walk
+    ancestor_termination = stack.ancestor_termination
+    descendant_termination = walk.termination
+
     if downstack:
-        inconsistent = _inconsistent_downstack_diagnostics(stack)
-        if inconsistent:
-            _fail_inconsistent(inconsistent)
-        return _downstack_warnings(stack)
+        if isinstance(ancestor_termination, WalkCycle | WalkRowMissing):
+            _fail_inconsistent((render_ancestor_termination(ancestor_termination),))
+        warnings = tuple(render_stack_fork(fork) for fork in walk.forks)
+        if isinstance(descendant_termination, WalkCycle | WalkRowMissing):
+            warnings += (render_descendant_termination(descendant_termination),)
+        return warnings
 
-    fork = _first_full_scope_fork(stack)
-    if fork is not None:
-        _fail_forked_stack(fork)
+    if walk.forks:
+        _fail_forked_stack(walk.forks[0])
 
-    inconsistent = _inconsistent_full_scope_diagnostics(stack)
-    if inconsistent:
-        _fail_inconsistent(inconsistent)
+    messages = tuple(
+        render_children_corruption(corruption) for corruption in walk.children_corruptions
+    )
+    if isinstance(ancestor_termination, WalkCycle | WalkRowMissing):
+        messages += (render_ancestor_termination(ancestor_termination),)
+    if isinstance(descendant_termination, WalkCycle | WalkRowMissing):
+        messages += (render_descendant_termination(descendant_termination),)
+    if messages:
+        _fail_inconsistent(messages)
     return ()
 
 
@@ -207,7 +159,7 @@ def run_stack_branches(
         Ensure.fail(error_type="gt_stack_read_failed", message=stack_result.message)
     stack = stack_result
 
-    warnings = _validate_stack_diagnostics(stack, downstack=request.downstack)
+    warnings = _validate_stack_integrity(stack, downstack=request.downstack)
 
     if stack.current == stack.trunk:
         result = _result_for_stack(

@@ -15,13 +15,24 @@ from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeInfo
 from asdl_core.gt.testing import FakeGtGateway
 from asdl_core.gt.types import (
+    ChildrenCorruption,
+    DescendantWalk,
     GtCommandFailure,
+    StackFork,
     StackInfo,
-    StackWalkDiagnostic,
-    StackWalkKind,
-    StackWalkScope,
+    TrunkMarkerClean,
+    TrunkMarkerProblem,
+    TrunkMarkerStatus,
     UntrackedBranch,
-    render_stack_walk_warning,
+    WalkCompleted,
+    WalkCycle,
+    WalkRowMissing,
+    WalkTermination,
+    render_ancestor_termination,
+    render_children_corruption,
+    render_descendant_termination,
+    render_stack_fork,
+    render_trunk_marker_problem,
 )
 from asdl_slots.cli.main import build_cli
 from asdl_slots.cli.slot.gt.context import SlotGtContext
@@ -48,37 +59,30 @@ def _obj(context: object) -> object:
     return build_clinkr_context_object(lambda: context)
 
 
-def _diagnostic(
-    scope: StackWalkScope,
-    kind: StackWalkKind,
-    branch: str | None,
-    *,
-    children: tuple[str, ...] = (),
-) -> StackWalkDiagnostic:
-    return StackWalkDiagnostic(
-        scope=scope,
-        kind=kind,
-        branch=branch,
-        children=children,
-    )
-
-
 def _stack(
     *,
     current: str = "feat/B",
     trunk: str = "main",
     ancestors: tuple[str, ...] = ("main", "feat/A"),
     descendants: tuple[str, ...] = ("feat/C",),
-    diagnostics: tuple[StackWalkDiagnostic, ...] = (),
+    ancestor_termination: WalkTermination | None = None,
+    descendant_walk: DescendantWalk | None = None,
+    trunk_marker: TrunkMarkerStatus | None = None,
+    unwalked_children_corruptions: tuple[ChildrenCorruption, ...] = (),
 ) -> StackInfo:
     return StackInfo(
         trunk=trunk,
         current=current,
         ancestors=ancestors,
         children=descendants[:1],
-        warnings=tuple(render_stack_walk_warning(diagnostic) for diagnostic in diagnostics),
+        warnings=(),
         descendants=descendants,
-        diagnostics=diagnostics,
+        ancestor_termination=(
+            ancestor_termination if ancestor_termination is not None else WalkCompleted()
+        ),
+        descendant_walk=descendant_walk if descendant_walk is not None else DescendantWalk(),
+        trunk_marker=trunk_marker if trunk_marker is not None else TrunkMarkerClean(),
+        unwalked_children_corruptions=unwalked_children_corruptions,
     )
 
 
@@ -261,7 +265,7 @@ def test_stack_branches_current_on_trunk_format_json_has_empty_branches(
 def test_stack_branches_on_trunk_ignores_descendant_fork(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    fork = _diagnostic("descendant", "fork", "main", children=("feat/A", "feat/B"))
+    fork = StackFork(branch="main", children=("feat/A", "feat/B"))
     fakes = _build_stack_fakes(
         tmp_path,
         current_branch="main",
@@ -269,7 +273,7 @@ def test_stack_branches_on_trunk_ignores_descendant_fork(
             current="main",
             ancestors=(),
             descendants=("feat/A",),
-            diagnostics=(fork,),
+            descendant_walk=DescendantWalk(forks=(fork,)),
         ),
     )
 
@@ -362,8 +366,11 @@ def test_stack_branches_detached_head(cli_group: ClinkrGroup, tmp_path: Path) ->
 def test_stack_branches_full_scope_fork_fails_with_remediation(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostics = (_diagnostic("descendant", "fork", "feat/B", children=("feat/C", "feat/D")),)
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=diagnostics))
+    fork = StackFork(branch="feat/B", children=("feat/C", "feat/D"))
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(forks=(fork,))),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -381,11 +388,14 @@ def test_stack_branches_full_scope_fork_fails_with_remediation(
 
 
 def test_stack_branches_two_forks_first_fork_wins(cli_group: ClinkrGroup, tmp_path: Path) -> None:
-    diagnostics = (
-        _diagnostic("descendant", "fork", "feat/B", children=("feat/C", "feat/D")),
-        _diagnostic("descendant", "fork", "feat/C", children=("feat/E", "feat/F")),
+    forks = (
+        StackFork(branch="feat/B", children=("feat/C", "feat/D")),
+        StackFork(branch="feat/C", children=("feat/E", "feat/F")),
     )
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=diagnostics))
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(forks=forks)),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -400,19 +410,65 @@ def test_stack_branches_two_forks_first_fork_wins(cli_group: ClinkrGroup, tmp_pa
 
 
 @pytest.mark.parametrize(
-    "diagnostic",
+    ("stack_kwargs", "expected_message"),
     [
-        _diagnostic("ancestor", "cycle", "feat/A"),
-        _diagnostic("ancestor", "missing_row", "feat/A"),
-        _diagnostic("descendant", "cycle", "feat/C"),
-        _diagnostic("trunk_marker", "marker_missing", "main"),
-        _diagnostic("trunk_marker", "marker_mismatch", "main", children=("master",)),
+        (
+            {"ancestor_termination": WalkCycle("feat/A")},
+            render_ancestor_termination(WalkCycle("feat/A")),
+        ),
+        (
+            {"ancestor_termination": WalkRowMissing("feat/A")},
+            render_ancestor_termination(WalkRowMissing("feat/A")),
+        ),
+        (
+            {"descendant_walk": DescendantWalk(termination=WalkCycle("feat/C"))},
+            render_descendant_termination(WalkCycle("feat/C")),
+        ),
+        (
+            {
+                "trunk_marker": TrunkMarkerProblem(
+                    terminus="main",
+                    terminus_state="row_missing",
+                    marked_trunks=(),
+                )
+            },
+            "; ".join(
+                render_trunk_marker_problem(
+                    TrunkMarkerProblem(
+                        terminus="main",
+                        terminus_state="row_missing",
+                        marked_trunks=(),
+                    )
+                )
+            ),
+        ),
+        (
+            {
+                "trunk_marker": TrunkMarkerProblem(
+                    terminus="main",
+                    terminus_state="marked",
+                    marked_trunks=("master",),
+                )
+            },
+            "; ".join(
+                render_trunk_marker_problem(
+                    TrunkMarkerProblem(
+                        terminus="main",
+                        terminus_state="marked",
+                        marked_trunks=("master",),
+                    )
+                )
+            ),
+        ),
     ],
 )
 def test_stack_branches_metadata_inconsistent_failures(
-    cli_group: ClinkrGroup, tmp_path: Path, diagnostic: StackWalkDiagnostic
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+    stack_kwargs: dict[str, Any],
+    expected_message: str,
 ) -> None:
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(**stack_kwargs))
 
     result = CliRunner().invoke(
         cli_group,
@@ -423,17 +479,18 @@ def test_stack_branches_metadata_inconsistent_failures(
     payload = _machine_payload(result.stdout)
     assert payload["exit_code"] == 2
     assert payload["error_type"] == "stack_metadata_inconsistent"
-    assert payload["message"] == render_stack_walk_warning(diagnostic)
+    assert payload["message"] == expected_message
 
 
 def test_stack_branches_co_occurring_marker_diagnostics_are_joined(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostics = (
-        _diagnostic("trunk_marker", "marker_missing", "main"),
-        _diagnostic("trunk_marker", "marker_multiple", "main", children=("main", "master")),
+    problem = TrunkMarkerProblem(
+        terminus="main",
+        terminus_state="unmarked",
+        marked_trunks=("main", "master"),
     )
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=diagnostics))
+    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(trunk_marker=problem))
 
     result = CliRunner().invoke(
         cli_group,
@@ -451,7 +508,6 @@ def test_stack_branches_co_occurring_marker_diagnostics_are_joined(
 def test_stack_branches_marker_failure_wins_over_on_trunk_negative(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("trunk_marker", "marker_missing", "main")
     fakes = _build_stack_fakes(
         tmp_path,
         current_branch="main",
@@ -459,7 +515,11 @@ def test_stack_branches_marker_failure_wins_over_on_trunk_negative(
             current="main",
             ancestors=(),
             descendants=(),
-            diagnostics=(diagnostic,),
+            trunk_marker=TrunkMarkerProblem(
+                terminus="main",
+                terminus_state="row_missing",
+                marked_trunks=(),
+            ),
         ),
     )
 
@@ -474,14 +534,17 @@ def test_stack_branches_marker_failure_wins_over_on_trunk_negative(
     assert payload["error_type"] == "stack_metadata_inconsistent"
 
 
-# -- load-scope relevance ----------------------------------------------------
+# -- structural corruption relevance ----------------------------------------
 
 
-def test_stack_branches_unrelated_children_json_diagnostic_is_ignored(
+def test_stack_branches_unwalked_children_json_corruption_is_ignored(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("load", "children_invalid_json", "unrelated/branch")
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    corruption = ChildrenCorruption(branch="unrelated/branch", kind="invalid_json")
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(unwalked_children_corruptions=(corruption,)),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -494,11 +557,14 @@ def test_stack_branches_unrelated_children_json_diagnostic_is_ignored(
     assert payload["data"]["warnings"] == []
 
 
-def test_stack_branches_current_children_json_diagnostic_fails_full_scope(
+def test_stack_branches_walked_children_json_corruption_fails_full_scope(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("load", "children_invalid_json", "feat/B")
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    corruption = ChildrenCorruption(branch="feat/B", kind="invalid_json")
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(children_corruptions=(corruption,))),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -509,13 +575,17 @@ def test_stack_branches_current_children_json_diagnostic_fails_full_scope(
     payload = _machine_payload(result.stdout)
     assert payload["exit_code"] == 2
     assert payload["error_type"] == "stack_metadata_inconsistent"
+    assert payload["message"] == render_children_corruption(corruption)
 
 
-def test_stack_branches_downstack_drops_children_json_diagnostic(
+def test_stack_branches_downstack_drops_walked_children_json_corruption(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("load", "children_invalid_json", "feat/B")
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    corruption = ChildrenCorruption(branch="feat/B", kind="invalid_json")
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(children_corruptions=(corruption,))),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -534,8 +604,11 @@ def test_stack_branches_downstack_drops_children_json_diagnostic(
 def test_stack_branches_downstack_descendant_fork_warns_default_mode(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("descendant", "fork", "feat/B", children=("feat/C", "feat/D"))
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    fork = StackFork(branch="feat/B", children=("feat/C", "feat/D"))
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(forks=(fork,))),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -545,14 +618,17 @@ def test_stack_branches_downstack_descendant_fork_warns_default_mode(
 
     assert result.exit_code == 0, result.output
     assert result.stdout == '{"branches":["feat/A","feat/B"]}\n'
-    assert render_stack_walk_warning(diagnostic) in result.stderr
+    assert render_stack_fork(fork) in result.stderr
 
 
 def test_stack_branches_downstack_descendant_fork_warns_json_mode(
     cli_group: ClinkrGroup, tmp_path: Path
 ) -> None:
-    diagnostic = _diagnostic("descendant", "fork", "feat/B", children=("feat/C", "feat/D"))
-    fakes = _build_stack_fakes(tmp_path, stack_override=_stack(diagnostics=(diagnostic,)))
+    fork = StackFork(branch="feat/B", children=("feat/C", "feat/D"))
+    fakes = _build_stack_fakes(
+        tmp_path,
+        stack_override=_stack(descendant_walk=DescendantWalk(forks=(fork,))),
+    )
 
     result = CliRunner().invoke(
         cli_group,
@@ -564,4 +640,4 @@ def test_stack_branches_downstack_descendant_fork_warns_json_mode(
     assert result.exit_code == 0, result.output
     assert payload["data"]["branches"] == ["feat/A", "feat/B"]
     assert payload["data"]["scope"] == "downstack"
-    assert payload["data"]["warnings"] == [render_stack_walk_warning(diagnostic)]
+    assert payload["data"]["warnings"] == [render_stack_fork(fork)]
