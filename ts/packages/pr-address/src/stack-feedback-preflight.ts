@@ -4,7 +4,6 @@ import { z } from "zod";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
-import { githubGateway } from "./operation-support.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import {
 	compactPrepResult,
@@ -76,9 +75,8 @@ async function runStackFeedbackPreflightOperation(
 	const validationMessage = branchesValidationMessage(branches, "stack-feedback-preflight");
 	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(ctx);
-	if (github.type === "error") return github.exit;
-	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, ctx });
+	const github = ctx.context.github;
+	const mapping = await mapBranchesToOpenPrs({ branches, github, ctx });
 	if (mapping.type === "error") return mapping.exit;
 	if (mapping.value.missing_branches.length > 0) return missingBranchesResult(mapping.value);
 
@@ -90,7 +88,7 @@ async function runStackFeedbackPreflightOperation(
 		ctx,
 		store,
 		stack: frozenStack.stack,
-		github: github.gateway,
+		github,
 		shouldIncludeResolved: false,
 		shouldIncludeEmptyReviews: false,
 	});

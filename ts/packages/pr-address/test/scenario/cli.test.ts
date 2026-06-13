@@ -14,6 +14,7 @@ import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
 import { operationSchemaDocumentNames } from "../../src/operation-schemas.ts";
 import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 const tempDirs: string[] = [];
@@ -47,7 +48,7 @@ function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOp
 	const legacy = new InMemoryLegacyPrAddressGateway(options.exitCodes ?? [0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: options.deps?.stdin,
@@ -266,8 +267,10 @@ describe("pr-address CLI", () => {
 		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "payload_session_required" });
 
 		const bodyCharsRun = runWithFakeLegacy(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json"]);
-		expect(await bodyCharsRun.exit).toBe(2);
-		expect(JSON.parse(bodyCharsRun.stdout.join(""))).toMatchObject({ error_type: "missing_gateway" });
+		expect(await bodyCharsRun.exit).toBe(1);
+		const bodyCharsEnvelope = JSON.parse(bodyCharsRun.stdout.join("")) as { exit_code: number; message: string };
+		expect(bodyCharsEnvelope.exit_code).toBe(1);
+		expect(bodyCharsEnvelope.message).toContain("No PR found for PR 123");
 	});
 });
 

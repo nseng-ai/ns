@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { runCli } from "../../src/cli.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 
 interface BuildStackResolveThreadPayloadsCase {
 	name: string;
@@ -58,7 +59,7 @@ function runManaged(args: readonly string[]): ManagedRun {
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",
@@ -211,7 +212,7 @@ describe("build-stack-resolve-thread-payloads parity with the Python CLI", () =>
 		const stdout: string[] = [];
 		const legacy = new InMemoryLegacyPrAddressGateway([0]);
 		const exit = await runCli(["exec", "build-stack-resolve-thread-payloads", "--json-schema"], {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",

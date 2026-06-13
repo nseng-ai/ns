@@ -18,6 +18,23 @@ import type {
 	RepoContextResult,
 	RestructuredFile,
 } from "../../src/gateways.ts";
+import type { PrAddressContext } from "../../src/context.ts";
+import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
+
+/**
+ * Build a full PrAddressContext for tests: gateways are required on the
+ * context, so harnesses that don't exercise GitHub/git get default in-memory
+ * fakes (empty GitHub state; git inside a work tree on `main`).
+ */
+export function fakePrAddressContext(
+	overrides: Partial<PrAddressContext> & { legacy: LegacyPrAddressGateway },
+): PrAddressContext {
+	return {
+		github: new InMemoryPrAddressGitHubGateway(),
+		git: new InMemoryPrAddressGitGateway(),
+		...overrides,
+	};
+}
 
 export interface InMemoryGitHubState {
 	prs?: readonly PRSummary[] | undefined;

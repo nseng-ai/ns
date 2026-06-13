@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { runCli } from "../../src/cli.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 
 const tempDirs: string[] = [];
 
@@ -44,7 +45,7 @@ function runDiffWithArgs(args: readonly string[], stdinText = ""): CliRun {
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => stdinText,

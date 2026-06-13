@@ -8,7 +8,7 @@ import { runCli } from "../../src/cli.ts";
 import { PayloadStore, type PayloadClock, type PayloadResult } from "../../src/payload-store.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "../../src/gateways.ts";
-import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
 interface GetFeedbackPayloadFixture {
 	session_id: string;
@@ -128,7 +128,11 @@ function runManaged(args: readonly string[], options: ManagedRunOptions = {}) {
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github: options.github, payloadClock: options.payloadClock },
+			context: fakePrAddressContext({
+				legacy,
+				...(options.github === undefined ? {} : { github: options.github }),
+				...(options.payloadClock === undefined ? {} : { payloadClock: options.payloadClock }),
+			}),
 			cwd: "/repo",
 			env: options.env ?? { PATH: "/fake/bin" },
 			stdin: async () => "",

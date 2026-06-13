@@ -1,13 +1,10 @@
 import { failure, type ClinkrFailureExit } from "@asdl/clinkr";
 import type { PrAddressExecContext } from "./exec-operation.ts";
-import type { GatewayFailure, GatewayOptions, PrAddressGitHubGateway } from "./gateways.ts";
+import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 
-export function githubGateway(ctx: PrAddressExecContext): { type: "ok"; gateway: PrAddressGitHubGateway } | { type: "error"; exit: ClinkrFailureExit } {
-	const gateway = ctx.context.github;
-	if (gateway === undefined) {
-		return { type: "error", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a GitHub gateway.") };
-	}
-	return { type: "ok", gateway };
+/** Generic record guard shared by payload/classification input handling. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function gatewayOptions(ctx: PrAddressExecContext): GatewayOptions {

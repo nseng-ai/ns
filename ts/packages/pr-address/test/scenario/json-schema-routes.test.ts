@@ -7,6 +7,7 @@ import { describe, expect, test } from "vitest";
 import { runCli } from "../../src/cli.ts";
 import { EXEC_OPERATION_NAMES } from "../../src/exec-commands.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
@@ -59,7 +60,7 @@ function runWithFakeLegacy(args: readonly string[]): CliRun {
 	const legacy = new InMemoryLegacyPrAddressGateway([0]);
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdout: (text) => stdout.push(text),

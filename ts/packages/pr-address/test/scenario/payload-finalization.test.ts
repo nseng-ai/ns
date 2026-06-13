@@ -17,6 +17,7 @@ import {
 } from "../../src/payload-manifest.ts";
 import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
+import { fakePrAddressContext } from "../support/in-memory-pr-address-gateways.ts";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 const GOLDEN_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
@@ -73,7 +74,7 @@ function runWithNoFallback(args: readonly string[], deps: Pick<CliDeps, "stdin">
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy },
+			context: fakePrAddressContext({ legacy }),
 			cwd: REPO_ROOT,
 			env: { PATH: "/fake/bin" },
 			stdin: deps.stdin,

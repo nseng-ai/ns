@@ -3,12 +3,12 @@ import { z } from "zod";
 import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
+import { gatewayFailureExit, gatewayOptions } from "./operation-support.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
+import { RESOLUTION_MARKER } from "./reply-formatting.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
-const resolutionMarker = "<!-- pr-address:resolved -->";
 
 const getFeedbackParseSchema = z.object({
 	pr_number: z.int(),
@@ -52,10 +52,8 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 		store = storeResult.value;
 	}
 
-	const gateway = githubGateway(ctx);
-	if (gateway.type === "error") return gateway.exit;
 	const snapshotResult = await fetchFeedbackSnapshot({
-		gateway: gateway.gateway,
+		gateway: ctx.context.github,
 		prNumber: request.pr_number,
 		shouldIncludeResolved: request.include_resolved,
 		shouldIncludeEmptyReviews: request.include_empty_reviews,
@@ -145,7 +143,7 @@ export function contestedThreadIds(reviewThreads: readonly PRReviewThread[]): re
 		if (!thread.is_resolved) continue;
 		const markerIndexes: number[] = [];
 		thread.comments.forEach((comment, index) => {
-			if (comment.body.includes(resolutionMarker)) markerIndexes.push(index);
+			if (comment.body.includes(RESOLUTION_MARKER)) markerIndexes.push(index);
 		});
 		const lastMarkerIndex = markerIndexes.at(-1);
 		if (lastMarkerIndex !== undefined && lastMarkerIndex < thread.comments.length - 1) contested.push(thread.id);

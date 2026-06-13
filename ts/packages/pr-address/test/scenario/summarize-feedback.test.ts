@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { runCli } from "../../src/cli.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "../../src/gateways.ts";
-import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
+import { fakePrAddressContext, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 
 type GithubVariant = "default" | "lookup-failure";
 
@@ -49,7 +49,7 @@ function runManaged(args: readonly string[], github: InMemoryPrAddressGitHubGate
 	};
 	return {
 		exit: runCli(args, {
-			context: { legacy, github },
+			context: fakePrAddressContext({ legacy, github }),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: async () => "",

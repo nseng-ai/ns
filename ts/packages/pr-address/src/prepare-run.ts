@@ -4,7 +4,7 @@ import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
-import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, githubGateway } from "./operation-support.ts";
+import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
 import { buildPrepareRunPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 
@@ -68,16 +68,14 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 		store = storeResult.value;
 	}
 
-	const git = gitGateway(ctx);
-	if (git.type === "error") return git.exit;
-	const branchResult = await git.gateway.getCurrentBranch(gatewayOptions(ctx));
+	const git = ctx.context.git;
+	const branchResult = await git.getCurrentBranch(gatewayOptions(ctx));
 	if (branchResult.type === "failure") return failure("git_failed", gitCommandFailureMessage(branchResult.failure));
 	if (branchResult.type === "detached") return failure("detached_head", "Detached HEAD: prepare-run requires a checked-out branch.");
 	const currentBranch = branchResult.branch;
 
-	const github = githubGateway(ctx);
-	if (github.type === "error") return github.exit;
-	const lookupResult = await github.gateway.getPrForBranch(currentBranch, gatewayOptions(ctx));
+	const github = ctx.context.github;
+	const lookupResult = await github.getPrForBranch(currentBranch, gatewayOptions(ctx));
 	if (lookupResult.type === "failure") {
 		return failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR for current branch '${currentBranch}'`, lookupResult.failure));
 	}
@@ -90,8 +88,8 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 			ctx,
 			pr: lookupResult.pr,
 			currentBranch,
-			github: github.gateway,
-			git: git.gateway,
+			github,
+			git,
 			shouldIncludeAllThreads: request.include_all_threads,
 			shouldIncludeEmptyReviews: request.include_empty_reviews,
 		});
@@ -217,12 +215,4 @@ function gitCommandFailureMessage(failure: GatewayFailure): string {
 /** Mirror the Python git gateway's restructured-files failure message for warning parity. */
 function restructuredFilesFailureMessage(baseRefName: string, failure: GatewayFailure): string {
 	return `Failed to detect restructured files against origin/${baseRefName}: ${failure.stderr.trim() || "git diff failed"}`;
-}
-
-function gitGateway(ctx: PrAddressExecContext): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error"; exit: ClinkrFailureExit } {
-	const gateway = ctx.context.git;
-	if (gateway === undefined) {
-		return { type: "error", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a git gateway.") };
-	}
-	return { type: "ok", gateway };
 }

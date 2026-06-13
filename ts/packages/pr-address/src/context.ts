@@ -4,8 +4,8 @@ import type { PayloadClock } from "./payload-store.ts";
 
 export interface PrAddressContext {
 	legacy: LegacyPrAddressGateway;
-	github?: PrAddressGitHubGateway | undefined;
-	git?: PrAddressGitGateway | undefined;
+	github: PrAddressGitHubGateway;
+	git: PrAddressGitGateway;
 	/** Test seam for payload artifact timestamps; real runs use the system clock. */
 	payloadClock?: PayloadClock | undefined;
 }

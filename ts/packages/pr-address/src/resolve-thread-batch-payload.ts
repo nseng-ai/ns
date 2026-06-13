@@ -9,6 +9,7 @@ import {
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
+import { isRecord } from "./operation-support.ts";
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE =
@@ -497,10 +498,6 @@ function trimRequired(value: string | null | undefined): string {
 	const trimmed = trimOptional(value);
 	if (trimmed === null) throw new Error("Expected non-empty string.");
 	return trimmed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export type { BuildResolveThreadBatchPayloadResult, FeedbackPlan, FeedbackPlanActionItem, FeedbackPlanBatch };
