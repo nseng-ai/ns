@@ -41,7 +41,9 @@ export async function runStackFeedbackPreflightOperation(invocation: ExecOperati
 	const unexpectedPositional = parsed.options.positionals[0];
 	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-preflight: ${unexpectedPositional}`);
 	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	if (!STDOUT_MODES.has(stdoutMode)) return { type: "fallback" };
+	if (!STDOUT_MODES.has(stdoutMode)) {
+		return exitFailure("invalid_request", `stack-feedback-preflight --stdout-mode must be one of: full, compact (got ${JSON.stringify(stdoutMode)}).`);
+	}
 
 	const storeResult = await PayloadStore.fromEnvironment({
 		explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,

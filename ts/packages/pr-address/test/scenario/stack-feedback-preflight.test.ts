@@ -203,6 +203,17 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(envelope.data?.zero_feedback_prs).toEqual([{ pr_number: 30, branch: "feature-empty" }]);
 	});
 
+	test("rejects invalid stdout mode without falling back to legacy dispatch", async () => {
+		const root = await makePayloadRoot();
+		const run = runPreflight(["--stdout-mode", "bogus"], { root, github: feedbackGithub(), stdin: JSON.stringify({ branches: ["feature-a"] }) });
+
+		expect(await run.exit).toBe(2);
+		expect(run.legacy.calls).toEqual([]);
+		const envelope = parseEnvelope(run);
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toBe('stack-feedback-preflight --stdout-mode must be one of: full, compact (got "bogus").');
+	});
+
 	test("rejects empty, blank, duplicate, and malformed inputs", async () => {
 		const cases = [
 			{ stdin: JSON.stringify({ branches: [] }), errorType: "invalid_request", message: "stack-feedback-preflight requires at least one branch." },
