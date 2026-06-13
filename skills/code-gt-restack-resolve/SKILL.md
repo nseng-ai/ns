@@ -2,25 +2,6 @@
 name: code-gt-restack-resolve
 description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks) and escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
 model: opus
-context: fork
-allowed-tools:
-  - "Bash(gt *)"
-  - "Bash(git status *)"
-  - "Bash(git show *)"
-  - "Bash(git diff *)"
-  - "Bash(git add *)"
-  - "Bash(git restore *)"
-  - "Bash(git checkout --ours *)"
-  - "Bash(git checkout --theirs *)"
-  - "Bash(git log *)"
-  - "Bash(git rebase *)"
-  - "Bash(git commit *)"
-  - "Bash(slot gt *)"
-  - "Bash(just *)"
-  - "Bash(uv run pytest *)"
-  - Read
-  - Edit
-  - Grep
 ---
 
 # code-gt-restack-resolve
@@ -29,13 +10,14 @@ Drive a Graphite restack semi-autonomously with an explicit **scope**:
 **full stack** by default, matching plain `gt restack`, or **downstack** when
 the user asks for the narrower ancestors/current scope.
 
-This skill is a **driver**: it owns the restack workflow — preflight, scope,
-slot consolidation, starting the loop, and gt-specific bail-outs. All
-per-conflict resolution policy lives in the engine skill,
+This skill is a **parent-session driver**: the main agent session owns the
+restack workflow — preflight, scope, slot consolidation, starting or resuming
+the loop, interpreting subagent reports, user-facing escalation, final
+validation, and gt-specific bail-outs. Each individual conflict stop is
+delegated to one fresh, same-worktree subagent that follows the engine skill,
 **`code-resolve-merge-conflicts`**
-(`skills/code-resolve-merge-conflicts/SKILL.md`). At every conflict stop, read
-that document and follow it with the **Engine parameters** below. Do not
-restate or improvise per-file resolution policy here.
+(`skills/code-resolve-merge-conflicts/SKILL.md`), with the **Engine parameters**
+below. Do not restate or improvise per-file resolution policy here.
 
 It also defers to **`graphite`** for the `gt` mental model, stack navigation,
 and the "Recovering from Interrupted Rebase" section.
@@ -49,6 +31,10 @@ When the engine's Driver contract asks for overrides, use:
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
 - **Post-completion checks:** `git status` is clean; `slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
+- **Escalation channel:** `return-to-parent`. A driven conflict subagent must
+  not prompt the user. If escalation is required, it leaves the rebase stopped,
+  returns the engine's structured escalation payload to the parent, and does
+  not run `gt continue`.
 
 ## When to use
 
@@ -138,15 +124,88 @@ If no rebase is currently in progress, start the restack with the command
 chosen in **Choose scope**. If a rebase is already interrupted, skip the start
 command and continue from the current conflict state.
 
-**On each conflict stop**, read
-`skills/code-resolve-merge-conflicts/SKILL.md` and follow its workflow with the
-**Engine parameters** above. The engine handles everything per-conflict:
-auto-generated files, the intent-diff, safe-category classification,
-region-only edits, the verification gate, conflict-marker sweep, escalation,
-and running `gt continue`.
+After starting or resuming, run `git status` in the parent session to identify
+the current state. In the happy path, the count invariant is: **one conflict
+stop = one engine run = one `gt continue` = one subagent**. Escalation adds a
+parent user round-trip and a follow-up subagent for that same stop.
 
-Each `gt continue` may stop on the next commit with new conflicts — the engine
-loops per conflict until the selected restack command reports nothing left.
+While the restack is stopped at conflicts:
+
+1. Launch exactly one fresh, same-worktree subagent for the current conflict
+   stop using the **Agent prompt template** below. Do not launch conflict
+   subagents in parallel; the current `gt continue` determines whether another
+   conflict stop exists.
+2. Await that subagent completely before launching any other subagent.
+3. Inspect the subagent's final text/status, then re-run `git status` in the
+   parent session. Do not blindly trust the final text.
+4. Branch on the observed outcome:
+   - **advanced:** `gt continue` succeeded but the restack stopped again on a
+     later conflict. Loop and launch a new subagent for that next stop.
+   - **completed:** the restack completed. Proceed to **Done**.
+   - **escalation:** ask the user in the parent conversation using the returned
+     payload. Then launch a fresh follow-up subagent for the same stop, seeded
+     with the user's decision, to apply the resolution, stage files, run
+     `gt continue`, and report back. Re-run `git status` again afterward.
+   - **bail:** stop and summarize what was resolved, what remains, and the
+     exact command/state stopped at.
+
+If `git status` shows no rebase in progress and no conflicts after the initial
+restack command returns successfully, proceed directly to **Done**.
+
+### Agent prompt template
+
+Use this structure for each sequential conflict-resolution subagent. Fill in
+`RESTACK_SCOPE` from **Choose scope** and include any user decision when this is
+a follow-up subagent after escalation.
+
+```text
+You are resolving one conflict stop for a Graphite restack that is already in
+progress in this same worktree.
+
+Orchestrator-decided facts:
+- RESTACK_SCOPE: <full|downstack>
+- Continue command: gt continue
+- Extra bail-out condition: any conflict in a branch outside RESTACK_SCOPE
+- Escalation channel: return-to-parent
+
+Follow skills/code-resolve-merge-conflicts/SKILL.md as the conflict-resolution
+engine with those driver parameters.
+
+Agent-decided work:
+- Inspect git status and identify the current stopped commit and conflicted
+  files.
+- Classify conflict regions using only the engine's safe categories.
+- Edit only conflict regions, except generated files as allowed by the engine.
+- Run the engine verification gate and conflict-marker sweep.
+- Stage resolved files.
+- Run gt continue if and only if verification passes and no escalation or
+  bail-out condition blocks it.
+
+Hard constraints:
+- Do not prompt the user.
+- Do not abort the rebase/restack.
+- Do not resolve conflicts outside the current conflict stop.
+- Do not use whole-file checkout except for generated files as allowed by the
+  engine.
+
+Output contract: end with this delimited result block:
+--- CONFLICT SUBAGENT RESULT ---
+outcome: advanced | completed | escalation | bail
+files_resolved: <paths or none>
+safe_categories_used: <categories or none>
+verification: <commands and pass/fail results>
+gt_continue_ran: yes | no
+summary: <concise summary>
+
+For outcome=escalation, also include:
+affected_file: <path>
+both_sides: <concise conflict-region summary or quoted snippets>
+intent_diff_summary: <what the incoming commit intended>
+proposed_resolution: <proposal and reasoning>
+why_outside_safe_set: <reason>
+current_repository_state: <git status summary>
+--- END CONFLICT SUBAGENT RESULT ---
+```
 
 ### 5. Done
 
