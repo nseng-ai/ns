@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
 import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
-import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
+import { runScenarioWithLegacy } from "../support/run-scenario.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 
@@ -46,17 +46,13 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 // captured from the TypeScript `--json-schema` output, not Python parity.
 const TS_ONLY_OPERATIONS = ["map-branch-prs", "stack-feedback-preflight"] as const;
 
-function runWithFakeLegacy(args: readonly string[]): ScenarioRunWithLegacy {
-	return runScenarioWithLegacy(args);
-}
-
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");
 	return JSON.parse(raw) as { input_json_schema: unknown; output_json_schema: unknown };
 }
 
 async function serveSchemaDocument(operation: string): Promise<Record<string, unknown>> {
-	const run = runWithFakeLegacy(["exec", operation, "--json-schema"]);
+	const run = runScenarioWithLegacy(["exec", operation, "--json-schema"]);
 	expect(await run.exit).toBe(0);
 	expect(run.stderr.join("")).toBe("");
 	expect(run.legacy.calls).toEqual([]);
@@ -98,7 +94,7 @@ describe("pr-address exec --json-schema routes", () => {
 	}
 
 	test("--json-schema short-circuits before argument validation like the eager Python flag", async () => {
-		const run = runWithFakeLegacy(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
+		const run = runScenarioWithLegacy(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		expect(run.legacy.calls).toEqual([]);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
@@ -106,7 +102,7 @@ describe("pr-address exec --json-schema routes", () => {
 	});
 
 	test("--json-schema for unknown operations still delegates to legacy", async () => {
-		const run = runWithFakeLegacy(["exec", "not-a-real-operation", "--json-schema"]);
+		const run = runScenarioWithLegacy(["exec", "not-a-real-operation", "--json-schema"]);
 		expect(await run.exit).toBe(0);
 		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "not-a-real-operation", "--json-schema"]]);
 	});

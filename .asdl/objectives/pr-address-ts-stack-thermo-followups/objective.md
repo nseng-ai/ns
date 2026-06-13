@@ -101,3 +101,11 @@ Risks:
 
 - clinkr integer acceptance-side parity: click accepts `"+5"`, `" 5 "`, and `"1_000"`; TS `parseIntegerValue` rejects them. Row 9 deliberately keeps the stricter behavior and fixes only the comment. Whether to widen acceptance for true click parity is a parity-arbitration question that must be resolved in `pr-address-typescript-port` before its python-deletion branch.
 - Should this record be folded into `pr-address-typescript-port` per the 2026-06-10 consolidation precedent? Created standalone at explicit user request; revisit at stack completion.
+
+## Closure
+
+Completed by the nine-branch Graphite stack from `pr-address-ts/fu-dead-code-dedup` through `pr-address-ts/fu-clinkr-test-polish`, stacked above `refactor-pr-address-thermo-followups` / `pr-address-ts/test-scaffolding`. The stack implements every non-parked roadmap row: dead-code and dedup cleanup, schema-validated payload assembly, canonical classification JSON loading, schema-derived classification and payload contracts, classification schema-route consolidation, exec parse↔doc schema parity, the pure `stack-feedback` module split, and the clinkr/test-support polish.
+
+Verification evidence: each branch passed its required package or workspace validation before commit; the committed stack tip passed `pnpm --dir ts run check` and `pnpm --dir ts run test`. Fixtures remained byte-identical except for the sanctioned `map-branch-prs` JSON-schema fixture update that aligns the TS-owned document with the real `branches_json` CLI surface. The classification trio Python-vs-TS schema comparison produced no diff, so no classification fixture update was needed.
+
+Caveats and follow-ups remain parked in `roadmap.md`: behavior-adjacent mutation/fetch changes, clinkr integer acceptance widening, post-python-deletion schema dedup, comparator deepening, and thread-key ergonomics. PR submission was intentionally not performed by this implementation session.

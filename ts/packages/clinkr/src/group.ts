@@ -303,6 +303,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	}
 	if (registered.execution.type === "rendered") {
 		command.addOption(
+			// markdown/md render via the human channel until a renderMarkdown hook exists.
 			new Option("--format <format>", "Output format.")
 				.choices(["human", "json", "markdown", "md"])
 				.default("human"),
@@ -361,7 +362,10 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 					if (!(error instanceof ClinkrFailure)) throw error;
 					exit = { type: "failure", errorType: error.errorType, message: error.message };
 				}
-				const format: ClinkrFormat = opts["format"] === "json" ? "json" : "human";
+				const requestedFormat = opts["format"];
+				const format: ClinkrFormat =
+					requestedFormat === "json" ? "json" :
+					requestedFormat === "markdown" || requestedFormat === "md" ? "human" : "human";
 				state.exitCode = emitExit(exit, {
 					format,
 					io,
@@ -418,7 +422,9 @@ function parseNumberValue(value: string): number {
 }
 
 function parseIntegerValue(value: string): number {
-	// Click-strict: decimal digits only, so "12.5", "1e2", and "0x10" all reject.
+	// TS clinkr is stricter than click: decimal digits only, no leading +, no
+	// whitespace, no underscores. Click accepts "+5", " 5 ", and "1_000"; TS
+	// intentionally rejects them. Parity arbitration belongs to pr-address-typescript-port.
 	if (!/^-?\d+$/.test(value)) {
 		throw new InvalidArgumentError("expected an integer");
 	}

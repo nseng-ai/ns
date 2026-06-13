@@ -27,7 +27,7 @@ describe("strict integer options", () => {
 		expect(JSON.parse(run.stdout)).toEqual({ count: -12 });
 	});
 
-	test.each(["12.5", "1e2", "0x10", "", "abc"])(
+	test.each(["12.5", "1e2", "0x10", "", "abc", "+5", " 5 ", "1_000"])(
 		"rejects %j with a usage error",
 		async (value) => {
 			const run = await runForTest(buildGroup(), ["echo", "--count", value], { context: null });
@@ -45,7 +45,7 @@ describe("strict integer positionals", () => {
 		expect(JSON.parse(run.stdout)).toEqual({ pr_number: 41 });
 	});
 
-	test.each(["12.5", "1e2", "0x10"])("rejects %j with a usage error", async (value) => {
+	test.each(["12.5", "1e2", "0x10", "+5", " 5 ", "1_000"])("rejects %j with a usage error", async (value) => {
 		const run = await runForTest(buildGroup(), ["show", value], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(run.stdout).toBe("");

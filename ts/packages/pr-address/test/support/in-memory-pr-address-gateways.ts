@@ -41,14 +41,14 @@ export function fakePrAddressContext(
  * these literals byte-for-byte (e.g. fixtures/summarize-feedback/*.json,
  * fixtures/prepare-run/*.json); renaming the values breaks parity pins.
  */
-export const FAKE_GH_AUTH_FAILED_STDERR = "gh auth failed";
-export const FAKE_PR_LOOKUP_MISS_STDERR = "no PR found";
-export const FAKE_REACTION_FAILED_STDERR = "reaction failed";
-export const FAKE_THREAD_REPLY_REJECTED_STDERR = "GitHub rejected the thread reply";
-export const FAKE_THREAD_RESOLVE_REJECTED_STDERR = "GitHub rejected the thread resolve";
-export const FAKE_THREAD_UNRESOLVE_REJECTED_STDERR = "GitHub rejected the thread unresolve";
+const FAKE_GH_AUTH_FAILED_STDERR = "gh auth failed";
+const FAKE_PR_LOOKUP_MISS_STDERR = "no PR found";
+const FAKE_REACTION_FAILED_STDERR = "reaction failed";
+const FAKE_THREAD_REPLY_REJECTED_STDERR = "GitHub rejected the thread reply";
+const FAKE_THREAD_RESOLVE_REJECTED_STDERR = "GitHub rejected the thread resolve";
+const FAKE_THREAD_UNRESOLVE_REJECTED_STDERR = "GitHub rejected the thread unresolve";
 
-export function fakePrLookupMissStderr(prNumber: number): string {
+function fakePrLookupMissStderr(prNumber: number): string {
 	return `no PR found for PR ${prNumber}`;
 }
 
