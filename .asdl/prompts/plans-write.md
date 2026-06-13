@@ -54,10 +54,10 @@ Subagent orchestration opportunities:
 Implementation checkpoint guidance:
 
 - For larger or multi-slice implementation plans, include an intermediate checkpoint strategy.
-- Implementation agents should use `/code:cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
+- Implementation agents should use `/sdl:cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
 - A useful checkpoint is a reviewable implementation slice, not an arbitrary time interval.
-- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `/code:cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
-- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `/code:cp` and reports the commit summary, or the parent reviews the subagent diff and runs `/code:cp` afterward.
+- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `/sdl:cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
+- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `/sdl:cp` and reports the commit summary, or the parent reviews the subagent diff and runs `/sdl:cp` afterward.
 - After each editing subagent, the parent should verify final text/status and the resulting diff or Checkpoint commit summary before dispatching the next editing subagent.
 - Do not imply that branch-context runtime will automatically schedule checkpointing, and do not suggest direct `git commit` as the normal path for intermediate checkpoints.
 

@@ -94,6 +94,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("/sdl:cp");
 		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
 		expect(checkedInContent).toContain(
 			"`Subagent orchestration opportunities: none` with a one-sentence rationale",
@@ -102,7 +103,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("Prefer ordered waves");
 		expect(checkedInContent).toContain("recommend sequential dispatch and parent validation");
 		expect(checkedInContent).toContain("Implementation checkpoint guidance:");
-		expect(checkedInContent).toContain("/code:cp");
+		expect(checkedInContent).toContain("/sdl:cp");
+		expect(checkedInContent).not.toContain("/code:cp");
 		expect(checkedInContent).toContain("coherent standalone");
 		expect(checkedInContent).toContain("checkpoint ownership");
 		expect(checkedInContent).toContain("Subagent model routing:");
