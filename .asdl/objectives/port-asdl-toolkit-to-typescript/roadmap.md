@@ -20,10 +20,10 @@
   - Evidence: `.asdl/objectives/pr-address-typescript-port/updates/2026-06-13T130734Z-plugin-retirement-and-python-deletion.md` records plugin retirement, deletion of `packages/asdl-pr-address`, golden-corpus relocation, external PyPI `0.1.1` rollback, standalone TS CLI as the sole active surface, and full-repo validation.
 - [x] Refine a reusable porting playbook from the first full cutover.
   - Evidence: [`porting-playbook.md`](porting-playbook.md) promotes `pr-address` lessons into reusable guidance for later capability subobjectives, including inventory-first planning, vertical slices, local-before-shared seams, fake/parity evidence, intentional fallback retirement, distribution decisions, Semantic Updates, and Objective boundaries.
-- [ ] Select the next capability by the persisted capability order and fresh integration-leverage evidence.
-  - Current default order after `pr-address`: `brmem`, `handoff`, `objective`, `asdl-dispatcher`, roaster, `slot`, `vibechk`, then `aretro` last.
-  - Default next candidate remains `brmem` unless fresh integration-leverage evidence changes the persisted order.
-  - Revisit only when new evidence materially changes usage, dependency, or strategic value.
+- [x] Select the next capability by the persisted capability order and fresh integration-leverage evidence.
+  - Selected `brmem` as the second capability, holding the persisted order. Integration-leverage evidence confirmed rather than changed the default: TypeScript code already depends on `brmem` (the `@asdl/core/brmem-cli.ts` shell-out launcher and `branch-context/brmem-gateway.ts` consumer), so a native TS implementation has immediate reuse value, while the actual capability (~3,400 lines across `put`/`get`/`list`/`delete`/`check`/`copy`/`export`/`resolve-prompt`, ref layout, gateway, validation, content limits) remains fully Python-backed.
+  - Evidence: active subobjective `.asdl/objectives/brmem-typescript-port/` now tracks the detailed `brmem` TypeScript port contract inventory, git-ref storage parity, operation ports, run-from-source distribution, and Python retirement work, modeled on `pr-address-typescript-port` and `porting-playbook.md`.
+  - Remaining order after `brmem`: `handoff`, `objective`, `asdl-dispatcher`, roaster, `slot`, `vibechk`, then `aretro` last. Revisit only when new evidence materially changes usage, dependency, or strategic value.
 - [ ] Repeat the capability subobjective pattern until all active first-party user-facing capabilities are TS-default.
   - Preserve stable CLI/skill contracts during takeover.
   - Add cleaner TS-native APIs behind or alongside those contracts where useful.
