@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { createTempGitRepo } from "../support/temp-git-repo.ts";
 
 describe("RealGitBrmemGateway", () => {
+	it("runs git through the injected command executor", async () => {
+		const commands = new RecordingCommands([{ command: "git", args: ["branch", "--show-current"], result: { stdout: "feat/x\n" } }]);
+		const gateway = new RealGitBrmemGateway("/repo", commands);
+
+		expect(await gateway.currentBranch({ cwd: "/work" })).toEqual({ type: "ok", value: "feat/x" });
+		expect(commands.calls).toEqual([{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/work", env: process.env } }]);
+	});
+
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
 		const repo = createTempGitRepo();
 		try {
@@ -83,3 +93,42 @@ describe("RealGitBrmemGateway", () => {
 		}
 	});
 });
+
+interface CommandStep {
+	command: string;
+	args: string[];
+	result?: Partial<ExecResult> | undefined;
+}
+
+interface CommandCall {
+	command: string;
+	args: string[];
+	options: ExecOptions | undefined;
+}
+
+class RecordingCommands implements CommandExecApi {
+	readonly calls: CommandCall[] = [];
+	private readonly steps: CommandStep[];
+
+	constructor(steps: readonly CommandStep[]) {
+		this.steps = [...steps];
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.calls.push({ command, args, options });
+		const step = this.steps.shift();
+		if (step === undefined) throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
+		expect({ command, args }).toEqual({ command: step.command, args: step.args });
+		return execResult(step.result);
+	}
+}
+
+function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
+	return {
+		stdout: "",
+		stderr: "",
+		code: 0,
+		killed: false,
+		...overrides,
+	};
+}
