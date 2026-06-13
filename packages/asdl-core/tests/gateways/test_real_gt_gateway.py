@@ -124,7 +124,6 @@ def test_real_gt_gateway_stack_reads_metadata_after_git_resolution(
         current="feat/current",
         ancestors=("main", "feat/mid"),
         children=(),
-        warnings=(),
         descendants=(),
     )
 

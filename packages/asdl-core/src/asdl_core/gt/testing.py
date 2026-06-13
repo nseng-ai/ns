@@ -105,7 +105,6 @@ class FakeGtGateway(GtGateway):
             current=current,
             ancestors=(),
             children=(),
-            warnings=(),
         )
 
     @property

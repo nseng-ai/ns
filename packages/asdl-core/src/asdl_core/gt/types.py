@@ -107,41 +107,7 @@ class TrunkMarkerProblem:
 
 TrunkMarkerStatus = TrunkMarkerClean | TrunkMarkerProblem
 
-StackWalkScope = Literal["load", "ancestor", "descendant", "trunk_marker"]
-StackWalkKind = Literal[
-    "fork",
-    "cycle",
-    "missing_row",
-    "marker_missing",
-    "marker_multiple",
-    "marker_mismatch",
-    "children_not_text",
-    "children_invalid_json",
-    "children_not_list",
-    "children_non_string",
-    "empty_branch_name",
-]
-
 EMPTY_BRANCH_NAME_WARNING = "Graphite metadata row has an empty branch_name; row ignored"
-
-
-@dataclass(frozen=True)
-class StackWalkDiagnostic:
-    """Structured anomaly found while reading Graphite stack metadata.
-
-    ``branch`` is the fork point for ``fork``; the branch where a walk hit the
-    cycle or missing row for ``cycle`` and ``missing_row``; the branch with bad
-    children metadata for ``children_*``; and the ancestor-walk terminus for
-    ``marker_*``. ``branch`` is ``None`` only for ``empty_branch_name``.
-
-    ``children`` contains fork children for ``fork`` and marked trunk rows for
-    ``marker_multiple`` and ``marker_mismatch``. Other kinds use ``()``.
-    """
-
-    scope: StackWalkScope
-    kind: StackWalkKind
-    branch: str | None
-    children: tuple[str, ...] = ()
 
 
 def render_ancestor_termination(termination: WalkCycle | WalkRowMissing) -> str:
@@ -222,60 +188,6 @@ def render_trunk_marker_problem(problem: TrunkMarkerProblem) -> tuple[str, ...]:
     return tuple(warnings)
 
 
-def _diagnostic_branch_text(diagnostic: StackWalkDiagnostic) -> str:
-    return str(diagnostic.branch)
-
-
-def render_stack_walk_warning(diagnostic: StackWalkDiagnostic) -> str:
-    """Render a stack-walk diagnostic as the legacy human warning string."""
-    if diagnostic.kind == "fork":
-        return render_stack_fork(
-            StackFork(branch=_diagnostic_branch_text(diagnostic), children=diagnostic.children)
-        )
-    if diagnostic.kind == "cycle":
-        if diagnostic.scope == "ancestor":
-            return render_ancestor_termination(
-                WalkCycle(branch=_diagnostic_branch_text(diagnostic))
-            )
-        return render_descendant_termination(WalkCycle(branch=_diagnostic_branch_text(diagnostic)))
-    if diagnostic.kind == "missing_row":
-        if diagnostic.scope == "ancestor":
-            return render_ancestor_termination(
-                WalkRowMissing(branch=_diagnostic_branch_text(diagnostic))
-            )
-        return render_descendant_termination(
-            WalkRowMissing(branch=_diagnostic_branch_text(diagnostic))
-        )
-    if diagnostic.kind == "marker_missing":
-        return "trunk row marker missing"
-    if diagnostic.kind == "marker_multiple":
-        return "multiple Graphite metadata rows are marked as trunk"
-    if diagnostic.kind == "marker_mismatch":
-        return (
-            "Graphite metadata trunk marker differs from ancestor-walk terminus: "
-            f"{diagnostic.children[0]} != {diagnostic.branch}"
-        )
-    if diagnostic.kind == "children_not_text":
-        return render_children_corruption(
-            ChildrenCorruption(branch=_diagnostic_branch_text(diagnostic), kind="not_text")
-        )
-    if diagnostic.kind == "children_invalid_json":
-        return render_children_corruption(
-            ChildrenCorruption(branch=_diagnostic_branch_text(diagnostic), kind="invalid_json")
-        )
-    if diagnostic.kind == "children_not_list":
-        return render_children_corruption(
-            ChildrenCorruption(branch=_diagnostic_branch_text(diagnostic), kind="not_list")
-        )
-    if diagnostic.kind == "children_non_string":
-        return render_children_corruption(
-            ChildrenCorruption(branch=_diagnostic_branch_text(diagnostic), kind="non_string")
-        )
-    if diagnostic.kind == "empty_branch_name":
-        return EMPTY_BRANCH_NAME_WARNING
-    assert_never(diagnostic.kind)
-
-
 @dataclass(frozen=True)
 class StackInfo:
     """A snapshot of the Graphite stack around the currently checked-out branch.
@@ -288,18 +200,14 @@ class StackInfo:
     and excludes ``current``. ``children`` lists the immediate children of
     ``current`` only (no recursion into grandchildren). ``descendants`` follows
     the first-child walk away from ``current``; for a linear stack
-    ``master → A → B(current) → C → D`` it is ``("C", "D")``. When produced
-    by the metadata reader, ``warnings`` is the human rendering of
-    ``diagnostics``.
+    ``master → A → B(current) → C → D`` it is ``("C", "D")``.
     """
 
     trunk: str
     current: str
     ancestors: tuple[str, ...]
     children: tuple[str, ...]
-    warnings: tuple[str, ...] = ()
     descendants: tuple[str, ...] = ()
-    diagnostics: tuple[StackWalkDiagnostic, ...] = ()
     ancestor_termination: WalkTermination = WalkCompleted()
     descendant_walk: DescendantWalk = DescendantWalk()
     trunk_marker: TrunkMarkerStatus = TrunkMarkerClean()

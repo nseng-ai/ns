@@ -16,7 +16,6 @@ def _stack(
         current=current,
         ancestors=ancestors,
         children=(),
-        warnings=(),
         descendants=descendants,
     )
 
