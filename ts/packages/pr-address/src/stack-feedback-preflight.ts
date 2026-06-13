@@ -12,7 +12,7 @@ import {
 	type StackFeedbackPrepCompactPrResult,
 	type StackFeedbackPrepCompactResult,
 	type StackFeedbackPrepResult,
-} from "./stack-feedback.ts";
+} from "./stack-feedback-prep-core.ts";
 
 const STDOUT_MODES = new Set(["full", "compact"]);
 
