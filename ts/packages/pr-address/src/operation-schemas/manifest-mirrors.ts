@@ -28,7 +28,7 @@ const feedbackDomainLocatorSchema = z.object({
 });
 
 // Full body locator with domain metadata and char count; distinct from the 2-field
-// classificationLocatorSchema used in classification-shared.ts and classification.ts.
+// classificationLocatorSchema used in classification.ts.
 export const manifestBodyLocatorSchema = z.object({
 	body_chars: z.int(),
 	json_pointer: z.string(),

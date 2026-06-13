@@ -2,7 +2,7 @@ import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/cl
 import { z } from "zod";
 
 import { requiredAt } from "./array-values.ts";
-import { buildFeedbackClassificationTemplate } from "./classification-template.ts";
+import { buildFeedbackClassificationTemplate } from "./classification.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
