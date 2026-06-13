@@ -1,15 +1,11 @@
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-import { createJiti } from "jiti/static";
 import { z } from "zod";
 
 import { defaultCpCommand } from "./default-commands/cp.ts";
-import * as sdlSdk from "./sdk.ts";
+import { loadSdkCommandModule } from "./sdk-module-loader.ts";
 import { failed, type SdlCommand, type SdlContext, type SdlResult } from "./sdk.ts";
-
-const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
 
 const cpCommandSchema = z.object({
 	name: z.literal("cp"),
@@ -29,7 +25,7 @@ export async function loadCpCommand(cwd: string): Promise<{ ok: true; command: S
 	}
 
 	try {
-		const command = await loadCommandModule(commandPath);
+		const command = await loadSdkCommandModule(commandPath);
 		return validateCpCommand(command, commandPath);
 	} catch (error) {
 		return { ok: false, message: `Failed to load .asdl/commands/cp.ts.\n${formatUnknownError(error)}` };
@@ -48,19 +44,6 @@ export async function runCp(ctx: SdlContext): Promise<SdlResult> {
 	} catch (error) {
 		return failed(`Command cp failed.\n${formatUnknownError(error)}`, 2);
 	}
-}
-
-async function loadCommandModule(commandPath: string): Promise<unknown> {
-	const jiti = createJiti(import.meta.url, {
-		alias: {
-			"@asdl/sdl/sdk": join(SDL_SRC_DIR, "sdk.ts"),
-		},
-		moduleCache: false,
-		virtualModules: {
-			"@asdl/sdl/sdk": sdlSdk,
-		},
-	});
-	return jiti.import(commandPath, { default: true });
 }
 
 function validateCpCommand(command: unknown, commandPath: string): { ok: true; command: SdlCommand } | { ok: false; message: string } {
