@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { buildPlanFeedbackSchemaDocument } from "../../src/classification-schemas.ts";
-import { buildFeedbackClassificationTemplate } from "../../src/classification-packet.ts";
+import { buildFeedbackClassificationTemplate } from "../../src/classification-template.ts";
 import { planFeedback } from "../../src/classification-planning.ts";
 import { validateFeedbackClassification } from "../../src/classification-validation.ts";
 import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";

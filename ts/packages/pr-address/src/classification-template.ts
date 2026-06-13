@@ -66,7 +66,7 @@ export function buildFeedbackClassificationTemplate(manifest: unknown): { type: 
 	};
 }
 
-function classificationLocatorRef(locator: BodyLocator): Record<string, string | null> {
+function classificationLocatorRef(locator: BodyLocator): { json_pointer: string; item_pointer: string | null } {
 	return {
 		json_pointer: locator.json_pointer,
 		item_pointer: locator.item_pointer,

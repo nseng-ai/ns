@@ -1,10 +1,11 @@
+import { z } from "zod";
+
 import {
 	type ClassifiedDiscussionCommentItem,
 	type ClassifiedReviewItem,
 	type ClassifiedThreadItem,
 	type FeedbackClassificationPacket,
 	type FeedbackManifestView,
-	type ManifestKind,
 } from "./classification-shared.ts";
 import { validateFeedbackClassificationArtifacts, type FeedbackClassificationValidationResult } from "./classification-validation.ts";
 import {
@@ -33,6 +34,7 @@ import {
 	type FeedbackPlanDiscussionInformationalItem,
 	type FeedbackPlanInformationalItem,
 	type FeedbackPlanReviewActionItem,
+	type FeedbackPlanResult,
 	type FeedbackPlanReviewInformationalItem,
 	type FeedbackPlanThreadActionItem,
 	type FeedbackPlanThreadInformationalItem,
@@ -59,17 +61,7 @@ interface PlanSourceItemFields {
 	url?: string | null;
 }
 
-export interface FeedbackPlanningResult {
-	valid: boolean;
-	manifest_kind: ManifestKind;
-	pr_number: number | null;
-	payload_path: string | null;
-	validation: FeedbackClassificationValidationResult;
-	counts: FeedbackPlanCounts | null;
-	batches: FeedbackPlanBatch[];
-	informational: FeedbackPlanInformationalItem[];
-	warnings: string[];
-}
+export type FeedbackPlanningResult = FeedbackPlanResult;
 
 interface ClassifiedLookup {
 	reviews: Map<string, ClassifiedReviewItem>;
@@ -95,24 +87,14 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 	}
 
 	if (artifacts.manifestView === null || artifacts.classificationPacket === null) {
-		return {
-			valid: false,
-			manifest_kind: validation.manifest_kind,
-			pr_number: validation.pr_number,
-			payload_path: validation.payload_path,
-			validation,
-			counts: null,
-			batches: [],
-			informational: [],
-			warnings: ["Validated input could not be converted into planning artifacts."],
-		};
+		throw new Error("Validated feedback classification has null manifest view or packet; this is a programmer error.");
 	}
 
 	const view = artifacts.manifestView;
 	const lookup = classifiedLookup(artifacts.classificationPacket);
 	const { actions, informational } = partitionPlanItems(view, lookup);
 	const batches = batchesForActions(actions);
-	return feedbackPlanResultSchema.parse({
+	const result: FeedbackPlanResult = {
 		valid: true,
 		manifest_kind: view.kind,
 		pr_number: view.prNumber,
@@ -122,7 +104,8 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 		batches,
 		informational,
 		warnings: planningWarnings(view),
-	});
+	};
+	return result;
 }
 
 function classifiedLookup(packet: FeedbackClassificationPacket): ClassifiedLookup {
@@ -196,60 +179,72 @@ function discussionSourceFields(comment: DiscussionCommentManifestItem): PlanSou
 }
 
 function reviewActionItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewActionItem {
-	return feedbackPlanReviewActionItemSchema.parse({
+	const result: FeedbackPlanReviewActionItem = {
 		...planSourceItemBase("review", item.summary, reviewSourceFields(review)),
+		source_kind: "review",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
-	});
+	};
+	return result;
 }
 
 function threadActionItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadActionItem {
-	return feedbackPlanThreadActionItemSchema.parse({
+	const result: FeedbackPlanThreadActionItem = {
 		...planSourceItemBase("review_thread", item.summary, threadSourceFields(thread, item)),
+		source_kind: "review_thread",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: item.pre_existing,
 		needs_reply: null,
-	});
+	};
+	return result;
 }
 
 function discussionActionItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionActionItem {
-	return feedbackPlanDiscussionActionItemSchema.parse({
+	const result: FeedbackPlanDiscussionActionItem = {
 		...planSourceItemBase("discussion_comment", item.summary, discussionSourceFields(comment)),
+		source_kind: "discussion_comment",
 		action_summary: item.action_summary,
 		complexity: requiredActionComplexity(item.complexity),
 		pre_existing: false,
 		needs_reply: item.needs_reply,
-	});
+	};
+	return result;
 }
 
 function reviewInformationalItem(review: ReviewManifestItem, item: ClassifiedReviewItem): FeedbackPlanReviewInformationalItem {
-	return feedbackPlanReviewInformationalItemSchema.parse({
+	const result: FeedbackPlanReviewInformationalItem = {
 		...planSourceItemBase("review", item.summary, reviewSourceFields(review)),
+		source_kind: "review",
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
-	});
+	};
+	return result;
 }
 
 function threadInformationalItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanThreadInformationalItem {
-	return feedbackPlanThreadInformationalItemSchema.parse({
+	const result: FeedbackPlanThreadInformationalItem = {
 		...planSourceItemBase("review_thread", item.summary, threadSourceFields(thread, item)),
+		source_kind: "review_thread",
 		informational_reason: item.informational_reason,
 		user_decision_required: true,
 		allowed_decisions: [...INFORMATIONAL_THREAD_DECISIONS],
-	});
+	};
+	return result;
 }
 
 function discussionInformationalItem(comment: DiscussionCommentManifestItem, item: ClassifiedDiscussionCommentItem): FeedbackPlanDiscussionInformationalItem {
-	return feedbackPlanDiscussionInformationalItemSchema.parse({
+	const result: FeedbackPlanDiscussionInformationalItem = {
 		...planSourceItemBase("discussion_comment", item.summary, discussionSourceFields(comment)),
+		source_kind: "discussion_comment",
 		informational_reason: item.informational_reason,
 		user_decision_required: false,
 		allowed_decisions: [],
-	});
+	};
+	return result;
 }
 
 function planSourceItemBase(sourceKind: PlanSourceKind, summary: string, fields: PlanSourceItemFields): { source_kind: PlanSourceKind; summary: string } & Required<PlanSourceItemFields> {

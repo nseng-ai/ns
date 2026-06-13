@@ -10,7 +10,13 @@ import {
 	type ReviewManifestItem,
 	type ThreadManifestItem,
 } from "./feedback-manifest-contracts.ts";
-import { actionComplexitySchema, informationalReasonSchema } from "./feedback-plan-contracts.ts";
+import {
+	actionComplexitySchema,
+	feedbackManifestKindSchema,
+	feedbackPlanningValidationErrorSchema,
+	informationalReasonSchema,
+	type FeedbackManifestKind,
+} from "./feedback-plan-contracts.ts";
 import { isRecord } from "./operation-support.ts";
 
 const classificationLocatorSchema = z.looseObject({
@@ -18,7 +24,7 @@ const classificationLocatorSchema = z.looseObject({
 	item_pointer: z.string().nullable().default(null),
 });
 
-const classificationDispositionSchema = z.enum(["actionable", "informational"]);
+export const classificationDispositionSchema = z.enum(["actionable", "informational"]);
 
 const classifiedReviewSchema = z.looseObject({
 	review_id: z.string(),
@@ -66,8 +72,8 @@ export const classificationPacketSchema = z.looseObject({
 	discussion_comments: z.array(classifiedDiscussionCommentSchema).default([]),
 });
 
-export type ClassificationDisposition = "actionable" | "informational";
-export type ManifestKind = "get_feedback" | "prepare_run";
+export type ClassificationDisposition = z.infer<typeof classificationDispositionSchema>;
+export type ManifestKind = FeedbackManifestKind;
 export type ValidationItemKind = "review" | "review_thread" | "thread_comment" | "discussion_comment" | "packet";
 export type ClassificationBodyLocatorRef = z.infer<typeof classificationLocatorSchema>;
 export type ClassifiedReviewItem = z.infer<typeof classifiedReviewSchema>;
@@ -86,19 +92,13 @@ export interface FeedbackManifestView {
 	discussionComments: DiscussionCommentManifestItem[];
 }
 
-export interface FeedbackClassificationValidationError {
-	code: string;
-	message: string;
-	kind: ValidationItemKind;
-	identifier: string | number | null;
-	path: string | null;
-}
+export type FeedbackClassificationValidationError = z.infer<typeof feedbackPlanningValidationErrorSchema>;
 
-export function buildFeedbackManifestView(manifestPayload: unknown): { view: FeedbackManifestView | null; errors: FeedbackClassificationValidationError[] } {
+export function buildFeedbackManifestView(manifestPayload: unknown): { view: FeedbackManifestView | null; kind: ManifestKind; errors: FeedbackClassificationValidationError[] } {
 	const kind = manifestKindForPayload(manifestPayload);
 	const parseResult = kind === "prepare_run" ? prepareRunManifestSchema.safeParse(manifestPayload) : getFeedbackManifestSchema.safeParse(manifestPayload);
 	if (!parseResult.success) {
-		return { view: null, errors: schemaErrors(parseResult.error, "manifest") };
+		return { view: null, kind, errors: schemaErrors(parseResult.error, "manifest") };
 	}
 	const manifest = parseResult.data;
 	const requiredThreads: ThreadManifestItem[] = [];
@@ -117,7 +117,7 @@ export function buildFeedbackManifestView(manifestPayload: unknown): { view: Fee
 		resolvedThreads,
 		discussionComments: manifest.discussion_comments,
 	};
-	return { view, errors: manifestIntegrityErrors(view) };
+	return { view, kind, errors: manifestIntegrityErrors(view) };
 }
 
 function prepareRunPrNumber(manifest: PrepareRunManifest | GetFeedbackManifest): number | null {
