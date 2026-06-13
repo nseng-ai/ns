@@ -282,7 +282,7 @@ async function runGit(commands: CommandExecApi, args: readonly string[], options
 	return {
 		code: result.code,
 		stdout: result.stdout,
-		stderr: result.stderr || result.startupError || "",
+		stderr: result.stderr.length > 0 ? result.stderr : (result.startupError ?? ""),
 		displayCommand: formatCommand("git", args),
 	};
 }
@@ -322,7 +322,8 @@ function formatInvalid(label: string, value: string, reason: string): string {
 }
 
 function commandMessage(message: string, result: GitRunResult): string {
-	const details = result.stderr.trim() || result.stdout.trim();
+	const stderr = result.stderr.trim();
+	const details = stderr.length > 0 ? stderr : result.stdout.trim();
 	return details.length === 0 ? message : `${message}: ${details}`;
 }
 
