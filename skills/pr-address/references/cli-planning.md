@@ -309,13 +309,14 @@ compact decision docket.
 payload only needs `classifications`:
 
 ```bash
+# Set PR_ADDRESS_STACK_PLAN_COMPACT to a path outside the worktree root.
 printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
       --prep-reference /path/to/payload-sessions/.../stack-feedback-prep.summary.json \
       --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
-  > stack-plan.compact.json
+  > "$PR_ADDRESS_STACK_PLAN_COMPACT"
 ```
 
 The embedded form remains available:
@@ -326,7 +327,7 @@ printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification"
       --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
-  > stack-plan.compact.json
+  > "$PR_ADDRESS_STACK_PLAN_COMPACT"
 ```
 
 **Input fields:**
