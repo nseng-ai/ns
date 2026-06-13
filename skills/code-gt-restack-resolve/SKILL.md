@@ -31,6 +31,7 @@ When the engine's Driver contract asks for overrides, use:
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
 - **Post-completion checks:** `git status` is clean; `slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
+- **Subagent model tier:** the strong/smart implementation tier; never the cheap/fast review tier
 - **Escalation channel:** `return-to-parent`. A driven conflict subagent must
   not prompt the user. If escalation is required, it leaves the rebase stopped,
   returns the engine's structured escalation payload to the parent, and does
@@ -132,9 +133,9 @@ parent user round-trip and a follow-up subagent for that same stop.
 While the restack is stopped at conflicts:
 
 1. Launch exactly one fresh, same-worktree subagent for the current conflict
-   stop using the **Agent prompt template** below. Do not launch conflict
-   subagents in parallel; the current `gt continue` determines whether another
-   conflict stop exists.
+   stop using the **Agent prompt template** below and the **Subagent model
+   routing** policy below. Do not launch conflict subagents in parallel; the
+   current `gt continue` determines whether another conflict stop exists.
 2. Await that subagent completely before launching any other subagent.
 3. Inspect the subagent's final text/status, then re-run `git status` in the
    parent session. Do not blindly trust the final text.
@@ -151,6 +152,28 @@ While the restack is stopped at conflicts:
 
 If `git status` shows no rebase in progress and no conflicts after the initial
 restack command returns successfully, proceed directly to **Done**.
+
+### Subagent model routing
+
+Conflict-resolution subagents edit code in an interrupted rebase and decide
+whether a merge is mechanically safe. They are implementation subagents, not
+bounded classification or review helpers, so do not route them to the
+cheap/fast model tier.
+
+When the harness supports per-dispatch model selection, always request the
+harness's configured strong/smart implementation model for these restack
+conflict subagents. Concrete examples:
+
+- OpenAI Codex-backed Pi: set `dispatch_runner_subagent.model` to
+  `openai-codex/gpt-5.5:high` (or the local equivalent smart GPT-5.5 model
+  pattern).
+- Anthropic-backed Pi: set `dispatch_runner_subagent.model` to
+  `claude-opus-4-8` (or the local equivalent smart Opus model pattern).
+
+If per-dispatch model selection is unavailable, continue with the session's
+current model but mention that no explicit smart model could be requested. Never
+copy cheap-model guidance such as `openai-codex/gpt-5.4-mini:medium` into this
+workflow.
 
 ### Agent prompt template
 
