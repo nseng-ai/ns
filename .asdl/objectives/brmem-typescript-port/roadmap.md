@@ -2,11 +2,11 @@
 
 ## Work
 
-- [ ] Inventory the current public `brmem` contract.
-  - Evidence should include the public skill (`.agents/skills/brmem/SKILL.md`), package `AGENTS.md`, group registration, `ref_layout.py` / `key_validation.py` / `content_limits.py`, the `pyproject.toml` console script, and the scenario/unit tests.
-  - Distinguish durable public contract (operations, flags, `--format json` envelopes, exit codes, git-ref layout, Entry Locator, key/namespace rules, content limits) from incidental Python behavior before designing the TypeScript implementation.
+- [x] Inventory the current public `brmem` contract.
+  - Evidence includes the public skill (`.agents/skills/brmem/SKILL.md`), package `AGENTS.md`, `packages/brmem/CONTEXT.md`, group registration, `ref_layout.py` / `key_validation.py` / `content_limits.py`, the `pyproject.toml` console script, operation modules, gateway/fake/real storage modules, and scenario/unit/integration tests.
+  - The durable/incidental classification is recorded in `brmem-contract-inventory.md`, covering operations, flags, `--format json` envelopes, exit codes, git-ref layout, Entry Locator, key/namespace/branch rules, content limits, copy/export behavior, prompt resolution, and likely incidental Python implementation details.
   - Policy: read-only inventory and checked-in Objective/doc updates are directly executable.
-  - Evidence: a Semantic Update recording the contract inventory and durable/incidental classification.
+  - Evidence: `brmem-contract-inventory.md` plus Semantic Update `updates/2026-06-13T150000Z-brmem-contract-inventory.md`.
 
 - [ ] Define the TypeScript migration boundary and package shape for `brmem`.
   - Decide the `ts/packages/brmem` package layout, library vs CLI export surface, the clinkr command tree, and the git-gateway interface (ref/blob/tree plumbing) with its in-memory fake.
