@@ -1,8 +1,6 @@
-import { listSdlCommands, type SdlCommandInfo } from "@asdl/sdl/cli";
-import { createRealSdlCommandContext } from "@asdl/sdl/context";
-import { runCp } from "@asdl/sdl/cp-command";
+import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 
-import { registerCliCommandExtension, selectCliCommands, type CliCommandRunDeps, type ExtensionAPI } from "./cli-command-extension.ts";
+import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 const SDL_COMMAND_NAMES = ["cp"] as const;
@@ -27,23 +25,8 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 		cliName: "sdl",
 		piNamespace: "sdl",
 		commands: selectSdlCommands(SDL_COMMAND_NAMES),
-		runCli: runSdlCpCommand,
+		runCli,
 	});
-}
-
-async function runSdlCpCommand(args: readonly string[], deps: CliCommandRunDeps): Promise<number> {
-	if (args.length !== 1 || args[0] !== "cp") {
-		deps.stderr("sdl cp does not accept arguments.\n");
-		return 2;
-	}
-
-	const result = await runCp(createRealSdlCommandContext({ cwd: deps.cwd, env: deps.env }));
-	if (result.ok) {
-		deps.stdout(`${result.message}\n`);
-		return 0;
-	}
-	deps.stderr(`${result.message}\n`);
-	return result.exitCode;
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {
