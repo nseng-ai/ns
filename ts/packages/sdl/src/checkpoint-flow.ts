@@ -37,6 +37,13 @@ interface DiffFileSection {
 	text: string;
 }
 
+interface FileSectionCompactedDiffInput {
+	diff: string;
+	fileSections: readonly DiffFileSection[];
+	maxChars: number;
+	perFileExcerptChars: number;
+}
+
 export interface CommandResult {
 	code: number;
 	stdout: string;
@@ -151,7 +158,10 @@ function buildCheckpointDiffPromptSection(input: {
 		return { text: buildHeadTailCompactedDiff(trimmedDiff, maxChars), wasCompacted: true };
 	}
 
-	return { text: buildFileSectionCompactedDiff(trimmedDiff, fileSections, maxChars, perFileExcerptChars), wasCompacted: true };
+	return {
+		text: buildFileSectionCompactedDiff({ diff: trimmedDiff, fileSections, maxChars, perFileExcerptChars }),
+		wasCompacted: true,
+	};
 }
 
 function parseDiffFileSections(diff: string): DiffFileSection[] {
@@ -173,23 +183,18 @@ function parseDiffHeaderPath(header: string): string {
 	return before === after ? after : `${before} -> ${after}`;
 }
 
-function buildFileSectionCompactedDiff(
-	diff: string,
-	fileSections: readonly DiffFileSection[],
-	maxChars: number,
-	perFileExcerptChars: number,
-): string {
-	const paths = fileSections.map((section) => section.path);
-	let output = `Large diff compacted for checkpoint message generation.\nOriginal diff character count: ${diff.length}\nDetected file sections: ${fileSections.length}\n\n${buildChangedPathList(paths)}\n\nPer-file excerpts:\n`;
+function buildFileSectionCompactedDiff(input: FileSectionCompactedDiffInput): string {
+	const paths = input.fileSections.map((section) => section.path);
+	let output = `Large diff compacted for checkpoint message generation.\nOriginal diff character count: ${input.diff.length}\nDetected file sections: ${input.fileSections.length}\n\n${buildChangedPathList(paths)}\n\nPer-file excerpts:\n`;
 	let omittedFileSections = 0;
 	let omittedCharacters = 0;
 	let includedFileSections = 0;
 
-	for (const section of fileSections) {
+	for (const section of input.fileSections) {
 		const finalReserve = CHECKPOINT_FINAL_SUMMARY_RESERVE_CHARS;
-		const remainingChars = maxChars - output.length - finalReserve;
+		const remainingChars = input.maxChars - output.length - finalReserve;
 		const blockOverhead = `\n### ${section.path}\n\n\`\`\`diff\n\n\`\`\`\n`.length + 80;
-		const availableExcerptChars = Math.min(perFileExcerptChars, remainingChars - blockOverhead);
+		const availableExcerptChars = Math.min(input.perFileExcerptChars, remainingChars - blockOverhead);
 		if (availableExcerptChars <= 0) {
 			omittedFileSections += 1;
 			omittedCharacters += section.text.length;
@@ -204,7 +209,7 @@ function buildFileSectionCompactedDiff(
 	}
 
 	output += `\nOmitted summary: ${omittedFileSections} file sections not excerpted; ${omittedCharacters} characters omitted from excerpted or omitted file sections; ${includedFileSections} file sections excerpted.\n`;
-	return truncateToMaxChars(output, maxChars);
+	return truncateToMaxChars(output, input.maxChars);
 }
 
 function buildChangedPathList(paths: readonly string[]): string {
