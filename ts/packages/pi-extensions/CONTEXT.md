@@ -25,8 +25,8 @@ The private TypeScript workspace package at `ts/packages/ccc/` for repo-opiniona
 _Avoid_: Pi discovery adapter, `/cmux:*` compatibility alias, lower capability package, public npm API.
 
 **Structured grill UI surface**:
-The Pi-specific command/tool layer for starting grill sessions and routing user-facing questions through `grill_ask`. It includes the plain `/grill-ui` path and the docs-aware `/grill-with-docs-ui` path.
-_Avoid_: questionnaire framework, docs editor, generic form engine.
+The Pi-specific command/tool layer for starting grill sessions and routing user-facing questions through `grill_ask`. It includes the plain `/pi:grill-me` path and the docs-aware `/pi:grill-with-docs` path. These commands are Pi-native UI accelerators over the portable `grill-me` and `grill-with-docs` skills.
+_Avoid_: questionnaire framework, docs editor, generic form engine, `/grill-ui`, `/grill-with-docs-ui`.
 
 **Command runtime**:
 The neutral helper layer, implemented in `@asdl/pi-extension-runtime`, for command display formatting, shell quoting, normalized exec results, and bounded stdout/stderr evidence.
@@ -147,6 +147,14 @@ _Avoid_: public command vocabulary, picker label, default success copy, `handoff
 **Branch creation method**:
 The selected branch-context from-plan creation strategy, currently `plain-git` or `graphite`.
 _Avoid_: branch type, storage backend, target branch name.
+
+**Pi command namespace**:
+The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/code:*` names codebase/source-control management workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
+_Avoid_: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
+
+**Tool-call parity boundary**:
+The parity-review convention that Pi model-visible tools are host-native bridges, not standalone parity metadata rows. The command workflow that depends on a tool owns any required fallback documentation. Examples: `grill_ask`, `dispatch_runner_subagent`, `write_saved_plan_file`, `derive_handoff_slug_from_content`, and `handoff_tab_launch` do not require their own parity rows.
+_Avoid_: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
 The Pi slash-command namespace for codebase/source-control management workflows; it separates code-management commands from `dev-*` skills or commands whose future is tied to `asdl-dev` decisions.

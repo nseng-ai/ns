@@ -194,7 +194,7 @@ describe("grill-with-docs-ui prompt", () => {
 	});
 });
 
-describe("/grill-ui command", () => {
+describe("/pi:grill-me command", () => {
 	test("with args sends exactly one user message containing the target and UI contract", async () => {
 		const { pi, command } = register();
 
@@ -258,11 +258,11 @@ describe("/grill-ui command", () => {
 		);
 
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-ui.", level: "warning" }]);
+		expect(notifications).toEqual([{ message: "No plan/design provided for /pi:grill-me.", level: "warning" }]);
 	});
 });
 
-describe("/grill-with-docs-ui command", () => {
+describe("/pi:grill-with-docs command", () => {
 	test("with args sends exactly one user message containing the target, UI contract, and docs guidance", async () => {
 		const { pi, docsCommand } = register();
 
@@ -338,7 +338,7 @@ describe("/grill-with-docs-ui command", () => {
 		);
 
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(notifications).toEqual([{ message: "No plan/design provided for /grill-with-docs-ui.", level: "warning" }]);
+		expect(notifications).toEqual([{ message: "No plan/design provided for /pi:grill-with-docs.", level: "warning" }]);
 	});
 });
 
@@ -650,7 +650,7 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("call grill_ask again with the same pending question");
 	});
 
-	test("status path counts answers after the latest /grill-ui kickoff", async () => {
+	test("status path counts answers after the latest /pi:grill-me kickoff", async () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
@@ -677,7 +677,7 @@ describe("grill_ask execution", () => {
 			progressSource: "session_branch",
 		});
 		expect(text(result)).toContain("Answered count: 2 answered grill questions so far");
-		expect(text(result)).toContain("scoped to the latest /grill-ui kickoff");
+		expect(text(result)).toContain("scoped to the latest /pi:grill-me kickoff");
 	});
 
 	test("status path falls back to unscoped branch progress when no kickoff marker exists", async () => {
@@ -702,7 +702,7 @@ describe("grill_ask execution", () => {
 			answeredQuestions: 2,
 			progressSource: "session_branch_unscoped",
 		});
-		expect(text(result)).toContain("best effort; no /grill-ui kickoff marker found");
+		expect(text(result)).toContain("best effort; no /pi:grill-me kickoff marker found");
 	});
 
 	test("end path returns action end_grill and stop/summarize instruction", async () => {

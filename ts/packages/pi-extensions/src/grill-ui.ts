@@ -13,6 +13,7 @@ import {
 import { formatGrillAskProgressLine, readGrillAskProgress, type GrillAskProgress } from "./grill-ui/progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
 
 export { type GrillAskDetails } from "./grill-ui/result.ts";
@@ -23,10 +24,35 @@ export {
 	type GrillAskValidationResult,
 } from "./grill-ui/validate.ts";
 
-export const GRILL_UI_COMMAND_NAME = "grill-ui";
-export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "grill-with-docs-ui";
+export const GRILL_UI_COMMAND_NAME = "pi:grill-me";
+export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "pi:grill-with-docs";
 export const GRILL_ASK_TOOL_NAME = "grill_ask";
 export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
+
+export const grillUiParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: GRILL_UI_COMMAND_NAME,
+		workflow: "Start a structured grilling interview",
+		parity: "WAIVED",
+		fallback: "Use the grill-me skill for a prose interview outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "grill-ui",
+		notes: "Structured TUI interaction is Pi-native; portable fallback is the skill workflow.",
+	},
+	{
+		kind: "command",
+		surface: GRILL_WITH_DOCS_UI_COMMAND_NAME,
+		workflow: "Start a docs-aware structured grilling interview",
+		parity: "WAIVED",
+		fallback: "Use the grill-with-docs skill for a prose docs-aware interview outside Pi.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "grill-ui",
+		notes: "Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
+	},
+] as const);
 export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 
 const UNKNOWN_SELECTION_MESSAGE =
@@ -296,7 +322,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 export async function handleGrillUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_UI_SKILL_NAME,
-		emptyTargetMessage: "No plan/design provided for /grill-ui.",
+		emptyTargetMessage: "No plan/design provided for /pi:grill-me.",
 		expansionFailureMessage: "Could not expand pi-grill-ui skill; using fallback grill instructions.",
 		editorTitle: "What plan or design should be grilled?",
 		buildPrompt: buildGrillUiPrompt,
@@ -306,7 +332,7 @@ export async function handleGrillUiCommand(pi: ExtensionAPI, args: string, ctx: 
 export async function handleGrillWithDocsUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
-		emptyTargetMessage: "No plan/design provided for /grill-with-docs-ui.",
+		emptyTargetMessage: "No plan/design provided for /pi:grill-with-docs.",
 		expansionFailureMessage: "Could not expand pi-grill-with-docs-ui skill; using fallback docs-aware grill instructions.",
 		editorTitle: "What plan or design should be grilled against docs?",
 		buildPrompt: buildGrillWithDocsUiPrompt,

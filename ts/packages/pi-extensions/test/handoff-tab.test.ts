@@ -33,9 +33,9 @@ describe("handoff-tab extension", () => {
 
 		handoffExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["handoff-tab", "handoff:create", "handoff:list", "handoff:pickup"]);
+		expect([...pi.commands.keys()].sort()).toEqual(["ccc:handoff-tab", "handoff:create", "handoff:list", "handoff:pickup"]);
 		expect([...pi.tools.keys()]).toEqual(["derive_handoff_slug_from_content", "handoff_tab_launch"]);
-		expect(pi.commands.get("handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");
+		expect(pi.commands.get("ccc:handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");
 	});
 
 	test("does not register handoff-tab when tool registration is unavailable", () => {
@@ -45,14 +45,14 @@ describe("handoff-tab extension", () => {
 		handoffExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
-		expect(pi.commands.has("handoff-tab")).toBe(false);
+		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
 		expect([...pi.tools.keys()]).toEqual([]);
 	});
 
 	test("handoff-tab command queues create prompt with content-derived slug instructions", async () => {
 		await withTempSkill(async (skillPath) => {
 			const result = await runCommand(
-				"handoff-tab",
+				"ccc:handoff-tab",
 				"finish handoff tab implementation",
 				[branchStep(), cmuxIdentifyStep()],
 				{},
@@ -66,7 +66,7 @@ describe("handoff-tab extension", () => {
 				["cmux", ["identify", "--json", "--id-format", "both"]],
 			]);
 			expect(result.notifications).toEqual([
-				{ message: "Starting handoff-tab workflow with content-derived slug…", level: "info" },
+				{ message: "Starting ccc:handoff-tab workflow with content-derived slug…", level: "info" },
 			]);
 			expect(result.statuses).toEqual(["checking cmux context…", undefined]);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
@@ -85,12 +85,12 @@ describe("handoff-tab extension", () => {
 	});
 
 	test("handoff-tab command delegates slug collision handling to generated prompt", async () => {
-		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [branchStep(), cmuxIdentifyStep()]);
+		const result = await runCommand("ccc:handoff-tab", "finish handoff tab implementation", [branchStep(), cmuxIdentifyStep()]);
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls.map((call) => call.command)).toEqual(["git", "cmux"]);
 		expect(result.notifications).toEqual([
-			{ message: "handoff-create skill was not found; using fallback handoff-tab workflow prompt for a content-derived slug.", level: "warning" },
+			{ message: "handoff-create skill was not found; using fallback ccc:handoff-tab workflow prompt for a content-derived slug.", level: "warning" },
 		]);
 		expect(result.pi.sentUserMessages).toHaveLength(1);
 		const prompt = result.pi.sentUserMessages[0] ?? "";
@@ -99,7 +99,7 @@ describe("handoff-tab extension", () => {
 	});
 
 	test("handoff-tab command fails clearly outside cmux before create prompt", async () => {
-		const result = await runCommand("handoff-tab", "finish handoff tab implementation", [
+		const result = await runCommand("ccc:handoff-tab", "finish handoff tab implementation", [
 			branchStep(),
 			step("cmux", ["identify", "--json", "--id-format", "both"], { code: 2, stderr: "not in cmux" }),
 		]);
@@ -414,7 +414,7 @@ describe("handoff-tab pure helpers", () => {
 		});
 
 		expect(prompt).toContain("# handoff-create skill");
-		expect(prompt).toContain("This is a /handoff-tab request.");
+		expect(prompt).toContain("This is a /ccc:handoff-tab request.");
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
 		expect(prompt).toContain("- Entry: derive from the final Markdown handoff content with derive_handoff_slug_from_content");
 		expect(prompt).toContain("Do not derive the entry name from the raw continuation focus.");

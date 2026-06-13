@@ -15,6 +15,10 @@ import {
 } from "@asdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
+import { definePiSurfaceParity } from "./parity.ts";
+
+export const worktreeStatusParity = definePiSurfaceParity([] as const);
+
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);

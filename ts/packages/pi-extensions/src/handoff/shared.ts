@@ -7,7 +7,7 @@ import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime
 export const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 export const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 export const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
-export const HANDOFF_TAB_COMMAND_NAME = "handoff-tab";
+export const HANDOFF_TAB_COMMAND_NAME = "ccc:handoff-tab";
 export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";
 export const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";
 export const CREATE_HANDOFF_SKILL_NAME = "handoff-create";

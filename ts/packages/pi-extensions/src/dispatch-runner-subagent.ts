@@ -23,9 +23,9 @@ import {
 	runnerSubagentSessionFileText,
 } from "./runner-subagent/presentation.ts";
 import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
-
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
+
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 

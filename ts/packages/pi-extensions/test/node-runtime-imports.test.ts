@@ -10,7 +10,6 @@ const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../ccc/", import.meta.url));
 const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/asdl-dev.ts",
 	".pi/extensions/ccc.ts",
-	".pi/extensions/checkpoint-preview.ts",
 	".pi/extensions/claude.ts",
 	".pi/extensions/code.ts",
 	".pi/extensions/dispatch-runner-subagent.ts",
@@ -59,7 +58,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 13 extension adapters");
+		expect(result.stdout).toContain("imported 12 extension adapters");
 	});
 
 	test("pi-extensions package imports workspace exports through package links under Node", () => {

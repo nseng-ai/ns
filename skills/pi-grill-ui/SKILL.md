@@ -1,6 +1,6 @@
 ---
 name: pi-grill-ui
-description: Internal backend skill for the Pi /grill-ui extension. Supplies grill-me interview behavior while the extension supplies structured grill_ask UI instructions.
+description: Internal backend skill for the Pi /pi:grill-me extension. Supplies grill-me interview behavior while the extension supplies structured grill_ask UI instructions.
 metadata:
   internal: true
 ---

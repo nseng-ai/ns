@@ -8,29 +8,29 @@ An audit (2026-06-03) confirmed the architecture already makes this cheap: the C
 
 This Objective is the cross-harness parity **umbrella**. It owns a living parity table (every Pi surface → its parity status), every remaining parity gap, and a durable parity-review workflow that prevents new gaps from landing. The sibling Objectives it previously deferred rows to — `planned-branch-ts-cli` and `asdl-dev-submit-consolidation` — are both closed; their delivered rows are folded into the table here and the umbrella now owns all remaining gaps directly.
 
-The former standalone `command-output-summaries` Objective is subsumed here as a parity-native shared primitive workstream. It is not a Pi-surface row yet because no Pi command/tool exists; the work is tracked here so the first summarized-command implementation is a shared CLI/helper with skill guidance before any optional Pi adapter appears.
+The former standalone `command-output-summaries` Objective is subsumed here as a parity-native shared primitive workstream. It is not a Pi-surface row yet because no Pi command exists; the work is tracked here so the first summarized-command implementation is a shared CLI/helper with skill guidance before any optional Pi adapter appears.
 
 ## Scope
 
-- Maintain a living **parity table** (`parity-table.md` in this Objective directory) classifying every Pi extension command and custom tool as FULL / PARTIAL / NONE / WAIVED parity, with the shared CLI backing and the driving skill per row. The table was seeded from the 2026-06-03 audit and last fully swept 2026-06-10. Keeping it current is part of this Objective's tracking discipline (see below).
+- Maintain a living **parity table** (`parity-table.md` in this Objective directory) classifying every Pi extension command as FULL / PARTIAL / NONE / WAIVED parity, with the shared CLI backing and the driving skill per row. Pi tool calls are host-native bridges and do not require their own parity metadata rows; selected non-tool UI primitives may remain recorded when this Objective explicitly tracks them. The table was seeded from the 2026-06-03 audit and last fully swept 2026-06-10. Keeping it current is part of this Objective's tracking discipline (see below).
 - Close the **orphan orchestration** gaps by giving the existing tested `@asdl/ccc` cores clinkr-based CLI entry points (on `ts-cli-foundation`) and thin skills, with Pi importing the same core (routing any model-text steps through the backend-neutral text-generation/model-defaults seam):
   - stack landing — the unified `/code:land` stack path; the orchestration core (`ccc/src/land.ts` + `land-stack/`) is already extracted and test-backed; the remaining work is the CLI entry + skill.
   - cmux dispatch (`/ccc:workspace:dispatch-plan`, `/ccc:workspace:dispatch-prompt`, and the thin `/ccc:workspace:open-branch` pairing) — a CLI taking explicit inputs (plan path, prompt) over the ccc cmux modules and the shared `launchFocusedCmuxTab`/prompt-file utilities, with an agent-neutral launch path; Pi keeps only session-history "latest plan" resolution.
   - `autobranch` — a CLI entry over `ccc/src/autobranch/` (stash → create → restore → checkpoint commit, branch-name selection; slug derivation already shared via `@asdl/plans`).
 - Provide **skill-only** parity where there is nothing worth extracting: the single-PR path of the unified `/code:land` (document the `gh pr merge` contract, base-branch guard, and `--match-head-commit` pinning) and `/code:changes` (lightweight summary, or a recorded waiver if judged purely cosmetic).
 - Reconcile `/cp-preview` with `asdl-dev cp` (CLI preview mode or a recorded waiver).
-- Sustain the **parity-review discipline**: the `parity-review` route of the `code-workflows` skill (renamed 2026-06-11 from `internal-code-workflows`) runs diff-scoped review (flagging any added/changed Pi command or tool lacking a CLI+skill counterpart or a recorded waiver) and on-demand full-repo sweeps that refresh the parity table. The waiver rule for genuinely Pi-native primitives (e.g. `dispatch_runner_subagent`, `grill_ask` TUI, the worktree status line): acceptable Pi-only provided dependent workflows document an agent-neutral fallback.
+- Sustain the **parity-review discipline**: the `parity-review` route of the `code-workflows` skill (renamed 2026-06-11 from `internal-code-workflows`) runs diff-scoped review (flagging any added/changed Pi command lacking a CLI+skill counterpart or a recorded waiver) and on-demand full-repo sweeps that refresh the parity table. Tool-call surfaces such as `dispatch_runner_subagent` and `grill_ask` are treated as Pi-native host bridges; dependent workflows should still document an agent-neutral fallback when they rely on those tools.
 - Own the former `command-output-summaries` workstream as a parity-native shared primitive: define and implement a harness-neutral summarized-command CLI/helper that writes full stdout, stderr, and combined logs to payload artifacts, returns bounded deterministic summaries, exposes explicit command/cwd/timeout semantics, supports generic/test/lint/typecheck profiles, and provides skill guidance plus optional Pi adapter without making Pi canonical.
 
 Delivered scope, kept as context rather than live work: the `asdl-dev` discoverability skills (`dev-preview-url`, `code-submit`, the `code-checkpoint` delegation to `asdl-dev cp`; the `internal-code-*` skill family was renamed to `code-*` on 2026-06-11), the `/handoff:list` deduplication onto the `handoff list` CLI, and the provider-model-default consolidation behind `@asdl/plans` `model-defaults.ts`.
 
 **Parity table tracking:** `parity-table.md` is the canonical status surface for this Objective. Rules:
 
-- Every Pi extension command and custom tool appears as exactly one row.
+- Every Pi extension command appears as exactly one row; Pi tool calls do not require parity rows. Selected non-tool UI primitives may be recorded when the Objective explicitly tracks them.
 - A row is **FULL** only when a shared CLI carries the deterministic logic and a skill drives it so Claude/Codex reach the workflow standalone; the Pi part must be purely additive.
 - **WAIVED** rows are genuinely Pi-native primitives whose value _is_ the Pi UI/session behavior; they require a documented non-Pi fallback for any dependent workflow.
 - The table is refreshed whenever this Objective is updated with parity-relevant findings, and the parity-review workflow's full-sweep mode (the `parity-review` route of the `code-workflows` skill) checks it against live evidence and refreshes it with a Semantic Update when drift is found.
-- Shared primitives with no Pi surface yet do not get parity-table rows until a Pi command/tool exists; this Objective may still track them in roadmap prose when their purpose is to prevent a future parity gap.
+- Shared primitives with no Pi command surface yet do not get parity-table rows until a Pi command exists; this Objective may still track them in roadmap prose when their purpose is to prevent a future parity gap.
 
 ## Non-Goals
 
@@ -46,7 +46,7 @@ Delivered scope, kept as context rather than live work: the `asdl-dev` discovera
 
 - Every row in `parity-table.md` is either **FULL** (shared CLI + skill, Pi additive) or a recorded, justified **WAIVED** primitive with a documented agent-neutral fallback — except any consciously parked rows. No unexplained PARTIAL/NONE rows remain.
 - Stack landing, the cmux dispatch family, and `autobranch` are reachable by Claude/Codex via CLI + skill, with the Pi extensions importing the same `@asdl/ccc` cores and no duplicated orchestration. Model-text steps (slug, summary) run through the backend-neutral text-generation/model-defaults seam, not the Pi-only model harness.
-- `/cp-preview` and `/code:changes` are resolved: each reaches FULL or a recorded WAIVED verdict.
+- `/code:land` single-PR and stack landing parity is resolved. Historical `/cp-preview` is removed; `/code:changes` is resolved as a recorded WAIVED read-only Pi UX helper.
 - The command-output summary primitive exists as a shared CLI/helper with skill guidance and optional Pi integration only as an adapter: it writes complete stdout/stderr/combined logs to payload artifact files, returns bounded human and machine-readable summaries with profile-derived counts/excerpts where practical, treats nonzero exits/timeouts as summarized outcomes, and proves no-leak behavior with synthetic large-output tests.
 - A parity-review full-sweep run (the `parity-review` route of `code-workflows`) reports no unwaived gaps, captured as closure evidence.
 - Evidence: targeted `just ts-check` / `just ts-test` and Python checks pass for changed areas; CLI scenario tests cover each new CLI's operations, help, and version.
@@ -59,7 +59,7 @@ Assumptions:
 - Model-text neutrality is solved infrastructure: slug derivation is one canonical `@asdl/plans` helper resolving `ASDL_SLUG_MODEL` over the shared `DEFAULT_FAST_MODEL_REF`, and the remaining model-touching defaults are env-overridable (`PI_DRAFT_MODEL`, `ASDL_CCC_SIDEBAR_MODEL`, `ASDL_DEV_CHECKPOINT_MODEL`). Validated by the provider-default consolidation; new code must keep using the seam.
 - The `@asdl/ccc` cores are extraction-ready: the land-stack orchestration (Graphite SQLite-metadata topology, fork-violation detection, backup refs, pre-delete child guards) and autobranch transaction are already factored into focused modules with test coverage, so the push-down rows are CLI-entry + skill work, not logic extraction.
 - New shared CLIs created by this Objective's push-down rows, when implemented in TypeScript, build on the `ts-cli-foundation` layer — the `@asdl/clinkr` command shell and `@asdl/core` exec/gateway modules — rather than growing bespoke scaffolds.
-- Genuinely Pi-native primitives (`dispatch_runner_subagent`, `grill_ask` TUI, worktree status line) are acceptable to keep Pi-only provided dependent workflows document an agent-neutral fallback.
+- Genuinely Pi-native primitives (`dispatch_runner_subagent`, `grill_ask` TUI, worktree status line) are acceptable to keep Pi-only; tool-call surfaces do not require parity rows, but dependent workflows should document an agent-neutral fallback.
 - The summarized-command work belongs in this umbrella because its core architectural decision is parity: command execution and log summarization must be reachable from every harness through the same CLI/helper instead of appearing first as a Pi-only convenience.
 
 Risks:
@@ -72,6 +72,5 @@ Risks:
 ## Open Questions
 
 - What should the ccc CLI surface be: one `ccc` bin exposing land/dispatch/autobranch subcommands, commands grafted onto `asdl-dev`, or per-workflow bins? Coordinate with `ts-cli-foundation`, whose clinkr/core layer is the expected substrate either way.
-- Does `/code:changes` deserve any parity, or should it be declared an accepted Pi-only cosmetic affordance (WAIVED) rather than getting a skill?
 - For the summarized-command primitive, what final command name/package should own the shared helper, how directly should it reuse the shipped `asdl-core` payload artifact store, which concrete output formats should the first profiles parse, should Pi integration be a custom tool or command wrapper, and what hard caps should apply to transcript-visible tails/excerpts?
 - The fifth parity-table-rot materialization (2026-06-12) fired the 2026-06-10 follow-up trigger: should the parked machine-checkable CI parity gate be promoted to active work now, ahead of or alongside the push-down rows?

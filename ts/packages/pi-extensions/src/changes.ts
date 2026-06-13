@@ -9,9 +9,24 @@ import {
 	type WorktreeCommandResult,
 } from "asdl-dev/pending-worktree";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 
 const COMMAND_NAME = "code:changes";
 export const CHANGES_SUMMARY_MESSAGE_TYPE = "code-changes-summary";
+
+export const changesParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: COMMAND_NAME,
+		workflow: "Summarize outstanding worktree changes without committing",
+		parity: "WAIVED",
+		fallback: "Use git status and git diff directly, or ask the current harness to summarize the same pending-worktree evidence in prose.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "changes",
+		notes: "Read-only Pi UX helper: the underlying facts are ordinary git/worktree evidence, while the command value is a Pi model-drafted message card.",
+	},
+] as const);
 
 interface CustomMessage {
 	customType: string;

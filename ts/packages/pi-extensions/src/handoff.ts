@@ -1,12 +1,15 @@
 import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { isRecord } from "./cmux/primitives.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
 import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	CREATE_HANDOFF_COMMAND_NAME,
+	DERIVE_HANDOFF_SLUG_TOOL_NAME,
+	HANDOFF_TAB_LAUNCH_TOOL_NAME,
 	HANDOFF_TIMEOUT_MS,
 	HANDOFF_TAB_COMMAND_NAME,
 	LIST_HANDOFF_COMMAND_NAME,
@@ -30,6 +33,56 @@ import type {
 	RenderComponent,
 	RenderTheme,
 } from "./handoff/runtime-types.ts";
+
+export const handoffParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: CREATE_HANDOFF_COMMAND_NAME,
+		workflow: "Create a directed handoff artifact for a future continuation",
+		parity: "FULL",
+		cli: "handoff create workflow over brmem",
+		skill: "handoff-create",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "handoff",
+		notes: "Pi command expands the portable handoff-create skill and stores through Branch Memory only after model confirmation.",
+	},
+	{
+		kind: "command",
+		surface: PICKUP_HANDOFF_COMMAND_NAME,
+		workflow: "Pick up an existing handoff artifact",
+		parity: "FULL",
+		cli: "handoff pickup workflow over brmem",
+		skill: "handoff-pickup",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "handoff",
+		notes: "Pi command reads Branch Memory handoff artifacts and expands the same portable pickup workflow.",
+	},
+	{
+		kind: "command",
+		surface: LIST_HANDOFF_COMMAND_NAME,
+		workflow: "List handoff artifacts for this branch or active local branches",
+		parity: "FULL",
+		cli: "handoff list workflow over brmem",
+		skill: "handoff-pickup",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "handoff",
+		notes: "List support is part of the portable handoff pickup/list workflow.",
+	},
+	{
+		kind: "command",
+		surface: HANDOFF_TAB_COMMAND_NAME,
+		workflow: "Create a handoff and open a focused cmux tab to pick it up",
+		parity: "WAIVED",
+		fallback: "Create the handoff with handoff-create, then manually open the target harness/session and pick it up with handoff-pickup.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "handoff",
+		notes: "Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
+	},
+] as const);
 
 export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
 export type { HandoffTabLaunchResult } from "./handoff/tab.ts";

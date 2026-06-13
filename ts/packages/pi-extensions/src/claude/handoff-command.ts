@@ -8,6 +8,7 @@ import {
 import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey } from "../handoff/identity.ts";
 import type { HandoffStartMessages } from "../handoff/shared.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI, RenderComponent, ToolDefinition } from "../handoff/runtime-types.ts";
+import { definePiSurfaceParity } from "../parity.ts";
 import type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 
 export type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
@@ -15,6 +16,20 @@ export type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunIntera
 export const CLAUDE_HANDOFF_COMMAND_NAME = "claude:handoff";
 export const CLAUDE_HANDOFF_LAUNCH_TOOL_NAME = "claude_handoff_launch";
 export const CLAUDE_HANDOFF_STATUS_KEY = CLAUDE_HANDOFF_COMMAND_NAME;
+
+export const claudeHandoffParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: CLAUDE_HANDOFF_COMMAND_NAME,
+		workflow: "Create a handoff, then launch Claude Code to pick it up",
+		parity: "WAIVED",
+		fallback: "Create a handoff with handoff-create, then manually launch Claude Code or another harness and pick up the saved handoff.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "claude/handoff-command",
+		notes: "The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",
+	},
+] as const);
 
 export interface ClaudeHandoffDeps {
 	runClaude: RunInteractiveClaude;

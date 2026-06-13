@@ -142,9 +142,9 @@ function formatAnsweredCount(progress: GrillAskProgress): string {
 	if (progress.answeredQuestions === undefined) return "unavailable from session evidence.";
 	const noun = progress.answeredQuestions === 1 ? "question" : "questions";
 	if (progress.source === "session_branch") {
-		return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch, scoped to the latest /grill-ui kickoff.`;
+		return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch, scoped to the latest /pi:grill-me kickoff.`;
 	}
-	return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch (best effort; no /grill-ui kickoff marker found).`;
+	return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch (best effort; no /pi:grill-me kickoff marker found).`;
 }
 
 export function textResult<Details extends GrillAskDetails>(text: string, details: Details): ToolResult<Details> {

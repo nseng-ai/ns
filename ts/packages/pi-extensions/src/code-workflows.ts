@@ -1,8 +1,24 @@
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import type { CommandContext, CustomMessage, RenderComponent, RenderTheme } from "./handoff/runtime-types.ts";
+import { definePiSurfaceParity } from "./parity.ts";
 
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
 export const CODE_WORKFLOWS_MESSAGE_TYPE = "code-workflows-selection";
+
+export const codeWorkflowsParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: CODE_WORKFLOWS_COMMAND_NAME,
+		workflow: "Select rare code workflow prompts without starting a model turn",
+		parity: "FULL",
+		cli: "none needed; routes are skill references",
+		skill: "code-workflows",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "code-workflows",
+		notes: "The command is a Pi picker/prompt insertion convenience over portable skills and references.",
+	},
+] as const);
 
 interface AutocompleteItem {
 	value: string;
@@ -60,7 +76,7 @@ const ROUTES = [
 		route: "parity-review",
 		aliases: ["cross-harness-parity"],
 		reference: "skills/code-workflows/references/parity-review.md",
-		summary: "review Pi command/tool changes for cross-harness parity",
+		summary: "review Pi command changes for cross-harness parity",
 	},
 	{
 		route: "gh-ci-debug",

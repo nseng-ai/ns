@@ -41,8 +41,8 @@ export const HANDOFF_TAB_PROMPT_COPY = {
 } satisfies HandoffLaunchPromptCopy;
 
 const HANDOFF_TAB_START_MESSAGES = {
-	ready: "Starting handoff-tab workflow with content-derived slug…",
-	fallbackLabel: "handoff-tab workflow prompt for a content-derived slug",
+	ready: "Starting ccc:handoff-tab workflow with content-derived slug…",
+	fallbackLabel: "ccc:handoff-tab workflow prompt for a content-derived slug",
 } satisfies HandoffStartMessages;
 
 export const buildHandoffTabRequest = buildHandoffLaunchRequest;
