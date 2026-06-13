@@ -147,7 +147,7 @@ slot gt exec stack-branches \
 
 | Field                     | Description                                                                                          |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `payload_session_id`      | Derived payload-store session id used for the stack run                                              |
+| `harness_session_id`      | Harness session id used as the payload-store session for the stack run                               |
 | `mapping_summary`         | Branch coverage counts: `requested`, `matched`, `missing`                                            |
 | `stack_reference`         | Payload artifact containing the frozen `{"stack":[...]}` JSON for later exact refetches              |
 | `stack_summary_reference` | Whole-stack full prep artifact from `stack-feedback-prep`                                            |
@@ -214,7 +214,7 @@ stack from `stack-feedback-preflight`.
 
 | Field                                       | Description                                                             |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `payload_session_id`                        | Derived payload-store session id used for the stack run                 |
+| `harness_session_id`                        | Harness session id used as the payload-store session for the stack run  |
 | `include_resolved`                          | Whether resolved review threads were included in the stack manifests    |
 | `stack[]`                                   | One compact prep result per PR                                          |
 | `stack[].manifest`                          | Compact get-feedback manifest with locators, not body text              |

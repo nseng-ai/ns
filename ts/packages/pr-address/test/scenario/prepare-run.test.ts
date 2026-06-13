@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary, RestructuredFile } from "../../src/gateways.ts";
-import { expectedHarnessSessionRelativePath, expectedHarnessSessionText } from "../support/harness-session.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -89,14 +88,10 @@ describe("prepare-run parity with the Python CLI", () => {
 			});
 
 			expect(await run.exit).toBe(prepareCase.expected_exit_code);
-			const expectedEnvelope =
-				root === null
-					? prepareCase.expected_envelope_text
-					: expectedHarnessSessionText(prepareCase.expected_envelope_text.replaceAll("{ROOT}", root), fixture.session_id);
+			const expectedEnvelope = root === null ? prepareCase.expected_envelope_text : prepareCase.expected_envelope_text.replaceAll("{ROOT}", root);
 			expect(run.stdout.join("")).toBe(expectedEnvelope);
 			if (prepareCase.artifact_relative_path !== undefined && prepareCase.expected_artifact_text !== undefined && root !== null) {
-				const artifactRelativePath = expectedHarnessSessionRelativePath(prepareCase.artifact_relative_path, fixture.session_id);
-				expect(await readFile(join(root, artifactRelativePath), "utf8")).toBe(prepareCase.expected_artifact_text);
+				expect(await readFile(join(root, prepareCase.artifact_relative_path), "utf8")).toBe(prepareCase.expected_artifact_text);
 			}
 		});
 	}

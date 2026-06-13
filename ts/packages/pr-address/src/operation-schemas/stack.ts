@@ -204,8 +204,7 @@ const stackFeedbackPrepSummarySchema = z.object({
 });
 
 const stackFeedbackPrepResultSchema = z.object({
-	payload_session_id: z.string(),
-	harness_session_id_digest: nullableStringSchema.optional(),
+	harness_session_id: z.string(),
 	include_resolved: z.boolean().optional(),
 	stack: z.array(stackFeedbackPrepPrResultSchema),
 	stack_summary_reference: payloadReferenceSchema.nullable().optional(),
@@ -227,8 +226,7 @@ const stackFeedbackPrepCompactPrResultSchema = z.object({
 });
 
 const stackFeedbackPrepCompactResultSchema = z.object({
-	payload_session_id: z.string(),
-	harness_session_id_digest: nullableStringSchema.optional(),
+	harness_session_id: z.string(),
 	include_resolved: z.boolean().optional(),
 	summary: stackFeedbackPrepSummarySchema,
 	stack_summary_reference: payloadReferenceSchema,
@@ -256,8 +254,7 @@ const stackFeedbackPreflightCompactZeroPrSchema = z.object({
 });
 
 const stackFeedbackPreflightCompactResultSchema = z.object({
-	payload_session_id: z.string(),
-	harness_session_id_digest: nullableStringSchema.optional(),
+	harness_session_id: z.string(),
 	mapping_summary: mapBranchPrsSummarySchema,
 	stack_reference: payloadReferenceSchema,
 	stack_summary_reference: payloadReferenceSchema,
@@ -387,8 +384,7 @@ const stackFeedbackPlanSummarySchema = z.object({
 
 const stackFeedbackPlanResultSchema = z.object({
 	valid: z.boolean(),
-	payload_session_id: z.string(),
-	harness_session_id_digest: nullableStringSchema.optional(),
+	harness_session_id: z.string(),
 	pr_count: z.int(),
 	validation: stackFeedbackPlanValidationSummarySchema,
 	batches: z.array(stackFeedbackPlanBatchSchema).optional(),
@@ -430,8 +426,7 @@ const stackFeedbackPlanCompactInformationalSummarySchema = z.object({
 
 const stackFeedbackPlanCompactResultSchema = z.object({
 	valid: z.boolean(),
-	payload_session_id: z.string(),
-	harness_session_id_digest: nullableStringSchema.optional(),
+	harness_session_id: z.string(),
 	pr_count: z.int(),
 	validation: stackFeedbackPlanValidationSummarySchema,
 	batches: z.array(stackFeedbackPlanCompactBatchSchema).optional(),

@@ -6,7 +6,6 @@ import { describe, expect, test } from "vitest";
 import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
 import { normalizePayloadBytes } from "../support/golden.ts";
-import { expectedHarnessSessionRelativePath, expectedHarnessSessionText } from "../support/harness-session.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -113,10 +112,8 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(expectedHarnessSessionText(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root), getFeedbackFixture.session_id));
-		expect(await readFile(join(root, expectedHarnessSessionRelativePath(getFeedbackFixture.artifact_relative_path, getFeedbackFixture.session_id)), "utf8")).toBe(
-			getFeedbackFixture.expected_artifact_text,
-		);
+		expect(run.stdout.join("")).toBe(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root));
+		expect(await readFile(join(root, getFeedbackFixture.artifact_relative_path), "utf8")).toBe(getFeedbackFixture.expected_artifact_text);
 	});
 
 	test("fails with the Python harness_session_required envelope when no session id is available", async () => {
@@ -144,7 +141,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(expectedHarnessSessionText(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root), getFeedbackFixture.session_id));
+		expect(run.stdout.join("")).toBe(getFeedbackFixture.expected_envelope_text.replaceAll("{ROOT}", root));
 	});
 });
 

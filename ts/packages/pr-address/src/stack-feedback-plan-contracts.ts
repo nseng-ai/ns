@@ -53,8 +53,7 @@ export const stackFeedbackPlanValidationSummarySchema = z.looseObject({
 });
 export const stackFeedbackPlanConsumerResultSchema = z.looseObject({
 	valid: z.boolean(),
-	payload_session_id: z.string().optional(),
-	harness_session_id_digest: z.string().nullable().optional(),
+	harness_session_id: z.string().optional(),
 	pr_count: z.number().int().default(0),
 	validation: stackFeedbackPlanValidationSummarySchema,
 	batches: z.array(stackFeedbackPlanBatchSchema).default([]),
@@ -174,8 +173,7 @@ export interface StackFeedbackPlanSummary {
 
 export interface StackFeedbackPlanResult {
 	valid: boolean;
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	pr_count: number;
 	validation: StackFeedbackPlanValidationSummary;
 	batches: StackFeedbackPlanBatch[];

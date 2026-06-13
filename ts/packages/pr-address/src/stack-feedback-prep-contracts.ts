@@ -51,8 +51,7 @@ export const stackFeedbackPrepPrConsumerSchema = z.looseObject({
 });
 
 export const stackFeedbackPrepConsumerSchema = z.looseObject({
-	payload_session_id: z.string().optional(),
-	harness_session_id_digest: z.string().nullable().optional(),
+	harness_session_id: z.string().optional(),
 	include_resolved: z.boolean().default(false),
 	stack: z.array(stackFeedbackPrepPrConsumerSchema).default([]),
 	stack_summary_reference: payloadReferenceSchema.nullable().optional(),
@@ -60,7 +59,7 @@ export const stackFeedbackPrepConsumerSchema = z.looseObject({
 });
 
 export const stackFeedbackPrepResultInputSchema = stackFeedbackPrepConsumerSchema.extend({
-	payload_session_id: z.string(),
+	harness_session_id: z.string(),
 	stack: z.array(stackFeedbackPrepPrConsumerSchema),
 });
 
@@ -85,7 +84,7 @@ export const stackFeedbackPrepPrWithManifestSchema = z.looseObject({
 });
 
 export const stackFeedbackPrepResultWithManifestSchema = z.looseObject({
-	payload_session_id: z.string().optional(),
+	harness_session_id: z.string().optional(),
 	include_resolved: z.boolean().default(false),
 	stack: z.array(stackFeedbackPrepPrWithManifestSchema).default([]),
 	stack_summary_reference: payloadReferenceSchema.nullable().optional(),
@@ -126,8 +125,7 @@ export interface StackFeedbackPrepSummary {
 }
 
 export interface StackFeedbackPrepResult {
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	include_resolved: boolean;
 	stack: StackFeedbackPrepPrResult[];
 	stack_summary_reference: PayloadReference | null;
@@ -154,8 +152,7 @@ export interface StackFeedbackPrepCompactPrResult {
 }
 
 export interface StackFeedbackPrepCompactResult {
-	payload_session_id: string;
-	harness_session_id_digest: string | null;
+	harness_session_id: string;
 	include_resolved: boolean;
 	summary: StackFeedbackPrepSummary;
 	stack_summary_reference: PayloadReference;

@@ -39,18 +39,8 @@
       {
         "type": "object",
         "properties": {
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "include_resolved": {
             "type": "boolean"
@@ -1990,7 +1980,7 @@
           }
         },
         "required": [
-          "payload_session_id",
+          "harness_session_id",
           "stack",
           "summary",
           "mapping_summary",
@@ -2001,18 +1991,8 @@
       {
         "type": "object",
         "properties": {
-          "payload_session_id": {
+          "harness_session_id": {
             "type": "string"
-          },
-          "harness_session_id_digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "mapping_summary": {
             "type": "object",
@@ -2550,7 +2530,7 @@
           }
         },
         "required": [
-          "payload_session_id",
+          "harness_session_id",
           "mapping_summary",
           "stack_reference",
           "stack_summary_reference",

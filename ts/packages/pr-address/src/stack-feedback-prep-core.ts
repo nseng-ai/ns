@@ -55,8 +55,7 @@ export async function prepareStackFeedbackStack(options: {
 	}
 
 	const resultWithoutReference: StackFeedbackPrepResult = {
-		payload_session_id: options.store.sessionId,
-		harness_session_id_digest: options.store.harnessSessionIdDigest,
+		harness_session_id: options.store.sessionId,
 		include_resolved: options.shouldIncludeResolved,
 		stack: prResults,
 		stack_summary_reference: null,
@@ -173,8 +172,7 @@ function prepSummary(prResults: readonly StackFeedbackPrepPrResult[]): StackFeed
 
 export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryReference: PayloadReference): StackFeedbackPrepCompactResult {
 	return {
-		payload_session_id: result.payload_session_id,
-		harness_session_id_digest: result.harness_session_id_digest,
+		harness_session_id: result.harness_session_id,
 		include_resolved: result.include_resolved,
 		summary: result.summary,
 		stack_summary_reference: stackSummaryReference,

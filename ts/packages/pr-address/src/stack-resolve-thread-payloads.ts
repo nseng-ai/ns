@@ -58,7 +58,7 @@ const stackPlanBatchSchema = z.looseObject({
 
 const stackPlanConsumerSchema = z.looseObject({
 	valid: z.boolean(),
-	payload_session_id: z.string(),
+	harness_session_id: z.string(),
 	pr_count: z.number().int(),
 	validation: z.looseObject({ all_valid: z.boolean(), per_pr: z.array(z.unknown()).default([]) }),
 	batches: z.array(stackPlanBatchSchema).default([]),

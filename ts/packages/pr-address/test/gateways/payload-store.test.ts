@@ -7,14 +7,12 @@ import { useTempDirs } from "../support/temp.ts";
 
 import {
 	defaultPayloadRoot,
-	derivePayloadSessionIdFromHarnessSessionId,
 	PayloadStore,
 	readJsonPayloadArtifact,
 	readJsonPayloadArtifactValue,
 	resolveHarnessSessionId,
 	resolveJsonPointer,
 	resolvePayloadRoot,
-	resolvePayloadSession,
 	type PayloadClock,
 	type PayloadResult,
 } from "../../src/payload-store.ts";
@@ -179,6 +177,8 @@ async function collectErrorCases(root: string): Promise<Map<string, ObservedErro
 
 	actualByName.set("resolve_root_relative", expectError(resolvePayloadRoot({ env: { ASDL_PAYLOAD_ROOT: "relative/root" } })));
 	actualByName.set("session_required", expectError(resolveHarnessSessionId(null, { env: {} })));
+	actualByName.set("session_invalid_env", expectError(resolveHarnessSessionId(null, { env: { HARNESS_SESSION_ID: "Bad Session" } })));
+	actualByName.set("session_invalid_explicit", expectError(resolveHarnessSessionId("UPPER", { env: {} })));
 	actualByName.set("open_relative_root", expectError(await PayloadStore.open({ root: "relative-root", sessionId: "session1" })));
 	actualByName.set("open_invalid_session", expectError(await PayloadStore.open({ root: storeRoot, sessionId: "Session!" })));
 
@@ -238,39 +238,32 @@ async function collectErrorCases(root: string): Promise<Map<string, ObservedErro
 }
 
 describe("payload store environment and safety behavior", () => {
-	test("fromEnvironment resolves ASDL_PAYLOAD_ROOT and HARNESS_SESSION_ID", async () => {
+	test("fromEnvironment resolves ASDL_PAYLOAD_ROOT and HARNESS_SESSION_ID verbatim", async () => {
 		const tempDir = await makeTempDir();
 		const root = join(tempDir, "env-root");
-		const derived = derivePayloadSessionIdFromHarnessSessionId("env-session");
 
 		const store = expectOk(await PayloadStore.fromEnvironment({ env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "env-session" } }));
 
 		expect(store.root).toBe(root);
-		expect(store.sessionId).toBe(derived.payloadSessionId);
-		expect(store.harnessSessionIdDigest).toBe(derived.harnessSessionIdDigest);
-		expect(store.payloadDir).toBe(join(root, "sessions", derived.payloadSessionId, "payloads"));
+		expect(store.sessionId).toBe("env-session");
+		expect(store.payloadDir).toBe(join(root, "sessions", "env-session", "payloads"));
 	});
 
 	test("fromEnvironment prefers an explicit harness session id over the environment", async () => {
 		const tempDir = await makeTempDir();
 		const root = join(tempDir, "env-root");
-		const derived = derivePayloadSessionIdFromHarnessSessionId("explicit-session");
 
 		const store = expectOk(
 			await PayloadStore.fromEnvironment({ explicitHarnessSessionId: "explicit-session", env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "env-session" } }),
 		);
 
-		expect(store.sessionId).toBe(derived.payloadSessionId);
-		expect(store.harnessSessionIdDigest).toBe(derived.harnessSessionIdDigest);
+		expect(store.sessionId).toBe("explicit-session");
 	});
 
-	test("resolvePayloadSession derives a safe payload id without exposing the raw harness id", () => {
-		const rawHarnessSessionId = "pi-session-file:/Users/example/.pi/session.jsonl";
-		const resolved = expectOk(resolvePayloadSession({ explicitHarnessSessionId: rawHarnessSessionId, env: {} }));
+	test("resolveHarnessSessionId rejects unsafe harness ids", () => {
+		const result = resolveHarnessSessionId("Bad Session", { env: {} });
 
-		expect(resolved.harnessSessionIdDigest).toMatch(/^[a-f0-9]{32}$/);
-		expect(resolved.payloadSessionId).toBe(`pr-address-${resolved.harnessSessionIdDigest}`);
-		expect(resolved.payloadSessionId).not.toContain("Users");
+		expect(expectError(result)).toEqual({ errorType: "harness_session_invalid", message: "Harness session id must be a safe segment: 'Bad Session'" });
 	});
 
 	test("defaultPayloadRoot nests an asdl directory under the temp directory", async () => {

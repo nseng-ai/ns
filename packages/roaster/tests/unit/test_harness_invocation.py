@@ -225,6 +225,42 @@ def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) ->
     assert large_diff in process.stdin.buffer
 
 
+def test_oversized_diff_files_are_omitted_from_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_TOKENS", 100)
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_FILE_TOKENS", 100)
+    large_payload = "x" * 500
+    diff = (
+        "diff --git a/large.json b/large.json\n"
+        "--- a/large.json\n"
+        "+++ b/large.json\n"
+        "@@ -1 +1 @@\n"
+        f"-{large_payload}\n"
+        f"+{large_payload}y\n"
+        "diff --git a/small.py b/small.py\n"
+        "--- a/small.py\n"
+        "+++ b/small.py\n"
+        "@@ -1 +1 @@\n"
+        "-old\n"
+        "+new\n"
+    )
+    request = HarnessReviewRequest(
+        model="sonnet",
+        review_definition=_request().review_definition,
+        target=DiffReviewTarget(local_diff=LocalDiff(base_ref="main", diff_text=diff)),
+    )
+
+    result, _captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert "# Roaster note: diff input was capped" in process.stdin.buffer
+    assert "# - large.json" in process.stdin.buffer
+    assert large_payload not in process.stdin.buffer
+    assert "diff --git a/small.py b/small.py" in process.stdin.buffer
+    assert "- large.json" in process.stdin.buffer
+
+
 def test_tools_flag_is_followed_by_another_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     _result, captured, _process = _run_with_process(monkeypatch)
 
