@@ -2,10 +2,11 @@ import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
 import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl/clinkr";
-import { EXEC_OPERATION_NAMES, EXEC_OPERATIONS } from "../../src/exec-commands.ts";
+import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
 import { operationSchemaDocumentNames } from "../../src/operation-schemas/index.ts";
+import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenarioWithLegacy } from "../support/run-scenario.ts";
 
 function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
@@ -223,7 +224,35 @@ describe("pr-address exec operation table", () => {
 		const tableNames = [...EXEC_OPERATION_NAMES].sort();
 		const builderNames = [...operationSchemaDocumentNames()].sort();
 		expect(tableNames).toEqual(builderNames);
-		expect(EXEC_OPERATIONS).toHaveLength(21);
+		expect(tableNames).toEqual([
+			"build-resolve-thread-batch-payload",
+			"build-stack-resolve-thread-payloads",
+			"classification-template",
+			"finalize-run",
+			"get-feedback",
+			"map-branch-prs",
+			"plan-feedback",
+			"prepare-run",
+			"read-feedback-detail",
+			"read-feedback-details",
+			"record-batch-checkpoint",
+			"reply-to-discussion",
+			"reply-to-review",
+			"resolve-thread-batch",
+			"resolve-thread-with-reply",
+			"stack-feedback-diff-current",
+			"stack-feedback-plan",
+			"stack-feedback-preflight",
+			"stack-feedback-prep",
+			"summarize-feedback",
+			"validate-feedback-classification",
+		]);
+	});
+
+	test("EXEC_OPERATIONS table is sorted alphabetically", () => {
+		const names = EXEC_OPERATIONS.map((op) => op.name);
+		const sortedNames = [...names].sort();
+		expect(names).toEqual(sortedNames);
 	});
 });
 

@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { EXEC_OPERATION_NAMES } from "../../src/exec-commands.ts";
+
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
+import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenarioWithLegacy, type ScenarioRunWithLegacy } from "../support/run-scenario.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
