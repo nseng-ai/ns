@@ -155,6 +155,12 @@
       "sourceType": "local",
       "computedHash": "b789200341ac60783dd9c4e4dbfa8056d3c905f20b6dc2695be5f275b8d35849"
     },
+    "improve": {
+      "source": "shadcn/improve",
+      "sourceType": "github",
+      "skillPath": "skills/improve/SKILL.md",
+      "computedHash": "431adaf38132005b32cacb952313f18b4c03ee98ee4c5859bad323156a48bb02"
+    },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
