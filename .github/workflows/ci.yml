@@ -29,6 +29,18 @@ jobs:
       - name: Ruff format check
         run: just format-check
 
+  agent-instructions:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-uv
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
+      - name: Check AGENTS/CLAUDE pairing
+        run: just agent-instructions-check
+
   ty:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

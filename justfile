@@ -7,15 +7,18 @@ pbcopy-source-activate:
     @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
     @echo "Copied to clipboard — paste and press enter to activate."
 
-check: python-check dprint-check ts-check js-test python-test
+check: agent-instructions-check python-check dprint-check ts-check js-test python-test
 
-ci: python-check dprint-check ts-check js-test python-test-all
+ci: agent-instructions-check python-check dprint-check ts-check js-test python-test-all
 
 lint:
     uv run ruff check
 
 format-check:
     uv run ruff format --check
+
+agent-instructions-check:
+    uv run pytest tests/scenario/test_agent_instruction_files.py
 
 dprint-check:
     dprint check
