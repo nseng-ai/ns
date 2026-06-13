@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./primitives": "./src/primitives.ts",
+    "./text-truncation": "./src/text-truncation.ts",
     "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
     "./git": "./src/git/index.ts",
