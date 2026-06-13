@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Adopt the enriched-plan vocabulary bound in ADR 0005 (`docs/adr/0005-additive-plan-vocabulary.md`) across all shipped plan-store surfaces. An enriched plan is any plan saved into asdl; saving is the minimal enrichment. After this objective, asdl's surfaces never claim the bare noun "plan" — the `plans` group, its `write` verb, the Pi mirrors, the skill, the TypeScript package, and the local store path all carry the `enriched-plan` identity, while `planned-branch` surfaces stay untouched as the retained differentiator vocabulary.
+Adopt the enriched-plan vocabulary bound in ADR 0005 (`docs/adr/0005-additive-plan-vocabulary.md`) and the branch-context vocabulary bound in ADR 0006 (`docs/adr/0006-branch-context.md`) across shipped plan-management surfaces. An enriched plan is any plan saved into asdl; saving is the minimal enrichment. Branch context is the standing Branch Memory context attached to any branch, with a plan as one entry type. After this objective, asdl's surfaces never claim the bare noun "plan" — the old `plans` group, `write` verb, Pi mirrors, skill, TypeScript package, and local store path carry the `enriched-plan` identity, while the old `planned-branch` surfaces dissolve into branch-context primitives and create-branch sugar.
 
 ## Scope
 
@@ -10,19 +10,20 @@ Adopt the enriched-plan vocabulary bound in ADR 0005 (`docs/adr/0005-additive-pl
 - Rename the TypeScript package `ts/packages/plans/` to `ts/packages/enriched-plan/` including workspace references and scenario tests.
 - Re-key the local plan store from `~/.asdl/planned-branch/plans/<repo>/<encoded-branch>/` to an `enriched-plan` store path, with no migration shim.
 - Update Pi command mirrors in `ts/packages/pi-extensions/`: `/plans:write` → `/enriched-plan:save`, `/plans:grill-and-write` → `/enriched-plan:grill-and-save`, plus internal module naming that references the old group where touched.
-- Rename the `plans-write` skill to `enriched-plan-save` per `docs/skill-conventions.md`, and update old-surface references in the `planned-branch` skill family (umbrella description, `references/lifecycle.md` command lists).
+- Rename the `plans-write` skill to `enriched-plan-save` per `docs/skill-conventions.md`.
+- Rename the `planned-branch` TypeScript package, CLI, Pi commands, CCC orchestration surfaces, skills, docs, and Branch Memory namespace to `branch-context`, with the attached plan fixed at key `plan.md`.
+- Add branch-context attach/list/check/delete primitives while retaining create-branch-from-plan as documented sugar.
 
 ## Non-Goals
 
 - The orchestration layer itself: patterns, the pattern library, pattern-application surfaces, and quality modifiers (deferred per ADR 0005).
-- Any change to `planned-branch` surfaces: the noun, CLI group, `create`, `impl`, or the `planned-branch` Branch Memory namespace for attached plans.
 - Reserved future vocabulary (run, automation, trigger, environment) — names only, no surfaces.
 - CONTEXT and CONTEXT-MAP edits — canonicalizing the vocabulary in domain-language files belongs to a dedicated context rebaseline session.
 - Migration shims or backward-compatibility aliases for the old group, verb, or store path.
 
 ## Completion Criteria
 
-- All five scope surfaces renamed; `plans exec write`, `/plans:write`, `/plans:grill-and-write`, and the old store path appear nowhere outside CONTEXT files (deferred to rebaseline) and historical records (ADRs, retrospectives, closed objectives).
+- All enriched-plan and branch-context scope surfaces renamed; `plans exec write`, `/plans:write`, `/plans:grill-and-write`, active `planned-branch` surfaces, and the old store path appear nowhere outside CONTEXT files (deferred to rebaseline) and historical records (ADRs, retrospectives, closed objectives).
 - The renamed skill is installed and its body invokes `enriched-plan exec save`.
 - Evidence: TS scenario suite and full repo validation (`just`, `just ts-test`) green after each rename lands.
 
