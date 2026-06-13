@@ -180,10 +180,9 @@ export async function loadOperationPayload<TPayload extends object>(
 ): Promise<JsonInputResult<TPayload>> {
 	const hasPayloadOption = options.values.has("--payload-json") || options.values.has("--payload-file");
 	const hasAllReferences = options.fields.length > 0 && options.fields.every((field) => options.values.has(operationPayloadReferenceOption(field.key)));
-	let payload: TPayload;
-	if (!hasPayloadOption && options.payloadOptionalWhenAllFieldsReferenced === true && hasAllReferences) {
-		payload = {} as TPayload;
-	} else {
+	const shouldLoadPayload = hasPayloadOption || options.payloadOptionalWhenAllFieldsReferenced !== true || !hasAllReferences;
+	const resolvedPayload: Record<string, unknown> = {};
+	if (shouldLoadPayload) {
 		const payloadResult = await loadJsonInput({
 			optionValue: options.values.get("--payload-json"),
 			filePath: options.values.get("--payload-file"),
@@ -195,10 +194,8 @@ export async function loadOperationPayload<TPayload extends object>(
 			stdin: invocation.deps.stdin,
 		});
 		if (payloadResult.type === "error") return payloadResult;
-		payload = payloadResult.value;
+		Object.assign(resolvedPayload, payloadResult.value);
 	}
-
-	const resolvedPayload: Record<string, unknown> = { ...(payload as Record<string, unknown>) };
 	for (const field of options.fields) {
 		const referenceOption = operationPayloadReferenceOption(field.key);
 		const result = await resolveXorSourceInput({

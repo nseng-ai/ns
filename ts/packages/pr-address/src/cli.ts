@@ -108,8 +108,6 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 					format: formatOptions.format,
 					io: { stdout: deps.stdout, stderr: deps.stderr },
 				});
-			case "raw-exit":
-				return dispatchResult.exitCode;
 			case "fallback":
 				break;
 		}

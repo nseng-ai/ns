@@ -8,7 +8,13 @@ import { afterEach, describe, expect, test } from "vitest";
 import { recordBatchCheckpoint, recordBatchCheckpointInputSchema } from "../../src/batch-checkpoint.ts";
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
-import { buildGetFeedbackPayloadManifest, buildPrepareRunPayloadManifest, getFeedbackPayloadManifestInputSchema, prepareRunPayloadManifestInputSchema } from "../../src/payload-manifest.ts";
+import {
+	buildGetFeedbackPayloadManifest,
+	buildPrepareRunPayloadManifest,
+	getFeedbackPayloadManifestInputSchema,
+	prepareRunPayloadManifestInputSchema,
+	type PrepareRunPayloadManifestInput,
+} from "../../src/payload-manifest.ts";
 import { buildResolveThreadBatchPayload, buildResolveThreadBatchPayloadInputSchema } from "../../src/resolve-thread-batch-payload.ts";
 import type { LegacyPrAddressGateway } from "../../src/legacy-python.ts";
 
@@ -94,7 +100,9 @@ describe("payload manifest TypeScript parity", () => {
 			const input = await readJson(goldenCase.inputPath);
 			const expected = await readJson(goldenCase.expectedPath);
 
-			expect(buildPrepareRunPayloadManifest(prepareRunPayloadManifestInputSchema.parse(input) as unknown as Parameters<typeof buildPrepareRunPayloadManifest>[0])).toEqual(expected);
+			const parsedInput: PrepareRunPayloadManifestInput = prepareRunPayloadManifestInputSchema.parse(input);
+
+			expect(buildPrepareRunPayloadManifest(parsedInput)).toEqual(expected);
 		});
 	}
 });

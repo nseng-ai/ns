@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { PRDiscussionComment, PRReview, PRReviewThread, RestructuredFile } from "./gateways.ts";
+import type { PRDiscussionComment, PRReview, PRReviewThread } from "./gateways.ts";
 const payloadReferenceSchema = z.looseObject({
 	payload_path: z.string(),
 });
@@ -82,7 +82,7 @@ interface GetFeedbackPayloadManifestInput {
 	review_threads: readonly PRReviewThread[];
 	discussion_comments: readonly PRDiscussionComment[];
 }
-interface PrepareRunPayloadManifestInput {
+export interface PrepareRunPayloadManifestInput {
 	payload_reference: PayloadReference;
 	found: boolean;
 	current_branch?: string | null | undefined;
@@ -96,7 +96,7 @@ interface PrepareRunPayloadManifestInput {
 	review_threads?: readonly PRReviewThread[] | undefined;
 	discussion_comments?: readonly PRDiscussionComment[] | undefined;
 	reopened_thread_ids?: readonly string[] | undefined;
-	restructured_files?: readonly RestructuredFile[] | undefined;
+	restructured_files?: readonly unknown[] | undefined;
 	warnings?: readonly string[] | undefined;
 	error?: string | null | undefined;
 	returncode?: number | null | undefined;

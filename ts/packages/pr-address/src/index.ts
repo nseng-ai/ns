@@ -1,13 +1,1 @@
-export { runCli } from "./cli.ts";
-export type { CliDeps } from "./cli.ts";
-export { buildClassificationTemplateSchemaDocument } from "./classification-schemas.ts";
-export { buildOperationSchemaDocument } from "./operation-schemas.ts";
-export { createRealPrAddressContext } from "./context.ts";
-export type { PrAddressContext } from "./context.ts";
-export { loadJsonInput, readJsonInputText } from "./json-input.ts";
-export type { JsonInputError, JsonInputResult, LoadJsonInputOptions, ReadJsonInputTextOptions } from "./json-input.ts";
-export { LEGACY_PR_ADDRESS_VERSION, RealLegacyPrAddressGateway, runProcessWithInheritedStdio } from "./legacy-python.ts";
-export type { LegacyPrAddressGateway, LegacyRunOptions, ProcessRunner, ProcessRunRequest } from "./legacy-python.ts";
-export { createDefaultExecOperationRegistry, createExecOperationRegistry, LEGACY_EXEC_OPERATIONS } from "./operation-registry.ts";
-export type { ExecOperationDefinition, ExecOperationDispatchResult, ExecOperationHandler, ExecOperationInvocation, ExecOperationRegistry, ExecRuntimeDeps } from "./operation-registry.ts";
-export { findLegacyCheckoutRoot } from "./repo-root.ts";
+export { runCli, type CliDeps } from "./cli.ts";

@@ -302,7 +302,6 @@ function parseMutationPositionals(args: readonly string[], valueOptions: readonl
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) continue;
-		if (arg === "--json-schema") continue;
 		if (arg === "--") continue;
 		if (valueOptions.includes(arg)) {
 			const value = args[index + 1];

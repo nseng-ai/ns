@@ -472,7 +472,3 @@ interface ErrorItemOptions {
 function errorItem(code: string, message: string, options: ErrorItemOptions = {}): DiffCurrentError {
 	return { code, message, pr_number: options.prNumber ?? null, thread_id: options.threadId ?? null };
 }
-
-export function stackFeedbackPrFixture(options: { prNumber: number; branch: string; threads: readonly ThreadManifestItem[] }): StackFeedbackPrepPr {
-	return { pr_number: options.prNumber, branch: options.branch, title: null, url: null, manifest: { review_threads: [...options.threads] } };
-}
