@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { afterEach, describe, expect, test } from "vitest";
 
+import { exitCodeForExit, failure, negative, ok, toMachineEnvelope } from "@asdl/clinkr";
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import { failure, negative, ok, exitCodeForExit, toMachineEnvelope } from "@asdl/clinkr";
+import { EXEC_OPERATION_NAMES, EXEC_OPERATIONS } from "../../src/exec-commands.ts";
+import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
-import { createExecOperationRegistry } from "../../src/operation-registry.ts";
+import { operationSchemaDocumentNames } from "../../src/operation-schemas.ts";
 import { RealLegacyPrAddressGateway, type ProcessRunRequest } from "../../src/legacy-python.ts";
 import { InMemoryLegacyPrAddressGateway } from "../support/in-memory-legacy-pr-address-gateway.ts";
 
@@ -36,7 +38,7 @@ interface CliRun {
 
 interface RunWithFakeLegacyOptions {
 	exitCodes?: readonly number[];
-	deps?: Pick<CliDeps, "registry" | "stdin">;
+	deps?: Pick<CliDeps, "operations" | "stdin">;
 }
 
 function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOptions = {}): CliRun {
@@ -49,7 +51,7 @@ function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOp
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 			stdin: options.deps?.stdin,
-			registry: options.deps?.registry,
+			operations: options.deps?.operations,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),
@@ -59,13 +61,27 @@ function runWithFakeLegacy(args: readonly string[], options: RunWithFakeLegacyOp
 	};
 }
 
+function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
+	return defineExecOperation({
+		spec: {
+			name: "envelope",
+			schema: z.object({ kind: z.string().optional() }),
+			positionals: { kind: { position: 0 } },
+			handler: async (_ctx, request) => {
+				onArgs?.(request.kind);
+				if (request.kind === "negative") return negative("not valid", { valid: false });
+				return failure("invalid_request", "bad input");
+			},
+		},
+	});
+}
+
 describe("pr-address CLI", () => {
-	test("prints top-level help and version", async () => {
+	test("prints top-level help, version, and runtime", async () => {
 		const help = runWithFakeLegacy(["--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: pr-address");
 		expect(help.stdout.join("")).toContain("--runtime");
-		expect(help.stdout.join("")).toContain("exec");
 		expect(help.legacy.calls).toEqual([]);
 
 		const version = runWithFakeLegacy(["--version"]);
@@ -79,55 +95,73 @@ describe("pr-address CLI", () => {
 		expect(runtime.legacy.calls).toEqual([]);
 	});
 
-	test("rejects unknown top-level commands", async () => {
+	test("hides the exec subgroup from top-level help while keeping it invocable", async () => {
+		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from
+		// top-level help (Python parity); `pr-address exec --help` still works.
+		const help = runWithFakeLegacy(["--help"]);
+		expect(await help.exit).toBe(0);
+		expect(help.stdout.join("")).not.toContain("exec");
+	});
+
+	test("rejects unknown top-level commands with a commander usage error", async () => {
 		const run = runWithFakeLegacy(["bogus"]);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("Unknown command: bogus");
-		expect(run.stderr.join("")).toContain("Usage: pr-address");
+		expect(run.stderr.join("")).toBe("error: unknown command 'bogus'\n");
 		expect(run.legacy.calls).toEqual([]);
 	});
 
-	test("prints exec help for agent operations", async () => {
+	test("prints generated exec help listing every operation", async () => {
 		const run = runWithFakeLegacy(["exec", "--help"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: pr-address exec");
-		expect(run.stdout.join("")).toContain("dispatches to TypeScript");
-		expect(run.stdout.join("")).toContain("prepare-run");
-		expect(run.stdout.join("")).toContain("build-stack-resolve-thread-payloads");
+		const helpText = run.stdout.join("");
+		expect(helpText).toContain("Usage: pr-address exec");
+		expect(helpText).toContain("Operations for the pr-address skill.");
+		for (const name of EXEC_OPERATION_NAMES) {
+			expect(helpText).toContain(name);
+		}
 		expect(run.legacy.calls).toEqual([]);
+
+		const bare = runWithFakeLegacy(["exec"]);
+		expect(await bare.exit).toBe(0);
+		expect(bare.stdout.join("")).toBe(helpText);
 	});
 
-	// Every exec operation (including --json-schema routes) now executes in
-	// TypeScript; only click usage-error shapes still reach the legacy fallback.
-	test("delegates exact exec args to the legacy gateway for usage-error fallback routes", async () => {
-		const run = runWithFakeLegacy(["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"], { exitCodes: [7] });
+	test("delegates genuinely unknown exec operations to the legacy gateway verbatim", async () => {
+		const run = runWithFakeLegacy(["exec", "totally-unknown-op", "12", "--whatever", "x"], { exitCodes: [7] });
 
 		expect(await run.exit).toBe(7);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.legacy.calls).toEqual([
 			{
-				args: ["exec", "stack-feedback-prep", "--stdout-mode", "bogus", "--format", "json"],
+				args: ["exec", "totally-unknown-op", "12", "--whatever", "x"],
 				options: { cwd: "/repo", env: { PATH: "/fake/bin" } },
 			},
 		]);
 	});
 
-	test("preserves arbitrary operation argv shape for fallback-backed routes", async () => {
-		const run = runWithFakeLegacy(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"], { exitCodes: [0] });
-
-		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]]);
-	});
-
-	test("preserves nonzero legacy exit codes", async () => {
-		const run = runWithFakeLegacy(["exec", "prepare-run", "--payload-mode", "bogus"], { exitCodes: [2] });
+	test("preserves nonzero legacy exit codes for unknown operations", async () => {
+		const run = runWithFakeLegacy(["exec", "another-unknown-op"], { exitCodes: [2] });
 
 		expect(await run.exit).toBe(2);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "prepare-run", "--payload-mode", "bogus"]]);
+		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "another-unknown-op"]]);
+	});
+
+	test("rejects bogus enum option values as usage errors without the legacy CLI", async () => {
+		// PINNED CLINKR SEMANTICS: value-based fallback is collapsed — bogus
+		// --payload-mode values are strict-enum commander usage errors, not
+		// legacy click rendering.
+		const run = runWithFakeLegacy(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(
+			"error: option '--payload-mode <value>' argument 'bogus' is invalid. Allowed choices are inline, payload.\n",
+		);
+		expect(run.legacy.calls).toEqual([]);
 	});
 
 	test("serves managed classification-template schema locally without invoking legacy", async () => {
@@ -161,27 +195,28 @@ describe("pr-address CLI", () => {
 	});
 
 	test("supports injected stdin for managed exec operations", async () => {
-		const registry = createExecOperationRegistry([
-			{
+		const echoOperation = defineExecOperation({
+			spec: {
 				name: "echo-json",
-				handler: async ({ deps }) => {
+				schema: z.object({}),
+				handler: async (ctx) => {
 					const input = await loadJsonInput({
 						optionValue: undefined,
 						commandName: "echo-json",
 						inputDescription: "payload",
 						optionName: "--payload-json",
 						schema: z.object({ ok: z.boolean() }),
-						stdin: deps.stdin,
+						stdin: ctx.stdin,
 					});
-					if (input.type === "error") return { type: "exit", exit: failure(input.error.errorType, input.error.message) };
-					return { type: "exit", exit: ok(input.value) };
+					if (input.type === "error") return failure(input.error.errorType, input.error.message);
+					return ok(input.value);
 				},
 			},
-		]);
+		});
 		const run = runWithFakeLegacy(["exec", "echo-json", "--format", "json"], {
 			exitCodes: [0],
 			deps: {
-				registry,
+				operations: [echoOperation],
 				stdin: async () => '{"ok":true}',
 			},
 		});
@@ -193,21 +228,13 @@ describe("pr-address CLI", () => {
 	});
 
 	test("maps managed Clinkr envelope exits to process exit codes", async () => {
-		const registry = createExecOperationRegistry([
-			{
-				name: "envelope",
-				handler: async ({ args }) => {
-					if (args[0] === "negative") return { type: "exit", exit: negative("not valid", { valid: false }) };
-					return { type: "exit", exit: failure("invalid_request", "bad input") };
-				},
-			},
-		]);
+		const operations = [envelopeOperation()];
 
-		const negativeRun = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		const negativeRun = runWithFakeLegacy(["exec", "envelope", "negative", "--format", "json"], { exitCodes: [0], deps: { operations } });
 		expect(await negativeRun.exit).toBe(1);
 		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
 
-		const failureRun = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { registry } });
+		const failureRun = runWithFakeLegacy(["exec", "envelope", "failure", "--format", "json"], { exitCodes: [0], deps: { operations } });
 		expect(await failureRun.exit).toBe(2);
 		expect(JSON.parse(failureRun.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 
@@ -215,16 +242,20 @@ describe("pr-address CLI", () => {
 		expect(toMachineEnvelope(failure("invalid_request", "bad input"))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
 	});
 
-	test("strictly rejects non-decimal integer forms before managed operations run", async () => {
+	test("strictly rejects non-decimal integer forms through the real CLI path", async () => {
+		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
+		// error (stderr, exit 2), never a machine envelope — click parity.
 		for (const value of ["1e2", "0x10", "12.5", "12abc"]) {
 			const prRun = runWithFakeLegacy(["exec", "get-feedback", value, "--format=json"]);
 			expect(await prRun.exit).toBe(2);
-			expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "get-feedback requires an integer PR number argument." });
+			expect(prRun.stdout.join("")).toBe("");
+			expect(prRun.stderr.join("")).toContain("expected an integer");
 			expect(prRun.legacy.calls).toEqual([]);
 
 			const bodyCharsRun = runWithFakeLegacy(["exec", "summarize-feedback", "123", "--body-chars", value, "--format=json"]);
 			expect(await bodyCharsRun.exit).toBe(2);
-			expect(JSON.parse(bodyCharsRun.stdout.join(""))).toMatchObject({ error_type: "invalid_request", message: "body_chars must be an integer" });
+			expect(bodyCharsRun.stdout.join("")).toBe("");
+			expect(bodyCharsRun.stderr.join("")).toContain("expected an integer");
 			expect(bodyCharsRun.legacy.calls).toEqual([]);
 		}
 	});
@@ -240,8 +271,27 @@ describe("pr-address CLI", () => {
 	});
 });
 
+describe("pr-address exec operation table", () => {
+	test("every operation serves a pinned schema document and vice versa (1:1)", () => {
+		const tableNames = [...EXEC_OPERATION_NAMES].sort();
+		const builderNames = [...operationSchemaDocumentNames()].sort();
+		expect(tableNames).toEqual(builderNames);
+		expect(EXEC_OPERATIONS).toHaveLength(21);
+	});
+});
+
 describe("pr-address CLI surface pinning", () => {
-	const topLevelHelp = `Usage: pr-address [--help] [--version] [--runtime] <command>\n\nPR review address operations.\n\nCommands:\n  exec  Operations for the pr-address skill. See 'pr-address exec --help' for the operation list.\n\nOptions:\n  -h, --help     Show this help.\n  -V, --version  Show version.\n  --runtime      Show CLI runtime diagnostics and exit.\n`;
+	const topLevelHelp = [
+		"Usage: pr-address [options] [command]",
+		"",
+		"PR review address operations.",
+		"",
+		"Options:",
+		"  -V, --version  Show the package version.",
+		"  --runtime      Show CLI runtime diagnostics and exit.",
+		"  -h, --help     display help for command",
+		"",
+	].join("\n");
 
 	test.each([[[]], [["-h"]], [["--help"]]])("pins top-level help bytes for %j", async (args) => {
 		const run = runWithFakeLegacy(args);
@@ -261,19 +311,9 @@ describe("pr-address CLI surface pinning", () => {
 		expect(run.legacy.calls).toEqual([]);
 	});
 
-	test("--format json and --format=json select machine-envelope output and are stripped before handlers", async () => {
-		const seenArgs: Array<readonly string[]> = [];
-		const registry = createExecOperationRegistry([
-			{
-				name: "envelope",
-				handler: async ({ args }) => {
-					seenArgs.push(args);
-					return { type: "exit", exit: failure("invalid_request", "bad input") };
-				},
-			},
-		]);
-		const spacedRun = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { registry } });
-		const inlineRun = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { registry } });
+	test("--format json and --format=json select machine-envelope output", async () => {
+		const spacedRun = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { operations: [envelopeOperation()] } });
+		const inlineRun = runWithFakeLegacy(["exec", "envelope", "--format=json"], { deps: { operations: [envelopeOperation()] } });
 
 		expect(await spacedRun.exit).toBe(2);
 		expect(await inlineRun.exit).toBe(2);
@@ -283,36 +323,40 @@ describe("pr-address CLI surface pinning", () => {
 		expect(inlineRun.stderr.join("")).toBe("");
 		expect(spacedRun.legacy.calls).toEqual([]);
 		expect(inlineRun.legacy.calls).toEqual([]);
-		expect(seenArgs).toEqual([[], []]);
 	});
 
-	test("first --format flag wins for machine-envelope detection", async () => {
-		const registry = createExecOperationRegistry([
-			{
-				name: "envelope",
-				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad input") }),
-			},
-		]);
-		const human = runWithFakeLegacy(["exec", "envelope", "--format", "human", "--format", "json"], { deps: { registry } });
-		expect(await human.exit).toBe(2);
-		expect(human.stdout.join("")).toBe("");
-		expect(human.stderr.join("")).toBe("error: bad input\n");
-
-		const json = runWithFakeLegacy(["exec", "envelope", "--format", "json", "--format", "human"], { deps: { registry } });
+	test("repeated --format flags are last-wins", async () => {
+		// PINNED CLINKR SEMANTICS: commander last-wins, matching the Python CLI
+		// (probed: `--format human --format json` emits the JSON envelope).
+		const json = runWithFakeLegacy(["exec", "envelope", "--format", "human", "--format", "json"], { deps: { operations: [envelopeOperation()] } });
 		expect(await json.exit).toBe(2);
 		expect(json.stderr.join("")).toBe("");
 		expect(JSON.parse(json.stdout.join(""))).toEqual({ exit_code: 2, error_type: "invalid_request", message: "bad input" });
-		// Match Click-style option handling: the first --format value wins and --format human is tolerated.
+
+		const human = runWithFakeLegacy(["exec", "envelope", "--format", "json", "--format", "human"], { deps: { operations: [envelopeOperation()] } });
+		expect(await human.exit).toBe(2);
+		expect(human.stdout.join("")).toBe("");
+		expect(human.stderr.join("")).toBe("error: bad input\n");
+	});
+
+	test("--format markdown and md render through the human channel", async () => {
+		for (const value of ["markdown", "md"]) {
+			const run = runWithFakeLegacy(["exec", "envelope", "--format", value], { deps: { operations: [envelopeOperation()] } });
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toBe("error: bad input\n");
+		}
 	});
 
 	test("pins indent-2 ensure_ascii machine envelope bytes", async () => {
-		const registry = createExecOperationRegistry([
-			{
+		const snowmanOperation = defineExecOperation({
+			spec: {
 				name: "envelope",
-				handler: async () => ({ type: "exit", exit: failure("invalid_request", "bad snowman ☃") }),
+				schema: z.object({}),
+				handler: async () => failure("invalid_request", "bad snowman ☃"),
 			},
-		]);
-		const run = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { registry } });
+		});
+		const run = runWithFakeLegacy(["exec", "envelope", "--format", "json"], { deps: { operations: [snowmanOperation] } });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe('{\n  "exit_code": 2,\n  "error_type": "invalid_request",\n  "message": "bad snowman \\u2603"\n}\n');
@@ -435,13 +479,13 @@ describe("legacy Python fallback routing", () => {
 			},
 		});
 
-		const exit = await gateway.run(["exec", "prepare-run"], { cwd: REPO_ROOT, env: { PATH: "/fake/bin" } });
+		const exit = await gateway.run(["exec", "unknown-op"], { cwd: REPO_ROOT, env: { PATH: "/fake/bin" } });
 
 		expect(exit).toBe(0);
 		expect(requests).toEqual([
 			{
 				command: "uv",
-				args: ["run", "--project", REPO_ROOT, "pr-address-py", "exec", "prepare-run"],
+				args: ["run", "--project", REPO_ROOT, "pr-address-py", "exec", "unknown-op"],
 				cwd: REPO_ROOT,
 				env: { PATH: "/fake/bin" },
 				stdio: "inherit",
@@ -458,13 +502,13 @@ describe("legacy Python fallback routing", () => {
 			},
 		});
 
-		const exit = await gateway.run(["exec", "prepare-run"], { cwd: "/", env: { PATH: "/fake/bin" } });
+		const exit = await gateway.run(["exec", "unknown-op"], { cwd: "/", env: { PATH: "/fake/bin" } });
 
 		expect(exit).toBe(3);
 		expect(requests).toEqual([
 			{
 				command: "uvx",
-				args: ["--from", "asdl-pr-address==0.1.1", "pr-address", "exec", "prepare-run"],
+				args: ["--from", "asdl-pr-address==0.1.1", "pr-address", "exec", "unknown-op"],
 				cwd: "/",
 				env: { PATH: "/fake/bin" },
 				stdio: "inherit",

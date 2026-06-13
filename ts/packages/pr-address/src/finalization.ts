@@ -1,10 +1,9 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const payloadReferenceSchema = z.looseObject({ payload_path: nullableStringSchema });
@@ -134,23 +133,35 @@ export interface FinalizeRunResult {
 	warnings: string[];
 }
 
-export async function runFinalizeRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
+const finalizeRunParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+});
+
+export const finalizeRunOperation = defineExecOperation({
+	spec: {
+		name: "finalize-run",
+		description: "Summarize final pr-address unresolved, skipped, and checkpoint evidence.",
+		schema: finalizeRunParseSchema,
+		handler: runFinalizeRunOperation,
+	},
+});
+
+async function runFinalizeRunOperation(ctx: PrAddressExecContext, request: z.output<typeof finalizeRunParseSchema>): Promise<ClinkrExit<unknown>> {
 	const payloadResult = await loadJsonInput({
-		optionValue: options.options.values.get("--payload-json"),
-		filePath: options.options.values.get("--payload-file"),
+		optionValue: request.payload_json,
+		filePath: request.payload_file,
 		commandName: "finalize-run",
 		inputDescription: "finalization JSON",
 		optionName: "--payload-json",
 		fileOptionName: "--payload-file",
 		schema: finalizeRunInputSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 	const result = finalizeRun(payloadResult.value);
-	if (result.valid && result.ready_to_stop) return { type: "exit", exit: ok(result) };
-	return { type: "exit", exit: negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result) };
+	if (result.valid && result.ready_to_stop) return ok(result);
+	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result);
 }
 
 export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {

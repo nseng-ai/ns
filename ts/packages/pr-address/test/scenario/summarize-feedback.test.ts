@@ -72,11 +72,12 @@ describe("summarize-feedback parity with the Python CLI", () => {
 	}
 
 	test("requires an integer PR number argument", async () => {
+		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
+		// error (stderr, exit 2), never a machine envelope — click parity.
 		const run = runManaged(["exec", "summarize-feedback", "abc", "--format", "json"], githubGatewayFor("default"));
 
 		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("summarize-feedback requires an integer PR number argument.");
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("expected an integer");
 	});
 });

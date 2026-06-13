@@ -203,15 +203,19 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(envelope.data?.zero_feedback_prs).toEqual([{ pr_number: 30, branch: "feature-empty" }]);
 	});
 
+	// PINNED CLINKR SEMANTICS: bogus --stdout-mode values are strict-enum
+	// commander usage errors handled in TypeScript; the legacy CLI is reserved
+	// for genuinely unknown operation names and is never invoked here.
 	test("rejects invalid stdout mode without falling back to legacy dispatch", async () => {
 		const root = await makePayloadRoot();
 		const run = runPreflight(["--stdout-mode", "bogus"], { root, github: feedbackGithub(), stdin: JSON.stringify({ branches: ["feature-a"] }) });
 
 		expect(await run.exit).toBe(2);
 		expect(run.legacy.calls).toEqual([]);
-		const envelope = parseEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toBe('stack-feedback-preflight --stdout-mode must be one of: full, compact (got "bogus").');
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(
+			"error: option '--stdout-mode <value>' argument 'bogus' is invalid. Allowed choices are full, compact.\n",
+		);
 	});
 
 	test("rejects empty, blank, duplicate, and malformed inputs", async () => {

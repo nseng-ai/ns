@@ -1,8 +1,10 @@
-import { failure, negative, ok } from "@asdl/clinkr";
+import { z } from "zod";
+
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway, parsePrNumberOperation, parseStrictInteger } from "./operation-support.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { gatewayFailureMessage, gatewayOptions, githubGateway } from "./operation-support.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
 
@@ -89,53 +91,61 @@ interface SummarizeFeedbackFoundResult {
 	discussion_comments: readonly CompactDiscussionCommentSummary[];
 }
 
-export async function runSummarizeFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation({
-		args: invocation.args,
-		commandName: "summarize-feedback",
-		flagOptions: ["--include-resolved", "--include-empty-reviews"],
-		valueOptions: ["--body-chars"],
-	});
-	if (parsed.type === "error") return parsed.result;
+const summarizeFeedbackParseSchema = z.object({
+	pr_number: z.int(),
+	include_resolved: z.boolean().default(false),
+	include_empty_reviews: z.boolean().default(false),
+	body_chars: z.int().default(DEFAULT_BODY_CHARS),
+});
 
-	const rawBodyChars = parsed.values.get("--body-chars");
-	let bodyChars = DEFAULT_BODY_CHARS;
-	if (rawBodyChars !== undefined) {
-		const parsedBodyChars = parseStrictInteger(rawBodyChars);
-		if (parsedBodyChars === undefined) return { type: "exit", exit: failure("invalid_request", "body_chars must be an integer") };
-		bodyChars = parsedBodyChars;
-	}
+type SummarizeFeedbackRequest = z.output<typeof summarizeFeedbackParseSchema>;
+
+export const summarizeFeedbackOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "summarize-feedback",
+		description: "Fetch compact PR feedback evidence without full raw review JSON.",
+		schema: summarizeFeedbackParseSchema,
+		positionals: { pr_number: { position: 0 } },
+		handler: runSummarizeFeedbackOperation,
+	},
+});
+
+async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request: SummarizeFeedbackRequest): Promise<ClinkrExit<unknown>> {
+	const bodyChars = request.body_chars;
+	// Range stays a handler check so the failure keeps its machine envelope;
+	// integer-ness is clinkr strict-int (usage-error channel).
 	if (bodyChars < 1 || bodyChars > MAX_BODY_CHARS) {
-		return { type: "exit", exit: failure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`) };
+		return failure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`);
 	}
 
-	const github = githubGateway(invocation);
-	if (github.type === "error") return github.result;
-	const lookupResult = await github.gateway.getPr(parsed.prNumber, gatewayOptions(invocation));
+	const github = githubGateway(ctx);
+	if (github.type === "error") return github.exit;
+	const lookupResult = await github.gateway.getPr(request.pr_number, gatewayOptions(ctx));
 	if (lookupResult.type === "failure") {
-		return { type: "exit", exit: failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${parsed.prNumber}`, lookupResult.failure)) };
+		return failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR ${request.pr_number}`, lookupResult.failure));
 	}
 	if (lookupResult.type === "miss") {
 		const data = {
 			found: false,
-			pr_number: parsed.prNumber,
+			pr_number: request.pr_number,
 			error: lookupResult.stderr,
 			returncode: lookupResult.returncode,
 		};
-		return { type: "exit", exit: negative(`No PR found for PR ${parsed.prNumber}: ${lookupResult.stderr}`, data) };
+		return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, data);
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: github.gateway,
 		prNumber: lookupResult.pr.number,
-		shouldIncludeResolved: parsed.flags.has("--include-resolved"),
-		shouldIncludeEmptyReviews: parsed.flags.has("--include-empty-reviews"),
+		shouldIncludeResolved: request.include_resolved,
+		shouldIncludeEmptyReviews: request.include_empty_reviews,
 		shouldCountAllReviewThreads: true,
-		invocation,
+		ctx,
 	});
-	if (snapshotResult.type === "error") return snapshotResult.result;
+	if (snapshotResult.type === "error") return snapshotResult.exit;
 
-	return { type: "exit", exit: ok(buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars)) };
+	return ok(buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars));
 }
 
 function buildSummarizeFeedbackResult(pr: PRSummary, snapshot: FeedbackSnapshot, bodyChars: number): SummarizeFeedbackFoundResult {

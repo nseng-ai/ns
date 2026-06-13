@@ -195,9 +195,10 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 		});
 
 		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("--bogus");
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("error: unknown option '--bogus'\n");
+		// PINNED CLINKR SEMANTICS: unknown options are a raw commander usage
+		// error, never a machine envelope — click parity.
 	});
 });
 
@@ -443,27 +444,33 @@ describe("stack-feedback-plan reference and file inputs", () => {
 	});
 });
 
-describe("stack feedback fallback guards", () => {
-	// --json-schema routes are TypeScript-owned now (see json-schema-routes.test.ts);
-	// only click usage-error shapes still delegate to the legacy CLI.
-	for (const fallbackArgs of [
+describe("stack feedback usage-error guards", () => {
+	// PINNED CLINKR SEMANTICS: bogus --stdout-mode values are strict-enum
+	// commander usage errors handled in TypeScript; the legacy CLI is reserved
+	// for genuinely unknown operation names and is never invoked here.
+	for (const usageErrorArgs of [
 		["stack-feedback-prep", "--stdout-mode", "bogus"],
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {
-		test(`delegates ${fallbackArgs.join(" ")} to the legacy CLI`, async () => {
+		test(`rejects ${usageErrorArgs.join(" ")} without the legacy CLI`, async () => {
 			const stdout: string[] = [];
+			const stderr: string[] = [];
 			const legacy = new InMemoryLegacyPrAddressGateway([0]);
-			const exit = await runCli(["exec", ...fallbackArgs], {
+			const exit = await runCli(["exec", ...usageErrorArgs], {
 				context: { legacy },
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
 				stdin: async () => "",
 				stdout: (text) => stdout.push(text),
-				stderr: () => {},
+				stderr: (text) => stderr.push(text),
 			});
 
-			expect(exit).toBe(0);
-			expect(legacy.calls.map((call) => call.args)).toEqual([["exec", ...fallbackArgs]]);
+			expect(exit).toBe(2);
+			expect(stdout.join("")).toBe("");
+			expect(stderr.join("")).toBe(
+				"error: option '--stdout-mode <value>' argument 'bogus' is invalid. Allowed choices are full, compact.\n",
+			);
+			expect(legacy.calls).toEqual([]);
 		});
 	}
 });

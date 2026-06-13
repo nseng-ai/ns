@@ -1,10 +1,9 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
-import { loadOperationPayload, operationPayloadValueOptions, type OperationPayloadField } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
@@ -102,25 +101,40 @@ interface DiffCurrentResult {
 	summary: Record<string, number>;
 }
 
-export async function runStackFeedbackDiffCurrentOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, operationPayloadValueOptions(stackFeedbackDiffCurrentPayloadFields));
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
-	const payloadResult = await loadOperationPayload(invocation, {
+const stackFeedbackDiffCurrentParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+	stack_plan_reference: z.string().optional(),
+	current_prep_reference: z.string().optional(),
+});
+
+export const stackFeedbackDiffCurrentOperation = defineExecOperation({
+	spec: {
+		name: "stack-feedback-diff-current",
+		description: "Compare a stack-feedback-plan against freshly fetched current stack feedback.",
+		schema: stackFeedbackDiffCurrentParseSchema,
+		handler: runStackFeedbackDiffCurrentOperation,
+	},
+});
+
+async function runStackFeedbackDiffCurrentOperation(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
+): Promise<ClinkrExit<unknown>> {
+	const payloadResult = await loadOperationPayload({
 		commandName: "stack-feedback-diff-current",
 		inputDescription: "stack feedback diff JSON payload",
 		payloadSchema: stackFeedbackDiffCurrentInputSchema,
-		values: options.options.values,
+		request,
+		stdin: ctx.stdin,
 		payloadOptionalWhenAllFieldsReferenced: true,
 		fields: stackFeedbackDiffCurrentPayloadFields,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const result = diffStackFeedbackCurrent(payloadResult.value as { stack_plan: unknown; current_prep: unknown });
-	if (result.valid && result.safe_to_resolve_planned) return { type: "exit", exit: ok(result) };
-	return {
-		type: "exit",
-		exit: negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result),
-	};
+	if (result.valid && result.safe_to_resolve_planned) return ok(result);
+	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result);
 }
 
 export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {

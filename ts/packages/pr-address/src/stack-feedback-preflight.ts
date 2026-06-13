@@ -1,9 +1,10 @@
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { z } from "zod";
 
-import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { githubGateway, parseReadOptions } from "./operation-support.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
+import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
+import { githubGateway } from "./operation-support.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 import {
 	compactPrepResult,
@@ -13,8 +14,6 @@ import {
 	type StackFeedbackPrepCompactResult,
 	type StackFeedbackPrepResult,
 } from "./stack-feedback-prep-core.ts";
-
-const STDOUT_MODES = new Set(["full", "compact"]);
 
 interface FrozenStackArtifact {
 	stack: StackFeedbackPrInput[];
@@ -35,65 +34,75 @@ interface StackFeedbackPreflightCompactResult {
 	zero_feedback_prs: Array<{ pr_number: number; branch: string }>;
 }
 
-export async function runStackFeedbackPreflightOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--branches-json", "--payload-session-id", "--stdout-mode"], []);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const unexpectedPositional = parsed.options.positionals[0];
-	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for stack-feedback-preflight: ${unexpectedPositional}`);
-	const stdoutMode = parsed.options.values.get("--stdout-mode") ?? "full";
-	if (!STDOUT_MODES.has(stdoutMode)) {
-		return exitFailure("invalid_request", `stack-feedback-preflight --stdout-mode must be one of: full, compact (got ${JSON.stringify(stdoutMode)}).`);
-	}
+const stackFeedbackPreflightParseSchema = z.object({
+	branches_json: z.string().optional(),
+	payload_session_id: z.string().optional(),
+	stdout_mode: z.enum(["full", "compact"]).default("full"),
+});
 
+export const stackFeedbackPreflightOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "stack-feedback-preflight",
+		description: "Map branches to open PRs, freeze the stack, and prepare stack feedback in one pass.",
+		schema: stackFeedbackPreflightParseSchema,
+		handler: runStackFeedbackPreflightOperation,
+	},
+});
+
+async function runStackFeedbackPreflightOperation(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackPreflightParseSchema>,
+): Promise<ClinkrExit<unknown>> {
 	const storeResult = await PayloadStore.fromEnvironment({
-		explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
-		env: invocation.deps.env,
-		clock: invocation.deps.context.payloadClock,
+		explicitSessionId: request.payload_session_id ?? null,
+		env: ctx.env,
+		clock: ctx.context.payloadClock,
 	});
-	if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
 	const payloadResult = await loadJsonInput({
-		optionValue: parsed.options.values.get("--branches-json"),
+		optionValue: request.branches_json,
 		commandName: "stack-feedback-preflight",
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: mapBranchPrsInputSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return exitFailure(payloadResult.error.errorType, payloadResult.error.message);
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const branches = payloadResult.value.branches;
 	const validationMessage = branchesValidationMessage(branches, "stack-feedback-preflight");
-	if (validationMessage !== null) return exitFailure("invalid_request", validationMessage);
+	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const github = githubGateway(invocation);
-	if (github.type === "error") return github.result;
-	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, invocation });
-	if (mapping.type === "error") return mapping.result;
+	const github = githubGateway(ctx);
+	if (github.type === "error") return github.exit;
+	const mapping = await mapBranchesToOpenPrs({ branches, github: github.gateway, ctx });
+	if (mapping.type === "error") return mapping.exit;
 	if (mapping.value.missing_branches.length > 0) return missingBranchesResult(mapping.value);
 
 	const frozenStack: FrozenStackArtifact = { stack: mapping.value.branch_prs.map(stackEntry) };
 	const stackReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-preflight", role: "summary", payload: frozenStack });
-	if (stackReference.type === "error") return exitFailure(stackReference.errorType, stackReference.message);
+	if (stackReference.type === "error") return failure(stackReference.errorType, stackReference.message);
 
 	const prepared = await prepareStackFeedbackStack({
-		invocation,
+		ctx,
 		store,
 		stack: frozenStack.stack,
 		github: github.gateway,
 		shouldIncludeResolved: false,
 		shouldIncludeEmptyReviews: false,
 	});
-	if (prepared.type === "error") return prepared.result;
+	if (prepared.type === "error") return prepared.exit;
 
 	const fullResult: StackFeedbackPreflightFullResult = {
 		...prepared.value.result,
 		mapping_summary: mapping.value.summary,
 		stack_reference: stackReference.value,
 	};
-	if (stdoutMode === "compact") return { type: "exit", exit: ok(compactPreflightResult(fullResult, prepared.value.stackSummaryReference)) };
-	return { type: "exit", exit: ok(fullResult) };
+	if (request.stdout_mode === "compact") return ok(compactPreflightResult(fullResult, prepared.value.stackSummaryReference));
+	return ok(fullResult);
 }
 
 function stackEntry(entry: MapBranchPrsResult["branch_prs"][number]): StackFeedbackPrInput {
@@ -107,8 +116,8 @@ function stackEntry(entry: MapBranchPrsResult["branch_prs"][number]): StackFeedb
 	};
 }
 
-function missingBranchesResult(mapping: MapBranchPrsResult): ExecOperationDispatchResult {
-	return { type: "exit", exit: negative(`No open PR found for branches: ${mapping.missing_branches.join(", ")}`, mapping) };
+function missingBranchesResult(mapping: MapBranchPrsResult): ClinkrExit<unknown> {
+	return negative(`No open PR found for branches: ${mapping.missing_branches.join(", ")}`, mapping);
 }
 
 function compactPreflightResult(result: StackFeedbackPreflightFullResult, stackSummaryReference: PayloadReference): StackFeedbackPreflightCompactResult {
@@ -126,8 +135,4 @@ function compactPreflightResult(result: StackFeedbackPreflightFullResult, stackS
 
 function hasFeedback(item: StackFeedbackPrepCompactPrResult): boolean {
 	return item.counts.reviews + item.counts.review_threads + item.counts.unresolved_review_threads + item.counts.discussion_comments > 0;
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }

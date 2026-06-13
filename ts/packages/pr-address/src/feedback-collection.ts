@@ -1,12 +1,24 @@
-import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
+import { z } from "zod";
+
+import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { gatewayFailureResult, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
+import { gatewayFailureExit, gatewayOptions, githubGateway } from "./operation-support.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 const resolutionMarker = "<!-- pr-address:resolved -->";
+
+const getFeedbackParseSchema = z.object({
+	pr_number: z.int(),
+	include_resolved: z.boolean().default(false),
+	include_empty_reviews: z.boolean().default(false),
+	payload_mode: z.enum(["inline", "payload"]).default("payload"),
+	payload_session_id: z.string().optional(),
+});
+
+type GetFeedbackRequest = z.output<typeof getFeedbackParseSchema>;
 
 export interface FeedbackSnapshot {
 	pr_number: number;
@@ -16,41 +28,41 @@ export interface FeedbackSnapshot {
 	discussion_comments: readonly PRDiscussionComment[];
 }
 
-export async function runGetFeedbackOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parsePrNumberOperation({
-		args: invocation.args,
-		commandName: "get-feedback",
-		flagOptions: ["--include-resolved", "--include-empty-reviews"],
-		valueOptions: ["--payload-mode", "--payload-session-id"],
-	});
-	if (parsed.type === "error") return parsed.result;
-	const payloadMode = parsed.values.get("--payload-mode") ?? "payload";
-	// Invalid --payload-mode values keep legacy click usage-error behavior.
-	if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+export const getFeedbackOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "get-feedback",
+		description: "Fetch all PR feedback (reviews, threads, discussion comments) in a single batch.",
+		schema: getFeedbackParseSchema,
+		positionals: { pr_number: { position: 0 } },
+		handler: runGetFeedbackOperation,
+	},
+});
 
+async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFeedbackRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
 	let store: PayloadStore | undefined;
-	if (payloadMode === "payload") {
+	if (request.payload_mode === "payload") {
 		const storeResult = await PayloadStore.fromEnvironment({
-			explicitSessionId: parsed.values.get("--payload-session-id") ?? null,
-			env: invocation.deps.env,
-			clock: invocation.deps.context.payloadClock,
+			explicitSessionId: request.payload_session_id ?? null,
+			env: ctx.env,
+			clock: ctx.context.payloadClock,
 		});
-		if (storeResult.type === "error") return { type: "exit", exit: failure(storeResult.errorType, storeResult.message) };
+		if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 		store = storeResult.value;
 	}
 
-	const gateway = githubGateway(invocation);
-	if (gateway.type === "error") return gateway.result;
+	const gateway = githubGateway(ctx);
+	if (gateway.type === "error") return gateway.exit;
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: gateway.gateway,
-		prNumber: parsed.prNumber,
-		shouldIncludeResolved: parsed.flags.has("--include-resolved"),
-		shouldIncludeEmptyReviews: parsed.flags.has("--include-empty-reviews"),
+		prNumber: request.pr_number,
+		shouldIncludeResolved: request.include_resolved,
+		shouldIncludeEmptyReviews: request.include_empty_reviews,
 		shouldCountAllReviewThreads: false,
-		invocation,
+		ctx,
 	});
-	if (snapshotResult.type === "error") return snapshotResult.result;
+	if (snapshotResult.type === "error") return snapshotResult.exit;
 	const snapshot = snapshotResult.snapshot;
 	const inlineResult = {
 		payload_mode: "inline",
@@ -59,15 +71,15 @@ export async function runGetFeedbackOperation(invocation: ExecOperationInvocatio
 		review_threads: snapshot.review_threads,
 		discussion_comments: snapshot.discussion_comments,
 	};
-	if (store === undefined) return { type: "exit", exit: ok(inlineResult) };
+	if (store === undefined) return ok(inlineResult);
 
 	const rawReference = await store.writeJsonArtifact({
 		descriptor: `pr-address-get-feedback-pr-${snapshot.pr_number}`,
 		role: "raw",
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
-	if (rawReference.type === "error") return { type: "exit", exit: failure(rawReference.errorType, rawReference.message) };
-	return { type: "exit", exit: ok(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value)) };
+	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
+	return ok(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value));
 }
 
 export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: PayloadReference): unknown {
@@ -86,26 +98,26 @@ export async function fetchFeedbackSnapshot(options: {
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
 	shouldCountAllReviewThreads: boolean;
-	invocation: ExecOperationInvocation;
-}): Promise<{ type: "ok"; snapshot: FeedbackSnapshot } | { type: "error"; result: ExecOperationDispatchResult }> {
-	const gatewayOptionsValue = gatewayOptions(options.invocation);
+	ctx: PrAddressExecContext;
+}): Promise<{ type: "ok"; snapshot: FeedbackSnapshot } | { type: "error"; exit: ClinkrFailureExit }> {
+	const gatewayOptionsValue = gatewayOptions(options.ctx);
 	const reviewsResult = await options.gateway.getReviews(options.prNumber, gatewayOptionsValue);
-	if (reviewsResult.type === "failure") return gatewayFailureResult(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.failure);
+	if (reviewsResult.type === "failure") return { type: "error", exit: gatewayFailureExit(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.failure) };
 	let countedReviewThreads: readonly PRReviewThread[];
 	let reviewThreads: readonly PRReviewThread[];
 	if (options.shouldCountAllReviewThreads) {
 		const countedResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: true });
-		if (countedResult.type === "failure") return gatewayFailureResult(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.failure);
+		if (countedResult.type === "failure") return { type: "error", exit: gatewayFailureExit(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.failure) };
 		countedReviewThreads = countedResult.value;
 		reviewThreads = options.shouldIncludeResolved ? countedReviewThreads : countedReviewThreads.filter((thread) => !thread.is_resolved);
 	} else {
 		const threadsResult = await options.gateway.getReviewThreads(options.prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: options.shouldIncludeResolved });
-		if (threadsResult.type === "failure") return gatewayFailureResult(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.failure);
+		if (threadsResult.type === "failure") return { type: "error", exit: gatewayFailureExit(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.failure) };
 		reviewThreads = threadsResult.value;
 		countedReviewThreads = reviewThreads;
 	}
 	const commentsResult = await options.gateway.getDiscussionComments(options.prNumber, gatewayOptionsValue);
-	if (commentsResult.type === "failure") return gatewayFailureResult(`Failed to fetch discussion comments for PR ${options.prNumber}`, commentsResult.failure);
+	if (commentsResult.type === "failure") return { type: "error", exit: gatewayFailureExit(`Failed to fetch discussion comments for PR ${options.prNumber}`, commentsResult.failure) };
 	return {
 		type: "ok",
 		snapshot: {

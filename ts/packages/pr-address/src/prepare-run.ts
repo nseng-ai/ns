@@ -1,10 +1,12 @@
-import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
+import { z } from "zod";
+
+import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
-import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, githubGateway, parseReadOptions } from "./operation-support.ts";
+import { gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, githubGateway } from "./operation-support.ts";
 import { buildPrepareRunPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 interface PrepareRunInlineFound {
 	payload_mode: "inline";
@@ -34,39 +36,50 @@ interface PrepareRunInlineNoPr {
 
 type PrepareRunInlineResult = PrepareRunInlineFound | PrepareRunInlineNoPr;
 
-export async function runPrepareRunOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const parsed = parseReadOptions(invocation.args, ["--payload-mode", "--payload-session-id"], ["--include-all-threads", "--include-empty-reviews"]);
-	if (parsed.type === "error") return exitFailure("invalid_request", parsed.message);
-	const unexpectedPositional = parsed.options.positionals[0];
-	if (unexpectedPositional !== undefined) return exitFailure("invalid_request", `Unexpected argument for prepare-run: ${unexpectedPositional}`);
-	const payloadMode = parsed.options.values.get("--payload-mode") ?? "payload";
-	// Invalid --payload-mode values keep legacy click usage-error behavior.
-	if (payloadMode !== "inline" && payloadMode !== "payload") return { type: "fallback" };
+const prepareRunParseSchema = z.object({
+	payload_mode: z.enum(["inline", "payload"]).default("payload"),
+	payload_session_id: z.string().optional(),
+	include_all_threads: z.boolean().default(false),
+	include_empty_reviews: z.boolean().default(false),
+});
 
+type PrepareRunRequest = z.output<typeof prepareRunParseSchema>;
+
+export const prepareRunOperation = defineExecOperation({
+	isRepoContextRequired: true,
+	spec: {
+		name: "prepare-run",
+		description: "Resolve PR context, reopen contested threads, and normalize feedback.",
+		schema: prepareRunParseSchema,
+		handler: runPrepareRunOperation,
+	},
+});
+
+async function runPrepareRunOperation(ctx: PrAddressExecContext, request: PrepareRunRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway work; preserve that ordering.
 	let store: PayloadStore | undefined;
-	if (payloadMode === "payload") {
+	if (request.payload_mode === "payload") {
 		const storeResult = await PayloadStore.fromEnvironment({
-			explicitSessionId: parsed.options.values.get("--payload-session-id") ?? null,
-			env: invocation.deps.env,
-			clock: invocation.deps.context.payloadClock,
+			explicitSessionId: request.payload_session_id ?? null,
+			env: ctx.env,
+			clock: ctx.context.payloadClock,
 		});
-		if (storeResult.type === "error") return exitFailure(storeResult.errorType, storeResult.message);
+		if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 		store = storeResult.value;
 	}
 
-	const git = gitGateway(invocation);
-	if (git.type === "error") return git.result;
-	const branchResult = await git.gateway.getCurrentBranch(gatewayOptions(invocation));
-	if (branchResult.type === "failure") return exitFailure("git_failed", gitCommandFailureMessage(branchResult.failure));
-	if (branchResult.type === "detached") return exitFailure("detached_head", "Detached HEAD: prepare-run requires a checked-out branch.");
+	const git = gitGateway(ctx);
+	if (git.type === "error") return git.exit;
+	const branchResult = await git.gateway.getCurrentBranch(gatewayOptions(ctx));
+	if (branchResult.type === "failure") return failure("git_failed", gitCommandFailureMessage(branchResult.failure));
+	if (branchResult.type === "detached") return failure("detached_head", "Detached HEAD: prepare-run requires a checked-out branch.");
 	const currentBranch = branchResult.branch;
 
-	const github = githubGateway(invocation);
-	if (github.type === "error") return github.result;
-	const lookupResult = await github.gateway.getPrForBranch(currentBranch, gatewayOptions(invocation));
+	const github = githubGateway(ctx);
+	if (github.type === "error") return github.exit;
+	const lookupResult = await github.gateway.getPrForBranch(currentBranch, gatewayOptions(ctx));
 	if (lookupResult.type === "failure") {
-		return exitFailure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR for current branch '${currentBranch}'`, lookupResult.failure));
+		return failure("pr_gateway_failure", gatewayFailureMessage(`Failed to look up PR for current branch '${currentBranch}'`, lookupResult.failure));
 	}
 
 	let inlineResult: PrepareRunInlineResult;
@@ -74,19 +87,19 @@ export async function runPrepareRunOperation(invocation: ExecOperationInvocation
 		inlineResult = { payload_mode: "inline", found: false, current_branch: currentBranch, error: lookupResult.stderr, returncode: lookupResult.returncode };
 	} else {
 		const prepared = await prepareFoundRun({
-			invocation,
+			ctx,
 			pr: lookupResult.pr,
 			currentBranch,
 			github: github.gateway,
 			git: git.gateway,
-			shouldIncludeAllThreads: parsed.options.flags.has("--include-all-threads"),
-			shouldIncludeEmptyReviews: parsed.options.flags.has("--include-empty-reviews"),
+			shouldIncludeAllThreads: request.include_all_threads,
+			shouldIncludeEmptyReviews: request.include_empty_reviews,
 		});
-		if (prepared.type === "error") return prepared.result;
+		if (prepared.type === "error") return prepared.exit;
 		inlineResult = prepared.value;
 	}
 
-	if (store === undefined) return { type: "exit", exit: ok(inlineResult) };
+	if (store === undefined) return ok(inlineResult);
 
 	const descriptor = inlineResult.found ? `pr-address-prepare-run-pr-${inlineResult.number}` : "pr-address-prepare-run-no-pr";
 	const rawReference = await store.writeJsonArtifact({
@@ -94,26 +107,26 @@ export async function runPrepareRunOperation(invocation: ExecOperationInvocation
 		role: "raw",
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
-	if (rawReference.type === "error") return exitFailure(rawReference.errorType, rawReference.message);
-	return { type: "exit", exit: ok(buildManifest(inlineResult, rawReference.value)) };
+	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
+	return ok(buildManifest(inlineResult, rawReference.value));
 }
 
 async function prepareFoundRun(options: {
-	invocation: ExecOperationInvocation;
+	ctx: PrAddressExecContext;
 	pr: PRSummary;
 	currentBranch: string;
 	github: PrAddressGitHubGateway;
 	git: PrAddressGitGateway;
 	shouldIncludeAllThreads: boolean;
 	shouldIncludeEmptyReviews: boolean;
-}): Promise<{ type: "ok"; value: PrepareRunInlineFound } | { type: "error"; result: ExecOperationDispatchResult }> {
+}): Promise<{ type: "ok"; value: PrepareRunInlineFound } | { type: "error"; exit: ClinkrFailureExit }> {
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: options.github,
 		prNumber: options.pr.number,
 		shouldIncludeResolved: true,
 		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
 		shouldCountAllReviewThreads: false,
-		invocation: options.invocation,
+		ctx: options.ctx,
 	});
 	if (snapshotResult.type === "error") return snapshotResult;
 	const snapshot = snapshotResult.snapshot;
@@ -121,7 +134,7 @@ async function prepareFoundRun(options: {
 	const warnings: string[] = [];
 	const reopenedThreadIds: string[] = [];
 	for (const threadId of contestedThreadIds(snapshot.review_threads)) {
-		const result = await options.github.unresolveReviewThread(threadId, gatewayOptions(options.invocation));
+		const result = await options.github.unresolveReviewThread(threadId, gatewayOptions(options.ctx));
 		if (result.type === "failure") {
 			warnings.push(`Failed to reopen contested thread ${threadId}: ${gatewayFailureDetail(result.failure)}`);
 			continue;
@@ -136,7 +149,7 @@ async function prepareFoundRun(options: {
 		if (options.shouldIncludeAllThreads || !adjustedThread.is_resolved) normalizedThreads.push(adjustedThread);
 	}
 
-	const filesResult = await options.git.getRestructuredFiles(options.pr.base_ref_name, gatewayOptions(options.invocation));
+	const filesResult = await options.git.getRestructuredFiles(options.pr.base_ref_name, gatewayOptions(options.ctx));
 	let restructuredFiles: readonly RestructuredFile[];
 	if (filesResult.type === "failure") {
 		warnings.push(restructuredFilesFailureMessage(options.pr.base_ref_name, filesResult.failure));
@@ -206,14 +219,10 @@ function restructuredFilesFailureMessage(baseRefName: string, failure: GatewayFa
 	return `Failed to detect restructured files against origin/${baseRefName}: ${failure.stderr.trim() || "git diff failed"}`;
 }
 
-function gitGateway(invocation: ExecOperationInvocation): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error"; result: ExecOperationDispatchResult } {
-	const gateway = invocation.deps.context.git;
+function gitGateway(ctx: PrAddressExecContext): { type: "ok"; gateway: PrAddressGitGateway } | { type: "error"; exit: ClinkrFailureExit } {
+	const gateway = ctx.context.git;
 	if (gateway === undefined) {
-		return { type: "error", result: { type: "exit", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a git gateway.") } };
+		return { type: "error", exit: failure("missing_gateway", "This TypeScript pr-address operation requires a git gateway.") };
 	}
 	return { type: "ok", gateway };
-}
-
-function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
-	return { type: "exit", exit: failure(errorType, message) };
 }

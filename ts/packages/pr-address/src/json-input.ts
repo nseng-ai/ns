@@ -2,8 +2,6 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import type { ExecOperationInvocation } from "./operation-registry.ts";
-
 export interface JsonInputError {
 	errorType: "invalid_json" | "invalid_request";
 	message: string;
@@ -85,7 +83,9 @@ export interface LoadOperationPayloadOptions<TPayload extends object> {
 	commandName: string;
 	inputDescription: string;
 	payloadSchema: z.ZodType<TPayload>;
-	values: ReadonlyMap<string, string>;
+	/** Parsed clinkr request record; payload sources read snake_case keys. */
+	request: Readonly<Record<string, unknown>>;
+	stdin: () => Promise<string>;
 	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[];
 	payloadOptionalWhenAllFieldsReferenced?: boolean | undefined;
 }
@@ -163,47 +163,48 @@ export async function resolveXorSourceInput<T>(options: ResolveXorSourceInputOpt
 	});
 }
 
+/** Flag spelling for a payload-field reference; used in error wording. */
 export function operationPayloadReferenceOption(key: string): `--${string}` {
 	return `--${key.replaceAll("_", "-")}-reference`;
 }
 
-export function operationPayloadValueOptions<TPayload extends object>(
-	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[],
-	additionalOptions: readonly string[] = [],
-): readonly string[] {
-	return ["--payload-json", "--payload-file", ...fields.map((field) => operationPayloadReferenceOption(field.key)), ...additionalOptions];
+/** Parsed-request key for a payload-field reference (snake_case, clinkr-derived). */
+export function operationPayloadReferenceKey(key: string): string {
+	return `${key}_reference`;
 }
 
 export async function loadOperationPayload<TPayload extends object>(
-	invocation: ExecOperationInvocation,
 	options: LoadOperationPayloadOptions<TPayload>,
 ): Promise<JsonInputResult<TPayload>> {
-	const hasPayloadOption = options.values.has("--payload-json") || options.values.has("--payload-file");
-	const hasAllReferences = options.fields.length > 0 && options.fields.every((field) => options.values.has(operationPayloadReferenceOption(field.key)));
+	const payloadJson = stringRequestField(options.request, "payload_json");
+	const payloadFile = stringRequestField(options.request, "payload_file");
+	const hasPayloadOption = payloadJson !== undefined || payloadFile !== undefined;
+	const hasAllReferences =
+		options.fields.length > 0 &&
+		options.fields.every((field) => stringRequestField(options.request, operationPayloadReferenceKey(field.key)) !== undefined);
 	const shouldLoadPayload = hasPayloadOption || options.payloadOptionalWhenAllFieldsReferenced !== true || !hasAllReferences;
 	const resolvedPayload: Record<string, unknown> = {};
 	if (shouldLoadPayload) {
 		const payloadResult = await loadJsonInput({
-			optionValue: options.values.get("--payload-json"),
-			filePath: options.values.get("--payload-file"),
+			optionValue: payloadJson,
+			filePath: payloadFile,
 			commandName: options.commandName,
 			inputDescription: options.inputDescription,
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
 			schema: options.payloadSchema,
-			stdin: invocation.deps.stdin,
+			stdin: options.stdin,
 		});
 		if (payloadResult.type === "error") return payloadResult;
 		Object.assign(resolvedPayload, payloadResult.value);
 	}
 	for (const field of options.fields) {
-		const referenceOption = operationPayloadReferenceOption(field.key);
 		const result = await resolveXorSourceInput({
 			commandName: options.commandName,
 			embeddedValue: resolvedPayload[field.key] as TPayload[typeof field.key] | undefined,
 			embeddedKey: field.key,
-			referencePath: options.values.get(referenceOption),
-			optionName: referenceOption,
+			referencePath: stringRequestField(options.request, operationPayloadReferenceKey(field.key)),
+			optionName: operationPayloadReferenceOption(field.key),
 			artifactDescription: field.artifactDescription,
 			referenceSchema: field.referenceSchema,
 			inputName: field.inputName,
@@ -212,6 +213,11 @@ export async function loadOperationPayload<TPayload extends object>(
 		resolvedPayload[field.key] = result.value;
 	}
 	return { type: "ok", value: resolvedPayload as TPayload };
+}
+
+function stringRequestField(request: Readonly<Record<string, unknown>>, key: string): string | undefined {
+	const value = request[key];
+	return typeof value === "string" ? value : undefined;
 }
 
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {

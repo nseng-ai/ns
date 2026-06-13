@@ -1,11 +1,10 @@
 import { z } from "zod";
 
-import { failure, negative, ok } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { parseManagedOptions } from "./managed-options.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference, type PayloadResult } from "./payload-store.ts";
-import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -136,33 +135,42 @@ export interface RecordBatchCheckpointResult {
 	warnings: string[];
 }
 
-export async function runRecordBatchCheckpointOperation(invocation: ExecOperationInvocation): Promise<ExecOperationDispatchResult> {
-	const options = parseManagedOptions(invocation.args, ["--payload-json", "--payload-file"]);
-	if (options.type === "error") return { type: "exit", exit: failure("invalid_request", options.message) };
+const recordBatchCheckpointParseSchema = z.object({
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+});
+
+export const recordBatchCheckpointOperation = defineExecOperation({
+	spec: {
+		name: "record-batch-checkpoint",
+		description: "Validate and record compact evidence for one pr-address plan-feedback batch.",
+		schema: recordBatchCheckpointParseSchema,
+		handler: runRecordBatchCheckpointOperation,
+	},
+});
+
+async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, request: z.output<typeof recordBatchCheckpointParseSchema>): Promise<ClinkrExit<unknown>> {
 	const payloadResult = await loadJsonInput({
-		optionValue: options.options.values.get("--payload-json"),
-		filePath: options.options.values.get("--payload-file"),
+		optionValue: request.payload_json,
+		filePath: request.payload_file,
 		commandName: "record-batch-checkpoint",
 		inputDescription: "checkpoint JSON",
 		optionName: "--payload-json",
 		fileOptionName: "--payload-file",
 		schema: recordBatchCheckpointInputSchema,
-		stdin: invocation.deps.stdin,
+		stdin: ctx.stdin,
 	});
-	if (payloadResult.type === "error") return { type: "exit", exit: failure(payloadResult.error.errorType, payloadResult.error.message) };
+	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	let checkpointResult = recordBatchCheckpoint(payloadResult.value);
 	if (checkpointResult.valid && checkpointResult.payload_path !== null) {
-		const written = await writeCheckpointArtifact(checkpointResult, invocation.deps.context.payloadClock);
-		if (written.type === "error") return { type: "exit", exit: failure(written.errorType, written.message) };
+		const written = await writeCheckpointArtifact(checkpointResult, ctx.context.payloadClock);
+		if (written.type === "error") return failure(written.errorType, written.message);
 		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
 	}
 
-	if (checkpointResult.valid && checkpointResult.batch_complete) return { type: "exit", exit: ok(checkpointResult) };
-	return {
-		type: "exit",
-		exit: negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult),
-	};
+	if (checkpointResult.valid && checkpointResult.batch_complete) return ok(checkpointResult);
+	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult);
 }
 
 async function writeCheckpointArtifact(checkpointResult: RecordBatchCheckpointResult, clock: PayloadClock | undefined): Promise<PayloadResult<PayloadReference>> {
