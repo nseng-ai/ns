@@ -4,7 +4,7 @@ import {
 	type ExtensionAPI,
 	type ExtensionCommandContext,
 } from "./fast-text-draft.ts";
-import type { PendingWorktreeSnapshot } from "asdl-dev/pending-worktree";
+import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const INVALID_SUMMARY_ERROR =

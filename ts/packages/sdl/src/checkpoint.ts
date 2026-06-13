@@ -6,7 +6,7 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "./pending-worktree.ts";
-import { selectCheckpointTextGenerationConfig, type TextGenerationGateway } from "./text-generation.ts";
+import { selectCheckpointModelRef, type TextGenerationGateway } from "./text-generation.ts";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<
@@ -86,11 +86,6 @@ export class RealCheckpointGateway implements CheckpointGateway {
 }
 
 export async function runCheckpointCommand(options: RunCheckpointCommandOptions): Promise<CheckpointCommandResult> {
-	const textConfig = selectCheckpointTextGenerationConfig(options.env);
-	if (!textConfig.ok) {
-		return failure(2, textConfig.error);
-	}
-
 	const loaded = await options.gateway.loadPendingWorktreeSnapshot({ cwd: options.cwd });
 	if (!loaded.ok) {
 		return failure(2, formatCheckpointSnapshotError(loaded.error));
@@ -104,7 +99,7 @@ export async function runCheckpointCommand(options: RunCheckpointCommandOptions)
 		return failure(1, "Working tree is clean; nothing to checkpoint.");
 	}
 
-	return createCheckpointFromSnapshot(options, snapshot, textConfig.value.modelRef);
+	return createCheckpointFromSnapshot(options, snapshot, selectCheckpointModelRef(options.env));
 }
 
 export async function runCheckpointIfPending(options: RunCheckpointCommandOptions): Promise<CheckpointIfPendingResult> {
@@ -121,12 +116,7 @@ export async function runCheckpointIfPending(options: RunCheckpointCommandOption
 		return { kind: "failed", output: failure(1, `Refusing to create checkpoint commit on trunk branch: ${snapshot.branch}`) };
 	}
 
-	const textConfig = selectCheckpointTextGenerationConfig(options.env);
-	if (!textConfig.ok) {
-		return { kind: "failed", output: failure(2, textConfig.error) };
-	}
-
-	const output = await createCheckpointFromSnapshot(options, snapshot, textConfig.value.modelRef);
+	const output = await createCheckpointFromSnapshot(options, snapshot, selectCheckpointModelRef(options.env));
 	return output.exitCode === 0 ? { kind: "checkpointed", output } : { kind: "failed", output };
 }
 

@@ -13,6 +13,7 @@ import { modelShortcutParity } from "./model-shortcuts.ts";
 import { objectiveParity } from "./objective.ts";
 import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
 import { pushParity } from "./push.ts";
+import { sdlExtensionParity } from "./sdl-extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 
 export const PI_EXTENSION_PARITY_RECORDS = [
@@ -32,5 +33,6 @@ export const PI_EXTENSION_PARITY_RECORDS = [
 	...objectiveParity,
 	...prFeedbackWatchParity,
 	...pushParity,
+	...sdlExtensionParity,
 	...worktreeStatusParity,
 ] as const;

@@ -1,4 +1,4 @@
-export { formatPendingWorktreeCommandDetails as formatCommandDetails } from "asdl-dev/pending-worktree";
+export { formatPendingWorktreeCommandDetails as formatCommandDetails } from "@asdl/sdl/pending-worktree";
 
 export function truncateText(text: string, maxChars: number): string {
 	if (text.length <= maxChars) {

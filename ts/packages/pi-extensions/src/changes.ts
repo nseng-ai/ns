@@ -7,7 +7,7 @@ import {
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 	type WorktreeCommandResult,
-} from "asdl-dev/pending-worktree";
+} from "@asdl/sdl/pending-worktree";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 

@@ -1,4 +1,4 @@
-import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@asdl/pi-extension-runtime/branch-slug";
 import { deriveSlugWithModel, formatSlugModelFailure, SLUG_MODEL_TIMEOUT_MS, type SlugModelFailure } from "@asdl/plans";

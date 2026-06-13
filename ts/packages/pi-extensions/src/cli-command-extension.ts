@@ -58,6 +58,11 @@ export interface CliCommandRunDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	/**
+	 * Emits transient live-progress text for the Pi widget/status path only.
+	 * Text sent here is not included in the final rendered command result; use
+	 * stdout/stderr for output that should remain visible after the command ends.
+	 */
 	onOutput?: (stream: OutputStreamName, text: string) => void;
 	confirm?: CliCommandConfirmPrompt;
 }
@@ -117,6 +122,21 @@ export interface CliCommandOutputDetails {
 	stdout: string;
 	stderr: string;
 	level: "info" | "warning" | "error";
+}
+
+export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
+	availableCommands: readonly TCommand[];
+	names: readonly string[];
+	missingCommandLabel: string;
+}): TCommand[] {
+	const commandsByName = new Map(options.availableCommands.map((command) => [command.name, command]));
+	return options.names.map((name) => {
+		const command = commandsByName.get(name);
+		if (command === undefined) {
+			throw new Error(`Missing ${options.missingCommandLabel} command: ${name}`);
+		}
+		return command;
+	});
 }
 
 export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandExtensionSpec): void {

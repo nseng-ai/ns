@@ -16,6 +16,7 @@
     "@asdl/branch-context": "workspace:*",
     "@asdl/ccc": "workspace:*",
     "@asdl/plans": "workspace:*",
+    "@asdl/sdl": "workspace:*",
     "@types/node": "^24.0.0",
     "asdl-dev": "workspace:*",
     "typescript": "^5.9.0",

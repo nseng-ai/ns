@@ -9,16 +9,10 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { runCheckpointCommand, runCheckpointIfPending } from "./checkpoint.ts";
+import { runCheckpointIfPending } from "@asdl/sdl/checkpoint";
+import { CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV } from "@asdl/sdl/text-generation";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
-import {
-	CHECKPOINT_MODEL_ENV,
-	DEFAULT_CHECKPOINT_MODEL_REF,
-	DEFAULT_PR_DESCRIPTION_MODEL_REF,
-	DEFAULT_TEXT_BACKEND,
-	PR_DESCRIPTION_MODEL_ENV,
-	TEXT_BACKEND_ENV,
-} from "./text-generation.ts";
+import { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
@@ -54,7 +48,6 @@ export interface AsdlDevCliContext {
 
 const COMMAND_SUMMARIES = {
 	"preview-url": "Print the Vercel preview URL for a branch.",
-	cp: "Create a checkpoint commit for the current diff.",
 	submit: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 	"pr-regen": "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 } as const;
@@ -113,35 +106,12 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 
 	group.command(
 		rawCommand({
-			name: "cp",
-			description: `Create a checkpoint commit for the current git diff using a model-authored message.
-
-Environment:
-  ${TEXT_BACKEND_ENV}      Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
-  ${CHECKPOINT_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}.`,
-			summary: COMMAND_SUMMARIES.cp,
-			schema: z.object({}),
-			run: async (ctx) => {
-				const result = await runCheckpointCommand({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					gateway: ctx.context.checkpoint,
-					textGeneration: ctx.context.textGeneration,
-				});
-				writeCommandResultOutput(result, ctx);
-				return result.exitCode;
-			},
-		}),
-	);
-
-	group.command(
-		rawCommand({
 			name: "submit",
-			description: `Checkpoint outstanding worktree changes with \`asdl-dev cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --no-interactive --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai --no-interactive\`.
+			description: `Checkpoint outstanding worktree changes with the same checkpoint capability as \`sdl cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --no-interactive --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai --no-interactive\`.
 
 For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten by submit; use explicit \`asdl-dev pr-regen\` when you intend to replace one.
 
-Automatic checkpointing uses the same model environment variables as \`asdl-dev cp\` when the worktree is dirty: ${TEXT_BACKEND_ENV} and ${CHECKPOINT_MODEL_ENV}.
+Automatic checkpointing uses the same model environment variable as \`sdl cp\` when the worktree is dirty: ${CHECKPOINT_MODEL_ENV}; an unset value falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} during the transition.
 
 PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
 
@@ -198,8 +168,7 @@ If the dry-run says restack is required, interactive invocations ask before runn
 By default this regenerates both the PR title and body, replacing any existing body. The --force flag is accepted for compatibility with older guarded pr-regen workflows.
 
 Environment:
-  ${TEXT_BACKEND_ENV}                 Text generation backend. Defaults to ${DEFAULT_TEXT_BACKEND}.
-  ${PR_DESCRIPTION_MODEL_ENV}  Backend-native model reference. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
+  ${PR_DESCRIPTION_MODEL_ENV}  Model reference for the generated PR description. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
   ${PR_DESCRIPTION_PROMPT_ENV}  Prompt file path. Overrides ${REPO_PR_DESCRIPTION_PROMPT_PATH} and the built-in prompt.`,
 			summary: COMMAND_SUMMARIES["pr-regen"],
 			schema: z.object({

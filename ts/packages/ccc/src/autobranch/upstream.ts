@@ -1,4 +1,4 @@
-import type { CommandResult } from "asdl-dev/checkpoint-flow";
+import type { CommandResult } from "@asdl/sdl/checkpoint-flow";
 
 import { formatCommandDetails } from "./shared.ts";
 

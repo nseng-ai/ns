@@ -12,6 +12,7 @@
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/branch-context": "workspace:*",
     "@asdl/plans": "workspace:*",
+    "@asdl/sdl": "workspace:*",
     "asdl-dev": "workspace:*",
     "zod": "^4.4.3"
   },

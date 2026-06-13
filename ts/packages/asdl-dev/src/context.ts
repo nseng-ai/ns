@@ -1,14 +1,14 @@
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
-import { RealCheckpointGateway, type CheckpointGateway } from "./checkpoint.ts";
+import { RealCheckpointGateway, type CheckpointGateway } from "@asdl/sdl/checkpoint";
+import { createTextGenerationGateway } from "@asdl/sdl/context";
 import { RealGithubPrGateway, type GithubPrGateway } from "./gateways/github-pr.ts";
 import { RealVercelProjectConfigStore, type VercelProjectConfigStore } from "./gateways/project-config.ts";
 import { RealVercelDeploymentGateway, type VercelDeploymentGateway } from "./gateways/vercel.ts";
-import { PiTextGenerationGateway } from "./pi-text-generation.ts";
 import { RealSubmitMetadataGateway, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
 import { RealSubmitGateway, type SubmitGateway } from "./submit.ts";
-import { DEFAULT_TEXT_BACKEND, type TextGenerationBackend, type TextGenerationGateway } from "./text-generation.ts";
+import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface AsdlDevContext {
 	git: GitGateway;
@@ -19,14 +19,6 @@ export interface AsdlDevContext {
 	submitMetadata: SubmitMetadataGateway;
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
-}
-
-export function createTextGenerationGateway(backend: TextGenerationBackend = DEFAULT_TEXT_BACKEND): TextGenerationGateway {
-	if (backend === "pi") {
-		return new PiTextGenerationGateway();
-	}
-
-	return unreachableBackend(backend);
 }
 
 export function createRealAsdlDevContext(): AsdlDevContext {
@@ -40,8 +32,4 @@ export function createRealAsdlDevContext(): AsdlDevContext {
 		githubPr: new RealGithubPrGateway(),
 		textGeneration: createTextGenerationGateway(),
 	};
-}
-
-function unreachableBackend(backend: never): never {
-	throw new Error(`Unsupported text generation backend: ${backend}`);
 }

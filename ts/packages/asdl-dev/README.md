@@ -2,7 +2,7 @@
 
 `asdl-dev` is a repo-local developer CLI for `asdl-tools` TypeScript workflows.
 
-Pi mirrors selected commands from this CLI's command table into domain-specific slash-command namespaces: `/dev:preview-url` through `.pi/extensions/asdl-dev.ts`, and `/code:cp` plus `/code:submit` through `.pi/extensions/code.ts`. For the promotion pattern, see [Exposing Pi Commands Through `asdl-dev`](../../../docs/pi/exposing-pi-commands-through-asdl-dev.md).
+Pi mirrors selected commands from this CLI's command table into domain-specific slash-command namespaces: `/dev:preview-url` through `.pi/extensions/asdl-dev.ts`, plus `/code:submit` and `/code:pr-regen` through `.pi/extensions/code.ts`. Checkpoint creation has moved to native `sdl cp` and `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as an alias. For the promotion pattern, see [Exposing Pi Commands Through `asdl-dev`](../../../docs/pi/exposing-pi-commands-through-asdl-dev.md).
 
 ## Command shape
 
@@ -61,14 +61,14 @@ It selects the newest READY preview deployment returned by that query, inspects 
 
 ## `submit`
 
-Checkpoint outstanding worktree changes with `asdl-dev cp`, submit the current Graphite stack with `gt submit -nps --no-ai --no-interactive`, verify that `gt pr` reports a PR for the current branch, then generate title/body descriptions for PRs newly created by that submit.
+Checkpoint outstanding worktree changes with the same checkpoint capability as `sdl cp`, submit the current Graphite stack with `gt submit -nps --no-ai --no-interactive`, verify that `gt pr` reports a PR for the current branch, then generate title/body descriptions for PRs newly created by that submit.
 
 ```bash
 pnpm --dir ts run asdl-dev submit
 pnpm --dir ts run asdl-dev submit --restack
 ```
 
-Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same model environment variables as `cp`. After that, it checks readiness with `gt submit -nps --no-ai --no-interactive --dry-run`. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
+Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same checkpoint model environment variable as `sdl cp`: `SDL_CHECKPOINT_MODEL`, with transitional fallback to `ASDL_DEV_CHECKPOINT_MODEL`. After that, it checks readiness with `gt submit -nps --no-ai --no-interactive --dry-run`. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
 
 ### PR descriptions
 

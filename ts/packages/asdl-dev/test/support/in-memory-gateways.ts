@@ -1,6 +1,6 @@
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
 
-import type { CheckpointGateway } from "../../src/checkpoint.ts";
+import type { CheckpointGateway } from "@asdl/sdl/checkpoint";
 import type { AsdlDevContext } from "asdl-dev/context";
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "../../src/gateways/github-pr.ts";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../src/gateways/project-config.ts";
@@ -10,7 +10,7 @@ import type {
 	SubmitStackBranch,
 	SubmitStackInspection,
 } from "../../src/submit-pr-metadata-prewrite.ts";
-import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "asdl-dev/pending-worktree";
+import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "@asdl/sdl/pending-worktree";
 import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
 import type {
 	CurrentPrVerificationResult,

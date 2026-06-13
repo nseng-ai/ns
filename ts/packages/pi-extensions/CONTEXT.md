@@ -157,11 +157,11 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control management workflows; it separates code-management commands from `dev-*` skills or commands whose future is tied to `asdl-dev` decisions.
-*Avoid*: visibility flag, prototype marker, package prefix.
+The Pi slash-command namespace for codebase/source-control management workflows that still belong to the code command family; checkpoint creation has moved to the native `/sdl:cp` namespace.
+*Avoid*: visibility flag, prototype marker, package prefix, checkpoint prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/code:changes`, `/code:cp`, and `/code:autobranch` before presentation or mutation.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/code:changes`, `/sdl:cp`, and `/code:autobranch` before presentation or mutation.
 *Avoid*: stash, checkpoint, worktree status renderer.
 
 **Outstanding changes summary**:

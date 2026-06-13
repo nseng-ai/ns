@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "asdl-dev/checkpoint-flow";
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/text-generation";
+import { createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "@asdl/sdl/checkpoint-flow";
+import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/text-generation";
 
 const validMessage = `[cp] Update checkpoint tests
 
