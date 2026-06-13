@@ -270,6 +270,9 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert resolution.provenance.prompt_path == checked_in_prompt
     assert resolution.content == checked_in_content
     assert "Subagent orchestration opportunities:" not in embedded_prompt
+    assert "Harness-neutral command guidance:" not in embedded_prompt
+    assert "Implementation checkpoint guidance:" not in embedded_prompt
+    assert "sdl cp" not in embedded_prompt
     assert "Subagent orchestration opportunities:" in resolution.content
     assert "`Subagent orchestration opportunities: none` with a one-sentence rationale" in (
         resolution.content
@@ -277,6 +280,15 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert "launch-readiness quality bar" in resolution.content
     assert "Prefer ordered waves" in resolution.content
     assert "recommend sequential dispatch and parent validation" in resolution.content
+    assert "Harness-neutral command guidance:" in resolution.content
+    assert "Prefer native CLI commands" in resolution.content
+    assert "harness-specific adapter" in resolution.content
+    assert "Implementation checkpoint guidance:" in resolution.content
+    assert "sdl cp" in resolution.content
+    assert "/sdl:cp" not in resolution.content
+    assert "/code:cp" not in resolution.content
+    assert "coherent standalone" in resolution.content
+    assert "checkpoint ownership" in resolution.content
     assert "Subagent model routing:" in resolution.content
     assert "For implementation/editing subagents:" in resolution.content
     assert (
