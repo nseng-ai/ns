@@ -57,6 +57,15 @@ export interface MergeLoopState {
 	cleanup: RemainingCleanup;
 }
 
+export type PreMergeConfirmation = "prompt" | "already-approved";
+
+interface PreMergeMaintenanceOptions {
+	pi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	confirmation?: PreMergeConfirmation;
+}
+
 interface GraphiteMaintenanceOptions {
 	commandStream?: LandStackCommandStream;
 	unstreamedPi?: LandStackExtensionAPI;
@@ -71,11 +80,8 @@ interface GraphiteMaintenanceStep {
 	options: GraphiteMaintenanceOptions;
 }
 
-export async function confirmAndSubmitRequiredPrUpdates(
-	pi: LandStackExtensionAPI,
-	ctx: LandStackCommandContext,
-	plan: LandingPlan,
-): Promise<LandStackOutcome> {
+export async function confirmAndSubmitRequiredPrUpdates(options: PreMergeMaintenanceOptions): Promise<LandStackOutcome> {
+	const { pi, ctx, plan } = options;
 	const submitArgs = submitUpdateArgs(plan.stack.landingTargetBranch);
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
@@ -85,22 +91,25 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	const manualCommandText = commandLines.map((commandLine) => `\`${commandLine}\``).join(" then ");
 	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
-	if (!ctx.hasUI) {
-		return failure(
-			landStackFailure(
-				[
-					`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
-					details,
-					`No PRs were landed. Run ${manualCommandText} manually, then rerun /code:land --yes.`,
-				].join("\n"),
-				{ suggestedAction: `Run ${manualCommandText} manually, then rerun /code:land --yes.` },
-			),
-		);
-	}
+	const confirmation = options.confirmation ?? "prompt";
+	if (confirmation === "prompt") {
+		if (!ctx.hasUI) {
+			return failure(
+				landStackFailure(
+					[
+						`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
+						details,
+						`No PRs were landed. Run ${manualCommandText} manually, then rerun /code:land --yes.`,
+					].join("\n"),
+					{ suggestedAction: `Run ${manualCommandText} manually, then rerun /code:land --yes.` },
+				),
+			);
+		}
 
-	const confirmed = await ctx.ui.confirm(restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?", details);
-	if (!confirmed) {
-		return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+		const confirmed = await ctx.ui.confirm(restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?", details);
+		if (!confirmed) {
+			return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+		}
 	}
 
 	if (restackTarget) {
@@ -216,11 +225,8 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 	return undefined;
 }
 
-export async function confirmAndFreeManagedSlots(
-	pi: LandStackExtensionAPI,
-	ctx: LandStackCommandContext,
-	plan: LandingPlan,
-): Promise<LandStackOutcome> {
+export async function confirmAndFreeManagedSlots(options: PreMergeMaintenanceOptions): Promise<LandStackOutcome> {
+	const { pi, ctx, plan } = options;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("slot", freeArgs);
 	const details = [
@@ -231,21 +237,24 @@ export async function confirmAndFreeManagedSlots(
 		`Command: ${commandDisplay}`,
 	].join("\n");
 
-	if (!ctx.hasUI) {
-		return failure(
-			landStackFailure(
-				[
-					"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
-					details,
-					`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /code:land --yes.`,
-				].join("\n"),
-			),
-		);
-	}
+	const confirmation = options.confirmation ?? "prompt";
+	if (confirmation === "prompt") {
+		if (!ctx.hasUI) {
+			return failure(
+				landStackFailure(
+					[
+						"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
+						details,
+						`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /code:land --yes.`,
+					].join("\n"),
+				),
+			);
+		}
 
-	const confirmed = await ctx.ui.confirm("Free landing slots?", details);
-	if (!confirmed) {
-		return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+		const confirmed = await ctx.ui.confirm("Free landing slots?", details);
+		if (!confirmed) {
+			return failure(landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }));
+		}
 	}
 
 	setStatus(ctx, "freeing landing slots...");
