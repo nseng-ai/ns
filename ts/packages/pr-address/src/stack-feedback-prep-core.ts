@@ -1,139 +1,19 @@
 import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
-import { z } from "zod";
-
 import { requiredAt } from "./array-values.ts";
 import { buildFeedbackClassificationTemplate } from "./classification.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
-import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
-
-const DIRECT_REQUEST_MARKERS = ["please", "can you", "could you", "should", "needs", "need to", "fix", "update", "question"] as const;
-
-const nullableStringSchema = z.string().nullable().default(null);
-
-export const stackFeedbackPrInputSchema = z.looseObject({
-	pr_number: z.number().int(),
-	branch: z.string(),
-	title: nullableStringSchema,
-	url: nullableStringSchema,
-	head_ref_name: nullableStringSchema,
-	base_ref_name: nullableStringSchema,
-});
-
-export const stackFeedbackPrepInputSchema = z.looseObject({
-	stack: z.array(stackFeedbackPrInputSchema),
-});
-
-const feedbackCountsSchema = z.looseObject({
-	reviews: z.number().int(),
-	review_threads: z.number().int(),
-	unresolved_review_threads: z.number().int(),
-	resolved_review_threads: z.number().int(),
-	thread_comments: z.number().int(),
-	discussion_comments: z.number().int(),
-});
-
-/** Typed window over the manifest this module builds itself via `buildGetFeedbackPayloadManifest`. */
-const prepManifestViewSchema = z.looseObject({
-	counts: feedbackCountsSchema,
-	discussion_comments: z.array(z.looseObject({ comment_id: z.number().int(), body_locator: bodyLocatorSchema })),
-});
-
-const discussionTriageHintSchema = z.enum(["automation", "human_like", "needs_agent_review"]);
-const discussionTriageReasonSchema = z.enum([
-	"vercel_status",
-	"graphite_status",
-	"roaster_summary",
-	"github_actions_status",
-	"bot_status",
-	"human_like",
-	"direct_request_possible",
-	"uncertain",
-]);
-
-export type StackFeedbackPrInput = z.infer<typeof stackFeedbackPrInputSchema>;
-export type FeedbackCounts = z.infer<typeof feedbackCountsSchema>;
-
-type DiscussionTriageHint = z.infer<typeof discussionTriageHintSchema>;
-type DiscussionTriageReason = z.infer<typeof discussionTriageReasonSchema>;
-
-export interface StackDiscussionTriageItem {
-	comment_id: number;
-	author: string;
-	classification_hint: DiscussionTriageHint;
-	reason: DiscussionTriageReason;
-	body_locator: unknown;
-}
-
-export interface StackDiscussionTriageSummary {
-	automation_like: number;
-	human_like: number;
-	needs_agent_review: number;
-	by_reason: Record<string, number>;
-	items: StackDiscussionTriageItem[];
-}
-
-export interface StackFeedbackPrepPrResult {
-	pr_number: number;
-	branch: string;
-	title: string | null;
-	url: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-	manifest: unknown;
-	manifest_summary_reference: PayloadReference;
-	raw_feedback_reference: PayloadReference;
-	classification_template: unknown;
-	classification_template_reference: PayloadReference;
-	counts: FeedbackCounts;
-	discussion_triage: StackDiscussionTriageSummary;
-}
-
-export interface StackFeedbackPrepSummary {
-	prs: number;
-	reviews: number;
-	unresolved_review_threads: number;
-	discussion_comments: number;
-	automation_discussion_comments: number;
-	discussion_comments_needing_agent_review: number;
-}
-
-export interface StackFeedbackPrepResult {
-	payload_session_id: string;
-	include_resolved: boolean;
-	stack: StackFeedbackPrepPrResult[];
-	stack_summary_reference: PayloadReference | null;
-	summary: StackFeedbackPrepSummary;
-}
-
-export interface StackFeedbackPrepCompactPrResult {
-	pr_number: number;
-	branch: string;
-	title: string | null;
-	url: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-	counts: FeedbackCounts;
-	raw_feedback_reference: PayloadReference;
-	manifest_summary_reference: PayloadReference;
-	classification_template_reference: PayloadReference;
-	discussion_triage_summary: {
-		automation_like: number;
-		human_like: number;
-		needs_agent_review: number;
-		by_reason: Record<string, number>;
-	};
-}
-
-export interface StackFeedbackPrepCompactResult {
-	payload_session_id: string;
-	include_resolved: boolean;
-	summary: StackFeedbackPrepSummary;
-	stack_summary_reference: PayloadReference;
-	stack: StackFeedbackPrepCompactPrResult[];
-}
+import {
+	prepManifestViewSchema,
+	type StackFeedbackPrInput,
+	type StackFeedbackPrepCompactResult,
+	type StackFeedbackPrepPrResult,
+	type StackFeedbackPrepResult,
+	type StackFeedbackPrepSummary,
+} from "./stack-feedback-prep-contracts.ts";
+import { buildDiscussionTriageSummary } from "./stack-feedback-triage.ts";
 
 export async function prepareStackFeedbackStack(options: {
 	ctx: PrAddressExecContext;
@@ -257,7 +137,7 @@ async function writeStackPrArtifacts(options: {
 			classification_template: templateResult.value,
 			classification_template_reference: templateReference.value,
 			counts: manifestView.counts,
-			discussion_triage: discussionTriageSummary(manifestView.discussion_comments, snapshot.discussion_comments),
+			discussion_triage: buildDiscussionTriageSummary({ manifestComments: manifestView.discussion_comments, discussionComments: snapshot.discussion_comments }),
 		},
 	};
 }
@@ -275,44 +155,6 @@ function inlineFeedbackResult(options: {
 		reviews: options.reviews,
 		review_threads: options.reviewThreads,
 		discussion_comments: options.discussionComments,
-	};
-}
-
-function discussionTriageSummary(
-	manifestComments: ReadonlyArray<{ comment_id: number; body_locator: unknown }>,
-	discussionComments: readonly PRDiscussionComment[],
-): StackDiscussionTriageSummary {
-	const commentsById = new Map(discussionComments.map((comment) => [comment.id, comment]));
-	const items: StackDiscussionTriageItem[] = [];
-	for (const manifestComment of manifestComments) {
-		const comment = commentsById.get(manifestComment.comment_id);
-		if (comment === undefined) continue;
-		const [hint, reason] = discussionTriageHint(comment.author.toLowerCase(), comment.body.toLowerCase());
-		items.push({ comment_id: comment.id, author: comment.author, classification_hint: hint, reason, body_locator: manifestComment.body_locator });
-	}
-	return triageSummary(items);
-}
-
-function discussionTriageHint(author: string, body: string): [DiscussionTriageHint, DiscussionTriageReason] {
-	if (author === "vercel[bot]" || body.includes("[vc]:")) return ["automation", "vercel_status"];
-	if (body.includes("app.graphite.com") || body.includes("not mergeable via github")) return ["automation", "graphite_status"];
-	if (body.includes("<!-- roaster:")) return ["automation", "roaster_summary"];
-	if (author === "github-actions[bot]" || body.includes("github actions")) return ["automation", "github_actions_status"];
-	if (DIRECT_REQUEST_MARKERS.some((marker) => body.includes(marker))) return ["needs_agent_review", "direct_request_possible"];
-	if (author.endsWith("[bot]")) return ["automation", "bot_status"];
-	if (author !== "") return ["human_like", "human_like"];
-	return ["needs_agent_review", "uncertain"];
-}
-
-export function triageSummary(items: StackDiscussionTriageItem[]): StackDiscussionTriageSummary {
-	const byReason: Record<string, number> = {};
-	for (const item of items) byReason[item.reason] = (byReason[item.reason] ?? 0) + 1;
-	return {
-		automation_like: items.filter((item) => item.classification_hint === "automation").length,
-		human_like: items.filter((item) => item.classification_hint === "human_like").length,
-		needs_agent_review: items.filter((item) => item.classification_hint === "needs_agent_review").length,
-		by_reason: byReason,
-		items,
 	};
 }
 
