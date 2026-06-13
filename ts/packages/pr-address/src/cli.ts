@@ -3,7 +3,6 @@
 import process from "node:process";
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
-import { formatErrorMessage } from "@asdl/core";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
@@ -45,21 +44,6 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const context = deps.context ?? createRealPrAddressContext();
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
-
-	// Pre-clinkr fallback router: genuinely unknown exec operations pass through
-	// to the legacy Python CLI verbatim (same args, stdio, and exit code).
-	if (args[0] === "exec") {
-		const operation = args[1];
-		const knownNames = new Set(operations.map((candidate) => candidate.name));
-		if (operation !== undefined && !operation.startsWith("-") && !knownNames.has(operation)) {
-			try {
-				return await context.legacy.run(["exec", ...args.slice(1)], { cwd, env });
-			} catch (error) {
-				io.stderr(`Error: ${formatErrorMessage(error)}\n`);
-				return 2;
-			}
-		}
-	}
 
 	const execContext: PrAddressExecContext = {
 		context,

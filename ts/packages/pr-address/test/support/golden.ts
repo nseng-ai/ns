@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../../", import.meta.url)));
 
 /** Python-captured golden corpus shared with the legacy implementation. */
-export const GOLDEN_V1_ROOT = join(REPO_ROOT, "packages/asdl-pr-address/tests/golden/v1");
+export const GOLDEN_V1_ROOT = resolve(fileURLToPath(new URL("../fixtures/golden/v1", import.meta.url)));
 
 export interface GoldenCase {
 	name: string;

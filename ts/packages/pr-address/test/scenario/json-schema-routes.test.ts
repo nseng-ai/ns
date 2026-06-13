@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 
 import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
 import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
-import { runScenarioWithLegacy } from "../support/run-scenario.ts";
+import { runScenario } from "../support/run-scenario.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 
@@ -52,10 +52,9 @@ async function readFixture(operation: string): Promise<{ input_json_schema: unkn
 }
 
 async function serveSchemaDocument(operation: string): Promise<Record<string, unknown>> {
-	const run = runScenarioWithLegacy(["exec", operation, "--json-schema"]);
+	const run = runScenario(["exec", operation, "--json-schema"]);
 	expect(await run.exit).toBe(0);
 	expect(run.stderr.join("")).toBe("");
-	expect(run.legacy.calls).toEqual([]);
 	const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 	expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 	return document;
@@ -94,16 +93,15 @@ describe("pr-address exec --json-schema routes", () => {
 	}
 
 	test("--json-schema short-circuits before argument validation like the eager Python flag", async () => {
-		const run = runScenarioWithLegacy(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
+		const run = runScenario(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls).toEqual([]);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);
 	});
 
-	test("--json-schema for unknown operations still delegates to legacy", async () => {
-		const run = runScenarioWithLegacy(["exec", "not-a-real-operation", "--json-schema"]);
-		expect(await run.exit).toBe(0);
-		expect(run.legacy.calls.map((call) => call.args)).toEqual([["exec", "not-a-real-operation", "--json-schema"]]);
+	test("--json-schema for unknown operations is a clinkr usage error", async () => {
+		const run = runScenario(["exec", "not-a-real-operation", "--json-schema"]);
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toBe("error: unknown command 'not-a-real-operation'\n");
 	});
 });
