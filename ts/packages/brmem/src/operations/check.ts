@@ -2,7 +2,7 @@ import { negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
-import { buildEntryLocator, namespaceValueLabel } from "../ref-layout.ts";
+import { mustEntryLocator, namespaceValueLabel } from "../ref-layout.ts";
 import { gatewayFailure, resolveEntryRequest } from "./shared.ts";
 
 export const checkRequestSchema = z.object({
@@ -93,8 +93,3 @@ function emptyResult(options: {
 	};
 }
 
-function mustEntryLocator(namespace: string, key: string, branch: string): string {
-	const locator = buildEntryLocator(namespace, key, branch);
-	if (locator.type === "error") throw new Error(locator.error.message);
-	return locator.value;
-}

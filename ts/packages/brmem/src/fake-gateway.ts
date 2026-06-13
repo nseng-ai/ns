@@ -4,11 +4,11 @@ import type {
 	CopyEntriesResult,
 	DeleteEntryResult,
 	EntryContent,
-	EntryDiagnosticResult,
+	EntryDiagnostic,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
-import { buildEntryLocator, buildSnapshotRef, entrySortKey, type EntryRef } from "./ref-layout.ts";
+import { compareEntries, mustEntryRef, type EntryRef } from "./ref-layout.ts";
 
 export interface FakeEntrySeed {
 	namespace: string;
@@ -77,20 +77,15 @@ export class FakeBrmemGateway implements BrmemGateway {
 		if (error !== undefined) return brmemOptionalError<EntryContent>(error.code, error.message);
 		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
 		if (stored === undefined) return brmemMissing<EntryContent>();
-		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
-		return brmemFound({ content: stored.content, entryLocator: locator, target: options.at ?? locator, at: options.at });
+		return brmemFound({ content: stored.content });
 	}
 
 	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
 		const error = this.operationErrors.check;
-		if (error !== undefined) return brmemOptionalError<EntryDiagnosticResult>(error.code, error.message);
+		if (error !== undefined) return brmemOptionalError<EntryDiagnostic>(error.code, error.message);
 		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
-		if (stored === undefined) return brmemMissing<EntryDiagnosticResult>();
-		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
+		if (stored === undefined) return brmemMissing<EntryDiagnostic>();
 		return brmemFound({
-			entryLocator: locator,
-			target: options.at ?? locator,
-			at: options.at,
 			headSha: stored.headSha,
 			headDate: stored.headDate,
 			blobSha: stored.blobSha,
@@ -111,7 +106,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 			blobSha: this.nextSha("blob"),
 		});
 		this.recordSnapshot(commitSha, snapshot);
-		return brmemOk({ commitSha, entry: makeEntryRef(options.namespace, options.key, options.branch) });
+		return brmemOk({ commitSha, entry: mustEntryRef(options.namespace, options.key, options.branch) });
 	}
 
 	async deleteEntry(options: { namespace: string; key: string; branch: string }) {
@@ -127,7 +122,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		this.recordSnapshot(commitSha, snapshot);
 		return brmemOk({
 			commitSha,
-			entry: makeEntryRef(options.namespace, options.key, options.branch),
+			entry: mustEntryRef(options.namespace, options.key, options.branch),
 			isSnapshotEmpty: snapshot.entries.size === 0,
 		});
 	}
@@ -164,7 +159,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		dest.commitSha = this.nextSha("commit");
 		this.recordSnapshot(dest.commitSha, dest);
 		return brmemOk({
-			entries: sourcePairs.map(([key]) => makeEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries),
+			entries: sourcePairs.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries),
 		});
 	}
 
@@ -212,7 +207,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
 			for (const key of snapshot.entries.keys()) {
 				if (options.key !== undefined && key !== options.key) continue;
-				entries.push(makeEntryRef(parsed.namespace, key, parsed.branch));
+				entries.push(mustEntryRef(parsed.namespace, key, parsed.branch));
 			}
 		}
 		return entries.sort(compareEntries).map((entry) => ({ ...entry }));
@@ -239,37 +234,4 @@ function cloneSnapshot(snapshot: SnapshotState): SnapshotState {
 		commitSha: snapshot.commitSha,
 		entries: new Map([...snapshot.entries].map(([key, value]) => [key, { ...value }])),
 	};
-}
-
-function makeEntryRef(namespace: string, key: string, branch: string): EntryRef {
-	const entryLocator = mustBuildEntryLocator(namespace, key, branch);
-	return { namespace, key, branch, refName: entryLocator, entryLocator };
-}
-
-function mustBuildSnapshotRef(namespace: string, branch: string): string {
-	const result = buildSnapshotRef(namespace, branch);
-	if (result.type === "error") throw new Error(result.error.message);
-	return result.value;
-}
-
-function mustBuildEntryLocator(namespace: string, key: string, branch: string): string {
-	const result = buildEntryLocator(namespace, key, branch);
-	if (result.type === "error") throw new Error(result.error.message);
-	return result.value;
-}
-
-function compareEntries(left: EntryRef, right: EntryRef): number {
-	return compareTuple(entrySortKey(left), entrySortKey(right));
-}
-
-function compareTuple(left: readonly (number | string)[], right: readonly (number | string)[]): number {
-	for (let index = 0; index < left.length; index += 1) {
-		const leftValue = left[index];
-		const rightValue = right[index];
-		if (leftValue === rightValue) continue;
-		if (leftValue === undefined) return -1;
-		if (rightValue === undefined) return 1;
-		return leftValue < rightValue ? -1 : 1;
-	}
-	return 0;
 }

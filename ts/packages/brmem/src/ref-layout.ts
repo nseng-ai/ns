@@ -7,12 +7,6 @@ export const BRMEM_NS_SEGMENT = "ns";
 export const BASE_NAMESPACE = "base";
 export const FLAT_SEPARATOR = "---";
 
-export interface NamespaceRef {
-	namespace: string;
-	branch: string;
-	refName: string;
-}
-
 export interface EntryRef {
 	namespace: string;
 	key: string;
@@ -142,4 +136,38 @@ export function toEntryRef(namespace: string, key: string, branch: string): Brme
 	const snapshotRef = buildSnapshotRef(namespace, branch);
 	if (snapshotRef.type === "error") return snapshotRef;
 	return brmemOk({ namespace, key, branch, refName: locator.value, entryLocator: locator.value });
+}
+
+export function mustSnapshotRef(namespace: string, branch: string): string {
+	const result = buildSnapshotRef(namespace, branch);
+	if (result.type === "error") throw new Error(result.error.message);
+	return result.value;
+}
+
+export function mustEntryLocator(namespace: string, key: string, branch: string): string {
+	const result = buildEntryLocator(namespace, key, branch);
+	if (result.type === "error") throw new Error(result.error.message);
+	return result.value;
+}
+
+export function mustEntryRef(namespace: string, key: string, branch: string): EntryRef {
+	const result = toEntryRef(namespace, key, branch);
+	if (result.type === "error") throw new Error(result.error.message);
+	return result.value;
+}
+
+export function compareEntries(left: EntryRef, right: EntryRef): number {
+	return compareTuple(entrySortKey(left), entrySortKey(right));
+}
+
+function compareTuple(left: readonly (number | string)[], right: readonly (number | string)[]): number {
+	for (let index = 0; index < left.length; index += 1) {
+		const leftValue = left[index];
+		const rightValue = right[index];
+		if (leftValue === rightValue) continue;
+		if (leftValue === undefined) return -1;
+		if (rightValue === undefined) return 1;
+		return leftValue < rightValue ? -1 : 1;
+	}
+	return 0;
 }

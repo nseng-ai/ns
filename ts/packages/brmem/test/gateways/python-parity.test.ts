@@ -59,11 +59,11 @@ describe("Python and TypeScript brmem storage parity", () => {
 			const gateway = new RealGitBrmemGateway(repo.path);
 			expect(await gateway.getEntry({ namespace: "base", branch: "feat/x", key: "scratch.md" })).toMatchObject({
 				type: "found",
-				value: { content: "base content\n", entryLocator: "refs/brmem/base/feat---x:scratch.md" },
+				value: { content: "base content\n" },
 			});
 			expect(await gateway.getEntry({ namespace: "branch-context", branch: "feat/x", key: "plans/plan.md" })).toMatchObject({
 				type: "found",
-				value: { content: "attached plan\n", entryLocator: "refs/brmem/ns/branch-context/feat---x:plans/plan.md" },
+				value: { content: "attached plan\n" },
 			});
 			const entries = await gateway.listAllEntries({ branch: "feat/x" });
 			if (entries.type !== "ok") throw new Error(entries.error.message);

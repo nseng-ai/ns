@@ -3,9 +3,6 @@ import type { EntryRef } from "./ref-layout.ts";
 
 export interface EntryContent {
 	content: string;
-	entryLocator: string;
-	target: string;
-	at?: string | undefined;
 }
 
 export interface EntryDiagnostic {
@@ -13,12 +10,6 @@ export interface EntryDiagnostic {
 	headDate: string;
 	blobSha: string;
 	sizeBytes: number;
-}
-
-export interface EntryDiagnosticResult extends EntryDiagnostic {
-	entryLocator: string;
-	target: string;
-	at?: string | undefined;
 }
 
 export interface PutEntryResult {
@@ -59,7 +50,7 @@ export interface BrmemGateway {
 		key: string;
 		branch: string;
 		at?: string | undefined;
-	}): Promise<BrmemOptionalResult<EntryDiagnosticResult>>;
+	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
 
 	putEntry(options: {
 		namespace: string;

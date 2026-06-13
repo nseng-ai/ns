@@ -9,14 +9,14 @@ import type {
 	CopyEntriesResult,
 	DeleteEntryResult,
 	EntryContent,
-	EntryDiagnosticResult,
+	EntryDiagnostic,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
 import {
-	buildEntryLocator,
-	buildSnapshotRef,
-	entrySortKey,
+	compareEntries,
+	mustEntryRef,
+	mustSnapshotRef,
 	parseSnapshotRef,
 	snapshotRefPrefixes,
 	type EntryRef,
@@ -63,35 +63,30 @@ export class RealGitBrmemGateway implements BrmemGateway {
 	async getEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return brmemOptionalError<EntryContent>(validation.error.code, validation.error.message, validation.error.displayCommand);
-		const snapshotRef = mustBuildSnapshotRef(options.namespace, options.branch);
-		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const gitTarget = options.at ?? snapshotRef;
 		const result = await runGit(this.commands, ["show", `${gitTarget}:${options.key}`], { cwd: this.cwd });
 		if (result.code !== 0) return brmemMissing<EntryContent>();
-		return brmemFound({ content: result.stdout, entryLocator: locator, target: options.at ?? locator, at: options.at });
+		return brmemFound({ content: result.stdout });
 	}
 
 	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") {
-			return brmemOptionalError<EntryDiagnosticResult>(validation.error.code, validation.error.message, validation.error.displayCommand);
+			return brmemOptionalError<EntryDiagnostic>(validation.error.code, validation.error.message, validation.error.displayCommand);
 		}
-		const snapshotRef = mustBuildSnapshotRef(options.namespace, options.branch);
-		const locator = mustBuildEntryLocator(options.namespace, options.key, options.branch);
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const gitTarget = options.at ?? snapshotRef;
 		const existence = await runGit(this.commands, ["cat-file", "-e", `${gitTarget}:${options.key}`], { cwd: this.cwd });
-		if (existence.code !== 0) return brmemMissing<EntryDiagnosticResult>();
+		if (existence.code !== 0) return brmemMissing<EntryDiagnostic>();
 		const blobSha = await runGit(this.commands, ["rev-parse", `${gitTarget}:${options.key}`], { cwd: this.cwd });
-		if (blobSha.code !== 0) return brmemOptionalError<EntryDiagnosticResult>("git_rev_parse_failed", commandMessage("Could not resolve blob SHA.", blobSha), blobSha.displayCommand);
+		if (blobSha.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_rev_parse_failed", commandMessage("Could not resolve blob SHA.", blobSha), blobSha.displayCommand);
 		const size = await runGit(this.commands, ["cat-file", "-s", `${gitTarget}:${options.key}`], { cwd: this.cwd });
-		if (size.code !== 0) return brmemOptionalError<EntryDiagnosticResult>("git_cat_file_failed", commandMessage("Could not resolve blob size.", size), size.displayCommand);
+		if (size.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_cat_file_failed", commandMessage("Could not resolve blob size.", size), size.displayCommand);
 		const log = await runGit(this.commands, ["log", "-1", "--format=%H%x09%cI", gitTarget], { cwd: this.cwd });
-		if (log.code !== 0) return brmemOptionalError<EntryDiagnosticResult>("git_log_failed", commandMessage("Could not resolve snapshot metadata.", log), log.displayCommand);
+		if (log.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_log_failed", commandMessage("Could not resolve snapshot metadata.", log), log.displayCommand);
 		const [headSha = "", headDate = ""] = log.stdout.trim().split("\t");
 		return brmemFound({
-			entryLocator: locator,
-			target: options.at ?? locator,
-			at: options.at,
 			headSha,
 			headDate,
 			blobSha: blobSha.stdout.trim(),
@@ -102,7 +97,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 	async putEntry(options: { namespace: string; key: string; branch: string; content: string }): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
-		const snapshotRef = mustBuildSnapshotRef(options.namespace, options.branch);
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], { cwd: this.cwd });
 		const parentSha = parent.code === 0 ? parent.stdout.trim() : undefined;
 		const entries = parentSha === undefined ? new Map<string, string>() : await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
@@ -124,13 +119,13 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create Branch Memory Snapshot commit.", commit);
 		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], { cwd: this.cwd });
 		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
-		return brmemOk({ commitSha: commit.stdout.trim(), entry: makeEntryRef(options.namespace, options.key, options.branch) });
+		return brmemOk({ commitSha: commit.stdout.trim(), entry: mustEntryRef(options.namespace, options.key, options.branch) });
 	}
 
 	async deleteEntry(options: { namespace: string; key: string; branch: string }): Promise<BrmemResult<DeleteEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
-		const snapshotRef = mustBuildSnapshotRef(options.namespace, options.branch);
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], { cwd: this.cwd });
 		if (parent.code !== 0) return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
 		const entries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
@@ -142,7 +137,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create delete Snapshot commit.", commit);
 		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], { cwd: this.cwd });
 		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
-		return brmemOk({ commitSha: commit.stdout.trim(), entry: makeEntryRef(options.namespace, options.key, options.branch), isSnapshotEmpty: entries.size === 0 });
+		return brmemOk({ commitSha: commit.stdout.trim(), entry: mustEntryRef(options.namespace, options.key, options.branch), isSnapshotEmpty: entries.size === 0 });
 	}
 
 	async copyEntries(options: {
@@ -162,10 +157,10 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			const globValidation = validateKeyGlob(options.keyGlob);
 			if (globValidation.type === "invalid") return brmemError("invalid_key_glob", formatInvalid("Entry Key glob", options.keyGlob, globValidation.reason));
 		}
-		const sourceRef = mustBuildSnapshotRef(options.namespace, options.fromBranch);
+		const sourceRef = mustSnapshotRef(options.namespace, options.fromBranch);
 		const sourceSha = await runGit(this.commands, ["rev-parse", "--verify", sourceRef], { cwd: this.cwd });
 		if (sourceSha.code !== 0) return brmemOk({ entries: [] });
-		const destRef = mustBuildSnapshotRef(options.namespace, options.toBranch);
+		const destRef = mustSnapshotRef(options.namespace, options.toBranch);
 		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", destRef], { cwd: this.cwd });
 		const destSha = destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined;
 		if (options.keyGlob === undefined) {
@@ -216,7 +211,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
 			for (const path of (await enumerateTreeEntries(this.commands, this.cwd, snapshotRef)).keys()) {
 				if (options.key !== undefined && path !== options.key) continue;
-				entries.push(makeEntryRef(parsed.namespace, path, parsed.branch));
+				entries.push(mustEntryRef(parsed.namespace, path, parsed.branch));
 			}
 		}
 		return brmemOk(entries.sort(compareEntries));
@@ -238,7 +233,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update destination Snapshot Ref.", update);
 		const entries = [...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)).keys()]
 			.sort()
-			.map((key) => makeEntryRef(options.namespace, key, options.toBranch));
+			.map((key) => mustEntryRef(options.namespace, key, options.toBranch));
 		return brmemOk({ entries });
 	}
 
@@ -275,7 +270,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create copy Snapshot commit.", commit);
 		const update = await runGit(this.commands, ["update-ref", options.destRef, commit.stdout.trim()], { cwd: this.cwd });
 		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update destination Snapshot Ref.", update);
-		return brmemOk({ entries: sourceMatching.map(([key]) => makeEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries) });
+		return brmemOk({ entries: sourceMatching.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries) });
 	}
 }
 
@@ -320,39 +315,6 @@ async function enumerateTreeEntries(commands: CommandExecApi, cwd: string, refOr
 		entries.set(path, blobSha);
 	}
 	return entries;
-}
-
-function makeEntryRef(namespace: string, key: string, branch: string): EntryRef {
-	const entryLocator = mustBuildEntryLocator(namespace, key, branch);
-	return { namespace, key, branch, refName: entryLocator, entryLocator };
-}
-
-function mustBuildSnapshotRef(namespace: string, branch: string): string {
-	const result = buildSnapshotRef(namespace, branch);
-	if (result.type === "error") throw new Error(result.error.message);
-	return result.value;
-}
-
-function mustBuildEntryLocator(namespace: string, key: string, branch: string): string {
-	const result = buildEntryLocator(namespace, key, branch);
-	if (result.type === "error") throw new Error(result.error.message);
-	return result.value;
-}
-
-function compareEntries(left: EntryRef, right: EntryRef): number {
-	return compareTuple(entrySortKey(left), entrySortKey(right));
-}
-
-function compareTuple(left: readonly (number | string)[], right: readonly (number | string)[]): number {
-	for (let index = 0; index < left.length; index += 1) {
-		const leftValue = left[index];
-		const rightValue = right[index];
-		if (leftValue === rightValue) continue;
-		if (leftValue === undefined) return -1;
-		if (rightValue === undefined) return 1;
-		return leftValue < rightValue ? -1 : 1;
-	}
-	return 0;
 }
 
 function formatInvalid(label: string, value: string, reason: string): string {

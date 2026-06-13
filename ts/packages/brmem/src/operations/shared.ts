@@ -3,14 +3,7 @@ import { failure, type ClinkrExit } from "@asdl/clinkr";
 import type { BrmemCliContext } from "../context.ts";
 import type { BrmemErrorInfo } from "../contracts.ts";
 import { normalizeNamespaceOption } from "../ref-layout.ts";
-import {
-	firstFailure,
-	validateBranchName,
-	validateEntryKey,
-	validateNamespaceName,
-	validationMessage,
-	type ValidationResult,
-} from "../validation.ts";
+import { firstFailure, validateBranchName, validateEntryKey, validateNamespaceName, validationMessage } from "../validation.ts";
 
 export interface ResolvedEntryRequest {
 	namespace: string;
@@ -42,14 +35,4 @@ export async function resolveCurrentBranch(ctx: BrmemCliContext): Promise<string
 
 export function gatewayFailure<T>(error: BrmemErrorInfo): ClinkrExit<T> {
 	return failure(error.code, error.message);
-}
-
-export function validationFailure(
-	errorType: string,
-	label: "branch name" | "namespace" | "key" | "Entry Key glob",
-	value: string,
-	result: ValidationResult,
-): ClinkrExit<never> | undefined {
-	const message = validationMessage(label, value, result);
-	return message === undefined ? undefined : failure(errorType, message);
 }

@@ -99,6 +99,7 @@ Risks:
 - Deleting `packages/brmem` too early could remove a useful rollback/reference and cross-language parity oracle before TypeScript contracts are mature; deletion is gated on parity, distribution, and skill-doc evidence.
 - Keeping the Python fallback too long undermines the single-language goal and leaves two implementations writing the same refs; the retirement phase should be short and explicit once parity is proven.
 - Scope creep into consumer migration (`@asdl/core` launcher, branch-context gateway) would blur this Objective's boundary; that work is deliberately deferred.
+- **Temporary CI dependency to remove at cutover:** the cross-language parity tests (`ts/packages/brmem/test/gateways/python-parity.test.ts`) shell out to the Python `brmem` CLI via `uv`, so the `typescript` job in `.github/workflows/ci.yml` now runs `./.github/actions/setup-python-uv` (Python + `uv` + `uv sync`). This couples the otherwise pure-TypeScript CI job to the Python toolchain. When the Python reference is retired (parity tests deleted alongside `packages/brmem`), **uninstall that dependency**: remove the `setup-python-uv` step from the `typescript` job so the TS pipeline stops depending on Python/`uv`.
 
 ## Open Questions
 

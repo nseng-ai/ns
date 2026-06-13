@@ -62,7 +62,7 @@ describe("FakeBrmemGateway", () => {
 		});
 		expect(await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: first.value.commitSha })).toMatchObject({
 			type: "found",
-			value: { content: "first\n", at: first.value.commitSha },
+			value: { content: "first\n" },
 		});
 		expect(await gateway.checkEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: first.value.commitSha })).toMatchObject({
 			type: "found",
