@@ -1,0 +1,19 @@
+ts-morph-refactor vendored skill
+================================
+
+Source: https://github.com/dafthunk-com/dafthunk
+Upstream path: .claude/skills/ts-morph-refactor
+Source ref used: c33e5447e64235652826c5a522b79eeb3875be6e (resolved parent of 41d1cafdf^)
+License: MIT
+
+This directory vendors the upstream Claude skill with repo-local documentation adjustments for invocation from .agents/skills/ and self-contained dependency installation.
+
+MIT License notice from upstream dafthunk-com/dafthunk:
+
+Copyright (c) 2025 Dafthunk Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
