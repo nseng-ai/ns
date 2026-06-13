@@ -9,6 +9,7 @@ import {
 	manifestKindSchema,
 	nullableIntSchema,
 	nullableStringSchema,
+	payloadReferenceSchema,
 	schemaDocument,
 	validationErrorCodeSchema,
 	validationItemKindSchema,
@@ -103,6 +104,7 @@ const validateFeedbackClassificationRequestSchema = z
 		manifest_file: nullableCliStringSchema.describe("Path to a split manifest JSON file."),
 		classification_json: nullableCliStringSchema.describe("Inline split classification JSON."),
 		classification_file: nullableCliStringSchema.describe("Path to a split classification JSON file."),
+		harness_session_id: nullableCliStringSchema.describe("Harness session id for persisting a validated classification artifact."),
 	})
 	.strict();
 
@@ -110,6 +112,8 @@ const planFeedbackRequestSchema = z
 	.object({
 		payload_json: nullableCliStringSchema.describe("Inline wrapper payload JSON."),
 		payload_file: nullableCliStringSchema.describe("Path to a wrapper payload JSON file."),
+		pr_number: nullableIntSchema.describe("PR number for implicit session resolution."),
+		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution."),
 	})
 	.strict();
 
@@ -186,10 +190,24 @@ export function buildClassificationTemplateSchemaDocument(): JsonSchemaDocument 
 	return schemaDocument(classificationTemplateRequestSchema, classificationTemplateResultSchema);
 }
 
+const validateFeedbackClassificationResultSchema = feedbackPlanningValidationResultSchema.extend({
+	classification_reference: payloadReferenceSchema.nullable().optional(),
+});
+
+const planFeedbackResolvedInputsSchema = z.object({
+	manifest: payloadReferenceSchema,
+	classification: payloadReferenceSchema,
+});
+
+const planFeedbackResultSchema = feedbackPlanResultSchema.extend({
+	plan_reference: payloadReferenceSchema.nullable().optional(),
+	resolved_inputs: planFeedbackResolvedInputsSchema.optional(),
+});
+
 export function buildValidateFeedbackClassificationSchemaDocument(): JsonSchemaDocument {
-	return schemaDocument(validateFeedbackClassificationRequestSchema, feedbackPlanningValidationResultSchema);
+	return schemaDocument(validateFeedbackClassificationRequestSchema, validateFeedbackClassificationResultSchema);
 }
 
 export function buildPlanFeedbackSchemaDocument(): JsonSchemaDocument {
-	return schemaDocument(planFeedbackRequestSchema, feedbackPlanResultSchema);
+	return schemaDocument(planFeedbackRequestSchema, planFeedbackResultSchema);
 }

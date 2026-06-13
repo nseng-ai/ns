@@ -61,6 +61,8 @@ export {
 	type StackFeedbackPlanItem,
 	type StackFeedbackPlanPayload,
 	type StackFeedbackPlanPrepInput,
+	type StackFeedbackPlanResolvedClassificationInput,
+	type StackFeedbackPlanResolvedInputs,
 	type StackFeedbackPlanResult,
 	type StackFeedbackPlanSummary,
 	type StackFeedbackPlanValidationPrResult,

@@ -2,9 +2,12 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 
-import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "./classification.ts";
+import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { getFeedbackManifestSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput, loadJsonRecord, type JsonInputResult } from "./json-input.ts";
+import { HARNESS_SESSION_ID_ENV, PayloadStore, type PayloadReference } from "./payload-store.ts";
+import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact, type ResolvedInputs } from "./session-artifacts.ts";
 
 const wrapperPayloadSchema = z.looseObject({
 	manifest: z.unknown(),
@@ -34,6 +37,7 @@ const validateFeedbackClassificationParseSchema = z.object({
 	manifest_file: z.string().optional(),
 	classification_json: z.string().optional(),
 	classification_file: z.string().optional(),
+	harness_session_id: z.string().optional(),
 });
 
 export const validateFeedbackClassificationOperation = defineExecOperation({
@@ -48,6 +52,8 @@ export const validateFeedbackClassificationOperation = defineExecOperation({
 const planFeedbackParseSchema = z.object({
 	payload_json: z.string().optional(),
 	payload_file: z.string().optional(),
+	pr_number: z.number().int().optional(),
+	harness_session_id: z.string().optional(),
 });
 
 export const planFeedbackOperation = defineExecOperation({
@@ -88,11 +94,21 @@ async function runValidateFeedbackClassificationOperation(
 	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
 
 	const result = validateFeedbackClassification({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
-	if (result.valid) return ok(result);
-	return negative("PR feedback classification failed validation.", result);
+	if (!result.valid) return negative("PR feedback classification failed validation.", result);
+
+	const classificationReference = await persistValidatedClassification(ctx, request, result, payloadResult.value.classification);
+	if (classificationReference.type === "error") return failure(classificationReference.errorType, classificationReference.message);
+	return ok({ ...result, classification_reference: classificationReference.value });
 }
 
 async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
+	const hasWrapperInput = request.payload_json !== undefined || request.payload_file !== undefined;
+	if (request.pr_number !== undefined) {
+		if (hasWrapperInput) {
+			return failure("invalid_request", "plan-feedback cannot mix session resolution (--pr-number) with wrapper input (--payload-json/--payload-file).");
+		}
+		return await runPlanFeedbackFromSession(ctx, request);
+	}
 	const payloadResult = await loadJsonInput({
 		optionValue: request.payload_json,
 		filePath: request.payload_file,
@@ -108,6 +124,72 @@ async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.ou
 	const result = planFeedback({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
 	if (result.valid) return ok(result);
 	return negative("PR feedback classification failed validation; no plan produced.", result);
+}
+
+async function persistValidatedClassification(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof validateFeedbackClassificationParseSchema>,
+	result: FeedbackClassificationValidationResult,
+	classification: unknown,
+): Promise<{ type: "ok"; value: PayloadReference | null } | { type: "error"; errorType: string; message: string }> {
+	if (!hasPayloadSession(request.harness_session_id, ctx.env)) return { type: "ok", value: null };
+	if (result.pr_number === null) {
+		return { type: "error", errorType: "invalid_request", message: "validate-feedback-classification cannot persist a PR-scoped classification without a PR number." };
+	}
+	const storeResult = await PayloadStore.fromEnvironment({ explicitHarnessSessionId: request.harness_session_id ?? null, env: ctx.env, clock: ctx.context.payloadClock });
+	if (storeResult.type === "error") return storeResult;
+	const artifact = { pr_number: result.pr_number, classification, validation: result };
+	const reference = await storeResult.value.writeJsonArtifact({
+		descriptor: prArtifactDescriptor({ prNumber: result.pr_number, kind: "classification" }),
+		role: "summary",
+		payload: artifact,
+	});
+	if (reference.type === "error") return reference;
+	return { type: "ok", value: reference.value };
+}
+
+async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
+	if (request.pr_number === undefined) throw new Error("plan-feedback session mode requires pr_number");
+	const storeResult = await PayloadStore.fromEnvironment({ explicitHarnessSessionId: request.harness_session_id ?? null, env: ctx.env, clock: ctx.context.payloadClock });
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
+	const store = storeResult.value;
+	const manifest = await resolveLatestJsonSessionArtifact({
+		store,
+		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "manifest" }),
+		role: "summary",
+		schema: getFeedbackManifestSchema,
+	});
+	if (manifest.type === "error") return failure(manifest.errorType, manifest.message);
+	const classification = await resolveLatestJsonSessionArtifact({
+		store,
+		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "classification" }),
+		role: "summary",
+		schema: classificationArtifactSchema,
+	});
+	if (classification.type === "error") return failure(classification.errorType, classification.message);
+	if (classification.value.value.pr_number !== request.pr_number) {
+		return failure(
+			"invalid_request",
+			`Resolved classification artifact PR number ${classification.value.value.pr_number} does not match requested PR ${request.pr_number}.`,
+		);
+	}
+	const resolvedInputs: ResolvedInputs = { manifest: manifest.value.reference, classification: classification.value.reference };
+	const result = planFeedback({ manifest: manifest.value.value, classification: classification.value.value.classification });
+	const resultWithResolvedInputs = { ...result, resolved_inputs: resolvedInputs };
+	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
+	const planReference = await store.writeJsonArtifact({
+		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "plan" }),
+		role: "summary",
+		payload: resultWithResolvedInputs,
+	});
+	if (planReference.type === "error") return failure(planReference.errorType, planReference.message);
+	return ok({ ...resultWithResolvedInputs, plan_reference: planReference.value });
+}
+
+function hasPayloadSession(explicitHarnessSessionId: string | undefined, env: NodeJS.ProcessEnv): boolean {
+	if (explicitHarnessSessionId !== undefined && explicitHarnessSessionId !== "") return true;
+	const envSessionId = env[HARNESS_SESSION_ID_ENV];
+	return envSessionId !== undefined && envSessionId !== "";
 }
 
 async function loadValidatePayload(

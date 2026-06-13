@@ -4,7 +4,8 @@ import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResu
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadOperationPayload } from "./json-input.ts";
+import { loadJsonInput, loadOperationPayload } from "./json-input.ts";
+import { PayloadStore } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
@@ -15,11 +16,13 @@ import {
 	type StackFeedbackPlanInput,
 	type StackFeedbackPlanInformationalItem,
 	type StackFeedbackPlanItem,
+	type StackFeedbackPlanResolvedInputs,
 	type StackFeedbackPlanResult,
 	type StackFeedbackPlanValidationSummary,
 } from "./stack-feedback-plan-contracts.ts";
-import { type StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
+import { stackFeedbackPrepResultInputSchema, type StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
+import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "./session-artifacts.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
@@ -40,7 +43,7 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 
 async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
+	const storeResult = await PayloadStore.fromEnvironment({
 		explicitHarnessSessionId: request.harness_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
@@ -48,21 +51,9 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
-	const payloadResult = await loadOperationPayload({
-		commandName: "stack-feedback-plan",
-		inputDescription: "stack feedback plan JSON payload",
-		payloadSchema: stackFeedbackPlanPayloadSchema,
-		request,
-		stdin: ctx.stdin,
-		fields: stackFeedbackPlanPayloadFields,
-		store,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const payloadValue = payloadResult.value;
-	if (payloadValue.prep === undefined) {
-		throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
-	}
-	const payload: StackFeedbackPlanInput = { ...payloadValue, prep: payloadValue.prep };
+	const sessionPayload = await loadStackFeedbackPlanInput(ctx, request, store);
+	if (sessionPayload.type === "error") return failure(sessionPayload.errorType, sessionPayload.message);
+	const { payload, resolvedInputs } = sessionPayload.value;
 
 	const classificationsResult = classificationsByPr(payload);
 	if (classificationsResult.type === "error") return failure("invalid_request", classificationsResult.message);
@@ -82,11 +73,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		})),
 	};
 	if (!validationSummary.all_valid) {
-		const negativeResult = emptyPlanResult({
-			sessionId: store.sessionId,
-			prCount: payload.prep.stack.length,
-			validation: validationSummary,
-		});
+		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary, resolvedInputs });
 		return negative(
 			"Stack feedback classification failed validation; no stack plan produced.",
 			request.stdout_mode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
@@ -103,12 +90,114 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		prep: payload.prep,
 		validation: validationSummary,
 		prPlans,
+		resolvedInputs,
 	});
-	const stackPlanReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-plan", role: "summary", payload: resultWithoutReference });
+	const stackPlanReference = await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: resultWithoutReference });
 	if (stackPlanReference.type === "error") return failure(stackPlanReference.errorType, stackPlanReference.message);
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
 	if (request.stdout_mode === "compact") return ok(compactPlanResult(result));
 	return ok(result);
+}
+
+async function loadStackFeedbackPlanInput(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackPlanParseSchema>,
+	store: PayloadStore,
+): Promise<
+	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: StackFeedbackPlanResolvedInputs | undefined } }
+	| { type: "error"; errorType: string; message: string }
+> {
+	const hasExplicitSource = request.payload_json !== undefined || request.payload_file !== undefined || request.prep_reference !== undefined;
+	if (!hasExplicitSource) {
+		const stdinText = await ctx.stdin();
+		if (stdinText.trim() === "") return await loadStackFeedbackPlanInputFromSession(store);
+		return loadStackFeedbackPlanInputFromStdin(stdinText);
+	}
+
+	const payloadResult = await loadOperationPayload({
+		commandName: "stack-feedback-plan",
+		inputDescription: "stack feedback plan JSON payload",
+		payloadSchema: stackFeedbackPlanPayloadSchema,
+		request,
+		stdin: ctx.stdin,
+		fields: stackFeedbackPlanPayloadFields,
+	});
+	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
+	const payloadValue = payloadResult.value;
+	if (payloadValue.prep === undefined) {
+		throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
+	}
+	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
+}
+
+function loadStackFeedbackPlanInputFromStdin(
+	stdinText: string,
+): Promise<
+	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: undefined } }
+	| { type: "error"; errorType: string; message: string }
+> {
+	return loadJsonInput({
+		optionValue: stdinText,
+		commandName: "stack-feedback-plan",
+		inputDescription: "stack feedback plan JSON payload",
+		optionName: "--payload-json",
+		fileOptionName: "--payload-file",
+		schema: stackFeedbackPlanPayloadSchema,
+		stdin: async () => "",
+	}).then((payloadResult) => {
+		if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
+		const payloadValue = payloadResult.value;
+		if (payloadValue.prep === undefined) {
+			return {
+				type: "error",
+				errorType: "invalid_request",
+				message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference.",
+			};
+		}
+		return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
+	});
+}
+
+async function loadStackFeedbackPlanInputFromSession(
+	store: PayloadStore,
+): Promise<
+	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: StackFeedbackPlanResolvedInputs } }
+	| { type: "error"; errorType: string; message: string }
+> {
+	const prep = await resolveLatestJsonSessionArtifact({
+		store,
+		descriptor: stackArtifactDescriptor("prep"),
+		role: "summary",
+		schema: stackFeedbackPrepResultInputSchema,
+	});
+	if (prep.type === "error") return prep;
+	const classifications: StackFeedbackPlanInput["classifications"] = [];
+	const resolvedClassifications: StackFeedbackPlanResolvedInputs["classifications"] = [];
+	for (const prResult of prep.value.value.stack) {
+		const classification = await resolveLatestJsonSessionArtifact({
+			store,
+			descriptor: prArtifactDescriptor({ prNumber: prResult.pr_number, kind: "classification" }),
+			role: "summary",
+			schema: classificationArtifactSchema,
+		});
+		if (classification.type === "error") return classification;
+		if (classification.value.value.pr_number !== prResult.pr_number) {
+			return {
+				type: "error",
+				errorType: "invalid_request",
+				message: `Resolved classification artifact PR number ${classification.value.value.pr_number} does not match stack prep PR ${prResult.pr_number}.`,
+			};
+		}
+		classifications.push({ pr_number: prResult.pr_number, classification: classification.value.value.classification });
+		resolvedClassifications.push({ pr_number: prResult.pr_number, reference: classification.value.reference });
+	}
+	return {
+		type: "ok",
+		value: {
+			payload: { prep: prep.value.value, classifications },
+			resolvedInputs: { prep: prep.value.reference, classifications: resolvedClassifications },
+		},
+	};
 }
 
 function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; value: Map<number, unknown> } | { type: "error"; message: string } {
@@ -128,6 +217,7 @@ function emptyPlanResult(options: {
 	sessionId: string;
 	prCount: number;
 	validation: StackFeedbackPlanValidationSummary;
+	resolvedInputs: StackFeedbackPlanResolvedInputs | undefined;
 }): StackFeedbackPlanResult {
 	return {
 		valid: false,
@@ -139,6 +229,7 @@ function emptyPlanResult(options: {
 		automation_discussion_summary: null,
 		decision_docket: [],
 		stack_plan_reference: null,
+		resolved_inputs: options.resolvedInputs,
 		summary: null,
 	};
 }
@@ -158,6 +249,7 @@ function mergedStackPlanResult(options: {
 	prep: StackFeedbackPlanInput["prep"];
 	validation: StackFeedbackPlanValidationSummary;
 	prPlans: readonly PrPlanPair[];
+	resolvedInputs: StackFeedbackPlanResolvedInputs | undefined;
 }): StackFeedbackPlanResult {
 	const batches = mergedBatches(options.prPlans);
 	const informational = mergedInformational(options.prPlans);
@@ -173,6 +265,7 @@ function mergedStackPlanResult(options: {
 		automation_discussion_summary: triageIndex.summary,
 		decision_docket: decisionDocket(triageIndex, batches, informational),
 		stack_plan_reference: null,
+		resolved_inputs: options.resolvedInputs,
 		summary: {
 			actionable_items: actionItems.length,
 			approval_required_items: actionItems.filter((item) => item.approval_required).length,
@@ -393,6 +486,7 @@ function compactPlanResult(result: StackFeedbackPlanResult): unknown {
 		automation_discussion_summary: result.automation_discussion_summary,
 		decision_docket: result.decision_docket,
 		stack_plan_reference: result.stack_plan_reference,
+		resolved_inputs: result.resolved_inputs,
 		summary: result.summary,
 	};
 }

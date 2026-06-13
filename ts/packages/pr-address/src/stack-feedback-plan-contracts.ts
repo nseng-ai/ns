@@ -171,6 +171,16 @@ export interface StackFeedbackPlanSummary {
 	automation_discussion_comments: number;
 }
 
+export interface StackFeedbackPlanResolvedClassificationInput {
+	pr_number: number;
+	reference: PayloadReference;
+}
+
+export interface StackFeedbackPlanResolvedInputs {
+	prep: PayloadReference;
+	classifications: StackFeedbackPlanResolvedClassificationInput[];
+}
+
 export interface StackFeedbackPlanResult {
 	valid: boolean;
 	harness_session_id: string;
@@ -181,6 +191,7 @@ export interface StackFeedbackPlanResult {
 	automation_discussion_summary: StackFeedbackAutomationDiscussionSummary | null;
 	decision_docket: StackFeedbackDecisionDocketItem[];
 	stack_plan_reference: PayloadReference | null;
+	resolved_inputs?: StackFeedbackPlanResolvedInputs | undefined;
 	summary: StackFeedbackPlanSummary | null;
 }
 

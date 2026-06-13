@@ -169,7 +169,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(envelope.data?.stack.map((entry) => entry.pr_number)).toEqual([20, 22]);
 		expect(envelope.data?.stack.every((entry) => entry.manifest !== undefined)).toBe(true);
 		expect(envelope.data?.stack_reference.descriptor).toBe("pr-address-stack-feedback-preflight");
-		expect(envelope.data?.stack_summary_reference.descriptor).toBe("pr-address-stack-feedback-prep");
+		expect(envelope.data?.stack_summary_reference.descriptor).toBe("pr-address-stack-prep");
 	});
 
 	test("returns exit 1 for missing PR coverage before writing artifacts", async () => {

@@ -382,6 +382,11 @@ const stackFeedbackPlanSummarySchema = z.object({
 	automation_discussion_comments: z.int(),
 });
 
+const stackFeedbackPlanResolvedInputsSchema = z.object({
+	prep: payloadReferenceSchema,
+	classifications: z.array(z.object({ pr_number: z.int(), reference: payloadReferenceSchema })),
+});
+
 const stackFeedbackPlanResultSchema = z.object({
 	valid: z.boolean(),
 	harness_session_id: z.string(),
@@ -392,6 +397,7 @@ const stackFeedbackPlanResultSchema = z.object({
 	automation_discussion_summary: stackFeedbackAutomationDiscussionSummarySchema.nullable().optional(),
 	decision_docket: z.array(stackFeedbackDecisionDocketItemSchema).optional(),
 	stack_plan_reference: payloadReferenceSchema.nullable().optional(),
+	resolved_inputs: stackFeedbackPlanResolvedInputsSchema.optional(),
 	summary: stackFeedbackPlanSummarySchema.nullable().optional(),
 });
 
@@ -434,6 +440,7 @@ const stackFeedbackPlanCompactResultSchema = z.object({
 	automation_discussion_summary: stackFeedbackAutomationDiscussionSummarySchema.nullable().optional(),
 	decision_docket: z.array(stackFeedbackDecisionDocketItemSchema).optional(),
 	stack_plan_reference: payloadReferenceSchema.nullable().optional(),
+	resolved_inputs: stackFeedbackPlanResolvedInputsSchema.optional(),
 	summary: stackFeedbackPlanSummarySchema.nullable().optional(),
 });
 

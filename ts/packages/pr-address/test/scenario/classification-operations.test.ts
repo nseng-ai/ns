@@ -3,11 +3,18 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
-import { runScenario } from "../support/run-scenario.ts";
+import { fixedClock, runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeTempDir = useTempDirs();
+
+function expectPayloadOk<T>(result: PayloadResult<T>): T {
+	if (result.type !== "ok") throw new Error(`expected ok payload result, got ${result.errorType}: ${result.message}`);
+	return result.value;
+}
 
 describe("managed classification/planning CLI operations", () => {
 	test("classification-template accepts stdin, inline JSON, and file JSON without legacy fallback", async () => {
@@ -92,5 +99,75 @@ describe("managed classification/planning CLI operations", () => {
 		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
 		expect(conflictEnvelope.error_type).toBe("invalid_request");
 		expect(conflictEnvelope.message).toContain("--payload-file");
+	});
+
+	test("validated classifications are persisted and plan-feedback resolves latest PR inputs from the session", async () => {
+		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
+		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
+		const sessionId = "session-plan";
+		const prNumber = 42;
+		const store = expectPayloadOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-06-09T08:30:00Z") }));
+		expectPayloadOk(
+			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
+		);
+		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
+
+		const validateRun = runScenario(
+			[
+				"exec",
+				"validate-feedback-classification",
+				"--manifest-json",
+				JSON.stringify(input.manifest),
+				"--classification-json",
+				JSON.stringify(input.classification),
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, env, payloadClock: fixedClock("2026-06-09T08:30:01Z") },
+		);
+		expect(await validateRun.exit).toBe(0);
+		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: { descriptor: string; sequence: number } } };
+		expect(validateEnvelope.data.valid).toBe(true);
+		expect(validateEnvelope.data.classification_reference.descriptor).toBe("pr-address-pr-42-classification");
+		expect(validateEnvelope.data.classification_reference.sequence).toBe(2);
+
+		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
+			cwd: REPO_ROOT,
+			env,
+			payloadClock: fixedClock("2026-06-09T08:30:02Z"),
+		});
+		expect(await planRun.exit).toBe(0);
+		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
+			data: {
+				valid: boolean;
+				resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } };
+				plan_reference: { descriptor: string; sequence: number };
+			};
+		};
+		expect(planEnvelope.data.valid).toBe(true);
+		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
+		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
+		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
+	});
+
+	test("plan-feedback session mode rejects mixed or missing sources and reports missing artifacts", async () => {
+		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
+		const payload = await readFile(inputPath, "utf8");
+		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
+		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "session-plan" };
+
+		const mixedRun = runScenario(["exec", "plan-feedback", "--pr-number", "42", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT, env });
+		expect(await mixedRun.exit).toBe(2);
+		expect(JSON.parse(mixedRun.stdout.join("")).message).toContain("cannot mix session resolution");
+
+		const missingSourceRun = runScenario(["exec", "plan-feedback", "--format", "json"], { cwd: REPO_ROOT, env });
+		expect(await missingSourceRun.exit).toBe(2);
+		expect(JSON.parse(missingSourceRun.stdout.join("")).message).toContain("requires a non-empty JSON payload");
+
+		const missingArtifactRun = runScenario(["exec", "plan-feedback", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, env });
+		expect(await missingArtifactRun.exit).toBe(2);
+		const missingArtifactEnvelope = JSON.parse(missingArtifactRun.stdout.join(""));
+		expect(missingArtifactEnvelope.error_type).toBe("payload_lookup_failed");
+		expect(missingArtifactEnvelope.message).toContain("pr-address-pr-42-manifest");
 	});
 });
