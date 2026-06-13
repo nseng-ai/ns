@@ -47,6 +47,7 @@ describe("code extension registration", () => {
 			"code:cp",
 			"code:submit",
 			"code:pr-regen",
+			"code:push",
 			"code:autobranch",
 			"code:autoslot",
 			"code:land",
@@ -58,13 +59,14 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("changes")).toBe(false);
 		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);
+		expect(pi.commands.has("push")).toBe(false);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("gt:land-stack")).toBe(false);
 		expect(pi.commands.has("code:land-stack")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
 		expect(pi.commands.has("land-stack")).toBe(false);
 		const oldCommandPrefix = "dev";
-		for (const command of ["cp", "changes", "autobranch", "submit", "pr-regen", "land", "land-stack"]) {
+		for (const command of ["cp", "changes", "autobranch", "submit", "push", "pr-regen", "land", "land-stack"]) {
 			expect(pi.commands.has(`${oldCommandPrefix}:${command}`)).toBe(false);
 		}
 		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
@@ -75,6 +77,8 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:pr-regen")?.description).toBe(
 			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
+		expect(pi.commands.get("code:push")?.description).toContain("already-committed");
+		expect(pi.commands.get("code:push")?.description).toContain("git push");
 		expect(pi.commands.get("code:autobranch")?.description).toBe(
 			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
 		);
@@ -104,6 +108,7 @@ describe("code extension registration", () => {
 			"code:cp",
 			"code:submit",
 			"code:pr-regen",
+			"code:push",
 			"code:autobranch",
 			"code:autoslot",
 			"code:land",
