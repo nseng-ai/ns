@@ -108,6 +108,12 @@ class TrunkMarkerProblem:
 TrunkMarkerStatus = TrunkMarkerClean | TrunkMarkerProblem
 
 EMPTY_BRANCH_NAME_WARNING = "Graphite metadata row has an empty branch_name; row ignored"
+TRUNK_ROW_MARKER_MISSING_WARNING = "trunk row marker missing"
+MULTIPLE_TRUNK_ROWS_MARKED_WARNING = "multiple Graphite metadata rows are marked as trunk"
+TRUNK_MARKER_DIFFERS_WARNING_TEMPLATE = (
+    "Graphite metadata trunk marker differs from ancestor-walk terminus: "
+    "{marked_trunk} != {terminus}"
+)
 
 
 def render_ancestor_termination(termination: WalkCycle | WalkRowMissing) -> str:
@@ -170,20 +176,22 @@ def render_children_corruption(corruption: ChildrenCorruption) -> str:
 def render_trunk_marker_problem(problem: TrunkMarkerProblem) -> tuple[str, ...]:
     """Render trunk-marker integrity problems as legacy warning strings."""
     if problem.terminus_state == "row_missing":
-        return ("trunk row marker missing",)
+        return (TRUNK_ROW_MARKER_MISSING_WARNING,)
 
     warnings: list[str] = []
     if problem.terminus_state == "unmarked":
-        warnings.append("trunk row marker missing")
+        warnings.append(TRUNK_ROW_MARKER_MISSING_WARNING)
     elif problem.terminus_state != "marked":
         assert_never(problem.terminus_state)
 
     if len(problem.marked_trunks) > 1:
-        warnings.append("multiple Graphite metadata rows are marked as trunk")
+        warnings.append(MULTIPLE_TRUNK_ROWS_MARKED_WARNING)
     if problem.marked_trunks and problem.terminus not in problem.marked_trunks:
         warnings.append(
-            "Graphite metadata trunk marker differs from ancestor-walk terminus: "
-            f"{problem.marked_trunks[0]} != {problem.terminus}"
+            TRUNK_MARKER_DIFFERS_WARNING_TEMPLATE.format(
+                marked_trunk=problem.marked_trunks[0],
+                terminus=problem.terminus,
+            )
         )
     return tuple(warnings)
 

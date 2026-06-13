@@ -4,8 +4,8 @@ import { z } from "zod";
 import { buildFeedbackClassificationTemplate } from "./classification-core.ts";
 import { reviewsForRequest } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
-import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
+import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
+import { gatewayFailureResult, gatewayOptions } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
@@ -181,12 +181,12 @@ async function prepareStackPr(options: {
 	const gatewayOptionsValue = gatewayOptions(options.invocation);
 	const prNumber = options.prInput.pr_number;
 	const reviewsResult = await options.github.getReviews(prNumber, gatewayOptionsValue);
-	if (reviewsResult.type === "failure") return gatewayError(`Failed to fetch reviews for PR ${prNumber}`, reviewsResult.failure);
+	if (reviewsResult.type === "failure") return gatewayFailureResult(`Failed to fetch reviews for PR ${prNumber}`, reviewsResult.failure);
 	const reviews = reviewsForRequest(reviewsResult.value, options.shouldIncludeEmptyReviews);
 	const threadsResult = await options.github.getReviewThreads(prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: options.shouldIncludeResolved });
-	if (threadsResult.type === "failure") return gatewayError(`Failed to fetch review threads for PR ${prNumber}`, threadsResult.failure);
+	if (threadsResult.type === "failure") return gatewayFailureResult(`Failed to fetch review threads for PR ${prNumber}`, threadsResult.failure);
 	const commentsResult = await options.github.getDiscussionComments(prNumber, gatewayOptionsValue);
-	if (commentsResult.type === "failure") return gatewayError(`Failed to fetch discussion comments for PR ${prNumber}`, commentsResult.failure);
+	if (commentsResult.type === "failure") return gatewayFailureResult(`Failed to fetch discussion comments for PR ${prNumber}`, commentsResult.failure);
 
 	const inlineResult = inlineFeedbackResult({ prNumber, reviews, reviewThreads: threadsResult.value, discussionComments: commentsResult.value });
 	const rawReference = await options.store.writeJsonArtifact({
@@ -326,10 +326,6 @@ export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryR
 			},
 		})),
 	};
-}
-
-function gatewayError(prefix: string, failure: GatewayFailure): { type: "error"; result: ExecOperationDispatchResult } {
-	return { type: "error", result: exitFailure("pr_gateway_failure", gatewayFailureMessage(prefix, failure)) };
 }
 
 function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {
