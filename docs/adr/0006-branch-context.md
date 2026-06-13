@@ -44,7 +44,7 @@ There are no migration shims. This is unreleased private software, so pre-rename
 | attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                              |
 | Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, plan key `plan.md`                                              |
 | Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/branch-context:from-plan`, `/branch-context:impl`, `/branch-context:upstack-impl-session` |
-| skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `from-plan`, `branch-context-impl`                                        |
+| skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `branch-context-from-plan`, `branch-context-impl`                         |
 
 ### `attach --file` source constraint
 

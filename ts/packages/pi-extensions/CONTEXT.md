@@ -109,7 +109,7 @@ The planning-layer use of `branch-context` attach/load/list/check/delete helpers
 _Avoid_: Branch Memory policy, raw brmem workflow, package import edge.
 
 **Branch-context skill family**:
-The shippable agent-skill capability made of the `branch-context` umbrella/reference skill plus the installed `enriched-plan-save`, `from-plan`, and `branch-context-impl` step skills that use it as their shared branch-context model.
+The shippable agent-skill capability made of the `branch-context` umbrella/reference skill plus the installed `enriched-plan-save`, `branch-context-from-plan`, and `branch-context-impl` step skills that use it as their shared branch-context model.
 _Avoid_: planned-branch skill family, one-off skill, internal docs dependency, hidden installation requirement.
 
 **Enriched-plan save prompt policy**:

@@ -4,12 +4,12 @@
     "branch-context": {
       "source": "skills/branch-context",
       "sourceType": "local",
-      "computedHash": "9afc46a3294fb666299e2c49c051e8f3bea593d60193215e3b67d3838c532572"
+      "computedHash": "56c99e780b9a6c0e164e709b460a634ca7063355111887d3a029157505af26a9"
     },
     "branch-context-impl": {
       "source": "skills/branch-context-impl",
       "sourceType": "local",
-      "computedHash": "654e01712f357099a809200fb5122e5cebb39943fe8a2a71a6c69d4071ed8321"
+      "computedHash": "d0470ef006f5a9eaf67f7ed306c69dd7426ec5c251bef3546c78de631d3bb352"
     },
     "branch-retro": {
       "source": "skills/branch-retro",
@@ -117,10 +117,10 @@
       "skillPath": "skills/fdt-refactor-mock-to-fake/SKILL.md",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
     },
-    "from-plan": {
-      "source": "skills/from-plan",
+    "branch-context-from-plan": {
+      "source": "skills/branch-context-from-plan",
       "sourceType": "local",
-      "computedHash": "71b955bc239688083b041ccaa9b5428a46cd3dcd28ce067ca4b2019cfe53447d"
+      "computedHash": "a3ed3609f8fe5b6188a0c7c8d552b1b24a556c9a63c679ef81c02a0d5c1eddbb"
     },
     "graphite": {
       "source": "withgraphite/agent-skills",
