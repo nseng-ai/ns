@@ -19,7 +19,7 @@ import {
 // TypeScript-owned and its fixture is captured from `--json-schema` output.
 
 export const mapBranchPrsRequestSchema = z.object({
-	branches: z.array(z.string()),
+	branches_json: z.string().optional(),
 });
 
 const mapBranchPrsEntrySchema = z.object({

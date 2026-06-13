@@ -16,6 +16,7 @@ export interface PrAddressExecContext {
 /** One exec operation, ready to mount on the hidden `exec` subgroup. */
 export interface ExecOperation {
 	name: string;
+	schema: z.ZodObject;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
@@ -40,6 +41,7 @@ export function defineExecOperation<S extends z.ZodObject, T>(options: DefineExe
 	const handler = options.isRepoContextRequired === true ? withRepoContextPrecondition(spec.handler) : spec.handler;
 	return {
 		name: spec.name,
+		schema: spec.schema,
 		addTo(group) {
 			group.command({ ...spec, handler, schemaDocument: () => requireOperationSchemaDocument(spec.name) });
 		},

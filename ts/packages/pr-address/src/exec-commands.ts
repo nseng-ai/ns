@@ -44,4 +44,4 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	validateFeedbackClassificationOperation,
 ];
 
-export const EXEC_OPERATION_NAMES: ReadonlySet<string> = new Set(EXEC_OPERATIONS.map((operation) => operation.name));
+

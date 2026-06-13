@@ -3,16 +3,10 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "branches": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+      "branches_json": {
+        "type": "string"
       }
     },
-    "required": [
-      "branches"
-    ],
     "additionalProperties": false
   },
   "output_json_schema": {
