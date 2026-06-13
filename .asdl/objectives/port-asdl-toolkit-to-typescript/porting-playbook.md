@@ -1,0 +1,94 @@
+# TypeScript Capability Porting Playbook
+
+Reusable guidance extracted from the completed `pr-address` TypeScript cutover. This is evidence from one production migration, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+
+## 1. Inventory public contracts before porting internals
+
+Start each capability with a contract inventory that separates stable public behavior from incidental Python implementation detail.
+
+Classify at least:
+
+- Skill instructions and command snippets agents execute.
+- Standalone CLI and plugin surfaces, including hidden `exec` commands and `--format json` envelopes.
+- JSON schemas, payload artifact layouts, golden fixtures, wrapper scripts, config entry points, and safety guarantees.
+- External-system behaviors such as git/GitHub reads, live mutations, publishing, or no-push guarantees.
+
+`pr-address` showed why this matters: durable contracts included its skill/CLI/JSON/payload/mutation-safety behavior, while several click/parser details and Python module boundaries were incidental or intentionally replaced.
+
+## 2. Port in vertical slices
+
+Prefer one small deterministic operation first, then expand through adjacent surfaces only after seams are proven.
+
+A useful sequence from `pr-address` was:
+
+1. Contract inventory and package boundary.
+2. Minimal command runtime, schema, envelope, and JSON-input seams.
+3. A deterministic first operation.
+4. Validation and planning operations on the same seams.
+5. Payload/artifact helpers.
+6. Read-only git/GitHub gateway operations.
+7. Mutation builders and fake-backed mutation helpers.
+8. Wrapper, public CLI, plugin, and distribution cutover.
+9. Python fallback retirement and package deletion.
+10. Playbook feedback into the umbrella Objective.
+
+Future ports do not need the exact operation order, but they should keep each slice reviewable and contract-backed.
+
+## 3. Keep seams local until a second consumer proves reuse
+
+Do not framework-first a capability port. Add package-local runtime, payload/reference, and adapter seams when only one capability needs them. Move only repeated, stable gaps into shared TS foundations such as `@asdl/clinkr` or `@asdl/core`.
+
+`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing.
+
+## 4. Use fake-driven gateways and parity evidence
+
+External boundaries should be gateway-shaped and fake-testable before real adapters become load-bearing.
+
+Prefer:
+
+- In-memory or scripted fakes for git, GitHub, filesystem, process, clocks, and payload stores.
+- Scenario tests for public CLI behavior.
+- Golden fixtures where exact bytes are a durable contract.
+- Structured parity where formatting or key order is not contractually meaningful.
+- Limited safe real-adapter smoke checks only when they de-risk local environment or API assumptions.
+
+`pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces.
+
+## 5. Retire fallback intentionally
+
+Python fallback should be short-lived after TypeScript parity is proven.
+
+Before deletion:
+
+- Audit every command and user-facing invocation path.
+- Remove active callers, plugin entry points, docs, config, tests, and fallback routers in the same retirement window.
+- Decide and document rollback outside the repo when the in-repo Python source is deleted.
+- Broaden validation when package deletion touches workspace config or shared tests.
+
+`pr-address` retired the `asdl pr-address` plugin instead of porting it, removed the TypeScript unknown-operation Python router, deleted `packages/asdl-pr-address`, moved the golden corpus under the TS package, and kept rollback as the frozen external PyPI artifact `asdl-pr-address==0.1.1`.
+
+## 6. Treat distribution as a product decision
+
+Do not inherit either the old Python `uvx` distribution model or `pr-address`'s run-from-source shim by default. Decide distribution from actual consumers.
+
+For `pr-address`, checkout-free bundling and npm publishing were explicitly dropped. The accepted installed CLI model is the run-from-source shim installed by `just install-pr-address`, which runs the checkout's TypeScript CLI and may require `ts/node_modules`. That is acceptable evidence for `pr-address`; it is not a blanket requirement for `brmem`, `handoff`, `objective`, or later ports.
+
+## 7. Record Semantic Updates at decision points
+
+Write Objective updates for meaningful decisions, compatibility changes, de-risking evidence, and reusable lessons. Avoid ceremonial status pings.
+
+Good update subjects include:
+
+- Contract inventory and durable/incidental classifications.
+- Distribution or plugin compatibility decisions.
+- Proven parity or accepted divergence.
+- Fallback-retirement gates and deletion evidence.
+- Repeated seams that should or should not move into shared foundations.
+
+Do not rewrite old updates to make the migration story cleaner; append new evidence.
+
+## 8. Keep Objective boundaries clean
+
+Capability-specific consumer migration belongs in that capability's subobjective. Shared provider/framework work belongs in `ts-cli-foundation` or another foundation Objective. The umbrella Objective owns sequencing, migration-ledger status, migration-debt visibility, and this cross-cutting playbook.
+
+When a capability discovers a reusable gap, record whether it is still local evidence or belongs in a shared Objective. The `pr-address` port deliberately avoided promoting package-local payload/reference machinery into `@asdl/clinkr` until another non-`pr-address` consumer proves the same seam.
