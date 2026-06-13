@@ -4,8 +4,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { PayloadStore, type PayloadClock, type PayloadReference, type PayloadResult } from "./payload-store.ts";
-import { trimOptional, trimRequired } from "./string-values.ts";
+import type { PayloadClock, PayloadReference, PayloadResult, PayloadStoreFactory } from "./payload-store.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -165,7 +164,7 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 
 	let checkpointResult = recordBatchCheckpoint(payloadResult.value);
 	if (checkpointResult.valid && checkpointResult.payload_path !== null) {
-		const written = await writeCheckpointArtifact(checkpointResult, ctx.context.payloadClock);
+		const written = await writeCheckpointArtifact(checkpointResult, ctx.context.payloadStoreFactory, ctx.context.payloadClock);
 		if (written.type === "error") return failure(written.errorType, written.message);
 		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
 	}
@@ -174,7 +173,11 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult);
 }
 
-async function writeCheckpointArtifact(checkpointResult: RecordBatchCheckpointResult, clock: PayloadClock | undefined): Promise<PayloadResult<PayloadReference>> {
+async function writeCheckpointArtifact(
+	checkpointResult: RecordBatchCheckpointResult,
+	payloadStoreFactory: PayloadStoreFactory,
+	clock: PayloadClock | undefined,
+): Promise<PayloadResult<PayloadReference>> {
 	// Mirrors the Python BatchCheckpointArtifact model field order for byte parity.
 	const artifact = {
 		pr_number: checkpointResult.pr_number,
@@ -190,7 +193,7 @@ async function writeCheckpointArtifact(checkpointResult: RecordBatchCheckpointRe
 		non_thread_outcomes: checkpointResult.non_thread_outcomes,
 		warnings: checkpointResult.warnings,
 	};
-	const storeResult = await PayloadStore.openContainingArtifact(trimRequired(checkpointResult.payload_path), { clock });
+	const storeResult = await payloadStoreFactory.openContainingArtifact(trimRequired(checkpointResult.payload_path), { clock });
 	if (storeResult.type === "error") return storeResult;
 	return await storeResult.value.writeJsonArtifact({ descriptor: "pr-address-batch-checkpoint", role: "summary", payload: artifact });
 }
@@ -656,3 +659,15 @@ function difference(left: ReadonlySet<string>, right: ReadonlySet<string>): stri
 	return [...left].filter((value) => !right.has(value));
 }
 
+
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+function trimRequired(value: string | null | undefined): string {
+	const trimmed = trimOptional(value);
+	if (trimmed === null) throw new Error("Expected non-empty string.");
+	return trimmed;
+}

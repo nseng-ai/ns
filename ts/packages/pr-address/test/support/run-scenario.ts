@@ -7,6 +7,7 @@ export interface ScenarioRunOptions {
 	github?: PrAddressContext["github"] | undefined;
 	git?: PrAddressContext["git"] | undefined;
 	payloadClock?: PayloadClock | undefined;
+	payloadStoreFactory?: PrAddressContext["payloadStoreFactory"] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	cwd?: string | undefined;
 	stdin?: string | (() => Promise<string>) | undefined;
@@ -32,6 +33,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	if (options.github !== undefined) overrides.github = options.github;
 	if (options.git !== undefined) overrides.git = options.git;
 	if (options.payloadClock !== undefined) overrides.payloadClock = options.payloadClock;
+	if (options.payloadStoreFactory !== undefined) overrides.payloadStoreFactory = options.payloadStoreFactory;
 	const stdin = options.stdin;
 	return {
 		exit: runCli(args, {

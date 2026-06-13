@@ -1,4 +1,3 @@
-import { trimOptional } from "./string-values.ts";
 
 export type ThreadKey = readonly [prNumber: number, threadId: string];
 
@@ -112,4 +111,11 @@ function reviewThreadKeys(items: readonly ThreadIndexItem[]): Set<string> {
 		if (key !== null) keys.add(threadKeyString(key[0], key[1]));
 	}
 	return keys;
+}
+
+
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
 }

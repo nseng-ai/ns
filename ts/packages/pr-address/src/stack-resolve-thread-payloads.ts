@@ -5,7 +5,6 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 import { buildThreadResolutionDecision, firstDuplicatePayloadThreadId, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
-import { trimOptional, trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 
@@ -593,4 +592,17 @@ function appendForPr<T>(grouped: Map<number, T[]>, prNumber: number, value: T): 
 	const existing = grouped.get(prNumber);
 	if (existing === undefined) grouped.set(prNumber, [value]);
 	else existing.push(value);
+}
+
+
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+function trimRequired(value: string | null | undefined): string {
+	const trimmed = trimOptional(value);
+	if (trimmed === null) throw new Error("Expected non-empty string.");
+	return trimmed;
 }

@@ -11,7 +11,6 @@ import {
 	type StackFeedbackPrepThreadManifestItem,
 } from "./stack-feedback-prep-contracts.ts";
 import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys, plannedPrNumbers, threadKey, threadKeyString, type ThreadKey } from "./stack-feedback-thread-index.ts";
-import { duplicateValues, trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
@@ -379,4 +378,31 @@ interface ErrorItemOptions {
 
 function errorItem(code: string, message: string, options: ErrorItemOptions = {}): DiffCurrentError {
 	return { code, message, pr_number: options.prNumber ?? null, thread_id: options.threadId ?? null };
+}
+
+
+function duplicateValues<T>(values: readonly T[]): T[] {
+	const counts = new Map<T, number>();
+	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+	const seen = new Set<T>();
+	const duplicates: T[] = [];
+	for (const value of values) {
+		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
+			duplicates.push(value);
+			seen.add(value);
+		}
+	}
+	return duplicates;
+}
+
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+function trimRequired(value: string | null | undefined): string {
+	const trimmed = trimOptional(value);
+	if (trimmed === null) throw new Error("Expected non-empty string.");
+	return trimmed;
 }

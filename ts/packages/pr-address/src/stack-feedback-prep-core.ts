@@ -1,10 +1,9 @@
 import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
-import { requiredAt } from "./array-values.ts";
 import { buildFeedbackClassificationTemplate } from "./classification.ts";
 import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { PayloadStore, type PayloadReference } from "./payload-store.ts";
+import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import {
 	prepManifestViewSchema,
 	type StackFeedbackPrInput,
@@ -17,7 +16,7 @@ import { buildDiscussionTriageSummary } from "./stack-feedback-triage.ts";
 
 export async function prepareStackFeedbackStack(options: {
 	ctx: PrAddressExecContext;
-	store: PayloadStore;
+	store: PayloadArtifactStore;
 	stack: readonly StackFeedbackPrInput[];
 	github: PrAddressGitHubGateway;
 	shouldIncludeResolved: boolean;
@@ -44,10 +43,12 @@ export async function prepareStackFeedbackStack(options: {
 	// sequence numbers and filenames stay byte-identical.
 	const prResults: StackFeedbackPrepPrResult[] = [];
 	for (const [index, prInput] of options.stack.entries()) {
+		const feedback = fetchedFeedback[index];
+		if (feedback === undefined) throw new Error(`Missing per-PR feedback at index ${index}`);
 		const prepared = await writeStackPrArtifacts({
 			store: options.store,
 			prInput,
-			feedback: requiredAt(fetchedFeedback, index, "per-PR feedback"),
+			feedback,
 		});
 		if (prepared.type === "error") return prepared;
 		prResults.push(prepared.value);
@@ -89,7 +90,7 @@ async function fetchStackPrFeedback(options: {
 }
 
 async function writeStackPrArtifacts(options: {
-	store: PayloadStore;
+	store: PayloadArtifactStore;
 	prInput: StackFeedbackPrInput;
 	feedback: StackPrFeedback;
 }): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; exit: ClinkrFailureExit }> {

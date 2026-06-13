@@ -38,12 +38,20 @@ Assumptions:
 
 Risks:
 
-- **Python parity gate (not de-risked):** Candidate 1 and the parity-dependent parts of Candidate 5 are blocked on the legacy Python `--json-schema` parity requirement retiring (ADR-0004 frames the Python path as temporary). If parity must hold longer than expected, those rows stay blocked and the largest LOC win is deferred.
-- **Golden-test coupling:** Several shallow modules (`string-values`, `reply-formatting`) exist for byte-for-byte Python parity under golden tests. Inlining them prematurely would break parity tests; they must be flagged, not deleted, until parity stops mattering.
-- **Hidden coupling on merge (de-risked for classification and stack-feedback triage):** The classification slice surfaced only expected callers, and they now import the curated `classification.ts` surface. The stack-feedback triage slice gave discussion triage one owner and moved prep/plan/diff-current consumers onto focused producer-owned contracts. Final sweeps found no references to the old classification leaf module paths or leaked helper.
+- **Python parity gate (accepted for schema collapse):** The schema-collapse row is resolved as still gated rather than forced. `@asdl/pr-address` operation specs do not yet carry clinkr `resultSchema` values, so derived documents would fail existing output-schema parity. The pinned `operation-schemas/` mirror remains intentionally until parity can pass without changing the schema surface.
+- **Golden-test coupling (de-risked for pass-through deletion):** `string-values` and `reply-formatting` were deleted by folding byte-sensitive helpers into owning modules while preserving the golden tests that cover Python-like repr/tuple rendering and reply formatting.
+- **Hidden coupling on merge (de-risked for implemented slices):** The classification slice surfaced only expected callers, and they now import the curated `classification.ts` surface. The stack-feedback triage slice gave discussion triage one owner and moved prep/plan/diff-current consumers onto focused producer-owned contracts. The payload slice moved lookup and manifest behavior into the payload-store domain with a high-level context factory seam. Final sweeps found no references to the old classification leaf paths or deleted pass-through/payload modules.
 
 ## Open Questions
 
-- Is the legacy Python `--json-schema` parity requirement still live, or close enough to retirement that Candidate 1 can be pulled now rather than parked?
-- Should the payload filesystem seam reuse an existing `@asdl/core` filesystem gateway if one exists, or define a pr-address-local port?
-- For stack-feedback, what follow-up contract seams remain after the triage/prep/plan/diff-current slice if later stack operations expose new ownership drift?
+- Schema collapse remains a future-gated cleanup: add operation `resultSchema` coverage and re-run parity before deleting `operation-schemas/`.
+- No open payload filesystem-seam question remains for this Objective; the seam is pr-address-local and high-level, with node and in-memory factories.
+- Future stack-feedback ownership drift should be handled as new work if it appears; this Objective's stack-feedback contract/triage scope is complete.
+
+## Closure
+
+Outcome: completed with the schema-collapse deletion explicitly deferred behind a recorded parity gate. Classification, stack-feedback triage/contracts, payload-store consolidation, and pass-through absorption are implemented. The dual schema mirror remains by design because clinkr-derived output schemas cannot yet match parity fixtures without operation `resultSchema` coverage.
+
+Evidence: local working-tree implementation on branch `payload-store-fake-pass-through-schema` against Graphite parent `stack-feedback-triage-contracts-plan-diff-current`; full `pnpm --dir ts run check`, full `pnpm --dir ts run test`, and `git diff --check` passed.
+
+Follow-up: a future schema-focused Objective can add operation result schemas and remove `operation-schemas/` only after derived schema parity passes.

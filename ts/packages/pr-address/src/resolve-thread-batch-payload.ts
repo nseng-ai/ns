@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { isRecord } from "@asdl/core";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import {
@@ -9,9 +10,13 @@ import {
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { isRecord } from "./operation-support.ts";
-import { VALID_RESOLUTION_MODES, validResolutionModesText, type ResolutionReplyMode } from "./reply-formatting.ts";
-import { provenanceShapeError, trimOptional, trimRequired } from "./string-values.ts";
+
+const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
+type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
+
+function validResolutionModesText(): string {
+	return VALID_RESOLUTION_MODES.join(", ");
+}
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE =
@@ -482,3 +487,22 @@ function isResolutionMode(value: string | null): value is ResolutionMode {
 }
 
 
+function trimOptional(value: string | null | undefined): string | null {
+	if (value === null || value === undefined) return null;
+	const trimmed = value.trim();
+	return trimmed === "" ? null : trimmed;
+}
+
+function trimRequired(value: string | null | undefined): string {
+	const trimmed = trimOptional(value);
+	if (trimmed === null) throw new Error("Expected non-empty string.");
+	return trimmed;
+}
+
+function provenanceShapeError(provenance: { kind: string; branch?: string; pr_number?: number }): string | null {
+	if (provenance.kind === "local_branch") return trimOptional(provenance.branch) === null ? "kind='local_branch' provenance requires a non-empty branch" : null;
+	if (provenance.kind === "pr" && (provenance.pr_number === undefined || provenance.pr_number <= 0)) {
+		return "kind='pr' provenance requires a positive pr_number";
+	}
+	return null;
+}

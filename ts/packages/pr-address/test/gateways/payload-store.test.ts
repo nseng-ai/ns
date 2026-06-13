@@ -5,10 +5,12 @@ import { describe, expect, test } from "vitest";
 
 import { useTempDirs } from "../support/temp.ts";
 
-import { readJsonPayloadArtifact, readJsonPayloadArtifactValue, resolveJsonPointer } from "../../src/payload-lookup.ts";
 import {
 	defaultPayloadRoot,
 	PayloadStore,
+	readJsonPayloadArtifact,
+	readJsonPayloadArtifactValue,
+	resolveJsonPointer,
 	resolvePayloadRoot,
 	resolvePayloadSessionId,
 	type PayloadClock,

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatDiscussionReply, formatResolutionReply, formatReviewReply } from "../../src/reply-formatting.ts";
-import type { ResolutionProvenance } from "../../src/reply-formatting.ts";
+import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance } from "../../src/mutation-operations.ts";
 import { goldenCases, readJson } from "../support/golden.ts";
 
 const FIXED_REPLY_TIMESTAMP = "2026-06-01T12:34:56Z";

@@ -4,7 +4,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
+import { gatewayFailureMessage, gatewayOptions } from "./exec-operation.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
 

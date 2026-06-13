@@ -3,12 +3,19 @@ import { basename } from "node:path";
 
 import { z } from "zod";
 
+import { isRecord } from "@asdl/core";
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { readJsonPayloadArtifact, resolveJsonPointer as resolvePayloadJsonPointer } from "./payload-lookup.ts";
-import { PayloadStore, type PayloadClock, type PayloadReference } from "./payload-store.ts";
-import { pythonRepr } from "./string-values.ts";
+import {
+	createNodePayloadStoreFactory,
+	readJsonPayloadArtifact,
+	resolveJsonPointer as resolvePayloadJsonPointer,
+	type PayloadArtifactStore,
+	type PayloadClock,
+	type PayloadReference,
+	type PayloadStoreFactory,
+} from "./payload-store.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -38,29 +45,35 @@ export const readFeedbackDetailOperation = defineExecOperation({
 	},
 });
 
-async function runReadFeedbackDetailOperation(_ctx: PrAddressExecContext, request: z.output<typeof readFeedbackDetailParseSchema>): Promise<ClinkrExit<unknown>> {
+async function runReadFeedbackDetailOperation(ctx: PrAddressExecContext, request: z.output<typeof readFeedbackDetailParseSchema>): Promise<ClinkrExit<unknown>> {
 	const payloadPath = request.payload_path;
 	const jsonPointer = request.json_pointer;
 	if (payloadPath === undefined) return failure("invalid_request", "--payload-path requires a value.");
 	if (jsonPointer === undefined) return failure("invalid_request", "--json-pointer requires a value.");
-	const result = await readFeedbackDetail({ payloadPath, jsonPointer });
+	const result = await readFeedbackDetail({ payloadPath, jsonPointer, payloadStoreFactory: ctx.context.payloadStoreFactory, clock: ctx.context.payloadClock });
 	if (result.type === "error") return failure(result.errorType, result.message);
 	return ok(result.value);
 }
 
-export async function readFeedbackDetail(options: { payloadPath: string; jsonPointer: string }): Promise<{ type: "ok"; value: unknown } | { type: "error"; errorType: string; message: string }> {
+export async function readFeedbackDetail(options: {
+	payloadPath: string;
+	jsonPointer: string;
+	payloadStoreFactory?: PayloadStoreFactory | undefined;
+	clock?: PayloadClock | undefined;
+}): Promise<{ type: "ok"; value: unknown } | { type: "error"; errorType: string; message: string }> {
 	const detailKind = detailKindForPointer(options.jsonPointer);
 	if (detailKind === null) return { type: "error", errorType: "invalid_request", message: `JSON Pointer is not an allowed PR feedback detail locator: ${pythonRepr(options.jsonPointer)}` };
 	if (!basename(options.payloadPath).endsWith(".raw.json")) {
 		return { type: "error", errorType: "payload_lookup_failed", message: `Payload artifact is not an allowed raw payload: ${options.payloadPath}` };
 	}
-	const envelopeResult = await readJsonFile(options.payloadPath);
+	const storeResult = await openStoreForPayload(options.payloadStoreFactory, options.payloadPath, options.clock);
+	const envelopeResult = storeResult.type === "error" ? await readLooseJsonFile(options.payloadPath) : await readRawClinkrEnvelope(options.payloadPath, storeResult.value);
 	if (envelopeResult.type === "error") return envelopeResult;
 	const envelope = envelopeResult.value;
 	if (!isRecord(envelope)) return { type: "error", errorType: "payload_lookup_failed", message: `Raw payload artifact must contain a Clinkr envelope object: ${options.payloadPath}` };
 	if (envelope.exit_code !== 0) return { type: "error", errorType: "payload_lookup_failed", message: `Raw payload artifact must be a successful Clinkr envelope: ${options.payloadPath}` };
 	if (!("data" in envelope)) return { type: "error", errorType: "payload_lookup_failed", message: `Raw payload artifact is missing Clinkr data: ${options.payloadPath}` };
-	const valueResult = resolveJsonPointer(envelope, options.jsonPointer);
+	const valueResult = resolvePayloadJsonPointer(envelope, options.jsonPointer);
 	if (valueResult.type === "error") return { type: "error", errorType: "payload_lookup_failed", message: valueResult.message };
 	const value = valueResult.value;
 	if (detailKind.endsWith("_body")) {
@@ -130,12 +143,16 @@ async function runReadFeedbackDetailsOperation(ctx: PrAddressExecContext, reques
 		stdin: ctx.stdin,
 	});
 	if (selectionResult.type === "error") return failure(selectionResult.error.errorType, selectionResult.error.message);
-	const result = await readFeedbackDetails({ selection: selectionResult.value, clock: ctx.context.payloadClock });
+	const result = await readFeedbackDetails({ selection: selectionResult.value, payloadStoreFactory: ctx.context.payloadStoreFactory, clock: ctx.context.payloadClock });
 	if (result.type === "error") return failure(result.errorType, result.message);
 	return ok(result.value);
 }
 
-export async function readFeedbackDetails(options: { selection: ReadFeedbackDetailsSelection; clock?: PayloadClock | undefined }): Promise<ReadFeedbackDetailsOutcome> {
+export async function readFeedbackDetails(options: {
+	selection: ReadFeedbackDetailsSelection;
+	payloadStoreFactory?: PayloadStoreFactory | undefined;
+	clock?: PayloadClock | undefined;
+}): Promise<ReadFeedbackDetailsOutcome> {
 	const selection = options.selection;
 	if (selection.json_pointers.length === 0) {
 		return { type: "error", errorType: "invalid_request", message: "read-feedback-details selection must include at least one JSON Pointer" };
@@ -155,7 +172,10 @@ export async function readFeedbackDetails(options: { selection: ReadFeedbackDeta
 		locators.push({ pointer, detailKind });
 	}
 
-	const envelopeResult = await readRawClinkrEnvelope(selection.payload_path);
+	const storeResult = await openStoreForPayload(options.payloadStoreFactory, selection.payload_path, options.clock);
+	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
+	const store = storeResult.value;
+	const envelopeResult = await readRawClinkrEnvelope(selection.payload_path, store);
 	if (envelopeResult.type === "error") return envelopeResult;
 	const envelope = envelopeResult.value;
 
@@ -168,7 +188,7 @@ export async function readFeedbackDetails(options: { selection: ReadFeedbackDeta
 		selected.push({ json_pointer: pointer, detail_kind: detailKind, value: valueResult.value });
 	}
 
-	const referenceResult = await writeSelectedDetailsArtifact({ sourcePayloadPath: selection.payload_path, selected, clock: options.clock });
+	const referenceResult = await writeSelectedDetailsArtifact({ sourcePayloadPath: selection.payload_path, selected, store });
 	if (referenceResult.type === "error") return { type: "error", errorType: referenceResult.errorType, message: referenceResult.message };
 
 	const summaries = selected.map(detailSummary);
@@ -188,8 +208,19 @@ export async function readFeedbackDetails(options: { selection: ReadFeedbackDeta
 	};
 }
 
-async function readRawClinkrEnvelope(payloadPath: string): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
-	const documentResult = await readJsonPayloadArtifact(payloadPath, { allowedRoles: RAW_PAYLOAD_ROLES });
+async function openStoreForPayload(
+	payloadStoreFactory: PayloadStoreFactory | undefined,
+	payloadPath: string,
+	clock: PayloadClock | undefined,
+): Promise<{ type: "ok"; value: PayloadArtifactStore } | { type: "error"; errorType: string; message: string }> {
+	const factory = payloadStoreFactory ?? createNodePayloadStoreFactory();
+	const storeResult = await factory.openContainingArtifact(payloadPath, { clock });
+	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
+	return storeResult;
+}
+
+async function readRawClinkrEnvelope(payloadPath: string, store: PayloadArtifactStore | undefined): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const documentResult = store === undefined ? await readJsonPayloadArtifact(payloadPath, { allowedRoles: RAW_PAYLOAD_ROLES }) : await store.readJsonArtifact({ payloadPath, allowedRoles: RAW_PAYLOAD_ROLES });
 	if (documentResult.type === "error") return { type: "error", errorType: documentResult.errorType, message: documentResult.message };
 	const document = documentResult.value;
 	if (!isRecord(document)) {
@@ -229,11 +260,9 @@ function detailValueTypeError(options: { value: unknown; detailKind: DetailKind;
 async function writeSelectedDetailsArtifact(options: {
 	sourcePayloadPath: string;
 	selected: readonly SelectedFeedbackDetail[];
-	clock: PayloadClock | undefined;
+	store: PayloadArtifactStore;
 }): Promise<{ type: "ok"; value: PayloadReference } | { type: "error"; errorType: string; message: string }> {
-	const storeResult = await PayloadStore.openContainingArtifact(options.sourcePayloadPath, { clock: options.clock });
-	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-	const reference = await storeResult.value.writeJsonArtifact({
+	const reference = await options.store.writeJsonArtifact({
 		descriptor: "pr-address-selected-feedback-details",
 		role: "summary",
 		payload: {
@@ -281,11 +310,9 @@ function firstDuplicatePointer(pointers: readonly string[]): string | null {
 	return null;
 }
 
-async function readJsonFile(path: string): Promise<{ type: "ok"; value: JsonValue } | { type: "error"; errorType: string; message: string }> {
+async function readLooseJsonFile(path: string): Promise<{ type: "ok"; value: unknown } | { type: "error"; errorType: string; message: string }> {
 	try {
-		const parsedJson: unknown = JSON.parse(await readFile(path, "utf8"));
-		if (!isJsonValue(parsedJson)) return { type: "error", errorType: "payload_lookup_failed", message: `Raw payload artifact must contain JSON data: ${path}` };
-		return { type: "ok", value: parsedJson };
+		return { type: "ok", value: JSON.parse(await readFile(path, "utf8")) as unknown };
 	} catch (error) {
 		return { type: "error", errorType: "payload_lookup_failed", message: error instanceof Error ? error.message : String(error) };
 	}
@@ -298,37 +325,6 @@ function detailKindForPointer(pointer: string): DetailKind | null {
 	return null;
 }
 
-function resolveJsonPointer(document: JsonValue, pointer: string): { type: "ok"; value: JsonValue } | { type: "error"; message: string } {
-	if (pointer === "") return { type: "ok", value: document };
-	if (!pointer.startsWith("/")) return { type: "error", message: `Invalid JSON Pointer: ${pointer}` };
-	let current: JsonValue = document;
-	for (const rawPart of pointer.slice(1).split("/")) {
-		const part = rawPart.replaceAll("~1", "/").replaceAll("~0", "~");
-		if (Array.isArray(current)) {
-			if (!/^(0|[1-9][0-9]*)$/.test(part)) return { type: "error", message: `Invalid array index in JSON Pointer: ${pointer}` };
-			const index = Number(part);
-			const next = current[index];
-			if (next === undefined) return { type: "error", message: `JSON Pointer not found: ${pointer}` };
-			current = next;
-		} else if (isRecord(current)) {
-			if (!(part in current)) return { type: "error", message: `JSON Pointer not found: ${pointer}` };
-			current = current[part] ?? null;
-		} else {
-			return { type: "error", message: `JSON Pointer not found: ${pointer}` };
-		}
-	}
-	return { type: "ok", value: current };
+function pythonRepr(value: string): string {
+	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }
-
-function isRecord(value: unknown): value is { [key: string]: JsonValue } {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isJsonValue(value: unknown): value is JsonValue {
-	if (value === null) return true;
-	if (typeof value === "boolean" || typeof value === "number" || typeof value === "string") return true;
-	if (Array.isArray(value)) return value.every(isJsonValue);
-	if (!isRecord(value)) return false;
-	return Object.values(value).every(isJsonValue);
-}
-
