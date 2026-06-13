@@ -3,12 +3,24 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
+import { z } from "zod";
 
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import * as sdlSdk from "./sdk.ts";
 import { failed, type SdlCommand, type SdlContext, type SdlResult } from "./sdk.ts";
 
 const SDL_SRC_DIR = dirname(fileURLToPath(import.meta.url));
+
+const cpCommandSchema = z.object({
+	name: z.literal("cp"),
+	description: z.string(),
+	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
+});
+
+const sdlResultSchema = z.discriminatedUnion("ok", [
+	z.object({ ok: z.literal(true), message: z.string() }),
+	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
+]);
 
 export async function loadCpCommand(cwd: string): Promise<{ ok: true; command: SdlCommand } | { ok: false; message: string }> {
 	const commandPath = join(cwd, ".asdl", "commands", "cp.ts");
@@ -52,37 +64,45 @@ async function loadCommandModule(commandPath: string): Promise<unknown> {
 }
 
 function validateCpCommand(command: unknown, commandPath: string): { ok: true; command: SdlCommand } | { ok: false; message: string } {
-	if (!isRecord(command)) {
-		return { ok: false, message: `Invalid ${commandPath}: default export must be a command object created with defineCommand().` };
-	}
-	if (command.name !== "cp") {
-		return { ok: false, message: `Invalid ${commandPath}: command name must be "cp".` };
-	}
-	if (typeof command.description !== "string") {
-		return { ok: false, message: `Invalid ${commandPath}: command description must be a string.` };
-	}
-	if (typeof command.run !== "function") {
-		return { ok: false, message: `Invalid ${commandPath}: command run must be a function.` };
+	const parsed = cpCommandSchema.safeParse(command);
+	if (parsed.success) {
+		return { ok: true, command: parsed.data };
 	}
 
-	return { ok: true, command: command as unknown as SdlCommand };
+	return { ok: false, message: `Invalid ${commandPath}: ${formatCpCommandIssue(parsed.error.issues[0])}` };
 }
 
 function validateSdlResult(result: unknown, commandName: string): SdlResult {
-	if (!isRecord(result) || typeof result.ok !== "boolean" || typeof result.message !== "string") {
-		return failed(`Command ${commandName} returned an invalid result.`, 2);
+	const parsed = sdlResultSchema.safeParse(result);
+	if (parsed.success) {
+		return parsed.data;
 	}
-	if (result.ok) {
-		return { ok: true, message: result.message };
-	}
-	if (typeof result.exitCode !== "number") {
+
+	if (hasInvalidFailureExitCode(parsed.error.issues)) {
 		return failed(`Command ${commandName} returned an invalid failure result.`, 2);
 	}
-	return { ok: false, exitCode: result.exitCode, message: result.message };
+	return failed(`Command ${commandName} returned an invalid result.`, 2);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
+function formatCpCommandIssue(issue: z.core.$ZodIssue | undefined): string {
+	if (issue === undefined || issue.path.length === 0) {
+		return "default export must be a command object created with defineCommand().";
+	}
+	const field = issue.path[0];
+	if (field === "name") {
+		return 'command name must be "cp".';
+	}
+	if (field === "description") {
+		return "command description must be a string.";
+	}
+	if (field === "run") {
+		return "command run must be a function.";
+	}
+	return "default export must be a command object created with defineCommand().";
+}
+
+function hasInvalidFailureExitCode(issues: readonly z.core.$ZodIssue[]): boolean {
+	return issues.some((issue) => issue.path.length === 1 && issue.path[0] === "exitCode");
 }
 
 function formatUnknownError(error: unknown): string {

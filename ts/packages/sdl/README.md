@@ -2,7 +2,7 @@
 
 `sdl` is the emerging customer-facing Source Development Lifecycle CLI. Unlike `asdl-dev`, which is repo-internal tooling for ASDL contributors, `sdl` is the product boundary intended to become installable by users and extensible through plugins.
 
-This first slice is deliberately pre-canned and small: it exposes only checkpoint creation. The package exports several explicit workspace subpaths so existing ASDL packages can share the checkpoint capability during the migration; those subpaths are not the future customer plugin API. User-pluggable `sdl` extensions are intentionally out of scope for this slice.
+This first slice is deliberately small: it exposes checkpoint creation and a project-overridable command module at `.asdl/commands/cp.ts`. Override authors should import only from `@asdl/sdl/sdk`; the other package subpaths remain internal migration exports so existing ASDL packages can share checkpoint primitives during the transition.
 
 ## `cp`
 
@@ -28,3 +28,7 @@ Environment:
 During the transition from `asdl-dev cp`, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
+
+## Command-module SDK
+
+Projects may override `sdl cp` by adding `.asdl/commands/cp.ts` with a default export created by `defineCommand()` from `@asdl/sdl/sdk`. That SDK subpath is the public author surface for command modules. The package's other exported subpaths are internal migration surfaces for ASDL workspace packages, not plugin APIs.

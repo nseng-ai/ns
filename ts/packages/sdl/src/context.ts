@@ -23,11 +23,10 @@ export function createRealSdlCommandContext(options: RealSdlCommandContextOption
 		cwd,
 		env,
 		model,
-		exec: async (command, execOptions = {}) => {
-			const result = await runCommand("bash", ["-lc", command], {
+		exec: async (command, args, execOptions = {}) => {
+			const result = await runCommand(command, args, {
 				cwd,
 				env,
-				...(execOptions.input === undefined ? {} : { input: execOptions.input }),
 				...(execOptions.timeoutMs === undefined ? {} : { timeout: execOptions.timeoutMs }),
 			});
 			return {
@@ -38,10 +37,6 @@ export function createRealSdlCommandContext(options: RealSdlCommandContextOption
 			};
 		},
 	};
-}
-
-export function createRealSdlContext(options: RealSdlCommandContextOptions = {}): SdlContext {
-	return createRealSdlCommandContext(options);
 }
 
 export type { SdlContext } from "./sdk.ts";

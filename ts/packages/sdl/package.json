@@ -16,6 +16,21 @@
     "./text-generation": "./src/text-generation.ts",
     "./text-repair": "./src/text-repair.ts"
   },
+  "asdl": {
+    "publicPluginApi": ["./sdk"],
+    "internalMigrationExports": [
+      "./checkpoint",
+      "./checkpoint-flow",
+      "./checkpoint-message",
+      "./cli",
+      "./context",
+      "./cp-command",
+      "./pending-worktree",
+      "./pi-text-generation",
+      "./text-generation",
+      "./text-repair"
+    ]
+  },
   "bin": {
     "sdl": "./src/cli.ts"
   },

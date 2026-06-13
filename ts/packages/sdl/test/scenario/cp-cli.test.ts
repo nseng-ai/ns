@@ -6,16 +6,16 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { listSdlCommands, runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlContext } from "@asdl/sdl/sdk";
-import type { TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/text-generation";
+import type { ExecOptions, ExecResult, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
 
 interface ScriptedExecResponse {
-	match: string | RegExp | ((command: string) => boolean);
+	match: string | RegExp | ((call: ExecCall) => boolean);
 	result: Partial<ExecResult>;
 }
 
 interface ExecCall {
 	command: string;
+	args: string[];
 	options: ExecOptions | undefined;
 }
 
@@ -41,15 +41,16 @@ class ScriptedSdlContext implements SdlContext {
 		this.modelResults = [...(state.textGeneration?.results ?? [{ ok: true, text: defaultCheckpointMessage() }])];
 	}
 
-	async exec(command: string, options?: ExecOptions): Promise<ExecResult> {
-		this.execCalls.push({ command, options });
-		const index = this.execResponses.findIndex((response) => responseMatches(response.match, command));
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		const call = { command, args: [...args], options };
+		this.execCalls.push(call);
+		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
 		if (index === -1) {
-			return execResult({ code: 99, stderr: `unexpected command: ${command}` });
+			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
 		}
 		const [response] = this.execResponses.splice(index, 1);
 		if (response === undefined) {
-			return execResult({ code: 99, stderr: `missing command response: ${command}` });
+			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
 		}
 		return execResult(response.result);
 	}
@@ -86,9 +87,10 @@ function runWithFakes(args: readonly string[], state: TestState = {}, options: {
 
 function defaultSuccessfulExecResponses(): ScriptedExecResponse[] {
 	return [
-		{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
-		{ match: "git status --porcelain", result: { stdout: " M src/app.ts\n" } },
-		{ match: "git diff HEAD", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
 		{ match: "git log -1 --oneline", result: { stdout: "abc123 [cp] Update checkpoint tests\n" } },
@@ -110,10 +112,15 @@ function execResult(result: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function responseMatches(match: ScriptedExecResponse["match"], command: string): boolean {
-	if (typeof match === "string") return match === command;
-	if (match instanceof RegExp) return match.test(command);
-	return match(command);
+function responseMatches(match: ScriptedExecResponse["match"], call: ExecCall): boolean {
+	const display = formatExecCall(call);
+	if (typeof match === "string") return match === display;
+	if (match instanceof RegExp) return match.test(display);
+	return match(call);
+}
+
+function formatExecCall(call: ExecCall): string {
+	return [call.command, ...call.args].join(" ");
 }
 
 function parseJsonOutput(run: { stdout: string[] }): Record<string, unknown> {
@@ -213,9 +220,10 @@ describe("sdl cp CLI behavior", () => {
 		const run = runWithFakes(["cp"], {
 			textGeneration: { results: [{ ok: true, text: message }] },
 			exec: [
-				{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
-				{ match: "git status --porcelain", result: { stdout: " M src/app.ts\n" } },
-				{ match: "git diff HEAD", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+				{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+				{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 				{ match: "git add -A", result: {} },
 				{ match: /^git commit -F /, result: {} },
 				{ match: "git log -1 --oneline", result: { stdout: "def456 [cp] Update CLI checkpoint\n" } },
@@ -225,10 +233,11 @@ describe("sdl cp CLI behavior", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(`def456 [cp] Update CLI checkpoint\n${message}\n`);
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map((call) => call.command)).toEqual([
-			"git branch --show-current",
-			"git status --porcelain",
-			"git diff HEAD",
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -272,7 +281,12 @@ describe("sdl cp CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("auth failed\n");
 		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["git branch --show-current", "git status --porcelain", "git diff HEAD"]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
 	});
 
 	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
@@ -293,10 +307,11 @@ describe("sdl cp CLI behavior", () => {
 		expect(run.context.modelCalls).toHaveLength(2);
 		expect(run.context.modelCalls[1]?.prompt).toContain("## previous invalid draft\n\nnot a commit message");
 		expect(run.context.modelCalls[1]?.prompt).toContain("missing_cp_prefix");
-		expect(run.context.execCalls.map((call) => call.command)).toEqual([
-			"git branch --show-current",
-			"git status --porcelain",
-			"git diff HEAD",
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
 			"git log -1 --oneline",
@@ -318,14 +333,21 @@ describe("sdl cp CLI behavior", () => {
 		expect(run.stderr.join("")).toContain("Model produced an invalid checkpoint message after 2 attempts.");
 		expect(run.stderr.join("")).toContain("missing_cp_prefix");
 		expect(run.context.modelCalls).toHaveLength(2);
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["git branch --show-current", "git status --porcelain", "git diff HEAD"]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
 	});
 
 	test("clean worktree exits without model generation or committing", async () => {
 		const run = runWithFakes(["cp"], {
 			exec: [
-				{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
-				{ match: "git status --porcelain", result: { stdout: "" } },
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+				{ match: "git status --porcelain=v1", result: { stdout: "" } },
+				{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
 			],
 		});
 
@@ -333,26 +355,69 @@ describe("sdl cp CLI behavior", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
 		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["git branch --show-current", "git status --porcelain"]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
 	});
 
 	test("trunk branch exits without model generation or committing", async () => {
 		const run = runWithFakes(["cp"], {
-			exec: [{ match: "git branch --show-current", result: { stdout: "main\n" } }],
+			exec: [
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
+				{ match: "git status --porcelain=v1", result: { stdout: "" } },
+				{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+			],
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toBe("Refusing to create checkpoint commit on trunk branch: main\n");
 		expect(run.context.modelCalls).toEqual([]);
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["git branch --show-current"]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+		]);
 	});
 
-	test("shell failures map to nonzero exits with useful stderr", async () => {
+	test("not-git repositories exit with a typed diagnostic", async () => {
+		const run = runWithFakes(["cp"], {
+			exec: [{ match: "git rev-parse --show-toplevel", result: { code: 128, stderr: "fatal: not a git repository" } }],
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Not inside a git repository.\nexit 128: fatal: not a git repository\n");
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(["git rev-parse --show-toplevel"]);
+	});
+
+	test("detached HEAD exits with a typed diagnostic", async () => {
 		const run = runWithFakes(["cp"], {
 			exec: [
-				{ match: "git branch --show-current", result: { stdout: "feature/demo\n" } },
-				{ match: "git status --porcelain", result: { stdout: " M src/app.ts\n" } },
-				{ match: "git diff HEAD", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "git symbolic-ref --short HEAD", result: { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" } },
+			],
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Could not determine current branch.\nexit 1: fatal: ref HEAD is not a symbolic ref\n");
+		expect(run.context.modelCalls).toEqual([]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(["git rev-parse --show-toplevel", "git symbolic-ref --short HEAD"]);
+	});
+
+	test("git failures map to nonzero exits with useful stderr", async () => {
+		const run = runWithFakes(["cp"], {
+			exec: [
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+				{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+				{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 				{ match: "git add -A", result: { code: 1, stderr: "index locked" } },
 			],
 		});
@@ -370,7 +435,7 @@ export default defineCommand({
 	name: "cp",
 	description: "Custom checkpoint",
 	async run(ctx) {
-		const result = await ctx.exec("echo custom");
+		const result = await ctx.exec("echo", ["custom"]);
 		return ok(` + "`custom:${result.stdout.trim()}`" + `);
 	},
 });
@@ -386,7 +451,7 @@ export default defineCommand({
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("custom:custom\n");
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["echo custom"]);
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(["echo custom"]);
 		expect(run.context.modelCalls).toEqual([]);
 	});
 
@@ -440,6 +505,6 @@ export default defineCommand({
 		const run = runWithFakes(["cp", "--"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.context.execCalls[0]?.command).toBe("git branch --show-current");
+		expect((run.context.execCalls[0] === undefined ? undefined : formatExecCall(run.context.execCalls[0]))).toBe("git rev-parse --show-toplevel");
 	});
 });

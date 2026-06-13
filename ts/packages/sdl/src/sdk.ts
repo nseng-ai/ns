@@ -1,10 +1,9 @@
-import type { TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
+import type { TextGenerationGateway } from "./text-generation.ts";
 
-export type { TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
+export type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
 
 export interface ExecOptions {
 	timeoutMs?: number;
-	input?: string;
 }
 
 export interface ExecResult {
@@ -14,19 +13,15 @@ export interface ExecResult {
 	killed: boolean;
 }
 
-export interface SdlModel {
-	generateText(request: TextGenerationRequest): Promise<TextGenerationResult>;
-}
-
 export interface SdlContext {
 	/** Current repository working directory for command-module execution. */
 	cwd: string;
 	/** Environment visible to command modules and shell execution. */
 	env: Record<string, string | undefined>;
-	/** Low-level shell execution hook. Project commands own the exact commands they run. */
-	exec(command: string, options?: ExecOptions): Promise<ExecResult>;
+	/** Low-level argv execution hook. Project commands own the exact commands they run. */
+	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	/** Raw text-generation capability; command modules own prompts, validation, and repair policy. */
-	model: SdlModel;
+	model: TextGenerationGateway;
 }
 
 export type SdlResult = { ok: true; message: string } | { ok: false; exitCode: number; message: string };

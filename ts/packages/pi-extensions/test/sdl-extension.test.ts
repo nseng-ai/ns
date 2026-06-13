@@ -64,7 +64,7 @@ export default defineCommand({
 	name: "cp",
 	description: "Custom checkpoint",
 	async run(ctx) {
-		const result = await ctx.exec("echo pi-custom");
+		const result = await ctx.exec("echo", ["pi-custom"]);
 		return ok(result.stdout.trim());
 	},
 });
