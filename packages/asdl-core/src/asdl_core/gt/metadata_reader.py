@@ -8,11 +8,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.gt.types import (
+    ChildrenCorruption,
+    ChildrenCorruptionKind,
+    DescendantWalk,
     GtCommandFailure,
+    StackFork,
     StackInfo,
     StackWalkDiagnostic,
+    StackWalkKind,
+    StackWalkScope,
+    TrunkMarkerClean,
+    TrunkMarkerProblem,
+    TrunkMarkerStatus,
     UntrackedBranch,
-    render_stack_walk_warning,
+    WalkCompleted,
+    WalkCycle,
+    WalkRowMissing,
+    WalkTermination,
 )
 
 
@@ -21,6 +33,7 @@ class _BranchMetadataRow:
     parent_branch_name: str | None
     children: tuple[str, ...]
     validation_result: str | None
+    children_corruption: ChildrenCorruption | None
 
 
 _REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
@@ -31,54 +44,26 @@ _REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
 def _parse_children(
     branch_name: str,
     raw_children: object,
-    diagnostics: list[StackWalkDiagnostic],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], ChildrenCorruption | None]:
     if raw_children is None:
-        return ()
+        return (), None
     if not isinstance(raw_children, str):
-        diagnostics.append(
-            StackWalkDiagnostic(
-                scope="load",
-                kind="children_not_text",
-                branch=branch_name,
-            )
-        )
-        return ()
+        return (), ChildrenCorruption(branch=branch_name, kind="not_text")
     if not raw_children:
-        return ()
+        return (), None
 
     try:
         parsed = json.loads(raw_children)
     except json.JSONDecodeError:
-        diagnostics.append(
-            StackWalkDiagnostic(
-                scope="load",
-                kind="children_invalid_json",
-                branch=branch_name,
-            )
-        )
-        return ()
+        return (), ChildrenCorruption(branch=branch_name, kind="invalid_json")
 
     if not isinstance(parsed, list):
-        diagnostics.append(
-            StackWalkDiagnostic(
-                scope="load",
-                kind="children_not_list",
-                branch=branch_name,
-            )
-        )
-        return ()
+        return (), ChildrenCorruption(branch=branch_name, kind="not_list")
 
     children = tuple(child for child in parsed if isinstance(child, str))
     if len(children) != len(parsed):
-        diagnostics.append(
-            StackWalkDiagnostic(
-                scope="load",
-                kind="children_non_string",
-                branch=branch_name,
-            )
-        )
-    return children
+        return children, ChildrenCorruption(branch=branch_name, kind="non_string")
+    return children, None
 
 
 def _metadata_text(value: object) -> str | None:
@@ -91,8 +76,7 @@ def _metadata_text(value: object) -> str | None:
 
 def _load_branch_metadata(
     db_path: Path,
-) -> tuple[dict[str, _BranchMetadataRow], list[StackWalkDiagnostic]] | GtCommandFailure:
-    diagnostics: list[StackWalkDiagnostic] = []
+) -> tuple[dict[str, _BranchMetadataRow], int] | GtCommandFailure:
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
             table_info = connection.execute("PRAGMA table_info(branch_metadata)").fetchall()
@@ -131,28 +115,28 @@ def _load_branch_metadata(
         )
 
     rows: dict[str, _BranchMetadataRow] = {}
+    empty_branch_name_rows = 0
     for record in records:
         branch_name, parent_branch_name, raw_children, validation_result = record
         if not isinstance(branch_name, str) or not branch_name:
-            diagnostics.append(
-                StackWalkDiagnostic(scope="load", kind="empty_branch_name", branch=None)
-            )
+            empty_branch_name_rows += 1
             continue
         parent = _metadata_text(parent_branch_name)
         validation = _metadata_text(validation_result)
+        children, children_corruption = _parse_children(branch_name, raw_children)
         rows[branch_name] = _BranchMetadataRow(
             parent_branch_name=parent,
-            children=_parse_children(branch_name, raw_children, diagnostics),
+            children=children,
             validation_result=validation,
+            children_corruption=children_corruption,
         )
-    return rows, diagnostics
+    return rows, empty_branch_name_rows
 
 
 def _walk_ancestors(
     rows: dict[str, _BranchMetadataRow],
     current_branch: str,
-    diagnostics: list[StackWalkDiagnostic],
-) -> tuple[tuple[str, ...], str]:
+) -> tuple[tuple[str, ...], str, WalkTermination]:
     ancestor_names_reversed: list[str] = []
     branch = current_branch
     visited = {current_branch}
@@ -161,17 +145,13 @@ def _walk_ancestors(
         row = rows[branch]
         parent = row.parent_branch_name
         if parent is None:
-            return tuple(reversed(ancestor_names_reversed)), branch
+            return tuple(reversed(ancestor_names_reversed)), branch, WalkCompleted()
         if parent in visited:
-            diagnostics.append(StackWalkDiagnostic(scope="ancestor", kind="cycle", branch=parent))
-            return tuple(reversed(ancestor_names_reversed)), branch
+            return tuple(reversed(ancestor_names_reversed)), branch, WalkCycle(parent)
 
         ancestor_names_reversed.append(parent)
         if parent not in rows:
-            diagnostics.append(
-                StackWalkDiagnostic(scope="ancestor", kind="missing_row", branch=parent)
-            )
-            return tuple(reversed(ancestor_names_reversed)), parent
+            return tuple(reversed(ancestor_names_reversed)), parent, WalkRowMissing(parent)
 
         visited.add(parent)
         branch = parent
@@ -180,85 +160,179 @@ def _walk_ancestors(
 def _walk_first_child_descendants(
     rows: dict[str, _BranchMetadataRow],
     current_branch: str,
-    diagnostics: list[StackWalkDiagnostic],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], DescendantWalk]:
     descendants: list[str] = []
+    forks: list[StackFork] = []
+    children_corruptions: list[ChildrenCorruption] = []
     branch = current_branch
     visited = {current_branch}
 
     while True:
-        children = rows[branch].children
-        if len(children) > 1:
-            diagnostics.append(
-                StackWalkDiagnostic(
-                    scope="descendant",
-                    kind="fork",
-                    branch=branch,
-                    children=children,
-                )
+        row = rows[branch]
+        if row.children_corruption is not None:
+            children_corruptions.append(row.children_corruption)
+        if len(row.children) > 1:
+            forks.append(StackFork(branch=branch, children=row.children))
+        if not row.children:
+            return tuple(descendants), DescendantWalk(
+                forks=tuple(forks),
+                children_corruptions=tuple(children_corruptions),
+                termination=WalkCompleted(),
             )
-        if not children:
-            return tuple(descendants)
 
-        child = children[0]
+        child = row.children[0]
         if child in visited:
-            diagnostics.append(StackWalkDiagnostic(scope="descendant", kind="cycle", branch=child))
-            return tuple(descendants)
+            return tuple(descendants), DescendantWalk(
+                forks=tuple(forks),
+                children_corruptions=tuple(children_corruptions),
+                termination=WalkCycle(child),
+            )
 
         descendants.append(child)
         if child not in rows:
-            diagnostics.append(
-                StackWalkDiagnostic(scope="descendant", kind="missing_row", branch=child)
+            return tuple(descendants), DescendantWalk(
+                forks=tuple(forks),
+                children_corruptions=tuple(children_corruptions),
+                termination=WalkRowMissing(child),
             )
-            return tuple(descendants)
 
         visited.add(child)
         branch = child
 
 
-def _add_trunk_marker_diagnostics(
+def _trunk_marker_status(
     rows: dict[str, _BranchMetadataRow],
     terminus_branch: str,
-    diagnostics: list[StackWalkDiagnostic],
-) -> None:
+) -> TrunkMarkerStatus:
     marked_trunks = tuple(
         branch for branch, row in rows.items() if row.validation_result == "TRUNK"
     )
     if terminus_branch not in rows:
+        return TrunkMarkerProblem(
+            terminus=terminus_branch,
+            terminus_state="row_missing",
+            marked_trunks=marked_trunks,
+        )
+
+    terminus_state = "marked" if rows[terminus_branch].validation_result == "TRUNK" else "unmarked"
+    if terminus_state == "marked" and marked_trunks == (terminus_branch,):
+        return TrunkMarkerClean()
+    return TrunkMarkerProblem(
+        terminus=terminus_branch,
+        terminus_state=terminus_state,
+        marked_trunks=marked_trunks,
+    )
+
+
+def _children_corruption_diagnostic_kind(
+    kind: ChildrenCorruptionKind,
+) -> StackWalkKind:
+    if kind == "not_text":
+        return "children_not_text"
+    if kind == "invalid_json":
+        return "children_invalid_json"
+    if kind == "not_list":
+        return "children_not_list"
+    if kind == "non_string":
+        return "children_non_string"
+    raise AssertionError(f"unhandled children corruption kind: {kind}")
+
+
+def _children_corruption_diagnostic(corruption: ChildrenCorruption) -> StackWalkDiagnostic:
+    return StackWalkDiagnostic(
+        scope="load",
+        kind=_children_corruption_diagnostic_kind(corruption.kind),
+        branch=corruption.branch,
+    )
+
+
+def _termination_diagnostic(
+    scope: StackWalkScope,
+    termination: WalkCycle | WalkRowMissing,
+) -> StackWalkDiagnostic:
+    if isinstance(termination, WalkCycle):
+        return StackWalkDiagnostic(scope=scope, kind="cycle", branch=termination.branch)
+    if isinstance(termination, WalkRowMissing):
+        return StackWalkDiagnostic(scope=scope, kind="missing_row", branch=termination.branch)
+    raise AssertionError(f"unhandled walk termination: {termination}")
+
+
+def _trunk_marker_diagnostics(status: TrunkMarkerProblem) -> tuple[StackWalkDiagnostic, ...]:
+    if status.terminus_state == "row_missing":
+        return (
+            StackWalkDiagnostic(
+                scope="trunk_marker",
+                kind="marker_missing",
+                branch=status.terminus,
+            ),
+        )
+
+    diagnostics: list[StackWalkDiagnostic] = []
+    if status.terminus_state == "unmarked":
         diagnostics.append(
             StackWalkDiagnostic(
                 scope="trunk_marker",
                 kind="marker_missing",
-                branch=terminus_branch,
+                branch=status.terminus,
             )
         )
-        return
-    if rows[terminus_branch].validation_result != "TRUNK":
-        diagnostics.append(
-            StackWalkDiagnostic(
-                scope="trunk_marker",
-                kind="marker_missing",
-                branch=terminus_branch,
-            )
-        )
-    if len(marked_trunks) > 1:
+    if len(status.marked_trunks) > 1:
         diagnostics.append(
             StackWalkDiagnostic(
                 scope="trunk_marker",
                 kind="marker_multiple",
-                branch=terminus_branch,
-                children=marked_trunks,
+                branch=status.terminus,
+                children=status.marked_trunks,
             )
         )
-    if marked_trunks and terminus_branch not in marked_trunks:
+    if status.marked_trunks and status.terminus not in status.marked_trunks:
         diagnostics.append(
             StackWalkDiagnostic(
                 scope="trunk_marker",
                 kind="marker_mismatch",
-                branch=terminus_branch,
-                children=marked_trunks,
+                branch=status.terminus,
+                children=status.marked_trunks,
             )
         )
+    return tuple(diagnostics)
+
+
+def _legacy_diagnostics(
+    *,
+    empty_branch_name_rows: int,
+    unwalked_children_corruptions: tuple[ChildrenCorruption, ...],
+    ancestor_termination: WalkTermination,
+    descendant_walk: DescendantWalk,
+    trunk_marker: TrunkMarkerStatus,
+) -> tuple[StackWalkDiagnostic, ...]:
+    diagnostics: list[StackWalkDiagnostic] = []
+    diagnostics.extend(
+        StackWalkDiagnostic(scope="load", kind="empty_branch_name", branch=None)
+        for _ in range(empty_branch_name_rows)
+    )
+    diagnostics.extend(
+        _children_corruption_diagnostic(corruption) for corruption in unwalked_children_corruptions
+    )
+    diagnostics.extend(
+        _children_corruption_diagnostic(corruption)
+        for corruption in descendant_walk.children_corruptions
+    )
+    if isinstance(ancestor_termination, WalkCycle | WalkRowMissing):
+        diagnostics.append(_termination_diagnostic("ancestor", ancestor_termination))
+    diagnostics.extend(
+        StackWalkDiagnostic(
+            scope="descendant",
+            kind="fork",
+            branch=fork.branch,
+            children=fork.children,
+        )
+        for fork in descendant_walk.forks
+    )
+    if isinstance(descendant_walk.termination, WalkCycle | WalkRowMissing):
+        diagnostics.append(_termination_diagnostic("descendant", descendant_walk.termination))
+    if isinstance(trunk_marker, TrunkMarkerProblem):
+        diagnostics.extend(_trunk_marker_diagnostics(trunk_marker))
+    return tuple(diagnostics)
 
 
 def read_stack_from_metadata_db(
@@ -275,23 +349,58 @@ def read_stack_from_metadata_db(
     loaded = _load_branch_metadata(db_path)
     if isinstance(loaded, GtCommandFailure):
         return loaded
-    rows, diagnostics = loaded
+    rows, empty_branch_name_rows = loaded
 
     if current_branch not in rows:
         return UntrackedBranch(
             message=f"current branch is not tracked by Graphite: {current_branch}"
         )
 
-    ancestors, terminus_branch = _walk_ancestors(rows, current_branch, diagnostics)
-    descendants = _walk_first_child_descendants(rows, current_branch, diagnostics)
-    _add_trunk_marker_diagnostics(rows, terminus_branch, diagnostics)
+    ancestors, terminus_branch, ancestor_termination = _walk_ancestors(rows, current_branch)
+    descendants, descendant_walk = _walk_first_child_descendants(rows, current_branch)
+    trunk_marker = _trunk_marker_status(rows, terminus_branch)
 
-    return StackInfo(
+    consumed_corruption_branches = {
+        corruption.branch for corruption in descendant_walk.children_corruptions
+    }
+    unwalked_children_corruptions = tuple(
+        row.children_corruption
+        for row in rows.values()
+        if row.children_corruption is not None
+        and row.children_corruption.branch not in consumed_corruption_branches
+    )
+    diagnostics = _legacy_diagnostics(
+        empty_branch_name_rows=empty_branch_name_rows,
+        unwalked_children_corruptions=unwalked_children_corruptions,
+        ancestor_termination=ancestor_termination,
+        descendant_walk=descendant_walk,
+        trunk_marker=trunk_marker,
+    )
+
+    stack_info = StackInfo(
         trunk=ancestors[0] if ancestors else current_branch,
         current=current_branch,
         ancestors=ancestors,
         children=rows[current_branch].children,
-        warnings=tuple(render_stack_walk_warning(diagnostic) for diagnostic in diagnostics),
         descendants=descendants,
-        diagnostics=tuple(diagnostics),
+        diagnostics=diagnostics,
+        ancestor_termination=ancestor_termination,
+        descendant_walk=descendant_walk,
+        trunk_marker=trunk_marker,
+        unwalked_children_corruptions=unwalked_children_corruptions,
+        empty_branch_name_rows=empty_branch_name_rows,
+    )
+    return StackInfo(
+        trunk=stack_info.trunk,
+        current=stack_info.current,
+        ancestors=stack_info.ancestors,
+        children=stack_info.children,
+        warnings=stack_info.render_warnings(),
+        descendants=stack_info.descendants,
+        diagnostics=stack_info.diagnostics,
+        ancestor_termination=stack_info.ancestor_termination,
+        descendant_walk=stack_info.descendant_walk,
+        trunk_marker=stack_info.trunk_marker,
+        unwalked_children_corruptions=stack_info.unwalked_children_corruptions,
+        empty_branch_name_rows=stack_info.empty_branch_name_rows,
     )
