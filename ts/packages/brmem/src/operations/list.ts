@@ -42,10 +42,10 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	if (request.branch !== undefined && request.all_branches) {
 		return failure("branch_and_all_branches_conflict", "--branch and --all-branches are mutually exclusive.");
 	}
-	const allNamespaces = !request.base && request.namespace === undefined;
+	const shouldListAllNamespaces = !request.base && request.namespace === undefined;
 	const scopeNamespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
 	const validationFailure = firstFailure(
-		["invalid_namespace", allNamespaces ? undefined : validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace))],
+		["invalid_namespace", shouldListAllNamespaces ? undefined : validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace))],
 		["invalid_key", request.key === undefined ? undefined : validationMessage("key", request.key, validateEntryKey(request.key))],
 		[
 			"invalid_branch_name",
@@ -62,12 +62,12 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 			branch = resolvedBranch;
 		}
 	}
-	const entriesResult = allNamespaces
+	const entriesResult = shouldListAllNamespaces
 		? await ctx.gateway.listAllEntries({ key: request.key, branch })
 		: await ctx.gateway.listEntries({ namespace: scopeNamespace, key: request.key, branch });
 	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
 	return ok({
-		namespace_scope: allNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
+		namespace_scope: shouldListAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
 		key: request.key ?? null,
 		branch: branch ?? null,
 		base: request.base,
