@@ -72,7 +72,7 @@ describe("plans list CLI", () => {
 			stderr: help.stderr,
 		});
 		expect(helpExitCode).toBe(0);
-		expect(help.stdoutText()).toContain("Usage: plans");
+		expect(help.stdoutText()).toContain("Usage: enriched-plan");
 		expect(help.stdoutText()).toContain("list");
 
 		const version = createOutputCapture();
@@ -101,7 +101,7 @@ describe("plans list CLI", () => {
 
 		expect(exitCode).toBe(0);
 		expect(output.stderrText()).toBe("");
-		expect(output.stdoutText()).toContain("Usage: plans list");
+		expect(output.stdoutText()).toContain("Usage: enriched-plan list");
 	});
 
 	test("prints raw usage error for unknown JSON option", async () => {
@@ -201,7 +201,7 @@ describe("plans exec CLI", () => {
 		const fixture = await makeFixture();
 		const output = createOutputCapture();
 
-		const exitCode = await runCli(["exec", "write", "--slug", "branch-scoped-plan", "--summary", "Save it", "--stdin", "--format", "json"], {
+		const exitCode = await runCli(["exec", "save", "--slug", "branch-scoped-plan", "--summary", "Save it", "--stdin", "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			commands: unusedCommands,

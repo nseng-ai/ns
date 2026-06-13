@@ -15,9 +15,9 @@ const SOURCE_BRANCH = "feature/source-plan";
 const MODIFIED_TIME_MS = 1_700_000_000_000;
 
 const TOP_LEVEL_HELP = [
-	"Usage: plans [options] [command]",
+	"Usage: enriched-plan [options] [command]",
 	"",
-	"Saved planned-branch plan operations.",
+	"Enriched-plan operations. An enriched plan is any plan saved into asdl.",
 	"",
 	"Options:",
 	"  -V, --version   Show the package version.",
@@ -31,7 +31,7 @@ const TOP_LEVEL_HELP = [
 ].join("\n");
 
 const LIST_HELP = [
-	"Usage: plans list [options]",
+	"Usage: enriched-plan list [options]",
 	"",
 	"List saved plans for the current repository across all branch keys.",
 	"",
@@ -46,7 +46,7 @@ const LIST_HELP = [
 	"",
 ].join("\n");
 const EXEC_HELP = [
-	"Usage: plans exec [options] [command]",
+	"Usage: enriched-plan exec [options] [command]",
 	"",
 	"Run hidden deterministic saved-plan operations for agents.",
 	"",
@@ -54,13 +54,13 @@ const EXEC_HELP = [
 	"  -h, --help                display help for command",
 	"",
 	"Commands:",
-	"  write [options]           Save a source-branch plan file in the local store.",
+	"  save [options]            Save a source-branch plan file in the local store.",
 	"  resolve [options] [path]  Resolve an explicit or latest source-branch plan",
 	"                            file.",
 	"",
 ].join("\n");
 const WRITE_HELP = [
-	"Usage: plans exec write [options]",
+	"Usage: enriched-plan exec save [options]",
 	"",
 	"Save a source-branch plan file in the local store.",
 	"",
@@ -77,7 +77,7 @@ const WRITE_HELP = [
 	"",
 ].join("\n");
 const RESOLVE_HELP = [
-	"Usage: plans exec resolve [options] [path]",
+	"Usage: enriched-plan exec resolve [options] [path]",
 	"",
 	"Resolve an explicit or latest source-branch plan file.",
 	"",
@@ -221,8 +221,8 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		[["exec"], EXEC_HELP],
 		[["exec", "--help"], EXEC_HELP],
 		[["exec", "-h"], EXEC_HELP],
-		[["exec", "write", "--help"], WRITE_HELP],
-		[["exec", "write", "-h"], WRITE_HELP],
+		[["exec", "save", "--help"], WRITE_HELP],
+		[["exec", "save", "-h"], WRITE_HELP],
 		[["exec", "resolve", "--help"], RESOLVE_HELP],
 		[["exec", "resolve", "-h"], RESOLVE_HELP],
 	])("prints exact help for %j", async (args, help) => {
@@ -350,25 +350,25 @@ describe("plans list CLI pins", () => {
 
 describe("plans exec write pins", () => {
 	test("pins missing slug usage errors, input exclusivity, and JSON failure bytes", async () => {
-		const missingHuman = await runWithFakes(["exec", "write", "--stdin"]);
+		const missingHuman = await runWithFakes(["exec", "save", "--stdin"]);
 		expect(await missingHuman.exit).toBe(2);
 		expect(missingHuman.stdout.join("")).toBe("");
 		expect(missingHuman.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
 
-		const missingJson = await runWithFakes(["exec", "write", "--stdin", "--format", "json"]);
+		const missingJson = await runWithFakes(["exec", "save", "--stdin", "--format", "json"]);
 		expect(await missingJson.exit).toBe(2);
 		expect(missingJson.stdout.join("")).toBe("");
 		expect(missingJson.stderr.join("")).toBe("error: --slug: Invalid input: expected string, received undefined\n");
 
-		const both = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan", "--stdin", "--content-file", "plan.md"]);
+		const both = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan", "--stdin", "--content-file", "plan.md"]);
 		expect(await both.exit).toBe(2);
 		expect(both.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
 
-		const neither = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan"]);
+		const neither = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan"]);
 		expect(await neither.exit).toBe(2);
 		expect(neither.stderr.join("")).toBe("error: Pass exactly one of --stdin or --content-file <path>.\n");
 
-		const neitherJson = await runWithFakes(["exec", "write", "--slug", "specific-branch-saved-plan", "--format", "json"]);
+		const neitherJson = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan", "--format", "json"]);
 		expect(await neitherJson.exit).toBe(2);
 		expect(neitherJson.stdout.join("")).toBe(jsonFailure("Pass exactly one of --stdin or --content-file <path>."));
 	});
@@ -382,14 +382,14 @@ describe("plans exec write pins", () => {
 		["specific-2026-plan", "Slug must not contain date-like year tokens."],
 		["plan-task-work", "Slug must include at least one specific, non-generic word."],
 	])("rejects invalid saved plan slug %s", async (slug, message) => {
-		const run = await runWithFakes(["exec", "write", "--slug", slug, "--stdin", "--format", "json"]);
+		const run = await runWithFakes(["exec", "save", "--slug", slug, "--stdin", "--format", "json"]);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe(jsonFailure(`Invalid saved plan slug: ${message}`));
 	});
 
 	test("accepts single-dash flag value before slug validation fails", async () => {
-		const run = await runWithFakes(["exec", "write", "--slug", "-leading-dash", "--stdin", "--format", "json"]);
+		const run = await runWithFakes(["exec", "save", "--slug", "-leading-dash", "--stdin", "--format", "json"]);
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe(jsonFailure("Invalid saved plan slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens."));
@@ -400,7 +400,7 @@ describe("plans exec write pins", () => {
 		const fixture = await makeFixture();
 		const slug = "specific-branch-saved-plan";
 		const expectedPath = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey, `${slug}.md`);
-		const json = await runWithFakes(["exec", "write", "--slug", slug, "--summary", "Save it", "--stdin", "--format", "json"], {
+		const json = await runWithFakes(["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin", "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
@@ -424,7 +424,7 @@ describe("plans exec write pins", () => {
 		expect(await readFile(expectedPath, "utf8")).toBe("# Plan\n\nDo it.\n");
 
 		const noSummaryFixture = await makeFixture();
-		const noSummary = await runWithFakes(["exec", "write", "--slug", "specific-branch-other-plan", "--stdin", "--format", "json"], {
+		const noSummary = await runWithFakes(["exec", "save", "--slug", "specific-branch-other-plan", "--stdin", "--format", "json"], {
 			cwd: noSummaryFixture.repoRoot,
 			git: noSummaryFixture.git,
 			planStoreRoot: noSummaryFixture.planStoreRoot,
@@ -435,7 +435,7 @@ describe("plans exec write pins", () => {
 
 		const humanFixture = await makeFixture();
 		const humanPath = join(humanFixture.planStoreRoot, humanFixture.repoKey, humanFixture.branchKey, `${slug}.md`);
-		const human = await runWithFakes(["exec", "write", "--slug", slug, "--summary", "Save it", "--stdin"], {
+		const human = await runWithFakes(["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin"], {
 			cwd: humanFixture.repoRoot,
 			git: humanFixture.git,
 			planStoreRoot: humanFixture.planStoreRoot,
@@ -462,7 +462,7 @@ describe("plans exec write pins", () => {
 		const fixture = await makeFixture();
 		const contentFile = join(await makeTempDir(), "input.md");
 		await writeFile(contentFile, "# From file\n", "utf8");
-		const run = await runWithFakes(["exec", "write", "--slug", "specific-file-saved-plan", "--content-file", contentFile, "--format", "json"], {
+		const run = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", contentFile, "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
@@ -470,7 +470,7 @@ describe("plans exec write pins", () => {
 		expect(await run.exit).toBe(0);
 		expect(await readFile(String(parseJson(run).file_path), "utf8")).toBe("# From file\n");
 
-		const missingHuman = await runWithFakes(["exec", "write", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md")], {
+		const missingHuman = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md")], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,
@@ -478,7 +478,7 @@ describe("plans exec write pins", () => {
 		expect(await missingHuman.exit).toBe(2);
 		expect(missingHuman.stderr.join("")).toContain("ENOENT");
 
-		const missingJson = await runWithFakes(["exec", "write", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md"), "--format", "json"], {
+		const missingJson = await runWithFakes(["exec", "save", "--slug", "specific-file-saved-plan", "--content-file", join(fixture.repoRoot, "missing.md"), "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
 			planStoreRoot: fixture.planStoreRoot,

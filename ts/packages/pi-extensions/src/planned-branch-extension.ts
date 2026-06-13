@@ -65,12 +65,12 @@ export type {
 	PlanStoreOptions,
 } from "@asdl/plans";
 
-const WRITE_PLAN_COMMAND_NAME = "plans:write";
-const WRITE_GRILLED_PLAN_COMMAND_NAME = "plans:grill-and-write";
+const WRITE_PLAN_COMMAND_NAME = "enriched-plan:save";
+const WRITE_GRILLED_PLAN_COMMAND_NAME = "enriched-plan:grill-and-save";
 const CREATE_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:create";
 const UP_AND_IMPL_COMMAND_NAME = "planned-branch:upstack-impl-session";
 const IMPL_PLANNED_BRANCH_COMMAND_NAME = "planned-branch:impl";
-const WRITE_PLAN_TOOL_STATUS_KEY = "plans:write";
+const WRITE_PLAN_TOOL_STATUS_KEY = "enriched-plan:save";
 const PLANNED_BRANCH_STATUS_KEY = "planned-branch:create";
 const UP_AND_IMPL_STATUS_KEY = "planned-branch:upstack-impl-session";
 const IMPL_PLANNED_BRANCH_STATUS_KEY = "planned-branch:impl";
@@ -314,7 +314,7 @@ Workflow:
 6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any planned-branch command/tool.
 
 Local plan store contract:
-- Path convention: ~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: ~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, planned-branches/add-widget becomes planned-branches---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
@@ -356,7 +356,7 @@ type WritePlanPromptBodyResolution =
 	| { type: "fallback"; body: string; warning: string };
 
 export function buildWritePlanPrompt(steering: string, promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY): string {
-	return `This is a /plans:write request. Write a detailed implementation plan and save it in the local plan store.
+	return `This is a /enriched-plan:save request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
@@ -364,7 +364,7 @@ ${promptBody}`;
 }
 
 export function buildWriteGrilledPlanPrompt(steering: string): string {
-	return `This is a /plans:grill-and-write request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
+	return `This is a /enriched-plan:grill-and-save request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
 
 ${formatSteeringBlock(steering)}
 
@@ -424,7 +424,7 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	return {
 		type: "fallback",
 		body: DEFAULT_WRITE_PLAN_PROMPT_BODY,
-		warning: `Falling back to built-in /plans:write prompt body because ${reason}`,
+		warning: `Falling back to built-in /enriched-plan:save prompt body because ${reason}`,
 	};
 }
 
@@ -662,7 +662,7 @@ async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: Comma
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /plans:write planning turn…", "info");
+		ctx.ui.notify("Starting /enriched-plan:save planning turn…", "info");
 	}
 	const promptBody = await resolveWritePlanPromptBody(pi, ctx.cwd);
 	if (promptBody.type === "fallback" && ctx.hasUI) {
@@ -675,7 +675,7 @@ async function handleWriteGrilledPlanCommand(pi: ExtensionAPI, args: string, ctx
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
-		ctx.ui.notify("Starting /plans:grill-and-write planning grill…", "info");
+		ctx.ui.notify("Starting /enriched-plan:grill-and-save planning grill…", "info");
 	}
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
@@ -992,13 +992,13 @@ function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: PlannedBranchExt
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
-			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`.",
+			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
-			"Use write_saved_plan_file for `/plans:write` and `/plans:grill-and-write` after producing a reviewed final Markdown plan.",
+			"Use write_saved_plan_file for `/enriched-plan:save` and `/enriched-plan:grill-and-save` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
-			"write_saved_plan_file writes the local plan store under `~/.asdl/planned-branch/plans/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_saved_plan_file writes the local plan store under `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_saved_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",

@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "skills": {
     "branch-retro": {
       "source": "skills/branch-retro",
@@ -25,20 +26,45 @@
       "sourceType": "local",
       "computedHash": "5663c61698620601db180599ed4f588b38a193be5244d71ef6f4797411663f8e"
     },
+    "code-autobranch": {
+      "source": "skills/code-autobranch",
+      "sourceType": "local",
+      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
+    },
+    "code-checkpoint": {
+      "source": "skills/code-checkpoint",
+      "sourceType": "local",
+      "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
+    },
+    "code-gh": {
+      "source": "skills/code-gh",
+      "sourceType": "local",
+      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
+    },
     "code-gt-restack-resolve": {
       "source": "skills/code-gt-restack-resolve",
       "sourceType": "local",
       "computedHash": "12103d5a2c7b557e133c0ec95c395aec108844776c9989d4a83f56b2bae719d0"
+    },
+    "code-just-fix": {
+      "source": "skills/code-just-fix",
+      "sourceType": "local",
+      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
     },
     "code-resolve-merge-conflicts": {
       "source": "skills/code-resolve-merge-conflicts",
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
-    "stack-address": {
-      "source": "skills/stack-address",
+    "code-submit": {
+      "source": "skills/code-submit",
       "sourceType": "local",
-      "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
+      "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
+    },
+    "code-workflows": {
+      "source": "skills/code-workflows",
+      "sourceType": "local",
+      "computedHash": "5900f4113e876f4a0aa275460ee35a302fc3881a2676a21f0900df146a7ac638"
     },
     "context-bundle-analysis": {
       "source": "skills/context-bundle-analysis",
@@ -69,6 +95,11 @@
       "source": "skills/dignified-python",
       "sourceType": "local",
       "computedHash": "9a5643a93e035bc14d1a1a789e789decc70bcab6d1a968911f4b5f329f178cf5"
+    },
+    "enriched-plan-save": {
+      "source": "skills/enriched-plan-save",
+      "sourceType": "local",
+      "computedHash": "b2f25b3013bc120274933bb14bdbe570a7bb9e9df9ec6cd3a6d8803349be8050"
     },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
@@ -114,36 +145,6 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ef32aea0a8fab9b365ff9e08a95f8d353e20ca21ea46ec2e73587c86dd341351"
-    },
-    "code-autobranch": {
-      "source": "skills/code-autobranch",
-      "sourceType": "local",
-      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
-    },
-    "code-checkpoint": {
-      "source": "skills/code-checkpoint",
-      "sourceType": "local",
-      "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
-    },
-    "code-gh": {
-      "source": "skills/code-gh",
-      "sourceType": "local",
-      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
-    },
-    "code-just-fix": {
-      "source": "skills/code-just-fix",
-      "sourceType": "local",
-      "computedHash": "5ca06b00c8d573c5a9819f202e1443830e992ef7343bfed5d4b76bb77279aef7"
-    },
-    "code-submit": {
-      "source": "skills/code-submit",
-      "sourceType": "local",
-      "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
-    },
-    "code-workflows": {
-      "source": "skills/code-workflows",
-      "sourceType": "local",
-      "computedHash": "5900f4113e876f4a0aa275460ee35a302fc3881a2676a21f0900df146a7ac638"
     },
     "objective": {
       "source": "skills/objective",
@@ -204,11 +205,6 @@
       "source": "skills/planned-branch-impl",
       "sourceType": "local",
       "computedHash": "9c661ab639b8ba720d06fdb6baa83775f8de87db8a2102466a2f7353373097d3"
-    },
-    "plans-write": {
-      "source": "skills/plans-write",
-      "sourceType": "local",
-      "computedHash": "acfc74a2f9127ef50dac313adca49203a1f9cc41ccf8ee77d0de6572b6c40c75"
     },
     "pr-address": {
       "source": "skills/pr-address",
@@ -281,6 +277,11 @@
       "sourceType": "local",
       "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
+    "stack-address": {
+      "source": "skills/stack-address",
+      "sourceType": "local",
+      "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
+    },
     "thermo-nuclear-code-quality-review": {
       "source": "cursor/plugins",
       "sourceType": "github",
@@ -297,6 +298,5 @@
       "sourceType": "local",
       "computedHash": "3ccb68bc62fdf060b686a2bce37122059e4a0c21d58a2dd77e2852465e9150ed"
     }
-  },
-  "version": 1
+  }
 }
