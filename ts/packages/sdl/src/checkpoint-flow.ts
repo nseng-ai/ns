@@ -29,7 +29,7 @@ const CHECKPOINT_REPAIR_FEEDBACK_CHAR_LIMIT = 4_000;
 
 interface CheckpointDiffPromptSection {
 	text: string;
-	wasCompacted: boolean;
+	isCompacted: boolean;
 }
 
 interface DiffFileSection {
@@ -104,7 +104,7 @@ export async function prepareCheckpointMessage(input: {
 
 export function buildCheckpointUserPrompt(input: CheckpointPromptInput): string {
 	const diffSection = buildCheckpointDiffPromptSection({ diff: input.diff });
-	const diffHeading = diffSection.wasCompacted ? "## git diff HEAD (compacted)" : "## git diff HEAD";
+	const diffHeading = diffSection.isCompacted ? "## git diff HEAD (compacted)" : "## git diff HEAD";
 	const base = `Draft a checkpoint commit message for this pending git state.\n\n## git status --porcelain\n\n${promptBlock(input.status, "(clean)")}\n\n${diffHeading}\n\n${diffSection.text}\n`;
 	if (!input.previousDraft || !input.validationFeedback) {
 		return base;
@@ -154,20 +154,20 @@ function buildCheckpointDiffPromptSection(input: {
 	const perFileExcerptChars = input.perFileExcerptChars ?? CHECKPOINT_PER_FILE_EXCERPT_CHAR_LIMIT;
 	const trimmedDiff = input.diff.trimEnd();
 	if (trimmedDiff.trim().length === 0) {
-		return { text: "(no tracked diff; rely on untracked filenames in status)", wasCompacted: false };
+		return { text: "(no tracked diff; rely on untracked filenames in status)", isCompacted: false };
 	}
 	if (trimmedDiff.length <= maxChars) {
-		return { text: trimmedDiff, wasCompacted: false };
+		return { text: trimmedDiff, isCompacted: false };
 	}
 
 	const fileSections = parseDiffFileSections(trimmedDiff);
 	if (fileSections.length === 0) {
-		return { text: buildHeadTailCompactedDiff(trimmedDiff, maxChars), wasCompacted: true };
+		return { text: buildHeadTailCompactedDiff(trimmedDiff, maxChars), isCompacted: true };
 	}
 
 	return {
 		text: buildFileSectionCompactedDiff({ diff: trimmedDiff, fileSections, maxChars, perFileExcerptChars }),
-		wasCompacted: true,
+		isCompacted: true,
 	};
 }
 
