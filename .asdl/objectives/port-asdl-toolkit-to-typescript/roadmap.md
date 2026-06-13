@@ -16,12 +16,13 @@
   - Start with the smallest command runtime needed by the first vertical slice.
   - Grow toward a shared framework only when repeated capability ports prove stable API needs.
   - Evidence: realized by the `ts-cli-foundation` subobjective (consolidated 2026-06-10 from `asdl-core-ts` + `ts-clinkr-commander`). `@asdl/clinkr` v1 is built and `@asdl/plans` is migrated; the remaining migrations (`planned-branch`, `asdl-dev`, the `pr-address` shell) are tracked there. Package identity resolved: `@asdl/clinkr` + `@asdl/core` (formerly parked here as "Exact public API shape and package identity for JS/TS clinkr").
-- [ ] Complete the `pr-address` TypeScript cutover and Python retirement through its subobjective.
-  - Evidence should include golden/contract parity, public CLI/skill scenarios, fake-driven gateway/core tests, limited real-adapter smoke coverage where safe, wrapper/doc updates, and removal or retirement of active Python paths.
-- [ ] Refine a reusable porting playbook from the first full cutover.
-  - Promote lessons from `pr-address` into durable guidance for later capability subobjectives.
+- [x] Complete the `pr-address` TypeScript cutover and Python retirement through its subobjective.
+  - Evidence: `.asdl/objectives/pr-address-typescript-port/updates/2026-06-13T130734Z-plugin-retirement-and-python-deletion.md` records plugin retirement, deletion of `packages/asdl-pr-address`, golden-corpus relocation, external PyPI `0.1.1` rollback, standalone TS CLI as the sole active surface, and full-repo validation.
+- [x] Refine a reusable porting playbook from the first full cutover.
+  - Evidence: [`porting-playbook.md`](porting-playbook.md) promotes `pr-address` lessons into reusable guidance for later capability subobjectives, including inventory-first planning, vertical slices, local-before-shared seams, fake/parity evidence, intentional fallback retirement, distribution decisions, Semantic Updates, and Objective boundaries.
 - [ ] Select the next capability by the persisted capability order and fresh integration-leverage evidence.
   - Current default order after `pr-address`: `brmem`, `handoff`, `objective`, `asdl-dispatcher`, roaster, `slot`, `vibechk`, then `aretro` last.
+  - Default next candidate remains `brmem` unless fresh integration-leverage evidence changes the persisted order.
   - Revisit only when new evidence materially changes usage, dependency, or strategic value.
 - [ ] Repeat the capability subobjective pattern until all active first-party user-facing capabilities are TS-default.
   - Preserve stable CLI/skill contracts during takeover.

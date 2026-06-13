@@ -107,10 +107,10 @@
   - Current evidence: `updates/2026-06-09T155412Z-cutover-retirement-playbook.md` documents why broad Python fallback retirement is still blocked by installed/prod wrapper, plugin, artifact-writing, stack orchestration, and schema-route compatibility requirements.
   - Updated readiness evidence: `updates/2026-06-09T171450Z-canonical-contracts-and-fallback-retirement-readiness.md` confirms Python is still present and still required for unported operations, public schema fallback routes, installed/prod wrapper mode, rollback, and the `asdl pr-address ...` plugin; broad deletion is not ready.
   - Reconciled 2026-06-13: the wrapper is no longer a Python-fallback surface (run-from-source shim, no `uvx`/Python), and `--json-schema` routes plus click usage-error shapes are TypeScript-owned after branches 5-6. The remaining gates for this row are `plugin-retirement` and removing the TypeScript CLI's unknown-operation Python fallback dispatch; the in-repo `packages/asdl-pr-address` reference is still required until then.
-- [ ] Feed lessons into the umbrella porting playbook.
+- [x] Feed lessons into the umbrella porting playbook.
   - Record reusable migration guidance for later `brmem`, `handoff`, `objective`, and other capability ports.
   - Policy: directly executable after enough repeated evidence exists; do not generalize from only one operation slice.
-  - Evidence should include concrete seams proven by `pr-address`, portability limits, and guidance for when future ports should avoid or reuse the same patterns.
+  - Evidence: `.asdl/objectives/port-asdl-toolkit-to-typescript/porting-playbook.md` captures concrete `pr-address` seams, portability limits, distribution tradeoffs, and fallback-retirement lessons; `.asdl/objectives/port-asdl-toolkit-to-typescript/roadmap.md` now marks the umbrella cutover and playbook rows complete.
 
 ## Endgame Stack
 
@@ -133,14 +133,17 @@ Default branch sequence:
 6. `schema-routes` — landed as `pr-address-ts/schema-routes`.
    - Thesis: make every remaining `pr-address exec ... --json-schema` route TypeScript-owned (structured semantic parity), removing the schema fallback dependency.
    - Landed note: all 20 routes were already TS-owned after `clinkr-shell` (the `schemaDocument` override serves the pinned builders); this branch added the total-coverage guard tying the routes sweep to the operation table and scrubbed docs that still claimed click usage errors render through Python.
-7. `plugin-retirement`
+7. `plugin-retirement` — landed with `python-deletion`.
    - Thesis: remove the `asdl pr-address ...` plugin entry point, plugin module, and asdl-scope plugin smoke test; update docs to name the standalone CLI as the only invocation surface. Keep the run-from-source shim as the installed CLI model; do not add checkout-free bundling in this branch.
-8. `python-deletion`
+   - Landed note: `updates/2026-06-13T130734Z-plugin-retirement-and-python-deletion.md` records plugin retirement as part of the combined endgame branch.
+8. `python-deletion` — landed with `plugin-retirement`.
    - Thesis: remove fallback dispatch from the TypeScript CLI, delete `packages/asdl-pr-address` and asdl-core surfaces that become unused, and scrub workspace/config/test references. Validate with full repo checks, not just the TS package.
    - Guard (2026-06-10 absorption): gated on the group-1 Python-reference-dependent rows being complete — parity corrections, test hardening with fixture regeneration/provenance, and canonical-contracts parity arbitration. Deleting the in-repo reference before they land makes them substantially more expensive or impossible to verify.
    - Guard revised 2026-06-13: checkout-free bundle distribution is not a gate; the accepted wrapper evidence is the run-from-source shim and documentation of its checkout/`ts-install` preconditions.
-9. `playbook`
+   - Landed note: `updates/2026-06-13T130734Z-plugin-retirement-and-python-deletion.md` records Python fallback-router removal, `packages/asdl-pr-address` deletion, golden relocation, config scrub, and full-repo validation.
+9. `playbook` — landed.
    - Thesis: feed proven seams, portability limits, run-from-source distribution tradeoffs, and retirement lessons into the umbrella porting playbook; record final Objective evidence.
+   - Landed note: `updates/2026-06-13T134301Z-pr-address-playbook-slice-complete.md` records the final Objective evidence and points to the umbrella playbook.
 
 Planning guidance:
 
