@@ -34,7 +34,7 @@ export const resolveThreadBatchDecisionSchema = z.looseObject({
 	skip_reason: nullableStringSchema,
 });
 
-const buildResolveThreadBatchPayloadInputSchema = z.looseObject({
+export const buildResolveThreadBatchPayloadInputSchema = z.looseObject({
 	plan: z.unknown(),
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema,
@@ -110,8 +110,7 @@ export async function runBuildResolveThreadBatchPayloadOperation(invocation: Exe
 	return { type: "exit", exit: negative("Resolve-thread batch payload decisions failed validation; no payload produced.", result) };
 }
 
-export function buildResolveThreadBatchPayload(input: unknown): BuildResolveThreadBatchPayloadResult {
-	const request = buildResolveThreadBatchPayloadInputSchema.parse(input);
+export function buildResolveThreadBatchPayload(request: BuildResolveThreadBatchPayloadInput): BuildResolveThreadBatchPayloadResult {
 	const batchId = request.batch_id.trim();
 	const batchCommitSha = trimOptional(request.commit_sha);
 
@@ -287,9 +286,16 @@ export function buildThreadResolutionDecision(options: {
 	if (action !== "resolve") {
 		return { errors: [{ code: "invalid_action", message: `Decision for ${options.subjectLabel} must use action='resolve' or action='skip'.` }], payloadItem: null, skipReason: null };
 	}
-	const errors = resolveDecisionIssues({ subjectLabel: options.subjectLabel, batchCommitSha: options.batchCommitSha, mode, message, itemCommitSha, provenance });
+	if (!isResolutionMode(mode)) {
+		return {
+			errors: [{ code: "invalid_mode", message: `Resolve decision for ${options.subjectLabel} must use one of: ${VALID_RESOLUTION_MODES.join(", ")}.` }],
+			payloadItem: null,
+			skipReason: null,
+		};
+	}
+	const resolutionMode = mode;
+	const errors = resolveDecisionIssues({ subjectLabel: options.subjectLabel, batchCommitSha: options.batchCommitSha, mode: resolutionMode, message, itemCommitSha, provenance });
 	if (errors.length > 0) return { errors, payloadItem: null, skipReason: null };
-	const resolutionMode = mode as ResolutionMode;
 	if (resolutionMode === "pre_existing") {
 		return { errors: [], payloadItem: { thread_id: options.threadId, mode: resolutionMode, message: null, commit_sha: null, provenance: null }, skipReason: null };
 	}
