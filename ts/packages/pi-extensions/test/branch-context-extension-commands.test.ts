@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { NoSavedPlanAvailableError } from "@asdl/plans";
 
 import {
-	CREATE_PLANNED_BRANCH_USAGE,
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_FAST_MODEL,
 	DEFAULT_PLAN_CONTENT,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -11,7 +11,7 @@ import {
 	IMPL_BRANCH,
 	IMPL_PLAN_CONTENT,
 	IMPL_REF,
-	PLAN_BRANCH_NAMESPACE,
+	BRANCH_CONTEXT_NAMESPACE,
 	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
@@ -29,13 +29,13 @@ import {
 	buildWritePlanPrompt,
 	contentSlugEvidence,
 	createContext,
-	createPlannedBranchOperationFakes,
+	createBranchContextOperationFakes,
 	createToolContext,
 	dirname,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatCreatePlannedBranchPreview,
-	formatPlanBranchEvidence,
+	formatCreateBranchContextPreview,
+	formatBranchContextEvidence,
 	formatSavedPlanFileEvidence,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
@@ -49,15 +49,15 @@ import {
 	mkdir,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
-	parseCreatePlannedBranchArgs,
+	parseCreateBranchContextArgs,
 	planSlugExecCall,
 	planSlugStep,
 	planStoreDirectory,
-	plannedBranchEvidence,
-	plannedBranchOutputMessageEntry,
+	branchContextEvidence,
+	branchContextOutputMessageEntry,
 	readFile,
 	registeredTool,
-	registerPlannedBranchExtension,
+	registerBranchContextExtension,
 	resolve,
 	resolveWritePlanPromptStep,
 	savedPlanFileContent,
@@ -70,7 +70,7 @@ import {
 	writePlanStoreFile,
 	writeSavedPlanFile,
 	type ToolUpdate,
-} from "./planned-branch-extension-support.ts";
+} from "./branch-context-extension-support.ts";
 
 function missingPlanStoreError(): Error {
 	return new NoSavedPlanAvailableError({
@@ -100,16 +100,16 @@ function emptyPlanStoreError(): Error {
 }
 
 describe("plan workflow commands", () => {
-	test("registers plans write commands, planned-branch workflow commands, and write tool", () => {
+	test("registers plans write commands, branch-context workflow commands, and write tool", () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
+			"branch-context:from-plan",
+			"branch-context:impl",
+			"branch-context:upstack-impl-session",
 			"enriched-plan:grill-and-save",
 			"enriched-plan:save",
-			"planned-branch:create",
-			"planned-branch:impl",
-			"planned-branch:upstack-impl-session",
 		]);
 		expect([...pi.commands.keys()].filter((name) => name.startsWith("enriched-plan:"))).toEqual(["enriched-plan:save", "enriched-plan:grill-and-save"]);
 		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
@@ -119,7 +119,7 @@ describe("plan workflow commands", () => {
 	test("enriched-plan:grill-and-save waits for idle and dispatches embedded prompt without prompt resolution", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([], events);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:grill-and-save");
 		expect(command).toBeDefined();
 		const context = createContext(events);
@@ -141,7 +141,7 @@ describe("plan workflow commands", () => {
 
 	test("enriched-plan:grill-and-save with empty args still sends a prompt with none steering", async () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:grill-and-save");
 		const context = createContext();
 
@@ -155,7 +155,7 @@ describe("plan workflow commands", () => {
 	test("enriched-plan:save waits for idle, resolves prompt, and dispatches the generated prompt", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([resolveWritePlanPromptStep()], events);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		expect(command).toBeDefined();
 		const context = createContext(events);
@@ -186,7 +186,7 @@ describe("plan workflow commands", () => {
 
 	test("enriched-plan:save with empty args still sends a prompt with none steering", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep()]);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		const context = createContext();
 
@@ -199,7 +199,7 @@ describe("plan workflow commands", () => {
 
 	test("enriched-plan:save uses custom resolved prompt body", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep({ content: "Custom plan body\n" })]);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		const context = createContext();
 
@@ -214,7 +214,7 @@ describe("plan workflow commands", () => {
 		const pi = new FakePi([
 			resolveWritePlanPromptStep({ result: { code: 1, stdout: "", stderr: "prompt_not_found: missing" } }),
 		]);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		const context = createContext();
 
@@ -234,7 +234,7 @@ describe("plan workflow commands", () => {
 
 	test("enriched-plan:save falls back without UI warning when resolver returns malformed JSON", async () => {
 		const pi = new FakePi([resolveWritePlanPromptStep({ result: { stdout: "not json" } })]);
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const command = pi.commands.get("enriched-plan:save");
 		const context = createContext([], { hasUI: false });
 
@@ -245,12 +245,12 @@ describe("plan workflow commands", () => {
 		expect(context.notifications).toEqual([]);
 	});
 
-	test("planned-branch:impl waits, loads the attached plan, and sends an implementation prompt", async () => {
+	test("branch-context:impl waits, loads the attached plan, and sends an implementation prompt", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([], events);
-		const fakes = createPlannedBranchOperationFakes({ loadBranchContextPlan: async () => attachedPlan({ refName: IMPL_REF }) });
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:impl");
+		const fakes = createBranchContextOperationFakes({ loadBranchContextPlan: async () => attachedPlan({ refName: IMPL_REF }) });
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:impl");
 		expect(command).toBeDefined();
 		const context = createContext(events);
 
@@ -264,20 +264,20 @@ describe("plan workflow commands", () => {
 		expect(fakes.loadPlanCalls[0]?.[1]).toEqual({});
 		expect(context.notifications).toEqual([{ message: "Loading attached branch-context plan…", level: "info" }]);
 		expect(context.statuses).toEqual([
-			{ key: "planned-branch:impl", value: "loading attached plan…" },
-			{ key: "planned-branch:impl", value: undefined },
+			{ key: "branch-context:impl", value: "loading attached plan…" },
+			{ key: "branch-context:impl", value: undefined },
 		]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.customType).toBe("branch-context-output");
 		expect(pi.sentMessages[0]?.content).toContain("Loaded attached branch-context plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${IMPL_BRANCH}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Selected key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Ref: ${IMPL_REF}`);
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("The attached branch-context plan has been loaded by the planning-layer reader.");
 		expect(pi.sentUserMessages[0]).toContain(`Branch: ${IMPL_BRANCH}`);
-		expect(pi.sentUserMessages[0]).toContain(`Namespace: ${PLAN_BRANCH_NAMESPACE}`);
+		expect(pi.sentUserMessages[0]).toContain(`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`);
 		expect(pi.sentUserMessages[0]).toContain(`Selected key: ${PLAN_KEY}`);
 		expect(pi.sentUserMessages[0]).toContain(`Ref: ${IMPL_REF}`);
 		expect(pi.sentUserMessages[0]).toContain(`Bytes: ${new TextEncoder().encode(IMPL_PLAN_CONTENT).length}`);
@@ -286,11 +286,11 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("planned-branch:impl passes a requested slug into attached-plan selection", async () => {
+	test("branch-context:impl passes a requested slug into attached-plan selection", async () => {
 		const pi = new FakePi();
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:impl");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:impl");
 		const context = createContext();
 
 		await command?.handler(`  ${PLAN_SLUG}  `, context.ctx);
@@ -302,11 +302,11 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("planned-branch:impl presents saved-plan fallback evidence", async () => {
+	test("branch-context:impl presents saved-plan fallback evidence", async () => {
 		const planContent = "# Saved Impl Plan\n\n- Implement from the saved plan.\n";
 		const filePath = "/tmp/source-plan-store/branch-scoped-plan-extension.md";
 		const pi = new FakePi();
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			loadBranchContextPlan: async () =>
 				attachedPlan({
 					branch: SOURCE_BRANCH,
@@ -317,8 +317,8 @@ describe("plan workflow commands", () => {
 					sourceFile: filePath,
 				}),
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:impl");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:impl");
 		const context = createContext();
 
 		await command?.handler("", context.ctx);
@@ -337,15 +337,15 @@ describe("plan workflow commands", () => {
 		expect(pi.sentUserMessages[0]).not.toContain("/skill:");
 	});
 
-	test("planned-branch:impl presents load failures without sending an implementation prompt", async () => {
+	test("branch-context:impl presents load failures without sending an implementation prompt", async () => {
 		const pi = new FakePi();
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async loadBranchContextPlan() {
 				throw new Error("Refusing to implement directly on trunk (`main`)");
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:impl");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:impl");
 		const context = createContext();
 
 		await command?.handler("", context.ctx);
@@ -357,13 +357,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Failed to load branch-context plan.");
 		expect(pi.sentMessages[0]?.content).toContain("Refusing to implement directly on trunk (`main`)");
 		expect(pi.execCalls).toEqual([]);
-		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:impl", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({ key: "branch-context:impl", value: undefined });
 	});
 
-	test("planned-branch:create help displays usage without mutation", async () => {
+	test("branch-context:from-plan help displays usage without mutation", async () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler("--help", context.ctx);
@@ -371,17 +371,17 @@ describe("plan workflow commands", () => {
 		expect(context.waits()).toBe(1);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentMessages).toHaveLength(1);
-		expect(pi.sentMessages[0]?.content).toContain(CREATE_PLANNED_BRANCH_USAGE);
+		expect(pi.sentMessages[0]?.content).toContain(CREATE_BRANCH_CONTEXT_USAGE);
 	});
 
-	test("planned-branch:create dry-run resolves latest local plan store without mutating", async () => {
+	test("branch-context:from-plan dry-run resolves latest local plan store without mutating", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const filePath = await writePlanStoreFile(directoryPath, `${PLAN_KEY}`, 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(savedPlanFileContent(PLAN_KEY))]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler("--dry-run", context.ctx);
@@ -401,22 +401,22 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
-		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:create", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({ key: "branch-context:from-plan", value: undefined });
 	});
 
-	test("planned-branch:create dry-run prefers session-created plan over newer disk mtime", async () => {
+	test("branch-context:from-plan dry-run prefers session-created plan over newer disk mtime", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const newerDiskSlug = "harden-cp-autobranch-validation";
 		const sessionKey = `${sessionSlug}.md`;
-		const contentSlug = "add-session-planned-branch";
+		const contentSlug = "add-session-branch-context";
 		const sessionPath = await writePlanStoreFile(directoryPath, sessionKey, 1_700_000_000_000);
 		await writePlanStoreFile(directoryPath, `${newerDiskSlug}.md`, 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(savedPlanFileContent(sessionKey), contentSlug)]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }))],
 		});
@@ -434,7 +434,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`${newerDiskSlug}.md`);
 	});
 
-	test("planned-branch:create explicit path wins over session evidence", async () => {
+	test("branch-context:from-plan explicit path wins over session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -445,8 +445,8 @@ describe("plan workflow commands", () => {
 		const contentSlug = "add-docs-portal-site";
 		const explicitPath = await writePlanStoreFile(directoryPath, explicitKey, 1_800_000_000_000);
 		const pi = new FakePi([planSlugStep(savedPlanFileContent(explicitKey), contentSlug)]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }))],
 		});
@@ -463,7 +463,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
 	});
 
-	test("planned-branch:create explicit path dry-run uses a content-derived slug instead of the filename", async () => {
+	test("branch-context:from-plan explicit path dry-run uses a content-derived slug instead of the filename", async () => {
 		const savedPlanStem = "where-would-we-host-mossy-lampson";
 		const contentSlug = "add-docs-portal-site";
 		const content = "# Add Docs Portal Site\n\nBuild the docs portal and deploy it.\n";
@@ -471,8 +471,8 @@ describe("plan workflow commands", () => {
 
 		for (const rawPath of [filePath, `@${filePath}`]) {
 			const pi = new FakePi([planSlugStep(content, contentSlug)]);
-			registerPlannedBranchExtension(pi);
-			const command = pi.commands.get("planned-branch:create");
+			registerBranchContextExtension(pi);
+			const command = pi.commands.get("branch-context:from-plan");
 
 			await command?.handler(`--dry-run ${rawPath}`, createContext().ctx);
 
@@ -489,13 +489,13 @@ describe("plan workflow commands", () => {
 		}
 	});
 
-	test("planned-branch:create dry-run repairs overlong model slug output", async () => {
+	test("branch-context:from-plan dry-run repairs overlong model slug output", async () => {
 		const filePath = await makeNamedPlanFile();
 		const rawOutput = "asdl docs site slot page conventions skeleton theme foundation\n";
 		const repairedSlug = "asdl-docs-site-slot-page-conventions-skeleton";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, repairedSlug, { stdout: rawOutput })]);
-		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
 
@@ -507,7 +507,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 	});
 
-	test("planned-branch:create ignores missing session file and falls back to disk latest", async () => {
+	test("branch-context:from-plan ignores missing session file and falls back to disk latest", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -525,8 +525,8 @@ describe("plan workflow commands", () => {
 			gitOriginStep(),
 			planSlugStep(savedPlanFileContent(diskKey), diskSlug),
 		]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: missingSlug, filePath: missingPath, sourceBranch }))],
 		});
@@ -541,7 +541,7 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
 	});
 
-	test("planned-branch:create rejects wrong repo or branch session evidence", async () => {
+	test("branch-context:from-plan rejects wrong repo or branch session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -553,8 +553,8 @@ describe("plan workflow commands", () => {
 			branchKey: "other-branch",
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)] });
 
 		await command?.handler("--dry-run", context.ctx);
@@ -568,13 +568,13 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("planned-branch:create rejects outside-plan-store session evidence", async () => {
+	test("branch-context:from-plan rejects outside-plan-store session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const outsidePath = await makeNamedPlanFile(`${PLAN_KEY}`);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(sourcePlanEvidence({ slug: PLAN_SLUG, filePath: outsidePath, sourceBranch }))],
 		});
@@ -587,7 +587,7 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("planned-branch:create rejects wrong branch key even when source branch matches", async () => {
+	test("branch-context:from-plan rejects wrong branch key even when source branch matches", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -598,8 +598,8 @@ describe("plan workflow commands", () => {
 			branchKey: "wrong-branch-key",
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(wrongBranchKeyEvidence)] });
 
 		await command?.handler("--dry-run", context.ctx);
@@ -610,15 +610,15 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("planned-branch:create rejects basename and slug mismatch in session evidence", async () => {
+	test("branch-context:from-plan rejects basename and slug mismatch in session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const sessionPath = await writePlanStoreFile(directoryPath, `${PLAN_SLUG}.md`, 1_700_000_000_000);
 		const mismatchEvidence = sourcePlanEvidence({ slug: "submit-dirty-worktree-checkpoint", filePath: sessionPath, sourceBranch });
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], { sessionEntries: [sourcePlanToolResultEntry(mismatchEvidence)] });
 
 		await command?.handler("--dry-run", context.ctx);
@@ -629,7 +629,7 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("planned-branch:create ignores stale cancellation output while using tool result evidence", async () => {
+	test("branch-context:from-plan ignores stale cancellation output while using tool result evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -640,12 +640,12 @@ describe("plan workflow commands", () => {
 		const sessionPath = await writePlanStoreFile(directoryPath, sessionKey, 1_700_000_000_000);
 		const stalePath = await writePlanStoreFile(directoryPath, `${staleSlug}.md`, 1_800_000_000_000);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep(), planSlugStep(savedPlanFileContent(sessionKey), contentSlug)]);
-		registerPlannedBranchExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { planStoreRoot });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch })),
-				plannedBranchOutputMessageEntry(
+				branchContextOutputMessageEntry(
 					`Cancelled: no branch was created and no plan was attached.\n\nLatest saved plan from local plan store:\nPath: ${stalePath}\nSlug: ${staleSlug}`,
 				),
 			],
@@ -662,13 +662,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`Path: ${stalePath}`);
 	});
 
-	test("planned-branch:create creates without interactive confirmation", async () => {
+	test("branch-context:from-plan creates without interactive confirmation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)], events);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
@@ -681,17 +681,17 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 	});
 
-	test("planned-branch:create surfaces target branch collision without prompting", async () => {
+	test("branch-context:from-plan surfaces target branch collision without prompting", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)], events);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async createBranchContextFromFile() {
 				throw new Error("Target branch already exists; refusing to overwrite.");
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
@@ -703,13 +703,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Target branch already exists; refusing to overwrite.");
 	});
 
-	test("planned-branch:create --yes creates a plain-git planned branch using the content slug when the filename differs", async () => {
+	test("branch-context:from-plan --yes creates a plain-git branch context using the content slug when the filename differs", async () => {
 		const savedPlanStem = "where-would-we-host-mossy-lampson";
 		const filePath = await makeNamedPlanFile(`${savedPlanStem}.md`);
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -725,12 +725,12 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
-	test("planned-branch:create --graphite uses Graphite branch creation", async () => {
+	test("branch-context:from-plan --graphite uses Graphite branch creation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes --graphite`, context.ctx);
@@ -740,15 +740,15 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("planned-branch:create extension options default to Graphite without a branch prefix", async () => {
+	test("branch-context:from-plan extension options default to Graphite without a branch prefix", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, {
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("planned-branch:create");
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -759,13 +759,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("planned-branch:upstack-impl-session creates with Graphite, checks out the branch, and dispatches impl in a new session", async () => {
+	test("branch-context:upstack-impl-session creates with Graphite, checks out the branch, and dispatches impl in a new session", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)], events);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext(events, { sessionFile: "/sessions/source.jsonl" });
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -780,28 +780,28 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Created branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.replacementUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 		expect(context.newSessionParentSessions).toEqual(["/sessions/source.jsonl"]);
 		expect(events.indexOf("new-session")).toBeGreaterThan(events.indexOf("status"));
 		expect(events.indexOf("replacement-send")).toBeGreaterThan(events.indexOf("new-session"));
-		expect(context.statuses.at(-1)).toEqual({ key: "planned-branch:upstack-impl-session", value: undefined });
+		expect(context.statuses.at(-1)).toEqual({ key: "branch-context:upstack-impl-session", value: undefined });
 	});
 
-	test("planned-branch:upstack-impl-session reuses one session-created attached plan when the local plan store is missing", async () => {
+	test("branch-context:upstack-impl-session reuses one session-created attached plan when the local plan store is missing", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([brmemListAttachedPlansStep(IMPL_BRANCH, [{ key: PLAN_KEY }]), gitCheckoutStep(IMPL_BRANCH)], events);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext(events, {
 			sessionEntries: [
-				plannedBranchOutputMessageEntry("Created branch context and attached plan.", {
+				branchContextOutputMessageEntry("Created branch context and attached plan.", {
 					status: "success",
-					evidence: plannedBranchEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
 				}),
 			],
 		});
@@ -812,26 +812,26 @@ describe("plan workflow commands", () => {
 		expect(fakes.selectPlanCalls).toHaveLength(1);
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
 			{ command: "git", args: ["checkout", IMPL_BRANCH] },
 		]);
 		expect(pi.execCalls.some((call) => call.command === "pi")).toBe(false);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${IMPL_BRANCH}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
-		expect(context.replacementUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:upstack-impl-session reuses an explicit branch when the local plan store is missing", async () => {
-		const explicitBranch = "planned-branches/explicit-target";
+	test("branch-context:upstack-impl-session reuses an explicit branch when the local plan store is missing", async () => {
+		const explicitBranch = "branch-contextes/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(explicitBranch)]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`--branch ${explicitBranch}`, context.ctx);
@@ -839,23 +839,23 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", explicitBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: explicit --branch");
-		expect(context.replacementUserMessages).toEqual(["/planned-branch:impl plan.md"]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:upstack-impl-session dry-run describes explicit branch reuse without checkout", async () => {
-		const explicitBranch = "planned-branches/explicit-target";
+	test("branch-context:upstack-impl-session dry-run describes explicit branch reuse without checkout", async () => {
+		const explicitBranch = "branch-contextes/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }])]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`--dry-run --branch ${explicitBranch}`, context.ctx);
@@ -863,25 +863,25 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
 		]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("Dry run: no branch would be created, no plan would be attached, no checkout would happen");
 		expect(content).toContain(`git checkout ${explicitBranch}`);
-		expect(content).toContain("/planned-branch:impl plan.md");
+		expect(content).toContain("/branch-context:impl");
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session reuses the current branch when the local plan store is missing", async () => {
-		const currentBranch = "planned-branches/current-target";
+	test("branch-context:upstack-impl-session reuses the current branch when the local plan store is missing", async () => {
+		const currentBranch = "branch-contextes/current-target";
 		const pi = new FakePi([gitCurrentBranchStep(currentBranch), brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(currentBranch)]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler("", context.ctx);
@@ -890,27 +890,27 @@ describe("plan workflow commands", () => {
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "git", args: ["branch", "--show-current"] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
-		expect(context.replacementUserMessages).toEqual(["/planned-branch:impl plan.md"]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:upstack-impl-session fails clearly for ambiguous session candidates", async () => {
-		const otherBranch = "planned-branches/other-target";
+	test("branch-context:upstack-impl-session fails clearly for ambiguous session candidates", async () => {
+		const otherBranch = "branch-contextes/other-target";
 		const pi = new FakePi();
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext([], {
 			sessionEntries: [
-				plannedBranchOutputMessageEntry("created one", { status: "success", evidence: plannedBranchEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }) }),
-				plannedBranchOutputMessageEntry("created two", { status: "success", evidence: plannedBranchEvidence({ branch: otherBranch, key: "plan.md" }) }),
+				branchContextOutputMessageEntry("created one", { status: "success", evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }) }),
+				branchContextOutputMessageEntry("created two", { status: "success", evidence: branchContextEvidence({ branch: otherBranch, key: "plan.md" }) }),
 			],
 		});
 
@@ -926,25 +926,25 @@ describe("plan workflow commands", () => {
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session surfaces attached-plan key ambiguity on explicit reuse", async () => {
-		const branch = "planned-branches/custom-target";
+	test("branch-context:upstack-impl-session surfaces attached-plan key ambiguity on explicit reuse", async () => {
+		const branch = "branch-contextes/custom-target";
 		const pi = new FakePi([
 			brmemListAttachedPlansStep(branch, [{ key: "alpha.md" }, { key: "beta.md" }]),
 		]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`--branch ${branch}`, context.ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", branch, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"] },
 		]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
@@ -952,26 +952,26 @@ describe("plan workflow commands", () => {
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session falls through to the current branch when the session candidate fails verification", async () => {
-		const currentBranch = "planned-branches/current-target";
+	test("branch-context:upstack-impl-session falls through to the current branch when the session candidate fails verification", async () => {
+		const currentBranch = "branch-contextes/current-target";
 		const pi = new FakePi([
 			brmemListAttachedPlansStep(IMPL_BRANCH, []),
 			gitCurrentBranchStep(currentBranch),
 			brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]),
 			gitCheckoutStep(currentBranch),
 		]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext([], {
 			sessionEntries: [
-				plannedBranchOutputMessageEntry("Created branch context and attached plan.", {
+				branchContextOutputMessageEntry("Created branch context and attached plan.", {
 					status: "success",
-					evidence: plannedBranchEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
 				}),
 			],
 		});
@@ -981,33 +981,33 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
 			{ command: "git", args: ["branch", "--show-current"] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", PLAN_BRANCH_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
+			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
-		expect(context.replacementUserMessages).toEqual(["/planned-branch:impl plan.md"]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:upstack-impl-session aggregates session and current-branch failures into one error", async () => {
+	test("branch-context:upstack-impl-session aggregates session and current-branch failures into one error", async () => {
 		const pi = new FakePi([
 			brmemListAttachedPlansStep(IMPL_BRANCH, []),
 			gitCurrentBranchStep(SOURCE_BRANCH, { stdout: "" }),
 		]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext([], {
 			sessionEntries: [
-				plannedBranchOutputMessageEntry("Created branch context and attached plan.", {
+				branchContextOutputMessageEntry("Created branch context and attached plan.", {
 					status: "success",
-					evidence: plannedBranchEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
+					evidence: branchContextEvidence({ branch: IMPL_BRANCH, key: PLAN_KEY }),
 				}),
 			],
 		});
@@ -1023,16 +1023,16 @@ describe("plan workflow commands", () => {
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session resumes when the plan store directory exists but holds no plans", async () => {
-		const explicitBranch = "planned-branches/explicit-target";
+	test("branch-context:upstack-impl-session resumes when the plan store directory exists but holds no plans", async () => {
+		const explicitBranch = "branch-contextes/explicit-target";
 		const pi = new FakePi([brmemListAttachedPlansStep(explicitBranch, [{ key: PLAN_KEY }]), gitCheckoutStep(explicitBranch)]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw emptyPlanStoreError();
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`--branch ${explicitBranch}`, context.ctx);
@@ -1040,15 +1040,15 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
-		expect(context.replacementUserMessages).toEqual(["/planned-branch:impl plan.md"]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:upstack-impl-session reports created-path cancellation with manual recovery", async () => {
+	test("branch-context:upstack-impl-session reports created-path cancellation with manual recovery", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext([], { shouldCancelNewSession: true });
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -1056,16 +1056,16 @@ describe("plan workflow commands", () => {
 		pi.assertDone();
 		const content = pi.sentMessages.at(-1)?.content ?? "";
 		expect(content).toContain(
-			`Created branch context, attached the plan, and checked out ${PLAN_SLUG}, but starting the implementation session was cancelled. Run /planned-branch:impl ${PLAN_KEY} to continue.`,
+			`Created branch context, attached the plan, and checked out ${PLAN_SLUG}, but starting the implementation session was cancelled. Run /branch-context:impl to continue.`,
 		);
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session dry-run defaults to Graphite even when the extension option says plain Git", async () => {
+	test("branch-context:upstack-impl-session dry-run defaults to Graphite even when the extension option says plain Git", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		registerPlannedBranchExtension(pi, { branchContextDefaultCreation: "plain-git" });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextDefaultCreation: "plain-git" });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --dry-run`, context.ctx);
@@ -1077,25 +1077,25 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).not.toContain("gt up");
 		expect(pi.sentMessages[0]?.content).toContain("/new");
-		expect(pi.sentMessages[0]?.content).toContain(`/planned-branch:impl ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain("/branch-context:impl");
 	});
 
-	test("planned-branch:upstack-impl-session surfaces create failures before checkout", async () => {
+	test("branch-context:upstack-impl-session surfaces create failures before checkout", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async createBranchContextFromFile() {
 				throw new Error(
 					[
-						"Current branch is not tracked by Graphite; refusing to stack a planned branch on it.",
+						"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
 						`Parent branch: ${SOURCE_BRANCH}`,
 						"No branch was created and no plan was attached.",
 					].join("\n"),
 				);
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -1104,22 +1104,22 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("Failed to create branch context and attach the plan.");
-		expect(content).toContain("Current branch is not tracked by Graphite; refusing to stack a planned branch on it.");
+		expect(content).toContain("Current branch is not tracked by Graphite; refusing to stack a branch context on it.");
 		expect(content).toContain(`Parent branch: ${SOURCE_BRANCH}`);
 		expect(content).toContain("No branch was created and no plan was attached.");
 		expect(context.replacementUserMessages).toEqual([]);
 		expect(context.newSessionParentSessions).toEqual([]);
 	});
 
-	test("planned-branch:upstack-impl-session supports plain Git creation before checkout", async () => {
+	test("branch-context:upstack-impl-session supports plain Git creation before checkout", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT), gitCheckoutStep(PLAN_SLUG)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, {
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("planned-branch:upstack-impl-session");
+		const command = pi.commands.get("branch-context:upstack-impl-session");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes --plain-git`, context.ctx);
@@ -1129,18 +1129,18 @@ describe("plan workflow commands", () => {
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toContainEqual({ command: "git", args: ["checkout", PLAN_SLUG] });
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(context.replacementUserMessages).toEqual([`/planned-branch:impl ${PLAN_KEY}`]);
+		expect(context.replacementUserMessages).toEqual(["/branch-context:impl"]);
 	});
 
-	test("planned-branch:create --plain-git override keeps the slug branch under the Graphite default", async () => {
+	test("branch-context:from-plan --plain-git override keeps the slug branch under the Graphite default", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, {
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("planned-branch:create");
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
 
@@ -1150,17 +1150,17 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
-	test("planned-branch:create branchContextPrefix remains opt-in", async () => {
+	test("branch-context:from-plan branchContextPrefix remains opt-in", async () => {
 		const filePath = await makeNamedPlanFile();
-		const prefixedBranch = `planned-branches/${PLAN_SLUG}`;
+		const prefixedBranch = `branch-contextes/${PLAN_SLUG}`;
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, {
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "graphite",
-			branchContextPrefix: "planned-branches/",
+			branchContextPrefix: "branch-contextes/",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("planned-branch:create");
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -1171,13 +1171,13 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("planned-branch:create passes explicit target branch while keeping key from slug", async () => {
+	test("branch-context:from-plan passes explicit target branch while keeping key from slug", async () => {
 		const filePath = await makeNamedPlanFile();
-		const branch = "planned-branches/custom-target";
+		const branch = "branch-contextes/custom-target";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextPrefix: "planned-branches/", branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextPrefix: "branch-contextes/", branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes --branch ${branch}`, createContext().ctx);
 
@@ -1187,12 +1187,12 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
 	});
 
-	test("planned-branch:create accepts invalid filename stems up to model slug generation", async () => {
+	test("branch-context:from-plan accepts invalid filename stems up to model slug generation", async () => {
 		const filePath = await makeNamedPlanFile("bad.md");
 		const contentSlug = "add-docs-portal-site";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, contentSlug)]);
-		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
 
@@ -1204,11 +1204,11 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 	});
 
-	test("planned-branch:create fails when model slug generation fails without fallback", async () => {
+	test("branch-context:from-plan fails when model slug generation fails without fallback", async () => {
 		const filePath = await makeNamedPlanFile("where-would-we-host-mossy-lampson.md");
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, PLAN_SLUG, { code: 1, stderr: "model unavailable" })]);
-		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -1222,10 +1222,10 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("No filename or deterministic fallback was attempted.");
 	});
 
-	test("planned-branch:create rejects relative explicit paths before primitive mutation", async () => {
+	test("branch-context:from-plan rejects relative explicit paths before primitive mutation", async () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi);
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler("relative-source-plan.md --yes", createContext().ctx);
 
@@ -1233,16 +1233,16 @@ describe("plan workflow commands", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Plan file path must be absolute or home-relative");
 	});
 
-	test("planned-branch:create surfaces operation failures without retrying", async () => {
+	test("branch-context:from-plan surfaces operation failures without retrying", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
-		const fakes = createPlannedBranchOperationFakes({
+		const fakes = createBranchContextOperationFakes({
 			async createBranchContextFromFile() {
 				throw new Error("git check-ref-format failed");
 			},
 		});
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("planned-branch:create");
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const command = pi.commands.get("branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	CREATE_PLANNED_BRANCH_USAGE,
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_FAST_MODEL,
 	DEFAULT_PLAN_CONTENT,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -9,7 +9,7 @@ import {
 	IMPL_BRANCH,
 	IMPL_PLAN_CONTENT,
 	IMPL_REF,
-	PLAN_BRANCH_NAMESPACE,
+	BRANCH_CONTEXT_NAMESPACE,
 	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
@@ -26,13 +26,13 @@ import {
 	buildWritePlanPrompt,
 	contentSlugEvidence,
 	createContext,
-	createPlannedBranchOperationFakes,
+	createBranchContextOperationFakes,
 	createToolContext,
 	dirname,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatCreatePlannedBranchPreview,
-	formatPlanBranchEvidence,
+	formatCreateBranchContextPreview,
+	formatBranchContextEvidence,
 	formatSavedPlanFileEvidence,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
@@ -46,15 +46,15 @@ import {
 	mkdir,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
-	parseCreatePlannedBranchArgs,
+	parseCreateBranchContextArgs,
 	planSlugExecCall,
 	planSlugStep,
 	planStoreDirectory,
-	plannedBranchEvidence,
-	plannedBranchOutputMessageEntry,
+	branchContextEvidence,
+	branchContextOutputMessageEntry,
 	readFile,
 	registeredTool,
-	registerPlannedBranchExtension,
+	registerBranchContextExtension,
 	resolve,
 	resolveWritePlanPromptStep,
 	savedPlanFileContent,
@@ -67,11 +67,11 @@ import {
 	writePlanStoreFile,
 	writeSavedPlanFile,
 	type ToolUpdate,
-} from "./planned-branch-extension-support.ts";
+} from "./branch-context-extension-support.ts";
 describe("write_saved_plan_file tool", () => {
 	test("describes the local plan store contract and strict parameters", () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const parameters = tool.parameters as {
 			properties?: Record<string, unknown>;
@@ -102,8 +102,8 @@ describe("write_saved_plan_file tool", () => {
 	test("derives the saved-plan filename slug with the Codex slug model before writing", async () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
 		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		const result = await tool.execute(
@@ -132,8 +132,8 @@ describe("write_saved_plan_file tool", () => {
 	test("streams progress while deriving the saved-plan slug and writing the plan file", async () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
-		const fakes = createPlannedBranchOperationFakes();
-		registerPlannedBranchExtension(pi, { branchContextOperations: fakes.operations });
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const updates: ToolUpdate[] = [];
 		const toolContext = createToolContext({ hasUI: true });
@@ -179,7 +179,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("rejects assistant-provided saved-plan slugs so /plans:write cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
 
 		await expect(
@@ -190,7 +190,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("clears write-plan status when validation fails", async () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const toolContext = createToolContext({ hasUI: true });
 
@@ -207,7 +207,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("renders tool-call argument streaming progress without dumping plan content", () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const renderCall = tool.renderCall;
 
@@ -240,7 +240,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("renders partial write-plan progress with an in-progress heading", () => {
 		const pi = new FakePi();
-		registerPlannedBranchExtension(pi);
+		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
 		const renderResult = tool.renderResult;
 

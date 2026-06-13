@@ -19,7 +19,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/code-workflows.ts",
 	".pi/extensions/just-fix.ts",
 	".pi/extensions/objective.ts",
-	".pi/extensions/planned-branch.ts",
+	".pi/extensions/branch-context.ts",
 	".pi/extensions/worktree-status.ts",
 ] as const;
 

@@ -63,7 +63,7 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 		const newSessionOptions: BranchContextUpAndImplNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
-				await newCtx.sendUserMessage(`/planned-branch:impl ${key}`);
+				await newCtx.sendUserMessage("/branch-context:impl");
 			},
 		};
 		if (parentSession !== undefined) {
@@ -93,8 +93,8 @@ export async function runBranchContextUpAndImplLaunch(options: BranchContextUpAn
 	}
 }
 
-export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string, key: string): string {
-	return [`git checkout ${targetBranch}`, "/new", `/planned-branch:impl ${key}`].join("\n");
+export function formatBranchContextUpAndImplFollowUpFlow(targetBranch: string): string {
+	return [`git checkout ${targetBranch}`, "/new", "/branch-context:impl"].join("\n");
 }
 
 type CheckoutResult = { type: "ok" } | { type: "failed"; message: string };
