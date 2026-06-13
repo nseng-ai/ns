@@ -105,18 +105,36 @@ Load these when their domain is touched:
 
 - Run the `pr-address` CLI on `PATH` (installed from an asdl checkout with
   `just install-pr-address`); command examples are literal.
-- Choose one lowercase safe payload session id for the whole run. Pass it with
-  `--payload-session-id <payload-session-id>` or set
-  `ASDL_PAYLOAD_SESSION_ID` consistently.
+- Choose one lowercase safe payload session id for the whole run. Export it as
+  `ASDL_PAYLOAD_SESSION_ID` and also pass it with
+  `--payload-session-id "$ASDL_PAYLOAD_SESSION_ID"` when examples show the
+  option.
+- Keep all compact helper stdout outside the worktree so the skill never leaves
+  untracked files such as `.stack-address-session-id`,
+  `stack-preflight.compact.json`, `stack-prep.compact.json`,
+  `stack-plan.compact.json`, `stack-current-prep.compact.json`, or
+  `stack-final-prep.compact.json` in the repository root. Use one git-adjacent
+  run directory per payload session:
+
+  ```bash
+  export ASDL_PAYLOAD_SESSION_ID="pr-stack-address-$(date -u +%Y%m%dt%H%M%Sz)-a1"
+  STACK_ADDRESS_RUN_DIR="$(git rev-parse --path-format=absolute --git-path "asdl/stack-address/${ASDL_PAYLOAD_SESSION_ID}")"
+  mkdir -p "$STACK_ADDRESS_RUN_DIR"
+  STACK_ADDRESS_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-prep.compact.json"
+  STACK_ADDRESS_PLAN_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-plan.compact.json"
+  STACK_ADDRESS_CURRENT_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-current-prep.compact.json"
+  STACK_ADDRESS_FINAL_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-final-prep.compact.json"
+  ```
+
 - Helper exit codes: `0` means use `data`; `1` means structured semantic,
   validation, or operation-level failure; `2` means malformed input,
   precondition failure, or unsupported state and should stop the run.
 - Use payload artifact references and `read-feedback-details` for body lookup.
   Use `read-feedback-detail` only for exact one-off lookup/debugging.
 - Normal stack operation must use `--stdout-mode compact` for
-  `stack-feedback-prep` and `stack-feedback-plan`. Save helper stdout to local
-  files with `>` and print only small `jq` summaries; do not `tee` full helper
-  JSON into the transcript.
+  `stack-feedback-prep` and `stack-feedback-plan`. Save helper stdout to the
+  `$STACK_ADDRESS_*_COMPACT` files above with `>` and print only small `jq`
+  summaries; do not `tee` full helper JSON into the transcript.
 - Do not use `--payload-mode inline` except for explicit debugging or migration.
 - Run every GitHub-hitting helper from inside the target repository: `gh`
   resolves `owner/repo` from the cwd's git remotes, and these operations fail
@@ -124,8 +142,8 @@ Load these when their domain is touched:
 - When summarizing prep/plan output with `jq`, filter to PRs with non-zero
   feedback counts; print stack totals plus only the interesting per-PR rows.
 - In linked worktrees `.git` is a pointer file, not a directory — never use
-  `.git/` as a scratch location; derive real git paths with
-  `git rev-parse --git-dir` if a git-adjacent path is ever needed.
+  `.git/` as a scratch location; use `git rev-parse --path-format=absolute
+  --git-path ...` for git-adjacent scratch files.
 
 ### 1. Preflight and stack PR coverage
 
@@ -173,16 +191,16 @@ Fetch the initial unresolved-only stack snapshot:
 ```bash
 printf '%s' '<stack-json>' \
   | pr-address exec stack-feedback-prep \
-      --payload-session-id <payload-session-id> \
+      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
       --stdout-mode compact \
       --format json \
-  > stack-prep.compact.json
+  > "$STACK_ADDRESS_PREP_COMPACT"
 
 jq '{exit_code, summary:.data.summary,
     stack:(.data.stack
       | map(select((.counts.reviews + .counts.unresolved_review_threads + .counts.discussion_comments) > 0))
       | map({pr_number, branch, counts:.counts}))}' \
-  stack-prep.compact.json
+  "$STACK_ADDRESS_PREP_COMPACT"
 ```
 
 The `jq` filter intentionally drops zero-feedback PRs from the transcript; the
@@ -226,14 +244,14 @@ in the payload:
 ```bash
 printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
-      --prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' stack-prep.compact.json)" \
-      --payload-session-id <payload-session-id> \
+      --prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
+      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
       --stdout-mode compact \
       --format json \
-  > stack-plan.compact.json
+  > "$STACK_ADDRESS_PLAN_COMPACT"
 
 jq '{exit_code, valid:.data.valid, summary:.data.summary, batches:(.data.batches|map({batch_id, item_count, approval_required}))}' \
-  stack-plan.compact.json
+  "$STACK_ADDRESS_PLAN_COMPACT"
 ```
 
 Rules:
@@ -333,10 +351,10 @@ feedback with resolved threads included:
 printf '%s' '<same-stack-json>' \
   | pr-address exec stack-feedback-prep \
       --include-resolved \
-      --payload-session-id <payload-session-id> \
+      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
       --stdout-mode compact \
       --format json \
-  > stack-current-prep.compact.json
+  > "$STACK_ADDRESS_CURRENT_PREP_COMPACT"
 ```
 
 Then compare the saved validated stack plan artifact to the fresh full prep
@@ -344,8 +362,8 @@ artifact directly by reference — no stdin payload and no artifact embedding:
 
 ```bash
 pr-address exec stack-feedback-diff-current \
-  --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json)" \
-  --current-prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' stack-current-prep.compact.json)" \
+  --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' "$STACK_ADDRESS_PLAN_COMPACT")" \
+  --current-prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_CURRENT_PREP_COMPACT")" \
   --format json
 ```
 
@@ -391,7 +409,7 @@ For each selected stack batch represented in an omnibus commit:
    ```bash
    printf '%s' '{"batch_id":"local","commit_sha":"<sha>","continue_on_error":true,"decisions":[...]}' \
      | pr-address exec build-stack-resolve-thread-payloads \
-         --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' stack-plan.compact.json)" \
+         --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' "$STACK_ADDRESS_PLAN_COMPACT")" \
          --format json
    ```
 
@@ -428,7 +446,7 @@ run touched. When mutations touched half the stack or fewer, prefer per-PR
 ```bash
 pr-address exec get-feedback <pr-number> \
   --include-resolved \
-  --payload-session-id <payload-session-id> \
+  --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
   --format json
 ```
 
@@ -439,10 +457,10 @@ needed for the report:
 printf '%s' '<same-stack-json>' \
   | pr-address exec stack-feedback-prep \
       --include-resolved \
-      --payload-session-id <payload-session-id> \
+      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
       --stdout-mode compact \
       --format json \
-  > stack-final-prep.compact.json
+  > "$STACK_ADDRESS_FINAL_PREP_COMPACT"
 ```
 
 This final fetch is post-mutation verification, not the pre-mutation drift

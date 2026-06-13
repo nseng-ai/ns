@@ -125,7 +125,9 @@ The command is Graphite-neutral: callers provide PR/branch metadata and the
 helper does not call `gt` or `gh` for stack discovery.
 
 **Invocation:** reads stack JSON from stdin by default. `--stack-json` is also
-available.
+available. For agent workflows, set `PR_ADDRESS_STACK_PREP_COMPACT` to a path
+outside the worktree root (for example a git-adjacent scratch path) so compact
+stdout does not create untracked repository files.
 
 ```bash
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
@@ -133,7 +135,7 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
       --payload-session-id pr-stack-address-20260604t120000z-a1 \
       --stdout-mode compact \
       --format json \
-  > stack-prep.compact.json
+  > "$PR_ADDRESS_STACK_PREP_COMPACT"
 ```
 
 **Input fields:**
