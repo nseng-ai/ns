@@ -130,7 +130,6 @@ def _build_stack_fakes(
             current=current_branch,
             ancestors=ancestors,
             children=descendants[:1],
-            warnings=(),
             descendants=descendants,
         )
     gt = FakeGtGateway(

@@ -75,7 +75,6 @@ def _stack(
         current=current,
         ancestors=ancestors,
         children=descendants[:1],
-        warnings=(),
         descendants=descendants,
         ancestor_termination=(
             ancestor_termination if ancestor_termination is not None else WalkCompleted()

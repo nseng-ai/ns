@@ -12,14 +12,12 @@ from asdl_core.gt.types import (
     GtCommandFailure,
     StackFork,
     StackInfo,
-    StackWalkDiagnostic,
     TrunkMarkerClean,
     TrunkMarkerProblem,
     UntrackedBranch,
     WalkCompleted,
     WalkCycle,
     WalkRowMissing,
-    render_stack_walk_warning,
 )
 
 
@@ -89,7 +87,6 @@ def test_gt_metadata_reader_reads_linear_stack(tmp_path: Path) -> None:
         current="feat/current",
         ancestors=("main", "feat/mid"),
         children=(),
-        warnings=(),
         descendants=(),
     )
     assert isinstance(result, StackInfo)
@@ -98,7 +95,7 @@ def test_gt_metadata_reader_reads_linear_stack(tmp_path: Path) -> None:
     assert result.trunk_marker == TrunkMarkerClean()
     assert result.unwalked_children_corruptions == ()
     assert result.empty_branch_name_rows == 0
-    assert result.render_warnings() == result.warnings
+    assert result.render_warnings() == ()
 
 
 def test_gt_metadata_reader_handles_current_trunk(tmp_path: Path) -> None:
@@ -111,7 +108,6 @@ def test_gt_metadata_reader_handles_current_trunk(tmp_path: Path) -> None:
         current="main",
         ancestors=(),
         children=(),
-        warnings=(),
         descendants=(),
     )
 
@@ -139,16 +135,7 @@ def test_gt_metadata_reader_preserves_fork_children_and_warns_on_descendant_walk
         StackFork(branch="feat/current", children=("feat/a", "feat/b")),
     )
     assert result.descendant_walk.is_clean is False
-    assert any("first child only" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="descendant",
-            kind="fork",
-            branch="feat/current",
-            children=("feat/a", "feat/b"),
-        )
-        in result.diagnostics
-    )
+    assert any("first child only" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_returns_untracked_for_missing_current_branch(
@@ -202,15 +189,7 @@ def test_gt_metadata_reader_warns_for_children_not_text(tmp_path: Path) -> None:
         ChildrenCorruption(branch="feat/current", kind="not_text"),
     )
     assert result.unwalked_children_corruptions == ()
-    assert any("not JSON text" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="load",
-            kind="children_not_text",
-            branch="feat/current",
-        )
-        in result.diagnostics
-    )
+    assert any("not JSON text" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_warns_for_malformed_children_json(tmp_path: Path) -> None:
@@ -226,15 +205,10 @@ def test_gt_metadata_reader_warns_for_malformed_children_json(tmp_path: Path) ->
 
     assert isinstance(result, StackInfo)
     assert result.children == ()
-    assert any("not valid JSON" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="load",
-            kind="children_invalid_json",
-            branch="feat/current",
-        )
-        in result.diagnostics
+    assert result.descendant_walk.children_corruptions == (
+        ChildrenCorruption(branch="feat/current", kind="invalid_json"),
     )
+    assert any("not valid JSON" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_warns_for_children_not_list(tmp_path: Path) -> None:
@@ -250,15 +224,10 @@ def test_gt_metadata_reader_warns_for_children_not_list(tmp_path: Path) -> None:
 
     assert isinstance(result, StackInfo)
     assert result.children == ()
-    assert any("not a JSON list" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="load",
-            kind="children_not_list",
-            branch="feat/current",
-        )
-        in result.diagnostics
+    assert result.descendant_walk.children_corruptions == (
+        ChildrenCorruption(branch="feat/current", kind="not_list"),
     )
+    assert any("not a JSON list" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_filters_non_string_children_with_warning(tmp_path: Path) -> None:
@@ -280,15 +249,7 @@ def test_gt_metadata_reader_filters_non_string_children_with_warning(tmp_path: P
         ChildrenCorruption(branch="feat/current", kind="non_string"),
     )
     assert result.unwalked_children_corruptions == ()
-    assert any("contains non-string entries" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="load",
-            kind="children_non_string",
-            branch="feat/current",
-        )
-        in result.diagnostics
-    )
+    assert any("contains non-string entries" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_partitions_unwalked_children_corruptions(tmp_path: Path) -> None:
@@ -308,7 +269,7 @@ def test_gt_metadata_reader_partitions_unwalked_children_corruptions(tmp_path: P
     assert result.unwalked_children_corruptions == (
         ChildrenCorruption(branch="feat/unwalked", kind="invalid_json"),
     )
-    assert any("feat/unwalked" in warning for warning in result.warnings)
+    assert any("feat/unwalked" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_warns_for_empty_branch_name(tmp_path: Path) -> None:
@@ -325,15 +286,8 @@ def test_gt_metadata_reader_warns_for_empty_branch_name(tmp_path: Path) -> None:
     assert isinstance(result, StackInfo)
     assert result.empty_branch_name_rows == 1
     assert any(
-        "Graphite metadata row has an empty branch_name" in warning for warning in result.warnings
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="load",
-            kind="empty_branch_name",
-            branch=None,
-        )
-        in result.diagnostics
+        "Graphite metadata row has an empty branch_name" in warning
+        for warning in result.render_warnings()
     )
 
 
@@ -352,15 +306,8 @@ def test_gt_metadata_reader_warns_for_ancestor_cycle(tmp_path: Path) -> None:
     assert result.ancestors == ("feat/b",)
     assert result.ancestor_termination == WalkCycle("feat/a")
     assert any(
-        "cycle detected in Graphite parent metadata" in warning for warning in result.warnings
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="ancestor",
-            kind="cycle",
-            branch="feat/a",
-        )
-        in result.diagnostics
+        "cycle detected in Graphite parent metadata" in warning
+        for warning in result.render_warnings()
     )
 
 
@@ -376,25 +323,15 @@ def test_gt_metadata_reader_warns_for_missing_parent(tmp_path: Path) -> None:
     assert result.ancestors == ("feat/missing-parent",)
     assert result.ancestor_termination == WalkRowMissing("feat/missing-parent")
     assert any(
-        "parent branch feat/missing-parent is missing" in warning for warning in result.warnings
+        "parent branch feat/missing-parent is missing" in warning
+        for warning in result.render_warnings()
     )
-    assert any("trunk row marker missing" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="ancestor",
-            kind="missing_row",
-            branch="feat/missing-parent",
-        )
-        in result.diagnostics
+    assert result.trunk_marker == TrunkMarkerProblem(
+        terminus="feat/missing-parent",
+        terminus_state="row_missing",
+        marked_trunks=(),
     )
-    assert (
-        StackWalkDiagnostic(
-            scope="trunk_marker",
-            kind="marker_missing",
-            branch="feat/missing-parent",
-        )
-        in result.diagnostics
-    )
+    assert any("trunk row marker missing" in warning for warning in result.render_warnings())
 
 
 def test_gt_metadata_reader_warns_for_descendant_cycle(tmp_path: Path) -> None:
@@ -413,15 +350,8 @@ def test_gt_metadata_reader_warns_for_descendant_cycle(tmp_path: Path) -> None:
     assert result.descendants == ("feat/a",)
     assert result.descendant_walk.termination == WalkCycle("feat/current")
     assert any(
-        "cycle detected in Graphite children metadata" in warning for warning in result.warnings
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="descendant",
-            kind="cycle",
-            branch="feat/current",
-        )
-        in result.diagnostics
+        "cycle detected in Graphite children metadata" in warning
+        for warning in result.render_warnings()
     )
 
 
@@ -440,15 +370,8 @@ def test_gt_metadata_reader_warns_for_missing_child(tmp_path: Path) -> None:
     assert result.descendants == ("feat/missing-child",)
     assert result.descendant_walk.termination == WalkRowMissing("feat/missing-child")
     assert any(
-        "child branch feat/missing-child is missing" in warning for warning in result.warnings
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="descendant",
-            kind="missing_row",
-            branch="feat/missing-child",
-        )
-        in result.diagnostics
+        "child branch feat/missing-child is missing" in warning
+        for warning in result.render_warnings()
     )
 
 
@@ -470,38 +393,12 @@ def test_gt_metadata_reader_warns_for_trunk_marker_anomalies(tmp_path: Path) -> 
         terminus_state="unmarked",
         marked_trunks=("other", "feat/current"),
     )
-    assert any("trunk row marker missing" in warning for warning in result.warnings)
-    assert any("multiple Graphite metadata rows" in warning for warning in result.warnings)
-    assert any("trunk marker differs" in warning for warning in result.warnings)
-    assert (
-        StackWalkDiagnostic(
-            scope="trunk_marker",
-            kind="marker_missing",
-            branch="main",
-        )
-        in result.diagnostics
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="trunk_marker",
-            kind="marker_multiple",
-            branch="main",
-            children=("other", "feat/current"),
-        )
-        in result.diagnostics
-    )
-    assert (
-        StackWalkDiagnostic(
-            scope="trunk_marker",
-            kind="marker_mismatch",
-            branch="main",
-            children=("other", "feat/current"),
-        )
-        in result.diagnostics
-    )
+    assert any("trunk row marker missing" in warning for warning in result.render_warnings())
+    assert any("multiple Graphite metadata rows" in warning for warning in result.render_warnings())
+    assert any("trunk marker differs" in warning for warning in result.render_warnings())
 
 
-def test_gt_metadata_reader_warnings_are_rendered_diagnostics(tmp_path: Path) -> None:
+def test_gt_metadata_reader_render_warnings_composes_integrity_model(tmp_path: Path) -> None:
     db_path = _build_metadata_db(
         tmp_path,
         [
@@ -516,7 +413,9 @@ def test_gt_metadata_reader_warnings_are_rendered_diagnostics(tmp_path: Path) ->
     result = read_stack_from_metadata_db(db_path, "feat/current")
 
     assert isinstance(result, StackInfo)
-    assert result.warnings == tuple(
-        render_stack_walk_warning(diagnostic) for diagnostic in result.diagnostics
+    assert result.render_warnings() == (
+        "children metadata for feat/a is not valid JSON; treating as no children",
+        "branch feat/current has 2 Graphite children; descendants follow the first child only",
+        "trunk row marker missing",
+        "Graphite metadata trunk marker differs from ancestor-walk terminus: other != main",
     )
-    assert result.render_warnings() == result.warnings

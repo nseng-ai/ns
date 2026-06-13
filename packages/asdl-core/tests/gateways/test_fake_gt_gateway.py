@@ -79,7 +79,6 @@ def test_fake_gt_gateway_stack_default_is_trunk_centered() -> None:
         current="main",
         ancestors=(),
         children=(),
-        warnings=(),
     )
     assert gateway.stack_calls == (Path("/repo"),)
 
@@ -104,7 +103,6 @@ def test_fake_gt_gateway_stack_by_cwd_overrides() -> None:
         current="feat/child",
         ancestors=("master", "feat/base"),
         children=(),
-        warnings=(),
     )
     gateway = FakeGtGateway(stack_by_cwd={cwd: snapshot})
 
@@ -134,7 +132,6 @@ def test_fake_gt_gateway_stack_plumbs_descendants() -> None:
         current="feat/middle",
         ancestors=("master", "feat/base"),
         children=("feat/child",),
-        warnings=(),
         descendants=("feat/child", "feat/grandchild"),
     )
     gateway = FakeGtGateway(stack_by_cwd={cwd: snapshot})
