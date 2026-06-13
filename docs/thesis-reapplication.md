@@ -82,7 +82,7 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
   as authored intent, not incidental notes.
 - **The PR for each source branch** (`gh pr view <n>`). The PR title and body are
   usually the cleanest statement of intent after any attached branch-context plan
-  — read them _before_ the diffs.
+  — read them *before* the diffs.
 - **Backups.** Snapshot every source tip before touching anything:
   `git update-ref refs/backup/<branch>-prefix <tip>`. This is mandatory — retirement
   (phase 6) deletes these branches, and the backup ref is the only undo.
@@ -90,19 +90,19 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
 ### 3. Extract the thesis
 
 The thesis is the **intent**, decoupled from any specific hunk. The diffs are
-_evidence_ of intent, not the artifact to salvage.
+*evidence* of intent, not the artifact to salvage.
 
 - **Read intent in source order:** attached branch-context plan, then PR
   description, then commit messages, then the diff. Earlier sources are authored
   intent; the diff is reverse-engineering and the last resort.
 - **Dedupe across branches.** If several branches express overlapping intent, collapse
   them into one thesis — but run `git diff <branchA> <branchB>` first to surface what
-  is _unique_ to each, so a lesser branch's contribution (often docs or objective
+  is *unique* to each, so a lesser branch's contribution (often docs or objective
   tracking) is not lost when you merge them down.
 - **Tag every piece core vs. incidental.** Some hunks rode along — an unrelated doc
   tweak, a drive-by fix — without being part of the intent. Tag those now; they become
   explicit keep/drop decisions surfaced early, not surprises at the end.
-- **Write a residue-grep acceptance set.** State the literal patterns that must _not_
+- **Write a residue-grep acceptance set.** State the literal patterns that must *not*
   exist once the thesis is fully applied (and any that must). The PR's own
   validation/evidence section usually hands you these. You will reuse this set three
   times: as the already-done probe (phase 4), the completion check, and the regression
@@ -127,7 +127,7 @@ done
 - **LIFT** — byte-identical at the baseline, so the thesis's exact transformation
   reproduces verbatim. In practice most files land here; copy the change across as-is.
 - **RE-DERIVE** — the file diverged; the baseline restructured it. Re-apply the
-  _intent_ against the new content, not the old hunk.
+  *intent* against the new content, not the old hunk.
 - **ALREADY-DONE** — run the acceptance greps against the baseline. Anything the new
   world already satisfies drops out of scope. **Verify these carefully** — a false
   "already done" silently drops a goal (see failure modes).
@@ -151,7 +151,7 @@ Keep them separate — they carry different risk and deserve different gates.
 5. Close the source PRs, pointing each at the new PR.
 6. Delete or untrack the stale branches. The phase-2 backups are the undo.
 
-Retirement is usually what satisfies the _other_ acceptance test — clean tracking
+Retirement is usually what satisfies the *other* acceptance test — clean tracking
 state, e.g. a `gt ls` with no divergence warning. Treat it as a deliberate, approved
 step, not a cleanup afterthought.
 
@@ -160,19 +160,19 @@ step, not a cleanup afterthought.
 Reapplication fails in exactly two directions; name them and guard both.
 
 - **Under-apply** — a goal silently dropped, almost always via a false "already done"
-  finding. _Guard:_ bias the already-done probe toward _not_ done; confirm every
+  finding. *Guard:* bias the already-done probe toward *not* done; confirm every
   negative finding ("nothing matches") with an independent method and a count, because
   a bad negative is the dangerous one — it removes scope without a trace. The
   acceptance greps are the backstop.
 - **Over-apply** — re-introducing something the baseline already has, or carrying an
-  incidental contaminant. _Guard:_ the divergence map (skip already-satisfied files)
+  incidental contaminant. *Guard:* the divergence map (skip already-satisfied files)
   and the core/incidental tagging from phase 3.
 
 ## Why it works
 
 A rewritten stack breaks the assumption every replay tool depends on: that the old
 commits and the new base share enough history to three-way merge. They do not. But
-the _change the author wanted_ is small and well-specified — and most of the files it
+the *change the author wanted* is small and well-specified — and most of the files it
 touched did not actually move on the new baseline. The divergence map proves that,
 turning the problem from "reconcile two incompatible histories" into "re-type a handful
 of edits and copy the rest." You stop fighting Git's history model and re-state the

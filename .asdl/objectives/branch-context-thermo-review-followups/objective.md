@@ -2,7 +2,7 @@
 
 ## Thesis
 
-The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-context-key-plumbing/structural-cleanups`) renamed planned-branch to branch-context and rethreaded the impl key, but a thermo-nuclear quality review found that the stack cleaned _around_ structural debt its own rewrite exposed rather than deleting it: optional-gateway plumbing repeated across five entry modules, a dead `unknown`-params validation layer, the canonical impl-command formatter stranded one layer too low, and new vocabulary docs that contradict ADR 0006's core decision. This objective completes the remediation **before the stack merges**, so the stack lands with self-consistent vocabulary, documented primitives, and the plumbing debt deleted rather than renamed.
+The branch-context vocabulary stack (`add-enriched-plan-vocabulary` → `branch-context-key-plumbing/structural-cleanups`) renamed planned-branch to branch-context and rethreaded the impl key, but a thermo-nuclear quality review found that the stack cleaned *around* structural debt its own rewrite exposed rather than deleting it: optional-gateway plumbing repeated across five entry modules, a dead `unknown`-params validation layer, the canonical impl-command formatter stranded one layer too low, and new vocabulary docs that contradict ADR 0006's core decision. This objective completes the remediation **before the stack merges**, so the stack lands with self-consistent vocabulary, documented primitives, and the plumbing debt deleted rather than renamed.
 
 ## Scope
 

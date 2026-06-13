@@ -33,7 +33,7 @@ For each `patch(...)` call, identify the **system boundary** (tool or service), 
 
 > **`subprocess.run` and raw filesystem operations (`pathlib.Path.*`, `os.*`, `shutil.*`) are never the right gateway boundary.**
 
-The gateway should be named after the _tool_ or _capability_ being used, not the mechanism:
+The gateway should be named after the *tool* or *capability* being used, not the mechanism:
 
 | Mock target                                               | Wrong gateway       | Right gateway          |
 | --------------------------------------------------------- | ------------------- | ---------------------- |
@@ -216,11 +216,11 @@ Is there a gateway for this operation?
 
 ### Pitfall 1: Wrong gateway level
 
-If `shutil.which("tool")` and `subprocess.run(["tool", ...])` are both mocked in the same test, the gateway should cover _both_ — something like `ToolGateway` with an `is_available()` method and operation methods. Don't create separate gateways for availability checks vs execution.
+If `shutil.which("tool")` and `subprocess.run(["tool", ...])` are both mocked in the same test, the gateway should cover *both* — something like `ToolGateway` with an `is_available()` method and operation methods. Don't create separate gateways for availability checks vs execution.
 
 ### Pitfall 2: primitive-level gateways (subprocess, filesystem, HTTP)
 
-If you find yourself designing a gateway called `ShellRunner`, `SubprocessGateway`, `CommandRunner`, `FileSystemGateway`, `FilesystemAdapter`, or `HttpClient`, stop. That's still mocking at the wrong level. The gateway must be specific to the _tool_ or _capability_ being used — `GitCli`, `NpxSkillsClient`, `EnvLayoutStore`, `ProjectManifestStore`, `PaymentGateway` — not to the OS primitive through which it executes.
+If you find yourself designing a gateway called `ShellRunner`, `SubprocessGateway`, `CommandRunner`, `FileSystemGateway`, `FilesystemAdapter`, or `HttpClient`, stop. That's still mocking at the wrong level. The gateway must be specific to the *tool* or *capability* being used — `GitCli`, `NpxSkillsClient`, `EnvLayoutStore`, `ProjectManifestStore`, `PaymentGateway` — not to the OS primitive through which it executes.
 
 ### Pitfall 3: Forgetting production wiring
 

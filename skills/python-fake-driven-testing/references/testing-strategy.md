@@ -140,7 +140,7 @@ def test_real_database_executes_correct_query(monkeypatch: pytest.MonkeyPatch) -
 All real-gateway sanity tests live in `tests/gateways/test_real_gateways.py`.
 Group them by gateway using a `TestReal<GatewayName>` class or `# region`
 comment — one section per real implementation (RealDatabaseAdapter,
-RealApiClient, …). Note: this file is for _mock-based_ sanity checks. Real
+RealApiClient, …). Note: this file is for *mock-based* sanity checks. Real
 end-to-end integration tests against actual systems live in `tests/integration/`.
 
 ## Layer 3 "pure": Pure Unit Tests

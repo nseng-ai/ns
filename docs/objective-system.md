@@ -406,17 +406,17 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 
 Good CLI responsibilities:
 
-- Validate slugs and paths. _(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)_
-- List candidate objectives from checkout-local active-root records. _(shipped: `objective list`.)_
-- Detect closed markers. _(shipped for active-root records: `objective list` and `objective exec read-objective` both report closed state.)_
-- Move Objective records between active and archived roots without editing prose. _(shipped: `objective archive`.)_
-- Summarize runner-subagent session usage for Objective stack digestion. _(shipped: `objective exec runner-subagent-usage`.)_
-- Scaffold required files and headings. _(future.)_
-- Detect missing `## Assumptions and Risks` sections. _(future.)_
-- Generate timestamped update filenames. _(future.)_
-- Report changed-path facts for an explicitly selected objective. _(future.)_
-- Collect read-only Tracking Gate evidence. _(future.)_
-- Enforce one-objective-per-update guardrails. _(future.)_
+- Validate slugs and paths. *(partially shipped: `objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
+- List candidate objectives from checkout-local active-root records. *(shipped: `objective list`.)*
+- Detect closed markers. *(shipped for active-root records: `objective list` and `objective exec read-objective` both report closed state.)*
+- Move Objective records between active and archived roots without editing prose. *(shipped: `objective archive`.)*
+- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `objective exec runner-subagent-usage`.)*
+- Scaffold required files and headings. *(future.)*
+- Detect missing `## Assumptions and Risks` sections. *(future.)*
+- Generate timestamped update filenames. *(future.)*
+- Report changed-path facts for an explicitly selected objective. *(future.)*
+- Collect read-only Tracking Gate evidence. *(future.)*
+- Enforce one-objective-per-update guardrails. *(future.)*
 
 Responsibilities that should remain LM/human-authored:
 

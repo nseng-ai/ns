@@ -88,7 +88,7 @@ Set `RESTACK_SCOPE` before running any restack command.
 
 Rules:
 
-- **Single-PR / tip stacks: never ask about scope.** _Before_ choosing scope or
+- **Single-PR / tip stacks: never ask about scope.** *Before* choosing scope or
   prompting, run `gt children --no-interactive` for the current branch. If it
   succeeds with empty stdout, no branch is stacked directly above the current
   branch, so full and downstack are the **same** operation: skip the scope
