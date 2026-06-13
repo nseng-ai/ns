@@ -62,16 +62,21 @@ gt's stack bookkeeping stays intact — or switch to the
 
 ## Driver contract
 
-A driver skill may override exactly three things:
+A driver skill may override exactly four things:
 
 1. **Continue command** — e.g. `gt continue` instead of the mode default.
 2. **Extra bail-out conditions** — e.g. "a conflict surfaces in a branch
    outside the selected scope".
 3. **Post-completion checks** — e.g. `gt log` / `gt ls` after the final
    continue.
+4. **Escalation channel** — default/bare mode is `user`. A driver may set
+   `return-to-parent`, meaning step 5 emits the escalation payload, leaves the
+   operation stopped, and does not run the continue command.
 
 Everything else — classification, region-only edits, the verification gate,
-escalation format, abort policy — is engine policy and not overridable.
+escalation format, abort policy, and the payload content — is engine policy and
+not overridable. The escalation destination/channel is the only escalation
+behavior a driver may override.
 
 ## The decisive technique: intent-diff
 
@@ -147,6 +152,11 @@ the continue command:
 
 ### 5. Escalate
 
+When a conflict falls outside the safe set, or verification failure forces
+escalation, branch on the configured **escalation channel**.
+
+#### Channel: `user` (default/bare mode)
+
 Pause and hand the decision to the user. Present:
 
 - both sides of the conflict region,
@@ -155,6 +165,19 @@ Pause and hand the decision to the user. Present:
 
 Use AskUserQuestion or an inline prompt. On the user's decision: apply it,
 `git add`, run the continue command, and **auto-resume** the loop.
+
+#### Channel: `return-to-parent` (driver mode)
+
+Do **not** prompt the user, do **not** apply a guessed resolution, and do
+**not** run the continue command. Leave the operation stopped at the current
+conflict and return the escalation payload to the driver. Include:
+
+- affected file path,
+- both sides of the conflict region,
+- the intent-diff,
+- a proposed resolution with reasoning,
+- why the conflict is outside the safe set, and
+- current repository state from `git status`.
 
 ### 6. Continue and loop
 
