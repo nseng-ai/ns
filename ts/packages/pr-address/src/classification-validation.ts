@@ -1,8 +1,9 @@
+import { z } from "zod";
+
 import {
 	buildFeedbackManifestView,
 	classificationPacketSchema,
 	duplicateValues,
-	manifestKindForPayload,
 	schemaErrors,
 	type ClassificationBodyLocatorRef,
 	type ClassificationDisposition,
@@ -15,27 +16,16 @@ import {
 } from "./classification-shared.ts";
 import { type ThreadManifestItem } from "./feedback-manifest-contracts.ts";
 import { pythonReprOrNull as pythonRepr } from "./string-values.ts";
-import { type ActionComplexity, type InformationalReason } from "./feedback-plan-contracts.ts";
+import {
+	feedbackPlanningValidationResultSchema,
+	type ActionComplexity,
+	type FeedbackPlanningValidationResult,
+	type InformationalReason,
+} from "./feedback-plan-contracts.ts";
 
 type ExactOnceCodePrefix = "review" | "thread" | "thread_comment" | "discussion_comment";
 
-export interface FeedbackClassificationValidationResult {
-	valid: boolean;
-	manifest_kind: ManifestKind;
-	pr_number: number | null;
-	payload_path: string | null;
-	counts: {
-		reviews_expected: number;
-		reviews_classified: number;
-		review_threads_expected: number;
-		review_threads_classified: number;
-		thread_comments_expected: number;
-		thread_comments_covered: number;
-		discussion_comments_expected: number;
-		discussion_comments_classified: number;
-	};
-	errors: FeedbackClassificationValidationError[];
-}
+export type FeedbackClassificationValidationResult = z.infer<typeof feedbackPlanningValidationResultSchema>;
 
 interface FeedbackClassificationValidationArtifacts {
 	validation: FeedbackClassificationValidationResult;
@@ -48,8 +38,7 @@ export function validateFeedbackClassification(input: { manifest: unknown; class
 }
 
 export function validateFeedbackClassificationArtifacts(input: { manifest: unknown; classification: unknown }): FeedbackClassificationValidationArtifacts {
-	const manifestKind = manifestKindForPayload(input.manifest);
-	const { view, errors: manifestErrors } = buildFeedbackManifestView(input.manifest);
+	const { view, kind, errors: manifestErrors } = buildFeedbackManifestView(input.manifest);
 	const { packet, errors: packetErrors } = classificationPacket(input.classification);
 	const counts = validationCounts(view, packet);
 	const errors = [...manifestErrors, ...packetErrors];
@@ -61,15 +50,17 @@ export function validateFeedbackClassificationArtifacts(input: { manifest: unkno
 		errors.push(...validateItemSemantics(packet));
 	}
 
+	const validation: FeedbackPlanningValidationResult = {
+		valid: errors.length === 0,
+		manifest_kind: kind,
+		pr_number: view?.prNumber ?? null,
+		payload_path: view?.payloadPath ?? null,
+		counts,
+		errors,
+	};
+
 	return {
-		validation: {
-			valid: errors.length === 0,
-			manifest_kind: view?.kind ?? manifestKind,
-			pr_number: view?.prNumber ?? null,
-			payload_path: view?.payloadPath ?? null,
-			counts,
-			errors,
-		},
+		validation,
 		manifestView: view,
 		classificationPacket: packet,
 	};

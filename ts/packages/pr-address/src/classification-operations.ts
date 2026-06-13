@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 
-import { buildFeedbackClassificationTemplate } from "./classification-packet.ts";
+import { buildFeedbackClassificationTemplate } from "./classification-template.ts";
 import { planFeedback } from "./classification-planning.ts";
 import { validateFeedbackClassification } from "./classification-validation.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
