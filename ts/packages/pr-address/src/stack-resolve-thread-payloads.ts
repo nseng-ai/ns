@@ -4,6 +4,8 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 import { buildThreadResolutionDecision, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
+import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
+import { trimOptional, trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 
@@ -65,7 +67,6 @@ const stackPlanConsumerSchema = z.looseObject({
 });
 
 type StackResolveThreadDecision = z.infer<typeof stackResolveThreadDecisionSchema>;
-type StackPlanConsumer = z.infer<typeof stackPlanConsumerSchema>;
 type StackPlanItem = z.infer<typeof stackPlanItemSchema>;
 /** Serialized `(pr_number, thread_id)` identity used for Map/Set keys. */
 type ThreadKey = string;
@@ -215,7 +216,7 @@ export function buildStackResolveThreadPayloads(input: unknown): BuildStackResol
 	}
 
 	const candidates = allThreadItems.filter((item) => trimOptional(item.thread_id) !== null);
-	const selectedKeys = new Set(candidates.map((item) => threadKey(item.pr_number, trimRequired(item.thread_id))));
+	const selectedKeys = new Set(candidates.map((item) => threadKeyString(item.pr_number, trimRequired(item.thread_id))));
 	const selectedByThread = itemsByThread(candidates);
 	const otherBatchByKey = otherBatchReviewThreads(stackPlan, batchId);
 	const informationalKeys = informationalReviewThreadKeys(stackPlan);
@@ -231,7 +232,7 @@ export function buildStackResolveThreadPayloads(input: unknown): BuildStackResol
 	});
 
 	for (const item of candidates) {
-		const key = threadKey(item.pr_number, trimRequired(item.thread_id));
+		const key = threadKeyString(item.pr_number, trimRequired(item.thread_id));
 		if (!decisionsByKey.has(key)) {
 			errors.push(
 				errorItem({
@@ -249,7 +250,7 @@ export function buildStackResolveThreadPayloads(input: unknown): BuildStackResol
 	const skippedByPr = new Map<number, StackSkippedResolveThreadItem[]>();
 	for (const item of candidates) {
 		const threadId = trimRequired(item.thread_id);
-		const key = threadKey(item.pr_number, threadId);
+		const key = threadKeyString(item.pr_number, threadId);
 		const decision = decisionsByKey.get(key);
 		if (duplicateKeys.has(key) || decision === undefined) continue;
 		const built = buildThreadResolutionDecision({
@@ -373,7 +374,7 @@ function validateDecisionReferences(options: {
 			);
 			return;
 		}
-		const key = threadKey(decision.pr_number, threadId);
+		const key = threadKeyString(decision.pr_number, threadId);
 		if (decisionsByKey.has(key)) {
 			duplicateKeys.add(key);
 			options.errors.push(
@@ -515,41 +516,6 @@ function ignoredNonThreadItems(items: readonly StackPlanItem[]): StackIgnoredNon
 	return ignored;
 }
 
-function itemsByThread(items: readonly StackPlanItem[]): Map<string, StackPlanItem[]> {
-	const grouped = new Map<string, StackPlanItem[]>();
-	for (const item of items) {
-		const threadId = trimOptional(item.thread_id);
-		if (threadId === null) continue;
-		const existing = grouped.get(threadId);
-		if (existing === undefined) grouped.set(threadId, [item]);
-		else existing.push(item);
-	}
-	return grouped;
-}
-
-function otherBatchReviewThreads(stackPlan: StackPlanConsumer, selectedBatchId: string): Map<ThreadKey, string> {
-	const lookup = new Map<ThreadKey, string>();
-	for (const batch of stackPlan.batches) {
-		if (batch.batch_id === selectedBatchId) continue;
-		for (const item of batch.items) {
-			if (item.source_kind !== "review_thread") continue;
-			const threadId = trimOptional(item.thread_id);
-			if (threadId !== null) lookup.set(threadKey(item.pr_number, threadId), batch.batch_id);
-		}
-	}
-	return lookup;
-}
-
-function informationalReviewThreadKeys(stackPlan: StackPlanConsumer): Set<ThreadKey> {
-	const keys = new Set<ThreadKey>();
-	for (const item of stackPlan.informational) {
-		if (item.source_kind !== "review_thread") continue;
-		const threadId = trimOptional(item.thread_id);
-		if (threadId !== null) keys.add(threadKey(item.pr_number, threadId));
-	}
-	return keys;
-}
-
 function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {
 	const seen = new Set<string>();
 	for (const item of items) {
@@ -635,20 +601,4 @@ function appendForPr<T>(grouped: Map<number, T[]>, prNumber: number, value: T): 
 	const existing = grouped.get(prNumber);
 	if (existing === undefined) grouped.set(prNumber, [value]);
 	else existing.push(value);
-}
-
-function threadKey(prNumber: number, threadId: string): ThreadKey {
-	return `${prNumber}\u0000${threadId}`;
-}
-
-function trimOptional(value: string | null | undefined): string | null {
-	if (value === null || value === undefined) return null;
-	const trimmed = value.trim();
-	return trimmed === "" ? null : trimmed;
-}
-
-function trimRequired(value: string | null | undefined): string {
-	const trimmed = trimOptional(value);
-	if (trimmed === null) throw new Error("Expected non-empty string.");
-	return trimmed;
 }

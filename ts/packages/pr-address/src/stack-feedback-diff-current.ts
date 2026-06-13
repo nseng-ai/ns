@@ -4,6 +4,8 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
+import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys, plannedPrNumbers, threadKey, threadKeyString, type ThreadKey } from "./stack-feedback-thread-index.ts";
+import { trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
@@ -80,7 +82,6 @@ type StackFeedbackPlanResult = z.infer<typeof stackFeedbackPlanResultSchema>;
 type StackFeedbackPrepResult = z.infer<typeof stackFeedbackPrepResultSchema>;
 type StackFeedbackPrepPr = z.infer<typeof stackFeedbackPrepPrSchema>;
 type ThreadManifestItem = z.infer<typeof threadManifestItemSchema>;
-type ThreadKey = readonly [number, string];
 
 interface DiffCurrentError {
 	code: string;
@@ -169,7 +170,7 @@ function diffValidStackFeedback(options: {
 	for (const item of options.plannedActionable) {
 		const key = threadKey(item.pr_number, item.thread_id);
 		if (key === null) continue;
-		const currentThread = options.currentByKey.get(stringKey(key));
+		const currentThread = options.currentByKey.get(threadKeyString(key[0], key[1]));
 		if (currentThread === undefined) {
 			missingOrOutdated.push(missingOrOutdatedThread(item, "missing_current_thread"));
 			continue;
@@ -331,7 +332,7 @@ function currentThreadsByKey(currentPrep: StackFeedbackPrepResult): { currentByK
 				errors.push(errorItem("invalid_current_thread", "current_prep review thread must include a non-empty thread_id.", { prNumber: prResult.pr_number }));
 				continue;
 			}
-			const serializedKey = stringKey(key);
+			const serializedKey = threadKeyString(key[0], key[1]);
 			if (currentByKey.has(serializedKey)) {
 				errors.push(errorItem("duplicate_current_thread", `current_prep contains duplicate PR #${key[0]} thread ${key[1]}.`, { prNumber: key[0], threadId: key[1] }));
 				continue;
@@ -392,7 +393,7 @@ function newUnresolvedThreads(options: { currentPrep: StackFeedbackPrepResult; p
 	for (const prResult of options.currentPrep.stack) {
 		for (const thread of prResult.manifest.review_threads) {
 			const key = threadKey(prResult.pr_number, thread.thread_id);
-			if (key === null || thread.is_resolved || options.plannedKnownKeys.has(stringKey(key))) continue;
+			if (key === null || thread.is_resolved || options.plannedKnownKeys.has(threadKeyString(key[0], key[1]))) continue;
 			items.push({
 				pr_number: prResult.pr_number,
 				branch: prResult.branch,
@@ -410,50 +411,6 @@ function newUnresolvedThreads(options: { currentPrep: StackFeedbackPrepResult; p
 	return items;
 }
 
-function plannedPrNumbers(stackPlan: StackFeedbackPlanResult): number[] {
-	if (stackPlan.validation.per_pr.length > 0) return stackPlan.validation.per_pr.map((item) => item.pr_number);
-	const prNumbers: number[] = [];
-	for (const batch of stackPlan.batches) {
-		for (const item of batch.items) prNumbers.push(item.pr_number);
-	}
-	for (const item of stackPlan.informational) prNumbers.push(item.pr_number);
-	return [...new Set(prNumbers)];
-}
-
-function actionableReviewThreadItems(stackPlan: StackFeedbackPlanResult): StackFeedbackPlanItem[] {
-	return stackPlan.batches.flatMap((batch) => batch.items.filter((item) => item.source_kind === "review_thread"));
-}
-
-function knownReviewThreadKeys(stackPlan: StackFeedbackPlanResult): ReadonlySet<string> {
-	const keys = new Set<string>();
-	for (const item of [...actionableReviewThreadItems(stackPlan), ...stackPlan.informational.filter((item) => item.source_kind === "review_thread")]) {
-		const key = threadKey(item.pr_number, item.thread_id);
-		if (key !== null) keys.add(stringKey(key));
-	}
-	return keys;
-}
-
-function threadKey(prNumber: number, threadId: string | null): ThreadKey | null {
-	const trimmed = trimOptional(threadId);
-	if (trimmed === null) return null;
-	return [prNumber, trimmed];
-}
-
-function duplicateThreadKeys(keys: readonly ThreadKey[]): ThreadKey[] {
-	const seen = new Set<string>();
-	const duplicates: ThreadKey[] = [];
-	const duplicateStrings = new Set<string>();
-	for (const key of keys) {
-		const serialized = stringKey(key);
-		if (seen.has(serialized) && !duplicateStrings.has(serialized)) {
-			duplicates.push(key);
-			duplicateStrings.add(serialized);
-		}
-		seen.add(serialized);
-	}
-	return duplicates;
-}
-
 function duplicateNumbers(values: readonly number[]): number[] {
 	const seen = new Set<number>();
 	const duplicates: number[] = [];
@@ -462,20 +419,6 @@ function duplicateNumbers(values: readonly number[]): number[] {
 		seen.add(value);
 	}
 	return duplicates;
-}
-
-function trimOptional(value: string | null): string | null {
-	if (value === null) return null;
-	const trimmed = value.trim();
-	return trimmed === "" ? null : trimmed;
-}
-
-function trimRequired(value: string | null): string {
-	return trimOptional(value) ?? "";
-}
-
-function stringKey(key: ThreadKey): string {
-	return `${key[0]}\u0000${key[1]}`;
 }
 
 interface ErrorItemOptions {

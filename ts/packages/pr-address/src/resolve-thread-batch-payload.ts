@@ -10,6 +10,7 @@ import {
 } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { isRecord } from "./operation-support.ts";
+import { trimOptional, trimRequired } from "./string-values.ts";
 
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
 const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE =
@@ -488,16 +489,5 @@ function isResolutionMode(value: string | null): value is ResolutionMode {
 	return value === "fixed" || value === "pre_existing" || value === "explained" || value === "planned";
 }
 
-function trimOptional(value: string | null | undefined): string | null {
-	if (value === null || value === undefined) return null;
-	const trimmed = value.trim();
-	return trimmed === "" ? null : trimmed;
-}
-
-function trimRequired(value: string | null | undefined): string {
-	const trimmed = trimOptional(value);
-	if (trimmed === null) throw new Error("Expected non-empty string.");
-	return trimmed;
-}
 
 export type { BuildResolveThreadBatchPayloadResult, FeedbackPlan, FeedbackPlanActionItem, FeedbackPlanBatch };

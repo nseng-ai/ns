@@ -5,6 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { PayloadStore, type PayloadClock, type PayloadReference, type PayloadResult } from "./payload-store.ts";
+import { trimOptional, trimRequired } from "./string-values.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -655,12 +656,3 @@ function difference(left: ReadonlySet<string>, right: ReadonlySet<string>): stri
 	return [...left].filter((value) => !right.has(value));
 }
 
-function trimOptional(value: string | null | undefined): string | null {
-	if (value === null || value === undefined) return null;
-	const trimmed = value.trim();
-	return trimmed === "" ? null : trimmed;
-}
-
-function trimRequired(value: string | null | undefined): string {
-	return trimOptional(value) ?? "";
-}
