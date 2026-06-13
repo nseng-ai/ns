@@ -6,6 +6,7 @@ Dependency gate lifted (2026-06-13): the predecessor `pr-address-typescript-port
 
 - [ ] Re-ground the evidence on a fresh TypeScript run.
   - Capture one real single-PR `pr-address` run on the TS CLI and record the composed-payload glue the agent builds by hand between helpers (replacing the stale 2026-06-11 Python-heredoc evidence). This quantifies the problem against the live tool and seeds the descriptor design.
+  - Policy: `objective-next` may execute this row after preview confirmation as bounded local evidence gathering. It may inspect the TS CLI and skill docs, run non-mutating `pr-address` helpers, capture a transcript or notes, and write Objective tracking for the findings. It must not resolve/reply to GitHub review threads, push, submit PRs, or perform any write-capable external action without a separate explicit confirmation.
   - Evidence: a run transcript or update note enumerating each hand-built wrapper (`{manifest, classification}`, `{plan, batch_id, commit_sha, decisions}`, the eight-field checkpoint, `{feedback, checkpoints}`) and the step that composes it.
 - [ ] Define the session artifact-kind and resolution contract.
   - Reserved PR-scoped descriptors per artifact kind; latest-of-kind as max sequence among matching descriptors; no index file. Validate the contract against both single-PR and stack flows on paper before any helper migrates — this resolves the descriptor-taxonomy and reference-format open questions. Cover the newer stack helpers (`stack-feedback-preflight`, `stack-feedback-diff-current`) and their references.

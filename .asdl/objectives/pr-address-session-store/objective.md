@@ -83,6 +83,22 @@ Output and input contract:
 - Composed-payload input paths for pipeline-produced artifacts no longer exist in the CLI surface or the skill docs.
 - The skill references (`SKILL.md` and `references/cli-*.md`) describe only the session-store flow for both single-PR and stack runs.
 
+## Definition of Progress
+
+Progress means replacing agent-composed pipeline wrappers with session-resolved artifacts while preserving the `pr-address` safety contract: validate before mutate, no implicit mutation inputs, and no push/submission side effects. Evidence-gathering progress may consist of a real or dry-run TypeScript `pr-address` transcript that identifies every hand-built wrapper the current helper surface still requires; implementation progress must include code, tests, and skill-reference updates appropriate to the slice.
+
+## Runner Policy
+
+`objective-next` may offer and, after explicit preview confirmation, execute bounded local work for this Objective when the selected roadmap row is one of:
+
+- evidence gathering against the TypeScript `pr-address` CLI and skill docs;
+- read-only contract/design investigation for the session artifact taxonomy and resolution rules;
+- local code, test, or skill-documentation edits implementing one roadmap slice.
+
+Allowed actions are local repository inspection, local command execution, local artifact/transcript capture, local file edits, and Objective tracking updates under `.asdl/objectives/pr-address-session-store/`. Network reads through `gh` are allowed for PR evidence. Write-capable external actions are out of scope unless separately and explicitly confirmed: resolving/replying to GitHub review threads, pushing branches, submitting PRs, publishing packages, or deployment. Mutation-helper dry runs or payload builds are allowed only when they do not write to GitHub; actual review-thread replies or resolutions require a separate explicit confirmation naming that external write.
+
+Each execution preview must name the selected roadmap row, intended files or commands, validation plan, stop/ask conditions, and whether Objective tracking will be updated. Stop and ask if the run would require real GitHub mutations, a stack-wide migration beyond the selected row, descriptor taxonomy choices not already resolved in the Objective, or evidence that contradicts the thesis.
+
 ## Assumptions and Risks
 
 Assumptions:
