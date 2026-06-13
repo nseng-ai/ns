@@ -1,6 +1,6 @@
 ---
 name: enriched-plan-save
-description: Use when a user explicitly wants to write and save a Saved plan/source-branch plan file for later branch-context creation — "write a plan", "save a branch-context plan", "prepare a plan for a fresh implementation session" — or to continue a Pi `/enriched-plan:save` or `/enriched-plan:grill-and-save` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to write and save a Saved plan/source-branch plan file as an enriched plan for later branch-context attachment — "write a plan", "save an enriched plan", "prepare a plan for a fresh implementation session" — or to continue a Pi `/enriched-plan:save` or `/enriched-plan:grill-and-save` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
 # enriched-plan-save

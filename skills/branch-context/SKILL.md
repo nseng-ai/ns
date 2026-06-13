@@ -1,6 +1,6 @@
 ---
 name: branch-context
-description: "Use for explicit branch-context lifecycle, reference, diagnostics, admin, or repair work: branch-context, branch context, saved branch-context plan, Local plan store, Source branch plan file, branch-context slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair branch-context metadata, or Pi commands `/enriched-plan:save`, `/enriched-plan:grill-and-save`, `/branch-context:from-plan`, `/branch-context:upstack-impl-session`, `/branch-context:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless branch-context intent is explicit."
+description: "Use for explicit branch-context lifecycle, reference, diagnostics, admin, or repair work: branch-context, branch context, enriched-plan Local plan store, Source branch plan file, branch-context slug, Attached plan, Branch Memory attachment, change source branch, move/copy saved plan, retarget plan, inspect plan store, repair branch-context metadata, or Pi commands `/branch-context:from-plan`, `/branch-context:upstack-impl-session`, `/branch-context:impl`. Do not use for generic planning, generic branch creation, or generic implementation requests unless branch-context intent is explicit."
 ---
 
 # branch-context
@@ -12,7 +12,7 @@ Shared lifecycle, terminology, safety posture, diagnostics, and administration f
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
 - `enriched-plan-save` — save a source-branch plan.
-- `from-plan` — create a branch context from a saved plan and attach it.
+- `from-plan` — create a branch and attach `plan.md` as branch context from a saved plan.
 - `branch-context-impl` — load and implement an attached plan.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
