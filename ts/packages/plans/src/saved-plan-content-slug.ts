@@ -1,5 +1,5 @@
 import type { CommandExecApi } from "@asdl/core/exec";
-import { buildContentSlugPrompt, deriveContentSlug, type ContentSlugDerivationVariant, type ContentSlugEvidence } from "@asdl/plans";
+import { buildContentSlugPrompt, deriveContentSlug, type ContentSlugDerivationVariant, type ContentSlugEvidence } from "./content-slug-derivation.ts";
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
 

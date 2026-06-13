@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/branch-context/saved-plan-content-slug.ts";
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@asdl/plans";
+import {
+	DEFAULT_FAST_MODEL,
+	buildSavedPlanContentSlugPrompt,
+	buildSlugModelArgs,
+	deriveSavedPlanContentSlug,
+} from "../src/index.ts";
 import type { ExecResult } from "@asdl/core/exec";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 

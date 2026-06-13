@@ -9,6 +9,7 @@ import type { ExecOptions, ExecResult } from "@asdl/core/exec";
 import {
 	DEFAULT_FAST_MODEL,
 	buildRepoPlanStoreKey,
+	buildSavedPlanContentSlugPrompt,
 	buildSlugModelArgs,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
@@ -23,7 +24,6 @@ import {
 	type ToolContext,
 	type ToolDefinition,
 } from "../src/branch-context-extension.ts";
-import { buildSavedPlanContentSlugPrompt } from "../src/branch-context/saved-plan-content-slug.ts";
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../..");
