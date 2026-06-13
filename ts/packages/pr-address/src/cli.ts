@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { emitExit, failure, type ClinkrExit } from "@asdl/clinkr";
+import { emitExit, failure, type ClinkrExit, type ClinkrFormat } from "@asdl/clinkr";
 import { formatErrorMessage } from "@asdl/core";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
@@ -84,22 +84,28 @@ async function runExecCommand(args: readonly string[], deps: RequiredCliDeps): P
 		}
 	}
 
+	const formatOptions = parseFormatOptions(args.slice(1));
+	if (formatOptions.type === "error") {
+		deps.stderr(`${formatOptions.message}\n`);
+		return 2;
+	}
+
 	const registeredOperation = deps.registry.get(operation);
 	if (registeredOperation !== undefined) {
 		if (registeredOperation.isRepoContextRequired === true) {
 			const preconditionExit = await repoContextPreconditionExit(deps);
 			if (preconditionExit !== undefined) {
 				return emitExit(preconditionExit, {
-					format: hasFormatJson(args) ? "json" : "human",
+					format: formatOptions.format,
 					io: { stdout: deps.stdout, stderr: deps.stderr },
 				});
 			}
 		}
-		const dispatchResult = await registeredOperation.handler({ operation, args: args.slice(1), deps });
+		const dispatchResult = await registeredOperation.handler({ operation, args: formatOptions.args, deps });
 		switch (dispatchResult.type) {
 			case "exit":
 				return emitExit(dispatchResult.exit, {
-					format: hasFormatJson(args) ? "json" : "human",
+					format: formatOptions.format,
 					io: { stdout: deps.stdout, stderr: deps.stderr },
 				});
 			case "raw-exit":
@@ -144,9 +150,41 @@ function execHelp(): string {
 	return `Usage: pr-address exec <operation> [args...]\n\nOperations for the pr-address skill.\n\nCurrent behavior:\n  pr-address exec <operation> [args...] dispatches to TypeScript. The legacy Python pr-address CLI is invoked only for unknown operations and a few invalid-argument shapes (click usage-error rendering), with the same arguments, stdin, stdout, stderr, and exit code.\n\nOperations (all TypeScript-managed):\n  build-resolve-thread-batch-payload\n  build-stack-resolve-thread-payloads\n  classification-template\n  finalize-run\n  get-feedback\n  map-branch-prs\n  plan-feedback\n  prepare-run\n  read-feedback-detail\n  read-feedback-details\n  record-batch-checkpoint\n  reply-to-discussion\n  reply-to-review\n  resolve-thread-batch\n  resolve-thread-with-reply\n  stack-feedback-diff-current\n  stack-feedback-plan\n  stack-feedback-preflight\n  stack-feedback-prep\n  summarize-feedback\n  validate-feedback-classification\n\nExamples:\n  pr-address exec prepare-run --payload-session-id pr-address-demo --format json\n  pr-address exec validate-feedback-classification --format json\n`;
 }
 
-function hasFormatJson(args: readonly string[]): boolean {
-	const formatIndex = args.indexOf("--format");
-	return formatIndex >= 0 && args[formatIndex + 1] === "json";
+type FormatOptionsResult = { type: "ok"; format: ClinkrFormat; args: readonly string[] } | { type: "error"; message: string };
+
+function parseFormatOptions(args: readonly string[]): FormatOptionsResult {
+	const handlerArgs: string[] = [];
+	let format: ClinkrFormat = "human";
+	let hasFormat = false;
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		if (arg === undefined) continue;
+		if (arg === "--format") {
+			const value = args[index + 1];
+			if (value === undefined) return { type: "error", message: "--format requires a value." };
+			const parsed = parseFormatValue(value);
+			if (parsed.type === "error") return parsed;
+			if (!hasFormat) format = parsed.format;
+			hasFormat = true;
+			index += 1;
+			continue;
+		}
+		if (arg.startsWith("--format=")) {
+			const parsed = parseFormatValue(arg.slice("--format=".length));
+			if (parsed.type === "error") return parsed;
+			if (!hasFormat) format = parsed.format;
+			hasFormat = true;
+			continue;
+		}
+		handlerArgs.push(arg);
+	}
+	return { type: "ok", format, args: handlerArgs };
+}
+
+function parseFormatValue(value: string): { type: "ok"; format: ClinkrFormat } | { type: "error"; message: string } {
+	if (value === "json") return { type: "ok", format: "json" };
+	if (value === "human" || value === "markdown" || value === "md") return { type: "ok", format: "human" };
+	return { type: "error", message: `Invalid value for '--format': '${value}' is not one of 'human', 'json', 'markdown', 'md'.` };
 }
 
 async function readProcessStdin(): Promise<string> {

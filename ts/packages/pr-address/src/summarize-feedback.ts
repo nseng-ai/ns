@@ -1,7 +1,7 @@
 import { failure, negative, ok } from "@asdl/clinkr";
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions, githubGateway, parsePrNumberOperation } from "./operation-support.ts";
+import { gatewayFailureMessage, gatewayOptions, githubGateway, parsePrNumberOperation, parseStrictInteger } from "./operation-support.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
@@ -101,10 +101,9 @@ export async function runSummarizeFeedbackOperation(invocation: ExecOperationInv
 	const rawBodyChars = parsed.values.get("--body-chars");
 	let bodyChars = DEFAULT_BODY_CHARS;
 	if (rawBodyChars !== undefined) {
-		const numericBodyChars = Number(rawBodyChars);
-		// Non-integer values keep legacy click usage-error behavior.
-		if (!Number.isInteger(numericBodyChars)) return { type: "fallback" };
-		bodyChars = numericBodyChars;
+		const parsedBodyChars = parseStrictInteger(rawBodyChars);
+		if (parsedBodyChars === undefined) return { type: "exit", exit: failure("invalid_request", "body_chars must be an integer") };
+		bodyChars = parsedBodyChars;
 	}
 	if (bodyChars < 1 || bodyChars > MAX_BODY_CHARS) {
 		return { type: "exit", exit: failure("invalid_request", `body_chars must be between 1 and ${MAX_BODY_CHARS}`) };

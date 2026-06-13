@@ -6,7 +6,7 @@ import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGatew
 import { loadJsonInput } from "./json-input.ts";
 import { parseManagedOptions } from "./managed-options.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
-import { gatewayFailureDetail } from "./operation-support.ts";
+import { gatewayFailureDetail, parseStrictInteger } from "./operation-support.ts";
 import { formatDiscussionReply, formatResolutionReply, formatReviewReply, type ResolutionProvenance, type ResolutionReplyMode, VALID_RESOLUTION_MODES } from "./reply-formatting.ts";
 
 const provenanceInputSchema = z.discriminatedUnion("kind", [
@@ -302,10 +302,6 @@ function parseMutationPositionals(args: readonly string[], valueOptions: readonl
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) continue;
-		if (arg === "--format") {
-			index += 1;
-			continue;
-		}
 		if (arg === "--json-schema") continue;
 		if (arg === "--") continue;
 		if (valueOptions.includes(arg)) {
@@ -341,8 +337,8 @@ function provenanceShapeError(provenance: ProvenanceInput): string | null {
 }
 
 function integerArgument(value: string | undefined, message: string): { type: "ok"; value: number } | { type: "error"; message: string } {
-	const numeric = value === undefined ? Number.NaN : Number(value);
-	if (!Number.isInteger(numeric)) return { type: "error", message };
+	const numeric = value === undefined ? undefined : parseStrictInteger(value);
+	if (numeric === undefined) return { type: "error", message };
 	return { type: "ok", value: numeric };
 }
 

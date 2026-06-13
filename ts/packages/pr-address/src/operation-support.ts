@@ -19,9 +19,14 @@ export function parsePrNumberOperation(options: ParsePrNumberOperationOptions): 
 	const parsed = parseReadOptions(options.args, options.valueOptions ?? [], options.flagOptions ?? []);
 	if (parsed.type === "error") return { type: "error", result: { type: "exit", exit: failure("invalid_request", parsed.message) } };
 	const rawPrNumber = parsed.options.positionals[0];
-	const prNumber = rawPrNumber === undefined ? Number.NaN : Number(rawPrNumber);
-	if (!Number.isInteger(prNumber)) return { type: "error", result: { type: "exit", exit: failure("invalid_request", `${options.commandName} requires an integer PR number argument.`) } };
+	const prNumber = rawPrNumber === undefined ? undefined : parseStrictInteger(rawPrNumber);
+	if (prNumber === undefined) return { type: "error", result: { type: "exit", exit: failure("invalid_request", `${options.commandName} requires an integer PR number argument.`) } };
 	return { type: "ok", prNumber, flags: parsed.options.flags, values: parsed.options.values };
+}
+
+export function parseStrictInteger(value: string): number | undefined {
+	if (!/^-?\d+$/.test(value)) return undefined;
+	return Number(value);
 }
 
 export function parseReadOptions(
@@ -35,10 +40,6 @@ export function parseReadOptions(
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === undefined) continue;
-		if (arg === "--format") {
-			index += 1;
-			continue;
-		}
 		if (valueOptions.includes(arg)) {
 			const value = args[index + 1];
 			if (value === undefined) return { type: "error", message: `${arg} requires a value.` };
