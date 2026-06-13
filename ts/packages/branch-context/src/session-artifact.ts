@@ -2,13 +2,7 @@ import { z } from "zod";
 
 import { isRecord } from "@asdl/core/primitives";
 
-import {
-	BRANCH_CREATION_METHODS,
-	formatBranchContextEvidence as formatBranchContextEvidence,
-	type BranchContextEvidence,
-} from "./branch-context-creation.ts";
-
-export { formatBranchContextEvidence };
+import { BRANCH_CREATION_METHODS, type BranchContextEvidence } from "./branch-context-creation.ts";
 
 export const BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE = "branch-context-output";
 

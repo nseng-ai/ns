@@ -1,6 +1,6 @@
 import type { CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { RealBranchContextBrmemGateway, type BranchContextBrmemGateway } from "./brmem-gateway.ts";
+import type { BranchContextBrmemGateway } from "./brmem-gateway.ts";
+import type { BranchContextContext } from "./context.ts";
 import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
 import { extractBranchContextEvidenceFromSessionEntry } from "./session-artifact.ts";
 
@@ -25,9 +25,8 @@ export interface ResolveExistingBranchContextReuseParams {
 
 export interface ResolveExistingBranchContextReuseOptions {
 	cwd: string;
+	context: BranchContextContext;
 	signal?: AbortSignal | undefined;
-	git?: GitGateway | undefined;
-	brmem?: BranchContextBrmemGateway | undefined;
 }
 
 type ReuseVerificationFailure =
@@ -37,11 +36,11 @@ type ReuseVerificationFailure =
 type CandidateVerification = { type: "verified"; reuse: ExistingBranchContextReuse } | { type: "failure"; message: string };
 
 export async function resolveExistingBranchContextReuse(
-	pi: CommandExecApi,
+	_pi: CommandExecApi,
 	params: ResolveExistingBranchContextReuseParams,
 	options: ResolveExistingBranchContextReuseOptions,
 ): Promise<ExistingBranchContextReuse> {
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
+	const brmem = options.context.brmem;
 	const failures: ReuseVerificationFailure[] = [];
 
 	const explicitBranch = params.explicitBranch;
@@ -76,8 +75,7 @@ export async function resolveExistingBranchContextReuse(
 		failures.push({ type: "candidate", candidate: sessionCandidate, message: result.message });
 	}
 
-	const git = options.git ?? new RealGitGateway(pi);
-	const branch = await git.currentBranch({ cwd: options.cwd, signal: options.signal });
+	const branch = await options.context.git.currentBranch({ cwd: options.cwd, signal: options.signal });
 	if (branch.ok) {
 		const candidate: ExistingBranchContextCandidate = { branch: branch.value, source: "current-branch" };
 		const result = await verifyCandidate(brmem, options, candidate);

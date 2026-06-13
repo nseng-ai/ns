@@ -4,6 +4,7 @@ import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	buildBranchContextCreateOperation,
+	createBranchContextContext,
 	createBranchContextFromFile,
 	derivePlanContentSlug,
 	formatBranchContextEvidence,
@@ -128,11 +129,11 @@ async function handleCommand(
 			slug: slugEvidence.slug,
 			filePath: selectedPlan.filePath,
 			branchCreation: BRANCH_CREATION,
-			summary: selectedPlan.summary,
+			...(selectedPlan.summary === undefined ? {} : { summary: selectedPlan.summary }),
 		});
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
-			const previewContext = await resolveBranchContextCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot });
+			const previewContext = await resolveBranchContextCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot, context: createBranchContextContext(pi) });
 			const branchContextPreview = formatBranchContextCreatePreview(operation, {
 				...previewContext,
 				graphiteParentBranch: checkout.directory.sourceBranch,
@@ -226,7 +227,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	setStatus(ctx, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createBranchContextFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot });
+		evidence = await createBranchContextFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot, context: createBranchContextContext(pi) });
 	} catch (error) {
 		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
 		return;

@@ -1,14 +1,12 @@
-import {
-	RealBranchContextBrmemGateway,
-	type BrmemPutData,
-	type BranchContextBrmemGateway,
-} from "./brmem-gateway.ts";
+import type { BrmemPutData } from "./brmem-gateway.ts";
+import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
-import { RealBranchContextGraphiteGateway, type BranchContextGraphiteGateway } from "./graphite-gateway.ts";
+import type { BranchContextGraphiteGateway } from "./graphite-gateway.ts";
 import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
-import { normalizeSummary, resolvePlanSourceFile, validatePlanSlug } from "@asdl/plans";
+import type { GitGateway } from "@asdl/core/git";
+import { formatErrorMessage } from "@asdl/core/primitives";
+import { normalizeSummary, resolvePlanSourceFile } from "@asdl/plans";
+import type { BranchContextContext } from "./context.ts";
 
 export { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
 
@@ -28,10 +26,8 @@ export interface CreateBranchContextFromFileParams {
 
 export interface CreateBranchContextFromFileOptions {
 	cwd: string;
+	context: BranchContextContext;
 	signal?: AbortSignal | undefined;
-	git?: GitGateway | undefined;
-	brmem?: BranchContextBrmemGateway | undefined;
-	graphite?: BranchContextGraphiteGateway | undefined;
 }
 
 export interface BranchContextEvidence {
@@ -65,13 +61,11 @@ export interface BranchContextCreatePreviewContext {
 
 export async function createBranchContextFromFile(
 	pi: CommandExecApi,
-	rawParams: unknown,
+	params: CreateBranchContextFromFileParams,
 	options: CreateBranchContextFromFileOptions,
 ): Promise<BranchContextEvidence> {
-	const operation = buildBranchContextCreateOperation(rawParams);
-	const git = options.git ?? new RealGitGateway(pi);
-	const brmem = options.brmem ?? new RealBranchContextBrmemGateway(pi);
-	const graphite = options.graphite ?? new RealBranchContextGraphiteGateway(pi);
+	const operation = buildBranchContextCreateOperation(params);
+	const { git, brmem, graphite } = options.context;
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: operation.filePath,
@@ -116,14 +110,8 @@ export async function createBranchContextFromFile(
 	return buildEvidence({ data: attach, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
 }
 
-export function buildBranchContextCreateOperation(rawParams: unknown): BranchContextCreateOperation {
-	const params = parseCreateBranchContextFromFileParams(rawParams);
+export function buildBranchContextCreateOperation(params: CreateBranchContextFromFileParams): BranchContextCreateOperation {
 	const slug = params.slug.trim();
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		throw new Error(`Invalid plan slug: ${slugError}`);
-	}
-
 	const branchCreation = params.branchCreation ?? DEFAULT_BRANCH_CREATION_METHOD;
 	const branch = deriveTargetBranch(params.branchName, slug);
 	const branchError = validateTargetBranchName(branch);
@@ -156,11 +144,10 @@ export function buildBranchContextCreateOperation(rawParams: unknown): BranchCon
 }
 
 export async function resolveBranchContextCreatePreviewContext(
-	pi: CommandExecApi,
-	options: { cwd: string; signal?: AbortSignal | undefined; git?: GitGateway | undefined },
+	_pi: CommandExecApi,
+	options: { cwd: string; context: BranchContextContext; signal?: AbortSignal | undefined },
 ): Promise<BranchContextCreatePreviewContext> {
-	const git = options.git ?? new RealGitGateway(pi);
-	return { startPoint: await resolveStartPoint(git, options.cwd, options.signal) };
+	return { startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal) };
 }
 
 export function formatBranchContextCreatePreview(
@@ -232,60 +219,6 @@ export function formatBranchContextCreateFailure(operation: BranchContextCreateO
 		"",
 		formatErrorMessage(error),
 	].join("\n");
-}
-
-export function parseCreateBranchContextFromFileParams(params: unknown): CreateBranchContextFromFileParams {
-	if (!isRecord(params)) {
-		throw new Error("createBranchContextFromFile parameters must be an object.");
-	}
-
-	const slug = params.slug;
-	const filePath = params.filePath;
-	const branchName = params.branchName;
-	const branchCreation = params.branchCreation;
-	const summary = params.summary;
-	if (typeof slug !== "string") {
-		throw new Error("createBranchContextFromFile requires string parameter `slug`.");
-	}
-	if (typeof filePath !== "string") {
-		throw new Error("createBranchContextFromFile requires string parameter `filePath`.");
-	}
-	if (branchName !== undefined && typeof branchName !== "string") {
-		throw new Error("createBranchContextFromFile parameter `branchName` must be a string when provided.");
-	}
-	const normalizedBranchCreation = normalizeBranchCreationMethod(branchCreation);
-	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("createBranchContextFromFile parameter `summary` must be a string when provided.");
-	}
-	const parsed: CreateBranchContextFromFileParams = { slug, filePath };
-	if (branchName !== undefined) {
-		parsed.branchName = branchName;
-	}
-	if (branchCreation !== undefined) {
-		parsed.branchCreation = normalizedBranchCreation;
-	}
-	if (summary !== undefined) {
-		parsed.summary = summary;
-	}
-	return parsed;
-}
-
-export function tryNormalizeBranchCreationMethod(value: unknown): BranchCreationMethod | undefined {
-	return BRANCH_CREATION_METHODS.find((method) => method === value);
-}
-
-export function normalizeBranchCreationMethod(value: unknown): BranchCreationMethod {
-	if (value === undefined) {
-		return DEFAULT_BRANCH_CREATION_METHOD;
-	}
-	const normalized = tryNormalizeBranchCreationMethod(value);
-	if (normalized !== undefined) {
-		return normalized;
-	}
-	if (typeof value !== "string") {
-		throw new Error("createBranchContextFromFile parameter `branchCreation` must be a string when provided.");
-	}
-	throw new Error("createBranchContextFromFile parameter `branchCreation` must be one of `plain-git` or `graphite`.");
 }
 
 export function deriveTargetBranch(branchName: string | undefined, slug: string): string {
@@ -372,64 +305,6 @@ async function assertLocalBranchAbsent(
 		);
 	}
 	throw new Error(check.error.message);
-}
-
-export async function assertBrmemEntryAbsent(
-	brmem: BranchContextBrmemGateway,
-	cwd: string,
-	targetBranch: string,
-	key: string,
-	signal: AbortSignal | undefined,
-): Promise<void> {
-	const check = await brmem.attachmentPresence({ cwd, branch: targetBranch, key, signal });
-	if (check.type === "absent") {
-		return;
-	}
-	if (check.type === "present") {
-		throw new Error(
-			[
-				"Attached plan already exists on target branch; refusing to overwrite.",
-				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
-				`Branch: ${targetBranch}`,
-				`Key: ${key}`,
-				`Command: ${check.displayCommand}`,
-			].join("\n"),
-		);
-	}
-	throw new Error(check.error.message);
-}
-
-export interface AttachBranchContextOptions {
-	brmem: BranchContextBrmemGateway;
-	cwd: string;
-	branch: string;
-	key: string;
-	sourceFile: string;
-	signal?: AbortSignal | undefined;
-}
-
-export async function attachBranchContext(options: AttachBranchContextOptions): Promise<BrmemPutData> {
-	const attach = await options.brmem.attachPlan({
-		cwd: options.cwd,
-		branch: options.branch,
-		key: options.key,
-		sourceFile: options.sourceFile,
-		signal: options.signal,
-	});
-	if (attach.ok) {
-		return attach.value;
-	}
-	throw new AttachBranchContextError(attach.error.code, attach.error.message);
-}
-
-class AttachBranchContextError extends Error {
-	readonly code: string;
-
-	constructor(code: string, message: string) {
-		super(message);
-		this.name = "AttachBranchContextError";
-		this.code = code;
-	}
 }
 
 interface CreateBranchContextOptions {

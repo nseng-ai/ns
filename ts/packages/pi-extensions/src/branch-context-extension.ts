@@ -5,6 +5,7 @@ import {
 	BRANCH_CONTEXT_PLAN_KEY,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	buildImplBranchContextPrompt,
+	createBranchContextContext,
 	createBranchContextFromFile as createBranchContextFromFilePrimitive,
 	derivePlanContentSlug,
 	deriveTargetBranch,
@@ -667,6 +668,7 @@ async function handleImplBranchContextCommand(
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
 		const plan = await operations.loadBranchContextPlan(pi, params, {
 			cwd: ctx.cwd,
+			context: createBranchContextContext(pi),
 			planStoreRoot: resolvePlanStoreRootOption(options),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
@@ -833,7 +835,7 @@ async function handleUpAndImplExistingReuse(options: HandleUpAndImplExistingReus
 		reuse = await resolveExistingBranchContextReuse(
 			pi,
 			args.branchName === undefined ? { sessionEntries } : { explicitBranch: args.branchName, sessionEntries },
-			{ cwd: ctx.cwd },
+			{ cwd: ctx.cwd, context: createBranchContextContext(pi) },
 		);
 	} catch (reuseError) {
 		presentBranchContextMessage(
@@ -887,7 +889,7 @@ async function createBranchContextFromPreview({
 		params.summary = preview.summary;
 	}
 
-	return operations.createBranchContextFromFile(pi, params, { cwd: ctx.cwd });
+	return operations.createBranchContextFromFile(pi, params, { cwd: ctx.cwd, context: createBranchContextContext(pi) });
 }
 
 function formatExistingReuseFailureMessage(originalError: unknown, reuseError: unknown): string {

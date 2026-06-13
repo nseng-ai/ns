@@ -9,7 +9,9 @@ import { encodeBranchForPlanPath } from "@asdl/plans";
 
 import { attachBranchContextEntry } from "../src/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "../src/constants.ts";
+import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
+import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -28,6 +30,15 @@ const tempDirs = createTempDirTracker();
 afterEach(async () => {
 	await tempDirs.cleanup();
 });
+
+function branchContext(overrides: Pick<BranchContextContext, "git" | "brmem">): BranchContextContext {
+	return {
+		commands: NO_COMMANDS,
+		git: overrides.git,
+		brmem: overrides.brmem,
+		graphite: new InMemoryBranchContextGraphiteGateway(),
+	};
+}
 
 async function makePlanStore(): Promise<string> {
 	return tempDirs.makeTempDir("branch-context-attach-store-");
@@ -53,7 +64,7 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, git, brmem, planStoreRoot });
+		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot });
 
 		expect(evidence).toMatchObject({
 			branch: TARGET_BRANCH,
@@ -72,7 +83,7 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: "missing-plan" }, { cwd: ROOT, git, brmem, planStoreRoot })).rejects.toThrow(
+		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: "missing-plan" }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot })).rejects.toThrow(
 			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-plan/,
 		);
 		expect(git.repoRootCalls).toEqual([{ cwd: ROOT }]);
@@ -88,7 +99,7 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const error = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, git, brmem, planStoreRoot }).then(
+		const error = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot }).then(
 			() => undefined,
 			(caught: unknown) => caught,
 		);
@@ -108,7 +119,7 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG, branch: TARGET_BRANCH }, { cwd: ROOT, git, brmem, planStoreRoot });
+		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG, branch: TARGET_BRANCH }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot });
 
 		expect(evidence.branch).toBe(TARGET_BRANCH);
 		expect(git.currentBranchCalls).toEqual([]);
@@ -121,7 +132,7 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, git, brmem, planStoreRoot })).rejects.toThrow(
+		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot })).rejects.toThrow(
 			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
 		);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);

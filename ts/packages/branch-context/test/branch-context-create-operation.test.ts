@@ -12,10 +12,10 @@ import {
 	formatBranchContextCreatePreview,
 	formatBranchContextEvidence,
 	resolveBranchContextCreatePreviewContext,
-	tryNormalizeBranchCreationMethod,
 } from "../src/branch-context-creation.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
+import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
@@ -34,6 +34,16 @@ const NO_COMMANDS: CommandExecApi = {
 		throw new Error("unexpected command execution");
 	},
 };
+
+function branchContext(overrides: Partial<BranchContextContext> = {}): BranchContextContext {
+	const commands = overrides.commands ?? NO_COMMANDS;
+	return {
+		commands,
+		git: overrides.git ?? new InMemoryGitGateway(),
+		brmem: overrides.brmem ?? new InMemoryBranchContextBrmemGateway(),
+		graphite: overrides.graphite ?? new InMemoryBranchContextGraphiteGateway(),
+	};
+}
 
 afterEach(async () => {
 	const dirs = tempDirs.splice(0);
@@ -98,25 +108,10 @@ describe("buildBranchContextCreateOperation", () => {
 		});
 	});
 
-	test("preserves existing validation errors for invalid inputs", () => {
-		expect(() => buildBranchContextCreateOperation({ slug: "Branch Scoped Plan", filePath: PLAN_FILE })).toThrow("Invalid plan slug");
+	test("keeps creation-layer validation focused on target branch names", () => {
 		expect(() => buildBranchContextCreateOperation({ slug: PLAN_SLUG, filePath: PLAN_FILE, branchName: "bad branch" })).toThrow(
 			"Invalid target branch name",
 		);
-		expect(() => buildBranchContextCreateOperation({ slug: PLAN_SLUG, filePath: PLAN_FILE, branchCreation: "hg" })).toThrow(
-			"parameter `branchCreation` must be one of `plain-git` or `graphite`",
-		);
-		expect(() => buildBranchContextCreateOperation({ slug: PLAN_SLUG })).toThrow("requires string parameter `filePath`");
-	});
-});
-
-describe("branch creation normalization", () => {
-	test("returns undefined instead of throwing for absent or invalid branch creation methods", () => {
-		expect(tryNormalizeBranchCreationMethod(undefined)).toBeUndefined();
-		expect(tryNormalizeBranchCreationMethod("graphite")).toBe("graphite");
-		expect(tryNormalizeBranchCreationMethod("plain-git")).toBe("plain-git");
-		expect(tryNormalizeBranchCreationMethod("hg")).toBeUndefined();
-		expect(tryNormalizeBranchCreationMethod(123)).toBeUndefined();
 	});
 });
 
@@ -158,7 +153,7 @@ describe("branch-context create preview", () => {
 	test("resolves preview context through the semantic git gateway", async () => {
 		const git = new InMemoryGitGateway({ headCommit: START_POINT });
 
-		const context = await resolveBranchContextCreatePreviewContext(NO_COMMANDS, { cwd: "/repo", git });
+		const context = await resolveBranchContextCreatePreviewContext(NO_COMMANDS, { cwd: "/repo", context: branchContext({ git }) });
 
 		expect(context).toEqual({ startPoint: START_POINT });
 		expect(git.headCommitCalls).toEqual([{ cwd: "/repo" }]);
@@ -175,7 +170,7 @@ describe("branch-context create execution", () => {
 		const evidence = await createBranchContextFromFile(
 			NO_COMMANDS,
 			{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "graphite" },
-			{ cwd: ROOT, git, brmem, graphite },
+			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
 		);
 
 		expect(evidence).toMatchObject({ branch: TARGET_BRANCH, branchCreation: "graphite", key: PLAN_KEY, sourceFile: filePath });
@@ -201,7 +196,7 @@ describe("branch-context create execution", () => {
 			createBranchContextFromFile(
 				NO_COMMANDS,
 				{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "plain-git" },
-				{ cwd: ROOT, git, brmem, graphite },
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
 			),
 		).rejects.toThrow("Could not determine local branch presence.");
 		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
@@ -224,7 +219,7 @@ describe("branch-context create execution", () => {
 			createBranchContextFromFile(
 				NO_COMMANDS,
 				{ slug: PLAN_SLUG, filePath, branchName: TARGET_BRANCH, branchCreation: "graphite" },
-				{ cwd: ROOT, git, brmem, graphite },
+				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
 			),
 		).rejects.toThrow("Current branch is not tracked by Graphite; refusing to stack a branch context on it.");
 		expect(git.createBranchAtHeadCalls).toEqual([]);

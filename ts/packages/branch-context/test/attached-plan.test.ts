@@ -8,15 +8,14 @@ import {
 	loadAttachedPlan,
 	loadBranchContextPlan,
 	normalizeRequestedBranchContextKey,
-	parseBrmemGetContent,
-	parseBrmemListEntries,
 	selectAttachedPlanKey,
-	type AttachedPlanEntry,
-	type BranchContextBrmemGateway,
-} from "@asdl/branch-context";
+} from "../src/attached-plan.ts";
+import { parseBrmemGetContent, parseBrmemListEntries, RealBranchContextBrmemGateway, type AttachedPlanEntry, type BranchContextBrmemGateway } from "../src/brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import type { BranchContextContext } from "../src/context.ts";
+import { RealBranchContextGraphiteGateway } from "../src/graphite-gateway.ts";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@asdl/plans";
 
 const ROOT = "/repo";
@@ -239,6 +238,15 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 	};
 }
 
+function branchContext(pi: CommandExecApi, overrides: Partial<BranchContextContext> = {}): BranchContextContext {
+	return {
+		commands: overrides.commands ?? pi,
+		git: overrides.git ?? new RealGitGateway(pi),
+		brmem: overrides.brmem ?? new RealBranchContextBrmemGateway(pi),
+		graphite: overrides.graphite ?? new RealBranchContextGraphiteGateway(pi),
+	};
+}
+
 function emptyBrmemGateway(): BranchContextBrmemGateway {
 	return {
 		async attachmentPresence() {
@@ -263,7 +271,7 @@ describe("loadAttachedPlan", () => {
 	test("loads the branch-segment attached plan and preserves full content", async () => {
 		const pi = new FakePi(successfulLoadScript({ refName: PLAN_REF }));
 
-		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT });
+		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) });
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
@@ -288,7 +296,7 @@ describe("loadAttachedPlan", () => {
 
 	test("loads an explicit exact key", async () => {
 		const exactPi = new FakePi(successfulLoadScript());
-		const exactPlan = await loadAttachedPlan(exactPi, { requestedKey: PLAN_KEY }, { cwd: ROOT });
+		const exactPlan = await loadAttachedPlan(exactPi, { requestedKey: PLAN_KEY }, { cwd: ROOT, context: branchContext(exactPi) });
 		exactPi.assertDone();
 		expect(exactPlan.selectedKey).toBe(PLAN_KEY);
 	});
@@ -326,7 +334,7 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { stdout: listEnvelope(PLAN_BRANCH, []) }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*branch-context exec from-plan/);
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/No branch-context entries[\s\S]*enriched-plan exec save[\s\S]*branch-context exec from-plan/);
 
 		pi.assertDone();
 	});
@@ -346,8 +354,7 @@ describe("loadAttachedPlan", () => {
 
 		const plan = await loadBranchContextPlan(pi, {}, {
 			cwd: ROOT,
-			git: fakeGitGateway(),
-			brmem: emptyBrmemGateway(),
+			context: branchContext(pi, { git: fakeGitGateway(), brmem: emptyBrmemGateway() }),
 			planStoreRoot,
 			async readTextFile(path) {
 				readPaths.push(path);
@@ -373,7 +380,7 @@ describe("loadAttachedPlan", () => {
 	test("refuses detached HEAD before Branch Memory reads", async () => {
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep("", { code: 1, stderr: "fatal: ref HEAD is not a symbolic ref" })]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow("detached HEAD");
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow("detached HEAD");
 
 		pi.assertDone();
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
@@ -387,7 +394,7 @@ describe("loadAttachedPlan", () => {
 				...gitDefaultBranchProbeSteps({ stdout: branch === "develop" ? "origin/develop\n" : "origin/main\n" }),
 			]);
 
-			await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(
+			await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
 				`Refusing to implement directly on trunk (\`${branch}\`). Check out a feature branch first.`,
 			);
 
@@ -399,7 +406,7 @@ describe("loadAttachedPlan", () => {
 	test("continues when default branch lookup fails on a feature branch", async () => {
 		const pi = new FakePi(successfulLoadScript({ defaultBranchResult: { code: 1, stderr: "no origin" } }));
 
-		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT });
+		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) });
 
 		pi.assertDone();
 		expect(plan.selectedKey).toBe(PLAN_KEY);
@@ -413,7 +420,7 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { code: 2, stderr: "list failed" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/brmem list failed[\s\S]*Command: brmem list/);
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/brmem list failed[\s\S]*Command: brmem list/);
 
 		pi.assertDone();
 	});
@@ -426,7 +433,7 @@ describe("loadAttachedPlan", () => {
 			brmemListStep(PLAN_BRANCH, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow("No brmem command available");
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow("No brmem command available");
 
 		pi.assertDone();
 		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "get")).toBe(false);
@@ -441,7 +448,7 @@ describe("loadAttachedPlan", () => {
 			brmemGetStep(PLAN_BRANCH, PLAN_KEY, { code: 2, stderr: "get failed" }),
 		]);
 
-		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT })).rejects.toThrow(/brmem get failed[\s\S]*Command: brmem get/);
+		await expect(loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(/brmem get failed[\s\S]*Command: brmem get/);
 
 		pi.assertDone();
 	});
