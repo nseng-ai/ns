@@ -49,9 +49,12 @@ Risks:
 
 ## Open Questions
 
-- Should the stack-address preflight consolidation live in `pr-address exec` as a Graphite-neutral helper that accepts branch JSON, or in a Graphite-named command that composes topology and PR-address helpers?
+None open.
 
 Resolved (see `updates/2026-06-12-stack-branches-command-contract.md` for the full contract):
+
+- Stack-address preflight consolidation home: implemented as the Graphite-neutral `pr-address exec stack-feedback-preflight`, which accepts branch JSON from a Graphite-aware caller (`slot gt exec stack-branches`); no Graphite-named composite command was needed (see `updates/2026-06-12-stack-feedback-preflight-consolidated.md`).
+- Additional structured Graphite exec facts: none added — `stack-info`, arbitrary-root descendant subtree, and tracking-status commands are rejected, and the audit's two display-parsing hazards route through existing Graphite plumbing instead (see `updates/2026-06-12-exec-consolidation-candidates-audited.md`).
 
 - First canonical command scope: `stack-branches` only. Richer stack facts (trunk, current, scope, warnings) ride in its `--format json` data payload; a broader `stack-info` command is deferred to the exec-candidate audit roadmap item.
 - Fork behavior: fail closed by default — exit 2 with `error_type: forked_stack`, no partial branch list on stdout, message naming the fork branch and its children with remediation (check out the intended tip, or pass `--downstack`). Descendant-side forks are out of scope under `--downstack` and surface as warnings with exit 0. No "follow a selected path" flag in the first slice.
