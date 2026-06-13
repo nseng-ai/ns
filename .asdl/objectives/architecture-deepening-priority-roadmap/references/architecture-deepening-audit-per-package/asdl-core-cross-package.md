@@ -8,7 +8,7 @@ Read-only audit: no tests run, no files edited.
 
 ## 1. The seam fan-in
 
-Distinct consuming packages per seam (import scan over `packages/*/src`). Two-plus consumers = a **real** shared seam. One consumer = a **hypothetical** shared seam — shared infrastructure with a single client (_"one adapter = hypothetical seam; two = real"_).
+Distinct consuming packages per seam (import scan over `packages/*/src`). Two-plus consumers = a **real** shared seam. One consumer = a **hypothetical** shared seam — shared infrastructure with a single client (*"one adapter = hypothetical seam; two = real"*).
 
 | Seam                                                                                                  | Consumers | Packages                                                                                            | Verdict                                   |
 | ----------------------------------------------------------------------------------------------------- | --------: | --------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -45,7 +45,7 @@ The same shape repeats for `RealPRGateway` (`asdl-pr-address` context.py:23, `as
 
 **Solution.** One deep invocation-context factory owns adapter construction and repo-root / trunk resolution (`resolve_repo_root` is defined once at `git/real_git_gateway.py:258` but re-wired everywhere). Consumers receive a built `GitGateway`; they never name the concrete adapter.
 
-**Deletion test.** There is no construction module to delete — the wiring is _already_ spread across seven contexts and diverging silently. Introducing the module **concentrates** that complexity. This is a shallow seam waiting to be deepened.
+**Deletion test.** There is no construction module to delete — the wiring is *already* spread across seven contexts and diverging silently. Introducing the module **concentrates** that complexity. This is a shallow seam waiting to be deepened.
 
 **Wins.** locality: trunk/root logic in one place · leverage: one factory, 7 call sites · consumers stop importing the adapter · kills the inline `checkout.py` bypass · tests inject a fake at one seam · divergent wiring converges.
 
@@ -59,7 +59,7 @@ The same shape repeats for `RealPRGateway` (`asdl-pr-address` context.py:23, `as
 
 **Solution.** Concentrate the Operation-authoring vocabulary into one canonical module (e.g. `clinkr.authoring` owning operation + model + exit + ensure + failure), plus `clinkr.group` for mounting. Internal modules stay split as **internal seams**; they just stop being part of the interface every consumer learns. Depth of the implementation is unchanged.
 
-**Deletion test.** Deleting `clinkr` scatters Click/Pydantic/exit handling into all 8 packages — it earns its keep overwhelmingly. The critique is the _shape_ of a deep module's interface, not its existence.
+**Deletion test.** Deleting `clinkr` scatters Click/Pydantic/exit handling into all 8 packages — it earns its keep overwhelmingly. The critique is the *shape* of a deep module's interface, not its existence.
 
 > **Tension with `AGENTS.md`.** The repo rule forbids `__init__.py` re-exports and mandates importing from the canonical source module. A barrel export is off the table — this must be a real consolidation into a single authoring module (a new canonical source), not a façade. Worth reopening the rule only for the authoring surface, where the no-re-export cost is highest.
 
@@ -75,7 +75,7 @@ The same shape repeats for `RealPRGateway` (`asdl-pr-address` context.py:23, `as
 
 **Solution.** Either confirm the incubation thesis (a second consumer is genuinely coming) and leave them, or relocate each subdomain down into its sole consumer so locality and ownership coincide.
 
-**Deletion test (relocation framing).** Move `gt` into asdl-slots, `sessions` into aretro: complexity does _not_ reappear across N packages, because only one consumes each. By the shared-seam test alone, they don't yet earn their substrate placement.
+**Deletion test (relocation framing).** Move `gt` into asdl-slots, `sessions` into aretro: complexity does *not* reappear across N packages, because only one consumes each. By the shared-seam test alone, they don't yet earn their substrate placement.
 
 > **Recorded intent.** `asdl-core/AGENTS.md` frames the package as a labs/incubator: single-consumer-for-now is deliberate, with graduation as the exit. This isn't a defect — it's a thesis to re-test, not a refactor to run blindly. The `gt` placement is further load-bearing for the runtime-Graphite-boundary rule (`slot gt` is the canonical opt-in Graphite surface).
 
@@ -121,8 +121,8 @@ The same shape repeats for `RealPRGateway` (`asdl-pr-address` context.py:23, `as
 
 Read from the consumer side, `asdl-core`'s seams sort cleanly into three groups:
 
-- **Deep and well-reused** — `clinkr`, `plugin`, the gateway _interfaces_. These earn the substrate. The only refinement is narrowing `clinkr`'s authoring surface (Candidate 2).
-- **Deep interface, leaking construction** — git/gh/gt _adapters_. The interfaces are deep; the production wiring is shallow and duplicated (Candidate 1, the top pick).
+- **Deep and well-reused** — `clinkr`, `plugin`, the gateway *interfaces*. These earn the substrate. The only refinement is narrowing `clinkr`'s authoring surface (Candidate 2).
+- **Deep interface, leaking construction** — git/gh/gt *adapters*. The interfaces are deep; the production wiring is shallow and duplicated (Candidate 1, the top pick).
 - **Single-consumer / shallow** — `gt`, `sessions`, root re-export. Either incubation theses to re-test (Candidate 3) or pure pass-throughs to delete (Candidate 4).
 
 **Confidence:** medium-high. Grounded in a full import scan and construction-site read across all 9 consuming packages; interface-shape proposals (Candidates 1–2) would benefit from a parallel interface-design pass before implementation.

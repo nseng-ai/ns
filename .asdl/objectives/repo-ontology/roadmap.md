@@ -20,7 +20,7 @@ Completed foundation
 
 Phase 3 — current-checkout map catch-up
 
-- [x] Update `/CONTEXT-MAP.md` to mark `packages/brmem/CONTEXT.md` as _Present_ and refresh the brmem summary around Branch Memory System, Branch Memory, Namespace, Base Namespace `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export.
+- [x] Update `/CONTEXT-MAP.md` to mark `packages/brmem/CONTEXT.md` as *Present* and refresh the brmem summary around Branch Memory System, Branch Memory, Namespace, Base Namespace `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export.
 - [x] Rebaseline `/CONTEXT-MAP.md` against current source/package facts: 12 tracked Python workspace packages, `asdl-dispatcher` still out of context scope while operation-less, 11 in-scope Python package contexts, two repo-local TypeScript package contexts (`asdl-dev` and `@asdl/pi-extensions`), no live tracked context slot for `asdl-initiatives` or `asdl-reviewer`, and explicit wording that future drift should be handled by focused rebaseline phases.
 - [x] Refresh candidate relationship and ambiguity notes in `/CONTEXT-MAP.md` without finalizing them: keep known-real edges such as `asdl-handoff → brmem` and `@asdl/pi-extensions → asdl-dev`; record current `areg → asdl-core.project_config` source evidence instead of the stale standalone/no-`asdl-core` claim; keep `packagechk` and `vibechk` standalone/no-`asdl-core`; keep `asdl-objectives → brmem` rejected as storage; and carry Review/Comment, State/status, Active/root, branch/ref/snapshot-ref, plan/handoff, skill/agent/resource, run/metric, and evidence/finding collisions forward to the relevant phases.
 

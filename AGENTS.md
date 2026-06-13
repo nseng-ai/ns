@@ -64,7 +64,7 @@ asdl/
 
 `CONTEXT-MAP.md` at the repo root is the entry point to the repo's domain language: it inventories the `CONTEXT.md` files that exist and are planned, candidate relationships between them, and flagged ambiguities.
 
-Before planning, designing, or naming things in an area, read that area's `CONTEXT.md` — route to it via the map. Use the canonical terms in code, docs, and PRs; treat each term's _Avoid_ list as binding anti-vocabulary; the map's flagged ambiguities are live distinctions to respect, not noise.
+Before planning, designing, or naming things in an area, read that area's `CONTEXT.md` — route to it via the map. Use the canonical terms in code, docs, and PRs; treat each term's *Avoid* list as binding anti-vocabulary; the map's flagged ambiguities are live distinctions to respect, not noise.
 
 Edit CONTEXT files deliberately, never incidentally: only when the task is explicitly about domain language (a grill-with-docs session, a focused context/rebaseline session, or direct user instruction). If ordinary work surfaces drift between code and a CONTEXT file, report it as a finding — never fix it silently.
 

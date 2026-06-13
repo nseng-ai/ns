@@ -33,13 +33,13 @@ The class determines what a source licenses the skill to claim:
 - Drew Breunig.
   <https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html>
 - **Claim relied on**: the four-mode diagnosis vocabulary, defined verbatim:
-  - _Poisoning_: "when a hallucination or other error makes it into the
+  - *Poisoning*: "when a hallucination or other error makes it into the
     context, where it is repeatedly referenced."
-  - _Distraction_: "when a context grows so long that the model over-focuses
+  - *Distraction*: "when a context grows so long that the model over-focuses
     on the context, neglecting what it learned during training."
-  - _Confusion_: "when superfluous content in the context is used by the model
+  - *Confusion*: "when superfluous content in the context is used by the model
     to generate a low-quality response."
-  - _Clash_: "when you accrue new information and tools in your context that
+  - *Clash*: "when you accrue new information and tools in your context that
     conflicts with other information in the context."
 - **Class**: F.
 - **Caveat**: a synthesis of other people's results, not a measurement. The
@@ -172,7 +172,7 @@ The class determines what a source licenses the skill to claim:
 - Yang et al. arXiv:2505.18761 <https://arxiv.org/abs/2505.18761> (paper
   title: "How Is LLM Reasoning Distracted by Irrelevant Context?")
 - **Claims**: with precisely controlled distractor injection, irrelevant
-  context affects _reasoning-path selection_, not just final-answer accuracy —
+  context affects *reasoning-path selection*, not just final-answer accuracy —
   distractors derail the trajectory.
 - **Class**: B.
 - **Caveat**: synthetic symbolic math graphs; the transferable insight for
@@ -183,8 +183,8 @@ The class determines what a source licenses the skill to claim:
 
 - Fu et al. arXiv:2506.11440 <https://arxiv.org/abs/2506.11440>
 - **Claims**: "Language Models Can't Tell What's Missing" — models fail to
-  identify deliberately removed content _even when given both the original and
-  edited documents_ (Claude-3.7-Sonnet ≈ 69.6% F1 at ~5k average context).
+  identify deliberately removed content *even when given both the original and
+  edited documents* (Claude-3.7-Sonnet ≈ 69.6% F1 at ~5k average context).
   Proposed mechanism: attention cannot attend to gaps — absences have no keys.
   Basis for never assuming a continued/compacted session's context is
   complete, and for the parked handoff-completeness-scoring enhancement.

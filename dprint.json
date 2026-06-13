@@ -1,6 +1,7 @@
 {
   "markdown": {
-    "lineWidth": 100
+    "lineWidth": 100,
+    "emphasisKind": "asterisks"
   },
   "toml": {
     "lineWidth": 100

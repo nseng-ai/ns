@@ -1,6 +1,6 @@
 # clinkr: CLIs for Clankers
 
-A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments _and_ a JSON stdout mode automatically.
+A library for building Click CLI commands that are both human-friendly and machine-readable. Define an operation once, get a standard CLI with options/arguments *and* a JSON stdout mode automatically.
 
 ## Install
 

@@ -4,7 +4,7 @@
 
 The engineered Objective Pi extension keeps the grouped-changed-Objective picker introduced for `objective-next` in PR #567 — including `selectChangedObjectivesOrOther`, the `compactDiffSuggestion` spec flag, the `View other open Objectives…` escape, and the multi-slug `ObjectiveDiffSelection` type. That UX remains the chosen Objective-selection experience for picking among multiple changed open Objectives.
 
-What is new in this slice is characterization-test coverage that codifies the parts of the Objective-selection rule that are genuinely _shared_ across `objective-next`, `objective-current`, and `objective-update`:
+What is new in this slice is characterization-test coverage that codifies the parts of the Objective-selection rule that are genuinely *shared* across `objective-next`, `objective-current`, and `objective-update`:
 
 - explicit slug or path arguments bypass candidate loading and git diff;
 - empty arguments load open candidates with `objective list --format json`;

@@ -98,7 +98,7 @@ pattern, the in-memory env factory, and worked examples.
 
 ### `tests/gateways/`
 
-Gateway _tests_ live in this folder — just two default files. The fake
+Gateway *tests* live in this folder — just two default files. The fake
 implementations themselves live under `src/<package>/gateways/<domain>/fake.py`
 (see "Where gateway code lives" above); this directory only holds the tests
 that exercise them.
@@ -115,7 +115,7 @@ that exercise them.
   `unittest.mock.patch` (or similar) to stub out the actual external call
   (`subprocess.run`, the HTTP library, etc.) and verify the real gateway
   parses the response correctly. Fast, mock-heavy, narrowly scoped. They
-  are _not_ a substitute for real integration tests in `tests/integration/`
+  are *not* a substitute for real integration tests in `tests/integration/`
   — they only catch syntax errors and basic shape bugs in the real
   implementation.
 
@@ -232,7 +232,7 @@ subpackage into a third package that both depend on; do not reach across
 - **`python-fake-driven-testing`** — the architectural strategy (six layers,
   including optional conformance, plus ABC/Real/Fake pattern, gateway design,
   scenario shape, and error boundaries).
-  Read this when deciding _what_ to test and _which layer_ a test belongs to.
+  Read this when deciding *what* to test and *which layer* a test belongs to.
 - **`pytest`** — pytest mechanics (fixtures, `parametrize`, `tmp_path`,
   `monkeypatch`, `unittest.mock.patch` style, conftest scoping). Read this
   when writing the body of a test once you know which subdirectory it goes in.

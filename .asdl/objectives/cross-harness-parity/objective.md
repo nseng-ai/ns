@@ -2,7 +2,7 @@
 
 ## Thesis
 
-This toolkit has been built Pi-native: Pi's JS extension system registers slash commands that run logic directly, with no language-model round trip. Claude Code and Codex have no such extension layer — they reach workflows only through **skills** (markdown `SKILL.md`) that call **CLIs**. The goal is that the Pi extension layer is purely _additive_: deterministic logic lives in a shared CLI usable by every harness, a skill documents the workflow for Claude/Codex, and the Pi extension is a thin ergonomic layer (picker, custom UI, structured tool) on top. What we do not want is workflow logic trapped in TypeScript with no CLI/skill path (a gap), or the same logic re-implemented in two places (duplication).
+This toolkit has been built Pi-native: Pi's JS extension system registers slash commands that run logic directly, with no language-model round trip. Claude Code and Codex have no such extension layer — they reach workflows only through **skills** (markdown `SKILL.md`) that call **CLIs**. The goal is that the Pi extension layer is purely *additive*: deterministic logic lives in a shared CLI usable by every harness, a skill documents the workflow for Claude/Codex, and the Pi extension is a thin ergonomic layer (picker, custom UI, structured tool) on top. What we do not want is workflow logic trapped in TypeScript with no CLI/skill path (a gap), or the same logic re-implemented in two places (duplication).
 
 An audit (2026-06-03) confirmed the architecture already makes this cheap: the CLI→Pi bridge (`ts/packages/pi-extensions/src/cli-command-extension.ts`) is generic — any CLI command table becomes Pi slash commands with zero per-command code — and skills are a single on-disk artifact (`skills/<name>/SKILL.md`) consumed identically by Pi (`/skill:<name>`), Claude (`.claude/skills`), and Codex (`.agents/skills`). The gap pattern has since shifted: the original audit found **primitives shared, orchestration trapped in pi-extensions**, but the orchestration has now consolidated into `@asdl/ccc` — shared, test-backed TypeScript (the land-stack core runs on Graphite SQLite metadata with fake-driven guard tests; autobranch and the cmux dispatch modules are similarly factored). What remains trapped is not the logic but the **entry point**: `@asdl/ccc` ships no bin and no skill, so its workflows are reachable only when Pi loads the package. The remaining push-down work is therefore precisely "give each tested ccc core a CLI entry point plus a skill," building on the `ts-cli-foundation` layer — the `@asdl/clinkr` schema-first command shell and `@asdl/core` exec/gateway runtime — rather than growing bespoke scaffolds.
 
@@ -28,13 +28,13 @@ Delivered scope, kept as context rather than live work: the `asdl-dev` discovera
 
 - Every Pi extension command appears as exactly one row; Pi tool calls do not require parity rows. Selected non-tool UI primitives may be recorded when the Objective explicitly tracks them.
 - A row is **FULL** only when a shared CLI carries the deterministic logic and a skill drives it so Claude/Codex reach the workflow standalone; the Pi part must be purely additive.
-- **WAIVED** rows are genuinely Pi-native primitives whose value _is_ the Pi UI/session behavior; they require a documented non-Pi fallback for any dependent workflow.
+- **WAIVED** rows are genuinely Pi-native primitives whose value *is* the Pi UI/session behavior; they require a documented non-Pi fallback for any dependent workflow.
 - The table is refreshed whenever this Objective is updated with parity-relevant findings, and the parity-review workflow's full-sweep mode (the `parity-review` route of the `code-workflows` skill) checks it against live evidence and refreshes it with a Semantic Update when drift is found.
 - Shared primitives with no Pi command surface yet do not get parity-table rows until a Pi command exists; this Objective may still track them in roadmap prose when their purpose is to prevent a future parity gap.
 
 ## Non-Goals
 
-- Do not aim for identical _UI_ across harnesses. Parity means workflow reachability, not pixel/widget equivalence. Pi-native UI (pickers, `grill_ask`, status line) stays Pi-only.
+- Do not aim for identical *UI* across harnesses. Parity means workflow reachability, not pixel/widget equivalence. Pi-native UI (pickers, `grill_ask`, status line) stays Pi-only.
 - Do not build the machine-checkable CI parity gate / parity manifest in this Objective; it is parked as a later hardening of the review workflow.
 - Do not turn `asdl-dev` into a nested command framework or build a generalized "branch artifacts" CLI above `brmem`.
 - Do not add routine validation-only roadmap rows; targeted checks/tests are completion evidence.

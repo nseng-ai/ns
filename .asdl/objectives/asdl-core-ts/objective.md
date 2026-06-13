@@ -23,7 +23,7 @@ This Objective is a subobjective of `port-asdl-toolkit-to-typescript`, in the sa
 
 ## Non-Goals
 
-- Porting Python `asdl-core` to TypeScript, or any feature work in Python clinkr; the TS package mirrors the _role_, not the codebase.
+- Porting Python `asdl-core` to TypeScript, or any feature work in Python clinkr; the TS package mirrors the *role*, not the codebase.
 - npm publishing and released-package distribution mechanics — those stay with the umbrella Objective.
 - Refactoring pi-only logic beyond import-path updates (e.g. the `pi-extensions/planned-branch-extension.ts` workflow reimplementation is out of scope).
 - Unifying domain-specific fakes beyond the git gateway (per-package vercel/checkpoint/brmem/legacy fakes remain local).

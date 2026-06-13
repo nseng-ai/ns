@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-asdl plan management grew up branch-first: the `plans` store, `planned-branch create`, and `planned-branch impl` frame asdl as a plan _system_, competing with the plan concepts every agent harness now ships (Claude Code plan mode and plan files, Codex plan mode, Cursor plans, Copilot implementation plans). The intended posture is additive: asdl operates on plans authored anywhere, and its differentiated value is downstream of authorship — attaching plans to branches, layering behavior onto them, and executing them autonomously.
+asdl plan management grew up branch-first: the `plans` store, `planned-branch create`, and `planned-branch impl` frame asdl as a plan *system*, competing with the plan concepts every agent harness now ships (Claude Code plan mode and plan files, Codex plan mode, Cursor plans, Copilot implementation plans). The intended posture is additive: asdl operates on plans authored anywhere, and its differentiated value is downstream of authorship — attaching plans to branches, layering behavior onto them, and executing them autonomously.
 
 A vendor vocabulary survey (`docs/agent-vocabulary-survey.md`, researched 2026-06-12) established two facts that shaped this decision: the field has converged on specific words for adjacent concepts (automation, trigger, environment, run, skills), and the two concepts central to asdl — plan-attached-to-branch and plan enrichment — have no existing vocabulary at any vendor.
 

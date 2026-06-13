@@ -17,7 +17,7 @@ This objective remediates those findings while the conditions that make remediat
 
 ## Non-Goals
 
-- No user-facing `pr-address` workflow redesign and no intentional behavior changes beyond the documented parity corrections (which move TS _toward_ Python behavior, not away from it).
+- No user-facing `pr-address` workflow redesign and no intentional behavior changes beyond the documented parity corrections (which move TS *toward* Python behavior, not away from it).
 - Not the cutover itself: TypeScript-default flips, wrapper/distribution work, and Python package retirement remain owned by `pr-address-typescript-port`.
 - No breaking of the byte-parity envelope contract while the Python reference is live; restructurings must keep envelope text and artifact write order identical.
 - No new abstraction beyond what deletes existing duplication — the review's bar is fewer concepts, not rearranged ones.
@@ -32,7 +32,7 @@ This objective remediates those findings while the conditions that make remediat
 - One exec argv parser; one gateway-helper module; `PrAddressContext` gateways are required and the `missing_gateway` branch class is deleted.
 - The single-PR and stack resolve-payload builders share a thread-decision engine; the `trimRequired` divergence is eliminated by a shared string-values module.
 - Real GitHub/git gateway adapters and the json-schema-parity comparator have their own tests; captured-Python fixtures have a regeneration path (script or Python-side parity test) and provenance.
-- The full TS suite (`just ts-test` / Vitest) remains green throughout, and envelope byte-parity fixtures pass unchanged except where a parity _correction_ explicitly updates them.
+- The full TS suite (`just ts-test` / Vitest) remains green throughout, and envelope byte-parity fixtures pass unchanged except where a parity *correction* explicitly updates them.
 
 ## Assumptions and Risks
 
@@ -41,7 +41,7 @@ Assumptions:
 - The byte-parity fixture suite (envelope text, artifact parity, json-schema route parity) is comprehensive enough to make the consolidation/decomposition work behavior-checked refactoring rather than risky rewriting.
 - The Python package remains in-repo long enough to regenerate fixtures and arbitrate parity questions; the port objective's retirement phase has not yet deleted it.
 - JSON key order in result literals and artifact sequence-number ordering are load-bearing for the parity fixtures; refactors that preserve literal field order and write order keep fixtures byte-identical.
-- The three verified behavior corrections (containment, `--format=json`, strict ints) are parity _bugs_, not intentional contract changes — confirmed against the port objective's "preserved or intentionally changed with explicit rationale" criterion.
+- The three verified behavior corrections (containment, `--format=json`, strict ints) are parity *bugs*, not intentional contract changes — confirmed against the port objective's "preserved or intentionally changed with explicit rationale" criterion.
 
 Risks:
 

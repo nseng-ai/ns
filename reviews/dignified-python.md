@@ -80,7 +80,7 @@ here cost more than misses.
     once on an adjacent line. Skip when the local name clarifies an
     otherwise cryptic field, or when destructuring is what makes a
     subsequent call readable.
-12. **No backwards-compatibility preservation in new code.** Flag _new_
+12. **No backwards-compatibility preservation in new code.** Flag *new*
     code in the diff that introduces legacy-format branches,
     deprecation shims, or aliases kept "for existing callers" without
     a public-API justification visible in the diff. Do NOT flag

@@ -19,7 +19,7 @@ The Relationships subsection explicitly:
 - Treats **Graphite trunk** and Git's **Trunk branch** as separate sources of truth (`gt trunk` vs `origin/HEAD` and `main`/`master` fallbacks) rather than synonyms; mismatches are Graphite configuration drift, not a definition collision.
 - Draws the `GtGateway` vs `GitGateway` boundary: use `GitGateway` for ordinary repository and worktree facts, `GtGateway` only for explicitly Graphite behavior.
 
-Updated `/CONTEXT-MAP.md` to link `packages/asdl-core/CONTEXT.md#gt` and mark the Gt H2 as _Present_.
+Updated `/CONTEXT-MAP.md` to link `packages/asdl-core/CONTEXT.md#gt` and mark the Gt H2 as *Present*.
 
 Verification: `just dprint-check` passed; `git diff --check` clean. No production Python code changed.
 

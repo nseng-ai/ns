@@ -12,10 +12,10 @@ the architectural guidance in `python-fake-driven-testing`.
 ## Relationship to python-fake-driven-testing
 
 `python-fake-driven-testing` is the higher-level, more opinionated skill. It
-answers _what_ to test, _where_ the test belongs in the defense-in-depth
-stack, and _how to structure the seam_ between your code and its
-dependencies (ABC gateways, fakes). `pytest` answers _how to write
-the test_ once you've made those decisions. The two compose: use
+answers *what* to test, *where* the test belongs in the defense-in-depth
+stack, and *how to structure the seam* between your code and its
+dependencies (ABC gateways, fakes). `pytest` answers *how to write
+the test* once you've made those decisions. The two compose: use
 `python-fake-driven-testing` to design the test, use `pytest` to write
 the Python. When the two seem to conflict, `python-fake-driven-testing` wins on
 architecture and `pytest` wins on pytest mechanics.
@@ -89,7 +89,7 @@ def test_objective_definition_round_trip() -> None:
 
 ### 2. Context managers
 
-When a test needs per-test setup _with_ teardown — patching
+When a test needs per-test setup *with* teardown — patching
 `sys.modules`, writing to a temporary file outside `tmp_path`, swapping
 a process-global — write a `@contextmanager` helper function and use
 it with a `with` statement in each test. The `with` block makes the

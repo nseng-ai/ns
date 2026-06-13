@@ -15,5 +15,5 @@ Evidence: local branch diff against Graphite parent `resolve-brmem-followup-item
 
 ## Follow-Ups
 
-- On the next `/CONTEXT-MAP.md` update, still mark `packages/brmem/CONTEXT.md` as _Present_ and refresh its summary so it names Base Namespace, Entry Locator, Snapshot Ref, Namespace Copy, Copy Conflict, and Export without stale `Entry/Ref locator` or prompt-resolution wording.
+- On the next `/CONTEXT-MAP.md` update, still mark `packages/brmem/CONTEXT.md` as *Present* and refresh its summary so it names Base Namespace, Entry Locator, Snapshot Ref, Namespace Copy, Copy Conflict, and Export without stale `Entry/Ref locator` or prompt-resolution wording.
 - Continue Phase 3 package contexts once the map is refreshed or as part of the next focused package-context session.

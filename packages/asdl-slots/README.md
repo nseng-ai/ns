@@ -218,7 +218,7 @@ demand.
 ### `slot gt free-stack`
 
 Graphite-aware. Releases every slot in the current Graphite stack
-_except_ the slot holding the current branch and the slot holding
+*except* the slot holding the current branch and the slot holding
 trunk. Uses the
 same `find_by_slot` resolution and dirty/assignment checks as
 `slot free`.

@@ -23,5 +23,5 @@ Verification: targeted brmem gateway/scenario/integration suites passed; full `j
 
 ## Follow-Ups
 
-- On the next `/CONTEXT-MAP.md` update, mark the brmem context as _Present_ and remove stale wording such as `Entry/Ref locators` or prompt-resolution-as-normal-operation from the brmem summary.
+- On the next `/CONTEXT-MAP.md` update, mark the brmem context as *Present* and remove stale wording such as `Entry/Ref locators` or prompt-resolution-as-normal-operation from the brmem summary.
 - Continue Phase 3 package contexts once the map is refreshed or as part of the next focused package-context session.

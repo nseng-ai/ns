@@ -13,7 +13,7 @@ A **fast scenario test** is the dominant shape of Layer 4 "logic" tests for CLIs
 
 1. **Arrange**: Configure initial state inside in-memory fakes (multiple, if the feature crosses several gateways).
 2. **Act**: Invoke the feature exactly once at its end-user entry point — typically a CLI command via `CliRunner`.
-3. **Assert**: Inspect the resulting state on the fakes (and the captured stdout/exit code) to verify the _outcome_ of the scenario.
+3. **Assert**: Inspect the resulting state on the fakes (and the captured stdout/exit code) to verify the *outcome* of the scenario.
 
 This is not a new testing layer. It is a specialization of Layer 4 "logic" — the layer where 70% of tests should live. Naming it explicitly makes it easy to recognize and reach for.
 
@@ -28,7 +28,7 @@ Use a fast scenario test when:
 - You want to verify the **outcome** of a feature, not the behavior of one component in isolation
 - You want **fast iteration** — milliseconds per test, dozens of tests per second
 
-Reach for it as the _default_ shape for any test that would otherwise be tempted to subprocess-out, mock framework internals, or assert on the order of internal calls.
+Reach for it as the *default* shape for any test that would otherwise be tempted to subprocess-out, mock framework internals, or assert on the order of internal calls.
 
 Scenario assertion priority is explicit: assert exit code and user-visible output first, then assert on stable post-state in the fakes. Reach for public mutation-tracking properties only when no durable after-state exists. Never assert on private fake fields such as `_checkout_calls` or `_sent_emails` in a scenario test.
 
@@ -64,7 +64,7 @@ def test_create_user_command_persists_user() -> None:
     assert fake_email.sent_emails[0]["to"] == "alice@example.com"
 ```
 
-The shape is rigid on purpose: the **Act** phase is _one_ invocation. If you find yourself making multiple calls into internals between Arrange and Assert, you've drifted out of the scenario pattern and into stepwise unit testing — which is fine, but it's a different test.
+The shape is rigid on purpose: the **Act** phase is *one* invocation. If you find yourself making multiple calls into internals between Arrange and Assert, you've drifted out of the scenario pattern and into stepwise unit testing — which is fine, but it's a different test.
 
 ## Why This Pattern Excels for CLIs
 
@@ -74,7 +74,7 @@ CLIs are unusually well-suited to fast scenario testing:
 - **Deterministic.** Fakes have no real git, no real network, no real filesystem. The same test produces the same result on every machine, every CI run, forever.
 - **Tests actual code paths.** Argument parsing, option validation, command dispatch, error formatting — all of it runs for real. You're not mocking `parse_args` and pretending; you're calling the same `click.command` that production calls.
 - **Multi-gateway side effects in one assertion block.** A "land PR" command might touch git, GitHub, a metadata store, and a notification service. A scenario test sets all four fakes up once and then asserts on all four after one invocation. No other test shape gives you that.
-- **Multi-phase commands work cleanly.** Commands that validate then generate then execute (think "dry-run generates a script, then a follow-up command runs it") are natural to test as scenarios — the test asserts on the script the command produces _without_ actually running it.
+- **Multi-phase commands work cleanly.** Commands that validate then generate then execute (think "dry-run generates a script, then a follow-up command runs it") are natural to test as scenarios — the test asserts on the script the command produces *without* actually running it.
 
 For the underlying CliRunner mechanics, see `patterns.md#using-clirunner-for-cli-tests`.
 
@@ -86,7 +86,7 @@ A productive scenario test suite needs three small pieces of infrastructure. Bui
 
 The environment owns whatever ambient setup every scenario needs (a CliRunner, a working "root" path, an isolation boundary for filesystem operations) and tears it down on exit. Two flavors are useful:
 
-**In-memory environment (preferred):** uses sentinel paths that _raise_ on real filesystem operations. Forces tests to stay pure.
+**In-memory environment (preferred):** uses sentinel paths that *raise* on real filesystem operations. Forces tests to stay pure.
 
 ```python
 from collections.abc import Iterator
@@ -126,7 +126,7 @@ def scenario_fs_env(tmp_path: Path) -> Iterator["ScenarioFsEnv"]:
         yield ScenarioFsEnv(runner=runner, root=Path.cwd())
 ```
 
-**Default to in-memory.** Reach for the filesystem variant only when the code under test inherently needs filesystem behavior. The in-memory variant is faster _and_ it catches accidental filesystem dependencies as test failures rather than letting them silently work.
+**Default to in-memory.** Reach for the filesystem variant only when the code under test inherently needs filesystem behavior. The in-memory variant is faster *and* it catches accidental filesystem dependencies as test failures rather than letting them silently work.
 
 ### 2. A smart context builder
 
@@ -149,7 +149,7 @@ def build_context(
     )
 ```
 
-The point is **selective configuration**: a test that only cares about the database passes in a configured `FakeDatabaseAdapter` and gets default fakes for everything else. The test reads as a focused statement about _the gateway it cares about_, not as a 40-line setup wall.
+The point is **selective configuration**: a test that only cares about the database passes in a configured `FakeDatabaseAdapter` and gets default fakes for everything else. The test reads as a focused statement about *the gateway it cares about*, not as a 40-line setup wall.
 
 ### 3. CLI assertion helpers
 
@@ -182,7 +182,7 @@ These helpers are tiny but they massively improve failure output — a green tes
 
 ## Coordinating Multiple Fakes
 
-The pattern's biggest leverage is on commands that touch many gateways at once. The shape stays the same — Arrange, Act, Assert — but the Arrange phase configures _every_ fake the command will exercise.
+The pattern's biggest leverage is on commands that touch many gateways at once. The shape stays the same — Arrange, Act, Assert — but the Arrange phase configures *every* fake the command will exercise.
 
 ```python
 def test_publish_post_command() -> None:
@@ -275,7 +275,7 @@ def test_rename_command_updates_user_name() -> None:
 
 ## Worked Example: Multi-Gateway Scenario
 
-A scenario test for a command that coordinates several gateways and produces a script for deferred execution. The scenario asserts on the _generated script_ and on the fact that no destructive side effects have happened yet.
+A scenario test for a command that coordinates several gateways and produces a script for deferred execution. The scenario asserts on the *generated script* and on the fact that no destructive side effects have happened yet.
 
 ```python
 def test_archive_command_generates_script_without_executing() -> None:
@@ -318,11 +318,11 @@ def test_archive_command_generates_script_without_executing() -> None:
         assert len(fake_notification.sent) == 0
 ```
 
-This is the shape that makes scenario testing pay off: a single test verifies a multi-gateway invariant ("the dry-run produced the right script _and_ didn't touch anything") that no unit test could express on its own.
+This is the shape that makes scenario testing pay off: a single test verifies a multi-gateway invariant ("the dry-run produced the right script *and* didn't touch anything") that no unit test could express on its own.
 
 ## When NOT to Use Scenario Tests
 
-Scenario tests are the right tool for end-to-end outcomes, but they are the _wrong_ tool for several other things:
+Scenario tests are the right tool for end-to-end outcomes, but they are the *wrong* tool for several other things:
 
 | Situation                                                              | Use this instead                                                                       |
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |

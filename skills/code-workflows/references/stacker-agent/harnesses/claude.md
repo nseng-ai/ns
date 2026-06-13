@@ -43,7 +43,7 @@ message. Never start slice N+1 before slice N's handoff verifies.
 
 If the handoff is malformed or `status != "ok"` and the skill's
 failure/retry policy allows one targeted follow-up, continue the
-_existing_ worker via `SendMessage` (`to: <agent id or name>`) with a
+*existing* worker via `SendMessage` (`to: <agent id or name>`) with a
 short, concrete correction ("validation failed on X; fix and re-emit
 the handoff"). Do not call `Agent` a second time for the same slice —
 that starts a fresh worker with no memory of the slice context.
