@@ -54,8 +54,6 @@ def test_real_local_diff_runs_git_diff(
                 stdout="diff --git a/app.py b/app.py\n+print('hello')\n",
                 stderr="",
             )
-        if cmd == ["git", "diff", "--no-ext-diff", "--name-only", "origin/master...HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="app.py\n", stderr="")
         raise AssertionError(f"unexpected command: {cmd!r}")
 
     monkeypatch.setattr(local_diff_real, "git_toplevel", fake_git_toplevel)
@@ -67,13 +65,10 @@ def test_real_local_diff_runs_git_diff(
     assert result.base_ref == "master"
     assert "diff --git a/app.py b/app.py" in result.diff_text
     assert result.changed_paths == ("app.py",)
-    assert captured_cmds == [
-        ["git", "diff", "--no-ext-diff", "origin/master...HEAD"],
-        ["git", "diff", "--no-ext-diff", "--name-only", "origin/master...HEAD"],
-    ]
+    assert captured_cmds == [["git", "diff", "--no-ext-diff", "origin/master...HEAD"]]
 
 
-def test_real_local_diff_cross_checks_parsed_files_with_changed_paths(
+def test_real_local_diff_parses_files_from_single_git_diff(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cwd = Path("/repo")
@@ -115,13 +110,6 @@ def test_real_local_diff_cross_checks_parsed_files_with_changed_paths(
         assert cwd == Path("/repo")
         if cmd == ["git", "diff", "--no-ext-diff", "origin/main...HEAD"]:
             return subprocess.CompletedProcess(cmd, 0, stdout=diff_text, stderr="")
-        if cmd == ["git", "diff", "--no-ext-diff", "--name-only", "origin/main...HEAD"]:
-            return subprocess.CompletedProcess(
-                cmd,
-                0,
-                stdout="app.py\nnew_name.py\ndeleted.py\nimage.png\n",
-                stderr="",
-            )
         raise AssertionError(f"unexpected command: {cmd!r}")
 
     monkeypatch.setattr(local_diff_real, "git_toplevel", fake_git_toplevel)
@@ -130,7 +118,13 @@ def test_real_local_diff_cross_checks_parsed_files_with_changed_paths(
     result = RealLocalDiffGateway(cwd=cwd).load_diff(base_ref="main")
 
     assert isinstance(result, LocalDiff)
-    assert {file.path for file in result.files} == set(result.changed_paths)
+    assert tuple(file.path for file in result.files) == (
+        "app.py",
+        "new_name.py",
+        "deleted.py",
+        "image.png",
+    )
+    assert result.changed_paths == ("app.py", "new_name.py", "deleted.py", "image.png")
     assert tuple(file.change_kind for file in result.files) == (
         "modified",
         "renamed",
@@ -159,8 +153,6 @@ def test_real_local_diff_applies_configured_diff_excludes(
     def fake_run_git(cmd: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
         captured_cmds.append(cmd)
         assert cwd == tmp_path
-        if "--name-only" in cmd:
-            return subprocess.CompletedProcess(cmd, 0, stdout="app.py\n", stderr="")
         return subprocess.CompletedProcess(
             cmd,
             0,
@@ -179,17 +171,6 @@ def test_real_local_diff_applies_configured_diff_excludes(
             "git",
             "diff",
             "--no-ext-diff",
-            "origin/main...HEAD",
-            "--",
-            ".",
-            ":(exclude,glob).agents/skills/**/*.py",
-            ":(exclude,glob).claude/skills/**/*.py",
-        ],
-        [
-            "git",
-            "diff",
-            "--no-ext-diff",
-            "--name-only",
             "origin/main...HEAD",
             "--",
             ".",

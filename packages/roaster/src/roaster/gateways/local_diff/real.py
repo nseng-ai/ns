@@ -42,50 +42,14 @@ class RealLocalDiffGateway(LocalDiffGateway):
                 stderr or f"Unable to load the local diff against origin/{resolved_base_ref}."
             )
 
-        changed_paths_result = run_git(
-            _git_changed_paths_command(
-                base_ref=resolved_base_ref,
-                exclude_globs=exclude_globs,
-            ),
-            cwd=repo_root,
-        )
-        if changed_paths_result.returncode != 0:
-            stderr = changed_paths_result.stderr.strip()
-            raise GitDiffFailedError(
-                stderr or f"Unable to list changed paths against origin/{resolved_base_ref}."
-            )
-
-        return LocalDiff.from_diff_text(
-            base_ref=resolved_base_ref,
-            diff_text=diff_result.stdout,
-            changed_paths=tuple(
-                line.strip() for line in changed_paths_result.stdout.splitlines() if line.strip()
-            ),
-        )
+        return LocalDiff(base_ref=resolved_base_ref, diff_text=diff_result.stdout)
 
     def _repo_root(self) -> Path:
         return git_toplevel(cwd=self._cwd)
 
 
 def _git_diff_command(*, base_ref: str, exclude_globs: tuple[str, ...]) -> list[str]:
-    return _git_diff_base_command(base_ref=base_ref, exclude_globs=exclude_globs)
-
-
-def _git_changed_paths_command(*, base_ref: str, exclude_globs: tuple[str, ...]) -> list[str]:
-    return _git_diff_base_command(
-        base_ref=base_ref,
-        exclude_globs=exclude_globs,
-        extra_args=("--name-only",),
-    )
-
-
-def _git_diff_base_command(
-    *,
-    base_ref: str,
-    exclude_globs: tuple[str, ...],
-    extra_args: tuple[str, ...] = (),
-) -> list[str]:
-    cmd = ["git", "diff", "--no-ext-diff", *extra_args, f"origin/{base_ref}...HEAD"]
+    cmd = ["git", "diff", "--no-ext-diff", f"origin/{base_ref}...HEAD"]
     if exclude_globs:
         exclude_pathspecs = tuple(f":(exclude,glob){pattern}" for pattern in exclude_globs)
         cmd.extend(["--", ".", *exclude_pathspecs])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
@@ -10,9 +11,9 @@ from pydantic import Field, ValidationError, field_validator, model_serializer
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
+from roaster.diff_parsing import DiffFile, parse_unified_diff
 
 Severity = Literal["info", "warning", "error"]
-DiffChangeKind = Literal["added", "modified", "deleted", "renamed", "copied"]
 StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
 
 
@@ -259,46 +260,23 @@ class ReviewCatalog:
 
 
 @dataclass(frozen=True)
-class DiffFile:
-    """One file's slice of a unified diff, with size metrics."""
-
-    path: str
-    old_path: str | None
-    change_kind: DiffChangeKind
-    raw_text: str
-    is_binary: bool
-    added_lines: int
-    removed_lines: int
-    hunk_count: int
-    byte_size: int
-    estimated_tokens: int
-
-
-@dataclass(frozen=True)
 class LocalDiff:
-    """Diff content to review."""
+    """Diff content to review.
+
+    ``files`` and ``changed_paths`` are derived from ``diff_text`` so they can
+    never drift from the raw diff they describe.
+    """
 
     base_ref: str
     diff_text: str
-    changed_paths: tuple[str, ...] = ()
-    files: tuple[DiffFile, ...] = ()
 
-    @classmethod
-    def from_diff_text(
-        cls,
-        *,
-        base_ref: str,
-        diff_text: str,
-        changed_paths: tuple[str, ...] = (),
-    ) -> LocalDiff:
-        from roaster.diff_parsing import parse_unified_diff
+    @cached_property
+    def files(self) -> tuple[DiffFile, ...]:
+        return parse_unified_diff(self.diff_text)
 
-        return cls(
-            base_ref=base_ref,
-            diff_text=diff_text,
-            changed_paths=changed_paths,
-            files=parse_unified_diff(diff_text),
-        )
+    @cached_property
+    def changed_paths(self) -> tuple[str, ...]:
+        return tuple(file.path for file in self.files)
 
 
 @dataclass(frozen=True)

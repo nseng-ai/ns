@@ -55,6 +55,10 @@ def _sample_source(
     )
 
 
+def _diff_text_for_paths(paths: tuple[str, ...]) -> str:
+    return "".join(f"diff --git a/{path} b/{path}\n+changed\n" for path in paths)
+
+
 def _build_context(
     *,
     payload: ReviewPayload | None = None,
@@ -62,7 +66,6 @@ def _build_context(
     usage: ReviewUsage | None = None,
     review_sources_by_key: dict[str, str] | None = None,
     changed_paths: tuple[str, ...] = ("app.py",),
-    diff_text: str = "diff --git a/app.py b/app.py\n+print('hello')\n",
 ) -> RoasterCliContext:
     if payload is None:
         payload = FindingsReview(findings=())
@@ -77,8 +80,7 @@ def _build_context(
         diff=FakeLocalDiffGateway(
             default_diff=LocalDiff(
                 base_ref="master",
-                diff_text=diff_text,
-                changed_paths=changed_paths,
+                diff_text=_diff_text_for_paths(changed_paths),
             ),
         ),
         harness_runtime=FakeHarnessRuntime(

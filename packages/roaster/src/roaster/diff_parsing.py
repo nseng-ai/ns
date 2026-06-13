@@ -4,10 +4,28 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
+from typing import Literal
 
-from roaster.models import DiffChangeKind, DiffFile
+DiffChangeKind = Literal["added", "modified", "deleted", "renamed", "copied"]
 
 _HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,\d+)? @@")
+
+
+@dataclass(frozen=True)
+class DiffFile:
+    """One file's slice of a unified diff, with size metrics."""
+
+    path: str
+    old_path: str | None
+    change_kind: DiffChangeKind
+    raw_text: str
+    is_binary: bool
+    added_lines: int
+    removed_lines: int
+    hunk_count: int
+    byte_size: int
+    estimated_tokens: int
 
 
 _ESCAPED_BYTES: dict[str, int] = {

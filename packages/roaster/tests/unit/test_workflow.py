@@ -50,7 +50,6 @@ def _fakes(
         or LocalDiff(
             base_ref="master",
             diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-            changed_paths=("app.py",),
         ),
     )
     harness_runtime = FakeHarnessRuntime(

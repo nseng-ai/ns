@@ -16,7 +16,7 @@ class FakeLocalDiffGateway(LocalDiffGateway):
         default_diff: LocalDiff | BaseRefUnavailable | None = None,
     ) -> None:
         self._diffs_by_base_ref = dict(diffs_by_base_ref or {})
-        self._default_diff = default_diff or LocalDiff.from_diff_text(base_ref="main", diff_text="")
+        self._default_diff = default_diff or LocalDiff(base_ref="main", diff_text="")
         self._requested_base_refs: list[str | None] = []
 
     def load_diff(self, *, base_ref: str | None) -> LocalDiff | BaseRefUnavailable:
