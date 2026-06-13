@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
-import checkpointPreviewExtension from "../src/checkpoint-preview.ts";
 import claudeExtension from "../src/claude.ts";
 import codeWorkflowsExtension from "../src/code-workflows.ts";
 import codeExtension from "../src/code.ts";
@@ -88,7 +87,6 @@ function collectLivePiExtensionSurfaces(): LivePiSurface[] {
 
 	registerWithFakeHost(pi, asdlDevExtension);
 	registerWithFakeHost(pi, registerBranchContextWithFakeHostOptions);
-	registerWithFakeHost(pi, checkpointPreviewExtension);
 	registerWithFakeHost(pi, claudeExtension);
 	registerWithFakeHost(pi, codeWorkflowsExtension);
 	registerWithFakeHost(pi, codeExtension);
@@ -129,7 +127,7 @@ function fakeRunnerAgentDefinition(): PiAgentDefinition {
 }
 
 describe("Pi extension parity metadata", () => {
-	test("all @asdl/pi-extensions command/tool surfaces have parity metadata", () => {
+	test("all @asdl/pi-extensions command surfaces have parity metadata", () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: collectLivePiExtensionSurfaces(),
 			metadata: PI_EXTENSION_PARITY_RECORDS,
@@ -146,7 +144,7 @@ describe("Pi extension parity metadata", () => {
 		expect(comparison).toEqual({ missingMetadata: [], staleMetadata: [], duplicateMetadataKeys: [] });
 	});
 
-	test("comparison reports live surfaces missing exact metadata", () => {
+	test("comparison reports live command surfaces missing exact metadata", () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: [{ kind: "command", surface: "code:missing" }],
 			metadata: [],
@@ -156,12 +154,21 @@ describe("Pi extension parity metadata", () => {
 		expect(comparison.staleMetadata).toEqual([]);
 	});
 
+	test("comparison ignores live tool surfaces for missing metadata", () => {
+		const comparison = comparePiSurfaceParity({
+			liveSurfaces: [{ kind: "tool", surface: "pi_native_tool" }],
+			metadata: [],
+		});
+
+		expect(comparison).toEqual({ missingMetadata: [], staleMetadata: [], duplicateMetadataKeys: [] });
+	});
+
 	test("comparison reports stale exact metadata", () => {
 		const metadata = definePiSurfaceParity([
 			{
-				kind: "tool",
-				surface: "stale_tool",
-				workflow: "Fixture stale tool",
+				kind: "command",
+				surface: "fixture:stale",
+				workflow: "Fixture stale command",
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",
@@ -180,9 +187,9 @@ describe("Pi extension parity metadata", () => {
 	test("comparison excludes dynamic-family metadata from stale checks", () => {
 		const metadata = definePiSurfaceParity([
 			{
-				kind: "tool",
-				surface: "runtime_family:*",
-				workflow: "Fixture runtime tool family",
+				kind: "command",
+				surface: "runtime-family:*",
+				workflow: "Fixture runtime command family",
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",

@@ -1,8 +1,23 @@
+import { definePiSurfaceParity } from "./parity.ts";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 
 const COMMAND_NAME = "code:push";
 const PUSH_TIMEOUT_MS = 2 * 60 * 1000;
 export const PUSH_OUTPUT_MESSAGE_TYPE = "code-push-output";
+
+export const pushParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: COMMAND_NAME,
+		workflow: "Push already-committed work from the current branch",
+		parity: "PARTIAL",
+		trackedGap: "cross-harness-parity roadmap: decide whether code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "push",
+		notes: "Pi command adds a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",
+	},
+] as const);
 
 type NotifyLevel = "info" | "warning" | "error";
 

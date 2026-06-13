@@ -1,30 +1,29 @@
 /**
  * Typed parity accounting for Pi surfaces implemented by @asdl/pi-extensions.
  *
- * The cross-harness parity Objective tracks whether Pi command/tool workflows
- * have an agent-neutral route: a CLI plus skill, a known gap, or a deliberate
- * waiver for Pi-native UI/session behavior. That accounting used to live only
- * in human-maintained Markdown, which made drift easy: a module could register a
+ * The cross-harness parity Objective tracks whether Pi command workflows have
+ * an agent-neutral route: a CLI plus skill, a known gap, or a deliberate waiver
+ * for Pi-native UI/session behavior. That accounting used to live only in
+ * human-maintained Markdown, which made drift easy: a module could register a
  * new Pi command while the parity table stayed stale.
  *
  * This module makes the accounting a package-local TypeScript contract. Each
- * registration module exports co-located metadata for the command/tool surfaces
- * it owns; parity-registry.ts aggregates those records; parity.test.ts registers
- * the same package modules against a fake Pi host and compares live
+ * registration module exports co-located metadata for the command surfaces it
+ * owns; parity-registry.ts aggregates those records; parity.test.ts registers
+ * the same package modules against a fake Pi host and compares live command
  * registrations to the metadata. The test proves inventory accounting only. It
  * does not prove that a FULL record is semantically correct, does not inspect
  * whether named CLIs/skills exist, and does not parse parity-table.md.
  *
  * Surface names are exact Pi registration keys, not slash-rendered display
- * names: use `code:submit`, not `/code:submit`; use `write_saved_plan_file`,
- * not a prose tool label. The unique machine key is `kind:surface`, so a command
- * and a tool may share a surface string without colliding.
+ * names: use `code:submit`, not `/code:submit`. The unique machine key is
+ * `kind:surface`.
  *
  * Scope is intentionally narrow for v1: package modules in @asdl/pi-extensions.
  * Ad hoc checked-in `.pi/extensions/*.ts` adapters and direct @asdl/ccc command
  * surfaces are not enforced here unless they are exposed through this package.
  */
-export const PI_SURFACE_KINDS = ["command", "tool"] as const;
+export const PI_SURFACE_KINDS = ["command"] as const;
 export type PiSurfaceKind = (typeof PI_SURFACE_KINDS)[number];
 
 /**
@@ -40,7 +39,7 @@ export const PI_PARITY_STATUSES = ["FULL", "PARTIAL", "NONE", "WAIVED"] as const
 export type PiParityStatus = (typeof PI_PARITY_STATUSES)[number];
 
 export interface BasePiSurfaceParity {
-	/** Exact live Pi registration kind collected by the fake host. */
+	/** Exact live Pi command registration kind collected by the fake host. */
 	readonly kind: PiSurfaceKind;
 	/** Exact Pi registration key, without a leading slash for commands. */
 	readonly surface: string;
@@ -93,6 +92,6 @@ export function piSurfaceParityMatching(record: PiSurfaceParity): NonNullable<Pi
 	return record.matching ?? { type: "exact" };
 }
 
-export function piSurfaceKey(surface: Pick<PiSurfaceParity, "kind" | "surface">): string {
+export function piSurfaceKey(surface: { readonly kind: string; readonly surface: string }): string {
 	return `${surface.kind}:${surface.surface}`;
 }

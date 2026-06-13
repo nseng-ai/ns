@@ -29,17 +29,6 @@ export const claudeHandoffParity = definePiSurfaceParity([
 		sourceModule: "claude/handoff-command",
 		notes: "The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",
 	},
-	{
-		kind: "tool",
-		surface: CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
-		workflow: "Verify a saved handoff exists, then launch Claude Code interactively",
-		parity: "WAIVED",
-		fallback: "After saving the handoff, manually launch Claude Code and invoke the handoff-pickup workflow with the branch and slug.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "claude/handoff-command",
-		notes: "Tool value is interactive terminal handoff to Claude Code after Branch Memory storage succeeds.",
-	},
 ] as const);
 
 export interface ClaudeHandoffDeps {

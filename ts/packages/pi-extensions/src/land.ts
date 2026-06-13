@@ -9,12 +9,12 @@ export const landParity = definePiSurfaceParity([
 		kind: "command",
 		surface: "code:land",
 		workflow: "Land the current PR or Graphite stack into trunk",
-		parity: "NONE",
+		parity: "PARTIAL",
 		trackedGap: "cross-harness-parity roadmap: add a clinkr-based CLI entry and skill for the unified /code:land orchestration.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "land",
-		notes: "Pi command is a stable adapter over CCC land orchestration; no installed skill currently claims exact semantic parity.",
+		notes: "CCC land orchestration is extracted and test-backed, but no bin or installed skill currently makes the unified workflow reachable outside Pi.",
 	},
 ] as const);
 

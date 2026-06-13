@@ -76,7 +76,7 @@ const ROUTES = [
 		route: "parity-review",
 		aliases: ["cross-harness-parity"],
 		reference: "skills/code-workflows/references/parity-review.md",
-		summary: "review Pi command/tool changes for cross-harness parity",
+		summary: "review Pi command changes for cross-harness parity",
 	},
 	{
 		route: "gh-ci-debug",

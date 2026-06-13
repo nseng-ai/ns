@@ -15,13 +15,14 @@ export function comparePiSurfaceParity(options: {
 	readonly liveSurfaces: readonly LivePiSurface[];
 	readonly metadata: readonly PiSurfaceParity[];
 }): ParityComparison {
-	const liveKeySet = new Set(options.liveSurfaces.map((surface) => piSurfaceKey(surface)));
+	const liveCommandSurfaces = options.liveSurfaces.filter((surface) => surface.kind === "command");
+	const liveKeySet = new Set(liveCommandSurfaces.map((surface) => piSurfaceKey(surface)));
 	const exactMetadata = options.metadata.filter((record) => piSurfaceParityMatching(record).type === "exact");
 	const exactMetadataKeyCounts = countKeys(exactMetadata.map((record) => piSurfaceKey(record)));
 	const exactMetadataKeySet = new Set(exactMetadataKeyCounts.keys());
 
 	return {
-		missingMetadata: sortLiveSurfaces(options.liveSurfaces.filter((surface) => !exactMetadataKeySet.has(piSurfaceKey(surface)))),
+		missingMetadata: sortLiveSurfaces(liveCommandSurfaces.filter((surface) => !exactMetadataKeySet.has(piSurfaceKey(surface)))),
 		staleMetadata: sortParityRecords(exactMetadata.filter((record) => !liveKeySet.has(piSurfaceKey(record)))),
 		duplicateMetadataKeys: [...exactMetadataKeyCounts.entries()]
 			.filter(([, count]) => count > 1)
@@ -35,9 +36,9 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 	if (comparison.missingMetadata.length > 0) {
 		sections.push(
 			[
-				"Live Pi surfaces missing exact parity metadata:",
+				"Live Pi command surfaces missing exact parity metadata:",
 				...comparison.missingMetadata.map((surface) => `- ${piSurfaceKey(surface)}`),
-				"Add a co-located parity metadata record near the module that registers each surface.",
+				"Add a co-located parity metadata record near the module that registers each command surface.",
 			].join("\n"),
 		);
 	}
@@ -57,7 +58,7 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 			[
 				"Duplicate exact parity metadata keys:",
 				...comparison.duplicateMetadataKeys.map((key) => `- ${key}`),
-				"Keep exactly one exact metadata record per live command/tool surface.",
+				"Keep exactly one exact metadata record per live command surface.",
 			].join("\n"),
 		);
 	}

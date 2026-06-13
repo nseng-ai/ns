@@ -82,28 +82,6 @@ export const handoffParity = definePiSurfaceParity([
 		sourceModule: "handoff",
 		notes: "Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
 	},
-	{
-		kind: "tool",
-		surface: DERIVE_HANDOFF_SLUG_TOOL_NAME,
-		workflow: "Derive a semantic handoff slug from final Markdown handoff content",
-		parity: "WAIVED",
-		fallback: "Use the handoff-create skill's slugging rules or the deterministic handoff helper in the target harness.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "handoff",
-		notes: "Tool is a Pi planning bridge for consistent handoff key selection before Branch Memory storage.",
-	},
-	{
-		kind: "tool",
-		surface: HANDOFF_TAB_LAUNCH_TOOL_NAME,
-		workflow: "Verify a saved handoff exists, then open a focused cmux tab to pick it up",
-		parity: "WAIVED",
-		fallback: "After saving the handoff, manually launch another harness/session and invoke handoff-pickup with the branch and slug.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "handoff",
-		notes: "Tool value is Pi/cmux terminal orchestration after the portable handoff artifact exists.",
-	},
 ] as const);
 
 export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";

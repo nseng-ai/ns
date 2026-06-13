@@ -1,6 +1,4 @@
 import { IMPL_BRANCH_CONTEXT_COMMAND_NAME } from "@asdl/branch-context";
-import { WRITE_SAVED_PLAN_FILE_TOOL_NAME } from "@asdl/plans";
-
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME, registerEnrichedPlanCommandsAndTools } from "./branch-context/enriched-plan-save.ts";
 import { CREATE_BRANCH_CONTEXT_COMMAND_NAME, UP_AND_IMPL_COMMAND_NAME, registerBranchContextCommands } from "./branch-context/from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./branch-context/host-types.ts";
@@ -29,18 +27,6 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "branch-context-extension",
 		notes: "Structured grill UI is Pi-native; the saved-plan storage path is accounted by write_saved_plan_file.",
-	},
-	{
-		kind: "tool",
-		surface: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
-		workflow: "Write a reviewed enriched plan file in the local plan store",
-		parity: "FULL",
-		cli: "enriched-plan exec save",
-		skill: "enriched-plan-save",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "branch-context-extension",
-		notes: "Tool is Pi's controlled file-writing bridge; the durable artifact model is the enriched-plan local plan store.",
 	},
 	{
 		kind: "command",

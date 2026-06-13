@@ -2,18 +2,18 @@
 
 # parity-review
 
-Review Pi extension command/tool changes for cross-harness parity. This skill is advisory: it reports findings and may update Objective parity tracking, but it does not declare a merge blocked.
+Review Pi extension command changes for cross-harness parity. This skill is advisory: it reports findings and may update Objective parity tracking, but it does not declare a merge blocked.
 
 ## Core model
 
-Pi is additive when deterministic workflow logic lives in a shared CLI plus an installed skill, or in documented primitive commands for very thin workflows. A parity concern exists when a Pi command/tool contains workflow orchestration that Claude/Codex cannot reach outside Pi, or when the counterpart skill/docs are missing.
+Pi is additive when deterministic workflow logic lives in a shared CLI plus an installed skill, or in documented primitive commands for very thin workflows. A parity concern exists when a Pi command contains workflow orchestration that Claude/Codex cannot reach outside Pi, or when the counterpart skill/docs are missing. Pi tool calls are host-native bridges and do not require their own parity metadata rows; check dependent command workflows instead.
 
 Use live repo evidence as the source of truth. Documentation and Objective tables can drift; source registration sites, CLI surfaces, installed skills, and actual command behavior win. Use severity labels for review triage, not as merge-blocking authority.
 
 ## Modes
 
 - **Default: diff-scoped review.** Review the current worktree plus current branch diff. Inspect changed files first, then use full inventory searches only to understand nearby patterns.
-- **Explicit full-sweep review.** Inventory every current Pi command/tool surface and compare it to skills, CLIs, and the Objective parity table.
+- **Explicit full-sweep review.** Inventory every current Pi command surface and compare it to skills, CLIs, and the Objective parity table.
 
 If full-sweep is requested and `.asdl/objectives/cross-harness-parity/parity-table.md` exists, check it against live evidence and refresh it when drift is found.
 
@@ -27,7 +27,7 @@ git branch --show-current
 gt parent --no-interactive 2>/dev/null || true
 git diff --name-status
 git diff --name-status <base>...HEAD  # when the branch base is known
-rg -n "pi\\.registerCommand|registerCliCommandExtension|registerTool\\(" ts/packages/pi-extensions/src -g '!**/node_modules/**'
+rg -n "pi\\.registerCommand|registerCliCommandExtension" ts/packages/pi-extensions/src -g '!**/node_modules/**'
 find skills -maxdepth 2 -name SKILL.md | sort
 ```
 
@@ -42,19 +42,12 @@ For diff-scoped review, inspect changed files before the full inventory. For ful
 Look for these source shapes under `ts/packages/pi-extensions/src/`:
 
 - Direct command registration: `pi.registerCommand(...)`.
-- Direct custom tools: `pi.registerTool(...)`.
 - CLI bridge registration: `registerCliCommandExtension(...)` in `ts/packages/pi-extensions/src/cli-command-extension.ts`.
 - Current bridge example: `ts/packages/pi-extensions/src/asdl-dev-extension.ts` maps `asdl-dev` commands to `/dev:*` and `/code:*` Pi commands.
 
 Commands registered through `registerCliCommandExtension` are presumed CLI-backed. Verify skill/docs discoverability and flag surprising extra Pi-only behavior, but do not treat every generated bridge command as an orchestration gap.
 
-Custom tools are in scope because they can create harness lock-in. Genuinely Pi-native UI/session primitives may be WAIVED only when dependent workflows document an agent-neutral fallback. Workflow/data-mutation tools should have a CLI/skill path, sibling Objective ownership, or a tracked gap.
-
-Existing waiver examples from the parity table:
-
-- `dispatch_runner_subagent` is WAIVED with host Task/subagent fallback.
-- `grill_ask` is WAIVED with prose `grill-me` / `grill-with-docs` skill fallback.
-- `write_saved_plan_file` is sibling-owned by the `enriched-plan` CLI / branch-context skill workflow, not closed by this Objective.
+Custom tools are not standalone parity surfaces for this Objective. Treat them as Pi-native host bridges, then check the command workflows that depend on them. Dependent workflows should document an agent-neutral fallback when a tool is unavailable; workflow/data mutation should still be reachable through a command/CLI/skill path when it matters outside Pi.
 
 ## Parity judgment rubric
 
@@ -97,7 +90,7 @@ Base/evidence: <branch/base, changed files, source searches>
 ### Findings
 
 - Severity: <major gap | discoverability gap | table drift | waiver check | note | covered>
-  Surface: `<Pi command/tool or file>`
+  Surface: `<Pi command or file>`
   Evidence: <source paths, command names, skill paths>
   Cross-harness path: <CLI/skill/primitive/waiver/tracked gap>
   Recommendation: <what to do next>

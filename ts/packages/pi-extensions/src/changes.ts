@@ -19,12 +19,12 @@ export const changesParity = definePiSurfaceParity([
 		kind: "command",
 		surface: COMMAND_NAME,
 		workflow: "Summarize outstanding worktree changes without committing",
-		parity: "NONE",
-		trackedGap: "cross-harness-parity roadmap: decide skill-only summary or WAIVED cosmetic verdict for /code:changes.",
+		parity: "WAIVED",
+		fallback: "Use git status and git diff directly, or ask the current harness to summarize the same pending-worktree evidence in prose.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "changes",
-		notes: "Current implementation is a Pi model-drafted summary with no CLI/skill path.",
+		notes: "Read-only Pi UX helper: the underlying facts are ordinary git/worktree evidence, while the command value is a Pi model-drafted message card.",
 	},
 ] as const);
 

@@ -78,7 +78,7 @@ describe("handoff extension", () => {
 		handoffExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual(["handoff:create", "handoff:list", "handoff:pickup"]);
-		expect(pi.commands.has("handoff-tab")).toBe(false);
+		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
