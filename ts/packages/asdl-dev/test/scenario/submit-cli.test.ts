@@ -116,6 +116,24 @@ function dirtyPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
 	};
 }
 
+function largeDirtyPendingWorktreeSnapshot(): PendingWorktreeSnapshot {
+	return {
+		root: "/repo",
+		branch: "feature/demo",
+		status: " M src/large-submit.ts\n",
+		diff: [
+			"diff --git a/src/large-submit.ts b/src/large-submit.ts",
+			"index 1111111..2222222 100644",
+			"--- a/src/large-submit.ts",
+			"+++ b/src/large-submit.ts",
+			"@@ -1 +1 @@",
+			`+${"s".repeat(30_000)}`,
+			"SUBMIT_FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR",
+		].join("\n"),
+		clean: false,
+	};
+}
+
 describe("asdl-dev submit CLI behavior", () => {
 	test("help documents submit behavior through clinkr", async () => {
 		const run = runWithFakes(["submit", "--help"]);
@@ -217,6 +235,30 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
 		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## git status --porcelain\n\n M src/app.ts");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
+	});
+
+	test("dirty submit checkpoints with a bounded large-diff prompt before Graphite submit", async () => {
+		const message = `[cp] Checkpoint large submit
+
+- Summarize oversized diff`;
+		const run = runWithFakes(["submit"], {
+			checkpoint: {
+				snapshot: largeDirtyPendingWorktreeSnapshot(),
+				commit: { summary: "abc123 [cp] Checkpoint large submit" },
+			},
+			textGeneration: { results: [{ ok: true, text: message }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("gt submit succeeded");
+		const prompt = run.textGeneration.generateTextCalls[0]?.prompt ?? "";
+		expect(prompt.length).toBeLessThan(26_000);
+		expect(prompt).toContain("Large diff compacted for checkpoint message generation.");
+		expect(prompt).toContain("- src/large-submit.ts");
+		expect(prompt).not.toContain("SUBMIT_FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
 		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
 		expect(run.submit.submitCurrentStackCalls).toEqual([{ cwd: "/work" }]);
 	});
