@@ -92,7 +92,7 @@ Assumptions:
 
 Risks:
 
-- Git-ref plumbing parity is the central risk: branch encoding (`/` → `---`), snapshot-tree construction, `commit-tree`/`update-ref` semantics, and Entry Locator formatting must match Python exactly, or Python- and TypeScript-written entries diverge and silently stop interoperating. Mitigation: cross-language round-trip parity probes in a throwaway repo are first-class evidence, captured while the Python reference is in-repo.
+- Git-ref plumbing parity is the central risk: branch encoding (`/` → `---`), snapshot-tree construction, `commit-tree`/`update-ref` semantics, and Entry Locator formatting must match Python exactly, or Python- and TypeScript-written entries diverge and silently stop interoperating. Initial mitigation is now in place through cross-language round-trip parity probes in throwaway repositories while the Python reference remains in-repo; keep extending that evidence as write/export/prompt CLI behavior lands.
 - The shared TypeScript git gateway is still in-flight under `ts-cli-foundation`. brmem needs ref/blob/tree plumbing heavier than ordinary git facts; if it waits on a shared gateway it may stall, and if it over-generalizes early it may overfit. Mitigation: keep brmem's git plumbing package-local, mirroring the pr-address↔clinkr ownership split, and promote only a proven, second-consumer seam to `ts-cli-foundation`.
 - Exit-code and abort-path contracts (`check` `0/1/2`, copy-conflict abort, detached-HEAD-when-branch-omitted, existing-entry abort) are easy to get subtly wrong and are load-bearing for the skill's documented behavior; they need explicit tests, not just happy-path coverage.
 - Some Python tests or fixtures may encode accidental implementation behavior rather than durable contract; each slice must distinguish the two before pinning a fixture.
@@ -104,7 +104,7 @@ Risks:
 ## Open Questions
 
 - Which `--format json` envelopes and `list`/`check`/`export`/`copy` outputs require byte-for-byte parity, and which are structured compatibility where key order or formatting may intentionally differ?
-- What is the minimal cross-language parity probe set that convincingly proves Python/TypeScript ref interoperability without overfitting to incidental fixture bytes?
+- The initial cross-language parity probe set now covers Python-written Base/named/nested Entries read and listed by TypeScript, TypeScript-written workflow Namespace Entries read and checked by Python, and TypeScript key-glob copy preserving Python-readable destination Entries. Remaining parity work should add probes only when new public CLI surfaces (`put`, `delete`, `copy`, `export`, `exec resolve-prompt`) expose behavior not already covered by the storage seam.
 - Which git ref/blob/tree plumbing pieces, if any, are reusable enough to belong in a shared `@asdl/core` gateway, and only after which second consumer proves the seam?
 - What is the post-deletion rollback reference for `packages/brmem` — in-repo git history alone, or a frozen external artifact — and what compatibility window precedes deletion?
 - Does `exec resolve-prompt`'s `.brmem/prompts/...` project/global tier resolution have filesystem-layout details (search order, global location) that must be reproduced exactly versus reclassified?

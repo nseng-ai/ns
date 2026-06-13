@@ -8,22 +8,22 @@
   - Policy: read-only inventory and checked-in Objective/doc updates are directly executable.
   - Evidence: `brmem-contract-inventory.md` plus Semantic Update `updates/2026-06-13T150000Z-brmem-contract-inventory.md`.
 
-- [ ] Define the TypeScript migration boundary and package shape for `brmem`.
+- [x] Define the TypeScript migration boundary and package shape for `brmem`.
   - Decide the `ts/packages/brmem` package layout, library vs CLI export surface, the clinkr command tree, and the git-gateway interface (ref/blob/tree plumbing) with its in-memory fake.
   - Confirm the standalone-only boundary (no plugin) and that existing TS consumers are out of scope.
   - Policy: package scaffold, gateway interface, and compatibility docs are directly executable; installed-shim distribution and Python deletion are deferred to their own rows.
-  - Evidence: a Semantic Update recording the package scaffold, export surface, and git-gateway seam.
+  - Evidence: `ts/packages/brmem` now has package metadata, curated exports, a Clinkr CLI shell, package-local gateway contracts, fake and real git-backed gateways, and Semantic Update `updates/2026-06-13T171806Z-typescript-brmem-first-slice.md`.
 
-- [ ] Port the git-ref storage layer and prove cross-language parity.
+- [x] Port the git-ref storage layer and prove cross-language parity.
   - Port the `ref_layout` encoding (`refs/brmem/base|ns/...`, branch `/` → `---`), snapshot-tree construction, and Entry Locator formatting onto the git gateway.
   - This is the keystone seam: prove round-trip interoperability — entries written by Python are readable/listable by TypeScript and vice versa through the same refs — in a throwaway test repository.
   - Policy: directly executable after preview with fake and local-throwaway-repo git gateways. Ask before any change to the ref layout, branch encoding, or Entry Locator.
-  - Evidence: cross-language parity probes plus fake-driven gateway tests; byte-compatible ref/locator output.
+  - Evidence: `ts/packages/brmem/test/gateways/python-parity.test.ts` covers Python-written Base/named/nested Entries read and listed by TypeScript, TypeScript-written workflow Namespace Entries read and checked by Python, and TypeScript key-glob copy preserving Python-readable destination Entries. Real-git and fake-gateway tests cover snapshot-tree writes, deletes, copy conflicts, historical reads, and ref/locator helpers.
 
-- [ ] Port read-only operations: `get`, `check`, `list`.
+- [x] Port read-only operations: `get`, `check`, `list`.
   - Preserve `get` human-mode content-only output, `check` exit codes (`0`/`1`/`2`) and metadata, `list` single-branch and `--all-branches` behavior, `--at` historical lookup, and `--format json` envelopes.
   - Policy: directly executable after preview on the proven storage seam. Ask before changing exit-code or envelope semantics.
-  - Evidence: scenario tests including exit-code assertions, golden/structured envelope parity.
+  - Evidence: TypeScript scenario tests cover `get`, `check`, and `list` human/JSON behavior, exit codes, branch/namespace resolution, hidden-command boundaries, and history-at reads; workspace validation passed for the branch evidence.
 
 - [ ] Port write operations: `put` and `delete`.
   - Preserve overwrite semantics, `--file` / `--stdin` input modes, content limits (UTF-8, binary rejection, 1 MiB `--force` cap), Entry Key validation, detached-HEAD-when-branch-omitted handling, and post-mutation reporting (branch, namespace/base, key, Entry Locator, commit).
