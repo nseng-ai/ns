@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+
+import { FakeBrmemGateway } from "../../src/fake-gateway.ts";
+
+describe("FakeBrmemGateway", () => {
+	it("reads Base Namespace and named Namespace entries", async () => {
+		const gateway = new FakeBrmemGateway({
+			currentBranch: "feat/x",
+			entries: [
+				{ namespace: "base", branch: "feat/x", key: "scratch", content: "base content" },
+				{ namespace: "notes", branch: "feat/x", key: "plan/body.md", content: "named content" },
+			],
+		});
+		expect(await gateway.currentBranch({ cwd: "/repo" })).toEqual({ type: "ok", value: "feat/x" });
+		expect(await gateway.getEntry({ namespace: "base", branch: "feat/x", key: "scratch" })).toMatchObject({
+			type: "found",
+			value: { content: "base content" },
+		});
+		expect(await gateway.getEntry({ namespace: "notes", branch: "feat/x", key: "missing" })).toEqual({ type: "missing" });
+	});
+
+	it("lists entries sorted by Base Namespace, namespace, key, and branch", async () => {
+		const gateway = new FakeBrmemGateway({
+			entries: [
+				{ namespace: "notes", branch: "b", key: "z", content: "z" },
+				{ namespace: "base", branch: "b", key: "b", content: "b" },
+				{ namespace: "notes", branch: "a", key: "a", content: "a" },
+			],
+		});
+		const result = await gateway.listAllEntries({});
+		expect(result).toMatchObject({ type: "ok" });
+		if (result.type !== "ok") throw new Error("unexpected error");
+		expect(result.value.map((entry) => `${entry.namespace}:${entry.key}:${entry.branch}`)).toEqual([
+			"base:b:b",
+			"notes:a:a",
+			"notes:z:b",
+		]);
+	});
+
+	it("mutates coherent snapshots without leaking caller-owned state", async () => {
+		const gateway = new FakeBrmemGateway();
+		expect((await gateway.putEntry({ namespace: "base", branch: "main", key: "a", content: "A" })).type).toBe("ok");
+		expect((await gateway.putEntry({ namespace: "base", branch: "main", key: "b", content: "B" })).type).toBe("ok");
+		const beforeDelete = await gateway.listEntries({ namespace: "base", branch: "main" });
+		if (beforeDelete.type !== "ok") throw new Error("unexpected error");
+		expect(beforeDelete.value.map((entry) => entry.key)).toEqual(["a", "b"]);
+		expect((await gateway.deleteEntry({ namespace: "base", branch: "main", key: "a" })).type).toBe("ok");
+		const afterDelete = await gateway.listEntries({ namespace: "base", branch: "main" });
+		if (afterDelete.type !== "ok") throw new Error("unexpected error");
+		expect(afterDelete.value.map((entry) => entry.key)).toEqual(["b"]);
+	});
+
+	it("copies snapshots and key globs with conflict behavior", async () => {
+		const gateway = new FakeBrmemGateway({
+			entries: [
+				{ namespace: "base", branch: "source", key: "foo/body.md", content: "source" },
+				{ namespace: "base", branch: "source", key: "foo/sub/x.md", content: "nested" },
+				{ namespace: "base", branch: "dest", key: "foo/body.md", content: "dest" },
+				{ namespace: "base", branch: "dest", key: "keep.txt", content: "keep" },
+			],
+		});
+		expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: false, keyGlob: "foo/*" })).type).toBe("error");
+		const copied = await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", overwrite: true, keyGlob: "foo/*" });
+		expect(copied).toMatchObject({ type: "ok" });
+		const entries = await gateway.listEntries({ namespace: "base", branch: "dest" });
+		if (entries.type !== "ok") throw new Error("unexpected error");
+		expect(entries.value.map((entry) => entry.key)).toEqual(["foo/body.md", "foo/sub/x.md", "keep.txt"]);
+	});
+});
