@@ -15,6 +15,7 @@ import {
 	triageSummary,
 	type StackFeedbackPrInput,
 } from "./stack-feedback-prep-core.ts";
+import { duplicateValues, pythonRepr } from "./string-values.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 
@@ -659,27 +660,9 @@ function pythonOrPrNumber(validationPrNumber: number | null, fallbackPrNumber: n
 	return validationPrNumber;
 }
 
-function duplicateValues<T extends string | number>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
-}
-
 /** Render values the way a Python f-string renders a tuple, for byte parity with Ensure messages. */
 function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonStringRepr(value)));
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
 	if (parts.length === 1) return `(${parts[0]},)`;
 	return `(${parts.join(", ")})`;
-}
-
-function pythonStringRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }

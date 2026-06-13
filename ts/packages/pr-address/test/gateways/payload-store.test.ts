@@ -51,7 +51,7 @@ async function makeTempDir(): Promise<string> {
 	return makeScopedTempDir("pr-address-payload-store-");
 }
 
-function fixedClock(isoTimestamps: readonly string[]): PayloadClock {
+function sequenceClock(isoTimestamps: readonly string[]): PayloadClock {
 	const remaining = isoTimestamps.map((value) => {
 		const parsed = new Date(value);
 		expect(Number.isNaN(parsed.getTime()), `fixture clock value must parse: ${value}`).toBe(false);
@@ -106,7 +106,7 @@ describe("payload store write parity with Python asdl_core.payloads", () => {
 		const tempDir = await makeTempDir();
 		const root = join(tempDir, "payload-root");
 		const store = expectOk(
-			await PayloadStore.open({ root, sessionId: writeParityFixture.session_id, clock: fixedClock(writeParityFixture.clock_iso_timestamps) }),
+			await PayloadStore.open({ root, sessionId: writeParityFixture.session_id, clock: sequenceClock(writeParityFixture.clock_iso_timestamps) }),
 		);
 
 		const references: Array<Record<string, unknown>> = [];
@@ -137,7 +137,7 @@ describe("payload store write parity with Python asdl_core.payloads", () => {
 	test("written artifacts round-trip through lookup helpers", async () => {
 		const tempDir = await makeTempDir();
 		const store = expectOk(
-			await PayloadStore.open({ root: join(tempDir, "payload-root"), sessionId: "sess-1", clock: fixedClock(writeParityFixture.clock_iso_timestamps) }),
+			await PayloadStore.open({ root: join(tempDir, "payload-root"), sessionId: "sess-1", clock: sequenceClock(writeParityFixture.clock_iso_timestamps) }),
 		);
 		const reference = expectOk(await store.writeJsonArtifact({ descriptor: "feedback", role: "raw", payload: { exit_code: 0, data: { text: "café" } } }));
 
@@ -180,7 +180,7 @@ async function collectErrorCases(root: string): Promise<Map<string, ObservedErro
 	actualByName.set("open_relative_root", expectError(await PayloadStore.open({ root: "relative-root", sessionId: "session1" })));
 	actualByName.set("open_invalid_session", expectError(await PayloadStore.open({ root: storeRoot, sessionId: "Session!" })));
 
-	const clock = fixedClock(Array.from({ length: 8 }, () => "2026-06-03T12:34:56Z"));
+	const clock = sequenceClock(Array.from({ length: 8 }, () => "2026-06-03T12:34:56Z"));
 	const store = expectOk(await PayloadStore.open({ root: storeRoot, sessionId: "sess-1", clock }));
 	actualByName.set(
 		"descriptor_value_error",
@@ -267,10 +267,10 @@ describe("payload store environment and safety behavior", () => {
 		const tempDir = await makeTempDir();
 		const root = join(tempDir, "payload-root");
 		const clocks = ["2026-06-03T12:34:56Z", "2026-06-03T12:34:57Z"];
-		const first = expectOk(await PayloadStore.open({ root, sessionId: "sess-1", clock: fixedClock(clocks) }));
+		const first = expectOk(await PayloadStore.open({ root, sessionId: "sess-1", clock: sequenceClock(clocks) }));
 		expectOk(await first.writeJsonArtifact({ descriptor: "feedback", role: "raw", payload: { ok: true } }));
 
-		const second = expectOk(await PayloadStore.open({ root, sessionId: "sess-1", clock: fixedClock(clocks) }));
+		const second = expectOk(await PayloadStore.open({ root, sessionId: "sess-1", clock: sequenceClock(clocks) }));
 		const reference = expectOk(await second.writeJsonArtifact({ descriptor: "feedback", role: "raw", payload: { ok: false } }));
 
 		expect(reference.sequence).toBe(2);

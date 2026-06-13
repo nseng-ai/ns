@@ -5,7 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys, plannedPrNumbers, threadKey, threadKeyString, type ThreadKey } from "./stack-feedback-thread-index.ts";
-import { trimRequired } from "./string-values.ts";
+import { duplicateValues, trimRequired } from "./string-values.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
@@ -302,7 +302,7 @@ function validationErrors(options: {
 }
 
 function currentPrErrors(currentPrep: StackFeedbackPrepResult): DiffCurrentError[] {
-	return duplicateNumbers(currentPrep.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_prep contains duplicate PR number ${prNumber}.`, { prNumber }));
+	return duplicateValues(currentPrep.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_prep contains duplicate PR number ${prNumber}.`, { prNumber }));
 }
 
 function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanItem[]): DiffCurrentError[] {
@@ -409,16 +409,6 @@ function newUnresolvedThreads(options: { currentPrep: StackFeedbackPrepResult; p
 		}
 	}
 	return items;
-}
-
-function duplicateNumbers(values: readonly number[]): number[] {
-	const seen = new Set<number>();
-	const duplicates: number[] = [];
-	for (const value of values) {
-		if (seen.has(value) && !duplicates.includes(value)) duplicates.push(value);
-		seen.add(value);
-	}
-	return duplicates;
 }
 
 interface ErrorItemOptions {

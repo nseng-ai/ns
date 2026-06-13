@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { duplicateValues } from "./string-values.ts";
 import {
 	getFeedbackManifestSchema,
 	prepareRunManifestSchema,
@@ -177,16 +178,4 @@ function validationErrorPath(subject: string, loc: readonly PropertyKey[]): stri
 	return path;
 }
 
-export function duplicateValues(values: Array<string | number>): Array<string | number> {
-	const counts = new Map<string | number, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<string | number>();
-	const duplicates: Array<string | number> = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
-}
+export { duplicateValues } from "./string-values.ts";

@@ -31,7 +31,7 @@ export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
 
 /**
  * Wrap a clinkr command spec as an exec operation: the `--json-schema` document
- * is served from the pinned Python-parity builders in `operation-schemas/`,
+ * is served from the pinned Python-parity builders in `operation-schemas/index.ts`,
  * and repo-context-required operations get the LBYL work-tree precondition
  * applied after parse (never blocking the eager `--json-schema` route).
  */
