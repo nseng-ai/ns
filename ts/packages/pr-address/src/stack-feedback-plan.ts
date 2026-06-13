@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { planFeedback, type FeedbackPlanningResult } from "./classification-planning.ts";
-import { validateFeedbackClassification } from "./classification-validation.ts";
+import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResult } from "./classification.ts";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";

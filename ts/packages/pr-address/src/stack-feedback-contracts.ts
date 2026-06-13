@@ -161,8 +161,8 @@ export interface StackFeedbackPrepResult {
 export interface StackFeedbackPlanValidationPrResult {
 	pr_number: number;
 	valid: boolean;
-	counts: import("./classification-validation.ts").FeedbackClassificationValidationResult["counts"];
-	errors: import("./classification-shared.ts").FeedbackClassificationValidationError[];
+	counts: import("./classification.ts").FeedbackClassificationValidationResult["counts"];
+	errors: import("./classification.ts").FeedbackClassificationValidationError[];
 }
 
 export interface StackFeedbackPlanValidationSummary {

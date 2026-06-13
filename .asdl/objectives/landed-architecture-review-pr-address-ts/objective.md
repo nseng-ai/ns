@@ -40,7 +40,7 @@ Risks:
 
 - **Python parity gate (not de-risked):** Candidate 1 and the parity-dependent parts of Candidate 5 are blocked on the legacy Python `--json-schema` parity requirement retiring (ADR-0004 frames the Python path as temporary). If parity must hold longer than expected, those rows stay blocked and the largest LOC win is deferred.
 - **Golden-test coupling:** Several shallow modules (`string-values`, `reply-formatting`) exist for byte-for-byte Python parity under golden tests. Inlining them prematurely would break parity tests; they must be flagged, not deleted, until parity stops mattering.
-- **Hidden coupling on merge:** Merging classification modules could surface call sites that depend on the currently-exported leaf functions; those callers must be migrated to the deepened interface, not left importing internals.
+- **Hidden coupling on merge (de-risked for classification):** The classification slice surfaced only expected callers, and they now import the curated `classification.ts` surface; final sweeps found no references to the old leaf module paths or the leaked validation artifact helper.
 
 ## Open Questions
 
