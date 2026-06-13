@@ -1,260 +1,28 @@
-import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { planFeedback, type FeedbackPlanningResult } from "./classification-planning.ts";
-import { type FeedbackClassificationValidationError } from "./classification-shared.ts";
-import { validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification-validation.ts";
+import { validateFeedbackClassification } from "./classification-validation.ts";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type ActionComplexity, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadArtifactReference, loadJsonInput, loadOperationPayload, type JsonInputResult, type OperationPayloadField } from "./json-input.ts";
-import { PayloadStore, type PayloadReference } from "./payload-store.ts";
+import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
+import { loadOperationPayload } from "./json-input.ts";
+import { PayloadStore } from "./payload-store.ts";
 import {
-	compactPrepResult,
-	prepareStackFeedbackStack,
-	stackFeedbackPrepInputSchema,
+	pythonTupleRepr,
+	stackFeedbackPlanPayloadFields,
+	stackFeedbackPlanPayloadSchema,
 	triageSummary,
-	type StackFeedbackPrInput,
-} from "./stack-feedback-prep-core.ts";
+	type DecisionKind,
+	type StackFeedbackAutomationDiscussionSummary,
+	type StackFeedbackPlanInput,
+	type StackFeedbackPlanInformationalItem,
+	type StackFeedbackPlanItem,
+	type StackFeedbackPlanResult,
+	type StackFeedbackPlanValidationSummary,
+	type StackPrepPrResultInput,
+	type StackPrepResultInput,
+} from "./stack-feedback-contracts.ts";
 import { duplicateValues, pythonRepr } from "./string-values.ts";
-
-const nullableStringSchema = z.string().nullable().default(null);
-
-const discussionTriageHintSchema = z.enum(["automation", "human_like", "needs_agent_review"]);
-const discussionTriageReasonSchema = z.enum([
-	"vercel_status",
-	"graphite_status",
-	"roaster_summary",
-	"github_actions_status",
-	"bot_status",
-	"human_like",
-	"direct_request_possible",
-	"uncertain",
-]);
-
-const stackDiscussionTriageItemSchema = z.looseObject({
-	comment_id: z.number().int(),
-	author: z.string(),
-	classification_hint: discussionTriageHintSchema,
-	reason: discussionTriageReasonSchema,
-	body_locator: z.unknown(),
-});
-
-const stackPrepDiscussionTriageSchema = z.looseObject({
-	automation_like: z.number().int().default(0),
-	human_like: z.number().int().default(0),
-	needs_agent_review: z.number().int().default(0),
-	by_reason: z.record(z.string(), z.number().int()).default({}),
-	items: z.array(stackDiscussionTriageItemSchema).default([]),
-});
-
-const stackPrepPrResultSchema = z.looseObject({
-	pr_number: z.number().int(),
-	branch: z.string(),
-	title: nullableStringSchema,
-	url: nullableStringSchema,
-	head_ref_name: nullableStringSchema,
-	base_ref_name: nullableStringSchema,
-	manifest: z.unknown(),
-	discussion_triage: stackPrepDiscussionTriageSchema,
-});
-
-const stackPrepResultInputSchema = z.looseObject({
-	payload_session_id: z.string(),
-	include_resolved: z.boolean().default(false),
-	stack: z.array(stackPrepPrResultSchema),
-});
-
-const stackFeedbackPlanInputSchema = z.looseObject({
-	prep: stackPrepResultInputSchema,
-	classifications: z.array(z.looseObject({ pr_number: z.number().int(), classification: z.record(z.string(), z.unknown()) })),
-});
-
-/** Wire payload for stack-feedback-plan: `prep` may be omitted when `--prep-reference` supplies it. */
-const stackFeedbackPlanPayloadSchema = stackFeedbackPlanInputSchema.extend({
-	prep: stackPrepResultInputSchema.optional(),
-});
-type StackFeedbackPlanPayload = z.infer<typeof stackFeedbackPlanPayloadSchema>;
-const stackFeedbackPlanPayloadFields = [
-	{
-		key: "prep",
-		artifactDescription: "the stack-feedback-prep data object",
-		referenceSchema: stackPrepResultInputSchema,
-	},
-] as const satisfies readonly OperationPayloadField<StackFeedbackPlanPayload, keyof StackFeedbackPlanPayload & string>[];
-
-type StackPrepPrResultInput = z.infer<typeof stackPrepPrResultSchema>;
-type StackPrepResultInput = z.infer<typeof stackPrepResultInputSchema>;
-type StackFeedbackPlanInput = z.infer<typeof stackFeedbackPlanInputSchema>;
-type DecisionKind = "approval_required_action" | "informational_review_thread" | "discussion_comment_action" | "discussion_comment_review";
-
-interface StackFeedbackPlanValidationPrResult {
-	pr_number: number;
-	valid: boolean;
-	counts: FeedbackClassificationValidationResult["counts"];
-	errors: FeedbackClassificationValidationError[];
-}
-
-interface StackFeedbackPlanValidationSummary {
-	all_valid: boolean;
-	per_pr: StackFeedbackPlanValidationPrResult[];
-}
-
-interface StackFeedbackPlanItem {
-	pr_number: number;
-	branch: string;
-	title: string | null;
-	url: string | null;
-	source_batch_id: string | null;
-	source_kind: string;
-	summary: string;
-	action_summary: string | null;
-	complexity: string | null;
-	approval_required: boolean;
-	review_id: string | null;
-	review_state: string | null;
-	submitted_at: string | null;
-	thread_id: string | null;
-	discussion_comment_id: number | null;
-	covered_comment_ids: number[];
-	body_locator: unknown | null;
-	thread_item_pointer: string | null;
-	path: string | null;
-	line: number | null;
-	start_line: number | null;
-	is_outdated: boolean | null;
-	author: string | null;
-	needs_reply: boolean | null;
-}
-
-interface StackFeedbackPlanBatch {
-	batch_id: string;
-	complexity: string;
-	approval_required: boolean;
-	items: StackFeedbackPlanItem[];
-}
-
-interface StackFeedbackPlanInformationalItem {
-	pr_number: number;
-	branch: string;
-	title: string | null;
-	url: string | null;
-	source_kind: string;
-	summary: string;
-	informational_reason: string;
-	user_decision_required: boolean;
-	allowed_decisions: string[];
-	review_id: string | null;
-	review_state: string | null;
-	submitted_at: string | null;
-	thread_id: string | null;
-	discussion_comment_id: number | null;
-	covered_comment_ids: number[];
-	body_locator: unknown | null;
-	thread_item_pointer: string | null;
-	path: string | null;
-	line: number | null;
-	start_line: number | null;
-	is_outdated: boolean | null;
-	author: string | null;
-}
-
-interface StackFeedbackDecisionDocketItem {
-	decision_kind: DecisionKind;
-	pr_number: number;
-	branch: string;
-	title: string | null;
-	url: string | null;
-	source_kind: string;
-	thread_id: string | null;
-	discussion_comment_id: number | null;
-	path: string | null;
-	line: number | null;
-	summary: string;
-	action_summary: string | null;
-	recommended_decision: string;
-	approval_required: boolean;
-}
-
-interface StackFeedbackAutomationDiscussionSummary {
-	automation_like: number;
-	human_like: number;
-	needs_agent_review: number;
-	by_reason: Record<string, number>;
-}
-
-interface StackFeedbackPlanSummary {
-	actionable_items: number;
-	approval_required_items: number;
-	informational_items: number;
-	automation_discussion_comments: number;
-}
-
-interface StackFeedbackPlanResult {
-	valid: boolean;
-	payload_session_id: string;
-	pr_count: number;
-	validation: StackFeedbackPlanValidationSummary;
-	batches: StackFeedbackPlanBatch[];
-	informational: StackFeedbackPlanInformationalItem[];
-	automation_discussion_summary: StackFeedbackAutomationDiscussionSummary | null;
-	decision_docket: StackFeedbackDecisionDocketItem[];
-	stack_plan_reference: PayloadReference | null;
-	summary: StackFeedbackPlanSummary | null;
-}
-
-const stackFeedbackPrepParseSchema = z.object({
-	stack_json: z.string().optional(),
-	stack_reference: z.string().optional(),
-	payload_session_id: z.string().optional(),
-	stdout_mode: z.enum(["full", "compact"]).default("full"),
-	include_resolved: z.boolean().default(false),
-	include_empty_reviews: z.boolean().default(false),
-});
-
-export const stackFeedbackPrepOperation = defineExecOperation({
-	isRepoContextRequired: true,
-	spec: {
-		name: "stack-feedback-prep",
-		description: "Fetch stack PR feedback, write payload artifacts, and build classification templates.",
-		schema: stackFeedbackPrepParseSchema,
-		handler: runStackFeedbackPrepOperation,
-	},
-});
-
-async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
-	// Python opens the payload store before reading the stack JSON; preserve that ordering.
-	const storeResult = await PayloadStore.fromEnvironment({
-		explicitSessionId: request.payload_session_id ?? null,
-		env: ctx.env,
-		clock: ctx.context.payloadClock,
-	});
-	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
-	const store = storeResult.value;
-
-	const payloadResult = await resolvePrepStackInput({
-		stackJson: request.stack_json,
-		stackReference: request.stack_reference,
-		stdin: ctx.stdin,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-
-	const validationMessage = stackInputValidationMessage(payloadResult.value.stack);
-	if (validationMessage !== null) return failure("invalid_request", validationMessage);
-
-	const github = ctx.context.github;
-
-	const prepared = await prepareStackFeedbackStack({
-		ctx,
-		store,
-		stack: payloadResult.value.stack,
-		github,
-		shouldIncludeResolved: request.include_resolved,
-		shouldIncludeEmptyReviews: request.include_empty_reviews,
-	});
-	if (prepared.type === "error") return prepared.exit;
-	if (request.stdout_mode === "compact") return ok(compactPrepResult(prepared.value.result, prepared.value.stackSummaryReference));
-	return ok(prepared.value.result);
-}
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
@@ -341,46 +109,6 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	return ok(result);
 }
 
-async function resolvePrepStackInput(options: {
-	stackJson: string | undefined;
-	stackReference: string | undefined;
-	stdin: () => Promise<string>;
-}): Promise<JsonInputResult<{ stack: StackFeedbackPrInput[] }>> {
-	if (options.stackReference === undefined) {
-		return await loadJsonInput({
-			optionValue: options.stackJson,
-			commandName: "stack-feedback-prep",
-			inputDescription: "stack JSON payload",
-			optionName: "--stack-json",
-			schema: stackFeedbackPrepInputSchema,
-			stdin: options.stdin,
-		});
-	}
-	if (options.stackJson !== undefined) {
-		return {
-			type: "error",
-			error: { errorType: "invalid_request", message: "stack-feedback-prep cannot mix --stack-json with --stack-reference; pass exactly one stack source." },
-		};
-	}
-	return await loadArtifactReference({
-		filePath: options.stackReference,
-		commandName: "stack-feedback-prep",
-		optionName: "--stack-reference",
-		artifactDescription: "a stack JSON payload",
-		schema: stackFeedbackPrepInputSchema,
-	});
-}
-
-function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): string | null {
-	if (stack.length === 0) return "stack-feedback-prep requires at least one stack PR.";
-	const duplicatePrs = duplicateValues(stack.map((item) => item.pr_number));
-	if (duplicatePrs.length > 0) return `stack-feedback-prep stack contains duplicate PR numbers: ${pythonTupleRepr(duplicatePrs)}`;
-	if (!stack.every((item) => item.branch.trim() !== "")) return "stack-feedback-prep requires every stack PR branch to be non-empty.";
-	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
-	if (duplicateBranches.length > 0) return `stack-feedback-prep stack contains duplicate branches: ${pythonTupleRepr(duplicateBranches)}`;
-	return null;
-}
-
 function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; value: Map<number, unknown> } | { type: "error"; message: string } {
 	const expectedPrs = new Set(payload.prep.stack.map((item) => item.pr_number));
 	const actualPrs = payload.classifications.map((item) => item.pr_number);
@@ -443,8 +171,8 @@ function mergedStackPlanResult(options: {
 	};
 }
 
-function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[] {
-	const batches: StackFeedbackPlanBatch[] = [];
+function mergedBatches(prPlans: readonly PrPlanPair[]): import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[] {
+	const batches: import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[] = [];
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items: StackFeedbackPlanItem[] = [];
 		for (const { prResult, plan } of prPlans) {
@@ -542,10 +270,10 @@ function automationDiscussionSummary(prep: StackFeedbackPlanInput["prep"]): Stac
 
 function decisionDocket(
 	prep: StackFeedbackPlanInput["prep"],
-	batches: readonly StackFeedbackPlanBatch[],
+	batches: readonly import("./stack-feedback-contracts.ts").StackFeedbackPlanBatch[],
 	informational: readonly StackFeedbackPlanInformationalItem[],
-): StackFeedbackDecisionDocketItem[] {
-	const docket: StackFeedbackDecisionDocketItem[] = [];
+): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem[] {
+	const docket: import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem[] = [];
 	for (const batch of batches) {
 		for (const item of batch.items) {
 			if (item.approval_required) {
@@ -576,7 +304,7 @@ function isAutomationDiscussion(prep: StackFeedbackPlanInput["prep"], prNumber: 
 	return false;
 }
 
-function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind): StackFeedbackDecisionDocketItem {
+function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem {
 	return {
 		decision_kind: decisionKind,
 		pr_number: item.pr_number,
@@ -595,7 +323,7 @@ function actionDecision(item: StackFeedbackPlanItem, decisionKind: DecisionKind)
 	};
 }
 
-function informationalDecision(item: StackFeedbackPlanInformationalItem, decisionKind: DecisionKind): StackFeedbackDecisionDocketItem {
+function informationalDecision(item: StackFeedbackPlanInformationalItem, decisionKind: DecisionKind): import("./stack-feedback-contracts.ts").StackFeedbackDecisionDocketItem {
 	return {
 		decision_kind: decisionKind,
 		pr_number: item.pr_number,
@@ -662,11 +390,4 @@ function compactInformationalSummary(informational: readonly StackFeedbackPlanIn
 function pythonOrPrNumber(validationPrNumber: number | null, fallbackPrNumber: number): number {
 	if (validationPrNumber === null || validationPrNumber === 0) return fallbackPrNumber;
 	return validationPrNumber;
-}
-
-/** Render values the way a Python f-string renders a tuple, for byte parity with Ensure messages. */
-function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }
