@@ -166,3 +166,20 @@ Resolved 2026-06-09 (see Decided entries under Assumptions and Risks):
 
 - Plugin compatibility: the `asdl pr-address ...` plugin is retired, not preserved or replaced.
 - Fallback retirement evidence: the retirement phase begins now and completes within the endgame stack — every remaining fallback surface is either ported (operations, schema routes, payload store) or retired (plugin), the run-from-source TypeScript wrapper remains the accepted installed CLI path, and `packages/asdl-pr-address` is deleted in the final branches with PyPI `0.1.1` as external rollback.
+
+## Closure
+
+Closed as completed on 2026-06-13.
+
+The `pr-address` TypeScript port reached its intended end state: the standalone TypeScript `pr-address` CLI is the default and sole active invocation surface, the shell is built through `@asdl/clinkr`, the former `asdl pr-address ...` plugin is retired, active Python fallback dispatch is removed, and `packages/asdl-pr-address` is deleted from the repository. The frozen external PyPI artifact `asdl-pr-address==0.1.1` remains the rollback path rather than in-repo Python source.
+
+Key completion evidence is recorded in the final Semantic Updates:
+
+- `updates/2026-06-13T130734Z-plugin-retirement-and-python-deletion.md` records plugin retirement, Python package deletion, golden-corpus relocation into `ts/packages/pr-address`, config/test/doc scrub, full-repo `just` validation, grep guards, and CLI smoke checks.
+- `updates/2026-06-13T134301Z-pr-address-playbook-slice-complete.md` records the final playbook slice and points to the umbrella Objective's reusable porting playbook.
+
+Caveats and follow-ups are intentionally outside this closed Objective unless reopened by a new Objective or maintenance slice:
+
+- The accepted installed model is the run-from-source shim; checkout-free bundling and npm publishing were explicitly dropped unless a future real consumer requirement appears.
+- Optional singular `read-feedback-detail` containment parity hygiene remains parked and did not block deletion or closure.
+- Future capability ports should use the umbrella playbook and choose their own distribution and shared-framework extraction points from fresh evidence.
