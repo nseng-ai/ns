@@ -2,12 +2,10 @@ import { failure, ok, toMachineEnvelope } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { buildFeedbackClassificationTemplate } from "./classification-core.ts";
-import { reviewsForRequest } from "./feedback-collection.ts";
+import { buildGetFeedbackManifestFromSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
-import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
-import { gatewayFailureMessage, gatewayOptions } from "./operation-support.ts";
+import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import type { ExecOperationDispatchResult, ExecOperationInvocation } from "./operation-registry.ts";
-import { buildGetFeedbackPayloadManifest } from "./payload-manifest.ts";
 import { PayloadStore, type PayloadReference } from "./payload-store.ts";
 
 const DIRECT_REQUEST_MARKERS = ["please", "can you", "could you", "should", "needs", "need to", "fix", "update", "question"] as const;
@@ -178,17 +176,24 @@ async function prepareStackPr(options: {
 	shouldIncludeResolved: boolean;
 	shouldIncludeEmptyReviews: boolean;
 }): Promise<{ type: "ok"; value: StackFeedbackPrepPrResult } | { type: "error"; result: ExecOperationDispatchResult }> {
-	const gatewayOptionsValue = gatewayOptions(options.invocation);
 	const prNumber = options.prInput.pr_number;
-	const reviewsResult = await options.github.getReviews(prNumber, gatewayOptionsValue);
-	if (reviewsResult.type === "failure") return gatewayError(`Failed to fetch reviews for PR ${prNumber}`, reviewsResult.failure);
-	const reviews = reviewsForRequest(reviewsResult.value, options.shouldIncludeEmptyReviews);
-	const threadsResult = await options.github.getReviewThreads(prNumber, { ...gatewayOptionsValue, shouldIncludeResolved: options.shouldIncludeResolved });
-	if (threadsResult.type === "failure") return gatewayError(`Failed to fetch review threads for PR ${prNumber}`, threadsResult.failure);
-	const commentsResult = await options.github.getDiscussionComments(prNumber, gatewayOptionsValue);
-	if (commentsResult.type === "failure") return gatewayError(`Failed to fetch discussion comments for PR ${prNumber}`, commentsResult.failure);
+	const snapshotResult = await fetchFeedbackSnapshot({
+		gateway: options.github,
+		prNumber,
+		shouldIncludeResolved: options.shouldIncludeResolved,
+		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
+		shouldCountAllReviewThreads: false,
+		invocation: options.invocation,
+	});
+	if (snapshotResult.type === "error") return snapshotResult;
+	const snapshot = snapshotResult.snapshot;
 
-	const inlineResult = inlineFeedbackResult({ prNumber, reviews, reviewThreads: threadsResult.value, discussionComments: commentsResult.value });
+	const inlineResult = inlineFeedbackResult({
+		prNumber,
+		reviews: snapshot.reviews,
+		reviewThreads: snapshot.review_threads,
+		discussionComments: snapshot.discussion_comments,
+	});
 	const rawReference = await options.store.writeJsonArtifact({
 		descriptor: `pr-address-stack-feedback-pr-${prNumber}`,
 		role: "raw",
@@ -196,13 +201,7 @@ async function prepareStackPr(options: {
 	});
 	if (rawReference.type === "error") return { type: "error", result: exitFailure(rawReference.errorType, rawReference.message) };
 
-	const manifest = buildGetFeedbackPayloadManifest({
-		payload_reference: rawReference.value,
-		pr_number: prNumber,
-		reviews,
-		review_threads: threadsResult.value,
-		discussion_comments: commentsResult.value,
-	});
+	const manifest = buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value);
 	const manifestView = prepManifestViewSchema.parse(manifest);
 	const templateResult = buildFeedbackClassificationTemplate(manifest);
 	if (templateResult.type === "error") throw new Error(templateResult.message);
@@ -231,7 +230,7 @@ async function prepareStackPr(options: {
 			classification_template: templateResult.value,
 			classification_template_reference: templateReference.value,
 			counts: manifestView.counts,
-			discussion_triage: discussionTriageSummary(manifestView.discussion_comments, commentsResult.value),
+			discussion_triage: discussionTriageSummary(manifestView.discussion_comments, snapshot.discussion_comments),
 		},
 	};
 }
@@ -326,10 +325,6 @@ export function compactPrepResult(result: StackFeedbackPrepResult, stackSummaryR
 			},
 		})),
 	};
-}
-
-function gatewayError(prefix: string, failure: GatewayFailure): { type: "error"; result: ExecOperationDispatchResult } {
-	return { type: "error", result: exitFailure("pr_gateway_failure", gatewayFailureMessage(prefix, failure)) };
 }
 
 function exitFailure(errorType: string, message: string): ExecOperationDispatchResult {

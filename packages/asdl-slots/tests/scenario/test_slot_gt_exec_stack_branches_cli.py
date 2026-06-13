@@ -93,8 +93,9 @@ def _build_stack_fakes(
     current_branch_result: str | DetachedHead | GitCommandFailure | None = None,
     trunk: str = "main",
 ) -> _StackBranchFakes:
-    repo_root = (tmp_path / "repo").resolve()
+    repo_root = tmp_path / "repo"
     repo_root.mkdir(exist_ok=True)
+    repo_root = repo_root.resolve()
     slots_root = tmp_path / "slots"
     branch_result = current_branch if current_branch_result is None else current_branch_result
     branches = {trunk, current_branch}
