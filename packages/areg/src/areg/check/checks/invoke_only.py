@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 from areg.check.base import SkillCheck
 from areg.check.frontmatter import parse_skill_frontmatter
 from areg.check.models import CheckContext, IssueKind, SkillIssue, SkillMeta, SourceType
-
-
-def _local_skill_md_path(skill: SkillMeta, project_dir: Path) -> Path:
-    return project_dir / "skills" / skill.name / "SKILL.md"
-
-
-def _openai_policy_path(skill: SkillMeta, project_dir: Path) -> Path:
-    return project_dir / "skills" / skill.name / "agents" / "openai.yaml"
+from areg.invoke_only import (
+    InvokeOnlyState,
+    InvokeOnlyStatus,
+    flag_set_in_frontmatter,
+    openai_policy_path,
+    skill_md_path,
+)
 
 
 class InvokeOnlyCheck(SkillCheck):
@@ -21,7 +19,7 @@ class InvokeOnlyCheck(SkillCheck):
     source_types: ClassVar[frozenset[SourceType]] = frozenset({"local"})
 
     def run(self, ctx: CheckContext, skill: SkillMeta) -> list[SkillIssue]:
-        skill_md = _local_skill_md_path(skill, ctx.project_dir)
+        skill_md = skill_md_path(ctx.project_dir, skill.name)
         if not skill_md.is_file():
             return []
 
@@ -30,12 +28,14 @@ class InvokeOnlyCheck(SkillCheck):
         except ValueError:
             return []
 
-        flag_enabled = frontmatter.get("disable-model-invocation", "").lower() == "true"
-        sidecar = _openai_policy_path(skill, ctx.project_dir)
-        sidecar_exists = sidecar.is_file()
+        sidecar = openai_policy_path(ctx.project_dir, skill.name)
+        state = InvokeOnlyState(
+            flag_enabled=flag_set_in_frontmatter(frontmatter),
+            sidecar_exists=sidecar.is_file(),
+        )
         relative_sidecar = sidecar.relative_to(ctx.project_dir)
 
-        if flag_enabled and not sidecar_exists:
+        if state.status is InvokeOnlyStatus.FLAG_WITHOUT_SIDECAR:
             return [
                 SkillIssue(
                     skill.name,
@@ -43,7 +43,7 @@ class InvokeOnlyCheck(SkillCheck):
                     f"{relative_sidecar} missing for invoke-only skill",
                 )
             ]
-        if sidecar_exists and not flag_enabled:
+        if state.status is InvokeOnlyStatus.SIDECAR_WITHOUT_FLAG:
             return [
                 SkillIssue(
                     skill.name,
