@@ -24,6 +24,14 @@ Repo-local lifecycle behavior exposed through SDL because the command belongs to
 A TypeScript module at `.asdl/commands/<command>.ts` whose default export is created with `defineCommand()` from `@asdl/sdl/sdk`.
 *Avoid*: YAML command spec, nested task database, arbitrary internal import.
 
+**Project command discovery**:
+The side-effect-light SDL CLI step that scans direct `.asdl/commands/*.ts` filenames to register flat command names without importing the modules. SDL imports and validates a project command module only when that exact command is invoked.
+*Avoid*: eager module loading for help, recursive command crawling, hidden task registry.
+
+**CLI-only dynamic project command loading**:
+The current boundary for dynamically discovered project-only commands: `sdl <name>` can be registered from `.asdl/commands/<name>.ts`, while exact dynamic `/sdl:<name>` Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
+*Avoid*: accidental dynamic Pi mirror registration, assuming invocation-time `ctx.cwd` can create new exact Pi command names.
+
 **Flat first-pass command name**:
 A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `autoslot`, `land`, or `push`. The first pass avoids nested command groups.
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.

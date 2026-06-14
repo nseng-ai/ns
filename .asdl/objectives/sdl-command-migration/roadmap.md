@@ -6,9 +6,9 @@
   - Policy: direct execution after preview.
   - Evidence: `ts/packages/sdl/README.md` explains flat `.asdl/commands/<command>.ts` project-specific SDL command modules, `@asdl/sdl/sdk` as the public author API, internal migration exports, hard cutover from `asdl-dev` and `/code:*`, and `/sdl:*` mirrors for migrated Pi surfaces; `ts/packages/sdl/CONTEXT.md` now records SDL command vocabulary; `CONTEXT-MAP.md` now tracks SDL and its boundaries with Pi extensions, `asdl-dev`, and CCC. Broader Pi docs and skill convention cleanup remain part of command-specific migration slices and the stale-vocabulary cleanup row.
 
-- [ ] Implement or standardize general project-specific SDL command loading beyond the one-off `cp` override.
+- [x] Implement or standardize general project-specific SDL command loading beyond the one-off `cp` override.
   - Policy: direct execution after preview, but steer first if the design changes the public SDK surface for command authors.
-  - Evidence: SDL CLI tests cover discovery/loading of at least one project-specific command module; docs identify which `@asdl/sdl` subpaths are public author APIs and which remain internal migration exports.
+  - Evidence: `ts/packages/sdl/src/command-registry.ts` generalizes flat `.asdl/commands/*.ts` discovery/loading; `sdl --help` scans filenames only while invocation imports and validates the selected module; `ts/packages/sdl/src/cp-command.ts` remains a wrapper over the generic runner; SDL scenario tests cover project-only discovery, no-import help, invocation, load failures, name mismatches, invalid filenames, ignored `.d.ts` files, and the existing `cp` override. `ts/packages/sdl/README.md` and `ts/packages/sdl/CONTEXT.md` document CLI-only dynamic loading, no public SDK shape change, and deferred Pi mirror/argument-schema follow-ups. Verification: targeted SDL/Pi package tests and checks passed; full TypeScript test/check passed; docs dprint check passed.
 
 - [ ] Migrate `submit` as the first hard-cutover lifecycle command.
   - Policy: direct execution after preview; ask first before running the mutating submit command itself as validation.
