@@ -67,6 +67,19 @@ a `pool_full` error that lists the current assignments. Run
 `slot free` to release a slot, or increase `--size` via `slot resize`
 to grow the pool.
 
+### `slot claim BRANCH`
+
+Moves an existing local branch into the current managed slot worktree.
+If the branch is assigned to another managed slot, `slot claim` detaches
+that source slot at trunk first and then checks out the branch in the
+current slot. If the branch is not checked out anywhere, it checks the
+branch out directly in the current slot.
+
+`slot claim` must be run from a managed `slot-XX` worktree. It refuses
+when the current slot or source slot is dirty, when either slot has an
+operation in progress, or when the branch is checked out in the main
+worktree or another non-slot worktree.
+
 ## Opt-in shell integration
 
 By default, navigation commands print a `cd <path>` command and, when
