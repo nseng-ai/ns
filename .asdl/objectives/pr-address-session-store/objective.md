@@ -8,7 +8,7 @@ The durable rule this Objective installs: **files carry what the agent authored;
 
 ### Status (rebaselined 2026-06-13)
 
-This Objective is **unblocked and ready to start**. Its predecessor `pr-address-typescript-port` closed as completed on 2026-06-13 (the TS cutover, clinkr shell migration, bundle/distribution, plugin retirement, and Python deletion all landed; `packages/asdl-pr-address` is gone). The dependency gate that previously blocked this work — recorded in the 2026-06-12 update — is therefore lifted. The first action is the descriptor-taxonomy / resolution-contract row.
+This Objective is **in progress**. Its predecessor `pr-address-typescript-port` closed as completed on 2026-06-13 (the TS cutover, clinkr shell migration, bundle/distribution, plugin retirement, and Python deletion all landed; `packages/asdl-pr-address` is gone). The dependency gate that previously blocked this work — recorded in the 2026-06-12 update — is therefore lifted. The descriptor-taxonomy / planning-resolution slice is implemented, and latest JSON artifact lookup is now owned by the payload-store abstraction rather than workflow-local filesystem scans.
 
 The codebase this Objective targets is now **TypeScript-only**, at `ts/packages/pr-address/` (package `@asdl/pr-address`). All Python framing in the original record has been removed; the problem and the remaining work are restated below against the live TS surface.
 
@@ -29,7 +29,7 @@ The payload session store itself is already built and is the dominant coordinati
 
 - The store exists at `src/payload-store.ts`: sessions live under `{ASDL_PAYLOAD_ROOT|/tmp/asdl}/sessions/{session-id}/payloads/`, with the exact filename contract this Objective assumes — `{date}t{time}z-{sequence:04d}-{descriptor}.{role}.{ext}` — and exclusive-create sequence allocation that already provides write coordination.
 - Helpers already default to `payload_mode: "payload"` and write their raw envelope into the session (`prepare-run`, `get-feedback`); `record-batch-checkpoint` already returns a `checkpoint_reference`; `read-feedback-details` writes a summary artifact; stack helpers already consume references (`--prep-reference`, `--stack-reference`, `--stack-plan-reference`). So **"every helper writes its artifact to the session" is largely already true.**
-- What does **not** exist: implicit latest-of-kind resolution of predecessors, a reserved PR-scoped descriptor taxonomy, the `resolved_inputs` audit block (absent from both code and the skill), and explicit `--from-build`-style mutation references. These are the substance of this Objective.
+- What now exists for the planning slice: reserved scope-first descriptors, latest JSON lookup by exact descriptor/role/extension/highest sequence, classification persistence, `plan-feedback --pr-number` and empty-stdin `stack-feedback-plan` session resolution, and `resolved_inputs` audit blocks for those implicit planning paths. What still does **not** exist: mutation/build/checkpoint/finalization session flow, compact-by-default stdout everywhere, skill docs for the final flow, and explicit `--from-build`-style mutation references.
 
 ## Scope
 
@@ -38,14 +38,14 @@ Target surface: the `@asdl/pr-address` exec helpers in `ts/packages/pr-address/s
 Resolution contract:
 
 - Reserved, PR-scoped descriptors per artifact kind (classification, plan, resolve-build per batch, checkpoint per batch, final feedback). Latest-of-kind resolves as max sequence among matching descriptors using the existing payload filename contract. No session index or journal file — the store's exclusive-create sequence allocation already provides write coordination.
-- Planning and read helpers resolve predecessors implicitly (latest of kind) and echo a `resolved_inputs` block naming the exact artifacts used, so implicit resolution stays auditable. (`resolved_inputs` does not exist yet — it is new.)
+- Planning and read helpers resolve predecessors implicitly (latest of kind) and echo a `resolved_inputs` block naming the exact artifacts used, so implicit resolution stays auditable. This is implemented for the PR and stack planning paths; remaining helpers should reuse the same store-owned lookup boundary.
 - Mutation helpers (`resolve-thread-batch` and the stack equivalents) require an explicit artifact reference (e.g. `--from-build <sequence>`) and fail with `explicit_artifact_required` when it is omitted. No "latest" mode exists for mutations: the agent must name the validated payload it is applying.
 - Validation is the gate into the store: `validate-feedback-classification` persists the classification as a session artifact only on success, which is what entitles `plan-feedback` to trust "latest classification."
 
 Helper migrations:
 
-- `prepare-run` auto-mints a session id when none is supplied and prints it; `ASDL_PAYLOAD_SESSION_ID` remains respected. (Today `resolvePayloadSessionId` errors `payload_session_required` when neither an explicit id nor the env var is present — there is no auto-mint yet.)
-- `plan-feedback` resolves manifest and classification from the session; the hand-composed `{manifest, classification}` wrapper input is removed.
+- Payload mode uses the harness-owned session contract: `HARNESS_SESSION_ID` or explicit `--harness-session-id` supplies the validated storage id. Do not reintroduce `ASDL_PAYLOAD_SESSION_ID`, caller-chosen auto-minting, or derived storage ids.
+- `plan-feedback` resolves manifest and classification from the session when invoked with `--pr-number`; composed `{manifest, classification}` wrapper compatibility remains until the later input-style removal row.
 - `build-resolve-thread-batch-payload` takes `--batch-id`, `--commit-sha`, and `--decisions-file`, resolves the plan from the session, and writes the validated build payload as a session artifact whose reference it prints.
 - `record-batch-checkpoint` shrinks to agent-owned inputs (batch id, commit SHA, validation results); it derives `changed_files` from the commit and pulls plan, build payload, and resolution result from the session.
 - `finalize-run` discovers checkpoints and the final feedback artifact from the session.
@@ -105,11 +105,11 @@ Assumptions:
 
 - The `pr-address-typescript-port` endgame has landed and the Objective is closed (confirmed 2026-06-13: `closed.md` present, `packages/asdl-pr-address` deleted, commits `9560b339b` and `5f95bfed2`). This was the load-bearing sequencing assumption; it is now satisfied, not pending. This work intentionally breaks the byte-parity and composed-input contracts the port relied on, which is now safe because the port's parity fixtures are no longer the active contract.
 - The `pr-address` skill is the only consumer of the exec helpers; no external consumer depends on full-stdout defaults or composed-payload inputs. AGENTS.md's unreleased-private-software posture covers the contract breaks.
-- The existing payload filename contract (timestamp, monotonic sequence, descriptor, role) is sufficient for latest-of-kind resolution without an index file, including under concurrent writers. Confirmed present in `src/payload-store.ts` with exclusive-create sequence allocation.
+- The existing payload filename contract (timestamp, monotonic sequence, descriptor, role) is sufficient for latest-of-kind resolution without an index file, including under concurrent writers. Confirmed present in `src/payload-store.ts` with exclusive-create sequence allocation; latest JSON lookup now lives on `PayloadArtifactStore` and is implemented for both node-backed and in-memory stores.
 
 Risks:
 
-- Descriptor taxonomy ambiguity in stack runs: per-PR artifacts mean latest-of-kind must be PR-scoped, and a collision would silently resolve the wrong input. Mitigated by designing the contract against the stack flow first, echoing `resolved_inputs` everywhere, and scenario tests per artifact kind. The risk now spans more helpers than originally enumerated (`stack-feedback-preflight`, `stack-feedback-diff-current` carry their own references).
+- Descriptor taxonomy ambiguity in stack runs is de-risked for the planning slice: scope-first descriptors and store-owned exact-match latest lookup now cover PR and stack planning paths, and `resolved_inputs` records the artifacts used. The risk still applies to later mutation/build/checkpoint/finalization helpers until they adopt the same contract.
 - The no-phasing decision (single-PR and stack migrate together) makes the first landable slice large, and the helper surface has grown to ~20 operations since this Objective was first written — the slice is larger than originally scoped. Accepted deliberately to avoid the CLI ever shipping two invocation styles.
 - Removing composed input styles deletes a debugging affordance. `--stdout-mode full` and direct reads of session artifacts remain the debug path.
 - Compact-by-default stdout could hide evidence in edge cases. Mitigated by including errors and warnings verbatim in the digest along with the artifact path to the full envelope.
@@ -117,6 +117,5 @@ Risks:
 
 ## Open Questions
 
-- Exact reserved descriptor taxonomy, including the PR-scoping format (e.g. `plan-pr-1274` vs `pr-1274-plan`) and per-batch naming for build payloads and checkpoints.
 - Whether explicit mutation references accept sequence numbers only, or also full artifact paths.
 - Input shape for `record-batch-checkpoint` validation results: a small agent-authored file vs repeated structured flags.
