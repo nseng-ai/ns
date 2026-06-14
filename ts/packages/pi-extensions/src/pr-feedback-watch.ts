@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { formatElapsedMs } from "./time-format.ts";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
 
@@ -26,6 +27,7 @@ export const PR_FEEDBACK_WATCH_STATE_TYPE = "code-pr-feedback-watch-state";
 const DEFAULT_INTERVAL_MS = 15_000;
 const MIN_INTERVAL_MS = 10_000;
 const HEAVY_FALLBACK_INTERVAL_MS = 60_000;
+const STATUS_REFRESH_INTERVAL_MS = 1_000;
 const REST_FINGERPRINT_SKEW_MS = 2_000;
 const REST_FAILURES_BEFORE_HEAVY_FALLBACK = 3;
 const REST_FAILURE_STATUS = "PR watch: REST check failed; retrying";
@@ -171,6 +173,13 @@ interface LoadRestFingerprintOptions {
 	signal?: AbortSignal | undefined;
 }
 
+interface LoadPrCheckSummaryOptions {
+	pi: ExecGateway;
+	cwd: string;
+	prNumber: number;
+	signal?: AbortSignal | undefined;
+}
+
 interface GhApiJsonOptions {
 	pi: ExecGateway;
 	cwd: string;
@@ -179,7 +188,18 @@ interface GhApiJsonOptions {
 	signal?: AbortSignal | undefined;
 }
 
-type GhApiJsonResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
+interface GhJsonCommandOptions {
+	pi: ExecGateway;
+	cwd: string;
+	args: string[];
+	label: string;
+	signal?: AbortSignal | undefined;
+	shouldAllowNonZeroWithStdout?: boolean | undefined;
+}
+
+type GhJsonCommandResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
+
+type GhApiJsonResult = GhJsonCommandResult;
 
 interface CustomMessage {
 	customType: string;
@@ -266,8 +286,16 @@ interface WatchStatus {
 	lastPollAt?: string | undefined;
 	lastRestPollAt?: string | undefined;
 	lastHeavyCheckAt?: string | undefined;
+	checkSummary?: PrCheckSummary | undefined;
 	restFailures: number;
 	lastError?: string | undefined;
+}
+
+interface PrCheckSummary {
+	totalCount: number;
+	pendingCount: number;
+	passCount: number;
+	failCount: number;
 }
 
 interface WatchEventEntry {
@@ -357,7 +385,7 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 
 	const options: WatchCommandOptions = {
 		intervalMs: DEFAULT_INTERVAL_MS,
-		shouldAllowDirty: false,
+		shouldAllowDirty: true,
 		existingFeedbackMode: "dispatch",
 	};
 	let hasDispatchExistingFlag = false;
@@ -368,6 +396,10 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		const token = tokens[index];
 		if (token === "--allow-dirty") {
 			options.shouldAllowDirty = true;
+			continue;
+		}
+		if (token === "--pause-on-dirty") {
+			options.shouldAllowDirty = false;
 			continue;
 		}
 		if (token === "--dispatch-existing") {
@@ -638,10 +670,11 @@ class PrFeedbackWatchController {
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
 	private timer: ReturnType<typeof setTimeout> | undefined;
+	private statusRefreshTimer: ReturnType<typeof setInterval> | undefined;
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
-	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: false, existingFeedbackMode: "dispatch" };
+	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: true, existingFeedbackMode: "dispatch" };
 	private seenKeys = new Set<string>();
 	private attemptedKeys = new Set<string>();
 	private queuedItems: FeedbackItemKey[] = [];
@@ -758,6 +791,7 @@ class PrFeedbackWatchController {
 	}
 
 	private closeActiveSession(): void {
+		this.clearStatusRefreshTimer();
 		const session = this.activeSession;
 		if (session !== undefined) {
 			session.ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, undefined);
@@ -827,6 +861,7 @@ class PrFeedbackWatchController {
 		}
 		this.restSinceIso = sinceIso;
 		this.advanceRestFingerprint(result.fingerprint);
+		await this.refreshCheckSummary(session, identity.number);
 	}
 
 	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode }): Promise<void> {
@@ -845,6 +880,7 @@ class PrFeedbackWatchController {
 			return;
 		}
 		this.markRestFingerprintSuccess(result.fingerprint);
+		await this.refreshCheckSummary(session, identity.number);
 		if (result.fingerprint.key === this.lastRestFingerprintKey) {
 			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
 			this.renderStatus();
@@ -966,6 +1002,11 @@ class PrFeedbackWatchController {
 			lastPollAt: fingerprint.fetchedAt,
 			lastError: undefined,
 		};
+	}
+
+	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
+		const result = await loadPrCheckSummary({ pi: this.pi, cwd: session.cwd, prNumber, signal: session.abortController.signal });
+		this.state = { ...this.state, checkSummary: result.type === "loaded" ? result.summary : undefined };
 	}
 
 	private async loadSnapshot(session: ActiveSession): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
@@ -1112,6 +1153,29 @@ class PrFeedbackWatchController {
 		this.timer = undefined;
 	}
 
+	private updateStatusRefreshTimer(shouldAllowRefresh: boolean): void {
+		if (!shouldAllowRefresh || !shouldRefreshStatusAge(this.status())) {
+			this.clearStatusRefreshTimer();
+			return;
+		}
+		if (this.statusRefreshTimer !== undefined) return;
+		this.statusRefreshTimer = setInterval(() => {
+			const ctx = this.activeSession?.ctx;
+			if (ctx === undefined || !shouldRefreshStatusAge(this.status())) {
+				this.clearStatusRefreshTimer();
+				return;
+			}
+			ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, defaultStatusLine(this.status()));
+		}, STATUS_REFRESH_INTERVAL_MS);
+		const maybeTimer = this.statusRefreshTimer as { unref?: () => void };
+		maybeTimer.unref?.();
+	}
+
+	private clearStatusRefreshTimer(): void {
+		if (this.statusRefreshTimer !== undefined) clearInterval(this.statusRefreshTimer);
+		this.statusRefreshTimer = undefined;
+	}
+
 	private restoreState(ctx: ExtensionContext): void {
 		const entries = ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [];
 		this.seenKeys = new Set<string>();
@@ -1155,6 +1219,7 @@ class PrFeedbackWatchController {
 		const ctx = this.activeSession?.ctx;
 		if (ctx === undefined) return;
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
+		this.updateStatusRefreshTimer(value === undefined);
 	}
 
 }
@@ -1185,6 +1250,34 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 	);
 	if (result.killed || result.code !== 0) return undefined;
 	return result.stdout.trim() || undefined;
+}
+
+async function loadPrCheckSummary(options: LoadPrCheckSummaryOptions): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
+	const { pi, cwd, prNumber, signal } = options;
+	const result = await ghJsonCommand({
+		pi,
+		cwd,
+		args: ["pr", "checks", String(prNumber), "--json", "bucket"],
+		label: "gh pr checks",
+		signal,
+		shouldAllowNonZeroWithStdout: true,
+	});
+	return result.type === "loaded" ? { type: "loaded", summary: parsePrCheckSummary(result.value) } : result;
+}
+
+function parsePrCheckSummary(value: unknown): PrCheckSummary {
+	const items = Array.isArray(value) ? value : [];
+	let pendingCount = 0;
+	let passCount = 0;
+	let failCount = 0;
+	for (const item of items) {
+		if (!isRecord(item)) continue;
+		const bucket = stringField(item, "bucket");
+		if (bucket === "pending") pendingCount += 1;
+		if (bucket === "pass") passCount += 1;
+		if (bucket === "fail") failCount += 1;
+	}
+	return { totalCount: items.length, pendingCount, passCount, failCount };
 }
 
 async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise<{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }> {
@@ -1226,14 +1319,19 @@ function settledGhApiJsonResult(result: PromiseSettledResult<GhApiJsonResult>, e
 
 async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 	const { pi, cwd, endpoint, jq, signal } = options;
-	const result = await pi.exec("gh", ["api", "--method", "GET", endpoint, "--jq", jq], execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (result.killed || result.code !== 0) {
-		return { type: "failed", message: `gh api failed for ${endpoint}: ${result.stderr.trim() || `exit code ${result.code}`}` };
+	return ghJsonCommand({ pi, cwd, args: ["api", "--method", "GET", endpoint, "--jq", jq], label: `gh api for ${endpoint}`, signal });
+}
+
+async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
+	const { pi, cwd, args, label, signal, shouldAllowNonZeroWithStdout = false } = options;
+	const result = await pi.exec("gh", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
+	if (result.killed || (result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))) {
+		return { type: "failed", message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
 	}
 	try {
 		return { type: "loaded", value: JSON.parse(result.stdout) };
 	} catch {
-		return { type: "failed", message: `gh api returned malformed JSON for ${endpoint}.` };
+		return { type: "failed", message: `${label} returned malformed JSON.` };
 	}
 }
 
@@ -1299,8 +1397,27 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
 	if (status.state === "error") return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
-	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s`;
+	if (status.prNumber !== undefined) {
+		const intervalSeconds = Math.round(status.intervalMs / 1_000);
+		const feedbackAge = status.lastRestPollAt === undefined ? `feedback ${intervalSeconds}s` : `feedback ${formatElapsedSinceMs(status.lastRestPollAt)}/${intervalSeconds}s`;
+		const checks = status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
+		return `PR #${status.prNumber} · ${feedbackAge}${checks} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
+	}
 	return "PR watch: active";
+}
+
+function formatCheckSummary(summary: PrCheckSummary): string {
+	return `[ci](pending:${summary.pendingCount} ok:${summary.passCount} fail:${summary.failCount})`;
+}
+
+function shouldRefreshStatusAge(status: WatchStatus): boolean {
+	return status.isEnabled && status.state === "active" && status.mode === "rest_fingerprint" && status.prNumber !== undefined && status.lastRestPollAt !== undefined;
+}
+
+function formatElapsedSinceMs(iso: string): string {
+	const timestamp = Date.parse(iso);
+	if (!Number.isFinite(timestamp)) return "recently";
+	return formatElapsedMs(Date.now() - timestamp);
 }
 
 function formatWatchStatus(status: WatchStatus): string {
@@ -1315,6 +1432,7 @@ function formatWatchStatus(status: WatchStatus): string {
 	];
 	if (status.prNumber !== undefined) lines.push(`PR: #${status.prNumber}`);
 	if (status.branch !== undefined) lines.push(`Branch: ${status.branch}`);
+	if (status.checkSummary !== undefined) lines.push(`CI: ${formatCheckSummary(status.checkSummary)}`);
 	if (status.lastRestPollAt !== undefined) lines.push(`Last REST poll: ${status.lastRestPollAt}`);
 	if (status.lastHeavyCheckAt !== undefined) lines.push(`Last heavy check: ${status.lastHeavyCheckAt}`);
 	if (status.lastPollAt !== undefined) lines.push(`Last poll: ${status.lastPollAt}`);
