@@ -8,9 +8,10 @@
 - [x] Inventory current `areg` contracts before porting implementation.
   - Classified durable versus incidental behavior for CLI commands, hidden `exec skillx` JSON, help/usage output, exit codes, managed project files, `skills-lock.json`, `asdl.toml` and legacy `areg.json`, local skill layout checks, command-conversion behavior, and external `git`/`gh`/`npx` boundaries.
   - Evidence: `areg-contract-inventory.md` cites current Python source/tests and records accepted TypeScript divergences before implementation relies on them.
-- [ ] Establish the TypeScript package shell and gateway seams.
-  - Add a `ts/packages/areg` package with strict TypeScript, Vitest tests, package-local command wiring, and fake-driven gateways for filesystem, Git-root/tool checks, `gh api`, `npx skills`, transient skillx workspaces, and project configuration where needed.
-  - Keep seams package-local unless repeated use proves a shared `@asdl/core` or `@asdl/clinkr` extraction.
+- [x] Establish the TypeScript package shell and gateway seams.
+  - Added `ts/packages/areg` as `@asdl/areg` with strict TypeScript, Vitest tests, standalone `areg` CLI shell, TypeScript runtime diagnostics, hidden `exec skillx` group structure, and package-local fake-driven gateway seams for Git-root/tool checks, GitHub skill listing, `npx skills`, and transient skillx workspaces.
+  - Deferred filesystem and project-configuration gateways to the first command slices that consume them; keep all seams package-local unless repeated use proves a shared `@asdl/core` or `@asdl/clinkr` extraction.
+  - Evidence: Semantic Update `updates/2026-06-14T213335Z-areg-package-shell-gateway-seams.md` records focused validation and deferred seam boundaries.
 - [ ] Port the hidden `exec skillx` helpers as the first deterministic slice.
   - Preserve parse/list/fetch/cleanup behavior, JSON payloads, selection flow, GitHub listing errors, `npx skills add` transient workspace behavior, and cleanup path safety.
   - Evidence: fake-backed tests and CLI scenario coverage exercise success and failure payloads.
