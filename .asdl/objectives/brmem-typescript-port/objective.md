@@ -104,8 +104,22 @@ Risks:
 
 ## Open Questions
 
-- Which `--format json` envelopes and `list`/`check`/`export`/`copy` outputs require byte-for-byte parity, and which are structured compatibility where key order or formatting may intentionally differ?
-- The initial cross-language parity probe set now covers Python-written Base/named/nested Entries read and listed by TypeScript, TypeScript-written workflow Namespace Entries read and checked by Python, and TypeScript key-glob copy preserving Python-readable destination Entries. Remaining parity work should add probes only when new public CLI surfaces (`put`, `delete`, `copy`, `export`, `exec resolve-prompt`) expose behavior not already covered by the storage seam.
+- Answered: exact exit codes and stable JSON field names/values were preserved where durable; key order, full prose formatting, and Python runtime/parser accidents were treated as structured compatibility or explicit divergence when scenario-tested and recorded in Semantic Updates.
+- Answered: the required cross-language parity probes ran before Python deletion. No further Python parity probes remain after `packages/brmem` deletion; TypeScript real-git, fake-gateway, scenario, wrapper, and public-shim tests are the active regression evidence.
 - Answered: no git ref/blob/tree plumbing moves to a shared `@asdl/core` gateway from this Objective alone. Keep the seam package-local; recommend extraction to `ts-cli-foundation` only after a second consumer proves the same need.
 - Answered: the post-deletion rollback/reference source is in-repo git history at commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`; no external frozen artifact was needed.
-- Does `exec resolve-prompt`'s `.brmem/prompts/...` project/global tier resolution have filesystem-layout details (search order, global location) that must be reproduced exactly versus reclassified?
+- Answered: `exec resolve-prompt` preserves project/global precedence, git-checkout requirement before global fallback, JSON `data.path` / `data.tier`, and exit-`2` failure surfacing; the Python human stderr `tier: <tier>` line is an accepted TypeScript Clinkr renderer divergence recorded in the resolve-prompt Semantic Update.
+
+## Closure
+
+Completed. `brmem` is TypeScript-backed by default as the second production vertical slice of the asdl toolkit migration.
+
+Closure evidence:
+
+- All non-parked roadmap rows are complete: contract inventory, TypeScript package boundary, git-ref storage parity, all public and skill-facing operations, public wrapper/skill/distribution cutover, Python fallback deletion, and umbrella playbook feedback.
+- Public invocation uses the TypeScript `ts/packages/brmem` CLI and run-from-source shim installed by `just install-brmem` / `install-tools`.
+- The legacy Python `packages/brmem` package is deleted from active tracked paths, with rollback/reference evidence recorded at commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`.
+- Durable Branch Memory contracts are preserved or explicitly reclassified with tests and Semantic Updates: Snapshot Ref layout, branch encoding, Entry Locator shape, Entry Key and Namespace rules, content limits, exit codes, JSON envelopes, and prompt-resolution behavior.
+- The final branch evidence against Graphite parent `master` is PR #1499, which marks the playbook-feedback row complete and feeds lessons into the umbrella TypeScript migration Objective.
+
+Caveats and follow-ups remain parked rather than active work for this Objective: direct native-library migration for existing TypeScript consumers, shared git ref/blob/tree gateway extraction, npm publishing / checkout-free bundling, and storage-layout redesign. Any future work in those areas should use a separate Objective or the umbrella/foundation Objective named by the relevant follow-up.
