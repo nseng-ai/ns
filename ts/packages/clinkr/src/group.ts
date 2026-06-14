@@ -148,7 +148,12 @@ export class ClinkrGroup<TContext> {
 	command<S extends z.ZodObject, T>(
 		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
 	): this {
-		const plan = buildSurfacePlan(spec.name, spec.schema, spec.positionals ?? {}, spec.options ?? {});
+		const plan = buildSurfacePlan({
+			commandName: spec.name,
+			schema: spec.schema,
+			positionals: spec.positionals ?? {},
+			optionSpecs: spec.options ?? {},
+		});
 		this.registeredCommands.push({
 			name: spec.name,
 			description: spec.description,
