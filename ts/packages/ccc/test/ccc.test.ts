@@ -45,6 +45,22 @@ import {
 const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
 const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
+const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
+const DISPATCH_PROMPT_KEY = "prompt.md";
+
+function dispatchPromptPutJson(sourceFile: string): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			namespace: DISPATCH_PROMPT_NAMESPACE,
+			key: DISPATCH_PROMPT_KEY,
+			branch: BRANCH,
+			ref_name: `refs/brmem/ns/${DISPATCH_PROMPT_NAMESPACE}/${BRANCH}:${DISPATCH_PROMPT_KEY}`,
+			commit: START_POINT,
+			source_file: sourceFile,
+		},
+	});
+}
 
 afterEach(resetCmuxTestEnvironment);
 
@@ -330,8 +346,10 @@ describe("CCC cmux command suite", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("ccc:workspace:dispatch-prompt opens cmux without sidebar summary", async () => {
-		const promptDir = await makeTempDir();
+	test("ccc:workspace:dispatch-prompt stores payload in Branch Memory and opens cmux without sidebar summary", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const launchCommand = `payload="$(brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH} 2>/dev/null || uv run --directory . brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH})" && exec pi --provider anthropic --model claude-sonnet-4-5 --thinking medium "$payload"`;
 		const pi = new FakePi({
 			script: [
 				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
@@ -340,6 +358,10 @@ describe("CCC cmux command suite", () => {
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 1 }),
+				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
+					stdout: dispatchPromptPutJson(stagedPromptFile),
+				}),
 				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
 				step("cmux", [
 					"new-workspace",
@@ -350,22 +372,79 @@ describe("CCC cmux command suite", () => {
 					"--cwd",
 					WORKTREE,
 					"--command",
-					`pi --provider anthropic --model claude-sonnet-4-5 --thinking medium @${join(promptDir, `123-${BRANCH}.md`)}`,
+					launchCommand,
 				], {}),
 			],
 		});
-		registerCccSlotDispatchPromptCommand(pi, { promptDir, now: () => 123 });
+		registerCccSlotDispatchPromptCommand(pi, { stagingDir, now: () => 123, cleanupStagingFile: false });
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
 		await pi.commands.get("ccc:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
 
 		pi.assertDone();
-		const promptText = await readFile(join(promptDir, `123-${BRANCH}.md`), "utf8");
+		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
 		expect(promptText).toContain("!asdl-dev submit");
 		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
+		expect(notificationMessages(ctx).join("\n")).toContain(`${DISPATCH_PROMPT_NAMESPACE}/${DISPATCH_PROMPT_KEY}`);
+		expect(launchCommand).not.toContain("@");
+		expect(launchCommand).toContain(`brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH}`);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ccc:workspace:dispatch-prompt refuses to overwrite an existing Branch Memory payload", async () => {
+		const pi = new FakePi({
+			script: [
+				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
+				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 0 }),
+			],
+		});
+		registerCccSlotDispatchPromptCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("Refusing to overwrite; no cmux workspace was opened.");
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
+	});
+
+	test("ccc:workspace:dispatch-prompt does not open cmux when Branch Memory storage fails", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const pi = new FakePi({
+			script: [
+				step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${SOURCE_BRANCH}\n` }),
+				step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, "HEAD"], {}),
+				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 1 }),
+				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
+					code: 2,
+					stderr: "cannot write entry\n",
+				}),
+			],
+		});
+		registerCccSlotDispatchPromptCommand(pi, { stagingDir, now: () => 123 });
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("failed to store dispatch prompt payload in Branch Memory");
+		expect(notificationMessages(ctx).join("\n")).toContain("No cmux workspace was opened.");
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 });
