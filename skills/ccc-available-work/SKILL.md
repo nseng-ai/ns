@@ -7,7 +7,7 @@ metadata:
 
 # ccc-available-work
 
-Answer: “what branches and Objectives can I continue to work on right now?” Produce a continuation-focused inventory, not a Graphite topology overlay.
+Answer: “what branches and Objectives can I continue to work on right now?” Produce a Graphite-stack-oriented continuation map: preserve stack shape where Graphite evidence exists, then annotate each row with availability, cmux occupancy, Objective links, PR state, and recommended next work.
 
 ## Default posture
 
@@ -29,6 +29,7 @@ Work in two layers:
 
 1. **Collect and audit candidates.** Build separate branch candidates and Objective candidates from cmux, local Git branches, current-stack Graphite facts, Objective records, and selected PR/diff evidence.
 2. **Filter and present availability.** Use cmux occupancy and cited branch↔Objective links to decide what is already open, then use LLM judgment to rank the remaining work.
+3. **Render stack-first.** When Graphite facts exist, organize branch candidates by stack shape first. Availability sections are annotations on the stack, not the primary structure. Put off-stack local branches and Objective-only candidates after the stack view.
 
 Branches and Objectives are separate candidate types. Link them only when you have evidence, and record the source and confidence for each link.
 
@@ -146,28 +147,40 @@ Put stale, superseded, blocked, or low-confidence branches in `Available but sta
 
 ## Output template
 
-Lead with a short ranked shortlist, then include the complete sectioned inventory.
+Default to a Graphite-stack-oriented report. Lead with a compact recommendation line, then show a stack-shaped table for every Graphite stack where you have structured evidence. Keep the user's eye on branch order and dependency shape; do not force them to reconstruct the stack from four separate lists.
+
+Use section labels as row annotations:
+
+- `READY` — best continuation target now;
+- `OPEN` — already open in cmux;
+- `BLOCKED` — meaningful but likely needs restack/review/other prerequisite;
+- `STALE` — merged, superseded, or probably old;
+- `UNKNOWN` — insufficient evidence.
 
 ```text
-Recommended now
-1. <branch-or-objective> — <availability>; <relevance label>; confidence <high|medium|low>
-   Evidence: <terse cited evidence>
-   Next action: <read-only suggestion, e.g. switch to/open/inspect; do not mutate>
+Recommended now: <branch> (<why this row is the next useful continuation>)
 
-Available but stale/uncertain
-- <branch> — <availability>; <relevance label>; confidence <...>
-  Evidence: <terse cited evidence>
+Graphite stacks
+TOPO      | BRANCH        | STATE   | CMUX        | PR        | OBJECTIVE              | WHY
+----------+---------------+---------+-------------+-----------+------------------------+-----------------------------
+◯         | parent        | BLOCKED |             | #123 open | objective-slug         | needs downstack review
+│ ◉       | child         | OPEN    | ◎ ws57 clean| #124 open | objective-slug         | current session
+│ │ ●     | next-child    | READY   |             | #125 open | objective-slug         | available, latest actionable PR
+◯─┴─┴─┘   | master        | TRUNK   | ws60 clean  |           |                        |
+
+Off-stack available branches
+- <branch> — <READY|BLOCKED|STALE|UNKNOWN>; confidence <...>; evidence: <terse cited evidence>
 
 Objective-only candidates
-- <objective slug> — no available linked branch found; confidence <...>
-  Evidence: <objective status/prose/updated_branches evidence>
+- <objective slug> — no available linked branch found; confidence <...>; evidence: <objective status/prose/updated_branches evidence>
 
-Already open elsewhere
-- <branch or Objective> — open in <workspace refs/cwds>; <active/caller/dirty notes>
-  Evidence: <Git HEAD from workspace current_directory, Objective link if applicable>
+Already-open workspaces not represented above
+- <branch or DETACHED@sha> — <workspace refs/cwds>; <active/caller/dirty notes>
 ```
 
-Include branch or Objective name, availability, relevance label, confidence, and terse cited evidence for every item. If a section is empty, say `None found` with a one-line reason.
+For stack rows, include branch name, state, cmux occupancy, PR state, linked Objective, confidence/evidence in `WHY`, and enough topology glyphs to make parent/child order obvious. If a complete stack shape is unavailable, still group known current/open-worktree stack branches together and clearly label the stack as partial. If Graphite evidence is entirely unavailable, fall back to the same sections without topology and say why.
+
+Do not hide candidates only because they are stale or already open. Stale and open rows stay visible in stack order; row state tells the user why they are not recommended.
 
 ## Read-only command recipe
 
