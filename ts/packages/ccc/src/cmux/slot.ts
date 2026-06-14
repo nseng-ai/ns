@@ -11,6 +11,7 @@ export interface OpenBranchInCmuxSlotOptions {
 	cwd: string;
 	branchName: string;
 	command?: string;
+	description?: string;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string) => void;
 	successMessage?: (target: SlotCheckoutTarget) => string;
@@ -26,7 +27,7 @@ export interface OpenCmuxWorkspaceOptions {
 export async function openBranchInCmuxSlot(
 	options: OpenBranchInCmuxSlotOptions,
 ): Promise<SlotCheckoutTarget | { error: string }> {
-	const { pi, cwd, branchName, command, notify, onStatus, successMessage } = options;
+	const { pi, cwd, branchName, command, description, notify, onStatus, successMessage } = options;
 	onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(pi, cwd, { kind: "branch", branchName });
 	if (!checkout.ok) {
@@ -37,9 +38,9 @@ export async function openBranchInCmuxSlot(
 
 	const target = checkout.target;
 	onStatus?.("opening cmux workspace…");
-	const description = await getWorktreeDescription(pi, target.worktreePath, target.branchName);
+	const workspaceDescription = description ?? (await getWorktreeDescription(pi, target.worktreePath, target.branchName));
 	const workspaceOptions: OpenCmuxWorkspaceOptions = {
-		description,
+		description: workspaceDescription,
 		failureHeading: "Checked out the branch slot, but failed to open the cmux workspace.",
 		failureDetails: [`Branch: ${target.branchName}`, `Worktree: ${target.worktreePath}`],
 	};
