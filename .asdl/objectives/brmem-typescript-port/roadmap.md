@@ -47,11 +47,11 @@
   - Policy: docs, wrapper behavior/tests, and local-checkout behavior are directly executable after preview. npm/PyPI publishing and checkout-free bundling are out of scope unless a new requirement is explicitly accepted.
   - Evidence: `ts/packages/brmem/scripts/brmem-shim`, wrapper tests for enclosing-checkout/canonical/missing-dependency/no-checkout behavior, `just install-brmem`, `install-tools` routing through the TypeScript shim, public skill/docs refresh, PATH-only shell-out helper behavior, manual rendered-shim runtime smoke, and full `just` validation.
 
-- [ ] Retire Python fallback and delete `packages/brmem` from active paths.
+- [x] Retire Python fallback and delete `packages/brmem` from active paths.
   - Gate on full operation parity, cross-language storage parity, run-from-source distribution evidence, and skill/docs naming the TypeScript CLI as the sole surface.
   - Remove the console script wiring, scrub workspace/config/test references, and record the post-deletion rollback reference.
   - Policy: the final gated deletion is directly executable once the gates are evidenced; otherwise ask before broad deletion. Validate with full `just`, not just the TS package.
-  - Evidence: full-repo validation, grep guards clean, CLI smoke, and an Objective update recording the rollback reference.
+  - Evidence: Python `packages/brmem` is deleted from active workspace/config/test paths; `asdl-handoff` now uses a package-local Branch Memory seam over the public TypeScript `brmem` shim; the Python parity oracle and TypeScript CI Python/uv setup are removed; active Branch Memory context moved to `ts/packages/brmem/CONTEXT.md`; rollback reference is commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`; focused Python/TS gates and real shim-backed handoff smoke passed; final full-repo validation is recorded in Semantic Update `updates/2026-06-14T143649Z-retire-python-brmem-fallback.md`.
 
 - [ ] Feed lessons into the umbrella porting playbook.
   - Record reusable git ref/blob/tree plumbing and cross-language parity lessons for later capability ports; recommend any second-consumer-proven gateway seam to `ts-cli-foundation`.

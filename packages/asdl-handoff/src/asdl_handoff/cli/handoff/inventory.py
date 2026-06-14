@@ -8,9 +8,7 @@ from typing import Literal
 from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.git.git_gateway import GitGateway
-from brmem.gateway import BranchMemoryGateway
-from brmem.key_validation import check_key
-from brmem.ref_layout import EntryRef
+from asdl_handoff.cli.handoff.brmem_gateway import HandoffBrmemGateway, HandoffEntryRef, check_key
 
 HANDOFF_NAMESPACE = "handoff"
 _HANDOFF_KEY_SUFFIX = ".md"
@@ -28,8 +26,8 @@ class HandoffSummary(ClinkrModel):
 
 
 def collect_handoff_summaries(
-    entries: list[EntryRef],
-    brmem_gateway: BranchMemoryGateway,
+    entries: list[HandoffEntryRef],
+    brmem_gateway: HandoffBrmemGateway,
     git_gateway: GitGateway,
     *,
     include_deleted: bool = True,

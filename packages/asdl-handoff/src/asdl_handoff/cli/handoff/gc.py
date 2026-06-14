@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from typing import Annotated, Literal
 
@@ -12,6 +11,7 @@ from asdl_core.clinkr.ensure import Ensure
 from asdl_core.clinkr.exit import ClinkrExit
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
+from asdl_handoff.cli.handoff.brmem_gateway import BrmemGatewayError, KeyNotFoundError
 from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import (
     HANDOFF_NAMESPACE,
@@ -19,7 +19,6 @@ from asdl_handoff.cli.handoff.inventory import (
     HandoffSummary,
     collect_handoff_summaries,
 )
-from brmem.gateway import KeyNotFoundError
 
 GcHandoffAction = Literal["kept_active", "would_delete", "deleted", "error"]
 
@@ -122,8 +121,11 @@ def run_gc_handoffs(ctx: click.Context, request: GcHandoffsRequest) -> ClinkrExi
 
 
 def _load_all_handoff_summaries(context: HandoffCliContext) -> list[HandoffSummary]:
-    entries = context.brmem_gateway.list_entries(namespace=HANDOFF_NAMESPACE, branch=None)
-    return collect_handoff_summaries(entries, context.brmem_gateway, context.git_gateway)
+    try:
+        entries = context.brmem_gateway.list_entries(namespace=HANDOFF_NAMESPACE, branch=None)
+        return collect_handoff_summaries(entries, context.brmem_gateway, context.git_gateway)
+    except BrmemGatewayError as exc:
+        Ensure.fail(error_type=exc.error_type, message=f"Failed to load handoffs: {exc.message}")
 
 
 def _preview_result(summaries: list[HandoffSummary], *, dry_run: bool) -> GcHandoffsResult:
@@ -158,13 +160,12 @@ def _delete_deleted_branch_handoffs(
                 )
             )
             continue
-        except subprocess.CalledProcessError as exc:
-            details = (exc.stderr or "").strip() or str(exc)
+        except BrmemGatewayError as exc:
             entries.append(
                 _entry_from_summary(
                     summary,
                     action="error",
-                    message=f"Failed to delete handoff: {details}",
+                    message=f"Failed to delete handoff: {exc.message}",
                 )
             )
             continue

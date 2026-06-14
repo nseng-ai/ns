@@ -10,15 +10,14 @@ import click
 from asdl_core.clinkr.context import load_typed_context_or_fail
 from asdl_core.git.construction import GitUnavailable, build_git_context
 from asdl_core.git.git_gateway import GitGateway
-from brmem.gateway import BranchMemoryGateway
-from brmem.real import RealBranchMemoryGateway
+from asdl_handoff.cli.handoff.brmem_gateway import HandoffBrmemGateway, RealBrmemCliGateway
 
 
 @dataclass(frozen=True)
 class HandoffCliContext:
     """Typed context for the ``handoff`` CLI."""
 
-    brmem_gateway: BranchMemoryGateway
+    brmem_gateway: HandoffBrmemGateway
     git_gateway: GitGateway
     cwd: Path = field(default_factory=Path.cwd)
 
@@ -44,7 +43,7 @@ def build_handoff_context() -> HandoffCliContext | HandoffCliUnavailable:
             ),
         )
     return HandoffCliContext(
-        brmem_gateway=RealBranchMemoryGateway(cwd=cwd),
+        brmem_gateway=RealBrmemCliGateway(cwd=cwd),
         git_gateway=git_context.git,
         cwd=cwd,
     )

@@ -1,11 +1,11 @@
-# brmem
+# @asdl/brmem
 
-`brmem` is the generic Branch Memory package: a Git-ref-backed storage primitive for small branch-scoped text context used by skills, agents, and repo-local automation without putting that context in commits, PRs, issues, or the working tree.
+`@asdl/brmem` is the TypeScript package and public `brmem` CLI for Branch Memory: a Git-ref-backed storage primitive for small branch-scoped text context used by skills, agents, and repo-local automation without putting that context in commits, PRs, issues, or the working tree.
 
 ## Language
 
 **Branch Memory System**:
-The `brmem` package, CLI, and Git-ref storage mechanism that manages branch-scoped Entries outside commits, PRs, issues, and the working tree.
+The public `brmem` CLI and Git-ref storage mechanism that manages branch-scoped Entries outside commits, PRs, issues, and the working tree.
 *Avoid*: Branch Memory, hidden state, scratch files, git notes.
 
 **Branch Memory**:
@@ -13,7 +13,7 @@ The collection of Entries attached to one branch across the Base Namespace and a
 *Avoid*: Branch Memory System, branch metadata, branch files, working-tree state.
 
 **Namespace**:
-A Branch Memory scope for Entries on one branch; the Base Namespace has the canonical name `base` and is reserved by `brmem`, while named Namespaces are owned by higher-level workflows.
+A Branch Memory scope for Entries on one branch; the Base Namespace has the canonical name `base` and is reserved by the Branch Memory System, while named Namespaces are owned by higher-level workflows.
 *Avoid*: directory, package, branch, brmem-owned schema.
 
 **Base Namespace**:

@@ -13,13 +13,13 @@ from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.console import get_console, make_table
 from asdl_core.format import format_relative_time
 from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_handoff.cli.handoff.brmem_gateway import BrmemGatewayError, check_branch_name
 from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import (
     HANDOFF_NAMESPACE,
     HandoffSummary,
     collect_handoff_summaries,
 )
-from brmem.ref_layout import check_branch_name
 
 
 class ListHandoffsRequest(ClinkrModel):
@@ -143,21 +143,26 @@ def run_list_handoffs(
     )
 
     branch = None if request.all_branches else _resolve_branch(handoff_context, request.branch)
-    entries = handoff_context.brmem_gateway.list_entries(
-        namespace=HANDOFF_NAMESPACE,
-        branch=branch,
-    )
+    try:
+        entries = handoff_context.brmem_gateway.list_entries(
+            namespace=HANDOFF_NAMESPACE,
+            branch=branch,
+        )
+        handoffs = collect_handoff_summaries(
+            entries,
+            handoff_context.brmem_gateway,
+            handoff_context.git_gateway,
+            include_deleted=request.include_deleted,
+        )
+    except BrmemGatewayError as exc:
+        Ensure.fail(error_type=exc.error_type, message=f"Failed to list handoffs: {exc.message}")
+
     return ClinkrExit.ok(
         ListHandoffsResult(
             scope="all-branches" if request.all_branches else "branch",
             branch=branch,
             include_deleted=request.include_deleted,
-            handoffs=collect_handoff_summaries(
-                entries,
-                handoff_context.brmem_gateway,
-                handoff_context.git_gateway,
-                include_deleted=request.include_deleted,
-            ),
+            handoffs=handoffs,
         )
     )
 

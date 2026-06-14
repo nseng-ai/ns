@@ -59,7 +59,3 @@ Broader workspace validation:
 pnpm --dir ts run check
 pnpm --dir ts run test
 ```
-
-## Python reference status
-
-The legacy Python package under `packages/brmem` is temporarily retained as an in-repo reference/fallback and parity oracle. It is not the public default after this cutover. Deleting the Python package and removing parity-only Python/`uv` setup belongs to the later retirement row.

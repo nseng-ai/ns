@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from typing import Annotated
 
@@ -14,11 +13,15 @@ from asdl_core.clinkr.failure import ClinkrFailure
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.operation import clinkr_operation
 from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_handoff.cli.handoff.brmem_gateway import (
+    BrmemGatewayError,
+    KeyNotFoundError,
+    check_branch_name,
+    check_key,
+    ref_name_for_entry,
+)
 from asdl_handoff.cli.handoff.context import HandoffCliContext, load_handoff_context
 from asdl_handoff.cli.handoff.inventory import HANDOFF_NAMESPACE
-from brmem.gateway import KeyNotFoundError
-from brmem.key_validation import check_key
-from brmem.ref_layout import check_branch_name, ref_name_for_entry
 
 HANDOFF_KEY_SUFFIX = ".md"
 
@@ -93,11 +96,10 @@ def run_delete_handoff(
             error_type="handoff_not_found",
             message=f"No handoff `{request.slug}` found on branch `{branch}`.",
         ) from exc
-    except subprocess.CalledProcessError as exc:
-        details = (exc.stderr or "").strip() or str(exc)
+    except BrmemGatewayError as exc:
         raise ClinkrFailure(
-            error_type="git_failure",
-            message=f"Failed to delete handoff: {details}",
+            error_type=exc.error_type,
+            message=f"Failed to delete handoff: {exc.message}",
         ) from exc
 
     return ClinkrExit.ok(
@@ -173,7 +175,13 @@ def _ensure_handoff_exists(
     key: str,
     branch: str,
 ) -> None:
-    diagnostic = context.brmem_gateway.check(HANDOFF_NAMESPACE, key, branch)
+    try:
+        diagnostic = context.brmem_gateway.check(HANDOFF_NAMESPACE, key, branch)
+    except BrmemGatewayError as exc:
+        raise ClinkrFailure(
+            error_type=exc.error_type,
+            message=f"Failed to check handoff: {exc.message}",
+        ) from exc
     Ensure.true(
         diagnostic is not None,
         error_type="handoff_not_found",

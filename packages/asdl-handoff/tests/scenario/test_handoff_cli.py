@@ -11,18 +11,18 @@ from asdl_core.clinkr.context import ClinkrContextObject, build_clinkr_context_o
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_core.git.testing import FakeGitGateway
 from asdl_core.git.types import DetachedHead, GitCommandFailure
+from asdl_handoff.cli.handoff.brmem_gateway import HandoffBrmemGateway
 from asdl_handoff.cli.handoff.context import HandoffCliContext, HandoffCliUnavailable
 from asdl_handoff.cli.main import build_cli
-from brmem.fake import FakeBranchMemoryGateway
-from brmem.gateway import BranchMemoryGateway
+from asdl_handoff.testing.fake_brmem_gateway import FakeHandoffBrmemGateway
 
 
-class _TimestamplessBranchMemoryGateway(FakeBranchMemoryGateway):
+class _TimestamplessBranchMemoryGateway(FakeHandoffBrmemGateway):
     def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
         return None
 
 
-class _TimestamplessDeletedBranchMemoryGateway(FakeBranchMemoryGateway):
+class _TimestamplessDeletedBranchMemoryGateway(FakeHandoffBrmemGateway):
     def get_entry_updated_at(self, namespace: str, key: str, branch: str) -> str | None:
         if branch == "feat/deleted":
             return None
@@ -40,11 +40,11 @@ def _json_output(text: str) -> dict[str, Any]:
 
 def _make_obj(
     *,
-    gateway: BranchMemoryGateway | None = None,
+    gateway: HandoffBrmemGateway | None = None,
     branch: str | DetachedHead | GitCommandFailure | None = "feat/x",
     branches: tuple[str, ...] | None = None,
 ) -> ClinkrContextObject:
-    brmem_gateway = gateway if gateway is not None else FakeBranchMemoryGateway()
+    brmem_gateway = gateway if gateway is not None else FakeHandoffBrmemGateway()
     seeded_branches = (
         branches if branches is not None else ((branch,) if isinstance(branch, str) else ())
     )
@@ -126,7 +126,7 @@ def test_handoff_delete_help(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_delete_force_deletes_current_branch_handoff(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
     gateway.put("handoff", "bravo.md", "feat/x", "bravo")
 
@@ -153,7 +153,7 @@ def test_handoff_delete_force_deletes_current_branch_handoff(cli_group: ClinkrGr
 
 
 def test_handoff_delete_explicit_deleted_branch(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
     result = CliRunner().invoke(
@@ -171,7 +171,7 @@ def test_handoff_delete_explicit_deleted_branch(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_delete_prompts_and_accepts(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
 
     result = CliRunner().invoke(
@@ -190,7 +190,7 @@ def test_handoff_delete_prompts_and_accepts(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_delete_prompts_and_declines(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
 
     result = CliRunner().invoke(
@@ -209,7 +209,7 @@ def test_handoff_delete_prompts_and_declines(cli_group: ClinkrGroup) -> None:
 def test_handoff_delete_json_interactive_decline_keeps_stdout_machine_readable(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
 
     result = CliRunner().invoke(
@@ -229,7 +229,7 @@ def test_handoff_delete_json_interactive_decline_keeps_stdout_machine_readable(
 
 
 def test_handoff_delete_rejects_md_suffix(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
 
     result = CliRunner().invoke(
@@ -246,7 +246,7 @@ def test_handoff_delete_rejects_md_suffix(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_delete_not_found_is_exact_branch_error(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "missing.md", "feat/y", "other branch")
 
     result = CliRunner().invoke(
@@ -305,7 +305,7 @@ def test_handoff_delete_rejects_slash_in_slug(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha")
     gateway.put("handoff", "bravo.md", "feat/y", "bravo")
     gateway.put("notes", "ignore.md", "feat/x", "ignored")
@@ -331,7 +331,7 @@ def test_handoff_list_defaults_to_current_branch(cli_group: ClinkrGroup) -> None
 def test_handoff_list_ignores_legacy_handoffs_namespace_after_namespace_switch(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoffs", "alpha.md", "feat/x", "alpha")
 
     result = CliRunner().invoke(
@@ -346,7 +346,7 @@ def test_handoff_list_ignores_legacy_handoffs_namespace_after_namespace_switch(
 
 
 def test_handoff_list_explicit_branch_bypasses_current_branch(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "bravo.md", "feat/other", "bravo")
 
     result = CliRunner().invoke(
@@ -367,7 +367,7 @@ def test_handoff_list_explicit_branch_bypasses_current_branch(cli_group: ClinkrG
 def test_handoff_list_explicit_deleted_branch_requires_include_deleted(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
     hidden = CliRunner().invoke(
@@ -391,7 +391,7 @@ def test_handoff_list_explicit_deleted_branch_requires_include_deleted(
 
 
 def test_handoff_list_all_branches_defaults_to_active_branches(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "bravo.md", "feat/b", "bravo")
     gateway.put("handoff", "charlie.md", "feat/a", "charlie")
     gateway.put("handoff", "alpha.md", "feat/a", "alpha")
@@ -420,7 +420,7 @@ def test_handoff_list_all_branches_defaults_to_active_branches(cli_group: Clinkr
 
 
 def test_handoff_list_all_branches_can_include_deleted_branches(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "bravo.md", "feat/b", "bravo")
     gateway.put("handoff", "charlie.md", "feat/a", "charlie")
     gateway.put("handoff", "alpha.md", "feat/a", "alpha")
@@ -452,7 +452,7 @@ def test_handoff_list_all_branches_can_include_deleted_branches(cli_group: Clink
 def test_handoff_markdown_list_current_branch_sorts_newest_first(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/x", "alpha v1")
     gateway.put("handoff", "bravo.md", "feat/x", "bravo")
     gateway.put("handoff", "alpha.md", "feat/x", "alpha v2")
@@ -477,7 +477,7 @@ def test_handoff_markdown_list_current_branch_sorts_newest_first(
 def test_handoff_markdown_list_all_branches_sorts_by_branch_then_newest(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "bravo.md", "feat/b", "bravo")
     gateway.put("handoff", "charlie.md", "feat/a", "charlie")
     gateway.put("handoff", "alpha.md", "feat/a", "alpha")
@@ -503,7 +503,7 @@ def test_handoff_markdown_list_all_branches_sorts_by_branch_then_newest(
 def test_handoff_json_list_all_branches_defaults_to_active_branches(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/a", "alpha")
     gateway.put("handoff", "bravo.md", "feat/b", "bravo")
 
@@ -536,7 +536,7 @@ def test_handoff_json_list_all_branches_defaults_to_active_branches(
 def test_handoff_json_list_all_branches_can_include_deleted_branches(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "alpha.md", "feat/a", "alpha")
     gateway.put("handoff", "bravo.md", "feat/b", "bravo")
 
@@ -706,7 +706,7 @@ def test_handoff_list_rejects_invalid_branch(cli_group: ClinkrGroup) -> None:
 def test_handoff_gc_dry_run_preserves_deleted_branch_handoffs(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "live.md", "feat/live", "live")
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
@@ -733,7 +733,7 @@ def test_handoff_gc_dry_run_preserves_deleted_branch_handoffs(
 def test_handoff_gc_force_deletes_handoffs_for_deleted_branches(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "live.md", "feat/live", "live")
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
@@ -757,7 +757,7 @@ def test_handoff_gc_force_deletes_handoffs_for_deleted_branches(
 
 
 def test_handoff_gc_prompts_and_accepts(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "live.md", "feat/live", "live")
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
@@ -777,7 +777,7 @@ def test_handoff_gc_prompts_and_accepts(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_gc_prompts_and_declines(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "live.md", "feat/live", "live")
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
@@ -796,7 +796,7 @@ def test_handoff_gc_prompts_and_declines(cli_group: ClinkrGroup) -> None:
 
 
 def test_handoff_gc_no_candidates_skips_prompt(cli_group: ClinkrGroup) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "live.md", "feat/live", "live")
 
     result = CliRunner().invoke(
@@ -827,7 +827,7 @@ def test_handoff_gc_dry_run_and_force_conflict(cli_group: ClinkrGroup) -> None:
 def test_handoff_gc_json_interactive_decline_keeps_stdout_machine_readable(
     cli_group: ClinkrGroup,
 ) -> None:
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "stale.md", "feat/deleted", "stale")
 
     result = CliRunner().invoke(
