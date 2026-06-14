@@ -4,7 +4,7 @@ import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectio
 
 import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
 import { definePiSurfaceParity } from "./parity.ts";
-import { expandSkillBlock } from "./skill-expansion.ts";
+import { invokeSkillPromptTurn } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
@@ -14,7 +14,10 @@ export type ExtensionAPI = Pick<CmuxExtensionAPI, "on" | "registerCommand" | "ex
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
 const OBJECTIVE_LIST_MESSAGE_TYPE = "objective-list-output";
+const OBJECTIVE_CREATE_COMMAND_NAME = "objective:create";
+const OBJECTIVE_CREATE_SKILL_NAME = "objective-create";
 const OBJECTIVE_SELECTOR_ARGUMENT_HINT = "[objective-slug-or-path]";
+const OBJECTIVE_CREATE_ARGUMENT_HINT = "[objective-slug-title-or-context]";
 const OBJECTIVE_COMPLETION_CACHE_TTL_MS = 10_000;
 const ACTIVE_OBJECTIVE_CANDIDATES_ARGS = ["exec", "list-candidates", "--format", "json"] as const;
 
@@ -35,6 +38,14 @@ interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	fallbackPrompt: string;
 	actionPrompt: string;
 	postSelectionReminder?: string;
+}
+
+interface ObjectiveCreateCommandSpec {
+	commandName: typeof OBJECTIVE_CREATE_COMMAND_NAME;
+	skillName: typeof OBJECTIVE_CREATE_SKILL_NAME;
+	description: string;
+	fallbackPrompt: string;
+	actionPrompt: string;
 }
 
 export interface ObjectiveListParsedArgs {
@@ -107,6 +118,15 @@ interface CustomCliCommandSpec {
 	completer: (prefix: string) => AutocompleteItem[] | null;
 }
 
+const OBJECTIVE_CREATE_COMMAND: ObjectiveCreateCommandSpec = {
+	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
+	skillName: OBJECTIVE_CREATE_SKILL_NAME,
+	description: "Invoke objective-create to interview for and create a new Objective.",
+	fallbackPrompt:
+		"The objective-create skill was not found among loaded Pi skills. Follow the repository's Objective creation workflow anyway: create exactly one Objective under .asdl/objectives/<slug>/, require an explicit or confirmed slug before writing, interview before drafting durable content, default to planning-only unless execution policy is explicitly requested, and never overwrite an existing Objective.",
+	actionPrompt: "Run objective-create with this initial user request:",
+};
+
 const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 	{
 		commandName: "objective:next",
@@ -149,26 +169,20 @@ async function invokeObjectiveSkill(
 	spec: ObjectiveCommandSpec,
 	objective: string,
 ): Promise<void> {
-	await ctx.waitForIdle();
-
-	const skill = await expandSkillBlock(pi, spec.skillName);
-	if (ctx.hasUI) {
-		ctx.ui.notify(
-			skill
-				? `Invoking ${skill.name} for ${objective}.`
-				: `${spec.skillName} skill was not found; using fallback prompt.`,
-			skill ? "info" : "warning",
-		);
-	}
-
-	pi.sendUserMessage(
-		buildObjectiveSkillPrompt({
-			spec,
-			skillBlock: skill?.block,
-			objective,
-			...(spec.postSelectionReminder === undefined ? {} : { postSelectionReminder: spec.postSelectionReminder }),
-		}),
-	);
+	await invokeSkillPromptTurn({
+		host: pi,
+		ctx,
+		skillName: spec.skillName,
+		successMessage: (skill) => `Invoking ${skill.name} for ${objective}.`,
+		fallbackMessage: `${spec.skillName} skill was not found; using fallback prompt.`,
+		buildPrompt: (skillBlock) =>
+			buildObjectiveSkillPrompt({
+				spec,
+				skillBlock,
+				objective,
+				...(spec.postSelectionReminder === undefined ? {} : { postSelectionReminder: spec.postSelectionReminder }),
+			}),
+	});
 }
 
 async function chooseObjectiveAndInvoke(
@@ -182,6 +196,61 @@ async function chooseObjectiveAndInvoke(
 	}
 
 	await invokeObjectiveSkill(pi, ctx, spec, slug);
+}
+
+async function invokeObjectiveCreateSkill(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	spec: ObjectiveCreateCommandSpec,
+	rawArgs: string,
+): Promise<void> {
+	const initialRequest = rawArgs.trim();
+	await invokeSkillPromptTurn({
+		host: pi,
+		ctx,
+		skillName: spec.skillName,
+		successMessage: `Invoking ${spec.skillName}${initialRequest ? " with initial context" : ""}.`,
+		fallbackMessage: `${spec.skillName} skill was not found; using fallback prompt.`,
+		buildPrompt: (skillBlock) => buildObjectiveCreateSkillPrompt(spec, skillBlock, initialRequest),
+	});
+}
+
+function buildObjectiveCreateSkillPrompt(
+	spec: ObjectiveCreateCommandSpec,
+	skillBlock: string | undefined,
+	initialRequest: string,
+): string {
+	if (initialRequest === "") {
+		return `${skillBlock ?? spec.fallbackPrompt}
+
+No initial Objective creation request was provided. Start the objective-create interview by asking the first necessary question before writing files.`;
+	}
+
+	return `${skillBlock ?? spec.fallbackPrompt}
+
+${spec.actionPrompt}
+
+\`\`\`text
+${initialRequest}
+\`\`\`
+
+Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
+}
+
+async function handleObjectiveCreateCommand(
+	pi: ExtensionAPI,
+	spec: ObjectiveCreateCommandSpec,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
+	try {
+		await invokeObjectiveCreateSkill(pi, ctx, spec, args);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (ctx.hasUI) {
+			ctx.ui.notify(message, "error");
+		}
+	}
 }
 
 async function handleObjectiveCommand(
@@ -484,6 +553,18 @@ export const objectiveParity = definePiSurfaceParity([
 		sourceModule: "objective",
 		notes: "Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
 	},
+	{
+		kind: "command",
+		surface: OBJECTIVE_CREATE_COMMAND.commandName,
+		workflow: OBJECTIVE_CREATE_COMMAND.description,
+		parity: "FULL",
+		cli: "objective exec read-objective plus direct Objective Markdown creation",
+		skill: OBJECTIVE_CREATE_COMMAND.skillName,
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "objective",
+		notes: "Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
+	},
 	...OBJECTIVE_COMMANDS.map((spec) => ({
 		kind: "command",
 		surface: spec.commandName,
@@ -665,6 +746,12 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 			handler: async (args, ctx) => handleCustomCliCommand(pi, spec, args, ctx),
 		});
 	}
+
+	pi.registerCommand(OBJECTIVE_CREATE_COMMAND.commandName, {
+		description: OBJECTIVE_CREATE_COMMAND.description,
+		argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
+		handler: async (args, ctx) => handleObjectiveCreateCommand(pi, OBJECTIVE_CREATE_COMMAND, args, ctx),
+	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {
 		pi.registerCommand(spec.commandName, {

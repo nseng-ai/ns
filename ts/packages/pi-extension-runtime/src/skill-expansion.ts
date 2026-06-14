@@ -27,6 +27,27 @@ export interface SkillExpansionOptions {
 	readTextFile?: (path: string) => Promise<string>;
 }
 
+export interface SkillPromptTurnHost extends SkillExpansionHost {
+	sendUserMessage(content: string): Promise<void> | void;
+}
+
+export interface SkillPromptTurnContext {
+	hasUI?: boolean;
+	ui: {
+		notify(message: string, level?: "info" | "warning"): void;
+	};
+	waitForIdle(): Promise<void>;
+}
+
+export interface InvokeSkillPromptTurnOptions {
+	host: SkillPromptTurnHost;
+	ctx: SkillPromptTurnContext;
+	skillName: string;
+	successMessage: string | ((skill: ExpandedSkillBlock) => string);
+	fallbackMessage: string;
+	buildPrompt(skillBlock: string | undefined): string;
+}
+
 function stripSkillFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
@@ -56,4 +77,30 @@ export async function expandSkillBlock(
 		body,
 		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
 	};
+}
+
+export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOptions): Promise<void> {
+	const { host, ctx, skillName, fallbackMessage, buildPrompt } = options;
+	await ctx.waitForIdle();
+
+	const skill = await expandSkillBlock(host, skillName);
+	if (ctx.hasUI === true) {
+		const message = skill === undefined
+			? fallbackMessage
+			: skillPromptTurnSuccessMessage(options.successMessage, skill);
+		const level = skill === undefined ? "warning" : "info";
+		ctx.ui.notify(message, level);
+	}
+
+	await host.sendUserMessage(buildPrompt(skill?.block));
+}
+
+function skillPromptTurnSuccessMessage(
+	message: InvokeSkillPromptTurnOptions["successMessage"],
+	skill: ExpandedSkillBlock,
+): string {
+	if (typeof message === "string") {
+		return message;
+	}
+	return message(skill);
 }

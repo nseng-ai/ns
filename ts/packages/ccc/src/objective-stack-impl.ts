@@ -1,5 +1,5 @@
 import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
-import { expandSkillBlock, type SkillExpansionHost } from "@asdl/pi-extension-runtime/skill-expansion";
+import { invokeSkillPromptTurn, type SkillExpansionHost } from "@asdl/pi-extension-runtime/skill-expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
@@ -49,17 +49,14 @@ interface InvokeObjectiveStackImplSkillOptions {
 
 async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSkillOptions): Promise<void> {
 	const { host, ctx, spec, objective } = options;
-	const skill = await expandSkillBlock(host, spec.skillName);
-	if (ctx.hasUI) {
-		ctx.ui.notify(
-			skill
-				? `Invoking ${spec.commandName} for ${objective}.`
-				: `${spec.skillName} skill was not found; using fallback prompt.`,
-			skill ? "info" : "warning",
-		);
-	}
-
-	host.sendUserMessage(buildObjectiveSkillPrompt({ spec, skillBlock: skill?.block, objective }));
+	await invokeSkillPromptTurn({
+		host,
+		ctx,
+		skillName: spec.skillName,
+		successMessage: `Invoking ${spec.commandName} for ${objective}.`,
+		fallbackMessage: `${spec.skillName} skill was not found; using fallback prompt.`,
+		buildPrompt: (skillBlock) => buildObjectiveSkillPrompt({ spec, skillBlock, objective }),
+	});
 }
 
 interface HandleObjectiveStackImplCommandOptions {
@@ -74,7 +71,6 @@ async function handleObjectiveStackImplCommand(options: HandleObjectiveStackImpl
 	const explicitObjective = args.trim();
 	try {
 		if (explicitObjective) {
-			await ctx.waitForIdle();
 			await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: explicitObjective });
 			return;
 		}
@@ -84,7 +80,6 @@ async function handleObjectiveStackImplCommand(options: HandleObjectiveStackImpl
 			return;
 		}
 
-		await ctx.waitForIdle();
 		await invokeObjectiveStackImplSkill({ host, ctx, spec, objective: slug });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
