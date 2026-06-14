@@ -212,6 +212,18 @@
       "sourceType": "local",
       "computedHash": "6e689e74c0f82704af7b81463eb3ff0ed2e52c5fe32ae06e2acd301e7853531c"
     },
+    "ponytail": {
+      "source": "DietrichGebert/ponytail",
+      "sourceType": "github",
+      "skillPath": "skills/ponytail/SKILL.md",
+      "computedHash": "f800e53174c260fb73bb1278e8e1015ad4cf6227da1532c2021055cd38b9416a"
+    },
+    "ponytail-review": {
+      "source": "DietrichGebert/ponytail",
+      "sourceType": "github",
+      "skillPath": "skills/ponytail-review/SKILL.md",
+      "computedHash": "3468ad5c20081dfe3ec8edf5b4689c112a68e62bc96eae0c1c93439775554466"
+    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",
