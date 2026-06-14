@@ -32,10 +32,10 @@ const stackFeedbackPlanParseSchema = z.object({
 	stdout_mode: z.enum(["full", "compact"]).default("full"),
 });
 
-type StackFeedbackPlanInputResult = {
+interface StackFeedbackPlanInputResult {
 	payload: StackFeedbackPlanInput;
 	resolvedInputs: StackFeedbackPlanResolvedInputs | undefined;
-};
+}
 type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: JsonInputError["errorType"]; message: string };
 
 export const stackFeedbackPlanOperation = defineExecOperation({
