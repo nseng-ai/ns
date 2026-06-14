@@ -33,7 +33,10 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
      editing; the SHA is not the mechanical authority.
    - In-scope and out-of-scope files/areas with one-line reasons for likely
      confusion.
-   - Verification gates as commands with expected success. Prefer
+   - Proportional validation guidance and verification gates as commands with
+     expected success. Do not over-specify routine test/check scope as a planning
+     decision; leave ordinary validation coverage to the implementing agent's
+     project policy and changed-file judgment. Prefer
      `no independent gate; verified by <later command>` over fake gates.
    - If the target repo lacks a credible one-command validation baseline, make
      establishing or documenting that baseline the first implementation slice

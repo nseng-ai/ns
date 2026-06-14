@@ -199,6 +199,8 @@ Interview the user relentlessly about every aspect of the plan or design until r
 Ask the questions one at a time.
 
 If a question can be answered by exploring the codebase, explore the codebase instead.
+
+Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment. Only ask about validation when it is a product/design requirement, release gate, or user-visible compatibility promise.
 </skill>`;
 
 export const FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK = `<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" fallback="true">
@@ -207,6 +209,8 @@ This is the Pi structured-UI complement to grill-with-docs. Interview the user r
 Before the first user-facing question, do a bounded docs-first preflight: check CONTEXT-MAP.md if present, check root or relevant CONTEXT.md files, check relevant docs/adr/ records, and inspect code only when the target names a concrete area or a claim needs verification.
 
 Ask one question at a time. Use grill_ask for user-facing grill questions when available. Explore the codebase instead of asking when the answer can be discovered.
+
+Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment. Only ask about validation when it is a product/design requirement, release gate, or user-visible compatibility promise.
 
 Challenge glossary conflicts immediately, sharpen fuzzy terms into canonical project language, and update CONTEXT.md inline when a term is resolved. Keep CONTEXT.md as a glossary only, without implementation details.
 
@@ -223,6 +227,7 @@ When you need user input during this grill session:
 - Do not ask grill questions in freeform prose while grill_ask is available.
 - Ask exactly one question per grill_ask call.
 - Explore the codebase instead of asking when the answer can be discovered.
+- Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.
 - Avoid double negatives and ambiguous option labels.
 - Prefer affirmative, mutually exclusive options.
 - Provide 2–5 substantive choices, not counting automatic freeform/status/end choices.
@@ -311,6 +316,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",
 			"Include estimatedRemaining on every grill_ask call; use exact only when known, otherwise use a range with basis or unknown with basis.",
 			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
+			"Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.",
 			"If grill_ask returns action: \"end_grill\", stop asking questions and summarize decisions, unresolved branches, and final recommendation.",
 			"If grill_ask returns action: \"status_request\", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.",
 			"If grill_ask returns action: \"ui_unavailable\", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.",

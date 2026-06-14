@@ -8,3 +8,5 @@ Interview me relentlessly about every aspect of this plan until we reach a share
 Ask the questions one at a time.
 
 If a question can be answered by exploring the codebase, explore the codebase instead.
+
+Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
