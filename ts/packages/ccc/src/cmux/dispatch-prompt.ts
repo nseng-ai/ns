@@ -3,9 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-	brmemCommandFailure,
-	parseBrmemPutData,
-	runAvailableBrmemCommand,
+	checkBrmemEntry,
+	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
 } from "@asdl/core/brmem-cli";
@@ -257,31 +256,13 @@ async function checkDispatchPromptPayload(
 	cwd: string,
 	branchName: string,
 ): Promise<DispatchPromptPresenceResult> {
-	const run = await runAvailableBrmemCommand({
+	return checkBrmemEntry({
 		gateway: pi,
 		cwd,
-		brmemArgs: [
-			"check",
-			DISPATCH_PROMPT_KEY,
-			"--namespace",
-			DISPATCH_PROMPT_NAMESPACE,
-			"--branch",
-			branchName,
-			"--format",
-			"json",
-		],
+		namespace: DISPATCH_PROMPT_NAMESPACE,
+		key: DISPATCH_PROMPT_KEY,
+		branch: branchName,
 	});
-	if (!run.ok) return { type: "error", error: run.error };
-	if (run.value.result.killed) {
-		return { type: "error", error: brmemCommandFailure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
-	}
-	if (run.value.result.code === 0) {
-		return { type: "present", displayCommand: run.value.displayCommand };
-	}
-	if (run.value.result.code === 1) {
-		return { type: "absent" };
-	}
-	return { type: "error", error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value) };
 }
 
 async function putDispatchPromptPayload(options: {
@@ -290,55 +271,14 @@ async function putDispatchPromptPayload(options: {
 	branchName: string;
 	sourceFile: string;
 }): Promise<DispatchPromptStorageResult> {
-	const { pi, cwd, branchName, sourceFile } = options;
-	const run = await runAvailableBrmemCommand({
-		gateway: pi,
-		cwd,
-		brmemArgs: [
-			"put",
-			DISPATCH_PROMPT_KEY,
-			"--namespace",
-			DISPATCH_PROMPT_NAMESPACE,
-			"--branch",
-			branchName,
-			"--file",
-			sourceFile,
-			"--format",
-			"json",
-		],
+	return putBrmemEntryFromFile({
+		gateway: options.pi,
+		cwd: options.cwd,
+		namespace: DISPATCH_PROMPT_NAMESPACE,
+		key: DISPATCH_PROMPT_KEY,
+		branch: options.branchName,
+		sourceFile: options.sourceFile,
 	});
-	if (!run.ok) return run;
-	if (run.value.result.code !== 0 || run.value.result.killed) {
-		return { ok: false, error: brmemCommandFailure("brmem_put_failed", "brmem put failed", run.value) };
-	}
-
-	let data: BrmemPutData;
-	try {
-		data = parseBrmemPutData(run.value.result.stdout);
-	} catch (error) {
-		return {
-			ok: false,
-			error: {
-				code: "brmem_malformed_put",
-				message: formatErrorMessage(error),
-				displayCommand: run.value.displayCommand,
-			},
-		};
-	}
-
-	const mismatch = validateBrmemPutData(data, { branchName, sourceFile });
-	if (mismatch !== undefined) {
-		return {
-			ok: false,
-			error: {
-				code: "brmem_unexpected_put_data",
-				message: mismatch,
-				displayCommand: run.value.displayCommand,
-			},
-		};
-	}
-
-	return { ok: true, value: data };
 }
 
 async function stageDispatchPromptPayload(
@@ -374,37 +314,6 @@ function resolveDispatchPromptPayloadOptions(options: DispatchPromptPayloadOptio
 		now: options.now ?? Date.now,
 		shouldCleanupStagingFile: options.shouldCleanupStagingFile ?? true,
 	};
-}
-
-function validateBrmemPutData(data: StoredDispatchPromptPayload, expected: { branchName: string; sourceFile: string }): string | undefined {
-	const mismatches = expectedMismatches(
-		{
-			namespace: data.namespace,
-			key: data.key,
-			branch: data.branch,
-			source_file: data.sourceFile,
-		},
-		{
-			namespace: DISPATCH_PROMPT_NAMESPACE,
-			key: DISPATCH_PROMPT_KEY,
-			branch: expected.branchName,
-			source_file: expected.sourceFile,
-		},
-	);
-	if (mismatches.length === 0) {
-		return undefined;
-	}
-	return `Unexpected brmem put JSON data: ${mismatches.join(", ")}.`;
-}
-
-function expectedMismatches(actual: Record<string, string>, expected: Record<string, string>): string[] {
-	const mismatches: string[] = [];
-	for (const [field, expectedValue] of Object.entries(expected)) {
-		if (actual[field] !== expectedValue) {
-			mismatches.push(`${field} ${JSON.stringify(actual[field])} != ${JSON.stringify(expectedValue)}`);
-		}
-	}
-	return mismatches;
 }
 
 export function buildBrmemPayloadPiLaunchCommand(branchName: string, launchOptions: PiLaunchOptions): string {
