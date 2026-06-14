@@ -7,15 +7,15 @@ import {
 	runSubmitCommand,
 	type SubmitRestackConfirmationPrompt,
 } from "@asdl/core/submit";
-import { RealCheckpointGateway, runCheckpointIfPending } from "@asdl/sdl/checkpoint";
-import { defineCommand, failed, ok, type ExecOptions as SdlExecOptions, type SdlContext } from "@asdl/sdl/sdk";
-import { z } from "zod";
+
+import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
+import { defineCommand, failed, ok, z, type ExecOptions as SdlExecOptions, type SdlContext } from "../sdk.ts";
 
 const submitSchema = z.object({
 	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
 });
 
-export default defineCommand({
+export const defaultSubmitCommand = defineCommand({
 	name: "submit",
 	description: `Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.
 
@@ -25,7 +25,7 @@ Environment:
 
 The command owns its output and exit code. It does not support --format.`,
 	schema: submitSchema,
-	async run(ctx, request) {
+	async run(ctx: SdlContext, request: z.output<typeof submitSchema>) {
 		const runner = createSdlCommandRunner(ctx);
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
@@ -65,12 +65,20 @@ The command owns its output and exit code. It does not support --format.`,
 });
 
 function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
-	return (command, args, options) => ctx.exec(command, args, convertExecOptions(options));
+	return async (command, args, options) => {
+		const cwdError = validateSdlExecCwd(ctx, options);
+		if (cwdError !== undefined) return cwdError;
+		return ctx.exec(command, [...args], convertExecOptions(options));
+	};
 }
 
-function convertExecOptions(options: Parameters<CommandRunner>[2]): SdlExecOptions | undefined {
-	if (options?.timeout === undefined) return undefined;
-	return { timeoutMs: options.timeout };
+function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | undefined {
+	if (options === undefined) return undefined;
+	return {
+		...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
+		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
+	};
 }
 
 class SdlCommandExecApi implements CommandExecApi {
@@ -80,9 +88,21 @@ class SdlCommandExecApi implements CommandExecApi {
 		this.ctx = ctx;
 	}
 
-	async exec(command: string, args: string[], options: ExecOptions): Promise<ExecResult> {
-		return this.ctx.exec(command, args, { timeoutMs: options.timeout });
+	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
+		const cwdError = validateSdlExecCwd(this.ctx, options);
+		if (cwdError !== undefined) return cwdError;
+		return this.ctx.exec(command, args, convertExecOptions(options));
 	}
+}
+
+function validateSdlExecCwd(ctx: SdlContext, options: ExecOptions | undefined): ExecResult | undefined {
+	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;
+	return {
+		code: 2,
+		stdout: "",
+		stderr: `SDL command execution is scoped to ${ctx.cwd}; refusing command cwd ${options.cwd}.`,
+		killed: false,
+	};
 }
 
 function writeCommandResultOutput(result: { stdout: string; stderr: string }, ctx: Pick<SdlContext, "stdout" | "stderr">): void {

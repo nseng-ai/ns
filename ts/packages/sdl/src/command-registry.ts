@@ -1,11 +1,10 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { z } from "zod";
-
 import { defaultCpCommand } from "./default-commands/cp.ts";
+import { defaultSubmitCommand } from "./default-commands/submit.ts";
 import { loadSdkCommandModule } from "./sdk-module-loader.ts";
-import { failed, type SdlCommand, type SdlContext, type SdlResult } from "./sdk.ts";
+import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
 import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
 
 export interface SdlCommandInfo {
@@ -22,25 +21,27 @@ export type ProjectCommandDiscoveryResult = { ok: true; names: readonly string[]
 const PROJECT_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const PROJECT_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
-const builtInCommands = {
-	cp: defaultCpCommand,
-} as const satisfies Record<string, SdlCommand>;
-
-const builtInCommandMeta = {
+const builtInCommandDefinitions = {
 	cp: {
+		command: defaultCpCommand,
 		summary: "Create a checkpoint commit for the current diff.",
 		description: `Create a checkpoint commit for the current git diff using a model-authored message.
 
 Environment:
   ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
 	},
-} as const satisfies Record<keyof typeof builtInCommands, { summary: string; description: string }>;
+	submit: {
+		command: defaultSubmitCommand,
+		summary: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+		description: defaultSubmitCommand.description,
+	},
+} as const satisfies Record<string, { command: SdlCommand; summary: string; description: string }>;
 
 const sdlCommandSchema = z.object({
 	name: z.string(),
 	description: z.string(),
-	schema: z.custom<SdlCommand["schema"]>((value) => value instanceof z.ZodObject).optional(),
-	positionals: z.custom<SdlCommand["positionals"]>((value) => typeof value === "object" && value !== null && !Array.isArray(value)).optional(),
+	schema: z.custom<SdlCommandSchema>(isZodObjectSchema).optional(),
+	positionals: z.custom<SdlCommand["positionals"]>(isRecord).optional(),
 	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
 });
 
@@ -95,11 +96,11 @@ ${formatUnknownError(error)}` };
 
 export function listSdlCommandInfos(options: { projectCommandNames?: readonly string[] | undefined } = {}): SdlCommandCliInfo[] {
 	const commandInfos = new Map<string, SdlCommandCliInfo>();
-	for (const [commandName, meta] of Object.entries(builtInCommandMeta)) {
+	for (const [commandName, definition] of Object.entries(builtInCommandDefinitions)) {
 		commandInfos.set(commandName, {
 			name: commandName,
-			description: meta.summary,
-			fullDescription: meta.description,
+			description: definition.summary,
+			fullDescription: definition.description,
 		});
 	}
 	for (const commandName of options.projectCommandNames ?? []) {
@@ -109,8 +110,8 @@ export function listSdlCommandInfos(options: { projectCommandNames?: readonly st
 	return [...commandInfos.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export function isBuiltInCommandName(commandName: string): commandName is keyof typeof builtInCommands {
-	return Object.hasOwn(builtInCommands, commandName);
+export function isBuiltInCommandName(commandName: string): commandName is keyof typeof builtInCommandDefinitions {
+	return Object.hasOwn(builtInCommandDefinitions, commandName);
 }
 
 function projectCommandDescription(commandName: string): string {
@@ -130,7 +131,7 @@ ${formatUnknownError(error)}` };
 	}
 
 	if (isBuiltInCommandName(commandName)) {
-		return { ok: true, command: builtInCommands[commandName] };
+		return { ok: true, command: builtInCommandDefinitions[commandName].command };
 	}
 
 	return { ok: false, message: `Unknown SDL command: ${commandName}` };
@@ -145,8 +146,13 @@ export async function runSdlCommand(ctx: SdlContext, commandName: string): Promi
 }
 
 export async function executeSdlCommand(ctx: SdlContext, command: SdlCommand, request: unknown): Promise<SdlResult> {
+	const parsedRequest = (command.schema ?? z.object({})).safeParse(request);
+	if (!parsedRequest.success) {
+		return failed(`Invalid request for command ${command.name}: ${parsedRequest.error.issues[0]?.message ?? "request did not match command schema"}`, 2);
+	}
+
 	try {
-		const result = await command.run(ctx, request as Record<string, unknown>);
+		const result = await command.run(ctx, parsedRequest.data);
 		return validateSdlResult(result, command.name);
 	} catch (error) {
 		return failed(`Command ${command.name} failed.
@@ -226,6 +232,9 @@ function formatSdlCommandIssue(issue: z.core.$ZodIssue | undefined, expectedName
 	if (field === "description") {
 		return "command description must be a string.";
 	}
+	if (field === "schema") {
+		return "command schema must be a Zod object schema from @asdl/sdl/sdk.";
+	}
 	if (field === "run") {
 		return "command run must be a function.";
 	}
@@ -234,6 +243,17 @@ function formatSdlCommandIssue(issue: z.core.$ZodIssue | undefined, expectedName
 
 function commandNameMustBe(expectedName: string): string {
 	return `command name must be "${expectedName}".`;
+}
+
+function isZodObjectSchema(value: unknown): value is SdlCommandSchema {
+	if (value instanceof z.ZodObject) return true;
+	if (!isRecord(value)) return false;
+	const candidate = value as { safeParse?: unknown; _zod?: { def?: { type?: unknown } } };
+	return typeof candidate.safeParse === "function" && candidate._zod?.def?.type === "object";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function hasInvalidFailureExitCode(issues: readonly z.core.$ZodIssue[]): boolean {

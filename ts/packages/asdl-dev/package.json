@@ -17,7 +17,6 @@
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "@asdl/plans": "workspace:*",
     "@asdl/sdl": "workspace:*",
     "@earendil-works/pi-ai": "0.79.1",
     "@earendil-works/pi-coding-agent": "0.79.1",

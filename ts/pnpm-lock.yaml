@@ -51,9 +51,6 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
-      '@asdl/plans':
-        specifier: workspace:*
-        version: link:../plans
       '@asdl/sdl':
         specifier: workspace:*
         version: link:../sdl
