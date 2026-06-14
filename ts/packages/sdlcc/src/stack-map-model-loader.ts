@@ -40,7 +40,7 @@ interface GraphiteMetadataBranch {
 	readonly branch: string;
 	readonly parent: string | undefined;
 	readonly children: readonly string[];
-	readonly isTrunk: boolean;
+	readonly validationResult?: string | undefined;
 }
 
 export async function loadStackMapPrototypeModel(options: LoadStackMapPrototypeModelOptions = {}): Promise<StackMapPrototypeModel> {
@@ -359,11 +359,12 @@ function parseGraphiteMetadataBranches(stdout: string): { type: "success"; branc
 		if (branch === undefined) return { type: "failure", message: "Could not load Graphite metadata DB: row was missing branch_name." };
 		const children = parseChildrenColumn(row.children);
 		if (children === undefined) return { type: "failure", message: `Could not load Graphite metadata DB: children for ${branch} were invalid.` };
+		const validationResult = optionalStringField(row, "validation_result");
 		branches.push({
 			branch,
 			parent: optionalStringField(row, "parent_branch_name"),
 			children,
-			isTrunk: optionalStringField(row, "validation_result")?.toUpperCase() === "TRUNK",
+			...(validationResult === undefined ? {} : { validationResult }),
 		});
 	}
 	return { type: "success", branches };
@@ -422,12 +423,13 @@ function buildMetadataBranchTree(
 ): StackMapBranchNode {
 	if (options.visited.has(branch)) return leafBranchNode(branch, { current: options.current, trunk: options.trunk }, options.slotsByBranch);
 	options.visited.add(branch);
+	const metadata = options.metadataByBranch.get(branch);
 	const children = metadataChildren(branch, options.metadataByBranch)
 		.filter((child) => options.selectedBranches.has(child))
 		.map((child) => buildMetadataBranchTree(child, options));
 	return {
 		name: branch,
-		graphiteNote: graphiteNoteForBranch(branch, options.current, options.trunk),
+		graphiteNote: graphiteNoteForBranch(branch, options.current, options.trunk, metadata?.validationResult),
 		slots: slotsForBranch(branch, options.slotsByBranch),
 		children,
 	};
@@ -490,9 +492,10 @@ function leafBranchNode(
 	};
 }
 
-function graphiteNoteForBranch(branch: string, current: string, trunk: string): string | undefined {
+function graphiteNoteForBranch(branch: string, current: string, trunk: string, validationResult?: string | undefined): string | undefined {
 	if (branch === trunk) return "repo";
 	if (branch === current) return "current";
+	if (validationResult === "BAD_PARENT_NAME") return "needs restack";
 	return undefined;
 }
 

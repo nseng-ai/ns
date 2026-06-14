@@ -10,6 +10,7 @@ import {
 } from "../../src/stack-map-model-loader.ts";
 import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-prototype-renderer.ts";
 import {
+	buildVisibleStackMapRows,
 	choicesForCmuxActivationPlan,
 	createInitialStackMapState,
 	matchCmuxTabsToBranches,
@@ -55,11 +56,11 @@ describe("buildStackMapModelFromMetadata", () => {
 				warnings: [],
 			},
 			[
-				{ branch: "main", parent: undefined, children: ["feature/current", "feature/slot", "feature/recent"], isTrunk: true },
-				{ branch: "feature/current", parent: "main", children: [], isTrunk: false },
-				{ branch: "feature/slot", parent: "main", children: ["feature/slot-child"], isTrunk: false },
-				{ branch: "feature/slot-child", parent: "feature/slot", children: [], isTrunk: false },
-				{ branch: "feature/recent", parent: "main", children: [], isTrunk: false },
+				{ branch: "main", parent: undefined, children: ["feature/current", "feature/slot", "feature/recent"], validationResult: "TRUNK" },
+				{ branch: "feature/current", parent: "main", children: [], validationResult: "VALID" },
+				{ branch: "feature/slot", parent: "main", children: ["feature/slot-child"], validationResult: "VALID" },
+				{ branch: "feature/slot-child", parent: "feature/slot", children: [], validationResult: "VALID" },
+				{ branch: "feature/recent", parent: "main", children: [], validationResult: "VALID" },
 			],
 			[{ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" }],
 			["feature/recent"],
@@ -68,6 +69,27 @@ describe("buildStackMapModelFromMetadata", () => {
 		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/current", "feature/slot", "feature/recent"]);
 		expect(model.trunk.children?.[1]?.slots?.[0]).toEqual({ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" });
 		expect(model.trunk.children?.[1]?.children?.[0]?.name).toBe("feature/slot-child");
+	});
+
+	test("maps BAD_PARENT_NAME validation metadata to a restack note", () => {
+		const model = buildStackMapModelFromMetadata(
+			{
+				branches: ["feature/current"],
+				trunk: "main",
+				current: "feature/current",
+				edges: [{ parent: "main", child: "feature/current" }],
+				warnings: [],
+			},
+			[
+				{ branch: "main", parent: undefined, children: ["feature/current", "feature/restack"], validationResult: "TRUNK" },
+				{ branch: "feature/current", parent: "main", children: [], validationResult: "VALID" },
+				{ branch: "feature/restack", parent: "main", children: [], validationResult: "BAD_PARENT_NAME" },
+			],
+			[],
+			["feature/restack"],
+		);
+
+		expect(model.trunk.children?.find((branch) => branch.name === "feature/restack")?.graphiteNote).toBe("needs restack");
 	});
 });
 
@@ -252,6 +274,52 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		]);
 		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe("bun '/repo/with space/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
 		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe("bun '/repo/with'\\''quote/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
+	});
+});
+
+describe("buildVisibleStackMapRows", () => {
+	test("renders gt-ls-style lanes with exact glyphs, sorted lanes, and trunk join last", () => {
+		const model: StackMapPrototypeModel = {
+			title: "stack map",
+			question: "question",
+			currentBranch: "b-leaf",
+			trunk: {
+				name: "main",
+				children: [
+					{ name: "c-parent" },
+					{ name: "b-parent", children: [{ name: "b-child", children: [{ name: "b-leaf" }] }] },
+					{ name: "a-parent" },
+				],
+			},
+		};
+
+		const rows = buildVisibleStackMapRows(model, createInitialStackMapState(model));
+
+		expect(rows.map((row) => row.branch.name)).toEqual(["a-parent", "b-leaf", "b-child", "b-parent", "c-parent", "main"]);
+		expect(rows.map((row) => row.topo)).toEqual(["◯", "│ ◉", "│ ◯", "│ ◯", "│ │ ◯", "◯─┴─┴─┘"]);
+		expect(rows.at(-1)?.branch.name).toBe("main");
+		expect(rows.at(-1)?.topo).toBe("◯─┴─┴─┘");
+		expect(rows.some((row) => row.topo.includes("○"))).toBe(false);
+	});
+
+	test("cmux filter includes the whole matching lane and hides unrelated lanes", () => {
+		const model: StackMapPrototypeModel = {
+			title: "stack map",
+			question: "question",
+			currentBranch: "a-parent",
+			trunk: {
+				name: "main",
+				children: [
+					{ name: "a-parent" },
+					{ name: "b-parent", children: [{ name: "b-child", slots: [{ branch: "b-child", slotName: "slot-02", status: "assigned" }] }] },
+				],
+			},
+		};
+
+		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), filter: "cmux" });
+
+		expect(rows.map((row) => row.branch.name)).toEqual(["b-child", "b-parent", "main"]);
+		expect(rows.map((row) => row.topo)).toEqual(["◯", "◯", "◯─┘"]);
 	});
 });
 
