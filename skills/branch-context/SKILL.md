@@ -13,7 +13,7 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 
 - `enriched-plan-save` — save a source-branch plan.
 - `branch-context-from-plan` — create a branch and attach `plan.md` as branch context from a saved plan.
-- `branch-context-impl` — load and implement an attached plan.
+- `branch-context-impl` — load and implement an attached plan; its implementation workflow includes the contract protocol for new-format Attached plans.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 

@@ -505,6 +505,12 @@ describe("buildImplBranchContextPrompt", () => {
 		expect(prompt).toContain(`Bytes: ${new TextEncoder().encode(PLAN_CONTENT).length}`);
 		expect(prompt).toContain("Create an implementation checklist");
 		expect(prompt).toContain("Do not call `brmem put`, `brmem copy`, `brmem delete`");
+		expect(prompt).toContain("## Branch-context plan contract protocol");
+		expect(prompt).toContain("manually compare the excerpts against live repo state before step 1");
+		expect(prompt).toContain("old-format/pre-contract");
+		expect(prompt).toContain("verification gate fails twice after reasonable local attempts");
+		expect(prompt).toContain("STOP report shape: observed vs expected");
+		expect(prompt).toContain("intentional executor edits outside scope are a failure");
 		expect(prompt).toContain(`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`);
 	});
 });

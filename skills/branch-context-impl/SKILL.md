@@ -22,8 +22,12 @@ Reads the current branch by default and selects the attached plan from Branch Me
 1. Create a temp prompt file, then run `load --prompt-file "$prompt_file" --format json` (include an explicit key only when the user provided one).
 2. Read the returned `implementation_prompt_file` with the file-reading tool before editing code.
 3. Treat the attached plan in that prompt as authoritative unless current repo state proves it stale; if stale, explain the discrepancy before changing scope. If you go beyond or against what the plan settled, anything the plan ruled out becomes an open question again — recheck why it was ruled out, and look for an existing sibling that already does what you are about to build, before designing the extension.
-4. Implement in focused steps; run the plan's validation commands when practical.
-5. Report implemented changes, files changed, validation results, plan deviations, and unresolved follow-up.
+4. Apply the branch-context plan contract protocol when the Attached plan has contract sections. If it includes current-state excerpts, scope boundaries, verification gates, or STOP conditions, compare excerpts against live repo state before step 1; an excerpt mismatch is a STOP. If those sections are absent, explicitly recognize an old-format/pre-contract plan and do not invent gates or half-apply excerpt checks.
+5. Stop and report instead of guessing on universal STOP triggers: excerpt mismatch; ambiguity or internal inconsistency; a verification gate fails twice after reasonable local attempts; implementation requires touching an out-of-scope file/area; the plan asks for mutating Branch Memory; or branch identity looks wrong despite loader safety checks.
+6. Document minimal adaptations: report what changed, why the plan prediction was wrong, and which validation covers the adaptation. Silent deviations are failures.
+7. Before finishing, compare changed files to the plan's scope. Note autofixer-only formatting outside scope separately; intentional executor edits outside scope require user approval.
+8. Implement in focused steps; run the plan's validation commands when practical.
+9. Report implemented changes, files changed/tree state, validation results, plan deviations, unresolved follow-up, and for any STOP: observed vs expected plus the exact gate/assumption that failed.
 
 ## Recovery
 
