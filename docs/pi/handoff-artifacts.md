@@ -7,7 +7,7 @@ The public model is:
 - **Create a handoff** when pausing or transferring focused work.
 - **Pick up a handoff** when selecting an existing artifact, including when the user asks to resume from it.
 - **List handoffs** when choosing which handoff to pick up.
-- **Delete a handoff** when explicitly removing one artifact by exact slug through the Python CLI.
+- **Delete a handoff** when explicitly removing one artifact by exact slug through the standalone `handoff` CLI.
 - Continue the recorded work only after pickup has presented a summary and the user asks to proceed.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
@@ -103,7 +103,7 @@ Good pickup copy:
 Picked up handoff `address-review-feedback` from branch `feature/review`.
 ```
 
-The Python CLI's normal list output should show compact handoff inventory tables with slug and recency:
+The standalone TypeScript `handoff` CLI's normal list output should show compact handoff inventory tables with slug and recency:
 
 ```text
 Handoffs on feature/review
@@ -143,7 +143,7 @@ Project-local Pi commands:
 /handoff:list [--branch <branch> | --all]
 ```
 
-Python CLI commands:
+Standalone TypeScript CLI commands:
 
 ```text
 handoff list [--branch <branch> | --all] [--include-deleted]
@@ -151,7 +151,7 @@ handoff delete [--branch <branch>] [-f|--force] <semantic-slug>
 handoff gc [--dry-run|-f]
 ```
 
-There is currently no `/handoff:delete` Pi command. Single-handoff deletion is available through the Python CLI only. `handoff delete` accepts the exact handoff slug without `.md`; `handoff delete alpha.md` is rejected so deletion cannot silently reinterpret storage keys as user-facing slugs.
+There is currently no `/handoff:delete` Pi command. Single-handoff deletion is available through the standalone `handoff` CLI only. `handoff delete` accepts the exact handoff slug without `.md`; `handoff delete alpha.md` is rejected so deletion cannot silently reinterpret storage keys as user-facing slugs.
 
 Examples:
 

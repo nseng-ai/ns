@@ -72,6 +72,13 @@ install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/scrip
 # inside an asdl checkout, this checkout's sources everywhere else.
 install-brmem: (_install-ts-shim "brmem" "ts/packages/brmem/scripts/brmem-shim")
 
+# Install the handoff shim to ~/.local/bin so `handoff` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/scripts/handoff-shim")
+    rm -f "{{justfile_directory()}}/.venv/bin/handoff"
+    @echo "removed stale project venv handoff script if present"
+
 _install-ts-shim tool script: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
@@ -100,13 +107,12 @@ areg-check:
 refresh-skills:
     uv run areg update-skills
 
-# Install public tools: slot, handoff, and objective as editable uv tools;
-# brmem via the TypeScript source shim installed by install-brmem.
-install-tools: install-brmem
+# Install public tools: slot and objective as editable uv tools;
+# brmem and handoff via TypeScript source shims.
+install-tools: install-brmem install-handoff
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
-    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-handoff
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem (TypeScript shim), handoff, objective"
+    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), objective"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
