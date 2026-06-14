@@ -6,6 +6,8 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
+import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
+import { buildSkillxGroup } from "./operations/skillx.ts";
 
 export const VERSION = "0.1.0";
 
@@ -24,16 +26,20 @@ export function buildCli(): ClinkrGroup<AregCliContext> {
 		version: VERSION,
 		runtimeInfo,
 	});
+	root.command({
+		name: "check",
+		description: "Check that skills follow areg conventions.",
+		schema: checkRequestSchema,
+		resultSchema: checkResultSchema,
+		handler: runCheck,
+		renderHuman: renderCheck,
+	});
 	const execGroup = new ClinkrGroup<AregCliContext>({
 		name: "exec",
 		description: "Commands for use by skills (not interactive users).",
 		isHidden: true,
 	});
-	const skillxGroup = new ClinkrGroup<AregCliContext>({
-		name: "skillx",
-		description: "Skillx helper operations.",
-	});
-	execGroup.group(skillxGroup);
+	execGroup.group(buildSkillxGroup());
 	root.group(execGroup);
 	return root;
 }

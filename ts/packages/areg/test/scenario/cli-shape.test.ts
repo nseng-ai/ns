@@ -24,6 +24,7 @@ describe("areg CLI shape", () => {
 		expect(help).toContain("Usage: areg");
 		expect(help).toContain("Manage ASDL agent registry projects.");
 		expect(help).toContain("--runtime");
+		expect(help).toContain("check");
 		expect(help).not.toContain("exec");
 		expect(help).not.toContain("skillx");
 	});
@@ -39,14 +40,11 @@ describe("areg CLI shape", () => {
 		expect(await skillxHelp.exit).toBe(0);
 		expect(skillxHelp.stderr.join("")).toBe("");
 		expect(skillxHelp.stdout.join("")).toContain("Usage: areg exec skillx");
-		expect(skillxHelp.stdout.join("")).toContain("Skillx helper operations.");
-	});
-
-	test("rejects would-be skillx operations without invoking placeholder behavior", async () => {
-		const run = runScenario(["exec", "skillx", "fetch"]);
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: too many arguments for 'skillx'. Expected 0 arguments but got 1.\n");
+		const skillxOutput = skillxHelp.stdout.join("");
+		expect(skillxOutput).toContain("Skillx helper operations.");
+		expect(skillxOutput).toContain("parse");
+		expect(skillxOutput).toContain("list");
+		expect(skillxOutput).toContain("fetch");
+		expect(skillxOutput).toContain("cleanup");
 	});
 });

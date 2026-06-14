@@ -12,12 +12,12 @@
   - Added `ts/packages/areg` as `@asdl/areg` with strict TypeScript, Vitest tests, standalone `areg` CLI shell, TypeScript runtime diagnostics, hidden `exec skillx` group structure, and package-local fake-driven gateway seams for Git-root/tool checks, GitHub skill listing, `npx skills`, and transient skillx workspaces.
   - Deferred filesystem and project-configuration gateways to the first command slices that consume them; keep all seams package-local unless repeated use proves a shared `@asdl/core` or `@asdl/clinkr` extraction.
   - Evidence: Semantic Update `updates/2026-06-14T213335Z-areg-package-shell-gateway-seams.md` records focused validation and deferred seam boundaries.
-- [ ] Port the hidden `exec skillx` helpers as the first deterministic slice.
-  - Preserve parse/list/fetch/cleanup behavior, JSON payloads, selection flow, GitHub listing errors, `npx skills add` transient workspace behavior, and cleanup path safety.
-  - Evidence: fake-backed tests and CLI scenario coverage exercise success and failure payloads.
-- [ ] Port `areg check` and skill/lockfile validation.
-  - Recreate the accepted checks for local/GitHub/git/gitlab skill structures, frontmatter, invoke-only state, lockfile consistency, orphaned installed skills, skill pairing, and user-facing malformed-lockfile errors.
-  - Evidence: scenario/unit tests cover the accepted convention set without depending on Python internals.
+- [x] Port the hidden `exec skillx` helpers as the first deterministic slice.
+  - Implemented TypeScript `areg exec skillx parse|list|fetch|cleanup` with accepted Clinkr envelope semantics, parser/list/fetch/cleanup behavior, GitHub listing error classification, `npx skills add` transient workspace behavior, and cleanup path safety.
+  - Evidence: Semantic Update `updates/2026-06-14T225500Z-exec-skillx-clinkr-envelope-divergence.md`; fake-backed tests, CLI scenario coverage, and real-adapter protocol/safety tests exercise success and failure payloads.
+- [x] Port `areg check` and skill/lockfile validation.
+  - Implemented visible TypeScript `areg check [--path PATH]` with Clinkr human/JSON behavior, a package-local constrained project inspection gateway, lockfile/frontmatter parsing, local and remote skill structure checks, invoke-only/Pi replacement checks, lock hash checks, orphan/dangling checks, and `AGENTS.md`/`CLAUDE.md` pairing checks.
+  - Evidence: focused `@asdl/areg` type-check and Vitest suite passed with scenario/unit/gateway coverage for success, malformed lockfiles, invalid hashes, local/remote layout failures, SKILL.md/frontmatter failures, invoke-only/Pi replacement failures, orphan/dangling entries, pairing failures, fake gateway copy behavior, and real adapter symlink/traversal facts.
 - [ ] Port `areg init` project bootstrap behavior.
   - Preserve Git-root requirements, bootstrap skill install, agent resolution, managed `AGENTS.md`/`CLAUDE.md` blocks, `asdl.toml` `[areg].agents`, legacy config fallback where accepted, symlink/path safety, and non-destructive config handling.
   - Evidence: fake-backed scenario tests show planning/mutation order and local validation failures do not leave predictable half-applied state.
