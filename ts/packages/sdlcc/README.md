@@ -6,7 +6,7 @@
 
 Does a branch list with a persistent left-side Graphite topology overlay feel like the right base surface for `sdlcc`?
 
-The current prototype uses in-memory sample data only. It is intentionally not wired to real Graphite, cmux, Objective, handoff, branch-context, Git, or GitHub workflows yet.
+The current prototype queries Graphite metadata from `.graphite_metadata.db`, seeds the visible row set from the current branch, active slot branches, and recent local branches, and overlays slot labels from `slot list --format json`. It is intentionally not wired to real cmux, Objective, handoff, branch-context, GitHub, or restack-status workflows yet.
 
 ## Smoke test
 
@@ -22,7 +22,7 @@ Optional package-local run:
 pnpm --dir ts --filter sdlcc run prototype:stack-map
 ```
 
-Expected display: a full-screen OpenTUI branch list with Graphite topology glyphs on the left, Graphite notes and cmux/worktree badges in columns, and a selected-branch state readout.
+Expected display: a full-screen OpenTUI branch list for the current Graphite stack, with Graphite topology glyphs on the left and branch metadata / slot labels aligned in table columns.
 
 Keys:
 

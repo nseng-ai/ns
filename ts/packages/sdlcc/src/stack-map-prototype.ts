@@ -40,12 +40,21 @@ export interface StackMapVisibleRow {
 	readonly depth: number;
 	readonly isCurrent: boolean;
 	readonly isSelected: boolean;
+	readonly branchLabel: string;
+	readonly graphiteLabel: string;
+	readonly cmuxLabel: string;
 }
 
 interface FlatBranchRow {
 	readonly branch: StackMapBranchNode;
 	readonly topoPrefix: string;
 	readonly depth: number;
+}
+
+interface StackMapTableWidths {
+	readonly branch: number;
+	readonly graphite: number;
+	readonly cmux: number;
 }
 
 export function buildStackMapPrototypeModel(): StackMapPrototypeModel {
@@ -137,12 +146,18 @@ export function buildVisibleStackMapRows(model: StackMapPrototypeModel, state: S
 	return visibleRows.map((row) => {
 		const isCurrent = row.branch.name === model.currentBranch;
 		const marker = isCurrent ? "◉" : "○";
+		const branchLabel = isCurrent ? `${row.branch.name} ← current` : row.branch.name;
+		const graphiteLabel = row.branch.graphiteNote ?? "";
+		const cmuxLabel = formatCmuxWorkspaces(row.branch.workspaces ?? []);
 		return {
 			branch: row.branch,
 			topo: `${row.topoPrefix}${marker}`,
 			depth: row.depth,
 			isCurrent,
 			isSelected: row.branch.name === state.selectedBranch,
+			branchLabel,
+			graphiteLabel,
+			cmuxLabel,
 		};
 	});
 }
@@ -150,23 +165,19 @@ export function buildVisibleStackMapRows(model: StackMapPrototypeModel, state: S
 export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, state: StackMapPrototypeState): string {
 	const rows = buildVisibleStackMapRows(model, state);
 	const topoWidth = Math.max("TOPO".length, ...rows.map((row) => row.topo.length));
-	const branchWidth = Math.max("BRANCH".length, ...rows.map((row) => row.branch.name.length));
-	const graphiteWidth = Math.max("GT".length, ...rows.map((row) => (row.branch.graphiteNote ?? "").length));
+	const tableWidths = buildStackMapTableWidths(rows);
 	const selected = rows.find((row) => row.isSelected) ?? rows[0];
 
 	const lines: string[] = [];
 	lines.push(model.title);
 	if (state.showQuestion) lines.push(model.question);
 	lines.push("");
-	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${"BRANCH".padEnd(branchWidth)}  ${"GT".padEnd(graphiteWidth)}  CMUX`);
-	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}  ${"─".repeat(branchWidth)}  ${"─".repeat(graphiteWidth)}  ${"─".repeat(28)}`);
+	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)} │ ${formatStackMapTableHeader(tableWidths)}`);
+	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}─┼─${formatStackMapTableRule(tableWidths)}`);
 
 	for (const row of rows) {
 		const cursor = row.isSelected ? "› " : "  ";
-		const branch = row.isCurrent ? `${row.branch.name} ← current` : row.branch.name;
-		lines.push(
-			`${cursor}${row.topo.padEnd(topoWidth)}  ${branch.padEnd(branchWidth + (row.isCurrent ? 10 : 0))}  ${(row.branch.graphiteNote ?? "").padEnd(graphiteWidth)}  ${formatCmuxWorkspaces(row.branch.workspaces ?? [])}`,
-		);
+		lines.push(`${cursor}${row.topo.padEnd(topoWidth)} │ ${formatStackMapTableRow(row, tableWidths)}`);
 	}
 
 	lines.push("");
@@ -175,6 +186,30 @@ export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, stat
 	lines.push("Keys: ↑/k previous  ↓/j next  o cmux-only/all  ? hide/show question  q quit");
 
 	return lines.join("\n");
+}
+
+function buildStackMapTableWidths(rows: readonly StackMapVisibleRow[]): StackMapTableWidths {
+	return {
+		branch: Math.max("BRANCH".length, ...rows.map((row) => row.branchLabel.length)),
+		graphite: Math.max("GT".length, ...rows.map((row) => row.graphiteLabel.length)),
+		cmux: Math.max("CMUX".length, ...rows.map((row) => row.cmuxLabel.length)),
+	};
+}
+
+function formatStackMapTableHeader(widths: StackMapTableWidths): string {
+	return formatStackMapTableCells("BRANCH", "GT", "CMUX", widths);
+}
+
+function formatStackMapTableRule(widths: StackMapTableWidths): string {
+	return ["─".repeat(widths.branch), "─".repeat(widths.graphite), "─".repeat(widths.cmux)].join("─┼─");
+}
+
+function formatStackMapTableRow(row: StackMapVisibleRow, widths: StackMapTableWidths): string {
+	return formatStackMapTableCells(row.branchLabel, row.graphiteLabel, row.cmuxLabel, widths);
+}
+
+function formatStackMapTableCells(branch: string, graphite: string, cmux: string, widths: StackMapTableWidths): string {
+	return `${branch.padEnd(widths.branch)} │ ${graphite.padEnd(widths.graphite)} │ ${cmux.padEnd(widths.cmux)}`;
 }
 
 function moveSelection(model: StackMapPrototypeModel, state: StackMapPrototypeState, delta: number): StackMapPrototypeState {

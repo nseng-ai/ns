@@ -2,7 +2,7 @@
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 
-import { buildStackMapPrototypeModel } from "./stack-map-prototype.ts";
+import { loadStackMapPrototypeModel } from "./stack-map-model-loader.ts";
 
 const VERSION = "0.1.0";
 
@@ -41,8 +41,11 @@ function runtimeInfo(): string {
 }
 
 async function startDefaultTui(): Promise<void> {
-	const { startStackMapPrototypeTui } = await import("./stack-map-prototype-renderer.ts");
-	await startStackMapPrototypeTui({ model: buildStackMapPrototypeModel() });
+	const [{ startStackMapPrototypeTui }, model] = await Promise.all([
+		import("./stack-map-prototype-renderer.ts"),
+		loadStackMapPrototypeModel(),
+	]);
+	await startStackMapPrototypeTui({ model });
 }
 
 if (import.meta.main) {
