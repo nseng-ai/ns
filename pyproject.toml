@@ -3,7 +3,6 @@ members = [
   "packages/areg",
   "packages/asdl-core",
   "packages/asdl-dispatcher",
-  "packages/asdl-handoff",
   "packages/asdl-objectives",
   "packages/aretro",
   "packages/roaster",
@@ -16,7 +15,6 @@ members = [
 areg = { workspace = true }
 asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
-asdl-handoff = { workspace = true }
 asdl-objectives = { workspace = true }
 aretro = { workspace = true }
 roaster = { workspace = true }
@@ -44,7 +42,6 @@ asdl = "asdl_tools.cli.cli:main"
 [project.optional-dependencies]
 plugins = [
   "asdl-dispatcher",
-  "asdl-handoff",
   "asdl-objectives",
   "asdl-slots",
 ]
@@ -52,7 +49,6 @@ plugins = [
 [dependency-groups]
 dev = [
   "areg",
-  "asdl-handoff",
   "ruff>=0.5.0",
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
@@ -82,7 +78,6 @@ src = [
   "packages/areg/src",
   "packages/asdl-core/src",
   "packages/asdl-dispatcher/src",
-  "packages/asdl-handoff/src",
   "packages/asdl-objectives/src",
   "packages/aretro/src",
   "packages/roaster/src",
@@ -108,7 +103,6 @@ known-first-party = [
   "asdl_tools",
   "asdl_core",
   "asdl_dispatcher",
-  "asdl_handoff",
   "asdl_objectives",
   "aretro",
   "roaster",
@@ -136,7 +130,6 @@ testpaths = [
   "packages/areg/tests",
   "packages/asdl-core/tests",
   "packages/asdl-dispatcher/tests",
-  "packages/asdl-handoff/tests",
   "packages/asdl-objectives/tests",
   "packages/aretro/tests",
   "packages/roaster/tests",

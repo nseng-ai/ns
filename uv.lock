@@ -8,7 +8,6 @@ members = [
     "aretro",
     "asdl-core",
     "asdl-dispatcher",
-    "asdl-handoff",
     "asdl-objectives",
     "asdl-slots",
     "asdl-tools",
@@ -89,21 +88,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "asdl-handoff"
-version = "0.1.0"
-source = { editable = "packages/asdl-handoff" }
-dependencies = [
-    { name = "asdl-core" },
-    { name = "click" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "asdl-core", editable = "packages/asdl-core" },
-    { name = "click", specifier = ">=8.1.7" },
-]
-
-[[package]]
 name = "asdl-objectives"
 version = "0.1.0"
 source = { editable = "packages/asdl-objectives" }
@@ -145,7 +129,6 @@ dependencies = [
 [package.optional-dependencies]
 plugins = [
     { name = "asdl-dispatcher" },
-    { name = "asdl-handoff" },
     { name = "asdl-objectives" },
     { name = "asdl-slots" },
 ]
@@ -156,7 +139,6 @@ dev = [
     { name = "aretro" },
     { name = "asdl-core" },
     { name = "asdl-dispatcher" },
-    { name = "asdl-handoff" },
     { name = "asdl-objectives" },
     { name = "asdl-slots" },
     { name = "packagechk" },
@@ -172,7 +154,6 @@ dev = [
 requires-dist = [
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", marker = "extra == 'plugins'", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-handoff", marker = "extra == 'plugins'", editable = "packages/asdl-handoff" },
     { name = "asdl-objectives", marker = "extra == 'plugins'", editable = "packages/asdl-objectives" },
     { name = "asdl-slots", marker = "extra == 'plugins'", editable = "packages/asdl-slots" },
     { name = "click", specifier = ">=8.1.7" },
@@ -185,7 +166,6 @@ dev = [
     { name = "aretro", editable = "packages/aretro" },
     { name = "asdl-core", editable = "packages/asdl-core" },
     { name = "asdl-dispatcher", editable = "packages/asdl-dispatcher" },
-    { name = "asdl-handoff", editable = "packages/asdl-handoff" },
     { name = "asdl-objectives", editable = "packages/asdl-objectives" },
     { name = "asdl-slots", editable = "packages/asdl-slots" },
     { name = "packagechk", editable = "packages/packagechk" },

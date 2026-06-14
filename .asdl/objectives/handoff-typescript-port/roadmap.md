@@ -49,7 +49,7 @@
   - Policy: direct execution after preview. Ask before changing the accepted run-from-source distribution model, publishing to npm/PyPI, or changing skill create/pickup workflow semantics.
   - Evidence: `ts/packages/handoff/scripts/handoff-shim`; wrapper tests; `just install-handoff`; bare `handoff --runtime` reports TypeScript after removing a stale project-venv console script; `handoff --help`; `handoff list --format json`; docs/context updates; focused TS validation; dprint validation; full `just`.
 
-- [ ] Retire the Python fallback and remove the `asdl handoff` plugin path.
+- [x] Retire the Python fallback and remove the `asdl handoff` plugin path.
   - Gate on complete TypeScript operation parity, real shim evidence, docs/skills pointing to TS, and explicit plugin-retirement decision.
   - Delete `packages/asdl-handoff` from active source paths.
   - Remove Python workspace/source/dev/optional dependency entries, Ruff source and first-party config, pytest testpaths, publish package list, and handoff plugin smoke imports/tests.
