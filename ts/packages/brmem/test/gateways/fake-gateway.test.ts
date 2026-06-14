@@ -42,6 +42,35 @@ describe("FakeBrmemGateway", () => {
 		]);
 	});
 
+	it("normalizes generated and seeded UTC timestamps", async () => {
+		const gateway = new FakeBrmemGateway({
+			entries: [
+				{
+					namespace: "base",
+					branch: "seed",
+					key: "seed.md",
+					content: "seed",
+					headDate: "2026-02-03T04:05:07.000Z",
+					updatedAt: "2026-02-03T04:05:06Z",
+				},
+			],
+		});
+		expect((await gateway.putEntry({ namespace: "base", branch: "main", key: "generated.md", content: "generated" })).type).toBe("ok");
+
+		const generatedList = await gateway.listEntries({ namespace: "base", branch: "main" });
+		if (generatedList.type !== "ok") throw new Error("unexpected error");
+		expect(generatedList.value.map((entry) => entry.updatedAt)).toEqual(["2026-01-01T00:00:01+00:00"]);
+		expect(generatedList.value[0]?.updatedAt).not.toMatch(/(?:\.000)?Z$/u);
+		const generatedCheck = await gateway.checkEntry({ namespace: "base", branch: "main", key: "generated.md" });
+		expect(generatedCheck).toMatchObject({ type: "found", value: { headDate: "2026-01-01T00:00:01+00:00" } });
+
+		const seededList = await gateway.listEntries({ namespace: "base", branch: "seed" });
+		if (seededList.type !== "ok") throw new Error("unexpected error");
+		expect(seededList.value.map((entry) => entry.updatedAt)).toEqual(["2026-02-03T04:05:06+00:00"]);
+		const seededCheck = await gateway.checkEntry({ namespace: "base", branch: "seed", key: "seed.md" });
+		expect(seededCheck).toMatchObject({ type: "found", value: { headDate: "2026-02-03T04:05:07+00:00" } });
+	});
+
 	it("mutates coherent snapshots without leaking caller-owned state", async () => {
 		const gateway = new FakeBrmemGateway();
 		expect((await gateway.putEntry({ namespace: "base", branch: "main", key: "a", content: "A" })).type).toBe("ok");

@@ -36,6 +36,21 @@ describe("RealGitBrmemGateway", () => {
 		]);
 	});
 
+	it("normalizes UTC timestamps from Git when checking an Entry", async () => {
+		const commands = new RecordingCommands([
+			{ command: "git", args: ["check-ref-format", "--branch", "feat/x"] },
+			{ command: "git", args: ["cat-file", "-e", "refs/brmem/base/feat---x:body.md"] },
+			{ command: "git", args: ["rev-parse", "refs/brmem/base/feat---x:body.md"], result: { stdout: "blob-sha\n" } },
+			{ command: "git", args: ["cat-file", "-s", "refs/brmem/base/feat---x:body.md"], result: { stdout: "5\n" } },
+			{ command: "git", args: ["log", "-1", "--format=%H%x09%cI", "refs/brmem/base/feat---x"], result: { stdout: "commit-sha\t2026-02-03T04:05:06.000Z\n" } },
+		]);
+		const gateway = new RealGitBrmemGateway("/work", commands);
+
+		const checked = await gateway.checkEntry({ namespace: "base", branch: "feat/x", key: "body.md" });
+
+		expect(checked).toMatchObject({ type: "found", value: { headDate: "2026-02-03T04:05:06+00:00" } });
+	});
+
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
 		const repo = createTempGitRepo();
 		try {

@@ -12,14 +12,26 @@ import { listRequestSchema, listResultSchema, renderList, renderListMarkdown, ru
 
 export const VERSION = "0.1.0";
 
-export interface CliDeps {
-	context?: HandoffCliContext | undefined;
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	stdin?: (() => Promise<string>) | undefined;
+interface CliIoDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 }
+
+interface CliContextDeps extends CliIoDeps {
+	context: HandoffCliContext;
+	cwd?: never;
+	env?: never;
+	stdin?: never;
+}
+
+interface CliRealDeps extends CliIoDeps {
+	context?: undefined;
+	cwd?: string | undefined;
+	env?: NodeJS.ProcessEnv | undefined;
+	stdin?: (() => Promise<string>) | undefined;
+}
+
+export type CliDeps = CliContextDeps | CliRealDeps;
 
 export function buildCli(): ClinkrGroup<HandoffCliContext> {
 	const root = new ClinkrGroup<HandoffCliContext>({
@@ -61,17 +73,15 @@ export function buildCli(): ClinkrGroup<HandoffCliContext> {
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
+	const context = deps.context === undefined ? createContextFromDeps(deps) : deps.context;
+	return await buildCli().run(args, { context, io });
+}
+
+function createContextFromDeps(deps: CliRealDeps): HandoffCliContext {
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
-	const baseContext = deps.context ?? createRealHandoffContext({ cwd, env });
-	const context: HandoffCliContext = {
-		...baseContext,
-		cwd,
-		env,
-		stdin: deps.stdin ?? baseContext.stdin,
-		stderr: deps.stderr ?? baseContext.stderr,
-	};
-	return await buildCli().run(args, { context, io });
+	const baseContext = createRealHandoffContext({ cwd, env });
+	return { ...baseContext, stdin: deps.stdin ?? baseContext.stdin };
 }
 
 function runtimeInfo(): string {

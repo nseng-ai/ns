@@ -34,10 +34,12 @@ export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFai
 	return failure(error.code, `${prefix}: ${error.message}`);
 }
 
-export function handoffEntryLocator(key: string, branch: string): Resolved<string> {
+export function mustHandoffEntryLocator(key: string, branch: string): string {
 	const locator = buildEntryLocator(HANDOFF_NAMESPACE, key, branch);
-	if (locator.type === "error") return failure(locator.error.code, locator.error.message);
-	return resolved(locator.value);
+	if (locator.type === "error") {
+		throw new Error(`Validated handoff key/branch failed to build Entry Locator: ${locator.error.message}`);
+	}
+	return locator.value;
 }
 
 export async function confirmFromStdin(options: {
