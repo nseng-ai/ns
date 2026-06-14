@@ -1,51 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
-from areg.command_conversion import (
-    PiReplacementVerification,
-    plan_pi_settings_update,
-    read_command_conversion_state,
-    require_verified_pi_replacement,
-)
+from areg.command_conversion import PiReplacementVerification
 from areg.context import AregContext
 from areg.file_plan import (
-    DeleteFilePlan,
     RemoveEmptyDirPlan,
     SkippedTextWrite,
     TextFilePlan,
-    TextWritePlan,
     apply_delete_file,
     apply_remove_empty_dir,
     apply_text_file_plan,
-    read_existing_text,
     reject_symlink,
 )
 from areg.gateways.environment.gateway import GitRootDiscoveryError
-from areg.invoke_only import (
-    CODEX_OPENAI_POLICY,
-    DISABLE_MODEL_INVOCATION_KEY,
-    InvokeOnlyStatus,
-    openai_policy_path,
-    read_invoke_only_state,
-    skill_dir,
-    skill_md_path,
+from areg.skill_profile import (
+    InferredSkillProfile,
+    SkillProfile,
+    SkillProfileEditPlan,
+    SkillProfileStatus,
+    build_skill_profile_plan,
+    read_skill_profile_status,
 )
-
-_FLAG_LINE_PREFIX = f"{DISABLE_MODEL_INVOCATION_KEY}:"
-_STATUS_LABELS: dict[InvokeOnlyStatus, str] = {
-    InvokeOnlyStatus.NORMAL: "normal",
-    InvokeOnlyStatus.INVOKE_ONLY: "invoke-only",
-    InvokeOnlyStatus.FLAG_WITHOUT_SIDECAR: (
-        "inconsistent: flag set but agents/openai.yaml missing"
-    ),
-    InvokeOnlyStatus.SIDECAR_WITHOUT_FLAG: (
-        "inconsistent: agents/openai.yaml present but flag unset"
-    ),
-}
 
 
 def _replacement_status_label(replacement: PiReplacementVerification | None) -> str:
@@ -58,13 +36,6 @@ def _replacement_status_label(replacement: PiReplacementVerification | None) -> 
     if replacement.surface:
         return f"replacement-missing:{replacement.surface}"
     return "replacement-missing"
-
-
-@dataclass(frozen=True)
-class CommandEditPlan:
-    text_files: tuple[TextFilePlan, ...] = ()
-    delete_files: tuple[DeleteFilePlan, ...] = ()
-    remove_empty_dirs: tuple[RemoveEmptyDirPlan, ...] = ()
 
 
 def _resolve_git_root(ctx: AregContext, path: str) -> Path:
@@ -81,8 +52,8 @@ def _resolve_git_root(ctx: AregContext, path: str) -> Path:
 
 
 def _require_local_skill(project_dir: Path, skill_name: str) -> Path:
-    local_dir = skill_dir(project_dir, skill_name)
-    skill_md = skill_md_path(project_dir, skill_name)
+    local_dir = project_dir / "skills" / skill_name
+    skill_md = local_dir / "SKILL.md"
     agents_skill_dir = project_dir / ".agents" / "skills" / skill_name
 
     if not local_dir.exists():
@@ -196,130 +167,13 @@ def _canonical_local_skill_name(project_dir: Path, skill_spec: str) -> str:
     return skill_name
 
 
-def _frontmatter_end_index(lines: list[str], *, path: Path) -> int:
-    if not lines or lines[0].rstrip("\r\n") != "---":
-        raise click.ClickException(f"{path} has malformed frontmatter: missing opening delimiter.")
-    for index in range(1, len(lines)):
-        if lines[index].rstrip("\r\n") == "---":
-            return index
-    raise click.ClickException(f"{path} has malformed frontmatter: missing closing delimiter.")
-
-
-def _line_ending(line: str) -> str:
-    if line.endswith("\r\n"):
-        return "\r\n"
-    return "\n"
-
-
-def _is_top_level_key(line: str, key: str) -> bool:
-    return line.startswith(key)
-
-
-def _set_disable_model_invocation(content: str, *, path: Path) -> str:
-    lines = content.splitlines(keepends=True)
-    end_index = _frontmatter_end_index(lines, path=path)
-    newline = _line_ending(lines[0])
-
-    name_index: int | None = None
-    flag_indices: list[int] = []
-    for index in range(1, end_index):
-        if _is_top_level_key(lines[index], "name:"):
-            name_index = index
-        if _is_top_level_key(lines[index], _FLAG_LINE_PREFIX):
-            flag_indices.append(index)
-
-    if name_index is None:
-        raise click.ClickException(f"{path} has malformed frontmatter: missing name field.")
-
-    if flag_indices:
-        first_flag_index = flag_indices[0]
-        lines[first_flag_index] = f"{_FLAG_LINE_PREFIX} true{newline}"
-        for index in reversed(flag_indices[1:]):
-            del lines[index]
-        return "".join(lines)
-
-    lines.insert(name_index + 1, f"{_FLAG_LINE_PREFIX} true{newline}")
-    return "".join(lines)
-
-
-def _remove_disable_model_invocation(content: str, *, path: Path) -> str:
-    lines = content.splitlines(keepends=True)
-    end_index = _frontmatter_end_index(lines, path=path)
-    lines_to_keep: list[str] = []
-    for index, line in enumerate(lines):
-        if 1 <= index < end_index and _is_top_level_key(line, _FLAG_LINE_PREFIX):
-            continue
-        lines_to_keep.append(line)
-    return "".join(lines_to_keep)
-
-
-def _plan_skill_md_update(
-    skill_md: Path,
-    *,
-    convert: bool,
-) -> TextFilePlan:
-    content = read_existing_text(skill_md)
-    new_content = (
-        _set_disable_model_invocation(content, path=skill_md)
-        if convert
-        else _remove_disable_model_invocation(content, path=skill_md)
-    )
-    if new_content == content:
-        reason = (
-            "disable-model-invocation already set" if convert else "disable-model-invocation absent"
-        )
-        return SkippedTextWrite(path=skill_md, reason=reason)
-    return TextWritePlan(path=skill_md, content=new_content, description="SKILL.md")
-
-
-def _plan_sidecar_write(sidecar: Path) -> TextFilePlan:
-    if sidecar.exists():
-        if not sidecar.is_file():
-            raise click.ClickException(f"{sidecar} exists but is not a file.")
-        reject_symlink(sidecar, description="Codex openai.yaml")
-        current = read_existing_text(sidecar)
-        if current == CODEX_OPENAI_POLICY:
-            return SkippedTextWrite(path=sidecar, reason="Codex openai.yaml already current")
-    return TextWritePlan(
-        path=sidecar,
-        content=CODEX_OPENAI_POLICY,
-        description="Codex openai.yaml",
-        create_parent=True,
-    )
-
-
-def _build_convert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
-    require_verified_pi_replacement(project_dir, skill_name)
+def _build_profile_plan(
+    project_dir: Path,
+    skill_name: str,
+    profile: SkillProfile,
+) -> SkillProfileEditPlan:
     skill_md = _require_local_skill(project_dir, skill_name)
-    sidecar = openai_policy_path(project_dir, skill_name)
-    return CommandEditPlan(
-        text_files=(
-            _plan_skill_md_update(skill_md, convert=True),
-            _plan_sidecar_write(sidecar),
-            plan_pi_settings_update(project_dir, skill_name, convert=True),
-        )
-    )
-
-
-def _build_revert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
-    skill_md = _require_local_skill(project_dir, skill_name)
-    sidecar = openai_policy_path(project_dir, skill_name)
-    delete_files: tuple[DeleteFilePlan, ...] = ()
-    if sidecar.exists() or sidecar.is_symlink():
-        delete_files = (DeleteFilePlan(path=sidecar, description="Codex openai.yaml"),)
-    remove_empty_dirs: tuple[RemoveEmptyDirPlan, ...] = ()
-    if sidecar.parent.exists():
-        remove_empty_dirs = (
-            RemoveEmptyDirPlan(path=sidecar.parent, description="empty skill agents directory"),
-        )
-    return CommandEditPlan(
-        text_files=(
-            _plan_skill_md_update(skill_md, convert=False),
-            plan_pi_settings_update(project_dir, skill_name, convert=False),
-        ),
-        delete_files=delete_files,
-        remove_empty_dirs=remove_empty_dirs,
-    )
+    return build_skill_profile_plan(project_dir, skill_name, skill_md, profile=profile)
 
 
 def _echo_text_plan(plan: TextFilePlan, *, dry_run: bool) -> None:
@@ -331,7 +185,7 @@ def _echo_text_plan(plan: TextFilePlan, *, dry_run: bool) -> None:
     click.echo(f"{action} {plan.path}")
 
 
-def _apply_command_plan(plan: CommandEditPlan, *, project_dir: Path, dry_run: bool) -> None:
+def _apply_command_plan(plan: SkillProfileEditPlan, *, project_dir: Path, dry_run: bool) -> None:
     for text_file in plan.text_files:
         _echo_text_plan(text_file, dry_run=dry_run)
         if not dry_run:
@@ -344,13 +198,63 @@ def _apply_command_plan(plan: CommandEditPlan, *, project_dir: Path, dry_run: bo
             apply_delete_file(delete_file, project_dir=project_dir)
 
     for remove_empty_dir in plan.remove_empty_dirs:
-        if dry_run:
-            click.echo(f"Would remove {remove_empty_dir.path} if empty")
-        else:
-            before_exists = remove_empty_dir.path.exists()
-            apply_remove_empty_dir(remove_empty_dir, project_dir=project_dir)
-            if before_exists and not remove_empty_dir.path.exists():
-                click.echo(f"Removed {remove_empty_dir.path}")
+        _echo_remove_empty_dir(remove_empty_dir, project_dir=project_dir, dry_run=dry_run)
+
+
+def _echo_remove_empty_dir(
+    remove_empty_dir: RemoveEmptyDirPlan,
+    *,
+    project_dir: Path,
+    dry_run: bool,
+) -> None:
+    if dry_run:
+        click.echo(f"Would remove {remove_empty_dir.path} if empty")
+        return
+
+    before_exists = remove_empty_dir.path.exists()
+    apply_remove_empty_dir(remove_empty_dir, project_dir=project_dir)
+    if before_exists and not remove_empty_dir.path.exists():
+        click.echo(f"Removed {remove_empty_dir.path}")
+
+
+def _list_local_skill_mds(project_dir: Path) -> list[Path]:
+    skills_dir = project_dir / "skills"
+    if not skills_dir.is_dir():
+        return []
+    return sorted(skills_dir.glob("*/SKILL.md"), key=lambda candidate: candidate.parent.name)
+
+
+def _profile_choice(raw_profile: str) -> SkillProfile:
+    for profile in SkillProfile:
+        if profile.value == raw_profile:
+            return profile
+    raise click.ClickException(f"Unsupported skill profile {raw_profile}.")
+
+
+def _status_row(status: SkillProfileStatus) -> str:
+    notes = "; ".join(status.notes)
+    columns = [
+        status.skill_name,
+        status.profile.value,
+        f"model-invocation:{status.model_invocation}",
+        f"native-direct:{status.native_direct}",
+        f"pi-extension:{status.pi_extension}",
+    ]
+    if notes:
+        columns.append(notes)
+    return "\t".join(columns)
+
+
+def _legacy_profile_label(status: SkillProfileStatus) -> str:
+    if status.profile is not InferredSkillProfile.INCONSISTENT:
+        return status.profile.value
+    if status.disable_model_invocation and not status.codex_sidecar:
+        return "inconsistent: flag set but agents/openai.yaml missing"
+    if status.codex_sidecar and not status.disable_model_invocation:
+        return "inconsistent: agents/openai.yaml present but flag unset"
+    if status.pi_excluded and status.pi_extension == "missing":
+        return "inconsistent: Pi exclusion without verified replacement"
+    return "inconsistent"
 
 
 @click.group("command")
@@ -384,7 +288,9 @@ def convert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, .
         skill_name = _canonical_local_skill_name(project_dir, skill_spec)
         click.echo(f"Converting {skill_name}...")
         _apply_command_plan(
-            _build_convert_plan(project_dir, skill_name), project_dir=project_dir, dry_run=dry_run
+            _build_profile_plan(project_dir, skill_name, SkillProfile.COMMAND_BACKED),
+            project_dir=project_dir,
+            dry_run=dry_run,
         )
 
 
@@ -408,7 +314,9 @@ def revert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ..
         skill_name = _canonical_local_skill_name(project_dir, skill_spec)
         click.echo(f"Reverting {skill_name}...")
         _apply_command_plan(
-            _build_revert_plan(project_dir, skill_name), project_dir=project_dir, dry_run=dry_run
+            _build_profile_plan(project_dir, skill_name, SkillProfile.NORMAL),
+            project_dir=project_dir,
+            dry_run=dry_run,
         )
 
 
@@ -423,22 +331,116 @@ def revert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ..
 def list_cmd(ctx: AregContext, path: str) -> None:
     """List local skill command-conversion status."""
     project_dir = _resolve_git_root(ctx, path)
-    skills_dir = project_dir / "skills"
-    if not skills_dir.is_dir():
-        click.echo("No local skills found.")
-        return
-
-    skill_mds = sorted(skills_dir.glob("*/SKILL.md"), key=lambda candidate: candidate.parent.name)
+    skill_mds = _list_local_skill_mds(project_dir)
     if not skill_mds:
         click.echo("No local skills found.")
         return
 
     for skill_md in skill_mds:
         skill_name = skill_md.parent.name
-        invoke_state = read_invoke_only_state(project_dir, skill_name)
-        state = read_command_conversion_state(project_dir, skill_name)
-        pi_status = "pi-excluded" if state.pi_excluded else "pi-visible"
-        replacement_status = _replacement_status_label(state.replacement)
+        status = read_skill_profile_status(project_dir, skill_name, skill_md=skill_md)
+        pi_status = "pi-excluded" if status.pi_excluded else "pi-visible"
+        replacement_status = _replacement_status_label(status.replacement)
         click.echo(
-            f"{skill_name}\t{_STATUS_LABELS[invoke_state.status]}\t{pi_status}\t{replacement_status}"
+            f"{skill_name}\t{_legacy_profile_label(status)}\t{pi_status}\t{replacement_status}"
         )
+
+
+@click.group("skill")
+def skill_group() -> None:
+    """Manage local skills."""
+
+
+@skill_group.group("profile")
+def profile_group() -> None:
+    """Manage local skill invocation profiles."""
+
+
+@profile_group.command("set")
+@click.option(
+    "--path",
+    default=".",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    help="Project directory or subdirectory (default: current directory).",
+)
+@click.option("--dry-run", is_flag=True, help="Show planned edits without writing files.")
+@click.argument("profile", type=click.Choice([profile.value for profile in SkillProfile]))
+@click.argument("skills", nargs=-1, required=True, metavar="SKILL...")
+@click.pass_obj
+def profile_set_cmd(
+    ctx: AregContext,
+    path: str,
+    dry_run: bool,
+    profile: str,
+    skills: tuple[str, ...],
+) -> None:
+    """Set one or more local skills to PROFILE."""
+    project_dir = _resolve_git_root(ctx, path)
+    selected_profile = _profile_choice(profile)
+    for skill_spec in skills:
+        skill_name = _canonical_local_skill_name(project_dir, skill_spec)
+        click.echo(f"Setting {skill_name} to {selected_profile.value}...")
+        _apply_command_plan(
+            _build_profile_plan(project_dir, skill_name, selected_profile),
+            project_dir=project_dir,
+            dry_run=dry_run,
+        )
+
+
+@profile_group.command("list")
+@click.option(
+    "--path",
+    default=".",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    help="Project directory or subdirectory (default: current directory).",
+)
+@click.pass_obj
+def profile_list_cmd(ctx: AregContext, path: str) -> None:
+    """List local skill invocation profiles."""
+    project_dir = _resolve_git_root(ctx, path)
+    skill_mds = _list_local_skill_mds(project_dir)
+    if not skill_mds:
+        click.echo("No local skills found.")
+        return
+
+    for skill_md in skill_mds:
+        status = read_skill_profile_status(project_dir, skill_md.parent.name, skill_md=skill_md)
+        click.echo(_status_row(status))
+
+
+@profile_group.command("show")
+@click.option(
+    "--path",
+    default=".",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    help="Project directory or subdirectory (default: current directory).",
+)
+@click.argument("skill")
+@click.pass_obj
+def profile_show_cmd(ctx: AregContext, path: str, skill: str) -> None:
+    """Show one local skill invocation profile."""
+    project_dir = _resolve_git_root(ctx, path)
+    skill_name = _canonical_local_skill_name(project_dir, skill)
+    skill_md = _require_local_skill(project_dir, skill_name)
+    status = read_skill_profile_status(project_dir, skill_name, skill_md=skill_md)
+
+    click.echo(f"Skill: {status.skill_name}")
+    click.echo(f"Profile: {status.profile.value}")
+    click.echo(f"model-invocation: {status.model_invocation}")
+    click.echo(f"native-direct: {status.native_direct}")
+    click.echo(f"pi-extension: {status.pi_extension}")
+    click.echo("Artifacts:")
+    click.echo(
+        "- disable-model-invocation: "
+        + ("present" if status.disable_model_invocation else "absent")
+    )
+    click.echo("- agents/openai.yaml: " + ("present" if status.codex_sidecar else "absent"))
+    click.echo(
+        "- user-invocable:false: " + ("present" if status.user_invocable_false else "absent")
+    )
+    click.echo("- Pi skill exclusion: " + ("present" if status.pi_excluded else "absent"))
+    click.echo(f"- Pi replacement: {_replacement_status_label(status.replacement)}")
+    if status.notes:
+        click.echo("Notes:")
+        for note in status.notes:
+            click.echo(f"- {note}")

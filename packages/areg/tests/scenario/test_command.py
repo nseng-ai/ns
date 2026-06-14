@@ -644,6 +644,193 @@ def test_command_revert_removes_exact_pi_exclusion_and_leaves_empty_array(
     assert _read_pi_settings(tmp_path) == {"skills": []}
 
 
+def test_skill_profile_help_is_wired(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "--help"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "set" in result.output
+    assert "list" in result.output
+    assert "show" in result.output
+
+
+def test_skill_profile_set_all_profiles_round_trip(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "my-skill")
+
+    invoke_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "set", "--path", str(tmp_path), "invoke-only", "my-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert invoke_result.exit_code == 0, invoke_result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "my-skill").read_text(encoding="utf-8") == _CODEX_OPENAI_POLICY
+    assert not _pi_settings(tmp_path).exists()
+
+    command_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "set", "--path", str(tmp_path), "command-backed", "my-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert command_result.exit_code == 0, command_result.output
+    assert _read_pi_settings(tmp_path)["skills"] == ["-skills/my-skill"]
+
+    ambient_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "set", "--path", str(tmp_path), "ambient-only", "my-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert ambient_result.exit_code == 0, ambient_result.output
+    assert skill_md.read_text(encoding="utf-8").startswith(
+        "---\nname: my-skill\nuser-invocable: false\n---\n"
+    )
+    assert not _sidecar(tmp_path, "my-skill").exists()
+    assert _read_pi_settings(tmp_path)["skills"] == []
+
+    normal_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "set", "--path", str(tmp_path), "normal", "my-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert normal_result.exit_code == 0, normal_result.output
+    assert skill_md.read_text(encoding="utf-8") == "---\nname: my-skill\n---\n\n# my-skill\n"
+    assert not _sidecar(tmp_path, "my-skill").exists()
+    assert _read_pi_settings(tmp_path)["skills"] == []
+
+
+def test_skill_profile_list_and_show_reports_profiles(tmp_path: Path) -> None:
+    _write_local_skill(tmp_path, "ambient")
+    _write_local_skill(tmp_path, "command-skill")
+    _write_local_skill(tmp_path, "invoke")
+    _write_local_skill(tmp_path, "normal")
+
+    for profile, skill in [
+        ("ambient-only", "ambient"),
+        ("command-backed", "command-skill"),
+        ("invoke-only", "invoke"),
+    ]:
+        result = CliRunner().invoke(
+            main,
+            ["skill", "profile", "set", "--path", str(tmp_path), profile, skill],
+            obj=_ctx(tmp_path),
+        )
+        assert result.exit_code == 0, result.output
+
+    list_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "list", "--path", str(tmp_path)],
+        obj=_ctx(tmp_path),
+    )
+
+    assert list_result.exit_code == 0, list_result.output
+    assert (
+        "ambient\tambient-only\tmodel-invocation:enabled\tnative-direct:partial"
+        in list_result.output
+    )
+    assert (
+        "command-skill\tcommand-backed\tmodel-invocation:disabled\tnative-direct:partial\t"
+        "pi-extension:enabled" in list_result.output
+    )
+    assert (
+        "invoke\tinvoke-only\tmodel-invocation:disabled\tnative-direct:enabled\t"
+        "pi-extension:n/a" in list_result.output
+    )
+    assert (
+        "normal\tnormal\tmodel-invocation:enabled\tnative-direct:enabled\tpi-extension:n/a"
+        in list_result.output
+    )
+
+    show_result = CliRunner().invoke(
+        main,
+        ["skill", "profile", "show", "--path", str(tmp_path), "ambient"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert show_result.exit_code == 0, show_result.output
+    assert "Profile: ambient-only" in show_result.output
+    assert "ambient-only: Claude native direct invocation disabled" in show_result.output
+    assert "ambient-only: Pi native direct invocation not enforced" in show_result.output
+    assert "ambient-only: Codex native direct invocation not enforced" in show_result.output
+
+
+def test_skill_profile_set_accepts_skill_md_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "md-skill")
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "skill",
+            "profile",
+            "set",
+            "--path",
+            str(tmp_path),
+            "invoke-only",
+            "skills/md-skill/SKILL.md",
+        ],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "md-skill").is_file()
+
+
+def test_skill_profile_show_rejects_real_agents_skill_path(tmp_path: Path) -> None:
+    _write_github_skill(tmp_path, "remote-skill")
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "skill",
+            "profile",
+            "show",
+            "--path",
+            str(tmp_path),
+            str(tmp_path / ".agents" / "skills" / "remote-skill"),
+        ],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "does not resolve to a local skill under skills/<name>" in result.output
+
+
+def test_skill_profile_batch_failure_keeps_earlier_applied_skill(tmp_path: Path) -> None:
+    first_skill_md = _write_local_skill(tmp_path, "objective-create")
+    second_skill_md = _write_local_skill(tmp_path, "my-skill")
+    (tmp_path / ".pi" / "extensions" / "backing-skill-commands.ts").unlink()
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "skill",
+            "profile",
+            "set",
+            "--path",
+            str(tmp_path),
+            "command-backed",
+            "objective-create",
+            "my-skill",
+        ],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "Missing Pi extension replacement" in result.output
+    assert "disable-model-invocation: true" in first_skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "objective-create").is_file()
+    assert _read_pi_settings(tmp_path)["skills"] == ["-skills/objective-create"]
+    assert second_skill_md.read_text(encoding="utf-8") == "---\nname: my-skill\n---\n\n# my-skill\n"
+    assert not _sidecar(tmp_path, "my-skill").exists()
+
+
 def test_command_list_reports_statuses(tmp_path: Path) -> None:
     _write_local_skill(tmp_path, "normal")
     _write_local_skill(
@@ -674,7 +861,7 @@ def test_command_list_reports_statuses(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert "invoke-only\tinvoke-only\tpi-excluded" in result.output
+    assert "invoke-only\tcommand-backed\tpi-excluded" in result.output
     assert "normal\tnormal\tpi-visible" in result.output
     assert "missing-sidecar\tinconsistent: flag set" in result.output
     assert (

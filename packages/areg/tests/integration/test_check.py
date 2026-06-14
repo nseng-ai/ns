@@ -146,8 +146,6 @@ def test_check_happy_invoke_only_local_skill(tmp_path: Path) -> None:
     sidecar = tmp_path / "skills" / "my-skill" / "agents" / "openai.yaml"
     sidecar.parent.mkdir()
     sidecar.write_text("policy:\n  allow_implicit_invocation: false\n", encoding="utf-8")
-    _install_generic_replacement_layer(tmp_path)
-    _write_file(tmp_path, ".pi/settings.json", json.dumps({"skills": ["-skills/my-skill"]}) + "\n")
     _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
     _make_agents_md(tmp_path, ["my-skill"])
 
@@ -384,6 +382,18 @@ def test_check_local_invoke_only_flag_without_sidecar(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert "skills/my-skill/agents/openai.yaml missing for invoke-only skill" in result.output
+
+
+def test_check_local_pi_exclusion_without_replacement_fails(tmp_path: Path) -> None:
+    _make_local_skill(tmp_path, "my-skill")
+    _write_file(tmp_path, ".pi/settings.json", json.dumps({"skills": ["-skills/my-skill"]}) + "\n")
+    _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
+    _make_agents_md(tmp_path, ["my-skill"])
+
+    result = CliRunner().invoke(main, ["check", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "Pi skill is excluded but no verified replacement command exists" in result.output
 
 
 def test_check_local_sidecar_without_invoke_only_flag(tmp_path: Path) -> None:
