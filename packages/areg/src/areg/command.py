@@ -24,6 +24,7 @@ from areg.skill_profile import (
     build_skill_profile_plan,
     read_skill_profile_status,
 )
+from asdl_core import get_console, make_table
 
 
 def _replacement_status_label(replacement: PiReplacementVerification | None) -> str:
@@ -231,18 +232,62 @@ def _profile_choice(raw_profile: str) -> SkillProfile:
     raise click.ClickException(f"Unsupported skill profile {raw_profile}.")
 
 
-def _status_row(status: SkillProfileStatus) -> str:
-    notes = "; ".join(status.notes)
-    columns = [
-        status.skill_name,
-        status.profile.value,
-        f"model-invocation:{status.model_invocation}",
-        f"native-direct:{status.native_direct}",
-        f"pi-extension:{status.pi_extension}",
-    ]
-    if notes:
-        columns.append(notes)
-    return "\t".join(columns)
+def _profile_style(profile: InferredSkillProfile) -> str:
+    if profile is InferredSkillProfile.NORMAL:
+        return "green"
+    if profile is InferredSkillProfile.INVOKE_ONLY:
+        return "cyan"
+    if profile is InferredSkillProfile.COMMAND_BACKED:
+        return "magenta"
+    if profile is InferredSkillProfile.AMBIENT_ONLY:
+        return "yellow"
+    return "red"
+
+
+def _status_style(status: str) -> str:
+    if status == "enabled":
+        return "green"
+    if status == "disabled":
+        return "yellow"
+    if status in {"partial", "mixed"}:
+        return "yellow"
+    if status == "missing":
+        return "red"
+    return "dim"
+
+
+def _styled_value(value: str, *, style: str) -> str:
+    return f"[{style}]{value}[/]"
+
+
+def _profile_notes(status: SkillProfileStatus) -> str:
+    return "; ".join(status.notes)
+
+
+def _render_profile_list(statuses: list[SkillProfileStatus]) -> None:
+    table = make_table()
+    show_notes = any(status.notes for status in statuses)
+    table.add_column("Skill", style="bold cyan", no_wrap=True, overflow="ellipsis", ratio=3)
+    table.add_column("Profile", no_wrap=True)
+    table.add_column("Model", no_wrap=True)
+    table.add_column("Native", no_wrap=True)
+    table.add_column("Pi", no_wrap=True)
+    if show_notes:
+        table.add_column("Notes", style="dim", overflow="fold", ratio=3)
+
+    for status in statuses:
+        row = [
+            status.skill_name,
+            _styled_value(status.profile.value, style=_profile_style(status.profile)),
+            _styled_value(status.model_invocation, style=_status_style(status.model_invocation)),
+            _styled_value(status.native_direct, style=_status_style(status.native_direct)),
+            _styled_value(status.pi_extension, style=_status_style(status.pi_extension)),
+        ]
+        if show_notes:
+            row.append(_profile_notes(status))
+        table.add_row(*row)
+
+    get_console().print(table)
 
 
 def _legacy_profile_label(status: SkillProfileStatus) -> str:
@@ -403,9 +448,11 @@ def profile_list_cmd(ctx: AregContext, path: str) -> None:
         click.echo("No local skills found.")
         return
 
-    for skill_md in skill_mds:
-        status = read_skill_profile_status(project_dir, skill_md.parent.name, skill_md=skill_md)
-        click.echo(_status_row(status))
+    statuses = [
+        read_skill_profile_status(project_dir, skill_md.parent.name, skill_md=skill_md)
+        for skill_md in skill_mds
+    ]
+    _render_profile_list(statuses)
 
 
 @profile_group.command("show")

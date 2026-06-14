@@ -730,22 +730,20 @@ def test_skill_profile_list_and_show_reports_profiles(tmp_path: Path) -> None:
     )
 
     assert list_result.exit_code == 0, list_result.output
-    assert (
-        "ambient\tambient-only\tmodel-invocation:enabled\tnative-direct:partial"
-        in list_result.output
-    )
-    assert (
-        "command-skill\tcommand-backed\tmodel-invocation:disabled\tnative-direct:partial\t"
-        "pi-extension:enabled" in list_result.output
-    )
-    assert (
-        "invoke\tinvoke-only\tmodel-invocation:disabled\tnative-direct:enabled\t"
-        "pi-extension:n/a" in list_result.output
-    )
-    assert (
-        "normal\tnormal\tmodel-invocation:enabled\tnative-direct:enabled\tpi-extension:n/a"
-        in list_result.output
-    )
+    assert "Skill" in list_result.output
+    assert "Profile" in list_result.output
+    assert "Model" in list_result.output
+    assert "Native" in list_result.output
+    assert "Pi" in list_result.output
+    assert "ambient" in list_result.output
+    assert "ambient-only" in list_result.output
+    assert "command-skill" in list_result.output
+    assert "command-backed" in list_result.output
+    assert "invoke-only" in list_result.output
+    assert "normal" in list_result.output
+    assert "partial" in list_result.output
+    assert "disabled" in list_result.output
+    assert "enabled" in list_result.output
 
     show_result = CliRunner().invoke(
         main,
