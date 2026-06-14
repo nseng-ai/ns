@@ -21,10 +21,9 @@
 - [~] Harden summary comment publication for matrix-job failures.
   - Budget-failure comments now use review-key-specific markers and hard-fail wording, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Broader live PR race behavior remains to be verified.
 
-- [ ] Re-check workflow status semantics on an oversized case.
-  - Confirm ordinary deterministic workflows remain useful, roaster's selected degradation status is reflected accurately in GitHub checks, and duplicate/canceled runs do not obscure the latest actionable status in the PR rollup.
-
 ## Parked
 
+- [ ] Re-check workflow status semantics on an oversized case after merge.
+  - Deferred to manual post-merge verification; this is not a pre-merge implementation blocker for the hard-fail budget slice. Confirm ordinary deterministic workflows remain useful, roaster's selected degradation status is reflected accurately in GitHub checks, and duplicate/canceled runs do not obscure the latest actionable status in the PR rollup.
 - [ ] Explore semantic sharding for large reviews if the first fix chooses skip/hard-fail rather than bounded review chunks.
 - [ ] Consider a separate repo policy for maximum PR size once tooling emits clear data about file count, diff size, and skipped review coverage.

@@ -65,8 +65,8 @@ Risks:
 - The too-permissive degradation risk is de-risked for the first implementation slice: oversized roaster reviews are intentionally red checks, not soft-pass or neutral skips.
 - The too-strict policy risk is accepted for now. Valid mechanical migrations that exceed the budget must split/shrink or follow a documented maintainer bypass process if one is later established.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover the budget-failure marker/comment shape and no-inline noop path, but broader live PR race behavior remains to be verified.
-- Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless evidence shows they affect mergeability.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover the budget-failure marker/comment shape and no-inline noop path, but broader live PR race behavior remains to be verified manually after merge.
+- Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
 ## Open Questions
 
