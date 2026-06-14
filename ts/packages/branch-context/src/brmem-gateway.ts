@@ -1,11 +1,17 @@
-import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand } from "@asdl/core/brmem-cli";
-import { MAX_ERROR_CHARS, formatCommandFailure, tailText, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
+import {
+	brmemCommandFailure,
+	parseBrmemPutData,
+	runAvailableBrmemCommand,
+	type BrmemCommandErrorInfo,
+	type BrmemCommandResult,
+	type BrmemPutData as CoreBrmemPutData,
+	type CompletedBrmemRun,
+} from "@asdl/core/brmem-cli";
+import { MAX_ERROR_CHARS, tailText, type CommandExecApi } from "@asdl/core/exec";
 import { isRecord } from "@asdl/core/primitives";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
-
-const BRMEM_TIMEOUT_MS = 30_000;
 
 export interface BrmemCwdParams {
 	cwd: string;
@@ -28,27 +34,16 @@ export interface AttachedPlanEntry {
 	refName: string;
 }
 
-export interface BrmemPutData {
-	namespace: string;
-	key: string;
-	branch: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
-}
+export type BrmemPutData = CoreBrmemPutData;
 
 export interface BrmemGetContent {
 	content: string;
 	refName: string;
 }
 
-export interface BrmemErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string;
-}
+export type BrmemErrorInfo = BrmemCommandErrorInfo;
 
-export type BrmemResult<T> = { ok: true; value: T } | { ok: false; error: BrmemErrorInfo };
+export type BrmemResult<T> = BrmemCommandResult<T>;
 
 export type BrmemAttachmentPresenceResult =
 	| { type: "present"; displayCommand: string }
@@ -62,13 +57,6 @@ export interface BranchContextBrmemGateway {
 	getAttachedPlan(params: BrmemAttachmentParams): Promise<BrmemResult<BrmemGetContent>>;
 	deleteEntry(params: BrmemAttachmentParams): Promise<BrmemResult<void>>;
 }
-
-interface CommandRun {
-	result: ExecResult;
-	displayCommand: string;
-}
-
-type CommandRunResult = { ok: true; value: CommandRun } | { ok: false; error: BrmemErrorInfo };
 
 export class RealBranchContextBrmemGateway implements BranchContextBrmemGateway {
 	private readonly pi: CommandExecApi;
@@ -187,50 +175,17 @@ export class RealBranchContextBrmemGateway implements BranchContextBrmemGateway 
 		return { ok: true, value: undefined };
 	}
 
-	private async runBrmem(params: BrmemCwdParams, args: string[]): Promise<CommandRunResult> {
-		const run = await runFirstAvailableBrmemCommand({
+	private async runBrmem(params: BrmemCwdParams, args: string[]): Promise<BrmemResult<CompletedBrmemRun>> {
+		return runAvailableBrmemCommand({
 			gateway: this.pi,
 			cwd: params.cwd,
 			brmemArgs: args,
-			timeoutMs: BRMEM_TIMEOUT_MS,
 			signal: params.signal,
 		});
-		if (run.type === "unavailable") {
-			return { ok: false, error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) } };
-		}
-		return { ok: true, value: { result: run.result, displayCommand: run.displayCommand } };
 	}
 }
 
-export function parseBrmemPutData(stdout: string): BrmemPutData {
-	const data = parseMachineEnvelopeData(stdout, {
-		label: "brmem put JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
-	});
-
-	const namespace = data.namespace;
-	const key = data.key;
-	const branch = data.branch;
-	const refName = data.ref_name;
-	const commit = data.commit;
-	const sourceFile = data.source_file;
-	if (
-		typeof namespace !== "string" ||
-		typeof key !== "string" ||
-		typeof branch !== "string" ||
-		typeof refName !== "string" ||
-		typeof commit !== "string" ||
-		typeof sourceFile !== "string"
-	) {
-		throw malformedBrmemEnvelope(
-			"brmem put",
-			stdout,
-			"expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file",
-		);
-	}
-
-	return { namespace, key, branch, refName, commit, sourceFile };
-}
+export { parseBrmemPutData };
 
 export function parseBrmemListEntries(stdout: string, expected: { namespace: string; branch: string }): AttachedPlanEntry[] {
 	const data = parseMachineEnvelopeData(stdout, {
@@ -330,8 +285,8 @@ function expectedMismatches(actual: Record<string, string>, expected: Record<str
 	return mismatches;
 }
 
-function failure(code: string, title: string, run: CommandRun): BrmemErrorInfo {
-	return { code, message: formatCommandFailure(title, run.displayCommand, run.result), displayCommand: run.displayCommand };
+function failure(code: string, title: string, run: CompletedBrmemRun): BrmemErrorInfo {
+	return brmemCommandFailure(code, title, run);
 }
 
 function malformedBrmemEnvelope(commandName: string, stdout: string, reason: string): Error {

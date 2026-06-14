@@ -2,10 +2,15 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatBrmemUnavailableMessage, runFirstAvailableBrmemCommand, type CompletedBrmemRun } from "@asdl/core/brmem-cli";
-import { MAX_ERROR_CHARS, formatCommand, formatCommandFailure, formatShellArg } from "@asdl/core/exec";
+import {
+	brmemCommandFailure,
+	parseBrmemPutData,
+	runAvailableBrmemCommand,
+	type BrmemCommandErrorInfo,
+	type BrmemPutData,
+} from "@asdl/core/brmem-cli";
+import { formatCommand, formatShellArg } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
@@ -20,7 +25,6 @@ import type { CommandContext, ExtensionAPI } from "./types.ts";
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
-const BRMEM_TIMEOUT_MS = 30_000;
 
 interface BranchCreateResult {
 	branchName: string;
@@ -47,20 +51,10 @@ export interface HandleCccSlotDispatchPromptOptions {
 	ctx: CommandContext;
 }
 
-interface StoredDispatchPromptPayload {
-	namespace: string;
-	key: string;
-	branch: string;
-	refName: string;
-	commit: string;
-	sourceFile: string;
-}
+type StoredDispatchPromptPayload = BrmemPutData;
 
-interface BrmemErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string;
-}
+// Keep this workflow-local: branch-context's gateway error type is coupled to its namespace policy.
+type BrmemErrorInfo = BrmemCommandErrorInfo;
 
 type DispatchPromptStorageResult = { ok: true; value: StoredDispatchPromptPayload } | { ok: false; error: BrmemErrorInfo };
 
@@ -256,19 +250,23 @@ async function checkDispatchPromptPayload(
 	cwd: string,
 	branchName: string,
 ): Promise<DispatchPromptPresenceResult> {
-	const run = await runDispatchPromptBrmemCommand(pi, cwd, [
-		"check",
-		DISPATCH_PROMPT_KEY,
-		"--namespace",
-		DISPATCH_PROMPT_NAMESPACE,
-		"--branch",
-		branchName,
-		"--format",
-		"json",
-	]);
+	const run = await runAvailableBrmemCommand({
+		gateway: pi,
+		cwd,
+		brmemArgs: [
+			"check",
+			DISPATCH_PROMPT_KEY,
+			"--namespace",
+			DISPATCH_PROMPT_NAMESPACE,
+			"--branch",
+			branchName,
+			"--format",
+			"json",
+		],
+	});
 	if (!run.ok) return { type: "error", error: run.error };
 	if (run.value.result.killed) {
-		return { type: "error", error: brmemFailure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
+		return { type: "error", error: brmemCommandFailure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
 	}
 	if (run.value.result.code === 0) {
 		return { type: "present", displayCommand: run.value.displayCommand };
@@ -276,7 +274,7 @@ async function checkDispatchPromptPayload(
 	if (run.value.result.code === 1) {
 		return { type: "absent" };
 	}
-	return { type: "error", error: brmemFailure("brmem_check_failed", "brmem check failed", run.value) };
+	return { type: "error", error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value) };
 }
 
 async function putDispatchPromptPayload(
@@ -285,29 +283,42 @@ async function putDispatchPromptPayload(
 	branchName: string,
 	sourceFile: string,
 ): Promise<DispatchPromptStorageResult> {
-	const run = await runDispatchPromptBrmemCommand(pi, cwd, [
-		"put",
-		DISPATCH_PROMPT_KEY,
-		"--namespace",
-		DISPATCH_PROMPT_NAMESPACE,
-		"--branch",
-		branchName,
-		"--file",
-		sourceFile,
-		"--format",
-		"json",
-	]);
+	const run = await runAvailableBrmemCommand({
+		gateway: pi,
+		cwd,
+		brmemArgs: [
+			"put",
+			DISPATCH_PROMPT_KEY,
+			"--namespace",
+			DISPATCH_PROMPT_NAMESPACE,
+			"--branch",
+			branchName,
+			"--file",
+			sourceFile,
+			"--format",
+			"json",
+		],
+	});
 	if (!run.ok) return run;
 	if (run.value.result.code !== 0 || run.value.result.killed) {
-		return { ok: false, error: brmemFailure("brmem_put_failed", "brmem put failed", run.value) };
+		return { ok: false, error: brmemCommandFailure("brmem_put_failed", "brmem put failed", run.value) };
 	}
 
-	const data = parseBrmemPutData(run.value.result.stdout);
-	if (!data.ok) {
-		return { ok: false, error: { code: "brmem_malformed_put", message: data.error, displayCommand: run.value.displayCommand } };
+	let data: BrmemPutData;
+	try {
+		data = parseBrmemPutData(run.value.result.stdout);
+	} catch (error) {
+		return {
+			ok: false,
+			error: {
+				code: "brmem_malformed_put",
+				message: formatErrorMessage(error),
+				displayCommand: run.value.displayCommand,
+			},
+		};
 	}
 
-	const mismatch = validateBrmemPutData(data.value, { branchName, sourceFile });
+	const mismatch = validateBrmemPutData(data, { branchName, sourceFile });
 	if (mismatch !== undefined) {
 		return {
 			ok: false,
@@ -319,24 +330,7 @@ async function putDispatchPromptPayload(
 		};
 	}
 
-	return { ok: true, value: data.value };
-}
-
-async function runDispatchPromptBrmemCommand(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-	brmemArgs: readonly string[],
-): Promise<{ ok: true; value: CompletedBrmemRun } | { ok: false; error: BrmemErrorInfo }> {
-	const run = await runFirstAvailableBrmemCommand({
-		gateway: pi,
-		cwd,
-		brmemArgs,
-		timeoutMs: BRMEM_TIMEOUT_MS,
-	});
-	if (run.type === "unavailable") {
-		return { ok: false, error: { code: "brmem_unavailable", message: formatBrmemUnavailableMessage(run.failures) } };
-	}
-	return { ok: true, value: run };
+	return { ok: true, value: data };
 }
 
 async function stageDispatchPromptPayload(
@@ -372,42 +366,6 @@ function resolveDispatchPromptPayloadOptions(options: DispatchPromptPayloadOptio
 		now: options.now ?? Date.now,
 		cleanupStagingFile: options.cleanupStagingFile ?? true,
 	};
-}
-
-function parseBrmemPutData(stdout: string): { ok: true; value: StoredDispatchPromptPayload } | { ok: false; error: string } {
-	const parsed = parseMachineEnvelopeData(stdout, {
-		label: "brmem put JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
-	});
-	if (parsed.type !== "valid") {
-		return { ok: false, error: parsed.message };
-	}
-
-	const data = parsed.data;
-	const namespace = data.namespace;
-	const key = data.key;
-	const branch = data.branch;
-	const refName = data.ref_name;
-	const commit = data.commit;
-	const sourceFile = data.source_file;
-	if (
-		typeof namespace !== "string" ||
-		typeof key !== "string" ||
-		typeof branch !== "string" ||
-		typeof refName !== "string" ||
-		typeof commit !== "string" ||
-		typeof sourceFile !== "string"
-	) {
-		return {
-			ok: false,
-			error: [
-				"Malformed brmem put JSON: expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file.",
-				`stdout tail:\n${stdout.slice(-MAX_ERROR_CHARS)}`,
-			].join("\n\n"),
-		};
-	}
-
-	return { ok: true, value: { namespace, key, branch, refName, commit, sourceFile } };
 }
 
 function validateBrmemPutData(data: StoredDispatchPromptPayload, expected: { branchName: string; sourceFile: string }): string | undefined {
@@ -471,9 +429,6 @@ function formatDispatchPromptStorageFailure(branchName: string, error: BrmemErro
 	].join("\n");
 }
 
-function brmemFailure(code: string, title: string, run: CompletedBrmemRun): BrmemErrorInfo {
-	return { code, message: formatCommandFailure(title, run.displayCommand, run.result), displayCommand: run.displayCommand };
-}
 
 export function buildLaunchPrompt(prompt: string): string {
 	return [

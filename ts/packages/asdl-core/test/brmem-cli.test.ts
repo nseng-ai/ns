@@ -4,8 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	DEFAULT_BRMEM_TIMEOUT_MS,
+	brmemCommandFailure,
 	formatBrmemUnavailableMessage,
+	parseBrmemPutData,
 	resolveBrmemCommandCandidates,
+	runAvailableBrmemCommand,
 	runBrmemCandidate,
 	runFirstAvailableBrmemCommand,
 	type BrmemCommandCandidate,
@@ -100,6 +104,10 @@ function makeProjectRoot(): string {
 	writeFileSync(join(root, "pyproject.toml"), '[project]\nname = "example"\n', "utf8");
 	tempDirs.push(root);
 	return root;
+}
+
+function envelope(data: Record<string, unknown>, overrides: Record<string, unknown> = {}): string {
+	return JSON.stringify({ exit_code: 0, data, ...overrides });
 }
 
 describe("resolveBrmemCommandCandidates", () => {
@@ -289,5 +297,121 @@ describe("runFirstAvailableBrmemCommand", () => {
 		expect(message).toContain("No brmem command available");
 		expect(message).toContain("Command: brmem list --format json");
 		expect(message).toContain(`Command: uv run --directory ${root} brmem list --format json`);
+	});
+});
+
+describe("runAvailableBrmemCommand", () => {
+	test("returns a completed run with the default timeout and signal", async () => {
+		const signal = new AbortController().signal;
+		const gateway = new FakeGateway([step("brmem", ["list", "--format", "json"], { code: 0, stdout: "{}" })]);
+
+		const run = await runAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list", "--format", "json"], signal });
+
+		gateway.assertDone();
+		expect(run.ok).toBe(true);
+		if (!run.ok) throw new Error(`expected successful run: ${run.error.message}`);
+		expect(run.value.result).toMatchObject({ code: 0, stdout: "{}" });
+		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: DEFAULT_BRMEM_TIMEOUT_MS, signal });
+	});
+
+	test("falls back through unavailable candidates", async () => {
+		const root = makeProjectRoot();
+		const gateway = new FakeGateway([
+			errorStep("brmem", ["check", "plan.md"], new Error("spawn ENOENT")),
+			step("uv", ["run", "--directory", root, "brmem", "check", "plan.md"], { code: 1 }),
+		]);
+
+		const run = await runAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["check", "plan.md"], timeoutMs: 5678 });
+
+		gateway.assertDone();
+		expect(run.ok).toBe(true);
+		if (!run.ok) throw new Error(`expected successful run: ${run.error.message}`);
+		expect(run.value.command).toBe("uv");
+		expect(run.value.result.code).toBe(1);
+		expect(gateway.calls.map((call) => call.options?.timeout)).toEqual([5678, 5678]);
+	});
+
+	test("returns a structured unavailable error when every candidate is unavailable", async () => {
+		const root = makeProjectRoot();
+		const gateway = new FakeGateway([
+			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+			step("uv", ["run", "--directory", root, "brmem", "list"], { code: 127, stderr: "uv: no such file" }),
+		]);
+
+		const run = await runAvailableBrmemCommand({ gateway, cwd: root, brmemArgs: ["list"] });
+
+		gateway.assertDone();
+		expect(run).toMatchObject({ ok: false, error: { code: "brmem_unavailable" } });
+		if (run.ok) throw new Error("expected unavailable result");
+		expect(run.error.message).toContain("Command: brmem list");
+		expect(run.error.message).toContain(`Command: uv run --directory ${root} brmem list`);
+	});
+});
+
+describe("brmemCommandFailure", () => {
+	test("formats command output and preserves the display command", () => {
+		const error = brmemCommandFailure("brmem_put_failed", "brmem put failed", {
+			type: "completed",
+			candidate: { command: "brmem", prefixArgs: [] },
+			command: "brmem",
+			args: ["put", "plan.md"],
+			displayCommand: "brmem put plan.md",
+			result: { code: 2, killed: false, stdout: "out", stderr: "err" },
+		});
+
+		expect(error.code).toBe("brmem_put_failed");
+		expect(error.displayCommand).toBe("brmem put plan.md");
+		expect(error.message).toContain("brmem put failed (exit code 2)");
+		expect(error.message).toContain("Command: brmem put plan.md");
+		expect(error.message).toContain("out");
+		expect(error.message).toContain("err");
+	});
+});
+
+describe("parseBrmemPutData", () => {
+	const validData = {
+		namespace: "branch-context",
+		key: "plan.md",
+		branch: "feature/demo",
+		ref_name: "refs/brmem/ns/branch-context/feature---demo:plan.md",
+		commit: "0123456789abcdef",
+		source_file: "/tmp/plan.md",
+	} satisfies Record<string, unknown>;
+
+	test("parses a successful brmem put machine envelope", () => {
+		expect(parseBrmemPutData(envelope(validData))).toEqual({
+			namespace: "branch-context",
+			key: "plan.md",
+			branch: "feature/demo",
+			refName: "refs/brmem/ns/branch-context/feature---demo:plan.md",
+			commit: "0123456789abcdef",
+			sourceFile: "/tmp/plan.md",
+		});
+	});
+
+	test("throws for malformed envelopes", () => {
+		expect(() => parseBrmemPutData("{")).toThrow(/Malformed brmem put JSON: invalid JSON/);
+		expect(() => parseBrmemPutData(envelope(validData, { exit_code: 2, message: "failed" }))).toThrow(/exit_code 2: failed/);
+		expect(() => parseBrmemPutData(JSON.stringify({ exit_code: 0 }))).toThrow(/expected a data object/);
+	});
+
+	test("throws for missing or non-string data fields", () => {
+		expect(() => parseBrmemPutData(envelope({ ...validData, namespace: 123 }))).toThrow(/expected string fields/);
+		expect(() => parseBrmemPutData(envelope({ ...validData, source_file: undefined }))).toThrow(/expected string fields/);
+	});
+
+	test("includes a bounded stdout tail in malformed-output messages", () => {
+		const longStdout = JSON.stringify({ exit_code: 0, data: { ...validData, source_file: 123 }, padding: "x".repeat(5_000) });
+
+		let message = "";
+		try {
+			parseBrmemPutData(longStdout);
+		} catch (error) {
+			message = error instanceof Error ? error.message : String(error);
+		}
+
+		expect(message).toContain("stdout tail:");
+		expect(message).toContain("…");
+		expect(message.length).toBeLessThan(longStdout.length);
 	});
 });
