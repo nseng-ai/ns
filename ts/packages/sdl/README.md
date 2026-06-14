@@ -23,7 +23,11 @@ SDL treats project-specific lifecycle behavior as first-class. The first-pass ex
 
 Use single-segment command names for the first pass, such as `submit`, `changes`, `autobranch`, `autoslot`, `land`, and `push`. Nested command groups can be revisited after the flat model proves itself.
 
-Current implementation support is intentionally narrower than the documented direction: today, only `sdl cp` has a project override at `.asdl/commands/cp.ts`. Later migration slices will standardize command loading beyond that one-off path.
+SDL discovers direct project command modules at `.asdl/commands/*.ts` for the CLI. Discovery is side-effect-light: `sdl --help` and command registration scan filenames only; a command module is imported and validated only when that exact command is invoked.
+
+Command module filenames must be flat, direct `.ts` files whose stem matches `[a-z][a-z0-9-]*`; declaration files such as `.asdl/commands/types.d.ts` are ignored. Project command modules override same-named default SDL commands. Project-only commands currently use the existing no-argument SDK shape, so typed option/argument support must be designed before option-bearing commands such as `submit --restack` migrate to SDL command modules.
+
+Dynamic Pi `/sdl:*` mirrors are not part of this first general command-loading slice. Exact project-specific Pi mirrors need a registration-time cwd/discovery design, or a different Pi command model, because the current Pi extension API provides `ctx.cwd` only when an already registered command is invoked.
 
 ## Public command-module SDK
 
@@ -76,7 +80,7 @@ Environment:
 
 During the transition from `asdl-dev cp`, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
 
-Projects may override `sdl cp` by adding `.asdl/commands/cp.ts` with a default export created by `defineCommand()` from `@asdl/sdl/sdk`. The command object must be named `cp`.
+Projects may override `sdl cp` by adding `.asdl/commands/cp.ts` with a default export created by `defineCommand()` from `@asdl/sdl/sdk`. The command object must be named `cp`. When no project override exists, SDL uses the built-in `cp` implementation.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 

@@ -132,9 +132,13 @@ function parseJsonOutput(run: { stdout: string[] }): Record<string, unknown> {
 }
 
 async function createOverrideProject(commandSource: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-cp-override-"));
+	return createCommandProject("cp.ts", commandSource);
+}
+
+async function createCommandProject(commandFileName: string, commandSource: string): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "sdl-command-project-"));
 	tempDirs.push(directory);
-	const commandPath = join(directory, ".asdl", "commands", "cp.ts");
+	const commandPath = join(directory, ".asdl", "commands", commandFileName);
 	mkdirSync(dirname(commandPath), { recursive: true });
 	writeFileSync(commandPath, commandSource);
 	return directory;
@@ -208,6 +212,90 @@ describe("sdl cp CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toHaveProperty("input_json_schema");
+		expect(run.stderr.join("")).toBe("");
+	});
+});
+
+describe("sdl project command discovery", () => {
+	test("project-only command appears in top-level help without module import", async () => {
+		const cwd = await createCommandProject("hello.ts", "throw new Error('help should not import this module');\n");
+		const run = runWithFakes(["--help"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("hello");
+		expect(help).toContain("Run project-specific SDL command 'hello'.");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("project-only command runs when invoked", async () => {
+		const cwd = await createCommandProject(
+			"hello.ts",
+			`
+import { defineCommand, ok } from "@asdl/sdl/sdk";
+
+export default defineCommand({
+	name: "hello",
+	description: "Say hello",
+	async run(ctx) {
+		const result = await ctx.exec("echo", ["hello"]);
+		return ok(result.stdout.trim());
+	},
+});
+`,
+		);
+		const run = runWithFakes(["hello"], { exec: [{ match: "echo hello", result: { stdout: "hello\n" } }] }, { cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("hello\n");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(["echo hello"]);
+	});
+
+	test("project-only command load failure occurs only on invocation", async () => {
+		const cwd = await createCommandProject("hello.ts", "throw new Error('module boom');\n");
+		const helpRun = runWithFakes(["--help"], { exec: [] }, { cwd });
+
+		expect(await helpRun.exit).toBe(0);
+		expect(helpRun.stderr.join("")).toBe("");
+
+		const run = runWithFakes(["hello"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Failed to load .asdl/commands/hello.ts");
+		expect(run.stderr.join("")).toContain("module boom");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("mismatched project-only command name fails clearly", async () => {
+		const cwd = await createCommandProject("hello.ts", "export default { name: 'wrong', description: 'Wrong', run() { return { ok: true, message: 'nope' }; } };\n");
+		const run = runWithFakes(["hello"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain('command name must be "hello"');
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("invalid direct TypeScript command filename fails discovery clearly", async () => {
+		const cwd = await createCommandProject("Bad_Name.ts", "export default {};\n");
+		const run = runWithFakes(["--help"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Invalid SDL command module filename: .asdl/commands/Bad_Name.ts");
+		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("declaration command files are ignored", async () => {
+		const cwd = await createCommandProject("types.d.ts", "export interface Ignored {}\n");
+		const run = runWithFakes(["--help"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).not.toContain("types");
 		expect(run.stderr.join("")).toBe("");
 	});
 });
