@@ -172,6 +172,13 @@ interface LoadRestFingerprintOptions {
 	signal?: AbortSignal | undefined;
 }
 
+interface LoadPrCheckSummaryOptions {
+	pi: ExecGateway;
+	cwd: string;
+	prNumber: number;
+	signal?: AbortSignal | undefined;
+}
+
 interface GhApiJsonOptions {
 	pi: ExecGateway;
 	cwd: string;
@@ -986,7 +993,7 @@ class PrFeedbackWatchController {
 	}
 
 	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
-		const result = await loadPrCheckSummary(this.pi, session.cwd, prNumber, session.abortController.signal);
+		const result = await loadPrCheckSummary({ pi: this.pi, cwd: session.cwd, prNumber, signal: session.abortController.signal });
 		this.state = { ...this.state, checkSummary: result.type === "loaded" ? result.summary : undefined };
 	}
 
@@ -1233,7 +1240,8 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 	return result.stdout.trim() || undefined;
 }
 
-async function loadPrCheckSummary(pi: ExecGateway, cwd: string, prNumber: number, signal?: AbortSignal): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
+async function loadPrCheckSummary(options: LoadPrCheckSummaryOptions): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
+	const { pi, cwd, prNumber, signal } = options;
 	const result = await pi.exec("gh", ["pr", "checks", String(prNumber), "--json", "bucket"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
 	if (result.killed || (result.code !== 0 && result.stdout.trim().length === 0)) {
 		return { type: "failed", message: `gh pr checks failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
