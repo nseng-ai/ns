@@ -18,12 +18,13 @@ export interface FakeEntrySeed {
 	headSha?: string | undefined;
 	headDate?: string | undefined;
 	blobSha?: string | undefined;
+	updatedAt?: string | undefined;
 }
 
 export interface FakeBrmemGatewayOptions {
 	currentBranch?: string | { type: "detached" } | { type: "error"; code: string; message: string } | undefined;
 	entries?: readonly FakeEntrySeed[] | undefined;
-	operationErrors?: Partial<Record<"list" | "get" | "check" | "put" | "delete" | "copy", { code: string; message: string }>> | undefined;
+	operationErrors?: Partial<Record<"list" | "get" | "check" | "entryUpdatedAt" | "put" | "delete" | "copy", { code: string; message: string }>> | undefined;
 }
 
 interface StoredEntry {
@@ -31,6 +32,7 @@ interface StoredEntry {
 	headSha: string;
 	headDate: string;
 	blobSha: string;
+	updatedAt: string;
 }
 
 interface SnapshotState {
@@ -38,12 +40,15 @@ interface SnapshotState {
 	entries: Map<string, StoredEntry>;
 }
 
+const FAKE_EPOCH_MS = Date.UTC(2026, 0, 1, 0, 0, 0);
+
 export class FakeBrmemGateway implements BrmemGateway {
 	private readonly branchState: FakeBrmemGatewayOptions["currentBranch"];
 	private readonly operationErrors: NonNullable<FakeBrmemGatewayOptions["operationErrors"]>;
 	private readonly snapshots: Map<string, SnapshotState>;
 	private readonly snapshotsByCommit: Map<string, SnapshotState>;
 	private sequence: number;
+	private timestampSequence: number;
 
 	constructor(options: FakeBrmemGatewayOptions = {}) {
 		this.branchState = options.currentBranch ?? "main";
@@ -51,6 +56,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		this.snapshots = new Map();
 		this.snapshotsByCommit = new Map();
 		this.sequence = 1;
+		this.timestampSequence = 1;
 		for (const entry of options.entries ?? []) this.seedEntry(entry);
 	}
 
@@ -93,17 +99,27 @@ export class FakeBrmemGateway implements BrmemGateway {
 		});
 	}
 
+	async entryUpdatedAt(options: { namespace: string; key: string; branch: string }) {
+		const error = this.operationErrors.entryUpdatedAt;
+		if (error !== undefined) return brmemOptionalError<string>(error.code, error.message);
+		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
+		if (stored === undefined) return brmemMissing<string>();
+		return brmemFound(stored.updatedAt);
+	}
+
 	async putEntry(options: { namespace: string; key: string; branch: string; content: string }) {
 		const error = this.operationErrors.put;
 		if (error !== undefined) return brmemError<PutEntryResult>(error.code, error.message);
 		const snapshot = this.ensureSnapshot(options.namespace, options.branch);
 		const commitSha = this.nextSha("commit");
+		const updatedAt = this.nextTimestamp();
 		snapshot.commitSha = commitSha;
 		snapshot.entries.set(options.key, {
 			content: options.content,
 			headSha: commitSha,
-			headDate: "2026-01-01T00:00:00+00:00",
+			headDate: updatedAt,
 			blobSha: this.nextSha("blob"),
+			updatedAt,
 		});
 		this.recordSnapshot(commitSha, snapshot);
 		return brmemOk({ commitSha, entry: mustEntryRef(options.namespace, options.key, options.branch) });
@@ -166,12 +182,14 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private seedEntry(seed: FakeEntrySeed): void {
 		const snapshot = this.ensureSnapshot(seed.namespace, seed.branch);
 		const commitSha = seed.headSha ?? this.nextSha("commit");
+		const updatedAt = seed.updatedAt ?? seed.headDate ?? this.nextTimestamp();
 		snapshot.commitSha = commitSha;
 		snapshot.entries.set(seed.key, {
 			content: seed.content,
 			headSha: commitSha,
-			headDate: seed.headDate ?? "2026-01-01T00:00:00+00:00",
+			headDate: seed.headDate ?? updatedAt,
 			blobSha: seed.blobSha ?? this.nextSha("blob"),
+			updatedAt,
 		});
 		this.recordSnapshot(commitSha, snapshot);
 	}
@@ -216,6 +234,12 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private nextSha(prefix: string): string {
 		const value = `${prefix}${String(this.sequence).padStart(34, "0")}`;
 		this.sequence += 1;
+		return value;
+	}
+
+	private nextTimestamp(): string {
+		const value = new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString().replace(".000Z", "+00:00");
+		this.timestampSequence += 1;
 		return value;
 	}
 }

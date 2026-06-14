@@ -93,7 +93,7 @@ async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: re
 			entries.push(entryFromSummary(summary, "kept_active"));
 			continue;
 		}
-		const deleted = await ctx.brmem.delete({ namespace: HANDOFF_NAMESPACE, key: summary.key, branch: summary.branch });
+		const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: summary.key, branch: summary.branch });
 		if (deleted.type === "error") {
 			const message = deleted.error.code === "key_not_found"
 				? `Handoff disappeared before deletion: ${deleted.error.message}`
@@ -101,7 +101,7 @@ async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: re
 			entries.push(entryFromSummary(summary, "error", { message }));
 			continue;
 		}
-		entries.push(entryFromSummary(summary, "deleted", { commit: deleted.value.commit }));
+		entries.push(entryFromSummary(summary, "deleted", { commit: deleted.value.commitSha }));
 	}
 	return resultFromEntries(entries, { dryRun: false, cancelled: false });
 }

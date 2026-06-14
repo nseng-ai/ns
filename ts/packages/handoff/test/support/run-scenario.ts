@@ -1,12 +1,12 @@
+import { FakeBrmemGateway, type BrmemGateway, type FakeBrmemGatewayOptions } from "@asdl/brmem";
+import type { GitGateway } from "@asdl/core/git";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
+
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type HandoffCliContext } from "../../src/context.ts";
-import { FakeBrmemGateway, type FakeBrmemGatewayOptions } from "../../src/fake-brmem-gateway.ts";
-import type { HandoffBrmemGateway } from "../../src/brmem-gateway.ts";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
-import type { GitGateway } from "@asdl/core/git";
 
 export interface ScenarioRunOptions {
-	brmem?: HandoffBrmemGateway | undefined;
+	brmem?: BrmemGateway | undefined;
 	fake?: FakeBrmemGatewayOptions | undefined;
 	git?: GitGateway | undefined;
 	gitState?: InMemoryGitGatewayState | undefined;
@@ -49,4 +49,23 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 
 export function parseJsonOutput(run: ScenarioRun): unknown {
 	return JSON.parse(run.stdout.join(""));
+}
+
+export async function putHandoffEntry(
+	gateway: FakeBrmemGateway,
+	options: { namespace?: string | undefined; key: string; branch: string; content: string },
+): Promise<string> {
+	const result = await gateway.putEntry({ namespace: options.namespace ?? "handoff", key: options.key, branch: options.branch, content: options.content });
+	if (result.type === "error") throw new Error(result.error.message);
+	return result.value.commitSha;
+}
+
+export async function getEntryContent(
+	gateway: FakeBrmemGateway,
+	options: { namespace?: string | undefined; key: string; branch: string },
+): Promise<string | undefined> {
+	const result = await gateway.getEntry({ namespace: options.namespace ?? "handoff", key: options.key, branch: options.branch });
+	if (result.type === "error") throw new Error(result.error.message);
+	if (result.type === "missing") return undefined;
+	return result.value.content;
 }

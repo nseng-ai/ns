@@ -1,16 +1,16 @@
+import { FakeBrmemGateway, type BrmemOptionalResult } from "@asdl/brmem";
 import { describe, expect, test } from "vitest";
 
-import { FakeBrmemGateway } from "../../src/fake-brmem-gateway.ts";
-import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
+import { parseJsonOutput, putHandoffEntry, runScenario } from "../support/run-scenario.ts";
 
 describe("handoff list", () => {
 	test("defaults to current branch and ignores non-handoff entries", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "alpha.md", "feat/x", "alpha");
-		gateway.put("handoff", "bravo.md", "feat/y", "bravo");
-		gateway.put("handoffs", "legacy.md", "feat/x", "legacy");
-		gateway.put("handoff", "nested/ignore.md", "feat/x", "nested");
-		gateway.put("handoff", "not-md.txt", "feat/x", "txt");
+		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
+		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/y", content: "bravo" });
+		await putHandoffEntry(gateway, { namespace: "handoffs", key: "legacy.md", branch: "feat/x", content: "legacy" });
+		await putHandoffEntry(gateway, { key: "nested/ignore.md", branch: "feat/x", content: "nested" });
+		await putHandoffEntry(gateway, { key: "not-md.txt", branch: "feat/x", content: "txt" });
 
 		const run = runScenario(["list", "--format", "json"], { brmem: gateway, gitState: { currentBranch: "feat/x", existingBranches: ["feat/x"] } });
 
@@ -37,7 +37,7 @@ describe("handoff list", () => {
 
 	test("explicit branch works in detached head and deleted branch requires include-deleted", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "stale.md", "feat/deleted", "stale");
+		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
 
 		const hidden = runScenario(["list", "--branch", "feat/deleted"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: [] } });
 		const shown = runScenario(["list", "--branch", "feat/deleted", "--include-deleted"], {
@@ -54,8 +54,8 @@ describe("handoff list", () => {
 
 	test("all branches defaults to active and can include deleted", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "alpha.md", "feat/a", "alpha");
-		gateway.put("handoff", "bravo.md", "feat/b", "bravo");
+		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/a", content: "alpha" });
+		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/b", content: "bravo" });
 
 		const active = runScenario(["list", "--all", "--format", "json"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/a"] } });
 		const all = runScenario(["list", "--all", "--include-deleted", "--format", "json"], {
@@ -75,9 +75,9 @@ describe("handoff list", () => {
 
 	test("markdown output sorts by branch then newest then slug", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "bravo.md", "feat/b", "bravo");
-		gateway.put("handoff", "charlie.md", "feat/a", "charlie");
-		gateway.put("handoff", "alpha.md", "feat/a", "alpha");
+		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/b", content: "bravo" });
+		await putHandoffEntry(gateway, { key: "charlie.md", branch: "feat/a", content: "charlie" });
+		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/a", content: "alpha" });
 
 		const run = runScenario(["list", "--all", "--include-deleted", "--format", "markdown"], {
 			brmem: gateway,
@@ -97,9 +97,9 @@ describe("handoff list", () => {
 	});
 
 	test("fails when included timestamp is unavailable but skips deleted timestamps in active-only lists", async () => {
-		const gateway = new FakeBrmemGateway({ missingUpdatedAtBranches: ["feat/deleted"] });
-		gateway.put("handoff", "live.md", "feat/live", "live");
-		gateway.put("handoff", "stale.md", "feat/deleted", "stale");
+		const gateway = new MissingUpdatedAtGateway(["feat/deleted"]);
+		await putHandoffEntry(gateway, { key: "live.md", branch: "feat/live", content: "live" });
+		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
 
 		const active = runScenario(["list", "--all", "--format", "json"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/live"] } });
 		expect(await active.exit).toBe(0);
@@ -123,3 +123,17 @@ describe("handoff list", () => {
 		expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "branch_and_all_conflict", message: "--branch and --all are mutually exclusive." });
 	});
 });
+
+class MissingUpdatedAtGateway extends FakeBrmemGateway {
+	private readonly branches: ReadonlySet<string>;
+
+	constructor(branches: readonly string[]) {
+		super();
+		this.branches = new Set(branches);
+	}
+
+	override async entryUpdatedAt(options: { namespace: string; key: string; branch: string }): Promise<BrmemOptionalResult<string>> {
+		if (this.branches.has(options.branch)) return { type: "missing" };
+		return await super.entryUpdatedAt(options);
+	}
+}

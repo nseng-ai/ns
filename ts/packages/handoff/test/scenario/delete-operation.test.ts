@@ -1,13 +1,13 @@
+import { FakeBrmemGateway } from "@asdl/brmem";
 import { describe, expect, test } from "vitest";
 
-import { FakeBrmemGateway } from "../../src/fake-brmem-gateway.ts";
-import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
+import { getEntryContent, parseJsonOutput, putHandoffEntry, runScenario } from "../support/run-scenario.ts";
 
 describe("handoff delete", () => {
 	test("force deletes current branch handoff", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "alpha.md", "feat/x", "alpha");
-		gateway.put("handoff", "bravo.md", "feat/x", "bravo");
+		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
+		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/x", content: "bravo" });
 
 		const run = runScenario(["delete", "--force", "alpha", "--format", "json"], { brmem: gateway });
 
@@ -21,41 +21,41 @@ describe("handoff delete", () => {
 				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
 				deleted: true,
 				cancelled: false,
-				commit: "fake-0003",
+				commit: expect.any(String),
 			},
 		});
-		expect(gateway.get("handoff", "alpha.md", "feat/x")).toBeUndefined();
-		expect(gateway.get("handoff", "bravo.md", "feat/x")).toBe("bravo");
+		expect(await getEntryContent(gateway, { key: "alpha.md", branch: "feat/x" })).toBeUndefined();
+		expect(await getEntryContent(gateway, { key: "bravo.md", branch: "feat/x" })).toBe("bravo");
 	});
 
 	test("explicit deleted branch works in detached head", async () => {
 		const gateway = new FakeBrmemGateway();
-		gateway.put("handoff", "stale.md", "feat/deleted", "stale");
+		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
 		const run = runScenario(["delete", "--branch", "feat/deleted", "--force", "stale", "--format", "json"], {
 			brmem: gateway,
 			gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { branch: "feat/deleted", slug: "stale", deleted: true } });
-		expect(gateway.get("handoff", "stale.md", "feat/deleted")).toBeUndefined();
+		expect(await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" })).toBeUndefined();
 	});
 
 	test("prompt accepts and declines with prompts on stderr in JSON mode", async () => {
 		const acceptedGateway = new FakeBrmemGateway();
-		acceptedGateway.put("handoff", "alpha.md", "feat/x", "alpha");
+		await putHandoffEntry(acceptedGateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const accepted = runScenario(["delete", "alpha"], { brmem: acceptedGateway, stdin: "y\n" });
 		expect(await accepted.exit).toBe(0);
 		expect(accepted.stderr.join("")).toContain("Delete handoff `alpha` on branch `feat/x`? [y/N]");
 		expect(accepted.stdout.join("")).toContain("Deleted handoff `alpha` on branch `feat/x`.");
-		expect(acceptedGateway.get("handoff", "alpha.md", "feat/x")).toBeUndefined();
+		expect(await getEntryContent(acceptedGateway, { key: "alpha.md", branch: "feat/x" })).toBeUndefined();
 
 		const declinedGateway = new FakeBrmemGateway();
-		declinedGateway.put("handoff", "alpha.md", "feat/x", "alpha");
+		await putHandoffEntry(declinedGateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const declined = runScenario(["delete", "alpha", "--format", "json"], { brmem: declinedGateway, stdin: "no\n" });
 		expect(await declined.exit).toBe(0);
 		expect(declined.stderr.join("")).toContain("Delete handoff `alpha` on branch `feat/x`? [y/N]");
 		expect(parseJsonOutput(declined)).toMatchObject({ data: { deleted: false, cancelled: true, commit: null } });
-		expect(declinedGateway.get("handoff", "alpha.md", "feat/x")).toBe("alpha");
+		expect(await getEntryContent(declinedGateway, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 	});
 
 	test("validates slug, branch, not-found, and detached head", async () => {

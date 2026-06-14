@@ -1,6 +1,4 @@
-import { validateEntryKey } from "@asdl/brmem";
-
-import { handoffError, handoffOk, type HandoffResult } from "./contracts.ts";
+import { brmemError, brmemOk, validateEntryKey, type BrmemResult } from "@asdl/brmem";
 
 export const HANDOFF_NAMESPACE = "handoff";
 export const HANDOFF_KEY_SUFFIX = ".md";
@@ -16,24 +14,24 @@ export function handoffSlugFromKey(key: string): string {
 	return key.slice(0, -HANDOFF_KEY_SUFFIX.length);
 }
 
-export function handoffKeyFromSlug(slug: string): HandoffResult<string> {
+export function handoffKeyFromSlug(slug: string): BrmemResult<string> {
 	if (slug === "") {
-		return handoffError("invalid_handoff_slug", "Pass a non-empty handoff slug without `.md`.");
+		return brmemError("invalid_handoff_slug", "Pass a non-empty handoff slug without `.md`.");
 	}
 	if (slug.endsWith(HANDOFF_KEY_SUFFIX)) {
-		return handoffError(
+		return brmemError(
 			"invalid_handoff_slug",
 			"Pass the handoff slug without `.md` (for example, `alpha`, not `alpha.md`).",
 		);
 	}
 	if (slug.includes("/")) {
-		return handoffError("invalid_handoff_slug", "Pass a flat handoff slug without `/` or `.md`.");
+		return brmemError("invalid_handoff_slug", "Pass a flat handoff slug without `/` or `.md`.");
 	}
 
 	const key = `${slug}${HANDOFF_KEY_SUFFIX}`;
 	const validation = validateEntryKey(key);
 	if (validation.type === "invalid") {
-		return handoffError("invalid_handoff_slug", `Invalid key ${JSON.stringify(key)}: ${validation.reason}`);
+		return brmemError("invalid_handoff_slug", `Invalid key ${JSON.stringify(key)}: ${validation.reason}`);
 	}
-	return handoffOk(key);
+	return brmemOk(key);
 }

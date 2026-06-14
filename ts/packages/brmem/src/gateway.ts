@@ -52,6 +52,12 @@ export interface BrmemGateway {
 		at?: string | undefined;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
 
+	entryUpdatedAt(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemOptionalResult<string>>;
+
 	putEntry(options: {
 		namespace: string;
 		key: string;
