@@ -80,6 +80,7 @@ export async function handleCccSlotDispatchPrompt(options: HandleCccSlotDispatch
 		cwd: ctx.cwd,
 		branchName: branch.branchName,
 		command: buildPiLaunchCommand(`@${promptFile}`, launchOptions),
+		description: `dispatch-prompt from ${branch.parentBranch}`,
 		notify: (message, level) => ctx.ui.notify(message, level),
 		successMessage: (target) =>
 			[

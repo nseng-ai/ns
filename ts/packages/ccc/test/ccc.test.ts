@@ -215,6 +215,7 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 		expect(content).toContain("slot checkout");
 		expect(content).toContain("cmux new-workspace");
+		expect(content).toContain(`--description 'dispatch-plan from ${SOURCE_BRANCH}'`);
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
 
@@ -242,13 +243,12 @@ describe("CCC cmux command suite", () => {
 					stdout: brmemPutJson(repoRoot, realPlanFile),
 				}),
 				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(PLAN_SLUG) }),
-				step("git", ["remote", "get-url", "origin"], { stdout: "git@github.com:owner/repo.git\n" }),
 				step("cmux", [
 					"new-workspace",
 					"--name",
 					PLAN_SLUG,
 					"--description",
-					`repo/${PLAN_SLUG}`,
+					`dispatch-plan from ${SOURCE_BRANCH}`,
 					"--cwd",
 					WORKTREE,
 					"--command",
@@ -341,13 +341,12 @@ describe("CCC cmux command suite", () => {
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
-				step("git", ["remote", "get-url", "origin"], { stdout: "git@github.com:owner/repo.git\n" }),
 				step("cmux", [
 					"new-workspace",
 					"--name",
 					BRANCH,
 					"--description",
-					`repo/${BRANCH}`,
+					`dispatch-prompt from ${SOURCE_BRANCH}`,
 					"--cwd",
 					WORKTREE,
 					"--command",

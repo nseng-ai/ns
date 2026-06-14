@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -27,7 +25,6 @@ import { openBranchInCmuxSlot } from "./slot.ts";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 import type { PiLaunchOptions } from "./pi-launch.ts";
 import type { SlotCheckoutTarget } from "../slot-checkout.ts";
-import { repositoryNameFromPath } from "./worktree-description.ts";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "./types.ts";
 
@@ -241,6 +238,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		cwd: checkout.directory.repoRoot,
 		branchName: operation.branch,
 		command: formatPiLaunchCommand(operation, launchOptions),
+		description: `dispatch-plan from ${checkout.directory.sourceBranch}`,
 		notify: (message, level) => ctx.ui.notify(message, level),
 		onStatus: (message) => setStatus(ctx, message),
 		successMessage: (target) => formatFinalSuccess({ operation, target, launchOptions }),
@@ -275,7 +273,7 @@ function setStatus(ctx: CommandContext, value: string | undefined): void {
 function formatDryRun(options: FormatDryRunOptions): string {
 	const { plan, checkout, operation, branchContextPreview, launchOptions } = options;
 	const launchCommand = formatPiLaunchCommand(operation, launchOptions);
-	const description = `${repositoryNameFromPath(checkout.directory.repoRoot) ?? basename(checkout.directory.repoRoot)}/${operation.branch}`;
+	const description = `dispatch-plan from ${checkout.directory.sourceBranch}`;
 	return [
 		"Dry run: no branch was created, no plan was attached, and no cmux workspace was opened.",
 		"",
