@@ -424,6 +424,32 @@ def test_claim_branch_checks_out_unassigned_branch_into_current_slot(tmp_path: P
     assert git.get_current_branch(current_path) == "feat/target"
 
 
+def test_claim_branch_from_main_worktree_pool_full_reports_assigned_slots(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master", "feat/a"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="master", is_bare=False),
+            slot_worktree(slots_root, 1, "feat/a"),
+        ),
+        trunk_branch="master",
+    )
+
+    outcome = claim_branch(ctx, "master")
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "pool_full"
+    assert "slot-01 -> feat/a" in outcome.message
+    assert "Free a slot before claiming a branch." in outcome.message
+    assert git.get_current_branch(repo_root) == "master"
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == []
+
+
 def test_claim_branch_rejects_dirty_current_slot(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     current_path = slot_path(slots_root, 1)

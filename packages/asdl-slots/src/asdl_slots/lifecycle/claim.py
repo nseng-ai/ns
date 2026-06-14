@@ -19,6 +19,7 @@ from asdl_slots.inventory import (
 from asdl_slots.lifecycle.current_worktree_redirect import execute_current_worktree_redirect
 from asdl_slots.lifecycle.operation_state import operation_recovery_instruction
 from asdl_slots.lifecycle.outcomes import SlotClaimOutcome, SlotLifecycleFailure
+from asdl_slots.lifecycle.pool_full import assigned_slot_records, pool_full_failure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
 
@@ -192,7 +193,7 @@ def _plan_claim_from_main_worktree(
 
     target = inventory.lowest_available(slots_ctx.git)
     if target is None:
-        return _pool_full_claim_failure(inventory)
+        return pool_full_failure(assigned_slot_records(inventory), action="claiming a branch")
     if slots_ctx.git.has_uncommitted_changes(slots_ctx.repo.root):
         return SlotLifecycleFailure(
             error_type="dirty_current_worktree",
@@ -224,21 +225,6 @@ def _not_current_slot_failure(slots_ctx: SlotsCliContext) -> SlotLifecycleFailur
             f"(current worktree: {slots_ctx.repo.root})."
         ),
     )
-
-
-def _pool_full_claim_failure(inventory: SlotInventory) -> SlotLifecycleFailure:
-    assigned = tuple(record for record in inventory.records if record.branch is not None)
-    if assigned:
-        details = "\n".join(f"  {record.slot_name} -> {record.branch}" for record in assigned)
-        message = (
-            f"Pool is full. Currently assigned:\n{details}\nFree a slot before claiming a branch."
-        )
-    else:
-        message = (
-            "Pool is full (no slots available). "
-            "Run `slot init` or `slot resize` before claiming a branch."
-        )
-    return SlotLifecycleFailure(error_type="pool_full", message=message)
 
 
 def _current_slot_dirty_failure(
