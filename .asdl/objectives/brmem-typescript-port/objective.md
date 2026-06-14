@@ -106,6 +106,6 @@ Risks:
 
 - Which `--format json` envelopes and `list`/`check`/`export`/`copy` outputs require byte-for-byte parity, and which are structured compatibility where key order or formatting may intentionally differ?
 - The initial cross-language parity probe set now covers Python-written Base/named/nested Entries read and listed by TypeScript, TypeScript-written workflow Namespace Entries read and checked by Python, and TypeScript key-glob copy preserving Python-readable destination Entries. Remaining parity work should add probes only when new public CLI surfaces (`put`, `delete`, `copy`, `export`, `exec resolve-prompt`) expose behavior not already covered by the storage seam.
-- Which git ref/blob/tree plumbing pieces, if any, are reusable enough to belong in a shared `@asdl/core` gateway, and only after which second consumer proves the seam?
+- Answered: no git ref/blob/tree plumbing moves to a shared `@asdl/core` gateway from this Objective alone. Keep the seam package-local; recommend extraction to `ts-cli-foundation` only after a second consumer proves the same need.
 - Answered: the post-deletion rollback/reference source is in-repo git history at commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`; no external frozen artifact was needed.
 - Does `exec resolve-prompt`'s `.brmem/prompts/...` project/global tier resolution have filesystem-layout details (search order, global location) that must be reproduced exactly versus reclassified?

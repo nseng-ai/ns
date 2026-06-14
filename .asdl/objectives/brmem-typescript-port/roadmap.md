@@ -53,10 +53,10 @@
   - Policy: the final gated deletion is directly executable once the gates are evidenced; otherwise ask before broad deletion. Validate with full `just`, not just the TS package.
   - Evidence: Python `packages/brmem` is deleted from active workspace/config/test paths; `asdl-handoff` now uses a package-local Branch Memory seam over the public TypeScript `brmem` shim; the Python parity oracle and TypeScript CI Python/uv setup are removed; active Branch Memory context moved to `ts/packages/brmem/CONTEXT.md`; rollback reference is commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`; focused Python/TS gates and real shim-backed handoff smoke passed; final full-repo validation is recorded in Semantic Update `updates/2026-06-14T143649Z-retire-python-brmem-fallback.md`.
 
-- [ ] Feed lessons into the umbrella porting playbook.
+- [x] Feed lessons into the umbrella porting playbook.
   - Record reusable git ref/blob/tree plumbing and cross-language parity lessons for later capability ports; recommend any second-consumer-proven gateway seam to `ts-cli-foundation`.
   - Policy: directly executable once repeated evidence exists; do not generalize from a single operation slice.
-  - Evidence: an update to `.asdl/objectives/port-asdl-toolkit-to-typescript/porting-playbook.md` and the umbrella ledger/roadmap reflecting brmem as TS-default.
+  - Evidence: `.asdl/objectives/port-asdl-toolkit-to-typescript/porting-playbook.md` now includes `brmem` storage-contract, parity-probe, package-local plumbing, distribution, and rollback/reference lessons; the umbrella ledger/roadmap reflect `brmem` as TS-default; umbrella Semantic Update `.asdl/objectives/port-asdl-toolkit-to-typescript/updates/2026-06-14T172101Z-brmem-cutover-playbook-lessons.md` records the completed playbook feedback.
 
 ## Parked
 
