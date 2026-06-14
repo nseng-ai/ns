@@ -35,13 +35,13 @@ interface BranchCreateResult {
 export interface DispatchPromptPayloadOptions {
 	stagingDir?: string;
 	now?: () => number;
-	cleanupStagingFile?: boolean;
+	shouldCleanupStagingFile?: boolean;
 }
 
 interface ResolvedDispatchPromptPayloadOptions {
 	stagingDir?: string;
 	now: () => number;
-	cleanupStagingFile: boolean;
+	shouldCleanupStagingFile: boolean;
 }
 
 export interface HandleCccSlotDispatchPromptOptions {
@@ -97,7 +97,13 @@ export async function handleCccSlotDispatchPrompt(options: HandleCccSlotDispatch
 	}
 
 	ctx.ui.notify("Storing dispatch prompt in Branch Memory…", "info");
-	const stored = await storeDispatchPromptPayload(pi, ctx.cwd, branch.branchName, buildLaunchPrompt(prompt), payloadOptions);
+	const stored = await storeDispatchPromptPayload({
+		pi,
+		cwd: ctx.cwd,
+		branchName: branch.branchName,
+		content: buildLaunchPrompt(prompt),
+		payloadOptions,
+	});
 	if (!stored.ok) {
 		ctx.ui.notify(formatDispatchPromptStorageFailure(branch.branchName, stored.error), "error");
 		return;
@@ -197,13 +203,14 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 	return `${stem}${suffixText}`;
 }
 
-async function storeDispatchPromptPayload(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-	branchName: string,
-	content: string,
-	options: ResolvedDispatchPromptPayloadOptions,
-): Promise<DispatchPromptStorageResult> {
+async function storeDispatchPromptPayload(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	branchName: string;
+	content: string;
+	payloadOptions: ResolvedDispatchPromptPayloadOptions;
+}): Promise<DispatchPromptStorageResult> {
+	const { pi, cwd, branchName, content, payloadOptions } = options;
 	const presence = await checkDispatchPromptPayload(pi, cwd, branchName);
 	switch (presence.type) {
 		case "present":
@@ -223,7 +230,7 @@ async function storeDispatchPromptPayload(
 
 	let staged: StagedPayloadFile;
 	try {
-		staged = await stageDispatchPromptPayload(options, branchName, content);
+		staged = await stageDispatchPromptPayload(payloadOptions, branchName, content);
 	} catch (error) {
 		return {
 			ok: false,
@@ -235,7 +242,7 @@ async function storeDispatchPromptPayload(
 	}
 
 	try {
-		return await putDispatchPromptPayload(pi, cwd, branchName, staged.filePath);
+		return await putDispatchPromptPayload({ pi, cwd, branchName, sourceFile: staged.filePath });
 	} finally {
 		try {
 			await staged.cleanup();
@@ -277,12 +284,13 @@ async function checkDispatchPromptPayload(
 	return { type: "error", error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value) };
 }
 
-async function putDispatchPromptPayload(
-	pi: Pick<ExtensionAPI, "exec">,
-	cwd: string,
-	branchName: string,
-	sourceFile: string,
-): Promise<DispatchPromptStorageResult> {
+async function putDispatchPromptPayload(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	branchName: string;
+	sourceFile: string;
+}): Promise<DispatchPromptStorageResult> {
+	const { pi, cwd, branchName, sourceFile } = options;
 	const run = await runAvailableBrmemCommand({
 		gateway: pi,
 		cwd,
@@ -346,7 +354,7 @@ async function stageDispatchPromptPayload(
 	return {
 		filePath,
 		cleanup: async () => {
-			if (!options.cleanupStagingFile) return;
+			if (!options.shouldCleanupStagingFile) return;
 			if (options.stagingDir === undefined) {
 				await rm(directory, { recursive: true, force: true });
 				return;
@@ -364,7 +372,7 @@ function resolveDispatchPromptPayloadOptions(options: DispatchPromptPayloadOptio
 	return {
 		...(options.stagingDir === undefined ? {} : { stagingDir: options.stagingDir }),
 		now: options.now ?? Date.now,
-		cleanupStagingFile: options.cleanupStagingFile ?? true,
+		shouldCleanupStagingFile: options.shouldCleanupStagingFile ?? true,
 	};
 }
 
