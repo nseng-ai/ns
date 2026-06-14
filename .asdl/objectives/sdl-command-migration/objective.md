@@ -76,8 +76,8 @@ Assumptions:
 Risks:
 
 - The migration can become a broad namespace churn project unless each slice ties a command move to tests, docs, and deletion of the old surface.
-- Project-specific SDL extensions could blur product boundaries if docs do not distinguish public SDK surface, internal migration exports, and repo-local command modules.
-- Hard cutover may break agent muscle memory and stale docs; source searches and parity metadata updates need to be part of every slice.
+- Project-specific SDL extensions could blur product boundaries if docs do not distinguish public SDK surface, internal migration exports, and repo-local command modules. Partially de-risked by the SDL README/context baseline that names `@asdl/sdl/sdk` as the public author API and marks other SDL exports as internal migration surfaces; still open until general command loading and tests prove the model beyond `cp`.
+- Hard cutover may break agent muscle memory and stale docs; source searches and parity metadata updates need to be part of every slice. The SDL docs baseline records the hard-cutover policy, but Pi docs, skill conventions, parity metadata, and old command surfaces still need command-specific updates as migrations land.
 - `submit`, `land`, `autobranch`, `autoslot`, and review-feedback flows mutate Git, Graphite, GitHub, or worktree-slot state; moving their public boundary must not weaken existing safety checks.
 - Keeping implementation cores in CCC while exposing SDL commands could create another “shared TypeScript is not shared CLI” gap unless SDL scenario tests and skills prove non-Pi reachability.
 
