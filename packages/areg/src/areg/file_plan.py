@@ -44,14 +44,6 @@ def is_under_project(path: Path, *, project_dir: Path) -> bool:
     return path == project_dir or path.is_relative_to(project_dir)
 
 
-def _require_under_project(path: Path, *, project_dir: Path, verb: str) -> None:
-    if not path.exists():
-        raise click.ClickException(f"{path} does not exist; refusing to {verb} it.")
-    resolved = path.resolve()
-    if not is_under_project(resolved, project_dir=project_dir):
-        raise click.ClickException(f"{path} resolves outside {project_dir}; refusing to {verb} it.")
-
-
 def read_existing_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -71,13 +63,14 @@ def _require_existing_path_under_project(
     *,
     project_dir: Path,
     description: str,
+    verb: str = "manage",
 ) -> None:
     if not path.exists():
         raise click.ClickException(f"{description} at {path} does not exist.")
     resolved = path.resolve()
     if not is_under_project(resolved, project_dir=project_dir):
         raise click.ClickException(
-            f"{description} at {path} resolves outside {project_dir}; refusing to manage it."
+            f"{description} at {path} resolves outside {project_dir}; refusing to {verb} it."
         )
 
 
@@ -136,7 +129,12 @@ def apply_delete_file(plan: DeleteFilePlan, *, project_dir: Path) -> None:
         return
     if not plan.path.is_file():
         raise click.ClickException(f"{plan.path} exists but is not a file.")
-    _require_under_project(plan.path, project_dir=project_dir, verb="delete")
+    _require_existing_path_under_project(
+        plan.path,
+        project_dir=project_dir,
+        description=plan.description,
+        verb="delete",
+    )
     try:
         plan.path.unlink()
     except OSError as e:
@@ -151,7 +149,12 @@ def apply_remove_empty_dir(plan: RemoveEmptyDirPlan, *, project_dir: Path) -> No
     reject_symlink(plan.path, description=plan.description)
     if not plan.path.is_dir():
         raise click.ClickException(f"{plan.path} exists but is not a directory.")
-    _require_under_project(plan.path, project_dir=project_dir, verb="remove")
+    _require_existing_path_under_project(
+        plan.path,
+        project_dir=project_dir,
+        description=plan.description,
+        verb="remove",
+    )
     if any(plan.path.iterdir()):
         return
     try:
