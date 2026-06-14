@@ -1,6 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from asdl_core.gt.types import StackInfo
+
+
+def _deduplicate_ordered(branches: Iterable[str]) -> tuple[str, ...]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for branch in branches:
+        if branch in seen:
+            continue
+        seen.add(branch)
+        deduped.append(branch)
+    return tuple(deduped)
 
 
 def collect_stack_edges(
@@ -15,14 +28,7 @@ def collect_stack_edges(
     else:
         path = (*stack.ancestors, current, *stack.descendants)
 
-    deduped_path: list[str] = []
-    seen: set[str] = set()
-    for branch in path:
-        if branch in seen:
-            continue
-        seen.add(branch)
-        deduped_path.append(branch)
-
+    deduped_path = _deduplicate_ordered(path)
     return tuple(zip(deduped_path, deduped_path[1:], strict=False))
 
 
@@ -53,15 +59,6 @@ def collect_stack_branches(
     else:
         branches = (*stack.ancestors, *stack.descendants)
 
-    seen: set[str] = set()
-    out: list[str] = []
-    for branch in branches:
-        if branch == trunk:
-            continue
-        if not include_current and branch == current:
-            continue
-        if branch in seen:
-            continue
-        seen.add(branch)
-        out.append(branch)
-    return tuple(out)
+    return _deduplicate_ordered(
+        branch for branch in branches if branch != trunk and (include_current or branch != current)
+    )

@@ -39,19 +39,23 @@ Use these sources in this order:
 
 Default output is overlay-only. Do not include an `Attention:` or findings section unless the user explicitly asks for that optional variant.
 
-Preserve the Graphite tree shape. The user should see the whole relevant stack, not just rows that have open cmux workspaces. Append badges to matching rows without destroying alignment. If the user provides pasted `gt ls` output, you may use that pasted text as the visual tree template and append badges, but do not infer machine topology facts from it. If structured topology is incomplete, say so and prefer an honest partial overlay over silently collapsing the tree.
+Preserve the Graphite tree shape in a dedicated `TOPO` column. The user should see the whole relevant stack, not just rows that have open cmux workspaces. Put branch names, Graphite notes, and cmux/worktree badges in separate same-line columns so long branch names or sparse badges do not visually detach from the topology. If the user provides pasted `gt ls` output, you may use that pasted text as the visual tree template for the `TOPO` column and extract the row text into table columns, but do not infer machine topology facts from it. If structured topology is incomplete, say so and prefer an honest partial overlay over silently collapsing the tree.
 
-Use this shape:
+Use this shape. Include hard `|` separators and a header rule so alignment survives Markdown/code-fence rendering quirks:
 
 ```text
 cmux × Graphite stack map
 Legend: ● active cmux  ◎ this Pi session/caller  ○ open inactive  DIRTY dirty worktree  ↯label title/description drift  dup duplicate cwd+branch  2t multi-tab workspace
 
-◯ parent-branch
-│ ◯ child-branch  ○ ws45 slot-12 DIRTY ↯label 2t
-│ │ ◉ current-branch  ◎ ws31 slot-03
-◯─┴─┘ master
+TOPO      | BRANCH        | GRAPHITE | CMUX
+----------+---------------+----------+--------------------------
+◯         | parent-branch |          |
+│ ◯       | child-branch  | slot-12  | ○ ws45 slot-12 DIRTY ↯label 2t
+│ │ ◉     | current-branch | current  | ◎ ws31 slot-03
+◯─┴─┴─┘   | master        | repo     |
 ```
+
+Size columns from the rendered rows before printing: `TOPO` should be wide enough for the deepest topology glyph string including the trunk join row; `BRANCH` should be wide enough for the longest displayed branch; `GRAPHITE` should be wide enough for notes such as `needs restack, slot-13`. Keep every row one physical line whenever possible.
 
 An optional `Open workspaces not represented in this displayed stack` block is allowed by default because it is still overlay inventory, not an Attention/findings section.
 
@@ -80,7 +84,7 @@ When posting into a Markdown code fence, prefer plain text unless the receiving 
 
 ## Badge semantics
 
-Append badges to the matching Graphite branch row. Keep badges terse and stable.
+Put badges in the `CMUX` column for the matching Graphite branch row. Keep badges terse and stable.
 
 - `●`: cmux active/focused workspace from `tree.active.workspace_ref`.
 - `◎`: caller workspace for this Pi session from `tree.caller.workspace_ref`.
@@ -149,9 +153,9 @@ Use snippets like this only as documentation or one-off session assistance; do n
 3. Inspect each workspace current directory for branch or detached HEAD and dirty state.
 4. Collect structured Graphite topology from relevant stack worktrees.
 5. Join workspace facts by branch name.
-6. Render Graphite tree rows with appended badges.
+6. Render Graphite tree rows as an aligned same-line table with `TOPO | BRANCH | GRAPHITE | CMUX` columns and hard separators.
 7. Render an optional missing-open-workspace block for open branches not represented in the displayed topology.
-8. Do a final self-check that the default output has no `Attention:` section.
+8. Do a final self-check that the default output has no `Attention:` section and that branch names / Graphite notes / cmux badges are not embedded inside the topology column.
 
 ## Optional reference
 
