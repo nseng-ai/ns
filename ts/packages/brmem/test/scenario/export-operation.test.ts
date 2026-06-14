@@ -151,8 +151,16 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }] },
 			});
 			expect(await run.exit).toBe(1);
-			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "No base entries found on branch main.", data: { exported: [], output_dir: outputDir } });
+			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "No base Entries found on Branch main.", data: { exported: [], output_dir: outputDir } });
 			await expect(readFile(outputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+			const namedOutputDir = join(root, "named-empty");
+			const named = runScenario(["export", "--namespace", "scratch", "--output-dir", namedOutputDir, "--format", "json"], {
+				fake: { entries: [{ namespace: "base", branch: "main", key: "base.md", content: "base" }] },
+			});
+			expect(await named.exit).toBe(1);
+			expect(parseJsonOutput(named)).toMatchObject({ exit_code: 1, message: "No Entries found on Branch main in Namespace scratch.", data: { exported: [], output_dir: namedOutputDir } });
+			await expect(readFile(namedOutputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -267,6 +275,24 @@ describe("export operation", () => {
 			});
 			expect(await parentLink.exit).toBe(2);
 			expect(parseJsonOutput(parentLink)).toMatchObject({ error_type: "unsafe_parent_path" });
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects symlink parent hazards before following the symlink target type", async () => {
+		const root = await makeTempDir();
+		try {
+			const outputDir = join(root, "parent-link-to-file");
+			await mkdir(outputDir);
+			const regularTarget = join(root, "regular-target");
+			await writeFile(regularTarget, "file", "utf8");
+			await symlink(regularTarget, join(outputDir, "parent"));
+			const run = runScenario(["export", "--output-dir", outputDir, "--format", "json"], {
+				fake: { entries: [{ namespace: "base", branch: "main", key: "parent/x.md", content: "x" }] },
+			});
+			expect(await run.exit).toBe(2);
+			expect(parseJsonOutput(run)).toMatchObject({ error_type: "unsafe_parent_path" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

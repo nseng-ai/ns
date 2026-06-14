@@ -1,5 +1,4 @@
-import { constants } from "node:fs";
-import { access, lstat, mkdir, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -43,7 +42,6 @@ export type ExportResult = z.infer<typeof exportResultSchema>;
 
 interface PreparedExport {
 	exportedEntry: ExportedEntry;
-	targetPath: string;
 	content: string;
 }
 
@@ -84,11 +82,12 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	if (request.dry_run) return ok(result);
 
 	for (const item of prepared.prepared) {
+		const targetPathValue = item.exportedEntry.path;
 		try {
-			await mkdir(resolve(item.targetPath, ".."), { recursive: true });
-			await writeFile(item.targetPath, item.content, "utf8");
+			await mkdir(resolve(targetPathValue, ".."), { recursive: true });
+			await writeFile(targetPathValue, item.content, "utf8");
 		} catch (error: unknown) {
-			return failure("write_failed", `Failed to write ${item.targetPath}: ${errorMessage(error)}`);
+			return failure("write_failed", `Failed to write ${targetPathValue}: ${errorMessage(error)}`);
 		}
 	}
 	return ok(result);
@@ -142,7 +141,6 @@ function buildPreparedExport(entry: EntryRef, targetPathValue: string, diagnosti
 			ref_name: entry.entryLocator,
 			size_bytes: diagnostic.sizeBytes,
 		},
-		targetPath: targetPathValue,
 		content: content.content,
 	};
 }
@@ -162,9 +160,10 @@ async function preflightExport(outputDir: string, prepared: readonly PreparedExp
 	const outputDirResult = await preflightOutputDir(outputDir);
 	if (outputDirResult.type === "failure") return outputDirResult;
 	for (const item of prepared) {
-		const parents = await preflightParentPaths(outputDir, item.targetPath);
+		const targetPathValue = item.exportedEntry.path;
+		const parents = await preflightParentPaths(outputDir, targetPathValue);
 		if (parents.type === "failure") return parents;
-		const target = await preflightTargetPath(item.targetPath, overwrite);
+		const target = await preflightTargetPath(targetPathValue, overwrite);
 		if (target.type === "failure") return target;
 	}
 	return { type: "ok" };
@@ -175,8 +174,6 @@ async function preflightOutputDir(outputDir: string): Promise<PreflightResult> {
 	if (linkState.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect output directory ${outputDir}: ${linkState.message}`) };
 	if (linkState.type === "missing") return { type: "ok" };
 	if (linkState.isSymlink) {
-		const targetExists = await pathExistsFollowingSymlink(outputDir);
-		if (!targetExists) return { type: "failure", exit: failure("unsafe_output_dir", `Output directory is a broken symlink: ${outputDir}`) };
 		const targetState = await inspectPath(outputDir, { followSymlink: true });
 		if (targetState.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect output directory ${outputDir}: ${targetState.message}`) };
 		if (targetState.type === "missing") return { type: "failure", exit: failure("unsafe_output_dir", `Output directory is a broken symlink: ${outputDir}`) };
@@ -225,16 +222,6 @@ async function inspectPath(pathValue: string, options: { followSymlink: boolean 
 	}
 }
 
-async function pathExistsFollowingSymlink(pathValue: string): Promise<boolean> {
-	try {
-		await access(pathValue, constants.F_OK);
-		return true;
-	} catch (error: unknown) {
-		if (isMissingPathError(error)) return false;
-		return true;
-	}
-}
-
 function resolveOutputDir(outputDir: string | undefined, cwd: string): string {
 	if (outputDir === undefined) return join(tmpdir(), `brmem-export-${randomBytes(8).toString("hex")}`);
 	if (isAbsolute(outputDir)) return outputDir;
@@ -242,8 +229,8 @@ function resolveOutputDir(outputDir: string | undefined, cwd: string): string {
 }
 
 function emptySelectionMessage(namespace: string, branch: string): string {
-	if (namespace === "base") return `No base entries found on branch ${branch}.`;
-	return `No entries found on branch ${branch} in namespace ${namespace}.`;
+	if (namespace === "base") return `No base Entries found on Branch ${branch}.`;
+	return `No Entries found on Branch ${branch} in ${namespaceDisplayLabel(namespace)}.`;
 }
 
 function selectionSummary(namespace: string, count: number): string {
