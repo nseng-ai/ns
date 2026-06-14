@@ -42,10 +42,12 @@ export {
 } from "./objective-selection.ts";
 export {
 	expandSkillBlock,
+	expandSkillBlockFromPath,
 	type ExpandedSkillBlock,
 	type SkillCommandInfo,
 	type SkillExpansionHost,
 	type SkillExpansionOptions,
+	type SkillPathExpansionOptions,
 } from "./skill-expansion.ts";
 export {
 	customMessageText,

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { expandSkillBlock, invokeSkillPromptTurn, type SkillCommandInfo } from "../src/skill-expansion.ts";
+import { expandSkillBlock, expandSkillBlockFromPath, invokeSkillPromptTurn, type SkillCommandInfo } from "../src/skill-expansion.ts";
 
 function host(commands: readonly SkillCommandInfo[]): { getCommands(): readonly SkillCommandInfo[] } {
 	return {
@@ -194,6 +194,44 @@ Do next work.
 
 		expect(expanded?.body).toBe("# Objective Current");
 		expect(expanded?.body).not.toContain("name: objective-current");
+	});
+});
+
+describe("expandSkillBlockFromPath", () => {
+	test("reads a direct skill file path, strips frontmatter, and formats the block", async () => {
+		const expanded = await expandSkillBlockFromPath({
+			skillName: "objective-create",
+			skillPath: "/repo/skills/objective-create/SKILL.md",
+			readTextFile: async (path) => {
+				expect(path).toBe("/repo/skills/objective-create/SKILL.md");
+				return "---\nname: objective-create\n---\n\n# Objective Create\n";
+			},
+		});
+
+		expect(expanded).toEqual({
+			name: "objective-create",
+			commandName: "direct:objective-create",
+			path: "/repo/skills/objective-create/SKILL.md",
+			baseDir: "/repo/skills/objective-create",
+			body: "# Objective Create",
+			block: `<skill name="objective-create" location="/repo/skills/objective-create/SKILL.md">
+References are relative to /repo/skills/objective-create.
+
+# Objective Create
+</skill>`,
+		});
+	});
+
+	test("propagates direct path read errors", async () => {
+		await expect(
+			expandSkillBlockFromPath({
+				skillName: "objective-create",
+				skillPath: "/repo/skills/objective-create/SKILL.md",
+				readTextFile: async () => {
+					throw new Error("cannot read direct skill");
+				},
+			}),
+		).rejects.toThrow("cannot read direct skill");
 	});
 });
 

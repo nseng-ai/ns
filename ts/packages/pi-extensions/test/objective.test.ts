@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -159,7 +159,7 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function createContext(options: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {}): {
+function createContext(options: { cancelSelect?: boolean; cwd?: string; selectIndex?: number; selectIndices?: number[] } = {}): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	selections: Selection[];
@@ -170,7 +170,7 @@ function createContext(options: { cancelSelect?: boolean; selectIndex?: number; 
 	let waits = 0;
 
 	const ctx: CommandContext = {
-		cwd: ROOT,
+		cwd: options.cwd ?? ROOT,
 		hasUI: true,
 		modelRegistry: {
 			find: () => undefined,
@@ -240,6 +240,23 @@ async function withTempSkill<T>(
 		return await callback(skillPath, dir);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
+	}
+}
+
+async function withTempRepoSkill<T>(
+	skillName: string,
+	markdown: string,
+	callback: (repoDir: string, skillPath: string, skillDir: string) => Promise<T>,
+): Promise<T> {
+	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-repo-`));
+	const skillDir = join(repoDir, "skills", skillName);
+	const skillPath = join(skillDir, "SKILL.md");
+	await mkdir(skillDir, { recursive: true });
+	await writeFile(skillPath, markdown, "utf8");
+	try {
+		return await callback(repoDir, skillPath, skillDir);
+	} finally {
+		await rm(repoDir, { recursive: true, force: true });
 	}
 }
 
@@ -314,6 +331,7 @@ async function runObjectiveCommand(
 async function runObjectiveCreate(
 	args: string,
 	commandInfos: CommandInfo[] = [],
+	cwd: string = ROOT,
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -328,7 +346,7 @@ async function runObjectiveCreate(
 		throw new Error("objective:create was not registered");
 	}
 
-	const context = createContext();
+	const context = createContext({ cwd });
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -547,11 +565,9 @@ describe("objective:create command", () => {
 		expect(command?.description).toContain("objective-create");
 	});
 
-	test("expands objective-create skill and preserves initial user request", async () => {
-		await withTempSkill("objective-create", CREATE_SKILL_MARKDOWN, async (skillPath, skillDir) => {
-			const result = await runObjectiveCreate("  create slug alpha for typeahead-friendly Objective creation  ", [
-				skillCommandInfo("objective-create", skillPath, skillDir),
-			]);
+	test("reads objective-create backing skill directly and preserves initial user request", async () => {
+		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath, skillDir) => {
+			const result = await runObjectiveCreate("  create slug alpha for typeahead-friendly Objective creation  ", [], repoDir);
 
 			result.pi.assertDone();
 			expect(result.pi.execCalls).toEqual([]);
@@ -574,19 +590,49 @@ describe("objective:create command", () => {
 		});
 	});
 
-	test("empty args still invokes the objective-create interview", async () => {
-		const result = await runObjectiveCreate("");
+	test("empty args still invokes the objective-create interview from backing skill", async () => {
+		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath) => {
+			const result = await runObjectiveCreate("", [], repoDir);
 
-		result.pi.assertDone();
-		expect(result.pi.execCalls).toEqual([]);
-		expect(result.waitForIdleCalls()).toBe(1);
-		expect(result.pi.sentUserMessages[0]).toContain("The objective-create skill was not found among loaded Pi skills.");
-		expect(result.pi.sentUserMessages[0]).toContain(
-			"No initial Objective creation request was provided. Start the objective-create interview",
-		);
-		expect(result.notifications).toContainEqual({
-			message: "objective-create skill was not found; using fallback prompt.",
-			level: "warning",
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"No initial Objective creation request was provided. Start the objective-create interview",
+			);
+			expect(result.notifications).toContainEqual({
+				message: "Invoking objective-create.",
+				level: "info",
+			});
+		});
+	});
+
+	test("missing objective-create backing skill notifies an error and sends no prompt", async () => {
+		const repoDir = await mkdtemp(join(tmpdir(), "objective-create-missing-repo-"));
+		try {
+			const result = await runObjectiveCreate("create alpha", [], repoDir);
+
+			result.pi.assertDone();
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toEqual([]);
+			expect(result.notifications).toHaveLength(1);
+			expect(result.notifications[0]?.level).toBe("error");
+			expect(result.notifications[0]?.message).toContain("Failed to read objective-create backing skill");
+			expect(result.notifications[0]?.message).toContain(join(repoDir, "skills", "objective-create", "SKILL.md"));
+		} finally {
+			await rm(repoDir, { recursive: true, force: true });
+		}
+	});
+
+	test("objective-create initial request fence grows beyond embedded backticks", async () => {
+		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir) => {
+			const result = await runObjectiveCreate("make `code` and ```nested``` safe", [], repoDir);
+
+			result.pi.assertDone();
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain("````text\nmake `code` and ```nested``` safe\n````");
 		});
 	});
 });
