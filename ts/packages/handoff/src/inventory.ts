@@ -31,7 +31,7 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 	for (const entry of options.entries) {
 		if (!isHandoffKey(entry.key)) continue;
 
-		const state = await branchState(entry.branch, options.git, options.cwd, branchStates);
+		const state = await branchState({ branch: entry.branch, git: options.git, cwd: options.cwd, cache: branchStates });
 		if (typeof state !== "string") return state;
 		if (state === "deleted" && !options.includeDeleted) continue;
 
@@ -58,12 +58,17 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 	return resolved(handoffs.map((item) => item.summary));
 }
 
-async function branchState(
-	branch: string,
-	git: GitGateway,
-	cwd: string,
-	cache: Map<string, BranchState>,
-): Promise<BranchState | ClinkrExit<never>> {
+async function branchState({
+	branch,
+	git,
+	cwd,
+	cache,
+}: {
+	branch: string;
+	git: GitGateway;
+	cwd: string;
+	cache: Map<string, BranchState>;
+}): Promise<BranchState | ClinkrExit<never>> {
 	const existing = cache.get(branch);
 	if (existing !== undefined) return existing;
 	const presence = await git.localBranchPresence({ cwd, branch });

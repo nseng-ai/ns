@@ -43,7 +43,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 			stderr: ctx.stderr,
 			prompt: `Delete handoff \`${request.slug}\` on branch \`${branch.value}\`? [y/N]: `,
 		});
-		if (confirmed === "no") return ok(cancelledResult(request.slug, key.value, branch.value, locator));
+		if (confirmed === "no") return ok(cancelledResult({ slug: request.slug, key: key.value, branch: branch.value, locator }));
 		if (confirmed !== "yes") return confirmed;
 	}
 
@@ -68,7 +68,17 @@ export function renderDelete(result: DeleteResult): string {
 	return [`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`, `Entry Locator: ${result.entry_locator}`, `Commit: ${result.commit}`].join("\n");
 }
 
-function cancelledResult(slug: string, key: string, branch: string, locator: string): DeleteResult {
+function cancelledResult({
+	slug,
+	key,
+	branch,
+	locator,
+}: {
+	slug: string;
+	key: string;
+	branch: string;
+	locator: string;
+}): DeleteResult {
 	return {
 		branch,
 		slug,
