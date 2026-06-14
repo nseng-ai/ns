@@ -1,8 +1,8 @@
 # asdl-dev
 
-`asdl-dev` is a repo-local developer CLI for `asdl-tools` TypeScript workflows.
+`asdl-dev` is a repo-local developer CLI for `asdl-tools` TypeScript workflows that have not yet moved to SDL.
 
-Pi mirrors selected commands from this CLI's command table into domain-specific slash-command namespaces: `/dev:preview-url` through `.pi/extensions/asdl-dev.ts`, plus `/code:submit` and `/code:pr-regen` through `.pi/extensions/code.ts`. Checkpoint creation has moved to native `sdl cp` and `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as an alias. For the promotion pattern, see [Exposing Pi Commands Through `asdl-dev`](../../../docs/pi/exposing-pi-commands-through-asdl-dev.md).
+Pi mirrors selected commands from this CLI's command table into domain-specific slash-command namespaces: `/dev:preview-url` through `.pi/extensions/asdl-dev.ts` and `/code:pr-regen` through `.pi/extensions/code.ts`. Checkpoint creation has moved to `sdl cp` / `/sdl:cp`; submit has moved to `sdl submit` / `/sdl:submit`. For the promotion pattern, see [Exposing Pi Commands Through `asdl-dev`](../../../docs/pi/exposing-pi-commands-through-asdl-dev.md).
 
 ## Command shape
 
@@ -59,29 +59,25 @@ It selects the newest READY preview deployment returned by that query, inspects 
 2. Otherwise use the first inspected alias.
 3. Otherwise use the immutable deployment URL.
 
-## `submit`
+## Submit migration
 
-Checkpoint outstanding worktree changes with the same checkpoint capability as `sdl cp`, submit the current Graphite stack with `gt submit -nps --no-ai --no-interactive`, verify that `gt pr` reports a PR for the current branch, then generate title/body descriptions for PRs newly created by that submit.
+`asdl-dev submit` has been removed. Use:
 
 ```bash
-pnpm --dir ts run asdl-dev submit
-pnpm --dir ts run asdl-dev submit --restack
+sdl submit
+sdl submit --restack
 ```
 
-Before touching Graphite, `submit` inspects the worktree. If there are pending changes, it creates a model-authored `[cp]` checkpoint commit using the same checkpoint model environment variable as `sdl cp`: `SDL_CHECKPOINT_MODEL`, with transitional fallback to `ASDL_DEV_CHECKPOINT_MODEL`. After that, it checks readiness with `gt submit -nps --no-ai --no-interactive --dry-run`. If Graphite says the stack needs a restack, interactive direct CLI and Pi invocations ask before running `gt restack --no-interactive`; non-interactive invocations fail with guidance unless `--restack` is supplied. Pass `--restack` to skip the prompt and run `gt restack --no-interactive` automatically before submitting.
+Pi exposes the same workflow as `/sdl:submit`; `/code:submit` is not retained as a compatibility alias.
 
-### PR descriptions
+## `pr-regen`
 
-Most users hit this behavior through the Pi slash commands: `/code:submit` submits the stack and generates descriptions; `/code:pr-regen` regenerates the current branch's PR. Both wrap the `asdl-dev` commands of the same name, so the rules below apply identically from Pi or the raw CLI.
+`asdl-dev pr-regen` remains here until its own SDL migration decision. It regenerates the current branch PR's title and body with the asdl PR-description prompt, replacing any existing body.
 
-After a successful submit, a title/body is generated for each submitted PR whose body asdl owns. A body is overwritable during submit when it is empty, carries the `asdl-dev pr-description` generated marker, or exactly matches one of the PR's commit message bodies (the prefill `gt submit` writes into every new PR). Anything else is treated as hand-edited and left alone — skipped PRs are listed in the submit output with a pointer to `pr-regen`.
-
-`/code:pr-regen` is explicit regeneration for one PR: it regenerates both title and body, replacing any existing body. Generated bodies always end with the marker, so later submit-time regenerations stay automatic.
+Most users hit this behavior through `/code:pr-regen`.
 
 Generation uses `ASDL_DEV_PR_DESCRIPTION_MODEL` and resolves the system prompt from `ASDL_DEV_PR_DESCRIPTION_PROMPT`, `.asdl/prompts/pr-description.md`, then the built-in prompt.
 
-Edge case for submit: a PR body hand-copied verbatim from a commit message is indistinguishable from gt's prefill and may be overwritten by submit-time generation.
-
 ### Testing architecture
 
-CLI scenario tests call `runCli(...)` with semantic in-memory gateways. Real gateway tests own exact `git`, `gt`, and `vercel` command construction, parsing, and failure mapping.
+CLI scenario tests call `runCli(...)` with semantic in-memory gateways. Real gateway tests own exact `git`, `gh`, and `vercel` command construction, parsing, and failure mapping.

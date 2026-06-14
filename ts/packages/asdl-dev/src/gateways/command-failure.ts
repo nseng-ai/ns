@@ -2,34 +2,26 @@ import { tailText, type ExecResult } from "@asdl/core/exec";
 
 import type { ErrorInfo } from "../result.ts";
 
-const STDERR_DETAIL_LIMIT_CHARS = 1_200;
-
-export interface CommandFailureOptions {
+export function commandFailure(input: {
 	command: string;
 	args: readonly string[];
 	result: ExecResult;
 	code: string;
 	message: string;
-}
-
-export function commandFailure(options: CommandFailureOptions): ErrorInfo | undefined {
-	const { command, args, result, code, message } = options;
-	if (result.code === 0 && !result.killed) {
+}): ErrorInfo | undefined {
+	if (input.result.code === 0 && !input.result.killed) {
 		return undefined;
 	}
-
-	const details: Record<string, unknown> = {
-		command,
-		args: [...args],
-		exit_code: result.code,
+	return {
+		code: input.code,
+		message: input.message,
+		details: {
+			command: input.command,
+			args: [...input.args],
+			exit_code: input.result.code,
+			...(input.result.killed ? { killed: true } : {}),
+			...(input.result.stdout === "" ? {} : { stdout: tailText(input.result.stdout, { maxChars: 4000 }) }),
+			...(input.result.stderr === "" ? {} : { stderr: tailText(input.result.stderr, { maxChars: 4000 }) }),
+		},
 	};
-	if (result.startupError !== undefined) {
-		details.startup_error = result.startupError;
-	}
-	const stderr = tailText(result.stderr.trim(), { maxChars: STDERR_DETAIL_LIMIT_CHARS });
-	if (stderr !== "") {
-		details.stderr = stderr;
-	}
-
-	return { code, message, details };
 }

@@ -249,7 +249,7 @@ describe("code:push", () => {
 		expect(content).toContain("To github.com:repo/project.git");
 	});
 
-	test("nonzero push emits generic code:submit guidance and includes stdout/stderr", async () => {
+	test("nonzero push emits generic sdl:submit guidance and includes stdout/stderr", async () => {
 		const pi = new FakePi([
 			step("git", ["status", "--porcelain"]),
 			step("git", ["push"], { code: 1, stdout: "rejected update\n", stderr: "non-fast-forward\n" }),
@@ -260,9 +260,9 @@ describe("code:push", () => {
 		await command.handler("", ctx);
 
 		pi.assertDone();
-		expect(notifications).toEqual([{ message: "`git push` failed; use `/code:submit`.", level: "error" }]);
+		expect(notifications).toEqual([{ message: "`git push` failed; use `/sdl:submit`.", level: "error" }]);
 		const content = messageText(pi.sentMessages[0]);
-		expect(content).toContain("The branch is likely out of sync or needs the Graphite submit flow. Use `/code:submit`.");
+		expect(content).toContain("The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.");
 		expect(content).toContain("stdout:\nrejected update");
 		expect(content).toContain("stderr:\nnon-fast-forward");
 	});
@@ -275,7 +275,7 @@ describe("code:push", () => {
 		await command.handler("", ctx);
 
 		pi.assertDone();
-		expect(notifications).toEqual([{ message: "`git push` failed; use `/code:submit`.", level: "error" }]);
+		expect(notifications).toEqual([{ message: "`git push` failed; use `/sdl:submit`.", level: "error" }]);
 		expect(messageText(pi.sentMessages[0])).toContain("Killed: true");
 	});
 

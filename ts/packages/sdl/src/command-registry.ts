@@ -39,6 +39,8 @@ Environment:
 const sdlCommandSchema = z.object({
 	name: z.string(),
 	description: z.string(),
+	schema: z.custom<SdlCommand["schema"]>((value) => value instanceof z.ZodObject).optional(),
+	positionals: z.custom<SdlCommand["positionals"]>((value) => typeof value === "object" && value !== null && !Array.isArray(value)).optional(),
 	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
 });
 
@@ -139,12 +141,15 @@ export async function runSdlCommand(ctx: SdlContext, commandName: string): Promi
 	if (!loaded.ok) {
 		return failed(loaded.message, 2);
 	}
+	return executeSdlCommand(ctx, loaded.command, {});
+}
 
+export async function executeSdlCommand(ctx: SdlContext, command: SdlCommand, request: unknown): Promise<SdlResult> {
 	try {
-		const result = await loaded.command.run(ctx, {});
-		return validateSdlResult(result, loaded.command.name);
+		const result = await command.run(ctx, request as Record<string, unknown>);
+		return validateSdlResult(result, command.name);
 	} catch (error) {
-		return failed(`Command ${commandName} failed.
+		return failed(`Command ${command.name} failed.
 ${formatUnknownError(error)}`, 2);
 	}
 }

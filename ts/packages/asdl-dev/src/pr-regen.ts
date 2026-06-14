@@ -1,8 +1,6 @@
 import type { GitGateway } from "@asdl/core/git";
+import { applyGeneratedDescription, decidePrBodyOverwrite, type GithubPrGateway, type PromptSource } from "@asdl/core/submit";
 
-import type { GithubPrGateway } from "./gateways/github-pr.ts";
-import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
-import type { PromptSource } from "./pr-description.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface RunPrRegenCommandOptions {

@@ -1,15 +1,15 @@
 ---
-name: code-submit
-description: "Command: code-submit"
+name: sdl-submit
+description: "Command: sdl-submit"
 allowed-tools:
-  - "Bash(asdl-dev submit*)"
+  - "Bash(sdl submit*)"
 metadata:
   internal: true
 ---
 
-# code-submit
+# sdl-submit
 
-Submit or update the current Graphite stack by delegating to the shared `asdl-dev submit` CLI. This is the cross-harness path for `/code:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
+Submit or update the current Graphite stack by delegating to the repo-local `sdl submit` command. This is the cross-harness path for `/sdl:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
 ## When to use
 
@@ -17,20 +17,20 @@ Use only when the user explicitly asks to submit or update the current Graphite 
 
 ## Workflow
 
-Run:
+Run from the repository root:
 
 ```bash
-asdl-dev submit
+sdl submit
 ```
 
 The CLI owns the orchestration:
 
-- if the worktree is dirty, first creates a checkpoint with `asdl-dev cp`;
+- if the worktree is dirty, first creates a checkpoint with `sdl cp`;
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
-- generates title/body descriptions for submitted PRs whose bodies are empty, carry the asdl generated-body marker, or exactly match a commit message body (the prefill `gt submit` writes into every new PR);
-- lists PRs whose bodies look hand-edited as skipped in the success output, with a pointer to `asdl-dev pr-regen`;
+- generates title/body descriptions for submitted PRs whose bodies are empty, carry the asdl generated-body marker, or exactly match a commit message body;
+- lists PRs whose bodies look hand-edited as skipped, with a pointer to `asdl-dev pr-regen`;
 - reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures.
 
 If the CLI says a restack is required:
@@ -39,13 +39,13 @@ If the CLI says a restack is required:
 - in a non-interactive/headless invocation, rerun only with explicit user approval:
 
 ```bash
-asdl-dev submit --restack
+sdl submit --restack
 ```
 
-Automatic checkpointing uses the same environment as `asdl-dev cp`:
+Automatic checkpointing uses SDL checkpoint environment variables:
 
-- `ASDL_DEV_TEXT_BACKEND` defaults to `pi`;
-- `ASDL_DEV_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`.
+- `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `ASDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
 
 PR description generation uses:
 
@@ -59,7 +59,7 @@ To regenerate the current branch PR explicitly, run:
 asdl-dev pr-regen
 ```
 
-`submit` overwrites a PR body only when it is empty, carries the asdl generated-body marker, or exactly matches one of the PR's commit message bodies (gt's prefill for new PRs). Anything else is treated as hand-edited: `submit` skips it and reports the skip. Explicit `asdl-dev pr-regen` regenerates both the title and body for the current branch PR, replacing any existing body.
+`submit` overwrites a PR body only when it is empty, carries the asdl generated-body marker, or exactly matches one of the PR's commit message bodies. Anything else is treated as hand-edited: `submit` skips it and reports the skip. Explicit `asdl-dev pr-regen` regenerates both the title and body for the current branch PR, replacing any existing body.
 
 ## Failure handling
 
@@ -69,4 +69,4 @@ Surface CLI output directly. Do not bypass the checkpoint failure, restack guida
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It only edits PR titles/bodies through `asdl-dev submit` when the body is empty, marker-bearing, or commit-message prefill, or through explicit `asdl-dev pr-regen`.
+- It only edits PR titles/bodies through `sdl submit` when the body is empty, marker-bearing, or commit-message prefill, or through explicit `asdl-dev pr-regen`.

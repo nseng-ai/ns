@@ -72,7 +72,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"code-gt-restack-resolve",
 	"code-just-fix",
 	"code-resolve-merge-conflicts",
-	"code-submit",
 	"code-workflows",
 	"context-bundle-analysis",
 	"create-bun-typescript-project",
@@ -100,6 +99,7 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"setup-graphite",
 	"setup-pypi-publish",
 	"setup-python-gh-ci",
+	"sdl-submit",
 	"skill-audit",
 	"skill-management",
 	"stack-address",
@@ -123,7 +123,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"code-autobranch": "code:autobranch",
 	"code-checkpoint": "code:checkpoint",
 	"code-just-fix": "code:just-fix",
-	"code-submit": "code:submit",
+	"sdl-submit": "sdl:submit",
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 

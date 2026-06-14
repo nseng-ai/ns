@@ -49,9 +49,6 @@ Options:
 
 Commands:
   preview-url [options]  Print the Vercel preview URL for a branch.
-  submit [options]       Checkpoint outstanding changes, then submit the current
-                         Graphite stack with gt submit -nps --no-ai
-                         --no-interactive.
   pr-regen [options]     Regenerate the current branch PR's title and
                          description with the asdl PR-description prompt.
 `;
@@ -60,10 +57,6 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 	test("command metadata comes from the flat command table", () => {
 		expect(listAsdlDevCommands()).toEqual([
 			{ name: "preview-url", description: "Print the Vercel preview URL for a branch." },
-			{
-				name: "submit",
-				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-			},
 			{
 				name: "pr-regen",
 				description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
@@ -79,7 +72,7 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(help).toContain("--runtime");
 		expect(help).toContain("preview-url");
 		expect(help).not.toContain("cp [options]");
-		expect(help).toContain("submit");
+		expect(help).not.toContain("submit [options]");
 		expect(help).toContain("display help for command");
 		expect(help).not.toContain("latest-branch-deployment");
 		expect(run.stderr.join("")).toBe("");
@@ -110,19 +103,12 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 		expect(help).toContain("-h, --help");
 	});
 
-	test("command help documents submit behavior", async () => {
-		const run = runWithFakes(["submit", "--help"]);
+	test("retired submit command is no longer available from asdl-dev", async () => {
+		const run = runWithFakes(["submit"]);
 
-		expect(await run.exit).toBe(0);
-		const help = run.stdout.join("");
-		expect(help).toContain("Usage: asdl-dev submit");
-		expect(help).toContain("Checkpoint outstanding worktree changes");
-		expect(help).toContain("gt submit -nps --no-ai");
-		expect(help).toContain("--no-interactive");
-		expect(help).toContain("SDL_CHECKPOINT_MODEL");
-		expect(help).toContain("ASDL_DEV_CHECKPOINT_MODEL");
-		expect(help).toContain("--restack");
-		expect(help).toContain("-h, --help");
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("error: unknown command 'submit'");
+		expect(run.stdout.join("")).toBe("");
 	});
 
 	test("unknown command exits 2 with error message", async () => {

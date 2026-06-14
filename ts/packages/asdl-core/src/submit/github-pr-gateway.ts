@@ -2,10 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runCommand, type CommandRunner, type ExecResult } from "@asdl/core/exec";
-import { isRecord } from "@asdl/core/primitives";
+import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
+import { isRecord } from "../primitives.ts";
 
-import { err, ok, type GatewayResult } from "../result.ts";
+import { err, ok, type GatewayResult } from "./result.ts";
 import { commandFailure } from "./command-failure.ts";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";

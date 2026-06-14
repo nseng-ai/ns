@@ -229,14 +229,25 @@ describe("sdl project command discovery", () => {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("project-local cp help uses project command metadata without module import", async () => {
-		const cwd = await createOverrideProject("throw new Error('help should not import this module');\n");
+	test("project-local cp help loads only the selected command metadata and schema", async () => {
+		const cwd = await createOverrideProject(`
+import { defineCommand, ok } from "@asdl/sdl/sdk";
+import { z } from "zod";
+
+export default defineCommand({
+	name: "cp",
+	description: "Project cp override with options.",
+	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the override.") }),
+	run() { return ok("unused"); },
+});
+`);
 		const run = runWithFakes(["cp", "--help"], { exec: [] }, { cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: sdl cp");
-		expect(help).toContain("Run project-specific SDL command 'cp'.");
+		expect(help).toContain("Project cp override with options.");
+		expect(help).toContain("--dryRun");
 		expect(help).not.toContain("model-authored");
 		expect(help).not.toContain("SDL_CHECKPOINT_MODEL");
 		expect(help).not.toContain("ASDL_DEV_CHECKPOINT_MODEL");
@@ -266,6 +277,38 @@ export default defineCommand({
 		expect(run.stdout.join("")).toBe("hello\n");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls.map(formatExecCall)).toEqual(["echo hello"]);
+	});
+
+	test("selected project command help schema and invocation use the loaded request schema", async () => {
+		const cwd = await createCommandProject(
+			"hello.ts",
+			`
+import { defineCommand, ok } from "@asdl/sdl/sdk";
+import { z } from "zod";
+
+export default defineCommand({
+	name: "hello",
+	description: "Say hello with options.",
+	schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
+	run(_ctx, request) {
+		return ok(request.loud ? "HELLO" : "hello");
+	},
+});
+`,
+		);
+
+		const helpRun = runWithFakes(["hello", "--help"], { exec: [] }, { cwd });
+		expect(await helpRun.exit).toBe(0);
+		expect(helpRun.stdout.join("")).toContain("--loud");
+
+		const schemaRun = runWithFakes(["hello", "--json-schema"], { exec: [] }, { cwd });
+		expect(await schemaRun.exit).toBe(0);
+		expect(parseJsonOutput(schemaRun)).toHaveProperty("input_json_schema");
+
+		const invokeRun = runWithFakes(["hello", "--loud"], { exec: [] }, { cwd });
+		expect(await invokeRun.exit).toBe(0);
+		expect(invokeRun.stdout.join("")).toBe("HELLO\n");
+		expect(invokeRun.context.execCalls).toEqual([]);
 	});
 
 	test("project-only command load failure occurs only on invocation", async () => {

@@ -388,7 +388,7 @@ describe("CCC cmux command suite", () => {
 		pi.assertDone();
 		const promptText = await readFile(stagedPromptFile, "utf8");
 		expect(promptText).toContain("Implement the cmux dispatch flow");
-		expect(promptText).toContain("!asdl-dev submit");
+		expect(promptText).toContain("!sdl submit");
 		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
 		expect(notificationMessages(ctx).join("\n")).toContain(`${DISPATCH_PROMPT_NAMESPACE}/${DISPATCH_PROMPT_KEY}`);
 		expect(launchCommand).not.toContain("@");

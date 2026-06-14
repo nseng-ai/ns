@@ -80,15 +80,19 @@ afterEach(() => {
 });
 
 describe("sdl Pi extension", () => {
-	test("exposes checkpoint command under the sdl namespace only", () => {
+	test("exposes SDL commands under the sdl namespace only", () => {
 		const pi = new FakePi();
 
 		sdlExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:cp"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:cp", "sdl:submit"]);
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("dev:cp")).toBe(false);
+		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("sdl:cp")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
+		expect(pi.commands.get("sdl:submit")?.description).toBe(
+			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+		);
 	});
 
 	test("runs the shared cp command-module runner", async () => {

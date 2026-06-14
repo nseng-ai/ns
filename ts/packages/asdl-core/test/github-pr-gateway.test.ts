@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@asdl/core/exec";
-import { RealGithubPrGateway } from "../../src/gateways/github-pr.ts";
-import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
+import { RealGithubPrGateway } from "@asdl/core/submit";
+import { ScriptedCommandRunner, step } from "../../asdl-dev/test/support/scripted-command-runner.ts";
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {

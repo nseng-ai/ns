@@ -5,6 +5,11 @@ import { definePiSurfaceParity } from "./parity.ts";
 
 const SDL_COMMAND_NAMES = ["cp"] as const;
 
+const SDL_SUBMIT_COMMAND = {
+	name: "submit",
+	description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+} as const satisfies SdlCommandInfo;
+
 export const sdlExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
@@ -18,13 +23,25 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes: "Pi command is registered through registerCliCommandExtension and delegates to the shared SDL cp command-module runner.",
 	},
+	{
+		kind: "command",
+		surface: "sdl:submit",
+		workflow: "Checkpoint outstanding changes, then submit the current Graphite stack",
+		parity: "FULL",
+		cli: "sdl submit",
+		skill: "sdl-submit",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Pi command delegates to the repo-local SDL submit command module at invocation cwd.",
+	},
 ] as const);
 
 export default function sdlExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "sdl",
 		piNamespace: "sdl",
-		commands: selectSdlCommands(SDL_COMMAND_NAMES),
+		commands: [...selectSdlCommands(SDL_COMMAND_NAMES), SDL_SUBMIT_COMMAND],
 		runCli,
 	});
 }

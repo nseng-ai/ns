@@ -12,9 +12,13 @@
     "./git": "./src/git/index.ts",
     "./git/testing": "./src/git/testing.ts",
     "./brmem-cli": "./src/brmem-cli.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./submit": "./src/submit/index.ts",
+    "./text-repair": "./src/text-repair.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/asdl-core/test"

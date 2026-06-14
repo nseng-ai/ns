@@ -5,11 +5,7 @@
   "exports": {
     "./cli": "./src/cli.ts",
     "./context": "./src/context.ts",
-    "./submit-cli-command": "./src/submit-cli-command.ts",
     "./text-generation": "./src/text-generation.ts"
-  },
-  "asdl": {
-    "internalMigrationExports": ["./submit-cli-command"]
   },
   "bin": {
     "asdl-dev": "./src/cli.ts"

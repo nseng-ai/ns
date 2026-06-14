@@ -2,16 +2,16 @@ import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git
 
 import type { CheckpointGateway } from "@asdl/sdl/checkpoint";
 import type { AsdlDevContext } from "asdl-dev/context";
-import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "../../src/gateways/github-pr.ts";
+import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "@asdl/core/submit";
 import type { ProjectConfigReadResult, VercelProjectConfigStore } from "../../src/gateways/project-config.ts";
 import type { DeploymentCandidate, InspectedDeployment, VercelDeploymentGateway } from "../../src/gateways/vercel.ts";
 import type {
 	SubmitMetadataGateway,
 	SubmitStackBranch,
 	SubmitStackInspection,
-} from "../../src/submit-pr-metadata-prewrite.ts";
+} from "@asdl/core/submit";
 import type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult } from "@asdl/sdl/pending-worktree";
-import { err, ok, type ErrorInfo, type GatewayResult } from "../../src/result.ts";
+import { err, ok, type ErrorInfo, type GatewayResult } from "@asdl/core/submit";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -20,7 +20,7 @@ import type {
 	SubmitPreflightResult,
 	SubmitRestackResult,
 	SubmitRunResult,
-} from "../../src/submit.ts";
+} from "@asdl/core/submit";
 import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "asdl-dev/text-generation";
 
 export { InMemoryGitGateway };
@@ -528,7 +528,7 @@ export function inMemoryContext(state: InMemoryContextState = {}): {
 	const githubPr = new InMemoryGithubPrGateway(state.githubPr);
 	const textGeneration = new InMemoryTextGenerationGateway(state.textGeneration);
 	return {
-		context: { git, vercel, projectConfig, checkpoint, submit, submitMetadata, githubPr, textGeneration },
+		context: { git, vercel, projectConfig, githubPr, textGeneration },
 		git,
 		vercel,
 		projectConfig,

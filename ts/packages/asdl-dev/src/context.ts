@@ -1,22 +1,16 @@
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { RealGithubPrGateway, type GithubPrGateway } from "@asdl/core/submit";
 
-import { RealCheckpointGateway, type CheckpointGateway } from "@asdl/sdl/checkpoint";
 import { createTextGenerationGateway } from "@asdl/sdl/context";
-import { RealGithubPrGateway, type GithubPrGateway } from "./gateways/github-pr.ts";
 import { RealVercelProjectConfigStore, type VercelProjectConfigStore } from "./gateways/project-config.ts";
 import { RealVercelDeploymentGateway, type VercelDeploymentGateway } from "./gateways/vercel.ts";
-import { RealSubmitMetadataGateway, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
-import { RealSubmitGateway, type SubmitGateway } from "./submit.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export interface AsdlDevContext {
 	git: GitGateway;
 	vercel: VercelDeploymentGateway;
 	projectConfig: VercelProjectConfigStore;
-	checkpoint: CheckpointGateway;
-	submit: SubmitGateway;
-	submitMetadata: SubmitMetadataGateway;
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
 }
@@ -26,9 +20,6 @@ export function createRealAsdlDevContext(): AsdlDevContext {
 		git: new RealGitGateway(new NodeCommandExecApi()),
 		vercel: new RealVercelDeploymentGateway(),
 		projectConfig: new RealVercelProjectConfigStore(),
-		checkpoint: new RealCheckpointGateway(),
-		submit: new RealSubmitGateway(),
-		submitMetadata: new RealSubmitMetadataGateway(),
 		githubPr: new RealGithubPrGateway(),
 		textGeneration: createTextGenerationGateway(),
 	};

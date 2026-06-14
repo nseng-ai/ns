@@ -44,7 +44,6 @@ describe("code extension registration", () => {
 
 		expect([...pi.commands.keys()]).toEqual([
 			"code:changes",
-			"code:submit",
 			"code:pr-regen",
 			"code:push",
 			"code:autobranch",
@@ -70,9 +69,7 @@ describe("code extension registration", () => {
 		}
 		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
 		expect(pi.commands.has("code:cp")).toBe(false);
-		expect(pi.commands.get("code:submit")?.description).toBe(
-			"asdl-dev submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
-		);
+		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("code:pr-regen")?.description).toBe(
 			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
@@ -97,14 +94,13 @@ describe("code extension registration", () => {
 		asdlDevExtension(pi);
 
 		expect(pi.commandNames.filter((name) => name === "code:cp")).toEqual([]);
-		expect(pi.commandNames.filter((name) => name === "code:submit")).toEqual(["code:submit"]);
+		expect(pi.commandNames.filter((name) => name === "code:submit")).toEqual([]);
 		expect(pi.commandNames.filter((name) => name === "code:pr-regen")).toEqual(["code:pr-regen"]);
 		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual([]);
 		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual([]);
 		expect(pi.commandNames.filter((name) => name === "dev:pr-regen")).toEqual([]);
 		expect(pi.commandNames).toEqual([
 			"code:changes",
-			"code:submit",
 			"code:pr-regen",
 			"code:push",
 			"code:autobranch",

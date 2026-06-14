@@ -1,8 +1,8 @@
-import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
+import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "../exec.ts";
+import type { GitGateway } from "../git/index.ts";
 
-import { commandFailure } from "./gateways/command-failure.ts";
-import type { PrCommitMessage } from "./gateways/github-pr.ts";
+import { commandFailure } from "./command-failure.ts";
+import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import { preparePrDescription, resolvePrDescriptionGeneration, type PromptSource } from "./pr-description.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
