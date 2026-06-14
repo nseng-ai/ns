@@ -9,7 +9,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import ReviewFinding
+from roaster.models import ReviewBudgetFacts, ReviewFinding
+from roaster.review_budget import OVERSIZED_REVIEW_NEXT_STEP
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -55,6 +56,7 @@ class FindingsPayload:
     findings: tuple[ReviewFinding, ...]
     error_type: str | None = None
     error_message: str | None = None
+    budget: ReviewBudgetFacts | None = None
 
     @property
     def is_error(self) -> bool:
@@ -101,14 +103,7 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     exit_code = data.get("exit_code")
     if exit_code != 0:
-        return FindingsPayload(
-            review_name="unknown",
-            base_ref="unknown",
-            count=0,
-            findings=(),
-            error_type=_coerce_str(data.get("error_type"), default="unknown"),
-            error_message=_coerce_str(data.get("message"), default=""),
-        )
+        return _parse_nonzero_findings_payload(data)
 
     inner = data.get("data")
     if not isinstance(inner, dict):
@@ -271,6 +266,32 @@ def _render_inline_posting_status(status: InlinePostingStatus) -> list[str]:
 
 
 def _render_error_body(payload: FindingsPayload) -> list[str]:
+    if payload.error_type == "review_budget_exceeded":
+        lines = [
+            f"**Review not run** against base `{payload.base_ref}` because the PR exceeds "
+            "the roaster review budget. ❌",
+            "",
+            f"- **Error type:** `{payload.error_type}`",
+            f"- **Message:** {payload.error_message or '(none)'}",
+        ]
+        if payload.budget is not None:
+            lines.append(
+                f"- **Changed paths:** {payload.budget.changed_path_count} "
+                f"(limit: {payload.budget.max_changed_paths})"
+            )
+            lines.append(
+                f"- **Estimated full diff tokens:** {payload.budget.diff_token_estimate} "
+                f"(limit: {payload.budget.max_diff_tokens})"
+            )
+            if payload.budget.oversized_file_paths:
+                paths = ", ".join(f"`{path}`" for path in payload.budget.oversized_file_paths)
+                lines.append(
+                    f"- **Files over per-file token limit:** {paths} "
+                    f"(limit: {payload.budget.max_file_diff_tokens})"
+                )
+        lines.append(f"- **Next step:** {OVERSIZED_REVIEW_NEXT_STEP}")
+        return lines
+
     return [
         f"**Roaster failed** against base `{payload.base_ref}`. ⚠️",
         "",
@@ -329,6 +350,79 @@ def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
+
+
+def _coerce_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def _parse_budget_facts(data: dict[str, Any]) -> ReviewBudgetFacts | None:
+    raw_budget = data.get("budget")
+    if isinstance(raw_budget, dict):
+        return _parse_budget_facts_object(raw_budget)
+
+    if "changed_path_count" in data:
+        return _parse_budget_facts_object(data)
+    return None
+
+
+def _parse_budget_facts_object(data: dict[str, Any]) -> ReviewBudgetFacts | None:
+    changed_path_count = _coerce_int(data.get("changed_path_count"))
+    diff_token_estimate = _coerce_int(data.get("diff_token_estimate"))
+    max_changed_paths = _coerce_int(data.get("max_changed_paths"))
+    max_diff_tokens = _coerce_int(data.get("max_diff_tokens"))
+    max_file_diff_tokens = _coerce_int(data.get("max_file_diff_tokens"))
+    if (
+        changed_path_count is None
+        or diff_token_estimate is None
+        or max_changed_paths is None
+        or max_diff_tokens is None
+        or max_file_diff_tokens is None
+    ):
+        return None
+
+    oversized_file_paths = data.get("oversized_file_paths", [])
+    if not isinstance(oversized_file_paths, list):
+        oversized_file_paths = []
+    return ReviewBudgetFacts(
+        changed_path_count=changed_path_count,
+        diff_token_estimate=diff_token_estimate,
+        max_changed_paths=max_changed_paths,
+        max_diff_tokens=max_diff_tokens,
+        max_file_diff_tokens=max_file_diff_tokens,
+        oversized_file_paths=tuple(path for path in oversized_file_paths if isinstance(path, str)),
+    )
+
+
+def _parse_nonzero_findings_payload(data: dict[str, Any]) -> FindingsPayload:
+    inner = data.get("data")
+    if isinstance(inner, dict):
+        return FindingsPayload(
+            review_name=_coerce_str(inner.get("review_name"), default="unknown"),
+            base_ref=_coerce_str(inner.get("base_ref"), default="unknown"),
+            count=0,
+            findings=(),
+            error_type=_coerce_str(
+                inner.get("error_type") or data.get("error_type"),
+                default="unknown",
+            ),
+            error_message=_coerce_str(
+                inner.get("message") or data.get("message"),
+                default="",
+            ),
+            budget=_parse_budget_facts(inner),
+        )
+
+    return FindingsPayload(
+        review_name="unknown",
+        base_ref="unknown",
+        count=0,
+        findings=(),
+        error_type=_coerce_str(data.get("error_type"), default="unknown"),
+        error_message=_coerce_str(data.get("message"), default=""),
+    )
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:
