@@ -318,7 +318,7 @@ function buildGraphBranchTree(
 		.map((child) => buildGraphBranchTree(child.name, options));
 	return {
 		name: branchName,
-		graphiteNote: graphiteNoteForBranch(branch, options.current, options.trunk),
+		graphiteNote: graphiteNoteForBranch({ branch, current: options.current, trunk: options.trunk }),
 		slots: slotsForBranch(branchName, options.slotsByBranch),
 		children,
 	};
@@ -331,15 +331,15 @@ function leafBranchNode(
 ): StackMapBranchNode {
 	return {
 		name: branch.name,
-		graphiteNote: graphiteNoteForBranch(branch, stack.current, stack.trunk),
+		graphiteNote: graphiteNoteForBranch({ branch, current: stack.current, trunk: stack.trunk }),
 		slots: slotsForBranch(branch.name, slotsByBranch),
 	};
 }
 
-function graphiteNoteForBranch(branch: StackMapGraphBranch, current: string, trunk: string): string | undefined {
-	if (branch.name === trunk) return "repo";
-	if (branch.name === current) return "current";
-	if (branch.needsRestack) return "needs restack";
+function graphiteNoteForBranch(options: { readonly branch: StackMapGraphBranch; readonly current: string; readonly trunk: string }): string | undefined {
+	if (options.branch.name === options.trunk) return "repo";
+	if (options.branch.name === options.current) return "current";
+	if (options.branch.needsRestack) return "needs restack";
 	return undefined;
 }
 
