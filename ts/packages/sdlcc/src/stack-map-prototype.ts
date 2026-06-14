@@ -87,7 +87,7 @@ export type StackMapCmuxActivationPlan =
 export interface StackMapVisibleRow {
 	readonly branch: StackMapBranchNode;
 	readonly topo: string;
-	readonly depth: number;
+	readonly laneIndex: number;
 	readonly isCurrent: boolean;
 	readonly isSelected: boolean;
 	readonly branchLabel: string;
@@ -95,10 +95,11 @@ export interface StackMapVisibleRow {
 	readonly cmuxLabel: string;
 }
 
-interface FlatBranchRow {
+interface GtLsTopologyRow {
 	readonly branch: StackMapBranchNode;
-	readonly topoPrefix: string;
-	readonly depth: number;
+	readonly topo: string;
+	readonly laneIndex: number;
+	readonly isTrunkJoin: boolean;
 }
 
 interface StackMapTableWidths {
@@ -226,19 +227,15 @@ export function reduceStackMapPrototypeState(
 }
 
 export function buildVisibleStackMapRows(model: StackMapPrototypeModel, state: StackMapPrototypeState): readonly StackMapVisibleRow[] {
-	const rows = flattenBranchRows(model.trunk, [], 0);
-	const visibleRows = rows.filter((row) => state.filter === "all" || hasCmuxEvidence(row.branch));
-
-	return visibleRows.map((row) => {
+	return buildGtLsTopologyRows(model, state.filter).map((row) => {
 		const isCurrent = row.branch.name === model.currentBranch;
-		const marker = isCurrent ? "◉" : "○";
 		const branchLabel = isCurrent ? `${row.branch.name} ← current` : row.branch.name;
 		const graphiteLabel = row.branch.graphiteNote ?? "";
 		const cmuxLabel = formatCmuxColumn(row.branch);
 		return {
 			branch: row.branch,
-			topo: `${row.topoPrefix}${marker}`,
-			depth: row.depth,
+			topo: row.topo,
+			laneIndex: row.laneIndex,
 			isCurrent,
 			isSelected: row.branch.name === state.selectedBranch,
 			branchLabel,
@@ -258,12 +255,12 @@ export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, stat
 	lines.push(model.title);
 	if (state.showQuestion) lines.push(model.question);
 	lines.push("");
-	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)} │ ${formatStackMapTableHeader(tableWidths)}`);
-	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}─┼─${formatStackMapTableRule(tableWidths)}`);
+	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${formatStackMapTableHeader(tableWidths)}`);
+	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}──${formatStackMapTableRule(tableWidths)}`);
 
 	for (const row of rows) {
 		const cursor = row.isSelected ? "› " : "  ";
-		lines.push(`${cursor}${row.topo.padEnd(topoWidth)} │ ${formatStackMapTableRow(row, tableWidths)}`);
+		lines.push(`${cursor}${row.topo.padEnd(topoWidth)}  ${formatStackMapTableRow(row, tableWidths)}`);
 	}
 
 	lines.push("");
@@ -407,35 +404,50 @@ function keepSelectedVisible(model: StackMapPrototypeModel, state: StackMapProto
 	};
 }
 
-function flattenBranchRows(
-	branch: StackMapBranchNode,
-	ancestorLastFlags: readonly boolean[],
-	depth: number,
-	isLastSibling = true,
-): readonly FlatBranchRow[] {
-	const topoPrefix = buildTopoPrefix(ancestorLastFlags, depth, isLastSibling);
-	const rows: FlatBranchRow[] = [{ branch, topoPrefix, depth }];
-	const children = branch.children ?? [];
-
-	children.forEach((child, index) => {
-		const isLast = index === children.length - 1;
-		rows.push(...flattenBranchRows(child, [...ancestorLastFlags, isLastSibling], depth + 1, isLast));
-	});
-
+function buildGtLsTopologyRows(model: StackMapPrototypeModel, filter: StackMapBranchFilter): readonly GtLsTopologyRow[] {
+	const lanes = sortBranchesByName(model.trunk.children ?? []).filter((branch) => filter === "all" || hasCmuxEvidenceInSubtree(branch));
+	const rows: GtLsTopologyRow[] = [];
+	lanes.forEach((branch, laneIndex) => rows.push(...buildLaneRows(branch, laneIndex, model.currentBranch)));
+	rows.push({ branch: model.trunk, topo: trunkTopo(model.trunk, model.currentBranch, lanes.length), laneIndex: lanes.length, isTrunkJoin: lanes.length > 0 });
 	return rows;
 }
 
-function collectStackMapBranches(root: StackMapBranchNode): readonly StackMapBranchNode[] {
-	const rows = flattenBranchRows(root, [], 0);
-	return rows.map((row) => row.branch);
+function buildLaneRows(branch: StackMapBranchNode, laneIndex: number, currentBranch: string): readonly GtLsTopologyRow[] {
+	const rows: GtLsTopologyRow[] = [];
+	for (const child of sortBranchesByName(branch.children ?? [])) rows.push(...buildLaneRows(child, laneIndex, currentBranch));
+	rows.push({ branch, topo: `${"│ ".repeat(laneIndex)}${branchMarker(branch, currentBranch)}`, laneIndex, isTrunkJoin: false });
+	return rows;
 }
 
-function buildTopoPrefix(ancestorLastFlags: readonly boolean[], depth: number, isLastSibling: boolean): string {
-	if (depth === 0) return "";
+function trunkTopo(trunk: StackMapBranchNode, currentBranch: string, laneCount: number): string {
+	const marker = branchMarker(trunk, currentBranch);
+	if (laneCount === 0) return marker;
+	return `${marker}${"─┴".repeat(Math.max(laneCount - 1, 0))}`;
+}
 
-	const parentGuides = ancestorLastFlags.slice(1).map((isLast) => (isLast ? "  " : "│ ")).join("");
-	const connector = isLastSibling ? "└─" : "├─";
-	return `${parentGuides}${connector}`;
+function branchMarker(branch: StackMapBranchNode, currentBranch: string): string {
+	return branch.name === currentBranch ? "◉" : "◯";
+}
+
+function sortBranchesByName(branches: readonly StackMapBranchNode[]): readonly StackMapBranchNode[] {
+	return [...branches].sort((left, right) => compareBranchNames(left.name, right.name));
+}
+
+function compareBranchNames(left: string, right: string): number {
+	if (left < right) return -1;
+	if (left > right) return 1;
+	return 0;
+}
+
+function collectStackMapBranches(root: StackMapBranchNode): readonly StackMapBranchNode[] {
+	const branches: StackMapBranchNode[] = [];
+	collectBranchPostOrder(root, branches);
+	return branches;
+}
+
+function collectBranchPostOrder(branch: StackMapBranchNode, branches: StackMapBranchNode[]): void {
+	for (const child of branch.children ?? []) collectBranchPostOrder(child, branches);
+	branches.push(branch);
 }
 
 function formatCmuxColumn(branch: StackMapBranchNode): string {
@@ -514,6 +526,10 @@ function cmuxActionHint(branch: StackMapBranchNode): string {
 
 function hasCmuxEvidence(branch: StackMapBranchNode): boolean {
 	return (branch.slots?.length ?? 0) > 0 || (branch.cmuxTabs?.length ?? 0) > 0;
+}
+
+function hasCmuxEvidenceInSubtree(branch: StackMapBranchNode): boolean {
+	return hasCmuxEvidence(branch) || (branch.children ?? []).some((child) => hasCmuxEvidenceInSubtree(child));
 }
 
 function normalizedPath(path: string | undefined): string | undefined {
