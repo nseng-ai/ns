@@ -277,7 +277,7 @@ function buildStackMapTableWidths(rows: readonly StackMapVisibleRow[]): StackMap
 }
 
 function formatStackMapTableHeader(widths: StackMapTableWidths): string {
-	return formatStackMapTableCells("BRANCH", "GT", "CMUX", widths);
+	return formatStackMapTableCells({ branch: "BRANCH", graphite: "GT", cmux: "CMUX", widths });
 }
 
 function formatStackMapTableRule(widths: StackMapTableWidths): string {
@@ -285,11 +285,11 @@ function formatStackMapTableRule(widths: StackMapTableWidths): string {
 }
 
 function formatStackMapTableRow(row: StackMapVisibleRow, widths: StackMapTableWidths): string {
-	return formatStackMapTableCells(row.branchLabel, row.graphiteLabel, row.cmuxLabel, widths);
+	return formatStackMapTableCells({ branch: row.branchLabel, graphite: row.graphiteLabel, cmux: row.cmuxLabel, widths });
 }
 
-function formatStackMapTableCells(branch: string, graphite: string, cmux: string, widths: StackMapTableWidths): string {
-	return `${branch.padEnd(widths.branch)} │ ${graphite.padEnd(widths.graphite)} │ ${cmux.padEnd(widths.cmux)}`;
+function formatStackMapTableCells(options: { readonly branch: string; readonly graphite: string; readonly cmux: string; readonly widths: StackMapTableWidths }): string {
+	return `${options.branch.padEnd(options.widths.branch)} │ ${options.graphite.padEnd(options.widths.graphite)} │ ${options.cmux.padEnd(options.widths.cmux)}`;
 }
 
 function moveSelection(model: StackMapModel, state: StackMapState, delta: number): StackMapState {
@@ -358,24 +358,15 @@ function branchMarker(branch: StackMapBranchNode, currentBranch: string): string
 }
 
 function sortBranchesByName(branches: readonly StackMapBranchNode[]): readonly StackMapBranchNode[] {
-	return [...branches].sort((left, right) => compareBranchNames(left.name, right.name));
-}
-
-function compareBranchNames(left: string, right: string): number {
-	if (left < right) return -1;
-	if (left > right) return 1;
-	return 0;
+	return [...branches].sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function collectStackMapBranches(root: StackMapBranchNode): readonly StackMapBranchNode[] {
-	const branches: StackMapBranchNode[] = [];
-	collectBranchPostOrder(root, branches);
-	return branches;
+	return collectBranchPostOrder(root);
 }
 
-function collectBranchPostOrder(branch: StackMapBranchNode, branches: StackMapBranchNode[]): void {
-	for (const child of branch.children ?? []) collectBranchPostOrder(child, branches);
-	branches.push(branch);
+function collectBranchPostOrder(branch: StackMapBranchNode): readonly StackMapBranchNode[] {
+	return [...(branch.children ?? []).flatMap((child) => collectBranchPostOrder(child)), branch];
 }
 
 function formatCmuxColumn(branch: StackMapBranchNode): string {
