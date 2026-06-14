@@ -14,13 +14,13 @@ from asdl_core.plugin import AsdlPluginSpec
 from asdl_handoff.cli import plugin as handoff_plugin
 from asdl_handoff.cli.handoff.context import HandoffCliContext
 from asdl_handoff.cli.handoff.group import build_handoff_group
+from asdl_handoff.testing.fake_brmem_gateway import FakeHandoffBrmemGateway
 from asdl_objectives.context import ObjectiveCliContext
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
 from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
-from brmem.fake import FakeBranchMemoryGateway
 from roaster.context import RoasterCliContext
 from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
 from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
@@ -147,7 +147,7 @@ def test_handoff_plugin_integration() -> None:
 
     discover_plugins(parent, source=_entry_point_source(ep))
 
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "resume-tests.md", "feat/handoff", "resume tests")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,
@@ -183,7 +183,7 @@ def test_discover_plugins_installs_context_on_root_for_json_mode(
         name="handoff",
         value="asdl_handoff.cli.plugin:build_handoff_plugin",
     )
-    gateway = FakeBranchMemoryGateway()
+    gateway = FakeHandoffBrmemGateway()
     gateway.put("handoff", "root-json.md", "feat/handoff", "root json")
     ctx = HandoffCliContext(
         brmem_gateway=gateway,

@@ -51,7 +51,7 @@ Four points, in increasing order of difficulty.
 ### 1. Branch Memory (`refs/brmem/*`) — safe, no work
 
 Branch Memory stores snapshots under `refs/brmem/base/*` and `refs/brmem/ns/<namespace>/*`
-(`packages/brmem/src/brmem/ref_layout.py`). jj only syncs *bookmarks* (`refs/heads/*` ↔
+(implemented by `ts/packages/brmem`). jj only syncs *bookmarks* (`refs/heads/*` ↔
 `refs/remotes/*`) and deliberately ignores other ref namespaces, and brmem reads/writes those
 refs through the git CLI, which works in a colocated repo. brmem is the cleanest part of the
 system with respect to jj — precisely because it lives entirely outside jj's world. (See "On
@@ -164,5 +164,5 @@ is mostly editing ergonomics plus op-log undo, a full replacement does not clear
 - jj workspaces: <https://jj-vcs.github.io/jj/latest/working-copy/#workspaces>
 - jj-spr (stacked PRs against GitHub): <https://github.com/jennings/jj-spr>
 - In-repo domain language: `packages/asdl-core/CONTEXT.md` (Git / Graphite),
-  `packages/brmem/CONTEXT.md` (Branch Memory), `ts/packages/pi-extensions/CONTEXT.md`
+  `ts/packages/brmem/CONTEXT.md` (Branch Memory), `ts/packages/pi-extensions/CONTEXT.md`
   (worktree-slot).

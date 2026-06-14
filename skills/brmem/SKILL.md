@@ -55,8 +55,8 @@ it. The shim requires the workspace Node version and `ts/node_modules`; the
 install recipes run `just ts-install`, and a broken checkout can be repaired by
 running `just ts-install` there.
 
-If `brmem` is missing, install the shim instead of invoking `uv run brmem` or a
-checkout-local Python fallback.
+If `brmem` is missing, install the shim instead of invoking the old uv-based
+Python fallback.
 
 ## Command chooser
 

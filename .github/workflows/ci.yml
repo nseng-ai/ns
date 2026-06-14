@@ -79,10 +79,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      # TEMPORARY: the brmem package ships cross-language parity tests that shell out to the
-      # Python `brmem` CLI via `uv`. Remove this Python/uv setup once those parity tests are
-      # retired at brmem cutover (tracked in .asdl/objectives/brmem-typescript-port).
-      - uses: ./.github/actions/setup-python-uv
       - uses: pnpm/action-setup@v6
         with:
           version: 10.14.0
