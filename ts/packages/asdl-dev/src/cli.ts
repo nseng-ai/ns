@@ -11,7 +11,7 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV } from "./text-generation.ts";
-import { formatHumanFailure, formatJson } from "./output.ts";
+import { formatHumanFailure, formatJson, writeCommandResultOutput } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
 import { runPrRegenCommand } from "./pr-regen.ts";
@@ -160,15 +160,6 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 
 	const io = resolveIo({ stdout, stderr });
 	return buildCli().run(args, { context: contextWithIO, io });
-}
-
-function writeCommandResultOutput(result: { stdout: string; stderr: string }, deps: Pick<AsdlDevCliContext, "stdout" | "stderr">): void {
-	if (result.stdout !== "") {
-		deps.stdout(result.stdout);
-	}
-	if (result.stderr !== "") {
-		deps.stderr(result.stderr);
-	}
 }
 
 function createTerminalConfirmPrompt(): ConfirmPrompt | undefined {

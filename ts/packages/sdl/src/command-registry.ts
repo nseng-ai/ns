@@ -141,7 +141,7 @@ export async function runSdlCommand(ctx: SdlContext, commandName: string): Promi
 	}
 
 	try {
-		const result = await loaded.command.run(ctx);
+		const result = await loaded.command.run(ctx, {});
 		return validateSdlResult(result, loaded.command.name);
 	} catch (error) {
 		return failed(`Command ${commandName} failed.
