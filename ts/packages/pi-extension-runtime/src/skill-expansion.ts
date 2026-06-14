@@ -57,8 +57,15 @@ function stripSkillFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
 
-function buildSkillBlock(skillName: string, skillPath: string, baseDir: string, body: string): string {
-	return `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`;
+interface BuildSkillBlockOptions {
+	skillName: string;
+	skillPath: string;
+	baseDir: string;
+	body: string;
+}
+
+function buildSkillBlock(options: BuildSkillBlockOptions): string {
+	return `<skill name="${options.skillName}" location="${options.skillPath}">\nReferences are relative to ${options.baseDir}.\n\n${options.body}\n</skill>`;
 }
 
 export async function expandSkillBlock(
@@ -84,7 +91,7 @@ export async function expandSkillBlock(
 		path: skillPath,
 		baseDir,
 		body,
-		block: buildSkillBlock(skillName, skillPath, baseDir, body),
+		block: buildSkillBlock({ skillName, skillPath, baseDir, body }),
 	};
 }
 
@@ -99,7 +106,12 @@ export async function expandSkillBlockFromPath(options: SkillPathExpansionOption
 		path: options.skillPath,
 		baseDir,
 		body,
-		block: buildSkillBlock(options.skillName, options.skillPath, baseDir, body),
+		block: buildSkillBlock({
+			skillName: options.skillName,
+			skillPath: options.skillPath,
+			baseDir,
+			body,
+		}),
 	};
 }
 

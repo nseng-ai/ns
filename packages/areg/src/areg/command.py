@@ -17,6 +17,7 @@ from areg.file_plan import (
     apply_delete_file,
     apply_remove_empty_dir,
     apply_text_file_plan,
+    is_under_project,
     read_existing_text,
     reject_symlink,
 )
@@ -314,15 +315,16 @@ def _settings_skills(settings: dict[str, object], settings_path: Path) -> list[s
 
 def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
     pi_dir = settings_path.parent
-    if pi_dir.is_symlink():
-        reject_symlink(pi_dir, description=".pi")
+    reject_symlink(pi_dir, description=".pi")
     if pi_dir.exists() and not pi_dir.is_dir():
         raise click.ClickException(f"{pi_dir} exists but is not a directory.")
-    if settings_path.is_symlink():
-        reject_symlink(settings_path, description="Pi settings.json")
+    reject_symlink(settings_path, description="Pi settings.json")
     if settings_path.exists() and not settings_path.is_file():
         raise click.ClickException(f"{settings_path} exists but is not a file.")
-    if settings_path.exists() and not settings_path.resolve().is_relative_to(project_dir):
+    if settings_path.exists() and not is_under_project(
+        settings_path.resolve(),
+        project_dir=project_dir,
+    ):
         raise click.ClickException(
             f"Pi settings.json at {settings_path} resolves outside {project_dir}; "
             "refusing to manage it."
