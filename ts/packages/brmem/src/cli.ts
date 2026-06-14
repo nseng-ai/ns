@@ -8,16 +8,11 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
+import { copyRequestSchema, copyResultSchema, renderCopy, runCopy } from "./operations/copy.ts";
 import { deleteRequestSchema, deleteResultSchema, renderDelete, runDelete } from "./operations/delete.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
-import {
-	copyRequestSchema,
-	exportRequestSchema,
-	notImplementedHandler,
-	notImplementedResultSchema,
-	resolvePromptRequestSchema,
-} from "./operations/not-implemented.ts";
+import { exportRequestSchema, notImplementedHandler, notImplementedResultSchema, resolvePromptRequestSchema } from "./operations/not-implemented.ts";
 import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
 
 export const VERSION = "0.1.0";
@@ -89,8 +84,9 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		name: "copy",
 		description: "Copy Branch Memory Entries between branches.",
 		schema: copyRequestSchema,
-		resultSchema: notImplementedResultSchema,
-		handler: notImplementedHandler("copy"),
+		resultSchema: copyResultSchema,
+		handler: runCopy,
+		renderHuman: renderCopy,
 	});
 	root.command({
 		name: "export",
