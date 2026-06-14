@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from asdl_core.gt.types import StackInfo
-from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
+from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches, collect_stack_edges
 
 
 def _stack(
@@ -142,3 +142,29 @@ def test_include_current_downstack_only_returns_ancestors_and_current() -> None:
         downstack_only=True,
         include_current=True,
     ) == ("feat/base", "feat/middle")
+
+
+def test_collect_stack_edges_returns_displayed_parent_child_edges() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_edges(stack, current="feat/middle") == (
+        ("master", "feat/base"),
+        ("feat/base", "feat/middle"),
+        ("feat/middle", "feat/child"),
+        ("feat/child", "feat/grandchild"),
+    )
+
+
+def test_collect_stack_edges_downstack_excludes_descendant_edges() -> None:
+    stack = _stack(
+        ancestors=("master", "feat/base"),
+        descendants=("feat/child", "feat/grandchild"),
+    )
+
+    assert collect_stack_edges(stack, current="feat/middle", downstack_only=True) == (
+        ("master", "feat/base"),
+        ("feat/base", "feat/middle"),
+    )

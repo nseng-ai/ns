@@ -213,6 +213,12 @@ def test_stack_branches_format_json_envelope(cli_group: ClinkrGroup, tmp_path: P
         "trunk": "main",
         "current": "feat/B",
         "scope": "full",
+        "edges": [
+            {"parent": "main", "child": "feat/A"},
+            {"parent": "feat/A", "child": "feat/B"},
+            {"parent": "feat/B", "child": "feat/C"},
+            {"parent": "feat/C", "child": "feat/D"},
+        ],
         "warnings": [],
     }
 
@@ -259,6 +265,7 @@ def test_stack_branches_current_on_trunk_format_json_has_empty_branches(
     assert result.exit_code == 1
     assert payload["exit_code"] == 1
     assert payload["data"]["branches"] == []
+    assert payload["data"]["edges"] == []
     assert payload["message"] == "On trunk 'main'; no stack is checked out."
 
 
@@ -640,4 +647,8 @@ def test_stack_branches_downstack_descendant_fork_warns_json_mode(
     assert result.exit_code == 0, result.output
     assert payload["data"]["branches"] == ["feat/A", "feat/B"]
     assert payload["data"]["scope"] == "downstack"
+    assert payload["data"]["edges"] == [
+        {"parent": "main", "child": "feat/A"},
+        {"parent": "feat/A", "child": "feat/B"},
+    ]
     assert payload["data"]["warnings"] == [render_stack_fork(fork)]
