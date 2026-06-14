@@ -104,7 +104,8 @@ const validateFeedbackClassificationRequestSchema = z
 		manifest_file: nullableCliStringSchema.describe("Path to a split manifest JSON file."),
 		classification_json: nullableCliStringSchema.describe("Inline split classification JSON."),
 		classification_file: nullableCliStringSchema.describe("Path to a split classification JSON file."),
-		harness_session_id: nullableCliStringSchema.describe("Harness session id for persisting a validated classification artifact."),
+		harness_session_id: nullableCliStringSchema.describe("Harness session id for persisting a validated classification artifact when persist_session is true."),
+		persist_session: z.boolean().default(false).describe("Persist the validated classification artifact into the configured payload session."),
 	})
 	.strict();
 

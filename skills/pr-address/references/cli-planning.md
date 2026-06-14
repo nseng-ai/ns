@@ -76,6 +76,12 @@ Split mode requires exactly one manifest source (`--manifest-json` or
 sources (`--payload-json` or `--payload-file`) mixed with split inputs. Stdin is
 only consumed in legacy wrapper mode when no split source is provided.
 
+Persistence is explicit. Plain validation returns `classification_reference: null`
+even when `HARNESS_SESSION_ID` is set. Add `--persist-session` only when a later
+session-mode operation such as `plan-feedback --pr-number` or empty-stdin
+`stack-feedback-plan` must resolve the classification artifact from the payload
+session.
+
 **Legacy wrapper invocation:** reads wrapper JSON from stdin by default.
 `--payload-json` and `--payload-file` are also available for compatibility.
 
@@ -184,6 +190,8 @@ Semantic validation rules:
 **Output behavior:**
 
 - Valid packet: `exit_code: 0`, `data.valid == true`.
+- Valid packet with `--persist-session`: additionally writes the PR-scoped
+  classification artifact and returns `data.classification_reference`.
 - Well-formed but invalid packet: `exit_code: 1`, message
   `PR feedback classification failed validation.`, `data.valid == false`, plus
   structured `data.counts` and `data.errors` diagnostics.

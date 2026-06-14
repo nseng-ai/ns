@@ -255,6 +255,10 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
   | pr-address exec validate-feedback-classification --format json
 ```
 
+Validation persistence is explicit. Do not add `--persist-session` for
+validation-only planning. Add it only when a later session-mode command must
+resolve the classification artifact from the payload session.
+
 Validation outcomes:
 
 - If validation exits `0` and `data.valid` is true, continue to plan display.

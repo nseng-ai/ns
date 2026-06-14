@@ -71,6 +71,28 @@ export interface ResolvedJsonPayloadArtifact {
 	value: unknown;
 }
 
+interface ParsedPayloadCandidate {
+	parsed: ParsedPayloadFilename;
+}
+
+function selectLatestJsonPayloadCandidate<T extends ParsedPayloadCandidate>(
+	candidates: readonly T[],
+	options: { descriptor: string; role: JsonPayloadRole },
+): T | null {
+	let latest: T | null = null;
+	for (const candidate of candidates) {
+		if (candidate.parsed.descriptor !== options.descriptor || candidate.parsed.role !== options.role || candidate.parsed.extension !== "json") continue;
+		if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
+	}
+	return latest;
+}
+
+function nextPayloadSequence(candidates: readonly ParsedPayloadCandidate[]): number {
+	let maxSequence = 0;
+	for (const candidate of candidates) maxSequence = Math.max(maxSequence, candidate.parsed.sequence);
+	return maxSequence + 1;
+}
+
 export function isSafeSegment(value: string): boolean {
 	return SAFE_SEGMENT_PATTERN.test(value);
 }
@@ -322,12 +344,12 @@ export class PayloadStore implements PayloadArtifactStore {
 		} catch (error) {
 			return payloadError("payload_write_failed", `Failed to scan payload directory ${this.payloadDir}: ${formatErrorMessage(error)}`);
 		}
-		let maxSequence = 0;
+		const candidates: ParsedPayloadCandidate[] = [];
 		for (const payloadEntry of payloadEntries) {
 			const parsed = parsePayloadFilename(payloadEntry);
-			if (parsed !== null) maxSequence = Math.max(maxSequence, parsed.sequence);
+			if (parsed !== null) candidates.push({ parsed });
 		}
-		return { type: "ok", value: maxSequence + 1 };
+		return { type: "ok", value: nextPayloadSequence(candidates) };
 	}
 
 	private async latestJsonPayloadCandidate(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<{ filename: string; parsed: ParsedPayloadFilename }>> {
@@ -337,14 +359,12 @@ export class PayloadStore implements PayloadArtifactStore {
 		} catch (error) {
 			return payloadError("payload_lookup_failed", `Failed to scan payload session ${this.sessionId} at ${this.payloadDir}: ${formatErrorMessage(error)}`);
 		}
-		let latest: { filename: string; parsed: ParsedPayloadFilename } | null = null;
+		const candidates: Array<{ filename: string; parsed: ParsedPayloadFilename }> = [];
 		for (const filename of entries) {
 			const parsed = parsePayloadFilename(filename);
-			if (parsed === null) continue;
-			if (parsed.descriptor !== options.descriptor || parsed.role !== options.role || parsed.extension !== "json") continue;
-			const candidate = { filename, parsed };
-			if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
+			if (parsed !== null) candidates.push({ filename, parsed });
 		}
+		const latest = selectLatestJsonPayloadCandidate(candidates, options);
 		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
 		return { type: "ok", value: latest };
 	}
@@ -480,15 +500,13 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 	}
 
 	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
-		let latest: { payloadPath: string; parsed: ParsedPayloadFilename; text: string } | null = null;
+		const candidates: Array<{ payloadPath: string; parsed: ParsedPayloadFilename; text: string }> = [];
 		for (const [payloadPath, text] of this.artifacts.entries()) {
 			if (dirname(payloadPath) !== this.payloadDir) continue;
 			const parsed = parsePayloadFilename(basename(payloadPath));
-			if (parsed === null) continue;
-			if (parsed.descriptor !== options.descriptor || parsed.role !== options.role || parsed.extension !== "json") continue;
-			const candidate = { payloadPath, parsed, text };
-			if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
+			if (parsed !== null) candidates.push({ payloadPath, parsed, text });
 		}
+		const latest = selectLatestJsonPayloadCandidate(candidates, options);
 		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
 		const parsed = await this.readJsonArtifact({ payloadPath: latest.payloadPath, allowedRoles: new Set([options.role]) });
 		if (parsed.type === "error") return parsed;
@@ -534,13 +552,13 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 	}
 
 	private nextSequence(): number {
-		let maxSequence = 0;
+		const candidates: ParsedPayloadCandidate[] = [];
 		for (const payloadPath of this.artifacts.keys()) {
 			if (dirname(payloadPath) !== this.payloadDir) continue;
 			const parsed = parsePayloadFilename(basename(payloadPath));
-			if (parsed !== null) maxSequence = Math.max(maxSequence, parsed.sequence);
+			if (parsed !== null) candidates.push({ parsed });
 		}
-		return maxSequence + 1;
+		return nextPayloadSequence(candidates);
 	}
 }
 
