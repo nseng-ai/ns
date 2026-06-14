@@ -131,7 +131,9 @@ def test_slot_claim_from_main_worktree_moves_current_branch_to_available_slot(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
-    repo_root = (tmp_path / "repo").resolve()
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(exist_ok=True)
+    repo_root = repo_root.resolve()
     target_path = _slot_path(slots_root, "slot-01")
     fakes = _fake_for_repo(
         tmp_path,
