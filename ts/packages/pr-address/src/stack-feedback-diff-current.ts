@@ -107,7 +107,7 @@ async function loadStackFeedbackDiffCurrentInput(
 	const resolved = await resolveOperationInput({
 		commandName: "stack-feedback-diff-current",
 		explicitSource: {
-			present:
+			hasExplicitSource:
 				request.payload_json !== undefined ||
 				request.payload_file !== undefined ||
 				request.stack_plan_reference !== undefined ||
@@ -117,7 +117,7 @@ async function loadStackFeedbackDiffCurrentInput(
 		},
 		stdin: { read: ctx.stdin, nonEmptyMode: "payload" },
 		sessionSource: {
-			selected: false,
+			isSelected: false,
 			description: "latest stack plan and current prep from the payload session",
 			resolve: async () => await loadStackFeedbackDiffCurrentInputFromSession(ctx, request),
 		},

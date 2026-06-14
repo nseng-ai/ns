@@ -108,13 +108,13 @@ async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.ou
 	const inputResult = await resolveOperationInput<PlanFeedbackResolvedInput>({
 		commandName: "plan-feedback",
 		explicitSource: {
-			present: request.payload_json !== undefined || request.payload_file !== undefined,
+			hasExplicitSource: request.payload_json !== undefined || request.payload_file !== undefined,
 			description: "wrapper input (--payload-json/--payload-file)",
 			resolve: async (stdin) => await loadPlanFeedbackWrapperInput(request, stdin),
 		},
 		stdin: { read: ctx.stdin, nonEmptyMode: "payload" },
 		sessionSource: {
-			selected: request.pr_number !== undefined,
+			isSelected: request.pr_number !== undefined,
 			description: "session resolution (--pr-number)",
 			resolve: async () => {
 				if (request.pr_number === undefined) throw new Error("plan-feedback session source was selected without pr_number");
