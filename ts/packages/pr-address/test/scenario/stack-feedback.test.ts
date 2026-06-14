@@ -435,6 +435,7 @@ describe("stack-feedback-plan reference and file inputs", () => {
 					JSON.stringify(prepItem.manifest),
 					"--classification-json",
 					JSON.stringify(item.classification),
+					"--persist-session",
 					"--format",
 					"json",
 				],

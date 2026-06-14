@@ -16,7 +16,7 @@ import {
 	type PayloadReference,
 	type PayloadStoreFactory,
 } from "./payload-store.ts";
-import { resolveOperationInput, resolvePrFeedbackSourceFromSession } from "./session-inputs.ts";
+import { resolveOperationInput, resolvePrFeedbackSourceFromSession, type PrFeedbackSourceResolution } from "./session-inputs.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -46,18 +46,18 @@ interface ReadFeedbackDetailResult {
 	value: unknown;
 }
 
-interface FeedbackSourceResolution {
-	payloadPath: string;
-	store: PayloadArtifactStore | undefined;
-	resolvedInput: PayloadReference | undefined;
-}
-
 interface PayloadOperationError {
 	errorType: string;
 	message: string;
 }
 
 type FeedbackSourceChoice = { type: "payload_path"; payloadPath: string } | { type: "pr_number"; prNumber: number };
+
+interface FeedbackDetailsReadableSource {
+	payloadPath: string;
+	store: PayloadArtifactStore;
+	resolvedInput?: PayloadReference | undefined;
+}
 
 export const readFeedbackDetailOperation = defineExecOperation({
 	spec: {
@@ -84,11 +84,11 @@ async function runReadFeedbackDetailOperation(ctx: PrAddressExecContext, request
 		jsonPointer,
 		payloadStoreFactory: ctx.context.payloadStoreFactory,
 		clock: ctx.context.payloadClock,
-		store: source.value.store,
+		store: source.value.kind === "session" ? source.value.store : undefined,
 	});
 	if (result.type === "error") return failure(result.errorType, result.message);
-	const data = source.value.resolvedInput === undefined ? result.value : { ...result.value, resolved_inputs: { feedback: source.value.resolvedInput } };
-	return ok(data);
+	if (source.value.kind === "raw_path") return ok(result.value);
+	return ok({ ...result.value, resolved_inputs: { feedback: source.value.resolvedInput } });
 }
 
 export async function readFeedbackDetail(options: {
@@ -127,19 +127,11 @@ async function resolveFeedbackSource(options: {
 	prNumber: number | undefined;
 	harnessSessionId: string | undefined;
 	ctx: PrAddressExecContext;
-}): Promise<{ type: "ok"; value: FeedbackSourceResolution } | ({ type: "error" } & PayloadOperationError)> {
+}): Promise<{ type: "ok"; value: PrFeedbackSourceResolution } | ({ type: "error" } & PayloadOperationError)> {
 	const choice = await resolveFeedbackSourceChoice({ commandName: options.commandName, payloadPath: options.payloadPath, prNumber: options.prNumber });
 	if (choice.type === "error") return choice;
-	if (choice.value.type === "payload_path") return { type: "ok", value: { payloadPath: choice.value.payloadPath, store: undefined, resolvedInput: undefined } };
-	return await resolvePrNumberFeedbackSource({ prNumber: choice.value.prNumber, harnessSessionId: options.harnessSessionId, ctx: options.ctx });
-}
-
-async function resolvePrNumberFeedbackSource(options: {
-	prNumber: number;
-	harnessSessionId: string | undefined;
-	ctx: PrAddressExecContext;
-}): Promise<{ type: "ok"; value: FeedbackSourceResolution } | ({ type: "error" } & PayloadOperationError)> {
-	return await resolvePrFeedbackSourceFromSession({ ctx: options.ctx, prNumber: options.prNumber, harnessSessionId: options.harnessSessionId });
+	if (choice.value.type === "payload_path") return { type: "ok", value: { kind: "raw_path", payloadPath: choice.value.payloadPath } };
+	return await resolvePrFeedbackSourceFromSession({ ctx: options.ctx, prNumber: choice.value.prNumber, harnessSessionId: options.harnessSessionId });
 }
 
 const readFeedbackDetailsSelectionSchema = z.looseObject({
@@ -286,21 +278,20 @@ async function resolveFeedbackDetailsSource(options: {
 	ctx?: PrAddressExecContext | undefined;
 	payloadStoreFactory?: PayloadStoreFactory | undefined;
 	clock?: PayloadClock | undefined;
-}): Promise<{ type: "ok"; value: FeedbackSourceResolution & { store: PayloadArtifactStore } } | ({ type: "error" } & PayloadOperationError)> {
+}): Promise<{ type: "ok"; value: FeedbackDetailsReadableSource } | ({ type: "error" } & PayloadOperationError)> {
 	const choice = await resolveFeedbackSourceChoice({ commandName: "read-feedback-details", selection: options.selection, cliPrNumber: options.cliPrNumber });
 	if (choice.type === "error") return choice;
 	if (choice.value.type === "payload_path") {
 		const storeResult = await openStoreForPayload(options.payloadStoreFactory, choice.value.payloadPath, options.clock);
 		if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-		return { type: "ok", value: { payloadPath: choice.value.payloadPath, store: storeResult.value, resolvedInput: undefined } };
+		return { type: "ok", value: { payloadPath: choice.value.payloadPath, store: storeResult.value } };
 	}
 	if (options.ctx === undefined) {
 		return { type: "error", errorType: "invalid_request", message: "read-feedback-details --pr-number requires an execution context." };
 	}
-	const source = await resolvePrNumberFeedbackSource({ prNumber: choice.value.prNumber, harnessSessionId: options.harnessSessionId, ctx: options.ctx });
+	const source = await resolvePrFeedbackSourceFromSession({ ctx: options.ctx, prNumber: choice.value.prNumber, harnessSessionId: options.harnessSessionId });
 	if (source.type === "error") return source;
-	if (source.value.store === undefined) throw new Error("read-feedback-details PR-number source must resolve a payload store");
-	return { type: "ok", value: { ...source.value, store: source.value.store } };
+	return { type: "ok", value: { payloadPath: source.value.payloadPath, store: source.value.store, resolvedInput: source.value.resolvedInput } };
 }
 
 async function resolveFeedbackSourceChoice(

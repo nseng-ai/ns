@@ -54,7 +54,9 @@ describe("managed classification/planning CLI operations", () => {
 
 		const validateRun = runScenario(["exec", "validate-feedback-classification", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await validateRun.exit).toBe(0);
-		expect(JSON.parse(validateRun.stdout.join("")).data.valid).toBe(true);
+		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: unknown } };
+		expect(validateEnvelope.data.valid).toBe(true);
+		expect(validateEnvelope.data.classification_reference).toBeNull();
 
 		const input = asWrapperInput(await readJson(inputPath));
 		const tempDir = await makeTempDir("pr-address-classification-");
@@ -76,7 +78,9 @@ describe("managed classification/planning CLI operations", () => {
 			{ cwd: REPO_ROOT },
 		);
 		expect(await splitValidateRun.exit).toBe(0);
-		expect(JSON.parse(splitValidateRun.stdout.join("")).data.valid).toBe(true);
+		const splitValidateEnvelope = JSON.parse(splitValidateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: unknown } };
+		expect(splitValidateEnvelope.data.valid).toBe(true);
+		expect(splitValidateEnvelope.data.classification_reference).toBeNull();
 
 		const planRun = runScenario(["exec", "plan-feedback", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await planRun.exit).toBe(0);
@@ -120,6 +124,7 @@ describe("managed classification/planning CLI operations", () => {
 				JSON.stringify(input.manifest),
 				"--classification-json",
 				JSON.stringify(input.classification),
+				"--persist-session",
 				"--format",
 				"json",
 			],
@@ -170,6 +175,7 @@ describe("managed classification/planning CLI operations", () => {
 				JSON.stringify(input.manifest),
 				"--classification-json",
 				JSON.stringify(input.classification),
+				"--persist-session",
 				"--format",
 				"json",
 			],
@@ -193,6 +199,17 @@ describe("managed classification/planning CLI operations", () => {
 		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
 		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
 		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
+	});
+
+	test("validate-feedback-classification exposes explicit persistence at the command boundary", async () => {
+		const helpRun = runScenario(["exec", "validate-feedback-classification", "--help"], { cwd: REPO_ROOT });
+		expect(await helpRun.exit).toBe(0);
+		expect(helpRun.stdout.join("")).toContain("--persist-session");
+
+		const schemaRun = runScenario(["exec", "validate-feedback-classification", "--json-schema"], { cwd: REPO_ROOT });
+		expect(await schemaRun.exit).toBe(0);
+		const schemaDocument = JSON.parse(schemaRun.stdout.join("")) as { input_json_schema: { properties: Record<string, unknown> } };
+		expect(schemaDocument.input_json_schema.properties).toHaveProperty("persist_session");
 	});
 
 	test("plan-feedback session mode rejects mixed or missing sources and reports missing artifacts", async () => {

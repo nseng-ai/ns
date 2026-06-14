@@ -121,7 +121,7 @@ async function loadStackFeedbackPlanInput(
 		sessionSource: {
 			selected: false,
 			description: "latest stack prep and per-PR classifications from the payload session",
-			resolve: async () => await loadStackFeedbackPlanInputFromSession(store),
+			resolve: async () => await resolveStackFeedbackPlanSessionInput(store),
 		},
 		defaultSource: "session",
 	});
@@ -144,7 +144,8 @@ async function loadStackFeedbackPlanInputFromExplicitSources(
 		store,
 	});
 	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-	return stackFeedbackPlanInputFromPayload(payloadResult.value, { missingPrep: "throw" });
+	if (payloadResult.value.prep === undefined) throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
+	return { type: "ok", value: { payload: { ...payloadResult.value, prep: payloadResult.value.prep }, resolvedInputs: undefined } };
 }
 
 function loadStackFeedbackPlanInputFromInlineText(stdinText: string): OperationResult<StackFeedbackPlanInputResult, string> {
@@ -155,26 +156,14 @@ function loadStackFeedbackPlanInputFromInlineText(stdinText: string): OperationR
 		schemaDescription: "stack-feedback-plan stack feedback plan JSON payload",
 	});
 	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-	return stackFeedbackPlanInputFromPayload(payloadResult.value, { missingPrep: "error" });
-}
-
-function stackFeedbackPlanInputFromPayload(
-	payloadValue: z.infer<typeof stackFeedbackPlanPayloadSchema>,
-	options: { missingPrep: "error" | "throw" },
-): OperationResult<StackFeedbackPlanInputResult, string> {
-	if (payloadValue.prep === undefined) {
-		if (options.missingPrep === "throw") throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
+	if (payloadResult.value.prep === undefined) {
 		return {
 			type: "error",
 			errorType: "invalid_request",
 			message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference.",
 		};
 	}
-	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
-}
-
-async function loadStackFeedbackPlanInputFromSession(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanInputResult, string>> {
-	return await resolveStackFeedbackPlanSessionInput(store);
+	return { type: "ok", value: { payload: { ...payloadResult.value, prep: payloadResult.value.prep }, resolvedInputs: undefined } };
 }
 
 function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; value: Map<number, unknown> } | { type: "error"; message: string } {

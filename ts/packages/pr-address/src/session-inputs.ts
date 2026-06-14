@@ -152,11 +152,11 @@ export interface OpenPayloadStoreFromContextOptions {
 	harnessSessionId?: string | undefined;
 }
 
-export interface PrFeedbackSourceResolution {
-	payloadPath: string;
-	store: PayloadArtifactStore;
-	resolvedInput: PayloadReference;
-}
+export type PrFeedbackSourceResolution =
+	| { kind: "raw_path"; payloadPath: string }
+	| { kind: "session"; payloadPath: string; store: PayloadArtifactStore; resolvedInput: PayloadReference };
+
+export type PrFeedbackSessionSourceResolution = Extract<PrFeedbackSourceResolution, { kind: "session" }>;
 
 export interface PlanFeedbackSessionInputs {
 	store: PayloadArtifactStore;
@@ -212,7 +212,7 @@ export async function resolvePrFeedbackSourceFromSession(options: {
 	ctx: PrAddressExecContext;
 	prNumber: number;
 	harnessSessionId?: string | undefined;
-}): Promise<OperationResult<PrFeedbackSourceResolution>> {
+}): Promise<OperationResult<PrFeedbackSessionSourceResolution>> {
 	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
 	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
 	if (storeResult.type === "error") return storeResult;
@@ -220,7 +220,7 @@ export async function resolvePrFeedbackSourceFromSession(options: {
 	if (artifact.type === "error") return artifact;
 	return {
 		type: "ok",
-		value: { payloadPath: artifact.value.reference.payload_path, store: storeResult.value, resolvedInput: artifact.value.reference },
+		value: { kind: "session", payloadPath: artifact.value.reference.payload_path, store: storeResult.value, resolvedInput: artifact.value.reference },
 	};
 }
 

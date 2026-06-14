@@ -5,7 +5,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput, loadJsonRecord, type JsonInputResult } from "./json-input.ts";
-import { hasConfiguredPayloadSession, type PayloadReference } from "./payload-store.ts";
+import type { PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveOperationInput, resolvePlanFeedbackSessionInputs, type OperationResult } from "./session-inputs.ts";
 
@@ -38,6 +38,7 @@ const validateFeedbackClassificationParseSchema = z.object({
 	classification_json: z.string().optional(),
 	classification_file: z.string().optional(),
 	harness_session_id: z.string().optional(),
+	persist_session: z.boolean().default(false),
 });
 
 export const validateFeedbackClassificationOperation = defineExecOperation({
@@ -156,7 +157,7 @@ async function persistValidatedClassification(options: {
 	result: FeedbackClassificationValidationResult;
 	classification: unknown;
 }): Promise<OperationResult<PayloadReference | null>> {
-	if (!hasConfiguredPayloadSession(options.request.harness_session_id, { env: options.ctx.env })) return { type: "ok", value: null };
+	if (!options.request.persist_session) return { type: "ok", value: null };
 	if (options.result.pr_number === null) {
 		return { type: "error", errorType: "invalid_request", message: "validate-feedback-classification cannot persist a PR-scoped classification without a PR number." };
 	}
