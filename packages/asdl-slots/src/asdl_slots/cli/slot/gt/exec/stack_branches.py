@@ -26,7 +26,7 @@ from asdl_core.gt.types import (
     render_trunk_marker_problem,
 )
 from asdl_slots.cli.slot.gt.context import load_slot_gt_context
-from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches
+from asdl_slots.cli.slot.gt.stack_walk import collect_stack_branches, collect_stack_edges
 from asdl_slots.repo_context import NoRepoSentinel
 
 
@@ -41,11 +41,17 @@ class SlotGtStackBranchesRequest(ClinkrModel):
     ] = False
 
 
+class SlotGtStackBranchEdge(ClinkrModel):
+    parent: str
+    child: str
+
+
 class SlotGtStackBranchesResult(ClinkrModel):
     branches: tuple[str, ...]
     trunk: str
     current: str
     scope: Literal["full", "downstack"]
+    edges: tuple[SlotGtStackBranchEdge, ...]
     warnings: tuple[str, ...]
 
 
@@ -115,11 +121,20 @@ def _result_for_stack(
     branches: tuple[str, ...],
     warnings: tuple[str, ...],
 ) -> SlotGtStackBranchesResult:
+    edges = tuple(
+        SlotGtStackBranchEdge(parent=parent, child=child)
+        for parent, child in collect_stack_edges(
+            stack,
+            current=stack.current,
+            downstack_only=downstack,
+        )
+    )
     return SlotGtStackBranchesResult(
         branches=branches,
         trunk=stack.trunk,
         current=stack.current,
         scope="downstack" if downstack else "full",
+        edges=edges,
         warnings=warnings,
     )
 

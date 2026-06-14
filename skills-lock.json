@@ -26,6 +26,11 @@
       "sourceType": "local",
       "computedHash": "01d83c07e01dd1406ce1934c0ab7b7bb04ed0fed3f8f66181ff66f534f4c20a5"
     },
+    "ccc-stack-map": {
+      "source": "skills/ccc-stack-map",
+      "sourceType": "local",
+      "computedHash": "36f527ba4b253f2deb5f1c2b76b0d108b15742cfa25e6fbe9adbb664a41844c0"
+    },
     "changelog-update": {
       "source": "skills/changelog-update",
       "sourceType": "local",

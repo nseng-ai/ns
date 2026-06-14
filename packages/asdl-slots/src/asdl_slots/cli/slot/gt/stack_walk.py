@@ -3,6 +3,29 @@ from __future__ import annotations
 from asdl_core.gt.types import StackInfo
 
 
+def collect_stack_edges(
+    stack: StackInfo,
+    current: str,
+    *,
+    downstack_only: bool = False,
+) -> tuple[tuple[str, str], ...]:
+    """Return displayed Graphite parent→child edges for the selected stack scope."""
+    if downstack_only:
+        path = (*stack.ancestors, current)
+    else:
+        path = (*stack.ancestors, current, *stack.descendants)
+
+    deduped_path: list[str] = []
+    seen: set[str] = set()
+    for branch in path:
+        if branch in seen:
+            continue
+        seen.add(branch)
+        deduped_path.append(branch)
+
+    return tuple(zip(deduped_path, deduped_path[1:], strict=False))
+
+
 def collect_stack_branches(
     stack: StackInfo,
     current: str,
