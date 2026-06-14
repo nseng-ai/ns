@@ -36,10 +36,10 @@
   - Policy: directly executable after preview. Ask before changing copy-scope or export safety/abort semantics.
   - Evidence: public TypeScript `copy` and `export` CLIs are implemented and validated. `copy` evidence covers help/schema, Base and named Namespace copies, Python-compatible JSON fields, `--namespace base`, scope/value validation, empty source and zero glob matches, Copy Conflict non-mutation, overwrite behavior, key-glob semantics where `*` matches `/` without matching sibling prefixes, dry-run non-mutation, lower-level gateway failure mapping, source-SHA preflight failure, and real-git dry-run/overwrite ref evidence. `export` evidence covers public help/schema without the old placeholder `--all-branches`/positional surface, Base Namespace default and `--namespace base`, named Namespace export, explicit branch and detached-HEAD behavior, fresh temp output directories, relative `--output-dir` resolution under CLI cwd, JSON result fields, empty-selection negative exit `1`, overwrite/conflict no-partial-write behavior, dry-run preflight/non-mutation, symlink/parent-path safety failures, unsafe key / duplicate target / missing data / gateway failures, and real-git export smoke evidence.
 
-- [ ] Port `exec resolve-prompt`.
+- [x] Port `exec resolve-prompt`.
   - Preserve `.brmem/prompts/...` project/global tier resolution, `data.path` / `data.tier` JSON output, and exit-`2` failure surfacing.
   - Policy: directly executable after preview. Ask before changing prompt search order or tier semantics.
-  - Evidence: scenario tests for project tier, global tier, and resolution failure.
+  - Evidence: TypeScript hidden `exec resolve-prompt` is implemented and validated. Scenario tests cover project-local resolution, global fallback, project-over-global precedence, missing-prompt exit-`2`, not-in-git exit-`2` before global fallback, and human stdout path rendering. A focused real resolver test proves git repo-root discovery and prompt file existence against a throwaway checkout. JSON parity preserves `data.path` / `data.tier`; human stderr tier output is documented as a current TypeScript Clinkr renderer limitation.
 
 - [ ] Cut over the public skill, wrapper, and distribution paths to the TypeScript default.
   - Make the standalone TypeScript `brmem` CLI the default invocation surface; provide a run-from-source shim installed by a `just` recipe (mirroring `pr-address`), allowed to require an asdl checkout with `ts/node_modules`.
