@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] Triage candidates 6–11 and record dispositions (implement / reject with reason / park / split), checking prior art first — especially whether Objective disposition conventions already cover the rejection ledger (9) and whether interview practice already covers direction grounding (10) and verifiability ranking (8).
+- [x] Triage candidates 6–11 and record dispositions (implement / reject with reason / park / split), checking prior art first — especially whether Objective disposition conventions already cover the rejection ledger (9) and whether interview practice already covers direction grounding (10) and verifiability ranking (8).
+  - Evidence: candidates 6 and 11 accepted in-family; 7 and 10 split to follow-on Objective candidates; 8 rejected as prioritization advice outside branch-context; 9 rejected as already covered by Objective dispositions and Semantic Updates.
 - [x] Confirm or revise the preliminary verdicts on candidates 1–5 as final dispositions, including the settled decisions (content-anchored checking, no command pre-validation gate, universal/plan-specific STOP split).
   - Evidence: PR #1477 landed the accepted candidates 1–5 prototype across Saved plan authoring and branch-context implementation guidance.
 - [x] Design the `plans-write` template additions as one coherent artifact format: provenance stamp, current-state excerpts as drift anchor, in-scope/out-of-scope lists with exclusion reasons, gate discipline with the honest-absence rule, plan-specific STOP section, cold-read final step with harness-labeled model examples.
@@ -11,7 +12,7 @@
   - Evidence: PR #1477 landed the protocol in the current branch-context implementation prompt/skill path, including graceful pre-contract plan handling.
 - [x] Implement the bilateral slice — `plans-write` and `planned-branch-impl` together, umbrella `planned-branch` pointer line, upstack-impl-session coverage confirmed.
   - Evidence: PR #1477 landed prompt/skill/test coverage for the bilateral prototype, and PR #1479 documented the rollback boundary in the Objective update plus code-adjacent branch-context docs.
-- [ ] Implement, split out, or close out whatever candidates 6–11 triage accepts, per their recorded dispositions.
+- [ ] Implement the remaining accepted in-family candidate slice: candidate 6 trust-nothing closeout/review guidance and candidate 11 verification-baseline-first ordering, preserving the prototype rollback boundary until the trial is accepted.
 
 ## Parked
 

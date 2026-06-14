@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Planned-branch plans should become verifiable contracts rather than narratives. The vendored third-party `improve` skill (`.agents/skills/improve/`) encodes a plan-file discipline — drift detection, verification gates, STOP conditions, scope boundaries, cold-read review — designed to let a zero-context executor implement a plan safely. asdl already has the superior storage and lifecycle layer (branch-attached plans via Branch Memory, Graphite stacking, the planned-branch skill family); what it lacks is that format and execution discipline inside the plan artifact itself.
+Planned-branch plans should become verifiable contracts rather than narratives. The lineage for this workstream is the public upstream `shadcn/improve` skill at https://github.com/shadcn/improve, currently vendored locally at `.agents/skills/improve/` but not expected to remain in this repo permanently. That skill encodes a plan-file discipline — drift detection, verification gates, STOP conditions, scope boundaries, cold-read review — designed to let a zero-context executor implement a plan safely. asdl already has the superior storage and lifecycle layer (branch-attached plans via Branch Memory, Graphite stacking, the planned-branch skill family); what it lacks is that format and execution discipline inside the plan artifact itself.
 
 This Objective triages eleven candidate ideas borrowed from `improve` and lands the accepted ones. The core deliverable is a bilateral change: the `plans-write` skill defines the hardened artifact format, and the `planned-branch-impl` skill defines the matching execution protocol. The two halves are one contract and ship as one slice — a divergence protocol is inert against plans with nothing to check divergence against.
 
@@ -19,13 +19,13 @@ In scope:
   3. **STOP conditions / divergence protocol** — split universal from plan-specific: universal triggers (excerpt mismatch, gate fails twice, fix needs an out-of-scope file) live once as standing protocol in `planned-branch-impl`, with the divergence-from-ground-truth framing, the deviation rule (documented minimal adaptation judged on merit; silent deviation fails review), and a defined STOP report shape (observed vs expected, work completed, tree state). Plans carry only 2–4 plan-specific assumption conditions.
   4. **Scope lists** — in-scope files as a hard boundary; every out-of-scope entry carries a one-line reason (negative-knowledge transfer). Mechanical review check via `git diff --stat` against the in-scope list, distinguishing executor edits (fail) from repo-mandated autofix formatting (note).
   5. **Cold-read test** — default final step of `plans-write`: a fresh-context subagent on a cheap model reads the plan cold and reports executability gaps only ("what would you have to guess?"), no inference, no style notes; the planner triages before saving.
-- Candidates 6–11 need assessment from scratch:
-  6. **Trust-nothing review checklist** — re-run done criteria, read test assertions, scope compliance, deviation rule at review time.
-  7. **Vetting taxonomy for fan-out audits** — by-design-flagged-as-bug, mis-attributed evidence, cross-agent duplicates; excerpts only from own reads.
-  8. **Verifiability as a ranking input** — prefer work with a clean verification story when triaging candidates.
-  9. **Rejection ledger** — durable "considered and rejected" records; possibly already covered by Objective disposition conventions.
-  10. **Direction-grounding rule** — roadmap suggestions must cite repo evidence (unfinished intent, stated-but-undelivered, surface asymmetries, the adjacent possible).
-  11. **Verification-baseline-first ordering** — establish a one-command verification story before risky plans, on repos that lack one.
+- Candidates 6–11 have recorded dispositions:
+  6. **Trust-nothing review checklist** — implement in-family. The landing surface should be Saved plan closeout/review guidance: rerun done criteria, compare changed files to scope, check deviations, and read meaningful test assertions rather than trusting green commands alone.
+  7. **Vetting taxonomy for fan-out audits** — split into a follow-on Objective if pursued. It is useful audit/subagent-fanout discipline, but it is outside the Saved plan / Attached plan contract.
+  8. **Verifiability as a ranking input** — reject as a separate branch-context change. It is good `improve` prioritization advice, while asdl Objectives should keep roadmap order semantic and user-directed; selected plan work is already covered by verification-gate requirements.
+  9. **Rejection ledger** — reject as already covered. Objective dispositions plus immutable Semantic Updates provide the durable record; a separate ledger would duplicate the Objective model.
+  10. **Direction-grounding rule** — split into a follow-on Objective if pursued. It belongs in Objective creation/next-work quality rather than this branch-context contract slice.
+  11. **Verification-baseline-first ordering** — implement in-family. Saved plans should establish or confirm a credible one-command validation baseline before risky implementation work when a repository lacks one, without reintroducing a plan-write-time command prevalidation gate.
 - Skill edits to `plans-write` (template: provenance stamp, current-state excerpts as drift anchor, scope lists with reasons, gate discipline, plan-specific STOP section, cold-read step) and `planned-branch-impl` (protocol: pre-step-1 excerpt verification, universal STOP triggers, deviation rule, STOP report format).
 - A pointer line in the umbrella `planned-branch` skill; the operative protocol lives only in `planned-branch-impl`. The protocol must also govern `/planned-branch:upstack-impl-session`, the most divergence-prone path.
 - Harness-neutral wording throughout: these are public, portable skills, and the cold-read step's model-tier guidance must follow the repo's Skill Model Examples rule (concrete OpenAI and Anthropic examples, each labeled with its harness).
@@ -38,7 +38,7 @@ Decisions already made during the advisory conversation:
 
 ## Non-Goals
 
-- Do not modify the vendored `improve` skill itself; it stays as-shipped per the repo's vendored-skill policy. This Objective borrows ideas, not code.
+- Do not modify the vendored `improve` skill itself; it stays as-shipped per the repo's vendored-skill policy while present. This Objective borrows ideas, not code, from the public upstream `shadcn/improve` repository so the lineage remains clear even if the vendored local copy is deleted.
 - Do not build the drift-check CLI (`cli-push-down` of excerpt/hash comparison) in this Objective; that is Phase 2, parked until template-level discipline proves the check fires usefully or decays from being skipped.
 - Do not generalize the protocol to `objective-stack-impl` or `handoff-pickup`; their artifacts lack the excerpt/scope/gate structure that makes the protocol checkable, and wiring it in early reproduces the boilerplate-wallpaper failure mode.
 - Do not add severity tiers or drift-kind classification; binary match/mismatch with STOP-on-mismatch is the correct v1.
@@ -79,6 +79,6 @@ Risks:
 
 ## Open Questions
 
-- Does the trust-nothing review checklist (candidate 6) need a third landing surface, and which skill owns review of implemented planned-branch work?
 - What evidence threshold justifies Phase 2 CLI push-down of the drift check — drift caught usefully, or the manual check being skipped under context pressure?
-- Are candidates 8 and 10 better expressed as edits to `objective-create`/`objective-next` (split out) or rejected as already-implicit in current Objective interview practice?
+- For split candidate 7, what narrower Objective should own fan-out audit vetting taxonomy if it becomes worth pursuing?
+- For split candidate 10, what narrower Objective-family refinement should own direction-grounding rules if it becomes worth pursuing?
