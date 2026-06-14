@@ -4,6 +4,7 @@ import type { RawCommandSpec } from "../group.ts";
 import type { PositionalSpec } from "../surface.ts";
 
 export type { RawCommandSpec } from "../group.ts";
+export type { PositionalSpec } from "../surface.ts";
 
 export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	name: string;

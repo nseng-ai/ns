@@ -9,15 +9,13 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { runCheckpointIfPending } from "@asdl/sdl/checkpoint";
-import { CHECKPOINT_MODEL_ENV, LEGACY_CHECKPOINT_MODEL_ENV } from "@asdl/sdl/text-generation";
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV } from "./text-generation.ts";
 import { formatHumanFailure, formatJson } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
 import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
 import { runPrRegenCommand } from "./pr-regen.ts";
-import { runSubmitCommand, type SubmitOutputListener, type SubmitRestackConfirmationPrompt } from "./submit.ts";
+import type { SubmitOutputListener } from "./submit.ts";
 
 export type ConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
@@ -48,7 +46,6 @@ export interface AsdlDevCliContext {
 
 const COMMAND_SUMMARIES = {
 	"preview-url": "Print the Vercel preview URL for a branch.",
-	submit: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 	"pr-regen": "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 } as const;
 
@@ -104,61 +101,6 @@ export function buildCli(): ClinkrGroup<AsdlDevCliContext> {
 		}),
 	);
 
-	group.command(
-		rawCommand({
-			name: "submit",
-			description: `Checkpoint outstanding worktree changes with the same checkpoint capability as \`sdl cp\`, verify Graphite readiness with \`gt submit -nps --no-ai --no-interactive --dry-run\`, then submit the current Graphite stack with \`gt submit -nps --no-ai --no-interactive\`.
-
-For newly-created PRs, \`asdl-dev submit\` prepares generated PR titles/descriptions locally before \`gt submit\` so Graphite can create PRs with correct initial metadata. Already-open PRs and any post-submit mismatches may still be updated after submit. Manually edited existing PR bodies are never overwritten by submit; use explicit \`asdl-dev pr-regen\` when you intend to replace one.
-
-Automatic checkpointing uses the same model environment variable as \`sdl cp\` when the worktree is dirty: ${CHECKPOINT_MODEL_ENV}; an unset value falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} during the transition.
-
-PR description generation uses ${PR_DESCRIPTION_MODEL_ENV} (defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}) and resolves the system prompt from ${PR_DESCRIPTION_PROMPT_ENV}, then ${REPO_PR_DESCRIPTION_PROMPT_PATH}, then the built-in prompt.
-
-If the dry-run says restack is required, interactive invocations ask before running \`gt restack --no-interactive\`; non-interactive invocations exit with guidance unless \`--restack\` is supplied.`,
-			summary: COMMAND_SUMMARIES.submit,
-			schema: z.object({
-				restack: z.boolean().default(false).describe("If restack is required, run `gt restack --no-interactive` without prompting before submitting."),
-			}),
-			run: async (ctx, request) => {
-				const checkpoint = await runCheckpointIfPending({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					gateway: ctx.context.checkpoint,
-					textGeneration: ctx.context.textGeneration,
-				});
-				if (checkpoint.kind === "failed") {
-					ctx.stderr(formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr));
-					return checkpoint.output.exitCode;
-				}
-				if (checkpoint.kind === "checkpointed") {
-					writeCommandResultOutput(checkpoint.output, ctx);
-				}
-
-				const confirm = ctx.confirm;
-				const result = await runSubmitCommand({
-					cwd: ctx.cwd,
-					gateway: ctx.context.submit,
-					metadataGateway: ctx.context.submitMetadata,
-					restack: request.restack,
-					prDescription: {
-						githubPr: ctx.context.githubPr,
-						textGeneration: ctx.context.textGeneration,
-						git: ctx.context.git,
-						env: ctx.env,
-					},
-					...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
-					...(confirm === undefined
-						? {}
-						: {
-								confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => confirm(prompt.title, prompt.message),
-							}),
-				});
-				writeCommandResultOutput(result, ctx);
-				return result.exitCode;
-			},
-		}),
-	);
 
 	group.command(
 		rawCommand({
@@ -227,12 +169,6 @@ function writeCommandResultOutput(result: { stdout: string; stderr: string }, de
 	if (result.stderr !== "") {
 		deps.stderr(result.stderr);
 	}
-}
-
-function formatCheckpointBeforeSubmitFailure(stderr: string): string {
-	const trimmed = stderr.trimEnd();
-	const message = trimmed === "" ? "Checkpoint before submit failed. Submission was not attempted." : `Checkpoint before submit failed. Submission was not attempted.\n\n${trimmed}`;
-	return `${message}\n`;
 }
 
 function createTerminalConfirmPrompt(): ConfirmPrompt | undefined {
