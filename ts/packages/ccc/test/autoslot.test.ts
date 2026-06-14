@@ -113,7 +113,7 @@ describe("autoslot flow", () => {
 		expect(harness.events).toContain("slot:slot checkout --current --format json --no-clipboard");
 		expect(harness.notifications.at(-1)).toEqual({
 			level: "info",
-			message: ["Autoslot moved branch to slot.", "Branch: test-branch", "Slot: slot-01", "Worktree: /slots/slot-01", "Next: cd /slots/slot-01"].join("\n"),
+			message: ["Autoslot moved test-branch to slot-01.", "Worktree: /slots/slot-01", "slot co test-branch"].join("\n"),
 		});
 	});
 

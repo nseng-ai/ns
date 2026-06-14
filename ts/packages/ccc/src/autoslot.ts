@@ -80,11 +80,9 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 
 		input.notify(
 			[
-				"Autoslot moved branch to slot.",
-				`Branch: ${slot.target.branchName}`,
-				`Slot: ${slot.target.slotName}`,
+				`Autoslot moved ${slot.target.branchName} to ${slot.target.slotName}.`,
 				`Worktree: ${slot.target.worktreePath}`,
-				`Next: ${slot.target.cdCommand}`,
+				`slot co ${slot.target.branchName}`,
 			].join("\n"),
 			"info",
 		);
