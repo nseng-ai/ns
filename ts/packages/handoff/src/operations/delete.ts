@@ -68,14 +68,17 @@ export function renderDelete(result: DeleteResult): string {
 	return [`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`, `Entry Locator: ${result.entry_locator}`, `Commit: ${result.commit}`].join("\n");
 }
 
-interface CancelledResultOptions {
+function cancelledResult({
+	slug,
+	key,
+	branch,
+	locator,
+}: {
 	slug: string;
 	key: string;
 	branch: string;
 	locator: string;
-}
-
-function cancelledResult({ slug, key, branch, locator }: CancelledResultOptions): DeleteResult {
+}): DeleteResult {
 	return {
 		branch,
 		slug,

@@ -58,14 +58,17 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 	return resolved(handoffs.map((item) => item.summary));
 }
 
-interface BranchStateOptions {
+async function branchState({
+	branch,
+	git,
+	cwd,
+	cache,
+}: {
 	branch: string;
 	git: GitGateway;
 	cwd: string;
 	cache: Map<string, BranchState>;
-}
-
-async function branchState({ branch, git, cwd, cache }: BranchStateOptions): Promise<BranchState | ClinkrExit<never>> {
+}): Promise<BranchState | ClinkrExit<never>> {
 	const existing = cache.get(branch);
 	if (existing !== undefined) return existing;
 	const presence = await git.localBranchPresence({ cwd, branch });
