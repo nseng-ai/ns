@@ -1,6 +1,6 @@
 import { objectiveChoiceMap } from "@asdl/pi-extension-runtime/objective-picker";
 import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@asdl/plans";
-import { expandSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
+import { expandRepoSkillBlock } from "@asdl/pi-extension-runtime/skill-expansion";
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -238,7 +238,7 @@ async function queueSidebar(
 
 async function expandSidebarSkillBlock(pi: ExtensionAPI, ctx: CommandContext): Promise<string | undefined> {
 	try {
-		return (await expandSkillBlock(pi, SKILL_NAME))?.block;
+		return (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME })).block;
 	} catch (error) {
 		notify(ctx, `Could not read cmux sidebar skill; using fallback prompt: ${formatErrorMessage(error)}`, "warning");
 		return undefined;

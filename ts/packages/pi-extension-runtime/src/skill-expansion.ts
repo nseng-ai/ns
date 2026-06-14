@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { lstat, readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 
 export interface SkillCommandInfo {
 	name: string;
@@ -32,14 +32,30 @@ export interface SkillPathExpansionOptions extends SkillExpansionOptions {
 	skillPath: string;
 }
 
+export interface RepoSkillPathResolveOptions {
+	cwd: string;
+	skillName: string;
+	statPath?: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>;
+}
+
+export interface RepoSkillExpansionOptions extends SkillExpansionOptions {
+	cwd: string;
+	skillName: string;
+}
+
 export interface SkillPromptTurnHost extends SkillExpansionHost {
+	sendUserMessage(content: string): Promise<void> | void;
+}
+
+export interface RepoSkillPromptTurnHost {
+	getCommands?(): readonly SkillCommandInfo[];
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
 export interface SkillPromptTurnContext {
 	hasUI?: boolean;
 	ui: {
-		notify(message: string, level?: "info" | "warning"): void;
+		notify(message: string, level?: "info" | "warning" | "error"): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -51,6 +67,21 @@ export interface InvokeSkillPromptTurnOptions {
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
 	fallbackMessage: string;
 	buildPrompt(skillBlock: string | undefined): string;
+}
+
+export interface RepoSkillPromptTurnContext extends SkillPromptTurnContext {
+	cwd: string;
+}
+
+export interface InvokeRepoSkillPromptTurnOptions {
+	host: RepoSkillPromptTurnHost;
+	ctx: RepoSkillPromptTurnContext;
+	skillName: string;
+	successMessage: string | ((skill: ExpandedSkillBlock) => string);
+	fallbackMessage: string;
+	buildPrompt(skillBlock: string | undefined): string;
+	readTextFile?: (path: string) => Promise<string>;
+	statPath?: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>;
 }
 
 function stripSkillFrontmatter(markdown: string): string {
@@ -95,6 +126,43 @@ export async function expandSkillBlock(
 	};
 }
 
+export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
+	const statPath = options.statPath ?? ((path: string) => lstat(path));
+	let current = resolve(options.cwd);
+	const root = parse(current).root;
+
+	while (true) {
+		const skillPath = join(current, "skills", options.skillName, "SKILL.md");
+		const found = await fileExists(statPath, skillPath);
+		if (found) {
+			const skillStat = await statPath(skillPath);
+			if (skillStat.isSymbolicLink()) {
+				throw new Error(`Refusing to read symlinked backing skill at ${skillPath}.`);
+			}
+			const resolvedSkillPath = resolve(skillPath);
+			const resolvedRepoRoot = resolve(current);
+			if (!isPathInside(resolvedSkillPath, resolvedRepoRoot)) {
+				throw new Error(`Backing skill path ${skillPath} resolves outside repository root ${current}.`);
+			}
+			return skillPath;
+		}
+
+		if (current === root) {
+			throw new Error(`Could not find skills/${options.skillName}/SKILL.md from ${options.cwd}.`);
+		}
+		current = dirname(current);
+	}
+}
+
+export async function expandRepoSkillBlock(options: RepoSkillExpansionOptions): Promise<ExpandedSkillBlock> {
+	const skillPath = await resolveRepoSkillPath({ cwd: options.cwd, skillName: options.skillName });
+	return expandSkillBlockFromPath({
+		skillName: options.skillName,
+		skillPath,
+		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+	});
+}
+
 export async function expandSkillBlockFromPath(options: SkillPathExpansionOptions): Promise<ExpandedSkillBlock> {
 	const readTextFile = options.readTextFile ?? ((path: string) => readFile(path, "utf8"));
 	const body = stripSkillFrontmatter(await readTextFile(options.skillPath));
@@ -131,6 +199,45 @@ export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOption
 	await host.sendUserMessage(buildPrompt(skill?.block));
 }
 
+export async function invokeRepoSkillPromptTurn(options: InvokeRepoSkillPromptTurnOptions): Promise<void> {
+	const { host, ctx, skillName, fallbackMessage, buildPrompt } = options;
+	await ctx.waitForIdle();
+
+	let skill: ExpandedSkillBlock | undefined;
+	try {
+		const skillPath = await resolveRepoSkillPath({
+			cwd: ctx.cwd,
+			skillName,
+			...(options.statPath === undefined ? {} : { statPath: options.statPath }),
+		});
+		skill = await expandSkillBlockFromPath({
+			skillName,
+			skillPath,
+			...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+		});
+	} catch {
+		if (options.host.getCommands !== undefined) {
+			skill = await expandSkillBlock({ getCommands: () => options.host.getCommands?.() ?? [] }, skillName);
+		}
+	}
+
+	if (ctx.hasUI === true) {
+		const message = skill === undefined
+			? fallbackMessage
+			: skillPromptTurnSuccessMessage(options.successMessage, skill);
+		const level = skill === undefined ? "warning" : "info";
+		ctx.ui.notify(message, level);
+	}
+
+	await host.sendUserMessage(buildPrompt(skill?.block));
+}
+
+export function buildFencedTextBlock(content: string, language = "text"): string {
+	const longestBacktickRun = Math.max(0, ...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0));
+	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
+	return `${fence}${language}\n${content}\n${fence}`;
+}
+
 function skillPromptTurnSuccessMessage(
 	message: InvokeSkillPromptTurnOptions["successMessage"],
 	skill: ExpandedSkillBlock,
@@ -139,4 +246,22 @@ function skillPromptTurnSuccessMessage(
 		return message;
 	}
 	return message(skill);
+}
+
+async function fileExists(
+	statPath: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>,
+	path: string,
+): Promise<boolean> {
+	try {
+		const stat = await statPath(path);
+		return stat.isFile() || stat.isSymbolicLink();
+	} catch {
+		return false;
+	}
+}
+
+function isPathInside(path: string, parent: string): boolean {
+	const normalizedPath = resolve(path);
+	const normalizedParent = resolve(parent);
+	return normalizedPath === normalizedParent || normalizedPath.startsWith(`${normalizedParent}/`) || (isAbsolute(normalizedParent) && normalizedPath.startsWith(`${normalizedParent}\\`));
 }

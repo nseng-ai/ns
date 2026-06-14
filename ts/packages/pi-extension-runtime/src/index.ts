@@ -41,9 +41,17 @@ export {
 	type ObjectiveSelectionSpec,
 } from "./objective-selection.ts";
 export {
+	buildFencedTextBlock,
+	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
+	invokeRepoSkillPromptTurn,
+	resolveRepoSkillPath,
 	type ExpandedSkillBlock,
+	type InvokeRepoSkillPromptTurnOptions,
+	type RepoSkillExpansionOptions,
+	type RepoSkillPathResolveOptions,
+	type RepoSkillPromptTurnContext,
 	type SkillCommandInfo,
 	type SkillExpansionHost,
 	type SkillExpansionOptions,

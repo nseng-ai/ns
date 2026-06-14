@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -89,7 +89,7 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function createContext(): {
+function createContext(cwd = ROOT): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	statuses: StatusUpdate[];
@@ -99,7 +99,7 @@ function createContext(): {
 	const statuses: StatusUpdate[] = [];
 	let waits = 0;
 	const ctx: CommandContext = {
-		cwd: ROOT,
+		cwd,
 		hasUI: true,
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
@@ -135,7 +135,9 @@ async function loadJustFixExtension(): Promise<JustFixExtension> {
 describe("just-fix extension", () => {
 	test("runs just and invokes code-just-fix with the expanded skill block on failure", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "code-just-fix-skill-"));
-		const skillPath = join(dir, "SKILL.md");
+		const skillDir = join(dir, "skills", "code-just-fix");
+		const skillPath = join(skillDir, "SKILL.md");
+		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			skillPath,
 			`---
@@ -152,7 +154,7 @@ Repair the failed just run.
 
 		try {
 			const pi = new FakePi(execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }), [
-				skillCommandInfo(skillPath, dir),
+				skillCommandInfo(skillPath, skillDir),
 			]);
 			const justFixExtension = await loadJustFixExtension();
 			justFixExtension(pi);
@@ -162,11 +164,11 @@ Repair the failed just run.
 				throw new Error("just command was not registered");
 			}
 
-			const context = createContext();
+			const context = createContext(dir);
 			await command.handler("", context.ctx);
 
 			expect(context.waitForIdleCalls()).toBe(1);
-			expect(pi.execCalls).toEqual([{ command: "just", args: [], options: { cwd: ROOT, timeout: JUST_TIMEOUT_MS } }]);
+			expect(pi.execCalls).toEqual([{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } }]);
 			expect(context.statuses).toEqual([
 				{ key: "just", value: "running just…" },
 				{ key: "just", value: undefined },
@@ -179,10 +181,10 @@ Repair the failed just run.
 
 			const prompt = pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="code-just-fix" location="${skillPath}">`);
-			expect(prompt).toContain(`References are relative to ${dir}.`);
+			expect(prompt).toContain(`References are relative to ${skillDir}.`);
 			expect(prompt).toContain("# Internal Code Just Fix\n\nRepair the failed just run.");
 			expect(prompt).not.toContain("hidden-frontmatter-token");
-			expect(prompt).toContain("`just` has already been run in /repo and failed (exit code 1).");
+			expect(prompt).toContain(`\`just\` has already been run in ${dir} and failed (exit code 1).`);
 			expect(prompt).toContain("stdout:\nunit failed");
 			expect(prompt).toContain("stderr:\nlint failed");
 		} finally {

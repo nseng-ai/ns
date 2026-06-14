@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@asdl/branch-context";
@@ -39,7 +39,6 @@ import {
 	slotCheckoutJson,
 	step,
 	writeCmuxPlanStoreFile,
-	writeTempSkill,
 } from "./ccc-test-harness.ts";
 
 const SAVED_PLAN_FILENAME_SLUG = "saved-plan-local-locator";
@@ -82,11 +81,15 @@ describe("CCC cmux command suite", () => {
 
 	test("ccc:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
-		const skillPath = await writeTempSkill("Use direct `--description` command shape.");
+		const repoDir = await makeTempDir();
+		const skillDir = join(repoDir, "skills", "ccc-sidebar");
+		await mkdir(skillDir, { recursive: true });
+		const skillPath = join(skillDir, "SKILL.md");
+		await writeFile(skillPath, "---\nname: ccc-sidebar\n---\nUse direct `--description` command shape.\n", "utf8");
 		const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
 		const controller = createCccSidebarController(pi);
 		registerCccSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
+		const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
 		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
 

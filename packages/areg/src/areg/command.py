@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
+from areg.command_conversion import (
+    PiReplacementVerification,
+    plan_pi_settings_update,
+    read_command_conversion_state,
+    require_verified_pi_replacement,
+)
 from areg.context import AregContext
 from areg.file_plan import (
     DeleteFilePlan,
@@ -16,7 +21,6 @@ from areg.file_plan import (
     apply_delete_file,
     apply_remove_empty_dir,
     apply_text_file_plan,
-    is_under_project,
     read_existing_text,
     reject_symlink,
 )
@@ -30,11 +34,8 @@ from areg.invoke_only import (
     skill_dir,
     skill_md_path,
 )
-from areg.json_config import extract_string_list_field, read_json_object
 
 _FLAG_LINE_PREFIX = f"{DISABLE_MODEL_INVOCATION_KEY}:"
-_PI_SKILL_EXCLUSION_PREFIX = "-skills/"
-
 _STATUS_LABELS: dict[InvokeOnlyStatus, str] = {
     InvokeOnlyStatus.NORMAL: "normal",
     InvokeOnlyStatus.INVOKE_ONLY: "invoke-only",
@@ -45,6 +46,18 @@ _STATUS_LABELS: dict[InvokeOnlyStatus, str] = {
         "inconsistent: agents/openai.yaml present but flag unset"
     ),
 }
+
+
+def _replacement_status_label(replacement: PiReplacementVerification | None) -> str:
+    if replacement is None:
+        return "replacement-missing"
+    if replacement.verified:
+        if replacement.surface:
+            return f"replacement-verified:{replacement.surface}"
+        return "replacement-verified"
+    if replacement.surface:
+        return f"replacement-missing:{replacement.surface}"
+    return "replacement-missing"
 
 
 @dataclass(frozen=True)
@@ -275,94 +288,15 @@ def _plan_sidecar_write(sidecar: Path) -> TextFilePlan:
     )
 
 
-def _pi_settings_path(project_dir: Path) -> Path:
-    return project_dir / ".pi" / "settings.json"
-
-
-def _pi_skill_exclusion(skill_name: str) -> str:
-    return f"{_PI_SKILL_EXCLUSION_PREFIX}{skill_name}"
-
-
-def _read_pi_settings(settings_path: Path) -> dict[str, object]:
-    return read_json_object(settings_path, description=str(settings_path))
-
-
-def _settings_skills(settings: dict[str, object], settings_path: Path) -> list[str]:
-    if "skills" not in settings:
-        return []
-
-    return extract_string_list_field(
-        settings,
-        "skills",
-        error_message=f"{settings_path} field 'skills' must be an array of strings.",
-    )
-
-
-def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
-    pi_dir = settings_path.parent
-    reject_symlink(pi_dir, description=".pi")
-    if pi_dir.exists() and not pi_dir.is_dir():
-        raise click.ClickException(f"{pi_dir} exists but is not a directory.")
-    reject_symlink(settings_path, description="Pi settings.json")
-    if settings_path.exists() and not settings_path.is_file():
-        raise click.ClickException(f"{settings_path} exists but is not a file.")
-    if settings_path.exists() and not is_under_project(
-        settings_path.resolve(),
-        project_dir=project_dir,
-    ):
-        raise click.ClickException(
-            f"Pi settings.json at {settings_path} resolves outside {project_dir}; "
-            "refusing to manage it."
-        )
-
-
-def _plan_pi_settings_update(project_dir: Path, skill_name: str, *, convert: bool) -> TextFilePlan:
-    settings_path = _pi_settings_path(project_dir)
-    _validate_pi_settings_path(project_dir, settings_path)
-    exclusion = _pi_skill_exclusion(skill_name)
-
-    settings: dict[str, object]
-    if settings_path.exists():
-        settings = _read_pi_settings(settings_path)
-    else:
-        settings = {}
-
-    skills = _settings_skills(settings, settings_path)
-    if convert:
-        if exclusion in skills:
-            return SkippedTextWrite(path=settings_path, reason="Pi skill exclusion already present")
-        settings["skills"] = [*skills, exclusion]
-    else:
-        new_skills = [skill for skill in skills if skill != exclusion]
-        if new_skills == skills:
-            return SkippedTextWrite(path=settings_path, reason="Pi skill exclusion absent")
-        settings["skills"] = new_skills
-
-    return TextWritePlan(
-        path=settings_path,
-        content=json.dumps(settings, indent=2) + "\n",
-        description="Pi settings.json",
-        create_parent=True,
-    )
-
-
-def _pi_skill_exclusion_present(project_dir: Path, skill_name: str) -> bool:
-    settings_path = _pi_settings_path(project_dir)
-    _validate_pi_settings_path(project_dir, settings_path)
-    if not settings_path.exists():
-        return False
-    settings = _read_pi_settings(settings_path)
-    return _pi_skill_exclusion(skill_name) in _settings_skills(settings, settings_path)
-
-
 def _build_convert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
+    require_verified_pi_replacement(project_dir, skill_name)
     skill_md = _require_local_skill(project_dir, skill_name)
     sidecar = openai_policy_path(project_dir, skill_name)
     return CommandEditPlan(
         text_files=(
             _plan_skill_md_update(skill_md, convert=True),
             _plan_sidecar_write(sidecar),
-            _plan_pi_settings_update(project_dir, skill_name, convert=True),
+            plan_pi_settings_update(project_dir, skill_name, convert=True),
         )
     )
 
@@ -381,7 +315,7 @@ def _build_revert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
     return CommandEditPlan(
         text_files=(
             _plan_skill_md_update(skill_md, convert=False),
-            _plan_pi_settings_update(project_dir, skill_name, convert=False),
+            plan_pi_settings_update(project_dir, skill_name, convert=False),
         ),
         delete_files=delete_files,
         remove_empty_dirs=remove_empty_dirs,
@@ -501,8 +435,10 @@ def list_cmd(ctx: AregContext, path: str) -> None:
 
     for skill_md in skill_mds:
         skill_name = skill_md.parent.name
-        state = read_invoke_only_state(project_dir, skill_name)
-        pi_status = (
-            "pi-excluded" if _pi_skill_exclusion_present(project_dir, skill_name) else "pi-visible"
+        invoke_state = read_invoke_only_state(project_dir, skill_name)
+        state = read_command_conversion_state(project_dir, skill_name)
+        pi_status = "pi-excluded" if state.pi_excluded else "pi-visible"
+        replacement_status = _replacement_status_label(state.replacement)
+        click.echo(
+            f"{skill_name}\t{_STATUS_LABELS[invoke_state.status]}\t{pi_status}\t{replacement_status}"
         )
-        click.echo(f"{skill_name}\t{_STATUS_LABELS[state.status]}\t{pi_status}")

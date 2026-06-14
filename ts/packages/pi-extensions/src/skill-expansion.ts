@@ -1,11 +1,18 @@
-export { expandSkillBlock, expandSkillBlockFromPath, invokeSkillPromptTurn } from "@asdl/pi-extension-runtime/skill-expansion";
-export type {
-	ExpandedSkillBlock,
-	InvokeSkillPromptTurnOptions,
-	SkillCommandInfo,
-	SkillExpansionHost,
-	SkillExpansionOptions,
-	SkillPathExpansionOptions,
-	SkillPromptTurnContext,
-	SkillPromptTurnHost,
+export {
+	buildFencedTextBlock,
+	expandRepoSkillBlock,
+	expandSkillBlock,
+	expandSkillBlockFromPath,
+	invokeRepoSkillPromptTurn,
+	invokeSkillPromptTurn,
+	resolveRepoSkillPath,
+	type ExpandedSkillBlock,
+	type InvokeRepoSkillPromptTurnOptions,
+	type RepoSkillExpansionOptions,
+	type RepoSkillPathResolveOptions,
+	type RepoSkillPromptTurnContext,
+	type SkillCommandInfo,
+	type SkillExpansionHost,
+	type SkillExpansionOptions,
+	type SkillPathExpansionOptions,
 } from "@asdl/pi-extension-runtime/skill-expansion";

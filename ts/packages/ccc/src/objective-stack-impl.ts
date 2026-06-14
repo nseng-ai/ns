@@ -1,5 +1,5 @@
 import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionContext, type ObjectiveSelectionHost, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
-import { invokeSkillPromptTurn, type SkillExpansionHost } from "@asdl/pi-extension-runtime/skill-expansion";
+import { invokeRepoSkillPromptTurn } from "@asdl/pi-extension-runtime/skill-expansion";
 import type { CommandDefinition } from "./cmux/types.ts";
 
 interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
@@ -10,7 +10,7 @@ interface ObjectiveStackImplCommandSpec extends ObjectiveSelectionSpec {
 	actionPrompt: string;
 }
 
-export interface ObjectiveStackImplHost extends ObjectiveSelectionHost, SkillExpansionHost {
+export interface ObjectiveStackImplHost extends ObjectiveSelectionHost {
 	registerCommand(name: string, options: CommandDefinition): void;
 	sendUserMessage(content: string): void;
 }
@@ -49,7 +49,7 @@ interface InvokeObjectiveStackImplSkillOptions {
 
 async function invokeObjectiveStackImplSkill(options: InvokeObjectiveStackImplSkillOptions): Promise<void> {
 	const { host, ctx, spec, objective } = options;
-	await invokeSkillPromptTurn({
+	await invokeRepoSkillPromptTurn({
 		host,
 		ctx,
 		skillName: spec.skillName,

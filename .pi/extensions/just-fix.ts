@@ -1,4 +1,4 @@
-import { expandSkillBlock, type SkillCommandInfo } from "../../ts/packages/pi-extensions/src/skill-expansion.ts";
+import { expandRepoSkillBlock } from "../../ts/packages/pi-extensions/src/skill-expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 24_000;
@@ -32,7 +32,6 @@ type ExtensionAPI = {
 		},
 	): void;
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
-	getCommands(): SkillCommandInfo[];
 	sendUserMessage(content: string): void;
 };
 
@@ -101,7 +100,12 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 		return;
 	}
 
-	const skill = await expandSkillBlock(pi, SKILL_NAME);
+	let skill: Awaited<ReturnType<typeof expandRepoSkillBlock>> | undefined;
+	try {
+		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
+	} catch {
+		skill = undefined;
+	}
 	if (ctx.hasUI) {
 		ctx.ui.notify(
 			skill ? `\`just\` failed; invoking ${skill.name}.` : "`just` failed; code-just-fix was not found.",

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { expandSkillBlock, expandSkillBlockFromPath, invokeSkillPromptTurn, type SkillCommandInfo } from "../src/skill-expansion.ts";
+import { buildFencedTextBlock, expandRepoSkillBlock, expandSkillBlock, expandSkillBlockFromPath, invokeSkillPromptTurn, resolveRepoSkillPath, type SkillCommandInfo } from "../src/skill-expansion.ts";
 
 function host(commands: readonly SkillCommandInfo[]): { getCommands(): readonly SkillCommandInfo[] } {
 	return {
@@ -196,6 +196,30 @@ Do next work.
 		expect(expanded?.body).not.toContain("name: objective-current");
 	});
 });
+
+describe("repo skill expansion", () => {
+	test("walks up from cwd and expands skills/<name>/SKILL.md directly", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "repo-skill-expansion-"));
+		try {
+			const skillDir = join(repo, "skills", "objective-create");
+			const nestedCwd = join(repo, "packages", "example");
+			await mkdir(skillDir, { recursive: true });
+			await mkdir(nestedCwd, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "---\nname: objective-create\n---\n\n# Objective Create\n", "utf8");
+
+			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "objective-create" })).toBe(join(skillDir, "SKILL.md"));
+			const expanded = await expandRepoSkillBlock({ cwd: nestedCwd, skillName: "objective-create" });
+			expect(expanded.block).toContain("# Objective Create");
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
+
+	test("builds fences longer than embedded backticks", () => {
+		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
+	});
+});
+
 
 describe("expandSkillBlockFromPath", () => {
 	test("reads a direct skill file path, strips frontmatter, and formats the block", async () => {

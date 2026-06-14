@@ -5,6 +5,7 @@ from typing import ClassVar
 from areg.check.base import SkillCheck
 from areg.check.frontmatter import parse_skill_frontmatter
 from areg.check.models import CheckContext, IssueKind, SkillIssue, SkillMeta, SourceType
+from areg.command_conversion import pi_skill_exclusion_present, verify_pi_replacement
 from areg.invoke_only import (
     InvokeOnlyState,
     InvokeOnlyStatus,
@@ -35,21 +36,48 @@ class InvokeOnlyCheck(SkillCheck):
         )
         relative_sidecar = sidecar.relative_to(ctx.project_dir)
 
+        issues: list[SkillIssue] = []
         if state.status is InvokeOnlyStatus.FLAG_WITHOUT_SIDECAR:
-            return [
+            issues.append(
                 SkillIssue(
                     skill.name,
                     IssueKind.INVOKE_ONLY_MISSING_OPENAI_POLICY,
                     f"{relative_sidecar} missing for invoke-only skill",
                 )
-            ]
+            )
         if state.status is InvokeOnlyStatus.SIDECAR_WITHOUT_FLAG:
-            return [
+            issues.append(
                 SkillIssue(
                     skill.name,
                     IssueKind.OPENAI_POLICY_WITHOUT_INVOKE_ONLY,
                     f"{relative_sidecar} exists but SKILL.md does not set "
                     "disable-model-invocation: true",
                 )
-            ]
-        return []
+            )
+
+        pi_excluded = pi_skill_exclusion_present(ctx.project_dir, skill.name)
+        if (state.flag_enabled or state.sidecar_exists) and not pi_excluded:
+            issues.append(
+                SkillIssue(
+                    skill.name,
+                    IssueKind.COMMAND_CONVERTED_MISSING_PI_EXCLUSION,
+                    f".pi/settings.json missing -skills/{skill.name} for command-converted skill",
+                )
+            )
+
+        replacement = verify_pi_replacement(ctx.project_dir, skill.name)
+        if pi_excluded and not replacement.verified:
+            expected = (
+                f"/{replacement.surface}"
+                if replacement.surface is not None
+                else "a derived command"
+            )
+            issues.append(
+                SkillIssue(
+                    skill.name,
+                    IssueKind.COMMAND_CONVERTED_MISSING_PI_REPLACEMENT,
+                    "Pi skill is excluded but no verified replacement command exists; "
+                    f"expected {expected}",
+                )
+            )
+        return issues

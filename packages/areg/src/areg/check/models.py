@@ -25,6 +25,8 @@ class IssueKind(Enum):
     INVALID_SKILL_MD = "invalid_skill_md"
     INVOKE_ONLY_MISSING_OPENAI_POLICY = "invoke_only_missing_openai_policy"
     OPENAI_POLICY_WITHOUT_INVOKE_ONLY = "openai_policy_without_invoke_only"
+    COMMAND_CONVERTED_MISSING_PI_EXCLUSION = "command_converted_missing_pi_exclusion"
+    COMMAND_CONVERTED_MISSING_PI_REPLACEMENT = "command_converted_missing_pi_replacement"
 
     AGENTS_NOT_REAL_DIR = "agents_not_real_dir"
     UNEXPECTED_SKILLS_DIR = "unexpected_skills_dir"

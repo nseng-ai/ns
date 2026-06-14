@@ -7,6 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from areg.cli import main
+from areg.command_conversion import derive_pi_replacement_command
 from areg.context import AregContext
 from areg.gateways.environment.fake import FakeAregEnvironment
 from areg.gateways.gh.fake import FakeGhCli
@@ -26,7 +27,19 @@ def _ctx(project_dir: Path) -> AregContext:
     )
 
 
+def _install_generic_replacement_layer(project_dir: Path) -> None:
+    adapter = project_dir / ".pi" / "extensions" / "backing-skill-commands.ts"
+    package_module = (
+        project_dir / "ts" / "packages" / "pi-extensions" / "src" / "backing-skill-commands.ts"
+    )
+    adapter.parent.mkdir(parents=True, exist_ok=True)
+    package_module.parent.mkdir(parents=True, exist_ok=True)
+    adapter.write_text("export default function register() {}\n", encoding="utf-8")
+    package_module.write_text("export default function register() {}\n", encoding="utf-8")
+
+
 def _write_local_skill(project_dir: Path, name: str, skill_md: str | None = None) -> Path:
+    _install_generic_replacement_layer(project_dir)
     skill_dir = project_dir / "skills" / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     skill_md_path = skill_dir / "SKILL.md"
@@ -73,6 +86,25 @@ def _read_pi_settings(project_dir: Path) -> dict[str, object]:
     return json.loads(_pi_settings(project_dir).read_text(encoding="utf-8"))
 
 
+@pytest.mark.parametrize(
+    ("skill_name", "surface"),
+    [
+        ("objective-create", "objective:create"),
+        ("objective-stack-impl", "objective:stack-impl"),
+        ("branch-context-from-plan", "branch-context:from-plan"),
+        ("branch-context-impl", "branch-context:impl"),
+        ("enriched-plan-save", "enriched-plan:save"),
+        ("pi-grill-with-docs-ui", "pi:grill-with-docs-ui"),
+        ("foo-bar-baz", "foo:bar-baz"),
+    ],
+)
+def test_derive_pi_replacement_command(skill_name: str, surface: str) -> None:
+    derived = derive_pi_replacement_command(skill_name)
+
+    assert derived is not None
+    assert derived.surface == surface
+
+
 def test_command_convert_single_skill(tmp_path: Path) -> None:
     skill_md = _write_local_skill(tmp_path, "my-skill")
 
@@ -92,25 +124,25 @@ def test_command_convert_single_skill(tmp_path: Path) -> None:
 
 
 def test_command_convert_multiple_skills(tmp_path: Path) -> None:
-    _write_local_skill(tmp_path, "first")
-    _write_local_skill(tmp_path, "second")
+    _write_local_skill(tmp_path, "first-skill")
+    _write_local_skill(tmp_path, "second-skill")
 
     result = CliRunner().invoke(
         main,
-        ["command", "convert", "--path", str(tmp_path), "first", "second"],
+        ["command", "convert", "--path", str(tmp_path), "first-skill", "second-skill"],
         obj=_ctx(tmp_path),
     )
 
     assert result.exit_code == 0, result.output
     assert "disable-model-invocation: true" in (
-        tmp_path / "skills" / "first" / "SKILL.md"
+        tmp_path / "skills" / "first-skill" / "SKILL.md"
     ).read_text(encoding="utf-8")
     assert "disable-model-invocation: true" in (
-        tmp_path / "skills" / "second" / "SKILL.md"
+        tmp_path / "skills" / "second-skill" / "SKILL.md"
     ).read_text(encoding="utf-8")
-    assert _sidecar(tmp_path, "first").is_file()
-    assert _sidecar(tmp_path, "second").is_file()
-    assert _read_pi_settings(tmp_path)["skills"] == ["-skills/first", "-skills/second"]
+    assert _sidecar(tmp_path, "first-skill").is_file()
+    assert _sidecar(tmp_path, "second-skill").is_file()
+    assert _read_pi_settings(tmp_path)["skills"] == ["-skills/first-skill", "-skills/second-skill"]
 
 
 def test_command_convert_is_idempotent(tmp_path: Path) -> None:
@@ -181,6 +213,25 @@ def test_command_convert_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert not _sidecar(tmp_path, "my-skill").exists()
     assert not _pi_settings(tmp_path).exists()
     assert "Would write" in result.output
+
+
+def test_command_convert_missing_replacement_fails_before_mutation(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "my-skill")
+    before = skill_md.read_text(encoding="utf-8")
+    (tmp_path / ".pi" / "extensions" / "backing-skill-commands.ts").unlink()
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), "my-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "Missing Pi extension replacement" in result.output
+    assert "Expected command: /my:skill" in result.output
+    assert "Add a Pi extension replacement" in result.output
+    assert skill_md.read_text(encoding="utf-8") == before
+    assert not _sidecar(tmp_path, "my-skill").exists()
 
 
 def test_command_convert_accepts_canonical_skill_dir_path(tmp_path: Path) -> None:
@@ -364,7 +415,7 @@ def test_command_convert_rejects_missing_skill(tmp_path: Path) -> None:
 
 def test_command_convert_preserves_existing_pi_settings_and_skills_entries(tmp_path: Path) -> None:
     _write_local_skill(tmp_path, "my-skill")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text(
         json.dumps({"packages": [], "skills": ["+skills/keep"]}) + "\n", encoding="utf-8"
     )
@@ -394,7 +445,7 @@ def test_command_convert_preserves_existing_pi_settings_and_skills_entries(tmp_p
 def test_command_convert_rejects_malformed_pi_settings_before_mutating(tmp_path: Path) -> None:
     skill_md = _write_local_skill(tmp_path, "my-skill")
     before = skill_md.read_text(encoding="utf-8")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text("{not json\n", encoding="utf-8")
 
     result = CliRunner().invoke(
@@ -412,7 +463,7 @@ def test_command_convert_rejects_malformed_pi_settings_before_mutating(tmp_path:
 def test_command_convert_rejects_non_object_pi_settings_before_mutating(tmp_path: Path) -> None:
     skill_md = _write_local_skill(tmp_path, "my-skill")
     before = skill_md.read_text(encoding="utf-8")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text("[]\n", encoding="utf-8")
 
     result = CliRunner().invoke(
@@ -433,7 +484,7 @@ def test_command_convert_rejects_invalid_pi_settings_skills_before_mutating(
 ) -> None:
     skill_md = _write_local_skill(tmp_path, "my-skill")
     before = skill_md.read_text(encoding="utf-8")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text(json.dumps({"skills": skills_value}) + "\n", encoding="utf-8")
 
     result = CliRunner().invoke(
@@ -474,7 +525,7 @@ def test_command_revert_removes_flag_sidecar_and_empty_agents_dir(tmp_path: Path
     )
     _sidecar(tmp_path, "my-skill").parent.mkdir(parents=True)
     _sidecar(tmp_path, "my-skill").write_text(_CODEX_OPENAI_POLICY, encoding="utf-8")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text(
         json.dumps({"packages": [], "skills": ["-skills/my-skill", "-skills/other"]}) + "\n",
         encoding="utf-8",
@@ -533,26 +584,26 @@ def test_command_revert_is_idempotent(tmp_path: Path) -> None:
 def test_command_round_trip_restores_skill_md_byte_for_byte(tmp_path: Path) -> None:
     skill_md = _write_local_skill(
         tmp_path,
-        "roundtrip",
-        "---\nname: roundtrip\ndescription: keep me\n---\n\n# body\n",
+        "round-trip",
+        "---\nname: round-trip\ndescription: keep me\n---\n\n# body\n",
     )
     before = skill_md.read_text(encoding="utf-8")
 
     convert_result = CliRunner().invoke(
         main,
-        ["command", "convert", "--path", str(tmp_path), "roundtrip"],
+        ["command", "convert", "--path", str(tmp_path), "round-trip"],
         obj=_ctx(tmp_path),
     )
     revert_result = CliRunner().invoke(
         main,
-        ["command", "revert", "--path", str(tmp_path), "roundtrip"],
+        ["command", "revert", "--path", str(tmp_path), "round-trip"],
         obj=_ctx(tmp_path),
     )
 
     assert convert_result.exit_code == 0, convert_result.output
     assert revert_result.exit_code == 0, revert_result.output
     assert skill_md.read_text(encoding="utf-8") == before
-    assert not _sidecar(tmp_path, "roundtrip").exists()
+    assert not _sidecar(tmp_path, "round-trip").exists()
     assert _read_pi_settings(tmp_path)["skills"] == []
 
 
@@ -564,7 +615,7 @@ def test_command_revert_removes_exact_pi_exclusion_and_leaves_empty_array(
         "my-skill",
         "---\nname: my-skill\ndisable-model-invocation: true\n---\n\n# body\n",
     )
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text(
         json.dumps({"packages": [], "skills": ["-skills/my-skill", "!skills/my-skill"]}) + "\n",
         encoding="utf-8",
@@ -610,7 +661,7 @@ def test_command_list_reports_statuses(tmp_path: Path) -> None:
     _write_local_skill(tmp_path, "sidecar-only")
     _sidecar(tmp_path, "sidecar-only").parent.mkdir(parents=True)
     _sidecar(tmp_path, "sidecar-only").write_text(_CODEX_OPENAI_POLICY, encoding="utf-8")
-    _pi_settings(tmp_path).parent.mkdir(parents=True)
+    _pi_settings(tmp_path).parent.mkdir(parents=True, exist_ok=True)
     _pi_settings(tmp_path).write_text(
         json.dumps({"skills": ["-skills/invoke-only", "-skills/sidecar-only"]}) + "\n",
         encoding="utf-8",

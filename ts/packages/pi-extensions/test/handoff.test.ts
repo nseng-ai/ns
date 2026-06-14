@@ -90,8 +90,8 @@ describe("handoff extension", () => {
 	});
 
 	test("create command expands the handoff-create skill when available", async () => {
-		await withTempSkill(async (skillPath) => {
-			const result = await runCommand("handoff:create", "resume extension frontend work", [], {}, [
+		await withTempSkill(async (skillPath, repoDir) => {
+			const result = await runCommand("handoff:create", "resume extension frontend work", [], { cwd: repoDir }, [
 				skillCommandInfo(skillPath),
 			]);
 

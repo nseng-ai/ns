@@ -207,16 +207,6 @@ hidden-frontmatter-token: do-not-include
 Use the selected Objective.
 `;
 
-const CREATE_SKILL_MARKDOWN = `---
-name: objective-create
-hidden-frontmatter-token: do-not-include
----
-
-# Test Objective Create Skill
-
-Create one Objective.
-`;
-
 function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
 	return {
 		name: `skill:${skillName}`,
@@ -233,37 +223,24 @@ async function withTempSkill<T>(
 	markdown: string,
 	callback: (skillPath: string, skillDir: string) => Promise<T>,
 ): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), `${skillName}-`));
-	const skillPath = join(dir, "SKILL.md");
-	await writeFile(skillPath, markdown, "utf8");
-	try {
-		return await callback(skillPath, dir);
-	} finally {
-		await rm(dir, { recursive: true, force: true });
-	}
-}
-
-async function withTempRepoSkill<T>(
-	skillName: string,
-	markdown: string,
-	callback: (repoDir: string, skillPath: string, skillDir: string) => Promise<T>,
-): Promise<T> {
-	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-repo-`));
+	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-`));
 	const skillDir = join(repoDir, "skills", skillName);
 	const skillPath = join(skillDir, "SKILL.md");
 	await mkdir(skillDir, { recursive: true });
 	await writeFile(skillPath, markdown, "utf8");
 	try {
-		return await callback(repoDir, skillPath, skillDir);
+		return await callback(skillPath, skillDir);
 	} finally {
 		await rm(repoDir, { recursive: true, force: true });
 	}
 }
 
+type ObjectiveCommandContextOptions = { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[]; cwd?: string };
+
 async function runObjectiveStackImpl(
 	args: string,
 	script: ScriptedExec[] = [],
-	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+	contextOptions: ObjectiveCommandContextOptions = {},
 	commandInfos: CommandInfo[] = [],
 ): Promise<{
 	pi: FakePi;
@@ -287,7 +264,7 @@ async function runObjectiveStackImpl(
 async function runObjectiveNext(
 	args: string,
 	script: ScriptedExec[],
-	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+	contextOptions: ObjectiveCommandContextOptions = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -307,7 +284,7 @@ async function runObjectiveCommand(
 	commandName: ObjectiveCommandName,
 	args: string,
 	script: ScriptedExec[] = [],
-	contextOptions: { cancelSelect?: boolean; selectIndex?: number; selectIndices?: number[] } = {},
+	contextOptions: ObjectiveCommandContextOptions = {},
 	commandInfos: CommandInfo[] = [],
 ): Promise<{
 	pi: FakePi;
@@ -324,29 +301,6 @@ async function runObjectiveCommand(
 	}
 
 	const context = createContext(contextOptions);
-	await command.handler(args, context.ctx);
-	return { pi, ...context };
-}
-
-async function runObjectiveCreate(
-	args: string,
-	commandInfos: CommandInfo[] = [],
-	cwd: string = ROOT,
-): Promise<{
-	pi: FakePi;
-	notifications: Notification[];
-	selections: Selection[];
-	waitForIdleCalls: () => number;
-}> {
-	const pi = new FakePi([], commandInfos);
-	objectiveExtension(pi);
-	const command = pi.commands.get("objective:create");
-	expect(command).toBeDefined();
-	if (!command) {
-		throw new Error("objective:create was not registered");
-	}
-
-	const context = createContext({ cwd });
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -551,90 +505,6 @@ test("does not register removed Objective Graphite stack wrapper", () => {
 	objectiveExtension(pi);
 
 	expect(pi.commands.has(removedCommand)).toBe(false);
-});
-
-describe("objective:create command", () => {
-	test("registers a typeahead-friendly wrapper for objective-create", () => {
-		const pi = new FakePi();
-
-		objectiveExtension(pi);
-
-		const command = pi.commands.get("objective:create");
-		expect(command).toBeDefined();
-		expect(command?.argumentHint).toBe("[objective-slug-title-or-context]");
-		expect(command?.description).toContain("objective-create");
-	});
-
-	test("reads objective-create backing skill directly and preserves initial user request", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath, skillDir) => {
-			const result = await runObjectiveCreate("  create slug alpha for typeahead-friendly Objective creation  ", [], repoDir);
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.selections).toEqual([]);
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
-			expect(result.pi.sentUserMessages[0]).toContain(`References are relative to ${skillDir}.`);
-			expect(result.pi.sentUserMessages[0]).toContain("# Test Objective Create Skill\n\nCreate one Objective.");
-			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
-			expect(result.pi.sentUserMessages[0]).toContain("Run objective-create with this initial user request:");
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"```text\ncreate slug alpha for typeahead-friendly Objective creation\n```",
-			);
-			expect(result.pi.sentUserMessages[0]).toContain("slug-confirmation workflow before writing files");
-			expect(result.notifications).toContainEqual({
-				message: "Invoking objective-create with initial context.",
-				level: "info",
-			});
-		});
-	});
-
-	test("empty args still invokes the objective-create interview from backing skill", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath) => {
-			const result = await runObjectiveCreate("", [], repoDir);
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
-			expect(result.pi.sentUserMessages[0]).toContain(
-				"No initial Objective creation request was provided. Start the objective-create interview",
-			);
-			expect(result.notifications).toContainEqual({
-				message: "Invoking objective-create.",
-				level: "info",
-			});
-		});
-	});
-
-	test("missing objective-create backing skill notifies an error and sends no prompt", async () => {
-		const repoDir = await mkdtemp(join(tmpdir(), "objective-create-missing-repo-"));
-		try {
-			const result = await runObjectiveCreate("create alpha", [], repoDir);
-
-			result.pi.assertDone();
-			expect(result.waitForIdleCalls()).toBe(1);
-			expect(result.pi.sentUserMessages).toEqual([]);
-			expect(result.notifications).toHaveLength(1);
-			expect(result.notifications[0]?.level).toBe("error");
-			expect(result.notifications[0]?.message).toContain("Failed to read objective-create backing skill");
-			expect(result.notifications[0]?.message).toContain(join(repoDir, "skills", "objective-create", "SKILL.md"));
-		} finally {
-			await rm(repoDir, { recursive: true, force: true });
-		}
-	});
-
-	test("objective-create initial request fence grows beyond embedded backticks", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir) => {
-			const result = await runObjectiveCreate("make `code` and ```nested``` safe", [], repoDir);
-
-			result.pi.assertDone();
-			expect(result.pi.sentUserMessages).toHaveLength(1);
-			expect(result.pi.sentUserMessages[0]).toContain("````text\nmake `code` and ```nested``` safe\n````");
-		});
-	});
 });
 
 describe("objective:stack-impl command", () => {
@@ -1283,7 +1153,9 @@ describe("objective command shared selection policy", () => {
 describe("objective command prompt details", () => {
 	test("expanded skill block appears in an objective prompt for an explicit slug", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "objective-next-skill-"));
-		const skillPath = join(dir, "SKILL.md");
+		const skillDir = join(dir, "skills", "objective-next");
+		const skillPath = join(skillDir, "SKILL.md");
+		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			skillPath,
 			`---
@@ -1299,14 +1171,14 @@ Use the selected Objective.
 		);
 
 		try {
-			const result = await runObjectiveCommand("objective:next", "bravo", [], {}, [
-				skillCommandInfo("objective-next", skillPath, dir),
+			const result = await runObjectiveCommand("objective:next", "bravo", [], { cwd: dir }, [
+				skillCommandInfo("objective-next", skillPath, skillDir),
 			]);
 
 			result.pi.assertDone();
 			const prompt = result.pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="objective-next" location="${skillPath}">`);
-			expect(prompt).toContain(`References are relative to ${dir}.`);
+			expect(prompt).toContain(`References are relative to ${skillDir}.`);
 			expect(prompt).toContain("# Objective Next Skill\n\nUse the selected Objective.");
 			expect(prompt).not.toContain("hidden-frontmatter-token");
 			expect(prompt).toContain("Run objective-next for this explicitly selected Objective slug or path:");

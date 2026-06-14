@@ -89,10 +89,10 @@ describe("claude handoff command", () => {
 	});
 
 	test("command prompts the current Pi session to create the handoff before launching Claude", async () => {
-		await withTempSkill(async (skillPath) => {
+		await withTempSkill(async (skillPath, repoDir) => {
 			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
 			registerTestCommand(pi);
-			const context = createContext({ mode: "tui", hasCustomUi: true });
+			const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
 			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 			await command.handler("handoff the auth work", context.ctx);

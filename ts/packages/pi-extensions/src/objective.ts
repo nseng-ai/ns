@@ -1,12 +1,10 @@
-import { join } from "node:path";
-
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
 import { definePiSurfaceParity } from "./parity.ts";
-import { expandSkillBlockFromPath, invokeSkillPromptTurn } from "./skill-expansion.ts";
+import { buildFencedTextBlock, expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
@@ -168,7 +166,7 @@ async function invokeObjectiveSkill(
 	spec: ObjectiveCommandSpec,
 	objective: string,
 ): Promise<void> {
-	await invokeSkillPromptTurn({
+	await invokeRepoSkillPromptTurn({
 		host: pi,
 		ctx,
 		skillName: spec.skillName,
@@ -205,13 +203,12 @@ async function invokeObjectiveCreateSkill(
 ): Promise<void> {
 	await ctx.waitForIdle();
 	const initialRequest = rawArgs.trim();
-	const skillPath = join(ctx.cwd, "skills", spec.skillName, "SKILL.md");
 	let skillBlock: string;
 	try {
-		skillBlock = (await expandSkillBlockFromPath({ skillName: spec.skillName, skillPath })).block;
+		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName })).block;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to read ${spec.skillName} backing skill at ${skillPath}: ${message}`);
+		throw new Error(`Failed to read ${spec.skillName} backing skill: ${message}`);
 	}
 
 	if (ctx.hasUI) {
@@ -236,15 +233,9 @@ No initial Objective creation request was provided. Start the objective-create i
 
 ${spec.actionPrompt}
 
-${fencedTextBlock(initialRequest)}
+${buildFencedTextBlock(initialRequest)}
 
 Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
-}
-
-function fencedTextBlock(content: string): string {
-	const longestBacktickRun = Math.max(0, ...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0));
-	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
-	return `${fence}text\n${content}\n${fence}`;
 }
 
 async function handleObjectiveCreateCommand(

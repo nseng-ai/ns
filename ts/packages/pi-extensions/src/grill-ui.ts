@@ -14,7 +14,7 @@ import { formatGrillAskProgressLine, readGrillAskProgress, type GrillAskProgress
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
 import { definePiSurfaceParity } from "./parity.ts";
-import { expandSkillBlock, type SkillExpansionHost } from "./skill-expansion.ts";
+import { expandRepoSkillBlock } from "./skill-expansion.ts";
 
 export { type GrillAskDetails } from "./grill-ui/result.ts";
 export {
@@ -156,6 +156,7 @@ export interface GrillAskToolContext {
 }
 
 export interface GrillUiCommandContext {
+	cwd: string;
 	hasUI: boolean;
 	ui: {
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
@@ -180,7 +181,7 @@ export interface ToolDefinition {
 	): Promise<ToolResult<GrillAskDetails>> | ToolResult<GrillAskDetails>;
 }
 
-export interface ExtensionAPI extends SkillExpansionHost {
+export interface ExtensionAPI {
 	registerCommand(
 		name: string,
 		options: {
@@ -375,7 +376,7 @@ async function handleStructuredGrillCommand(
 
 	let skillBlock: string | undefined;
 	try {
-		skillBlock = (await expandSkillBlock(pi, options.skillName))?.block;
+		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: options.skillName })).block;
 	} catch {
 		notify(ctx, options.expansionFailureMessage, "warning");
 	}
