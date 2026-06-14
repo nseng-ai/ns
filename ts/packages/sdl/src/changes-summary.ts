@@ -1,4 +1,4 @@
-import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
+import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
 
 const MAX_DISPLAY_FILE_LINES = 50;
 

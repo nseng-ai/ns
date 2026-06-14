@@ -29,7 +29,7 @@ export type PiSurfaceKind = (typeof PI_SURFACE_KINDS)[number];
 /**
  * Semantic parity verdicts shared with the cross-harness parity Objective.
  *
- * - FULL: the workflow has a non-Pi CLI/skill path; Pi is additive.
+ * - FULL: the workflow has a non-Pi CLI and optional skill path; Pi is additive.
  * - PARTIAL: some non-Pi path exists, but important parity work remains.
  * - NONE: no non-Pi route exists yet; the record must name the tracked gap.
  * - WAIVED: the value is genuinely Pi-native UI/session behavior; the record
@@ -69,7 +69,7 @@ export interface BasePiSurfaceParity {
 export interface FullPiSurfaceParity extends BasePiSurfaceParity {
 	readonly parity: "FULL";
 	readonly cli: string;
-	readonly skill: string;
+	readonly skill?: string;
 }
 
 export interface GapPiSurfaceParity extends BasePiSurfaceParity {

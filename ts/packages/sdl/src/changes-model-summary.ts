@@ -1,12 +1,8 @@
-import {
-	draftWithFastText,
-	selectDraftHarness,
-	type ExtensionAPI,
-	type ExtensionCommandContext,
-} from "./fast-text-draft.ts";
-import type { PendingWorktreeSnapshot } from "@asdl/sdl/pending-worktree";
+import type { PendingWorktreeSnapshot } from "./pending-worktree.ts";
+import { selectChangesModelRef, type TextGenerationGateway } from "./text-generation.ts";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
+const CHANGES_SUMMARY_MAX_TOKENS = 512;
 const INVALID_SUMMARY_ERROR =
 	'Model returned an invalid changes summary (expected 1–4 "- " bullets, no headers or code fences).';
 
@@ -58,29 +54,24 @@ export function validateChangesSummary(
 	return { ok: true, summaryText: nonEmptyLines.join("\n") };
 }
 
-export async function draftChangesSummary(
-	pi: Pick<ExtensionAPI, "exec">,
-	ctx: ExtensionCommandContext,
-	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">,
-): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
-	const harness = selectDraftHarness();
-	if ("error" in harness) {
-		return { ok: false, error: harness.error };
-	}
-
-	const drafted = await draftWithFastText(pi, ctx, {
-		harness: harness.value,
-		systemPrompt: CHANGES_SUMMARY_SYSTEM_PROMPT,
-		userPrompt: buildChangesUserPrompt(snapshot),
-		spinnerKey: "changes",
-		progressMessage: (label) => `Summarizing changes with ${label}…`,
-		taskNoun: "changes summary",
+export async function draftChangesSummary(input: {
+	model: TextGenerationGateway;
+	env: Record<string, string | undefined>;
+	snapshot: Pick<PendingWorktreeSnapshot, "branch" | "status" | "diff">;
+}): Promise<{ ok: true; summaryText: string } | { ok: false; error: string }> {
+	const drafted = await input.model.generateText({
+		modelRef: selectChangesModelRef(input.env),
+		system: CHANGES_SUMMARY_SYSTEM_PROMPT,
+		prompt: buildChangesUserPrompt(input.snapshot),
+		maxTokens: CHANGES_SUMMARY_MAX_TOKENS,
+		reasoning: "low",
+		operation: "changes-summary",
 	});
-	if ("error" in drafted) {
+	if (!drafted.ok) {
 		return { ok: false, error: drafted.error };
 	}
 
-	return validateChangesSummary(drafted.output);
+	return validateChangesSummary(drafted.text);
 }
 
 function normalizeChangesSummary(output: string): string {

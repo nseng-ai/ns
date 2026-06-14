@@ -153,6 +153,7 @@ afterEach(() => {
 describe("sdl cp CLI help and parsing", () => {
 	test("command metadata lists built-in commands", () => {
 		expect(listSdlCommands()).toEqual([
+			{ name: "changes", description: "Summarize outstanding worktree changes without committing." },
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
 			{
 				name: "submit",
@@ -168,6 +169,7 @@ describe("sdl cp CLI help and parsing", () => {
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: sdl");
 		expect(help).toContain("Source Development Lifecycle tools.");
+		expect(help).toContain("changes");
 		expect(help).toContain("cp");
 		expect(help).toContain("submit");
 		expect(help).toContain("--runtime");
@@ -179,6 +181,7 @@ describe("sdl cp CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: sdl");
+		expect(run.stdout.join("")).toContain("changes");
 		expect(run.stdout.join("")).toContain("cp");
 		expect(run.stdout.join("")).toContain("submit");
 		expect(run.stderr.join("")).toBe("");

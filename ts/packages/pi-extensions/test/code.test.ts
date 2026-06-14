@@ -43,7 +43,6 @@ describe("code extension registration", () => {
 		codeExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual([
-			"code:changes",
 			"code:pr-regen",
 			"code:push",
 			"code:autobranch",
@@ -55,6 +54,7 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("autobranch")).toBe(false);
 		expect(pi.commands.has("autoslot")).toBe(false);
 		expect(pi.commands.has("changes")).toBe(false);
+		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("summary")).toBe(false);
 		expect(pi.commands.has("submit")).toBe(false);
 		expect(pi.commands.has("push")).toBe(false);
@@ -67,7 +67,6 @@ describe("code extension registration", () => {
 		for (const command of ["cp", "changes", "autobranch", "submit", "push", "pr-regen", "land", "land-stack"]) {
 			expect(pi.commands.has(`${oldCommandPrefix}:${command}`)).toBe(false);
 		}
-		expect(pi.commands.get("code:changes")?.description).toContain("without committing");
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("code:pr-regen")?.description).toBe(
@@ -81,7 +80,7 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
-		expect(pi.messageRenderers.has("code-changes-summary")).toBe(true);
+		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("land-command-stream")).toBe(true);
@@ -100,7 +99,6 @@ describe("code extension registration", () => {
 		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual([]);
 		expect(pi.commandNames.filter((name) => name === "dev:pr-regen")).toEqual([]);
 		expect(pi.commandNames).toEqual([
-			"code:changes",
 			"code:pr-regen",
 			"code:push",
 			"code:autobranch",

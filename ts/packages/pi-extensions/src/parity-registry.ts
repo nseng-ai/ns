@@ -2,7 +2,6 @@ import { asdlDevCodeExtensionParity, asdlDevExtensionParity } from "./asdl-dev-e
 import { autobranchParity } from "./autobranch.ts";
 import { autoslotParity } from "./autoslot.ts";
 import { branchContextExtensionParity } from "./branch-context-extension.ts";
-import { changesParity } from "./changes.ts";
 import { claudeHandoffParity } from "./claude/handoff-command.ts";
 import { codeWorkflowsParity } from "./code-workflows.ts";
 import { contextProfilerParity } from "./context-profiler.ts";
@@ -22,7 +21,6 @@ export const PI_EXTENSION_PARITY_RECORDS = [
 	...autobranchParity,
 	...autoslotParity,
 	...branchContextExtensionParity,
-	...changesParity,
 	...claudeHandoffParity,
 	...codeWorkflowsParity,
 	...contextProfilerParity,

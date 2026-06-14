@@ -49,7 +49,7 @@ An SDL package subpath that exists so ASDL workspace packages can share primitiv
 *Avoid*: plugin API, public SDK, command-author import path.
 
 **Default SDL command**:
-A built-in SDL command implementation used when no project command module overrides it.
+A built-in SDL command implementation used when no project command module overrides it. Current examples include `changes`, `cp`, and `submit`.
 *Avoid*: project override, mandatory plugin, external command module.
 
 **Project override**:
@@ -57,7 +57,7 @@ A repo-local SDL command module that replaces a default command. The current imp
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior. The mirror is an adapter over SDL, not a separate implementation.
+A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior, such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit`. The mirror is an adapter over SDL, not a separate implementation.
 *Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork.
 
 **Hard cutover**:

@@ -1,6 +1,6 @@
 # Exposing Pi Commands Through `asdl-dev`
 
-This guide describes the consolidation pattern established by the `preview-url`, `cp`, and `submit` work: durable repo-local developer commands should have one headless implementation in a native CLI, then be exposed in Pi under the project domain namespace through a thin command-surface adapter. Historical examples here use `asdl-dev`; checkpoint creation has since moved to native `sdl cp` and `/sdl:cp` without a `/code:cp` compatibility alias.
+This guide describes the consolidation pattern established by the `preview-url`, `cp`, `changes`, and `submit` work: durable repo-local developer commands should have one headless implementation in a native CLI, then be exposed in Pi under the project domain namespace through a thin command-surface adapter. Historical examples here use `asdl-dev`; pending-worktree inspection and checkpoint creation have since moved to native `sdl changes` / `/sdl:changes` and `sdl cp` / `/sdl:cp` without `/code:*` compatibility aliases.
 
 Use this when converting a Pi-only workflow into a command that humans, agents, scripts, and tests can all run outside Pi.
 
@@ -26,17 +26,17 @@ Do not add a new Pi command first and later make the CLI shell out to Pi. Pi sho
 
 Durable documentation, saved implementation plans, public skills, and agent-facing instructions should cite the native CLI command when a workflow has both a CLI and a Pi slash-command adapter. This keeps the instruction usable by Pi, Claude Code, Codex, shell-only agents, humans, and tests.
 
-Use harness-specific command names only when the subject is that runtime surface itself: registration, command discovery, UI behavior, slash-command argument restoration, or Pi-only session semantics. Otherwise, describe the adapter as secondary to the CLI. For checkpoint creation, write `sdl cp` in plans and docs; mention `/sdl:cp` only when discussing the Pi adapter over `sdl cp`.
+Use harness-specific command names only when the subject is that runtime surface itself: registration, command discovery, UI behavior, slash-command argument restoration, or Pi-only session semantics. Otherwise, describe the adapter as secondary to the CLI. For pending-worktree inspection and checkpoint creation, write `sdl changes` or `sdl cp` in plans and docs; mention `/sdl:changes` or `/sdl:cp` only when discussing the Pi adapter over the SDL command.
 
 ## What the migrations established
 
-The stack around `asdl-dev preview-url`, former `asdl-dev cp`, and former `asdl-dev submit` created this boundary. SDL hard-cutover slices now apply the same pattern through `sdl cp` / `/sdl:cp` and `sdl submit` / `/sdl:submit`:
+The stack around `asdl-dev preview-url`, former `asdl-dev cp`, and former `asdl-dev submit` created this boundary. SDL hard-cutover slices now apply the same pattern through `sdl changes` / `/sdl:changes`, `sdl cp` / `/sdl:cp`, and `sdl submit` / `/sdl:submit`:
 
 - `ts/packages/asdl-dev/` owns remaining `asdl-dev` CLI parsing, help text, gateway-backed workflow logic, stdout/stderr output, exit codes, and CLI scenario tests.
-- `ts/packages/sdl/` owns native checkpoint CLI parsing and checkpoint workflow behavior.
+- `ts/packages/sdl/` owns native pending-worktree inspection, checkpoint CLI parsing, and checkpoint workflow behavior.
 - `ts/packages/asdl-dev/src/cli.ts` and `ts/packages/sdl/src/cli.ts` own command tables and export command metadata for Pi adapters.
 - `ts/packages/pi-extensions/src/asdl-dev-extension.ts` reads the remaining `asdl-dev` command table and registers commands under the Pi namespace chosen for their domain: `/dev:preview-url` for preview URL lookup, `/code:pr-regen` for the remaining unported PR-description workflow, and `/sdl:submit` through the SDL extension for submit.
-- `ts/packages/pi-extensions/src/sdl-extension.ts` reads the `sdl` command table and registers `/sdl:cp` for checkpoint creation.
+- `ts/packages/pi-extensions/src/sdl-extension.ts` reads the `sdl` command table and registers `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` for SDL-owned workflows.
 - `ts/packages/pi-extensions/src/cli-command-extension.ts` is the generic Pi adapter: it waits for Pi to become idle, tokenizes slash-command args, invokes `runCli()`, passes generic UI capabilities such as confirmations when available, captures stdout/stderr, and emits a displayed custom message.
 - `.pi/extensions/asdl-dev.ts` is only the project-local discovery adapter that lets Pi load the engineered package code.
 
@@ -169,7 +169,7 @@ Then implement:
 
 Do not register duplicate Pi implementations for commands already owned by `asdl-dev`.
 
-The existing `.pi/extensions/asdl-dev.ts` adapter loads `asdlDevExtension()` for `/dev:preview-url`; `.pi/extensions/code.ts` loads `codeExtension()`, which mounts remaining code workflow commands such as `/code:pr-regen`; `.pi/extensions/sdl.ts` loads `sdlExtension()` for `/sdl:cp` and `/sdl:submit`.
+The existing `.pi/extensions/asdl-dev.ts` adapter loads `asdlDevExtension()` for `/dev:preview-url`; `.pi/extensions/code.ts` loads `codeExtension()`, which mounts remaining code workflow commands such as `/code:pr-regen`; `.pi/extensions/sdl.ts` loads `sdlExtension()` for `/sdl:changes`, `/sdl:cp`, and `/sdl:submit`.
 
 A user invoking:
 

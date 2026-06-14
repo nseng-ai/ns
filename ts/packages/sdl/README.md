@@ -86,6 +86,28 @@ Projects may override `sdl cp` by adding `.asdl/commands/cp.ts` with a default e
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 
+## `changes`
+
+Summarize outstanding worktree changes without committing.
+
+```bash
+sdl changes
+```
+
+Behavior:
+
+- captures the current pending worktree snapshot with read-only git commands;
+- prints `Working tree is clean; no outstanding changes.` for clean worktrees;
+- for dirty worktrees, asks the configured text-generation model for 1–4 reviewer-facing bullets, then prints the bullets and raw porcelain status lines;
+- does not stage, commit, stash, switch branches, run Graphite, or call GitHub.
+
+Environment:
+
+- `SDL_CHANGES_MODEL`: model reference for generated changes summaries.
+- `PI_DRAFT_MODEL`: transitional fallback for the old Pi changes-summary model selection.
+
+Pi exposes the same capability as `/sdl:changes`; `/code:changes` is not retained as a compatibility alias.
+
 ## `submit`
 
 Checkpoint outstanding changes, then submit the current Graphite stack.
