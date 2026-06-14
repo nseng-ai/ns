@@ -310,3 +310,7 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert "dispatch_runner_subagent.model" in resolution.content
     assert "default_model" in resolution.content
     assert "openai-codex/gpt-5.4-mini:medium" in resolution.content
+    assert "content/excerpt drift anchor" in resolution.content
+    assert "plan-specific STOP conditions" in resolution.content
+    assert "cold-read executability gaps check" in resolution.content
+    assert "Claude/Anthropic `claude-haiku-4-5`" in resolution.content
