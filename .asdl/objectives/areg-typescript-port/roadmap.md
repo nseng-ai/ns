@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Record the out-of-sequence selection in the parent TypeScript migration Objective.
-  - Update `port-asdl-toolkit-to-typescript` so `areg` is no longer merely parked pending evidence, and explain why this Objective intentionally jumps ahead of the default `handoff`/`objective` sequence.
-  - Evidence: parent migration ledger, roadmap, and a Semantic Update identify `areg-typescript-port` as the active capability slice and preserve the remaining sequence implications.
+- [x] Record the out-of-sequence selection in the parent TypeScript migration Objective.
+  - Updated `port-asdl-toolkit-to-typescript` so `areg` is no longer merely parked pending evidence, and explained why this Objective intentionally jumps ahead of the default `handoff`/`objective` sequence.
+  - Evidence: parent migration ledger, roadmap, and Semantic Update `updates/2026-06-14T210247Z-areg-promoted-out-of-sequence.md` identify `areg-typescript-port` as the active capability slice and preserve the remaining sequence implications.
 - [ ] Inventory current `areg` contracts before porting implementation.
   - Classify durable versus incidental behavior for CLI commands, hidden `exec skillx` JSON, help/usage output, exit codes, managed project files, `skills-lock.json`, `asdl.toml` and legacy `areg.json`, local skill layout checks, command-conversion behavior, and external `git`/`gh`/`npx` boundaries.
   - Evidence: a contract inventory document or Semantic Update cites current Python source/tests and names accepted divergences before implementation relies on them.

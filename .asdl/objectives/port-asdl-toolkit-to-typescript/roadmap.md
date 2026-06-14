@@ -24,6 +24,9 @@
   - Selected `brmem` as the second capability, holding the persisted order. Integration-leverage evidence confirmed rather than changed the default: TypeScript code already depended on `brmem` (the `@asdl/core/brmem-cli.ts` shell-out launcher and `branch-context/brmem-gateway.ts` consumer), so a native TS implementation had immediate reuse value while the actual capability was still Python-backed.
   - Evidence: active subobjective `.asdl/objectives/brmem-typescript-port/` now tracks the detailed `brmem` TypeScript port contract inventory, git-ref storage parity, operation ports, run-from-source distribution, and Python retirement work, modeled on `pr-address-typescript-port` and `porting-playbook.md`.
   - Remaining order after `brmem`: `handoff`, `objective`, `asdl-dispatcher`, roaster, `slot`, `vibechk`, then `aretro` last. Revisit only when new evidence materially changes usage, dependency, or strategic value.
+- [x] Promote `areg` from parked status into an out-of-sequence subobjective.
+  - The default post-`brmem` sequence remains valuable, but present strategic interest in making `areg` TypeScript-default now justifies an explicit exception rather than leaving it parked pending evidence.
+  - Evidence: `objective.md` now marks `areg` as an active out-of-sequence subobjective, explains the exception to the default `handoff` / `objective` order, and resolves the parked-entry open question for `areg`; `areg-typescript-port` records the detailed contract, distribution, and Python-retirement scope for the slice.
 - [ ] Repeat the capability subobjective pattern until all active first-party user-facing capabilities are TS-default.
   - Preserve stable CLI/skill contracts during takeover.
   - Add cleaner TS-native APIs behind or alongside those contracts where useful.
@@ -31,6 +34,7 @@
   - Evidence: `brmem` completed as the second TS-default capability and fed git-ref storage parity, package-local plumbing, run-from-source shim, and post-deletion reference lessons back into [`porting-playbook.md`](porting-playbook.md), the migration ledger, and Semantic Update `updates/2026-06-14T172101Z-brmem-cutover-playbook-lessons.md`.
   - Evidence: `handoff` completed as the third TS-default capability and fed Branch Memory consumer boundaries, Clinkr markdown rendering, package-local timestamp plumbing, plugin retirement, skill/Pi-owned create/pickup boundaries, and stale Python console-script shim lessons back into [`porting-playbook.md`](porting-playbook.md), the migration ledger, and Semantic Update `updates/2026-06-14T232229Z-handoff-cutover-playbook-lessons.md`.
   - Next planned capability remains `objective` unless new evidence changes the order.
+  - Current exception: `areg` is active out of sequence through `areg-typescript-port`. After that slice completes or parks again, resume the remaining order deliberately; the next default capability is now `objective` unless new evidence changes the order.
 - [ ] Burn down the end-of-migration debt ledger (`migration-debt.md`).
   - Each entry is a transitional compromise (legacy machine-output shapes, snake_case schema keys, Python-parity envelope) accepted to keep the port moving; every entry must be killed or deliberately recommitted before the umbrella closes.
   - New compromises of this type made during capability subobjectives must be appended to `migration-debt.md` when they are accepted.
