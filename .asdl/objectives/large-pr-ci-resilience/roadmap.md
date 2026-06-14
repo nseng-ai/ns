@@ -2,8 +2,9 @@
 
 ## Work
 
-- [ ] Reproduce and preserve the oversized-PR failure as deterministic evidence.
+- [x] Reproduce and preserve the oversized-PR failure as deterministic evidence.
   - Capture a unit/scenario fixture that simulates PR #1419's failure shape: more than 300 changed files, hundreds of changed paths, and a prompt estimate over the model limit. Include assertions for the observed failure classes: GitHub diff API `too_large`, roaster `prompt_too_long`, and failure metadata loss to `unknown`.
+  - Evidence: marked complete from explicit maintainer report; local checkout had no uncommitted or branch-diff evidence to inspect for this update.
 
 - [ ] Decide and document the oversized-review policy.
   - Choose whether roaster should hard-fail, soft-pass/skip, or shard when the prompt/file budget is exceeded. The policy must explain the user-facing check conclusion, PR comment wording, and how authors should proceed for valid mechanical migrations.
