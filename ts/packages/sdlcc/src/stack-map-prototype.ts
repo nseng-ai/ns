@@ -255,12 +255,12 @@ export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, stat
 	lines.push(model.title);
 	if (state.showQuestion) lines.push(model.question);
 	lines.push("");
-	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)} │ ${formatStackMapTableHeader(tableWidths)}`);
-	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}─┼─${formatStackMapTableRule(tableWidths)}`);
+	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${formatStackMapTableHeader(tableWidths)}`);
+	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}──${formatStackMapTableRule(tableWidths)}`);
 
 	for (const row of rows) {
 		const cursor = row.isSelected ? "› " : "  ";
-		lines.push(`${cursor}${row.topo.padEnd(topoWidth)} │ ${formatStackMapTableRow(row, tableWidths)}`);
+		lines.push(`${cursor}${row.topo.padEnd(topoWidth)}  ${formatStackMapTableRow(row, tableWidths)}`);
 	}
 
 	lines.push("");
@@ -422,7 +422,7 @@ function buildLaneRows(branch: StackMapBranchNode, laneIndex: number, currentBra
 function trunkTopo(trunk: StackMapBranchNode, currentBranch: string, laneCount: number): string {
 	const marker = branchMarker(trunk, currentBranch);
 	if (laneCount === 0) return marker;
-	return `${marker}${"─┴".repeat(Math.max(laneCount - 1, 0))}─┘`;
+	return `${marker}${"─┴".repeat(Math.max(laneCount - 1, 0))}`;
 }
 
 function branchMarker(branch: StackMapBranchNode, currentBranch: string): string {

@@ -296,9 +296,9 @@ describe("buildVisibleStackMapRows", () => {
 		const rows = buildVisibleStackMapRows(model, createInitialStackMapState(model));
 
 		expect(rows.map((row) => row.branch.name)).toEqual(["a-parent", "b-leaf", "b-child", "b-parent", "c-parent", "main"]);
-		expect(rows.map((row) => row.topo)).toEqual(["◯", "│ ◉", "│ ◯", "│ ◯", "│ │ ◯", "◯─┴─┴─┘"]);
+		expect(rows.map((row) => row.topo)).toEqual(["◯", "│ ◉", "│ ◯", "│ ◯", "│ │ ◯", "◯─┴─┴"]);
 		expect(rows.at(-1)?.branch.name).toBe("main");
-		expect(rows.at(-1)?.topo).toBe("◯─┴─┴─┘");
+		expect(rows.at(-1)?.topo).toBe("◯─┴─┴");
 		expect(rows.some((row) => row.topo.includes("○"))).toBe(false);
 	});
 
@@ -319,20 +319,27 @@ describe("buildVisibleStackMapRows", () => {
 		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), filter: "cmux" });
 
 		expect(rows.map((row) => row.branch.name)).toEqual(["b-child", "b-parent", "main"]);
-		expect(rows.map((row) => row.topo)).toEqual(["◯", "◯", "◯─┘"]);
+		expect(rows.map((row) => row.topo)).toEqual(["◯", "◯", "◯"]);
 	});
 });
 
 describe("renderStackMapPrototypeFrame", () => {
-	test("keeps topology in a left gutter and aligns branch metadata as a table", () => {
+	test("keeps branch rows aligned while rendering the trunk join under the final lane", () => {
 		const frame = renderStackMapPrototypeFrame(MODEL, createInitialStackMapState(MODEL));
 		const lines = frame.split("\n");
 		const tableLines = lines.filter((line) => line.includes(" │ ") && !line.includes("─┼─"));
 		const header = tableLines[0];
+		const trunkLine = lines.find((line) => /^\s*◯\s+main/.test(line));
 
 		expect(header).toContain("TOPO");
-		expect(header).toContain("│ BRANCH");
+		expect(header).toContain("  BRANCH");
+		expect(header).not.toContain("TOPO │ BRANCH");
 		expect(frame).toContain("c cmux");
+		expect(trunkLine ?? "").toMatch(/^\s*◯\s+main/);
+		expect(trunkLine).toContain(" │ repo");
+		expect(frame).not.toContain("◯─┘");
+		expect(frame).not.toContain("◯ │ main");
+		expect(frame).not.toContain("│ main");
 		expect(tableLines.length).toBe(4);
 		expect(tableLines.map(tableSeparatorIndexes)).toEqual(tableLines.map(() => tableSeparatorIndexes(header ?? "")));
 	});
