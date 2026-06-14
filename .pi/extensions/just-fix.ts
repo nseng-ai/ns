@@ -104,6 +104,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 	try {
 		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
 	} catch {
+		// Skill expansion is best-effort; the fallback prompt below still gives the agent the just failure.
 		skill = undefined;
 	}
 	if (ctx.hasUI) {
