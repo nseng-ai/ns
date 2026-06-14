@@ -130,13 +130,13 @@ async function loadStackFeedbackPlanInput(
 	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
 }
 
-function loadStackFeedbackPlanInputFromStdin(
+async function loadStackFeedbackPlanInputFromStdin(
 	stdinText: string,
 ): Promise<
 	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: undefined } }
 	| { type: "error"; errorType: string; message: string }
 > {
-	return loadJsonInput({
+	const payloadResult = await loadJsonInput({
 		optionValue: stdinText,
 		commandName: "stack-feedback-plan",
 		inputDescription: "stack feedback plan JSON payload",
@@ -144,18 +144,17 @@ function loadStackFeedbackPlanInputFromStdin(
 		fileOptionName: "--payload-file",
 		schema: stackFeedbackPlanPayloadSchema,
 		stdin: async () => "",
-	}).then((payloadResult) => {
-		if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-		const payloadValue = payloadResult.value;
-		if (payloadValue.prep === undefined) {
-			return {
-				type: "error",
-				errorType: "invalid_request",
-				message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference.",
-			};
-		}
-		return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
 	});
+	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
+	const payloadValue = payloadResult.value;
+	if (payloadValue.prep === undefined) {
+		return {
+			type: "error",
+			errorType: "invalid_request",
+			message: "stack-feedback-plan requires a prep input via the payload prep key or --prep-reference.",
+		};
+	}
+	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
 }
 
 async function loadStackFeedbackPlanInputFromSession(

@@ -7,7 +7,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { getFeedbackManifestSchema } from "./feedback-manifest-contracts.ts";
 import { loadJsonInput, loadJsonRecord, type JsonInputResult } from "./json-input.ts";
 import { HARNESS_SESSION_ID_ENV, PayloadStore, type PayloadReference } from "./payload-store.ts";
-import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact, type ResolvedInputs } from "./session-artifacts.ts";
+import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact } from "./session-artifacts.ts";
 
 const wrapperPayloadSchema = z.looseObject({
 	manifest: z.unknown(),
@@ -173,7 +173,7 @@ async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.
 			`Resolved classification artifact PR number ${classification.value.value.pr_number} does not match requested PR ${request.pr_number}.`,
 		);
 	}
-	const resolvedInputs: ResolvedInputs = { manifest: manifest.value.reference, classification: classification.value.reference };
+	const resolvedInputs = { manifest: manifest.value.reference, classification: classification.value.reference };
 	const result = planFeedback({ manifest: manifest.value.value, classification: classification.value.value.classification });
 	const resultWithResolvedInputs = { ...result, resolved_inputs: resolvedInputs };
 	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);

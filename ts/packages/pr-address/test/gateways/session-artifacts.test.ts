@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { PayloadStore, type PayloadClock, type PayloadResult } from "../../src/payload-store.ts";
-import { prArtifactDescriptor, prBatchArtifactDescriptor, resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "../../src/session-artifacts.ts";
+import { prArtifactDescriptor, resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeTempDir = useTempDirs();
@@ -35,20 +35,13 @@ describe("session artifact descriptors", () => {
 		expect(prArtifactDescriptor({ prNumber: 1427, kind: "manifest" })).toBe("pr-address-pr-1427-manifest");
 		expect(prArtifactDescriptor({ prNumber: 1427, kind: "classification" })).toBe("pr-address-pr-1427-classification");
 		expect(prArtifactDescriptor({ prNumber: 1427, kind: "plan" })).toBe("pr-address-pr-1427-plan");
-		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "single_file", kind: "resolve-build" })).toBe(
-			"pr-address-pr-1427-batch-single_file-resolve-build",
-		);
-		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "single_file", kind: "checkpoint" })).toBe(
-			"pr-address-pr-1427-batch-single_file-checkpoint",
-		);
 		expect(stackArtifactDescriptor("prep")).toBe("pr-address-stack-prep");
 		expect(stackArtifactDescriptor("plan")).toBe("pr-address-stack-plan");
 	});
 
-	test("rejects invalid PR numbers and unsafe batch ids loudly", () => {
+	test("rejects invalid PR numbers loudly", () => {
 		expect(() => prArtifactDescriptor({ prNumber: 0, kind: "feedback" })).toThrow("PR number must be a positive integer");
 		expect(() => prArtifactDescriptor({ prNumber: 1.5, kind: "feedback" })).toThrow("PR number must be a positive integer");
-		expect(() => prBatchArtifactDescriptor({ prNumber: 1427, batchId: "Bad Batch", kind: "checkpoint" })).toThrow("batch id must match safe segment");
 	});
 });
 

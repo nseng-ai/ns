@@ -9,23 +9,18 @@ import {
 	PayloadStore,
 	payloadError,
 	readJsonPayloadArtifact,
-	requireSafeSegment,
 	type JsonPayloadRole,
 	type PayloadReference,
 	type PayloadResult,
 } from "./payload-store.ts";
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
-export type PrBatchArtifactKind = "resolve-build" | "checkpoint" | "resolution-result";
-export type StackArtifactKind = "prep" | "plan" | "preflight" | "diff-current" | "resolve-builds";
-export type JsonSessionArtifactRole = JsonPayloadRole;
+export type StackArtifactKind = "prep" | "plan";
 
 export interface ResolvedSessionArtifact<T = unknown> {
 	reference: PayloadReference;
 	value: T;
 }
-
-export type ResolvedInputs = Record<string, PayloadReference | readonly PayloadReference[] | unknown>;
 
 export const classificationArtifactSchema = z.looseObject({
 	pr_number: z.number().int(),
@@ -45,11 +40,6 @@ export function prArtifactDescriptor(options: { prNumber: number; kind: PrArtifa
 	return `pr-address-pr-${positivePrNumber(options.prNumber)}-${options.kind}`;
 }
 
-export function prBatchArtifactDescriptor(options: { prNumber: number; batchId: string; kind: PrBatchArtifactKind }): string {
-	const batchId = requireSafeSegment(options.batchId, { label: "batch id" });
-	return `pr-address-pr-${positivePrNumber(options.prNumber)}-batch-${batchId}-${options.kind}`;
-}
-
 export function stackArtifactDescriptor(kind: StackArtifactKind): string {
 	return `pr-address-stack-${kind}`;
 }
@@ -57,7 +47,7 @@ export function stackArtifactDescriptor(kind: StackArtifactKind): string {
 export async function resolveLatestJsonSessionArtifact<T = unknown>(options: {
 	store: PayloadStore;
 	descriptor: string;
-	role: JsonSessionArtifactRole;
+	role: JsonPayloadRole;
 	schema?: z.ZodType<T> | undefined;
 }): Promise<PayloadResult<ResolvedSessionArtifact<T>>> {
 	const candidate = await latestPayloadCandidate(options.store, options.descriptor, options.role);
@@ -95,7 +85,7 @@ export async function resolveLatestJsonSessionArtifact<T = unknown>(options: {
 async function latestPayloadCandidate(
 	store: PayloadStore,
 	descriptor: string,
-	role: JsonSessionArtifactRole,
+	role: JsonPayloadRole,
 ): Promise<PayloadResult<PayloadCandidate>> {
 	let entries: readonly string[];
 	try {
