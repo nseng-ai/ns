@@ -97,7 +97,7 @@ async function runValidateFeedbackClassificationOperation(
 	const result = validateFeedbackClassification({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
 	if (!result.valid) return negative("PR feedback classification failed validation.", result);
 
-	const classificationReference = await persistValidatedClassification(ctx, request, result, payloadResult.value.classification);
+	const classificationReference = await persistValidatedClassification({ ctx, request, result, classification: payloadResult.value.classification });
 	if (classificationReference.type === "error") return failure(classificationReference.errorType, classificationReference.message);
 	return ok({ ...result, classification_reference: classificationReference.value });
 }
@@ -127,21 +127,25 @@ async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.ou
 	return negative("PR feedback classification failed validation; no plan produced.", result);
 }
 
-async function persistValidatedClassification(
-	ctx: PrAddressExecContext,
-	request: z.output<typeof validateFeedbackClassificationParseSchema>,
-	result: FeedbackClassificationValidationResult,
-	classification: unknown,
-): Promise<OperationResult<PayloadReference | null>> {
-	if (!hasConfiguredPayloadSession(request.harness_session_id, { env: ctx.env })) return { type: "ok", value: null };
-	if (result.pr_number === null) {
+async function persistValidatedClassification(options: {
+	ctx: PrAddressExecContext;
+	request: z.output<typeof validateFeedbackClassificationParseSchema>;
+	result: FeedbackClassificationValidationResult;
+	classification: unknown;
+}): Promise<OperationResult<PayloadReference | null>> {
+	if (!hasConfiguredPayloadSession(options.request.harness_session_id, { env: options.ctx.env })) return { type: "ok", value: null };
+	if (options.result.pr_number === null) {
 		return { type: "error", errorType: "invalid_request", message: "validate-feedback-classification cannot persist a PR-scoped classification without a PR number." };
 	}
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({ explicitHarnessSessionId: request.harness_session_id ?? null, env: ctx.env, clock: ctx.context.payloadClock });
+	const storeResult = await options.ctx.context.payloadStoreFactory.fromEnvironment({
+		explicitHarnessSessionId: options.request.harness_session_id ?? null,
+		env: options.ctx.env,
+		clock: options.ctx.context.payloadClock,
+	});
 	if (storeResult.type === "error") return storeResult;
-	const artifact = { pr_number: result.pr_number, classification, validation: result };
+	const artifact = { pr_number: options.result.pr_number, classification: options.classification, validation: options.result };
 	const reference = await storeResult.value.writeJsonArtifact({
-		descriptor: prArtifactDescriptor({ prNumber: result.pr_number, kind: "classification" }),
+		descriptor: prArtifactDescriptor({ prNumber: options.result.pr_number, kind: "classification" }),
 		role: "summary",
 		payload: artifact,
 	});
