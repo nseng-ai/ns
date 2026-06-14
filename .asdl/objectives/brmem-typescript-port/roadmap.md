@@ -60,7 +60,7 @@
 
 ## Parked
 
-- Migrating TypeScript consumers (`@asdl/core/brmem-cli.ts` launcher, `branch-context/brmem-gateway.ts`, `ccc` dispatch prompt storage, and similar callers) from CLI shell-out onto the native brmem library — deliberate follow-up outside this Objective; revisit once native brmem is TS-default. PR #1466 demonstrates `ccc` can consume Branch Memory through the shared CLI launcher boundary, but it does not move this parked direct-library migration into the active Objective scope.
+- Migrating TypeScript consumers (`@asdl/core/brmem-cli.ts` launcher, `branch-context/brmem-gateway.ts`, `ccc` dispatch prompt storage, and similar callers) from CLI shell-out onto the native brmem library — deliberate follow-up outside this Objective; revisit once native brmem is TS-default. PR #1466 demonstrates `ccc` can consume Branch Memory through the shared CLI launcher boundary, but it does not move this parked direct-library migration into the active Objective scope. PR #1473 only centralized neutral shell-out command handling and `brmem put` parsing for existing CLI-backed consumers; it did not replace those consumers with native brmem library calls.
 - Extracting a shared git ref/blob/tree gateway into `@asdl/core` — keep brmem's plumbing package-local until a second consumer proves the seam, then coordinate with `ts-cli-foundation`.
 - npm registry publishing and checkout-free bundled distribution of `brmem` — not required under the accepted run-from-source shim model; revisit only if a registry or checkout-free consumer appears.
 - Any redesign of the git-ref storage layout, Entry Locator, or Entry Key / Namespace rules — frozen while Python and TypeScript must interoperate.
