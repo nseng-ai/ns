@@ -23,6 +23,10 @@ export interface DeleteEntryResult {
 	isSnapshotEmpty: boolean;
 }
 
+export interface ListedEntry extends EntryRef {
+	updatedAt: string;
+}
+
 export interface CopyEntriesResult {
 	entries: readonly EntryRef[];
 }
@@ -34,9 +38,9 @@ export interface BrmemGateway {
 		namespace: string;
 		key?: string | undefined;
 		branch?: string | undefined;
-	}): Promise<BrmemResult<readonly EntryRef[]>>;
+	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
-	listAllEntries(options: { key?: string | undefined; branch?: string | undefined }): Promise<BrmemResult<readonly EntryRef[]>>;
+	listAllEntries(options: { key?: string | undefined; branch?: string | undefined }): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	getEntry(options: {
 		namespace: string;
@@ -51,12 +55,6 @@ export interface BrmemGateway {
 		branch: string;
 		at?: string | undefined;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
-
-	entryUpdatedAt(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-	}): Promise<BrmemOptionalResult<string>>;
 
 	putEntry(options: {
 		namespace: string;

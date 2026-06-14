@@ -39,7 +39,6 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to list handoffs");
 	const handoffs = await collectHandoffSummaries({
 		entries: entries.value,
-		brmem: ctx.brmem,
 		git: ctx.git,
 		cwd: ctx.cwd,
 		includeDeleted: request.include_deleted,
