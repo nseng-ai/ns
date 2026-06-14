@@ -188,7 +188,18 @@ interface GhApiJsonOptions {
 	signal?: AbortSignal | undefined;
 }
 
-type GhApiJsonResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
+interface GhJsonCommandOptions {
+	pi: ExecGateway;
+	cwd: string;
+	args: string[];
+	label: string;
+	signal?: AbortSignal | undefined;
+	shouldAllowNonZeroWithStdout?: boolean | undefined;
+}
+
+type GhJsonCommandResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
+
+type GhApiJsonResult = GhJsonCommandResult;
 
 interface CustomMessage {
 	customType: string;
@@ -1243,15 +1254,15 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 
 async function loadPrCheckSummary(options: LoadPrCheckSummaryOptions): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
 	const { pi, cwd, prNumber, signal } = options;
-	const result = await pi.exec("gh", ["pr", "checks", String(prNumber), "--json", "bucket"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (result.killed || (result.code !== 0 && result.stdout.trim().length === 0)) {
-		return { type: "failed", message: `gh pr checks failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
-	}
-	try {
-		return { type: "loaded", summary: parsePrCheckSummary(JSON.parse(result.stdout)) };
-	} catch {
-		return { type: "failed", message: "gh pr checks returned malformed JSON." };
-	}
+	const result = await ghJsonCommand({
+		pi,
+		cwd,
+		args: ["pr", "checks", String(prNumber), "--json", "bucket"],
+		label: "gh pr checks",
+		signal,
+		shouldAllowNonZeroWithStdout: true,
+	});
+	return result.type === "loaded" ? { type: "loaded", summary: parsePrCheckSummary(result.value) } : result;
 }
 
 function parsePrCheckSummary(value: unknown): PrCheckSummary {
@@ -1308,14 +1319,19 @@ function settledGhApiJsonResult(result: PromiseSettledResult<GhApiJsonResult>, e
 
 async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 	const { pi, cwd, endpoint, jq, signal } = options;
-	const result = await pi.exec("gh", ["api", "--method", "GET", endpoint, "--jq", jq], execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (result.killed || result.code !== 0) {
-		return { type: "failed", message: `gh api failed for ${endpoint}: ${result.stderr.trim() || `exit code ${result.code}`}` };
+	return ghJsonCommand({ pi, cwd, args: ["api", "--method", "GET", endpoint, "--jq", jq], label: `gh api for ${endpoint}`, signal });
+}
+
+async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
+	const { pi, cwd, args, label, signal, shouldAllowNonZeroWithStdout = false } = options;
+	const result = await pi.exec("gh", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
+	if (result.killed || (result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))) {
+		return { type: "failed", message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
 	}
 	try {
 		return { type: "loaded", value: JSON.parse(result.stdout) };
 	} catch {
-		return { type: "failed", message: `gh api returned malformed JSON for ${endpoint}.` };
+		return { type: "failed", message: `${label} returned malformed JSON.` };
 	}
 }
 
