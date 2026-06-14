@@ -6,10 +6,10 @@ This map is the repository entry point for domain-language context. It records w
 
 Current checkout facts:
 
-- Python workspace inventory: 11 tracked packages under `packages/`.
-- In-scope Python context targets: 10 packages. `asdl-dispatcher` is tracked but remains out of context scope while its CLI group has `operations=[]`.
+- Python workspace inventory: 9 active workspace packages under `packages/`.
+- In-scope Python context targets: 9 packages. `asdl-dispatcher` is tracked but remains out of context scope while its CLI group has `operations=[]`.
 - TypeScript workspace inventory: 11 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
-- Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `packages/asdl-handoff/CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
+- Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
 
 ## Contexts
@@ -19,7 +19,6 @@ Current checkout facts:
 - [ASDL Tools](./CONTEXT.md) — Objective-system vocabulary for checked-in durable narrative roadmap records, Active Objective Root, Objective Archive Root, Archived Objective, Objective Update, Objective Close, Objective Archive, Semantic Update, Tracking Gate, and Closure Marker.
 - [asdl-core](./packages/asdl-core/CONTEXT.md) — shared CLI, Git, Graphite, GitHub, session, plugin, repository-config, and presentation vocabulary. Keep this as one context file with H2 sections until a subpackage graduates to a standalone package.
 - [@asdl/handoff](./ts/packages/handoff/CONTEXT.md) — active directed handoff artifact vocabulary over Branch Memory storage for the TypeScript standalone `handoff` CLI: continuation focus, Create a Handoff, Pick Up a Handoff, List Handoffs, and Delete a Handoff actions, handoff slug/key, `handoff` namespace, Handoff Summary, Branch State, List Scope, all-branches inventory, garbage collection, Handoff Technical Locator, and the boundary between durable handoff artifacts and worker-protocol handoffs.
-- [asdl-handoff](./packages/asdl-handoff/CONTEXT.md) — historical Python package context retained until the later Python package/plugin deletion PR.
 - [@asdl/brmem](./ts/packages/brmem/CONTEXT.md) — Branch Memory primitive vocabulary. Present terms include Branch Memory System, Branch Memory, Namespace, Base Namespace `base`, Entry, Entry Key, Snapshot, Snapshot Ref, Entry Locator, Namespace Copy, Copy Conflict, and Export. Do not describe prompt resolution as ordinary Branch Memory operation, and do not revive stale `Entry Ref` / `Ref locator` wording.
 - [@asdl/pi-extension-runtime](./ts/packages/pi-extension-runtime/CONTEXT.md) — neutral Pi extension runtime helper vocabulary for command presentation, Branch Memory command discovery/execution helpers, machine-envelope parsing, terminal text shaping, skill expansion, Objective picker/selection helpers, branch-slug normalization, and cmux/Pi runtime types shared below CCC and repo-local Pi extensions.
 - [@asdl/pi-extensions](./ts/packages/pi-extensions/CONTEXT.md) — repo-local Pi discovery adapters, engineered extension package, worktree-status/Pi footer lifecycle adapter language, enriched-plan/branch-context/checkpoint/handoff language, runner subagents, CCC command-prefix boundary, and CLI bridge vocabulary. This file exists, but still needs the later refresh against the current extension inventory and `asdl-dev` command mirror boundary.

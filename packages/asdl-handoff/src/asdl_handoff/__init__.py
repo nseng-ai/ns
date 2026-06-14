@@ -1,1 +1,0 @@
-"""Handoff artifact CLI package."""

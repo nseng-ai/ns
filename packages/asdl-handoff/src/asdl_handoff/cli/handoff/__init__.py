@@ -1,1 +1,0 @@
-"""Handoff command group."""
