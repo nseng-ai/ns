@@ -4,7 +4,9 @@ export {
 	type TextGenerationGateway,
 	type TextGenerationRequest,
 	type TextGenerationResult,
-} from "@asdl/sdl/text-generation";
+} from "@asdl/core/submit";
+
+export type SubmitOutputListener = (stream: "stdout" | "stderr", text: string) => void;
 
 export const DEFAULT_PR_DESCRIPTION_MODEL_REF = DEFAULT_FAST_MODEL_REF;
 export const PR_DESCRIPTION_MODEL_ENV = "ASDL_DEV_PR_DESCRIPTION_MODEL";

@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@asdl/core/exec";
+import { stripTerminalEscapes } from "../exec.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
@@ -92,7 +92,7 @@ export function formatPreflightFailureOutput(output: SubmitCommandOutput): strin
 export function formatRestackRequiredOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite requires a restack before submission.",
-		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to let asdl-dev run `gt restack --no-interactive`.",
+		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again, or rerun with `--restack` to let sdl submit run `gt restack --no-interactive`.",
 		"Submission was not attempted.",
 		"",
 		"$ gt submit -nps --no-ai --no-interactive --dry-run",
@@ -111,7 +111,7 @@ export function formatRestackConfirmationPrompt(output: SubmitCommandOutput): Su
 			"Graphite dry-run says restack is required before submission.",
 			"Run `gt restack --no-interactive` now, then continue with submit?",
 			"",
-			"If confirmed, asdl-dev will run:",
+			"If confirmed, sdl submit will run:",
 			"$ gt restack --no-interactive",
 			"$ gt submit -nps --no-ai --no-interactive",
 			"",
@@ -130,7 +130,7 @@ export function formatRestackConfirmationPrompt(output: SubmitCommandOutput): Su
 export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string {
 	return [
 		"Restack was not run. Submission was not attempted.",
-		"Run `gt restack`, resolve any conflicts, then run `asdl-dev submit` again, or rerun with `--restack` to skip the prompt.",
+		"Run `gt restack`, resolve any conflicts, then run `sdl submit` again, or rerun with `--restack` to skip the prompt.",
 		"",
 		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
@@ -148,7 +148,7 @@ export function formatRestackConflictOutput(output: SubmitCommandOutput, conflic
 		"`gt restack` hit merge conflicts. Submission was not attempted.",
 		"",
 		...fileLines,
-		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `asdl-dev submit` again.",
+		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl submit` again.",
 		"",
 		"$ gt restack --no-interactive",
 		"",
@@ -162,7 +162,7 @@ export function formatRestackConflictOutput(output: SubmitCommandOutput, conflic
 export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
 	return [
 		"Graphite readiness changed after restack. Submission was not attempted, and PR metadata was not prepared.",
-		"Run `gt submit -nps --no-ai --no-interactive --dry-run`, resolve the reported issue, then run `asdl-dev submit` again.",
+		"Run `gt submit -nps --no-ai --no-interactive --dry-run`, resolve the reported issue, then run `sdl submit` again.",
 		"",
 		"$ gt submit -nps --no-ai --no-interactive --dry-run",
 		"",
@@ -214,7 +214,7 @@ export function formatSubmitFailureOutput(output: SubmitCommandOutput, prewritte
 		...(prewrittenMetadata.length === 0
 			? []
 			: [
-					"Local PR metadata commit messages were prepared before submit; rerun asdl-dev submit after resolving the Graphite failure.",
+					"Local PR metadata commit messages were prepared before submit; rerun sdl submit after resolving the Graphite failure.",
 				]),
 		"",
 		"$ gt submit -nps --no-ai --no-interactive",
@@ -290,8 +290,8 @@ function assertNever(value: never): never {
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
-		"`asdl-dev submit` checkpoints outstanding worktree changes before submitting.",
-		"If the branch still has no PR, inspect the Graphite output above and rerun `asdl-dev submit` after resolving the reported issue.",
+		"`sdl submit` checkpoints outstanding worktree changes before submitting.",
+		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl submit` after resolving the reported issue.",
 	];
 }
 

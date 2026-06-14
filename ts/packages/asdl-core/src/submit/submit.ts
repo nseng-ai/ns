@@ -1,7 +1,7 @@
-import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "@asdl/core/exec";
-import type { GitGateway } from "@asdl/core/git";
+import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult } from "../exec.ts";
+import type { GitGateway } from "../git/index.ts";
 
-import type { GithubPrGateway } from "./gateways/github-pr.ts";
+import type { GithubPrGateway } from "./github-pr-gateway.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,

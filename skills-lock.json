@@ -6,6 +6,11 @@
       "sourceType": "local",
       "computedHash": "56c99e780b9a6c0e164e709b460a634ca7063355111887d3a029157505af26a9"
     },
+    "branch-context-from-plan": {
+      "source": "skills/branch-context-from-plan",
+      "sourceType": "local",
+      "computedHash": "a3ed3609f8fe5b6188a0c7c8d552b1b24a556c9a63c679ef81c02a0d5c1eddbb"
+    },
     "branch-context-impl": {
       "source": "skills/branch-context-impl",
       "sourceType": "local",
@@ -76,11 +81,6 @@
       "sourceType": "local",
       "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
     },
-    "code-submit": {
-      "source": "skills/code-submit",
-      "sourceType": "local",
-      "computedHash": "4e1c879f8eb21a576866358ff051f5979e32aee8c5b0112dbabbb5102e08b8b5"
-    },
     "code-workflows": {
       "source": "skills/code-workflows",
       "sourceType": "local",
@@ -126,11 +126,6 @@
       "sourceType": "github",
       "skillPath": "skills/fdt-refactor-mock-to-fake/SKILL.md",
       "computedHash": "a7c88842ce3f9e65d3db5227fd6da2ea4f379f832641d83cece6868e7a457445"
-    },
-    "branch-context-from-plan": {
-      "source": "skills/branch-context-from-plan",
-      "sourceType": "local",
-      "computedHash": "a3ed3609f8fe5b6188a0c7c8d552b1b24a556c9a63c679ef81c02a0d5c1eddbb"
     },
     "graphite": {
       "source": "withgraphite/agent-skills",
@@ -264,6 +259,11 @@
       "source": "skills/refactor-swarm",
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
+    },
+    "sdl-submit": {
+      "source": "skills/sdl-submit",
+      "sourceType": "local",
+      "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
     },
     "setup-dprint": {
       "source": "skills/setup-dprint",

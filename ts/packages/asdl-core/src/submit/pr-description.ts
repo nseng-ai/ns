@@ -2,12 +2,12 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import type { GitGateway } from "@asdl/core/git";
-import { formatErrorMessage } from "@asdl/core/primitives";
-import { truncateTextHeadTail } from "@asdl/core/text-truncation";
-import { prepareRepairedText } from "@asdl/sdl/text-repair";
+import type { GitGateway } from "../git/index.ts";
+import { formatErrorMessage } from "../primitives.ts";
+import { truncateTextHeadTail } from "../text-truncation.ts";
+import { prepareRepairedText } from "../text-repair.ts";
 
-import type { PrCommitMessage } from "./gateways/github-pr.ts";
+import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-generation.ts";
 
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";

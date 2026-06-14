@@ -30,17 +30,17 @@ Use harness-specific command names only when the subject is that runtime surface
 
 ## What the migrations established
 
-The stack around `asdl-dev preview-url`, former `asdl-dev cp`, and `asdl-dev submit` created this boundary. The current checkpoint slice applies the same pattern through `sdl cp` and `/sdl:cp`:
+The stack around `asdl-dev preview-url`, former `asdl-dev cp`, and former `asdl-dev submit` created this boundary. SDL hard-cutover slices now apply the same pattern through `sdl cp` / `/sdl:cp` and `sdl submit` / `/sdl:submit`:
 
 - `ts/packages/asdl-dev/` owns remaining `asdl-dev` CLI parsing, help text, gateway-backed workflow logic, stdout/stderr output, exit codes, and CLI scenario tests.
 - `ts/packages/sdl/` owns native checkpoint CLI parsing and checkpoint workflow behavior.
 - `ts/packages/asdl-dev/src/cli.ts` and `ts/packages/sdl/src/cli.ts` own command tables and export command metadata for Pi adapters.
-- `ts/packages/pi-extensions/src/asdl-dev-extension.ts` reads the remaining `asdl-dev` command table and registers commands under the Pi namespace chosen for their domain: `/dev:preview-url` for preview URL lookup and `/code:submit` / `/code:pr-regen` for unported code/source-control workflows.
+- `ts/packages/pi-extensions/src/asdl-dev-extension.ts` reads the remaining `asdl-dev` command table and registers commands under the Pi namespace chosen for their domain: `/dev:preview-url` for preview URL lookup, `/code:pr-regen` for the remaining unported PR-description workflow, and `/sdl:submit` through the SDL extension for submit.
 - `ts/packages/pi-extensions/src/sdl-extension.ts` reads the `sdl` command table and registers `/sdl:cp` for checkpoint creation.
 - `ts/packages/pi-extensions/src/cli-command-extension.ts` is the generic Pi adapter: it waits for Pi to become idle, tokenizes slash-command args, invokes `runCli()`, passes generic UI capabilities such as confirmations when available, captures stdout/stderr, and emits a displayed custom message.
 - `.pi/extensions/asdl-dev.ts` is only the project-local discovery adapter that lets Pi load the engineered package code.
 
-`code:submit` is the clearest consolidation example: the former Pi-specific submit implementation was deleted after the headless `asdl-dev submit` path owned the workflow. `/code:submit` is now only the Pi command surface for `asdl-dev submit`.
+`sdl:submit` is the current hard-cutover example: the transitional `/code:submit` bridge and `asdl-dev submit` surface were removed once the repo-local `sdl submit` command owned the workflow.
 
 ## When to expose a Pi workflow through `asdl-dev`
 
@@ -59,7 +59,7 @@ Keep the command Pi-only when its core behavior is Pi-specific:
 - It streams long-running progress into widgets or custom renderers as the product surface.
 - It registers LLM tools rather than a user-invoked slash command.
 
-Hybrid flows are allowed, but they are not duplicate implementations. Keep the reusable deterministic core in a native package, then let a Pi-only command compose that core when the user-facing workflow still needs Pi session or UI behavior. `code:autobranch` remains a hybrid example: it reuses checkpoint-message and pending-worktree logic from `@asdl/sdl` while retaining Pi-specific UI and Graphite workflow behavior, including clean-worktree latest-commit extraction that preserves the original commit SHA. `code:submit` is not a hybrid after consolidation; it is the registered Pi surface for `asdl-dev submit`.
+Hybrid flows are allowed, but they are not duplicate implementations. Keep the reusable deterministic core in a native package, then let a Pi-only command compose that core when the user-facing workflow still needs Pi session or UI behavior. `code:autobranch` remains a hybrid example: it reuses checkpoint-message and pending-worktree logic from `@asdl/sdl` while retaining Pi-specific UI and Graphite workflow behavior, including clean-worktree latest-commit extraction that preserves the original commit SHA. `sdl:submit` is not a hybrid after hard cutover; it is the registered Pi surface for the repo-local `sdl submit` command module.
 
 ## File map
 
@@ -169,7 +169,7 @@ Then implement:
 
 Do not register duplicate Pi implementations for commands already owned by `asdl-dev`.
 
-The existing `.pi/extensions/asdl-dev.ts` adapter loads `asdlDevExtension()` for `/dev:preview-url`; `.pi/extensions/code.ts` loads `codeExtension()`, which mounts remaining code workflow commands such as `/code:submit`; `.pi/extensions/sdl.ts` loads `sdlExtension()` for `/sdl:cp`.
+The existing `.pi/extensions/asdl-dev.ts` adapter loads `asdlDevExtension()` for `/dev:preview-url`; `.pi/extensions/code.ts` loads `codeExtension()`, which mounts remaining code workflow commands such as `/code:pr-regen`; `.pi/extensions/sdl.ts` loads `sdlExtension()` for `/sdl:cp` and `/sdl:submit`.
 
 A user invoking:
 

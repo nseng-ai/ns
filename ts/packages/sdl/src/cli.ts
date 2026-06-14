@@ -8,9 +8,9 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { discoverProjectCommandNames, listSdlCommandInfos, runSdlCommand, type SdlCommandInfo } from "./command-registry.ts";
+import { discoverProjectCommandNames, executeSdlCommand, listSdlCommandInfos, loadSdlCommand, type SdlCommandInfo } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
-import type { SdlContext } from "./sdk.ts";
+import type { SdlCommand, SdlContext } from "./sdk.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 
@@ -24,6 +24,7 @@ export interface SdlCliDeps {
 
 export interface BuildSdlCliOptions {
 	projectCommandNames?: readonly string[];
+	selectedCommand?: SdlCommand | undefined;
 }
 
 export interface SdlCliContext {
@@ -46,15 +47,21 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 
 	const commandInfos = listSdlCommandInfos({ projectCommandNames: options.projectCommandNames });
 	for (const commandInfo of commandInfos) {
+		const selectedCommand = options.selectedCommand?.name === commandInfo.name ? options.selectedCommand : undefined;
 		const commandName = commandInfo.name;
+		const hasProjectCommand = options.projectCommandNames?.includes(commandName) ?? false;
+		const schema = selectedCommand?.schema ?? z.object({});
 		group.command(
 			rawCommand({
 				name: commandName,
-				description: commandInfo.fullDescription,
-				summary: commandInfo.description,
-				schema: z.object({}),
-				run: async (ctx) => {
-					const result = await runSdlCommand(ctx.context, commandName);
+				description: selectedCommand !== undefined && hasProjectCommand ? selectedCommand.description : commandInfo.fullDescription,
+				summary: selectedCommand !== undefined && hasProjectCommand ? selectedCommand.description : commandInfo.description,
+				schema,
+				...(selectedCommand?.positionals === undefined ? {} : { positionals: selectedCommand.positionals }),
+				run: async (ctx, request) => {
+					const result = selectedCommand === undefined
+						? await executeLoadedSdlCommand(commandName, ctx.context, request)
+						: await executeSdlCommand(ctx.context, selectedCommand, request);
 					writeSdlResultOutput(result, ctx);
 					return result.ok ? 0 : result.exitCode;
 				},
@@ -85,13 +92,38 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 		return 2;
 	}
 
+	const selectedCommandName = selectCommandName(args, discoveredProjectCommands.names);
+	let selectedCommand: SdlCommand | undefined;
+	if (selectedCommandName !== undefined) {
+		const loaded = await loadSdlCommand(selectedCommandName, cwd);
+		if (!loaded.ok) {
+			stderr(`${loaded.message}\n`);
+			return 2;
+		}
+		selectedCommand = loaded.command;
+	}
+
 	const context = deps.context ?? createRealSdlCommandContext({ cwd, env });
 	const contextWithIO: SdlCliContext = { context, cwd, env, stdout, stderr };
 	const io = resolveIo({ stdout, stderr });
-	return buildCli({ projectCommandNames: discoveredProjectCommands.names }).run(args, { context: contextWithIO, io });
+	return buildCli({ projectCommandNames: discoveredProjectCommands.names, selectedCommand }).run(args, { context: contextWithIO, io });
+}
+
+async function executeLoadedSdlCommand(commandName: string, ctx: SdlContext, request: unknown): Promise<{ ok: true; message: string } | { ok: false; exitCode: number; message: string }> {
+	const loaded = await loadSdlCommand(commandName, ctx.cwd);
+	if (!loaded.ok) return { ok: false, exitCode: 2, message: loaded.message };
+	return executeSdlCommand(ctx, loaded.command, request);
+}
+
+function selectCommandName(args: readonly string[], projectCommandNames: readonly string[]): string | undefined {
+	const firstArg = args[0];
+	if (firstArg === undefined || firstArg.startsWith("-")) return undefined;
+	const names = new Set(listSdlCommandInfos({ projectCommandNames }).map((command) => command.name));
+	return names.has(firstArg) ? firstArg : undefined;
 }
 
 function writeSdlResultOutput(result: { ok: true; message: string } | { ok: false; message: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {
+	if (result.message === "") return;
 	const output = `${result.message}\n`;
 	if (result.ok) {
 		deps.stdout(output);

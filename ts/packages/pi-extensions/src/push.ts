@@ -114,7 +114,7 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 			command: "git status --porcelain",
 			cwd: ctx.cwd,
 			result: statusResult,
-			guidance: "Inspect the Git output, fix the repository state, or use `/code:submit` for the normal Graphite flow.",
+			guidance: "Inspect the Git output, fix the repository state, or use `/sdl:submit` for the normal Graphite flow.",
 		});
 		emitPushMessage(pi, ctx, {
 			content,
@@ -154,14 +154,14 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 	}
 
 	const content = formatPushEvidence({
-		intro: "`git push` failed. The branch is likely out of sync or needs the Graphite submit flow. Use `/code:submit`.",
+		intro: "`git push` failed. The branch is likely out of sync or needs the Graphite submit flow. Use `/sdl:submit`.",
 		command: "git push",
 		cwd: ctx.cwd,
 		result: pushResult,
 	});
 	emitPushMessage(pi, ctx, {
 		content,
-		headline: "`git push` failed; use `/code:submit`.",
+		headline: "`git push` failed; use `/sdl:submit`.",
 		level: "error",
 		details: buildDetails({ args: ["push"], cwd: ctx.cwd, phase: "push", level: "error", result: pushResult }),
 	});
@@ -213,7 +213,7 @@ export function formatPushEvidence(options: FormatPushEvidenceOptions): string {
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
 	return [
 		"`/code:push` requires a clean worktree and did not run `git push`.",
-		"Commit or stash outstanding changes first, or use `/code:submit` if you want the normal checkpoint/submit flow.",
+		"Commit or stash outstanding changes first, or use `/sdl:submit` if you want the normal checkpoint/submit flow.",
 		`Command: git status --porcelain`,
 		`Cwd: ${cwd}`,
 		"stdout:",

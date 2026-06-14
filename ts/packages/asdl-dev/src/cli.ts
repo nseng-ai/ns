@@ -11,13 +11,13 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealAsdlDevContext, type AsdlDevContext } from "./context.ts";
 import { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV } from "./text-generation.ts";
+import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "@asdl/core/submit";
 import { formatHumanFailure, formatJson, writeCommandResultOutput } from "./output.ts";
 import { lookupPreviewUrl, type PreviewUrlOptions } from "./preview-url.ts";
-import { PR_DESCRIPTION_PROMPT_ENV, REPO_PR_DESCRIPTION_PROMPT_PATH } from "./pr-description.ts";
 import { runPrRegenCommand } from "./pr-regen.ts";
-import type { SubmitOutputListener } from "./submit.ts";
 
 export type ConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+export type CliOutputListener = (stream: "stdout" | "stderr", text: string) => void;
 
 export interface CliDeps {
 	context?: AsdlDevContext | undefined;
@@ -25,7 +25,7 @@ export interface CliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
-	onOutput?: SubmitOutputListener | undefined;
+	onOutput?: CliOutputListener | undefined;
 	confirm?: ConfirmPrompt | undefined;
 }
 
@@ -40,7 +40,7 @@ export interface AsdlDevCliContext {
 	env: Record<string, string | undefined>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	onOutput?: SubmitOutputListener;
+	onOutput?: CliOutputListener;
 	confirm?: ConfirmPrompt;
 }
 

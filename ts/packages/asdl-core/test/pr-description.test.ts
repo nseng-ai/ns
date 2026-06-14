@@ -16,7 +16,7 @@ import {
 	PR_DESCRIPTION_PROMPT_ENV,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
-} from "../../src/pr-description.ts";
+} from "@asdl/core/submit";
 
 function validDraft(): string {
 	return `Add pluggable PR descriptions
