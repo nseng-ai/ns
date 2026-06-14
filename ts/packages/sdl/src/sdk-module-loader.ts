@@ -61,7 +61,7 @@ const SDK_MODULE_PATH = join(dirname(fileURLToPath(import.meta.url)), "sdk.ts");
  * SDL SDK injected so the module shares this process's SDK instance.
  *
  * Returns the module's default export as `unknown`; callers are responsible for
- * validating its shape (see `validateCpCommand` in `cp-command.ts`). Throws if the
+ * validating its shape (see `validateSdlCommand` in `command-registry.ts`). Throws if the
  * file cannot be transpiled or imported; callers should wrap this in try/catch.
  */
 export async function loadSdkCommandModule(modulePath: string): Promise<unknown> {

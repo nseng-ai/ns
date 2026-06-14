@@ -6,6 +6,7 @@ import { z } from "zod";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { loadSdkCommandModule } from "./sdk-module-loader.ts";
 import { failed, type SdlCommand, type SdlContext, type SdlResult } from "./sdk.ts";
+import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
 
 export interface SdlCommandInfo {
 	name: string;
@@ -21,9 +22,15 @@ const builtInCommands = {
 	cp: defaultCpCommand,
 } as const satisfies Record<string, SdlCommand>;
 
-const builtInCommandSummaries = {
-	cp: "Create a checkpoint commit for the current diff.",
-} as const satisfies Record<keyof typeof builtInCommands, string>;
+const builtInCommandMeta = {
+	cp: {
+		summary: "Create a checkpoint commit for the current diff.",
+		description: `Create a checkpoint commit for the current git diff using a model-authored message.
+
+Environment:
+  ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
+	},
+} as const satisfies Record<keyof typeof builtInCommands, { summary: string; description: string }>;
 
 const sdlCommandSchema = z.object({
 	name: z.string(),
@@ -80,11 +87,7 @@ ${formatUnknownError(error)}` };
 	return { ok: true, names: [...commandNames].sort() };
 }
 
-export function listSdlCommands(): SdlCommandInfo[] {
-	return Object.entries(builtInCommandSummaries).map(([name, description]) => ({ name, description }));
-}
-
-export function listSdlCommandInfos(options: { projectCommandNames?: readonly string[] } = {}): SdlCommandInfo[] {
+export function listSdlCommandInfos(options: { projectCommandNames?: readonly string[] | undefined } = {}): SdlCommandInfo[] {
 	const commandNames = new Set<string>(Object.keys(builtInCommands));
 	for (const commandName of options.projectCommandNames ?? []) {
 		commandNames.add(commandName);
@@ -93,7 +96,11 @@ export function listSdlCommandInfos(options: { projectCommandNames?: readonly st
 }
 
 export function commandSummary(commandName: string): string {
-	return builtInCommandSummaries[commandName as keyof typeof builtInCommandSummaries] ?? `Run project-specific SDL command '${commandName}'.`;
+	return isBuiltInCommandName(commandName) ? builtInCommandMeta[commandName].summary : `Run project-specific SDL command '${commandName}'.`;
+}
+
+export function commandDescription(commandName: string): string {
+	return isBuiltInCommandName(commandName) ? builtInCommandMeta[commandName].description : commandSummary(commandName);
 }
 
 export function isBuiltInCommandName(commandName: string): commandName is keyof typeof builtInCommands {
@@ -164,7 +171,7 @@ export function validateSdlResult(result: unknown, commandName: string): SdlResu
 	return failed(`Command ${commandName} returned an invalid result.`, 2);
 }
 
-function commandModuleStem(commandName: string): string {
+function commandModuleFilename(commandName: string): string {
 	return `${commandName}.ts`;
 }
 
@@ -177,11 +184,11 @@ function projectCommandsRelativePath(): string {
 }
 
 function projectCommandPath(cwd: string, commandName: string): string {
-	return join(projectCommandsDirectory(cwd), commandModuleStem(commandName));
+	return join(projectCommandsDirectory(cwd), commandModuleFilename(commandName));
 }
 
 function projectCommandRelativePath(commandName: string): string {
-	return join(projectCommandsRelativePath(), commandModuleStem(commandName));
+	return join(projectCommandsRelativePath(), commandModuleFilename(commandName));
 }
 
 function validateCommandName(command: unknown, expectedName: string): string | null {
@@ -190,7 +197,7 @@ function validateCommandName(command: unknown, expectedName: string): string | n
 	}
 	const candidate = command as { readonly name?: unknown };
 	if (candidate.name !== expectedName) {
-		return `command name must be "${expectedName}".`;
+		return commandNameMustBe(expectedName);
 	}
 	return null;
 }
@@ -201,7 +208,7 @@ function formatSdlCommandIssue(issue: z.core.$ZodIssue | undefined, expectedName
 	}
 	const field = issue.path[0];
 	if (field === "name") {
-		return `command name must be "${expectedName}".`;
+		return commandNameMustBe(expectedName);
 	}
 	if (field === "description") {
 		return "command description must be a string.";
@@ -210,6 +217,10 @@ function formatSdlCommandIssue(issue: z.core.$ZodIssue | undefined, expectedName
 		return "command run must be a function.";
 	}
 	return "default export must be a command object created with defineCommand().";
+}
+
+function commandNameMustBe(expectedName: string): string {
+	return `command name must be "${expectedName}".`;
 }
 
 function hasInvalidFailureExitCode(issues: readonly z.core.$ZodIssue[]): boolean {

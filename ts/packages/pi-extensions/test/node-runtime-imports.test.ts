@@ -49,7 +49,6 @@ const SDL_EXPORT_IMPORTS = [
 	"@asdl/sdl/checkpoint-message",
 	"@asdl/sdl/cli",
 	"@asdl/sdl/context",
-	"@asdl/sdl/cp-command",
 	"@asdl/sdl/pending-worktree",
 	"@asdl/sdl/pi-text-generation",
 	"@asdl/sdl/sdk",
@@ -110,7 +109,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 11 package specifiers");
+		expect(result.stdout).toContain("imported 10 package specifiers");
 	});
 });
 

@@ -8,10 +8,11 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { commandSummary, discoverProjectCommandNames, listSdlCommandInfos, runSdlCommand } from "./command-registry.ts";
+import { commandDescription, discoverProjectCommandNames, listSdlCommandInfos, runSdlCommand, type SdlCommandInfo } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
 import type { SdlContext } from "./sdk.ts";
-import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
+
+export type { SdlCommandInfo } from "./command-registry.ts";
 
 export interface SdlCliDeps {
 	context?: SdlContext | undefined;
@@ -19,11 +20,6 @@ export interface SdlCliDeps {
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	env?: Record<string, string | undefined> | undefined;
-}
-
-export interface SdlCommandInfo {
-	name: string;
-	description: string;
 }
 
 export interface BuildSdlCliOptions {
@@ -40,11 +36,6 @@ export interface SdlCliContext {
 
 const VERSION = "0.1.0";
 
-const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current git diff using a model-authored message.
-
-Environment:
-  ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`;
-
 export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliContext> {
 	const group = new ClinkrGroup<SdlCliContext>({
 		name: "sdl",
@@ -53,7 +44,7 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 		runtimeInfo: () => "runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
 	});
 
-	const commandInfos = options.projectCommandNames === undefined ? listSdlCommandInfos() : listSdlCommandInfos({ projectCommandNames: options.projectCommandNames });
+	const commandInfos = listSdlCommandInfos({ projectCommandNames: options.projectCommandNames });
 	for (const commandInfo of commandInfos) {
 		const commandName = commandInfo.name;
 		group.command(
@@ -98,11 +89,6 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	const contextWithIO: SdlCliContext = { context, cwd, env, stdout, stderr };
 	const io = resolveIo({ stdout, stderr });
 	return buildCli({ projectCommandNames: discoveredProjectCommands.names }).run(args, { context: contextWithIO, io });
-}
-
-function commandDescription(commandName: string): string {
-	if (commandName === "cp") return CP_COMMAND_DESCRIPTION;
-	return commandSummary(commandName);
 }
 
 function writeSdlResultOutput(result: { ok: true; message: string } | { ok: false; message: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {
