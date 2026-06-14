@@ -35,6 +35,118 @@ export type OperationResult<T, TErrorType extends string = JsonInputError["error
 	| { type: "ok"; value: T }
 	| ({ type: "error" } & OperationInputError<TErrorType>);
 
+export type OperationInputSourceKind = "explicit" | "stdin" | "session";
+
+export interface ResolvedOperationInput<T> {
+	source: OperationInputSourceKind;
+	value: T;
+}
+
+/**
+ * Central policy for exec operations that accept explicit payload inputs, payload-session inputs, and/or stdin.
+ * Non-empty stdin is deliberately configurable: most commands treat it as the payload channel, while
+ * stack-feedback-plan preserves its legacy inline-JSON compatibility path as a named policy choice.
+ */
+export interface ResolveOperationInputOptions<T> {
+	commandName: string;
+	explicitSource: {
+		present: boolean;
+		description: string;
+		resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>>;
+	};
+	sessionSource?:
+		| {
+				/** True when a user selected session mode explicitly, e.g. with --pr-number. */
+				selected: boolean;
+				description: string;
+				resolve: () => Promise<OperationResult<T, string>>;
+			}
+		| undefined;
+	stdin?:
+		| {
+				read: () => Promise<string>;
+				nonEmptyMode: "payload" | "inline-json";
+				resolveInlineJson?: (stdinText: string) => OperationResult<T, string> | Promise<OperationResult<T, string>>;
+			}
+		| undefined;
+	/** Source to use after no explicit source, no selected session source, and empty stdin. */
+	defaultSource: "explicit" | "session" | "error";
+	mixInputMessage?: string | undefined;
+	missingInputMessage?: string | undefined;
+}
+
+export async function resolveOperationInput<T>(options: ResolveOperationInputOptions<T>): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
+	const hasSelectedSessionSource = options.sessionSource?.selected ?? false;
+	if (options.explicitSource.present && hasSelectedSessionSource) {
+		return { type: "error", errorType: "invalid_request", message: options.mixInputMessage ?? defaultMixInputMessage(options) };
+	}
+	if (options.explicitSource.present) return await resolveExplicitOperationInput(options, options.stdin?.read ?? emptyStdin);
+	if (hasSelectedSessionSource) return await resolveSessionOperationInput(options);
+
+	if (options.stdin !== undefined) {
+		const stdinText = await options.stdin.read();
+		if (stdinText.trim() !== "") return await resolveStdinOperationInput(options, stdinText);
+		return await resolveDefaultOperationInput(options, async () => stdinText);
+	}
+
+	return await resolveDefaultOperationInput(options, emptyStdin);
+}
+
+async function resolveExplicitOperationInput<T>(
+	options: ResolveOperationInputOptions<T>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
+	const result = await options.explicitSource.resolve(stdin);
+	if (result.type === "error") return result;
+	return { type: "ok", value: { source: "explicit", value: result.value } };
+}
+
+async function resolveSessionOperationInput<T>(options: ResolveOperationInputOptions<T>): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
+	if (options.sessionSource === undefined) throw new Error(`${options.commandName} session source was selected without a resolver.`);
+	const result = await options.sessionSource.resolve();
+	if (result.type === "error") return result;
+	return { type: "ok", value: { source: "session", value: result.value } };
+}
+
+async function resolveStdinOperationInput<T>(
+	options: ResolveOperationInputOptions<T>,
+	stdinText: string,
+): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
+	if (options.stdin === undefined) throw new Error(`${options.commandName} stdin source was selected without a policy.`);
+	if (options.stdin.nonEmptyMode === "payload") {
+		const result = await options.explicitSource.resolve(async () => stdinText);
+		if (result.type === "error") return result;
+		return { type: "ok", value: { source: "stdin", value: result.value } };
+	}
+	if (options.stdin.resolveInlineJson === undefined) throw new Error(`${options.commandName} inline-JSON stdin mode requires an inline resolver.`);
+	const result = await options.stdin.resolveInlineJson(stdinText);
+	if (result.type === "error") return result;
+	return { type: "ok", value: { source: "stdin", value: result.value } };
+}
+
+async function resolveDefaultOperationInput<T>(
+	options: ResolveOperationInputOptions<T>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
+	if (options.defaultSource === "explicit") return await resolveExplicitOperationInput(options, stdin);
+	if (options.defaultSource === "session") return await resolveSessionOperationInput(options);
+	return { type: "error", errorType: "invalid_request", message: options.missingInputMessage ?? defaultMissingInputMessage(options) };
+}
+
+function defaultMixInputMessage<T>(options: ResolveOperationInputOptions<T>): string {
+	return `${options.commandName} cannot mix ${options.explicitSource.description} with ${options.sessionSource?.description ?? "session input"}; pass exactly one input source.`;
+}
+
+function defaultMissingInputMessage<T>(options: ResolveOperationInputOptions<T>): string {
+	const sessionDescription = options.sessionSource?.description;
+	const sources = sessionDescription === undefined ? options.explicitSource.description : `${options.explicitSource.description} or ${sessionDescription}`;
+	return `${options.commandName} requires an input source via ${sources}.`;
+}
+
+async function emptyStdin(): Promise<string> {
+	return "";
+}
+
 export interface OpenPayloadStoreFromContextOptions {
 	ctx: PrAddressExecContext;
 	harnessSessionId?: string | undefined;

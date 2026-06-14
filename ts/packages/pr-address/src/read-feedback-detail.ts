@@ -16,7 +16,7 @@ import {
 	type PayloadReference,
 	type PayloadStoreFactory,
 } from "./payload-store.ts";
-import { resolvePrFeedbackSourceFromSession } from "./session-inputs.ts";
+import { resolveOperationInput, resolvePrFeedbackSourceFromSession } from "./session-inputs.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -128,7 +128,7 @@ async function resolveFeedbackSource(options: {
 	harnessSessionId: string | undefined;
 	ctx: PrAddressExecContext;
 }): Promise<{ type: "ok"; value: FeedbackSourceResolution } | ({ type: "error" } & PayloadOperationError)> {
-	const choice = resolveFeedbackSourceChoice({ commandName: options.commandName, payloadPath: options.payloadPath, prNumber: options.prNumber });
+	const choice = await resolveFeedbackSourceChoice({ commandName: options.commandName, payloadPath: options.payloadPath, prNumber: options.prNumber });
 	if (choice.type === "error") return choice;
 	if (choice.value.type === "payload_path") return { type: "ok", value: { payloadPath: choice.value.payloadPath, store: undefined, resolvedInput: undefined } };
 	return await resolvePrNumberFeedbackSource({ prNumber: choice.value.prNumber, harnessSessionId: options.harnessSessionId, ctx: options.ctx });
@@ -287,7 +287,7 @@ async function resolveFeedbackDetailsSource(options: {
 	payloadStoreFactory?: PayloadStoreFactory | undefined;
 	clock?: PayloadClock | undefined;
 }): Promise<{ type: "ok"; value: FeedbackSourceResolution & { store: PayloadArtifactStore } } | ({ type: "error" } & PayloadOperationError)> {
-	const choice = resolveFeedbackSourceChoice({ commandName: "read-feedback-details", selection: options.selection, cliPrNumber: options.cliPrNumber });
+	const choice = await resolveFeedbackSourceChoice({ commandName: "read-feedback-details", selection: options.selection, cliPrNumber: options.cliPrNumber });
 	if (choice.type === "error") return choice;
 	if (choice.value.type === "payload_path") {
 		const storeResult = await openStoreForPayload(options.payloadStoreFactory, choice.value.payloadPath, options.clock);
@@ -303,29 +303,36 @@ async function resolveFeedbackDetailsSource(options: {
 	return { type: "ok", value: { ...source.value, store: source.value.store } };
 }
 
-function resolveFeedbackSourceChoice(
+async function resolveFeedbackSourceChoice(
 	options:
 		| { commandName: "read-feedback-detail"; payloadPath: string | undefined; prNumber: number | undefined }
 		| { commandName: "read-feedback-details"; selection: ReadFeedbackDetailsSelection; cliPrNumber: number | undefined },
-): { type: "ok"; value: FeedbackSourceChoice } | ({ type: "error" } & PayloadOperationError) {
+): Promise<{ type: "ok"; value: FeedbackSourceChoice } | ({ type: "error" } & PayloadOperationError)> {
 	if (options.commandName === "read-feedback-detail") {
-		if (options.payloadPath !== undefined && options.prNumber !== undefined) {
-			return {
-				type: "error",
-				errorType: "invalid_request",
-				message: "read-feedback-detail cannot mix --payload-path with --pr-number; pass exactly one feedback source.",
-			};
-		}
-		if (options.payloadPath === undefined && options.prNumber === undefined) {
-			return {
-				type: "error",
-				errorType: "invalid_request",
-				message: "read-feedback-detail requires a feedback source via --payload-path or --pr-number.",
-			};
-		}
-		if (options.payloadPath !== undefined) return { type: "ok", value: { type: "payload_path", payloadPath: options.payloadPath } };
-		if (options.prNumber === undefined) throw new Error("read-feedback-detail source resolution lost pr_number");
-		return { type: "ok", value: { type: "pr_number", prNumber: options.prNumber } };
+		const resolved = await resolveOperationInput<FeedbackSourceChoice>({
+			commandName: "read-feedback-detail",
+			explicitSource: {
+				present: options.payloadPath !== undefined,
+				description: "--payload-path",
+				resolve: async () => {
+					if (options.payloadPath === undefined) throw new Error("read-feedback-detail payload-path source was selected without payload_path");
+					return { type: "ok", value: { type: "payload_path", payloadPath: options.payloadPath } };
+				},
+			},
+			sessionSource: {
+				selected: options.prNumber !== undefined,
+				description: "--pr-number",
+				resolve: async () => {
+					if (options.prNumber === undefined) throw new Error("read-feedback-detail PR-number source was selected without pr_number");
+					return { type: "ok", value: { type: "pr_number", prNumber: options.prNumber } };
+				},
+			},
+			defaultSource: "error",
+			mixInputMessage: "read-feedback-detail cannot mix --payload-path with --pr-number; pass exactly one feedback source.",
+			missingInputMessage: "read-feedback-detail requires a feedback source via --payload-path or --pr-number.",
+		});
+		if (resolved.type === "error") return resolved;
+		return { type: "ok", value: resolved.value.value };
 	}
 
 	const selection = options.selection;
@@ -344,16 +351,29 @@ function resolveFeedbackSourceChoice(
 		};
 	}
 	const prNumber = options.cliPrNumber ?? selection.pr_number;
-	if (selection.payload_path === undefined && prNumber === undefined) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: "read-feedback-details requires a feedback source via selection payload_path, selection pr_number, or --pr-number.",
-		};
-	}
-	if (selection.payload_path !== undefined) return { type: "ok", value: { type: "payload_path", payloadPath: selection.payload_path } };
-	if (prNumber === undefined) throw new Error("read-feedback-details source resolution lost pr_number");
-	return { type: "ok", value: { type: "pr_number", prNumber } };
+	const resolved = await resolveOperationInput<FeedbackSourceChoice>({
+		commandName: "read-feedback-details",
+		explicitSource: {
+			present: selection.payload_path !== undefined,
+			description: "selection payload_path",
+			resolve: async () => {
+				if (selection.payload_path === undefined) throw new Error("read-feedback-details payload-path source was selected without payload_path");
+				return { type: "ok", value: { type: "payload_path", payloadPath: selection.payload_path } };
+			},
+		},
+		sessionSource: {
+			selected: prNumber !== undefined,
+			description: "selection pr_number or --pr-number",
+			resolve: async () => {
+				if (prNumber === undefined) throw new Error("read-feedback-details PR-number source resolution lost pr_number");
+				return { type: "ok", value: { type: "pr_number", prNumber } };
+			},
+		},
+		defaultSource: "error",
+		missingInputMessage: "read-feedback-details requires a feedback source via selection payload_path, selection pr_number, or --pr-number.",
+	});
+	if (resolved.type === "error") return resolved;
+	return { type: "ok", value: resolved.value.value };
 }
 
 async function openStoreForPayload(

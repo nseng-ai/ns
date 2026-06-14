@@ -7,7 +7,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { loadJsonInput, loadJsonRecord, type JsonInputResult } from "./json-input.ts";
 import { hasConfiguredPayloadSession, type PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
-import { resolvePlanFeedbackSessionInputs, type OperationResult } from "./session-inputs.ts";
+import { resolveOperationInput, resolvePlanFeedbackSessionInputs, type OperationResult } from "./session-inputs.ts";
 
 const wrapperPayloadSchema = z.looseObject({
 	manifest: z.unknown(),
@@ -101,14 +101,41 @@ async function runValidateFeedbackClassificationOperation(
 	return ok({ ...result, classification_reference: classificationReference.value });
 }
 
+type PlanFeedbackResolvedInput = { type: "wrapper"; payload: WrapperPayload } | { type: "session"; prNumber: number };
+
 async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
-	const hasWrapperInput = request.payload_json !== undefined || request.payload_file !== undefined;
-	if (request.pr_number !== undefined) {
-		if (hasWrapperInput) {
-			return failure("invalid_request", "plan-feedback cannot mix session resolution (--pr-number) with wrapper input (--payload-json/--payload-file).");
-		}
-		return await runPlanFeedbackFromSession(ctx, request);
-	}
+	const inputResult = await resolveOperationInput<PlanFeedbackResolvedInput>({
+		commandName: "plan-feedback",
+		explicitSource: {
+			present: request.payload_json !== undefined || request.payload_file !== undefined,
+			description: "wrapper input (--payload-json/--payload-file)",
+			resolve: async (stdin) => await loadPlanFeedbackWrapperInput(request, stdin),
+		},
+		stdin: { read: ctx.stdin, nonEmptyMode: "payload" },
+		sessionSource: {
+			selected: request.pr_number !== undefined,
+			description: "session resolution (--pr-number)",
+			resolve: async () => {
+				if (request.pr_number === undefined) throw new Error("plan-feedback session source was selected without pr_number");
+				return { type: "ok", value: { type: "session", prNumber: request.pr_number } };
+			},
+		},
+		defaultSource: "explicit",
+		mixInputMessage: "plan-feedback cannot mix session resolution (--pr-number) with wrapper input (--payload-json/--payload-file).",
+	});
+	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
+	const input = inputResult.value.value;
+	if (input.type === "session") return await runPlanFeedbackFromSession(ctx, request, input.prNumber);
+
+	const result = planFeedback({ manifest: input.payload.manifest, classification: input.payload.classification });
+	if (result.valid) return ok(result);
+	return negative("PR feedback classification failed validation; no plan produced.", result);
+}
+
+async function loadPlanFeedbackWrapperInput(
+	request: z.output<typeof planFeedbackParseSchema>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<PlanFeedbackResolvedInput, string>> {
 	const payloadResult = await loadJsonInput({
 		optionValue: request.payload_json,
 		filePath: request.payload_file,
@@ -117,13 +144,10 @@ async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.ou
 		optionName: "--payload-json",
 		fileOptionName: "--payload-file",
 		schema: wrapperPayloadSchema,
-		stdin: ctx.stdin,
+		stdin,
 	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-
-	const result = planFeedback({ manifest: payloadResult.value.manifest, classification: payloadResult.value.classification });
-	if (result.valid) return ok(result);
-	return negative("PR feedback classification failed validation; no plan produced.", result);
+	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
+	return { type: "ok", value: { type: "wrapper", payload: payloadResult.value } };
 }
 
 async function persistValidatedClassification(options: {
@@ -152,15 +176,14 @@ async function persistValidatedClassification(options: {
 	return { type: "ok", value: reference.value };
 }
 
-async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
-	if (request.pr_number === undefined) throw new Error("plan-feedback session mode requires pr_number");
-	const sessionInputs = await resolvePlanFeedbackSessionInputs({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
+async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>, prNumber: number): Promise<ClinkrExit<unknown>> {
+	const sessionInputs = await resolvePlanFeedbackSessionInputs({ ctx, prNumber, harnessSessionId: request.harness_session_id });
 	if (sessionInputs.type === "error") return failure(sessionInputs.errorType, sessionInputs.message);
 	const result = planFeedback({ manifest: sessionInputs.value.manifest, classification: sessionInputs.value.classification.classification });
 	const resultWithResolvedInputs = { ...result, resolved_inputs: sessionInputs.value.resolvedInputs };
 	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
 	const planReference = await sessionInputs.value.store.writeJsonArtifact({
-		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "plan" }),
+		descriptor: prArtifactDescriptor({ prNumber, kind: "plan" }),
 		role: "summary",
 		payload: resultWithResolvedInputs,
 	});
