@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+import { readStdin } from "@asdl/core/stdin";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { normalizePlanFilePath, resolvePlanSourceFile, validatePlanSlug } from "./plan-persistence.ts";
 import {
@@ -283,15 +284,6 @@ function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence
 
 function stripOneTrailingNewline(value: string): string {
 	return value.endsWith("\n") ? value.slice(0, -1) : value;
-}
-
-async function readStdin(): Promise<string> {
-	let content = "";
-	process.stdin.setEncoding("utf8");
-	for await (const chunk of process.stdin) {
-		content += chunk;
-	}
-	return content;
 }
 
 function runtimeInfo(): string {

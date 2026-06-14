@@ -1,0 +1,23 @@
+{
+  "name": "@asdl/brmem",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "bin": {
+    "brmem": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/brmem/test"
+  },
+  "dependencies": {
+    "@asdl/clinkr": "workspace:*",
+    "@asdl/core": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

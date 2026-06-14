@@ -4,6 +4,7 @@ import process from "node:process";
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
+import { readStdin } from "@asdl/core/stdin";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
@@ -49,25 +50,13 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		context,
 		cwd,
 		env,
-		stdin: deps.stdin ?? readProcessStdin,
+		stdin: deps.stdin ?? readStdin,
 	};
 	return await buildCli(operations).run(args, { context: execContext, io });
 }
 
 function runtimeInfo(): string {
 	return "runtime: typescript\nentry_point: @asdl/pr-address bin pr-address -> ts/packages/pr-address/src/cli.ts\n";
-}
-
-async function readProcessStdin(): Promise<string> {
-	return await new Promise<string>((resolveStdin, reject) => {
-		let data = "";
-		process.stdin.setEncoding("utf8");
-		process.stdin.on("data", (chunk) => {
-			data += chunk;
-		});
-		process.stdin.on("error", reject);
-		process.stdin.on("end", () => resolveStdin(data));
-	});
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
