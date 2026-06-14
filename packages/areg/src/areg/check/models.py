@@ -23,6 +23,8 @@ class IssueKind(Enum):
     CLAUDE_WRONG_TARGET = "claude_wrong_target"
     CLAUDE_MISSING = "claude_missing"
     INVALID_SKILL_MD = "invalid_skill_md"
+    INVOKE_ONLY_MISSING_OPENAI_POLICY = "invoke_only_missing_openai_policy"
+    OPENAI_POLICY_WITHOUT_INVOKE_ONLY = "openai_policy_without_invoke_only"
 
     AGENTS_NOT_REAL_DIR = "agents_not_real_dir"
     UNEXPECTED_SKILLS_DIR = "unexpected_skills_dir"

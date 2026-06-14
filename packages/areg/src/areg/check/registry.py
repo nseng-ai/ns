@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from areg.check.base import ProjectCheck, SkillCheck
 from areg.check.checks.github_skill import GitHubSkillStructureCheck
+from areg.check.checks.invoke_only import InvokeOnlyCheck
 from areg.check.checks.local_skill import LocalSkillStructureCheck
 from areg.check.checks.lockfile import LockfileConsistencyCheck
 from areg.check.checks.orphans import OrphansCheck
@@ -12,6 +13,7 @@ DEFAULT_SKILL_CHECKS: list[SkillCheck] = [
     LocalSkillStructureCheck(),
     GitHubSkillStructureCheck(),
     SkillMdCheck(),
+    InvokeOnlyCheck(),
 ]
 
 DEFAULT_PROJECT_CHECKS: list[ProjectCheck] = [
