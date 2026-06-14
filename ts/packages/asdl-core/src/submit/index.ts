@@ -52,4 +52,11 @@ export {
 	type PromptSource,
 } from "./pr-description.ts";
 export { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
-export { DEFAULT_PR_DESCRIPTION_MODEL_REF, PR_DESCRIPTION_MODEL_ENV, type TextGenerationGateway, type TextGenerationRequest, type TextGenerationResult } from "./text-generation.ts";
+export {
+	DEFAULT_PR_DESCRIPTION_MODEL_REF,
+	PR_DESCRIPTION_MODEL_ENV,
+	selectPrDescriptionModelRef,
+	type TextGenerationGateway,
+	type TextGenerationRequest,
+	type TextGenerationResult,
+} from "./text-generation.ts";

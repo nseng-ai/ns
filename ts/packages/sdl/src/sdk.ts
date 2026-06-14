@@ -1,13 +1,16 @@
 import type { PositionalSpec } from "@asdl/clinkr/raw";
-import type { z } from "zod";
+import { z } from "zod";
 
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 export type { PositionalSpec } from "@asdl/clinkr/raw";
+export { z } from "zod";
 export type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
 
 export interface ExecOptions {
 	timeoutMs?: number;
+	onStdout?: ((text: string) => void) | undefined;
+	onStderr?: ((text: string) => void) | undefined;
 }
 
 export interface ExecResult {

@@ -151,8 +151,14 @@ afterEach(() => {
 });
 
 describe("sdl cp CLI help and parsing", () => {
-	test("command metadata lists cp", () => {
-		expect(listSdlCommands()).toEqual([{ name: "cp", description: "Create a checkpoint commit for the current diff." }]);
+	test("command metadata lists built-in commands", () => {
+		expect(listSdlCommands()).toEqual([
+			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
+			{
+				name: "submit",
+				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+			},
+		]);
 	});
 
 	test("top-level help lists cp", async () => {
@@ -163,6 +169,7 @@ describe("sdl cp CLI help and parsing", () => {
 		expect(help).toContain("Usage: sdl");
 		expect(help).toContain("Source Development Lifecycle tools.");
 		expect(help).toContain("cp");
+		expect(help).toContain("submit");
 		expect(help).toContain("--runtime");
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -173,6 +180,7 @@ describe("sdl cp CLI help and parsing", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: sdl");
 		expect(run.stdout.join("")).toContain("cp");
+		expect(run.stdout.join("")).toContain("submit");
 		expect(run.stderr.join("")).toBe("");
 	});
 
@@ -231,8 +239,7 @@ describe("sdl project command discovery", () => {
 
 	test("project-local cp help loads only the selected command metadata and schema", async () => {
 		const cwd = await createOverrideProject(`
-import { defineCommand, ok } from "@asdl/sdl/sdk";
-import { z } from "zod";
+import { defineCommand, ok, z } from "@asdl/sdl/sdk";
 
 export default defineCommand({
 	name: "cp",
@@ -283,8 +290,7 @@ export default defineCommand({
 		const cwd = await createCommandProject(
 			"hello.ts",
 			`
-import { defineCommand, ok } from "@asdl/sdl/sdk";
-import { z } from "zod";
+import { defineCommand, ok, z } from "@asdl/sdl/sdk";
 
 export default defineCommand({
 	name: "hello",
@@ -345,6 +351,19 @@ export default defineCommand({
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("Invalid SDL command module filename: .asdl/commands/Bad_Name.ts");
 		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("project command schema must be a Zod object", async () => {
+		const cwd = await createCommandProject(
+			"hello.ts",
+			`export default { name: "hello", description: "Hello", schema: { safeParse() { return { success: true, data: {} }; } }, run() { return { ok: true, message: "hello" }; } };\n`,
+		);
+		const run = runWithFakes(["hello"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("Invalid .asdl/commands/hello.ts");
+		expect(run.stderr.join("")).toContain("command schema must be a Zod object schema from @asdl/sdl/sdk");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
