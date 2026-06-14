@@ -175,6 +175,15 @@ export async function prepareSubmitPrMetadata(input: {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
 
+	const emptyBranch = findEmptyNewBranch(inspected.value);
+	if (emptyBranch !== undefined) {
+		return {
+			kind: "failed",
+			error: formatEmptyBranchSubmitRefusal(emptyBranch),
+			amendedBranches: [],
+		};
+	}
+
 	const amendableBranches = findAmendableBranchNames(inspected.value);
 	const newBranches = inspected.value.branches.filter(
 		(branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.commitMessages.length === 1 && amendableBranches.has(branch.branch),
@@ -265,6 +274,20 @@ async function generateMetadataForBranches(input: {
 		});
 	}
 	return { kind: "prepared", prepared };
+}
+
+function findEmptyNewBranch(inspection: SubmitStackInspection): SubmitStackNewBranch | undefined {
+	return inspection.branches.find((branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.diff.trim() === "");
+}
+
+function formatEmptyBranchSubmitRefusal(branch: SubmitStackNewBranch): string {
+	return [
+		`Refusing to submit empty Graphite branch ${branch.branch}.`,
+		`The branch has no diff relative to its parent ${branch.parentBranch}, so Graphite/GitHub cannot create a PR for it.`,
+		"Submission was not attempted.",
+		"",
+		"If you expected changes from a loaded branch-context plan, verify that the plan targets this repository and that the implementation changes were made in this checkout before rerunning `asdl-dev submit`.",
+	].join("\n");
 }
 
 function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string> {

@@ -348,6 +348,27 @@ describe("asdl-dev submit CLI behavior", () => {
 		expect(run.githubPr.editPrCalls[0]?.body).toContain(GENERATED_BODY_MARKER);
 	});
 
+	test("empty current branch stops before Graphite submit with branch-context guidance", async () => {
+		const run = runWithFakes(["submit"], {
+			submitMetadata: {
+				inspection: {
+					currentBranch: "feature/demo",
+					branches: [newPrBranch({ commitMessages: [], diff: "" })],
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("Refusing to submit empty Graphite branch feature/demo.");
+		expect(stderr).toContain("no diff relative to its parent main");
+		expect(stderr).toContain("verify that the plan targets this repository");
+		expect(run.submit.checkSubmitReadinessCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.submitMetadata.inspectSubmitStackCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.submitMetadata.amendBranchMetadataCommitCalls).toEqual([]);
+		expect(run.submit.submitCurrentStackCalls).toEqual([]);
+	});
+
 	test("prewrite generation failure stops before amendment and submit", async () => {
 		const run = runWithFakes(["submit"], {
 			submitMetadata: { inspection: { currentBranch: "feature/demo", branches: [newPrBranch()] } },
