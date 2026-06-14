@@ -31,7 +31,7 @@ function buildGroup(outcome: "ok" | "negative"): {
 
 function buildMarkdownGroup(
 	outcome: Outcome,
-	options: { includeHuman: boolean; includeMarkdown: boolean },
+	options: { shouldIncludeHuman: boolean; shouldIncludeMarkdown: boolean },
 ): {
 	group: ClinkrGroup<null>;
 	humanCalls: () => number;
@@ -56,8 +56,8 @@ function buildMarkdownGroup(
 			if (outcome === "negative") return negative("none");
 			throw new ClinkrFailure({ errorType: "boom", message: "broke" });
 		},
-		...(options.includeHuman ? { renderHuman } : {}),
-		...(options.includeMarkdown ? { renderMarkdown } : {}),
+		...(options.shouldIncludeHuman ? { renderHuman } : {}),
+		...(options.shouldIncludeMarkdown ? { renderMarkdown } : {}),
 	});
 	return { group, humanCalls: () => humanCalls, markdownCalls: () => markdownCalls };
 }
@@ -100,14 +100,17 @@ describe("renderHuman", () => {
 
 describe("renderMarkdown", () => {
 	test("renders ok data in markdown mode", async () => {
-		const { group } = buildMarkdownGroup("ok", { includeHuman: true, includeMarkdown: true });
+		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: true, shouldIncludeMarkdown: true });
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("- plans: 2\n");
 	});
 
 	test("is not called in human mode", async () => {
-		const { group, markdownCalls } = buildMarkdownGroup("ok", { includeHuman: true, includeMarkdown: true });
+		const { group, markdownCalls } = buildMarkdownGroup("ok", {
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: true,
+		});
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("plans: 2\n");
@@ -115,7 +118,10 @@ describe("renderMarkdown", () => {
 	});
 
 	test("is not called in json mode", async () => {
-		const { group, markdownCalls } = buildMarkdownGroup("ok", { includeHuman: true, includeMarkdown: true });
+		const { group, markdownCalls } = buildMarkdownGroup("ok", {
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: true,
+		});
 		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toEqual({ exit_code: 0, data: { count: 2 } });
@@ -124,8 +130,8 @@ describe("renderMarkdown", () => {
 
 	test("is not called for negative exits", async () => {
 		const { group, markdownCalls } = buildMarkdownGroup("negative", {
-			includeHuman: true,
-			includeMarkdown: true,
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: true,
 		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(1);
@@ -135,8 +141,8 @@ describe("renderMarkdown", () => {
 
 	test("is not called for failure exits", async () => {
 		const { group, markdownCalls } = buildMarkdownGroup("failure", {
-			includeHuman: true,
-			includeMarkdown: true,
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: true,
 		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(2);
@@ -145,14 +151,14 @@ describe("renderMarkdown", () => {
 	});
 
 	test("falls back to renderHuman when renderMarkdown is absent", async () => {
-		const { group } = buildMarkdownGroup("ok", { includeHuman: true, includeMarkdown: false });
+		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: true, shouldIncludeMarkdown: false });
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("plans: 2\n");
 	});
 
 	test("falls back to indented JSON when renderMarkdown and renderHuman are absent", async () => {
-		const { group } = buildMarkdownGroup("ok", { includeHuman: false, includeMarkdown: false });
+		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: false, shouldIncludeMarkdown: false });
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe('{\n  "count": 2\n}\n');
