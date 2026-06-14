@@ -376,7 +376,7 @@ describe("CCC cmux command suite", () => {
 				], {}),
 			],
 		});
-		registerCccSlotDispatchPromptCommand(pi, { stagingDir, now: () => 123, cleanupStagingFile: false });
+		registerCccSlotDispatchPromptCommand(pi, { stagingDir, now: () => 123, shouldCleanupStagingFile: false });
 		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
 
 		await pi.commands.get("ccc:workspace:dispatch-prompt")?.handler("Implement the cmux dispatch flow", ctx);

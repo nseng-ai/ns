@@ -71,7 +71,7 @@ describe("brmem exec resolve-prompt", () => {
 		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
 			repoRoot,
 			homeRoot,
-			inGitRepo: false,
+			isInGitRepo: false,
 			promptFiles: [globalPrompt("foo")],
 		});
 

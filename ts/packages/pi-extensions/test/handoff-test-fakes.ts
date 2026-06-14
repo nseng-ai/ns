@@ -134,7 +134,13 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 }
 
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch], { code: exists ? 0 : 1 });
+	const payload = exists
+		? { exit_code: 0, data: { key, namespace: "handoff", branch } }
+		: { exit_code: 1, message: `not found: Entry Key=${key} Namespace=handoff Branch=${branch}` };
+	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"], {
+		code: exists ? 0 : 1,
+		stdout: `${JSON.stringify(payload)}\n`,
+	});
 }
 
 export function cmuxIdentifyStep(): ScriptedExec {

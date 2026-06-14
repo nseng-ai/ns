@@ -315,6 +315,31 @@ describe("handoff-tab extension", () => {
 		expect(result.content[0]?.text).toBe(`No handoff missing found on branch ${BRANCH}; no cmux tab was opened.`);
 	});
 
+	test("handoff-tab launch tool reports brmem check failures instead of treating exit 1 tracebacks as missing", async () => {
+		const pi = new FakePi([
+			step("brmem", ["check", "finish-widget.md", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"], {
+				code: 1,
+				stderr: "Traceback (most recent call last):\nModuleNotFoundError: No module named 'brmem'\n",
+			}),
+		]);
+		handoffExtension(pi);
+		const tool = pi.tools.get("handoff_tab_launch");
+		expect(tool).toBeDefined();
+		if (tool === undefined) {
+			throw new Error("handoff_tab_launch was not registered");
+		}
+		const context = createContext();
+
+		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget" }, undefined, undefined, context.ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem"]);
+		expect(result.isError).toBe(true);
+		expect(result.content[0]?.text).toContain("brmem check failed before it could verify the handoff");
+		expect(result.content[0]?.text).toContain("ModuleNotFoundError");
+		expect(result.content[0]?.text).not.toContain("No handoff finish-widget found");
+	});
+
 	test("handoff-tab launch tool reports manual recovery when rename fails after surface creation", async () => {
 		const pi = new FakePi([
 			checkStep(BRANCH, "finish-widget.md", true),

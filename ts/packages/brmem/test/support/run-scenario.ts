@@ -15,7 +15,7 @@ export interface ScenarioRunOptions {
 	promptResolver?: BrmemPromptResolver | undefined;
 	repoRoot?: string | undefined;
 	homeRoot?: string | undefined;
-	inGitRepo?: boolean | undefined;
+	isInGitRepo?: boolean | undefined;
 	promptFiles?: readonly string[] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	cwd?: string | undefined;
@@ -43,7 +43,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 				cwd,
 				repoRoot: options.repoRoot,
 				homeRoot: options.homeRoot,
-				inGitRepo: options.inGitRepo,
+				isInGitRepo: options.isInGitRepo,
 				promptFiles: options.promptFiles,
 			}),
 		cwd,
@@ -77,12 +77,12 @@ class ScenarioPromptResolver implements BrmemPromptResolver {
 		cwd: string;
 		repoRoot?: string | undefined;
 		homeRoot?: string | undefined;
-		inGitRepo?: boolean | undefined;
+		isInGitRepo?: boolean | undefined;
 		promptFiles?: readonly string[] | undefined;
 	}) {
 		this.repoRootValue = options.repoRoot ?? "/repo";
 		this.homeRootValue = options.homeRoot ?? "/home/tester";
-		this.isInGitRepo = options.inGitRepo ?? true;
+		this.isInGitRepo = options.isInGitRepo ?? true;
 		this.promptFiles = new Set((options.promptFiles ?? []).map((path) => normalizePath(path, options.cwd)));
 	}
 

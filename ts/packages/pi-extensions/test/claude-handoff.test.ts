@@ -17,6 +17,7 @@ import {
 	FakePi,
 	ROOT,
 	branchStep,
+	checkStep,
 	createContext,
 	getRegisteredCommand,
 	getRegisteredTool,
@@ -166,7 +167,7 @@ describe("claude handoff command", () => {
 			ANTHROPIC_AUTH_TOKEN: "token",
 			ANTHROPIC_BASE_URL: "https://anthropic.example",
 		};
-		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
+		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "exited", code: 0, signal: null }), env });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
@@ -196,7 +197,7 @@ describe("claude handoff command", () => {
 	});
 
 	test("launch tool names the Claude session with the source Pi session id when available", async () => {
-		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
+		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true, sessionFile: "/home/me/.pi/sessions/sess-9f3c.jsonl" });
 		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
@@ -243,12 +244,12 @@ describe("claude handoff command", () => {
 	test.each([
 		{
 			name: "missing handoff",
-			check: step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 1 }),
+			check: checkStep(BRANCH, "fix-auth-flow.md", false),
 			expected: "does not exist",
 		},
 		{
 			name: "check failure",
-			check: step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 2, stderr: "boom" }),
+			check: step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"], { code: 2, stderr: "boom" }),
 			expected: "command failed",
 		},
 	])("launch tool does not launch when verification reports $name", async ({ check, expected }) => {
@@ -267,7 +268,7 @@ describe("claude handoff command", () => {
 	});
 
 	test("launch tool reports spawn failure after resuming the TUI", async () => {
-		const pi = new FakePi([step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH], { code: 0 })]);
+		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi, { runClaude: fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }) });
 		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);

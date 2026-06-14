@@ -65,20 +65,18 @@ js-test: ts-test
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-pr-address: ts-install
-    mkdir -p "$HOME/.local/bin"
-    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{justfile_directory()}}/ts/packages/pr-address/scripts/pr-address-shim" > "$HOME/.local/bin/pr-address"
-    chmod +x "$HOME/.local/bin/pr-address"
-    @echo "installed: $HOME/.local/bin/pr-address (canonical checkout: {{justfile_directory()}})"
+install-pr-address: (_install-ts-shim "pr-address" "{{justfile_directory()}}/ts/packages/pr-address/scripts/pr-address-shim")
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-brmem: ts-install
+install-brmem: (_install-ts-shim "brmem" "{{justfile_directory()}}/ts/packages/brmem/scripts/brmem-shim")
+
+_install-ts-shim tool script: ts-install
     mkdir -p "$HOME/.local/bin"
-    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{justfile_directory()}}/ts/packages/brmem/scripts/brmem-shim" > "$HOME/.local/bin/brmem"
-    chmod +x "$HOME/.local/bin/brmem"
-    @echo "installed: $HOME/.local/bin/brmem (canonical checkout: {{justfile_directory()}})"
+    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{script}}" > "$HOME/.local/bin/{{tool}}"
+    chmod +x "$HOME/.local/bin/{{tool}}"
+    @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
 # Link the branch-context bin through pnpm so `branch-context` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
