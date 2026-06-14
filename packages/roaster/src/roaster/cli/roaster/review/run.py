@@ -16,6 +16,7 @@ from roaster.models import (
     FindingsReview,
     GitDiffFailedError,
     GitInvocationFailedError,
+    LocalReviewFailureResult,
     LocalReviewResult,
     RepoRootUnavailableError,
     ResolvedReviewRunPlan,
@@ -51,11 +52,23 @@ class ReviewRunRequest(ClinkrModel):
     ] = None
 
 
-def render_review_run(result: LocalReviewResult) -> None:
+def render_review_run(result: LocalReviewResult | LocalReviewFailureResult) -> None:
     """Render findings output for the human CLI."""
     click.echo(f"Reviewer: {result.review_name}")
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
+    if isinstance(result, LocalReviewFailureResult):
+        click.echo(result.message)
+        if result.changed_path_count is not None and result.max_changed_paths is not None:
+            click.echo(
+                f"Changed paths: {result.changed_path_count} (limit: {result.max_changed_paths})"
+            )
+        if result.diff_token_estimate is not None and result.max_diff_tokens is not None:
+            click.echo(
+                f"Estimated full diff tokens: {result.diff_token_estimate} "
+                f"(limit: {result.max_diff_tokens})"
+            )
+        return
     if result.usage is not None:
         usage = result.usage
         click.echo(
@@ -87,7 +100,7 @@ def render_review_run(result: LocalReviewResult) -> None:
 def run_review_command(
     ctx: click.Context,
     request: ReviewRunRequest,
-) -> ClinkrExit[LocalReviewResult]:
+) -> ClinkrExit[LocalReviewResult | LocalReviewFailureResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
     click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
@@ -114,6 +127,9 @@ def run_review_command(
         raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
     except GitDiffFailedError as exc:
         raise ClinkrFailure(error_type="git_diff_failed", message=str(exc)) from exc
+
+    if isinstance(result, LocalReviewFailureResult):
+        return ClinkrExit.negative(result, message=result.message)
 
     result = Ensure.ideal_state(result)
     return ClinkrExit.ok(result)

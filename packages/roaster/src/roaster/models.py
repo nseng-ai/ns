@@ -419,7 +419,7 @@ class ReviewExecutionResponse:
 
 
 class LocalReviewResult(ClinkrModel):
-    """Structured result returned by the CI roaster CLI."""
+    """Structured result returned by a successful CI roaster CLI review."""
 
     review_name: str
     review_path: str
@@ -439,6 +439,21 @@ class LocalReviewResult(ClinkrModel):
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,
             **serialize_to_json_dict(self.payload),
         }
+
+
+class LocalReviewFailureResult(ClinkrModel):
+    """Structured expected non-success result after review metadata is known."""
+
+    review_name: str
+    review_path: str | None
+    model: str | None
+    base_ref: str | None
+    error_type: Literal["review_budget_exceeded"]
+    message: str
+    changed_path_count: int | None
+    diff_token_estimate: int | None
+    max_changed_paths: int | None
+    max_diff_tokens: int | None
 
 
 @dataclass(frozen=True)

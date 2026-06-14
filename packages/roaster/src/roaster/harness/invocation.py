@@ -62,6 +62,8 @@ CLAUDE_CODE_NAME = "claude-code"
 _CLAUDE_CODE_MODEL_ALIASES = frozenset({"sonnet", "opus", "haiku"})
 _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
 _PROSE_SNIPPET_MAX_CHARS = 500
+# Defensive prompt assembly caps for eligible reviews. User-visible CI hard-fail
+# policy lives in roaster.review_budget and runs before harness invocation.
 _MAX_PROMPT_DIFF_TOKENS = 120_000
 _MAX_PROMPT_DIFF_FILE_TOKENS = 40_000
 _READ_ONLY_TOOLS = "Bash,Read"

@@ -55,6 +55,10 @@ class FindingsPayload:
     findings: tuple[ReviewFinding, ...]
     error_type: str | None = None
     error_message: str | None = None
+    changed_path_count: int | None = None
+    diff_token_estimate: int | None = None
+    max_changed_paths: int | None = None
+    max_diff_tokens: int | None = None
 
     @property
     def is_error(self) -> bool:
@@ -101,14 +105,7 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     exit_code = data.get("exit_code")
     if exit_code != 0:
-        return FindingsPayload(
-            review_name="unknown",
-            base_ref="unknown",
-            count=0,
-            findings=(),
-            error_type=_coerce_str(data.get("error_type"), default="unknown"),
-            error_message=_coerce_str(data.get("message"), default=""),
-        )
+        return _parse_nonzero_findings_payload(data)
 
     inner = data.get("data")
     if not isinstance(inner, dict):
@@ -271,6 +268,30 @@ def _render_inline_posting_status(status: InlinePostingStatus) -> list[str]:
 
 
 def _render_error_body(payload: FindingsPayload) -> list[str]:
+    if payload.error_type == "review_budget_exceeded":
+        lines = [
+            f"**Review not run** against base `{payload.base_ref}` because the PR exceeds "
+            "the roaster review budget. ❌",
+            "",
+            f"- **Error type:** `{payload.error_type}`",
+            f"- **Message:** {payload.error_message or '(none)'}",
+        ]
+        if payload.changed_path_count is not None and payload.max_changed_paths is not None:
+            lines.append(
+                f"- **Changed paths:** {payload.changed_path_count} "
+                f"(limit: {payload.max_changed_paths})"
+            )
+        if payload.diff_token_estimate is not None and payload.max_diff_tokens is not None:
+            lines.append(
+                f"- **Estimated full diff tokens:** {payload.diff_token_estimate} "
+                f"(limit: {payload.max_diff_tokens})"
+            )
+        lines.append(
+            "- **Next step:** Split or shrink the PR, or follow a documented maintainer "
+            "bypass process if one exists."
+        )
+        return lines
+
     return [
         f"**Roaster failed** against base `{payload.base_ref}`. ⚠️",
         "",
@@ -329,6 +350,44 @@ def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
+
+
+def _coerce_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def _parse_nonzero_findings_payload(data: dict[str, Any]) -> FindingsPayload:
+    inner = data.get("data")
+    if isinstance(inner, dict):
+        return FindingsPayload(
+            review_name=_coerce_str(inner.get("review_name"), default="unknown"),
+            base_ref=_coerce_str(inner.get("base_ref"), default="unknown"),
+            count=0,
+            findings=(),
+            error_type=_coerce_str(
+                inner.get("error_type") or data.get("error_type"),
+                default="unknown",
+            ),
+            error_message=_coerce_str(
+                inner.get("message") or data.get("message"),
+                default="",
+            ),
+            changed_path_count=_coerce_int(inner.get("changed_path_count")),
+            diff_token_estimate=_coerce_int(inner.get("diff_token_estimate")),
+            max_changed_paths=_coerce_int(inner.get("max_changed_paths")),
+            max_diff_tokens=_coerce_int(inner.get("max_diff_tokens")),
+        )
+
+    return FindingsPayload(
+        review_name="unknown",
+        base_ref="unknown",
+        count=0,
+        findings=(),
+        error_type=_coerce_str(data.get("error_type"), default="unknown"),
+        error_message=_coerce_str(data.get("message"), default=""),
+    )
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:

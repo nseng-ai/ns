@@ -62,15 +62,15 @@ Assumptions:
 
 Risks:
 
-- A too-permissive degradation policy could hide useful review failures by turning oversized review jobs green without enough visibility.
-- A too-strict policy could block valid mechanical migrations that are intentionally large, even when deterministic checks pass.
-- Sharding reviews by path or diff size may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; regressions could spam PRs or overwrite historical activity logs.
+- The too-permissive degradation risk is de-risked for the first implementation slice: oversized roaster reviews are intentionally red checks, not soft-pass or neutral skips.
+- The too-strict policy risk is accepted for now. Valid mechanical migrations that exceed the budget must split/shrink or follow a documented maintainer bypass process if one is later established.
+- Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover the budget-failure marker/comment shape and no-inline noop path, but broader live PR race behavior remains to be verified.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless evidence shows they affect mergeability.
 
 ## Open Questions
 
-- Should oversized roaster reviews be a soft-pass/neutral advisory status with an explanatory comment, or a hard failure that explicitly tells the author to split/shrink the PR?
-- If sharding is chosen, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
-- What threshold should be enforced in repo policy: GitHub's 300-file diff API limit, a lower roaster-specific file/diff-token threshold, or both?
-- Should roaster publish one aggregate oversized-PR comment or one review-key-specific comment per skipped/failed reviewer?
+- Resolved for the first implementation slice: oversized roaster reviews are hard failures. The red check should say the review was not run, include review key/base/size facts, and tell authors to split/shrink the PR or use a documented maintainer bypass process if one exists.
+- If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
+- Resolved for the first implementation slice: roaster enforces both GitHub's 300 changed-path boundary and a conservative 150,000 estimated full-diff token budget below Claude Code's observed 200,000-token limit.
+- Resolved for the first implementation slice: budget-failure publication remains review-key-specific, not aggregate, so matrix jobs use distinct `<!-- roaster:<review_name> -->` summary markers.

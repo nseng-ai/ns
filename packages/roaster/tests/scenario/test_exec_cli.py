@@ -187,6 +187,41 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
+def test_format_findings_comment_renders_budget_failure_for_review_marker(
+    cli_group: ClinkrGroup,
+) -> None:
+    payload = {
+        "exit_code": 1,
+        "message": "Review was not run.",
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "error_type": "review_budget_exceeded",
+            "message": "Budget exceeded.",
+            "changed_path_count": 301,
+            "diff_token_estimate": 151_000,
+            "max_changed_paths": 300,
+            "max_diff_tokens": 150_000,
+        },
+    }
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "format-findings-comment"],
+        input=json.dumps(payload),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("<!-- roaster:dignified-python -->\n")
+    assert "## roaster · `dignified-python`" in result.output
+    assert "**Review not run** against base `master`" in result.output
+    assert "- **Error type:** `review_budget_exceeded`" in result.output
+    assert "- **Changed paths:** 301 (limit: 300)" in result.output
+    assert "- **Estimated full diff tokens:** 151000 (limit: 150000)" in result.output
+    assert "Split or shrink the PR" in result.output
+
+
 def test_format_findings_comment_fails_on_malformed_stdin(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -246,6 +281,14 @@ class _RejectingCreateReviewGateway(FakePRGateway):
         self, pr_number: int, comments: tuple[PRInlineCommentInput, ...]
     ) -> PRReview:
         raise RuntimeError("validation failed")
+
+
+class _UnexpectedInlineQueryGateway(FakePRGateway):
+    def get_pr_changed_files(self, pr_number: int) -> tuple[PRChangedFile, ...]:
+        raise AssertionError("changed files should not be queried")
+
+    def get_pr_review_comments(self, pr_number: int) -> tuple[PRReviewComment, ...]:
+        raise AssertionError("review comments should not be queried")
 
 
 def test_post_inline_findings_posts_inlineable_findings_in_batched_review(
@@ -398,7 +441,7 @@ def test_post_inline_findings_reports_fallback_only_findings(
 def test_post_inline_findings_handles_empty_findings_as_noop(
     cli_group: ClinkrGroup,
 ) -> None:
-    fake = FakePRGateway()
+    fake = _UnexpectedInlineQueryGateway()
 
     runner = CliRunner()
     result = runner.invoke(
@@ -412,6 +455,42 @@ def test_post_inline_findings_handles_empty_findings_as_noop(
     data = json.loads(result.output)
     assert data["posted_count"] == 0
     assert data["fallback_only_count"] == 0
+    assert fake.created_reviews == ()
+
+
+def test_post_inline_findings_handles_budget_failure_as_noop(
+    cli_group: ClinkrGroup,
+) -> None:
+    fake = _UnexpectedInlineQueryGateway()
+    payload = {
+        "exit_code": 1,
+        "message": "Review was not run.",
+        "data": {
+            "review_name": "dignified-python",
+            "base_ref": "master",
+            "error_type": "review_budget_exceeded",
+            "message": "Budget exceeded.",
+            "changed_path_count": 301,
+            "diff_token_estimate": 151_000,
+            "max_changed_paths": 300,
+            "max_diff_tokens": 150_000,
+        },
+    }
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "post-inline-findings", "--pr-number", "47"],
+        input=json.dumps(payload),
+        obj=_context_with_pr_gateway(fake),
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["posted_count"] == 0
+    assert data["skipped_duplicate_count"] == 0
+    assert data["fallback_only_count"] == 0
+    assert data["fallback_only"] == []
     assert fake.created_reviews == ()
 
 

@@ -160,6 +160,34 @@ def test_render_includes_details_block_and_footer() -> None:
     assert "_Post-only steelthread: this comment never blocks the check._" in body
 
 
+def test_render_budget_failure_payload_uses_specific_hard_fail_body() -> None:
+    payload = FindingsPayload(
+        review_name="dignified-python",
+        base_ref="master",
+        count=0,
+        findings=(),
+        error_type="review_budget_exceeded",
+        error_message=(
+            "Review 'dignified-python' was not run against base 'master' because the PR "
+            "exceeds the roaster review budget."
+        ),
+        changed_path_count=301,
+        diff_token_estimate=151_000,
+        max_changed_paths=300,
+        max_diff_tokens=150_000,
+    )
+
+    body = render_findings_comment(payload)
+
+    assert body.startswith("<!-- roaster:dignified-python -->\n")
+    assert "**Review not run** against base `master`" in body
+    assert "- **Error type:** `review_budget_exceeded`" in body
+    assert "- **Changed paths:** 301 (limit: 300)" in body
+    assert "- **Estimated full diff tokens:** 151000 (limit: 150000)" in body
+    assert "Split or shrink the PR" in body
+    assert "Post-only steelthread" not in body
+
+
 def test_render_error_payload_flags_failure_without_footer() -> None:
     payload = FindingsPayload(
         review_name="dignified-python",
@@ -283,6 +311,38 @@ def test_parse_count_derives_from_findings_when_absent() -> None:
     payload = _parse_payload(raw)
 
     assert payload.count == 1
+
+
+def test_parse_nonzero_structured_data_preserves_review_metadata_and_budget_fields() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 1,
+            "message": "Review was not run.",
+            "data": {
+                "review_name": "dignified-python",
+                "base_ref": "master",
+                "error_type": "review_budget_exceeded",
+                "message": "Budget exceeded.",
+                "changed_path_count": 301,
+                "diff_token_estimate": 151_000,
+                "max_changed_paths": 300,
+                "max_diff_tokens": 150_000,
+            },
+        }
+    )
+
+    payload = _parse_payload(raw)
+
+    assert payload.is_error is True
+    assert payload.review_name == "dignified-python"
+    assert payload.base_ref == "master"
+    assert payload.error_type == "review_budget_exceeded"
+    assert payload.error_message == "Budget exceeded."
+    assert payload.changed_path_count == 301
+    assert payload.diff_token_estimate == 151_000
+    assert payload.max_changed_paths == 300
+    assert payload.max_diff_tokens == 150_000
+    assert payload.findings == ()
 
 
 def test_parse_error_shape_produces_error_payload() -> None:

@@ -238,6 +238,41 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     assert data["findings"][0]["summary"] == "Avoid print in library code"
 
 
+def test_review_run_json_output_for_oversized_diff_preserves_failure_metadata(
+    cli_group: ClinkrGroup,
+) -> None:
+    changed_paths = tuple(f"pkg/file_{index}.py" for index in range(301))
+    ctx = _build_context(changed_paths=changed_paths)
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--format",
+            "json",
+        ],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 1, result.output
+    output = json.loads(result.stdout)
+    assert output["exit_code"] == 1
+    assert "Review 'dignified-python' was not run against base 'master'" in output["message"]
+    data = output["data"]
+    assert data["review_name"] == "dignified-python"
+    assert data["base_ref"] == "master"
+    assert data["model"] == "sonnet"
+    assert data["error_type"] == "review_budget_exceeded"
+    assert data["changed_path_count"] == 301
+    assert data["max_changed_paths"] == 300
+    assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
+    assert ctx.harness_runtime.executed_requests == ()
+
+
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:
     result = CliRunner().invoke(
         cli_group,

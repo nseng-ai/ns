@@ -55,6 +55,16 @@ def post_inline_findings_command(
     raw = sys.stdin.read()
     payload = Ensure.ideal_state(parse_findings_payload_result(raw))
 
+    if payload.is_error or not payload.findings:
+        return ClinkrExit.ok(
+            PostInlineFindingsResult(
+                posted_count=0,
+                skipped_duplicate_count=0,
+                fallback_only_count=0,
+                fallback_only=(),
+            )
+        )
+
     pr_gateway = load_typed_context(ctx, RoasterCliContext).pr_gateway
     changed_files = pr_gateway.get_pr_changed_files(request.pr_number)
     classification = classify_inline_findings(payload.findings, changed_files)
