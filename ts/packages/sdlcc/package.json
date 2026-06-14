@@ -8,7 +8,8 @@
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdlcc/test",
-    "start": "bun src/cli.ts"
+    "start": "bun src/cli.ts",
+    "prototype:stack-map": "bun src/cli.ts"
   },
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
