@@ -128,20 +128,34 @@ async function prepareExports(ctx: BrmemCliContext, entries: readonly EntryRef[]
 		if (content.type === "missing") {
 			return { type: "failure", exit: failure("entry_content_missing", `Could not read Branch Memory Entry ${entry.entryLocator}.`) };
 		}
-		prepared.push(buildPreparedExport(entry, target.path, diagnostic.value, content.value));
+		prepared.push(
+			buildPreparedExport({
+				entry,
+				targetPathValue: target.path,
+				diagnostic: diagnostic.value,
+				content: content.value,
+			}),
+		);
 	}
 	return { type: "ok", prepared };
 }
 
-function buildPreparedExport(entry: EntryRef, targetPathValue: string, diagnostic: EntryDiagnostic, content: EntryContent): PreparedExport {
+interface BuildPreparedExportOptions {
+	entry: EntryRef;
+	targetPathValue: string;
+	diagnostic: EntryDiagnostic;
+	content: EntryContent;
+}
+
+function buildPreparedExport(options: BuildPreparedExportOptions): PreparedExport {
 	return {
 		exportedEntry: {
-			key: entry.key,
-			path: targetPathValue,
-			ref_name: entry.entryLocator,
-			size_bytes: diagnostic.sizeBytes,
+			key: options.entry.key,
+			path: options.targetPathValue,
+			ref_name: options.entry.entryLocator,
+			size_bytes: options.diagnostic.sizeBytes,
 		},
-		content: content.content,
+		content: options.content.content,
 	};
 }
 

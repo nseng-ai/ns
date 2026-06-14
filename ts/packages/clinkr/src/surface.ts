@@ -105,7 +105,15 @@ function kebabCase(key: string): string {
 	return key.replaceAll("_", "-");
 }
 
-function buildFlag(key: string, kind: FieldKind, unwrapped: UnwrappedField, optionSpec: OptionSpec | undefined): string {
+interface BuildFlagOptions {
+	key: string;
+	kind: FieldKind;
+	unwrapped: UnwrappedField;
+	optionSpec: OptionSpec | undefined;
+}
+
+function buildFlag(options: BuildFlagOptions): string {
+	const { key, kind, unwrapped, optionSpec } = options;
 	const kebab = kebabCase(key);
 	const longFlag = kind.type === "boolean" && unwrapped.hasDefault && unwrapped.defaultValue === true ? `--no-${kebab}` : `--${kebab}`;
 	const valueSuffix = kind.type === "boolean" ? "" : " <value>";
@@ -125,12 +133,15 @@ function describeField(unwrapped: UnwrappedField): string {
  * from its Zod request schema. Throws on schemas outside the v1 vocabulary so
  * unsupported shapes fail at registration time, not at parse time.
  */
-export function buildSurfacePlan(
-	commandName: string,
-	schema: z.ZodObject,
-	positionals: Readonly<Partial<Record<string, PositionalSpec>>> = {},
-	optionSpecs: Readonly<Partial<Record<string, OptionSpec>>> = {},
-): SurfacePlan {
+export interface BuildSurfacePlanOptions {
+	commandName: string;
+	schema: z.ZodObject;
+	positionals?: Readonly<Partial<Record<string, PositionalSpec>>>;
+	optionSpecs?: Readonly<Partial<Record<string, OptionSpec>>>;
+}
+
+export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
+	const { commandName, schema, positionals = {}, optionSpecs = {} } = input;
 	const shape = schema.def.shape;
 	for (const key of Object.keys(positionals)) {
 		if (!(key in shape)) {
@@ -152,7 +163,7 @@ export function buildSurfacePlan(
 		}
 	}
 	const positionalEntries: { position: number; plan: PositionalPlan }[] = [];
-	const options: OptionPlan[] = [];
+	const optionPlans: OptionPlan[] = [];
 	for (const [key, field] of Object.entries(shape)) {
 		if (RESERVED_KEYS.has(key)) {
 			throw new Error(
@@ -176,8 +187,8 @@ export function buildSurfacePlan(
 			});
 			continue;
 		}
-		const flag = buildFlag(key, kind, unwrapped, optionSpecs[key]);
-		options.push({
+		const flag = buildFlag({ key, kind, unwrapped, optionSpec: optionSpecs[key] });
+		optionPlans.push({
 			key,
 			flag,
 			attributeName: new Option(flag).attributeName(),
@@ -198,6 +209,6 @@ export function buildSurfacePlan(
 	});
 	return {
 		positionals: positionalEntries.map((entry) => entry.plan),
-		options,
+		options: optionPlans,
 	};
 }

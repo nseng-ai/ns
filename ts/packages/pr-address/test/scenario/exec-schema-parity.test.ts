@@ -49,7 +49,7 @@ describe("pr-address exec operation parse↔doc schema parity", () => {
 });
 
 function schemaKeysForOperation(operationName: string, schema: (typeof EXEC_OPERATIONS)[number]["schema"]): { parseKeys: Set<string>; documentKeys: Set<string> } {
-	const surface = buildSurfacePlan(operationName, schema);
+	const surface = buildSurfacePlan({ commandName: operationName, schema });
 	const parseKeys = new Set(surface.options.map((option) => option.key));
 
 	const document = buildOperationSchemaDocument(operationName);
