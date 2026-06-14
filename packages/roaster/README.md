@@ -93,6 +93,16 @@ exclude = [
 
 These repo-relative glob patterns are converted to Git pathspec excludes before assembling the reviewer prompt, so excluded paths never enter model input.
 
+## Oversized PR / bounded review input
+
+`roaster` applies `[roaster.diff].exclude` before prompt budgeting. Coverage facts in JSON output and PR comments describe the filtered diff after those configured exclusions, not the whole PR.
+
+For oversized filtered diffs, `roaster` applies a per-file diff prompt cap and a total diff prompt cap. It omits whole file diff segments when needed; it does not truncate individual hunks. Omitted segments were not supplied in the bounded prompt input, though Claude Code still runs with read-only tools (`Bash,Read`) and may inspect repository context on its own.
+
+A bounded review remains a normal successful review when Claude Code returns valid findings or no findings. PR comments disclose whether all filtered-diff files were supplied to the prompt, which file segments were omitted, and why. Deterministic CI remains authoritative for build, test, and lint correctness.
+
+Automatic generated-file detection and semantic sharding across multiple model calls are intentionally deferred. Generated or vendored paths must be excluded explicitly through `[roaster.diff].exclude`.
+
 ## PR comments in CI
 
 The summary comment is the complete aggregate record for every finding. When GitHub can place a finding on a concrete PR diff line, CI also attempts to post an inline review comment.

@@ -29,8 +29,11 @@ from roaster.models import (
     HarnessInvocationFailed,
     LocalDiff,
     ModelNotSupportedByHarness,
+    OmittedReviewInputFile,
     ReviewDefinition,
     ReviewExecutionResponse,
+    ReviewInputCoverage,
+    ReviewInputOmissionReason,
     ReviewUsage,
     RoasterFailure,
 )
@@ -54,6 +57,15 @@ class HarnessProcessInvocation:
 
     argv: tuple[str, ...]
     stdin: str | None
+    input_coverage: ReviewInputCoverage | None = None
+
+
+@dataclass(frozen=True)
+class PromptSizedDiff:
+    """Prompt diff text plus coverage facts derived by the same cap policy."""
+
+    text: str
+    input_coverage: ReviewInputCoverage
 
 
 CLAUDE_CODE_BINARY = "claude"
@@ -91,9 +103,10 @@ def _assemble_review_prompt(
     *,
     review_definition: ReviewDefinition,
     target: DiffReviewTarget,
-) -> str:
+) -> tuple[str, ReviewInputCoverage]:
     local_diff = target.local_diff
-    return (
+    prompt_diff = _prompt_sized_diff(local_diff)
+    prompt_text = (
         _review_prompt_template()
         .format(
             review_name=review_definition.name,
@@ -102,10 +115,11 @@ def _assemble_review_prompt(
             base_ref=local_diff.base_ref,
             changed_path_count=len(local_diff.changed_paths),
             changed_paths=_changed_paths_block(local_diff.changed_paths),
-            diff_block=_render_prompt_fence(_prompt_sized_diff(local_diff), language="diff"),
+            diff_block=_render_prompt_fence(prompt_diff.text, language="diff"),
         )
         .strip()
     )
+    return prompt_text, prompt_diff.input_coverage
 
 
 def _changed_paths_block(changed_paths: tuple[str, ...]) -> str:
@@ -114,30 +128,45 @@ def _changed_paths_block(changed_paths: tuple[str, ...]) -> str:
     return "\n".join(f"- {path}" for path in changed_paths)
 
 
-def _prompt_sized_diff(local_diff: LocalDiff) -> str:
+def _prompt_sized_diff(local_diff: LocalDiff) -> PromptSizedDiff:
     total_tokens = estimate_tokens(local_diff.diff_text)
-    if total_tokens <= _MAX_PROMPT_DIFF_TOKENS:
-        return local_diff.diff_text
-
     included_segments: list[str] = []
-    omitted_lines: list[str] = []
+    omitted_files: list[OmittedReviewInputFile] = []
     included_tokens = 0
+
     for diff_file in local_diff.files:
         if diff_file.estimated_tokens > _MAX_PROMPT_DIFF_FILE_TOKENS:
-            omitted_lines.append(_omitted_diff_file_line(diff_file, reason="file exceeds cap"))
+            omitted_files.append(_omitted_review_input_file(diff_file, reason="file_exceeds_cap"))
             continue
         if included_tokens + diff_file.estimated_tokens > _MAX_PROMPT_DIFF_TOKENS:
-            omitted_lines.append(_omitted_diff_file_line(diff_file, reason="diff budget exhausted"))
+            omitted_files.append(
+                _omitted_review_input_file(diff_file, reason="diff_budget_exhausted")
+            )
             continue
         included_segments.append(diff_file.raw_text)
         included_tokens += diff_file.estimated_tokens
 
+    coverage = ReviewInputCoverage(
+        full_diff_estimated_tokens=total_tokens,
+        prompt_diff_token_cap=_MAX_PROMPT_DIFF_TOKENS,
+        prompt_diff_file_token_cap=_MAX_PROMPT_DIFF_FILE_TOKENS,
+        changed_path_count=len(local_diff.changed_paths),
+        included_file_count=len(included_segments),
+        omitted_file_count=len(omitted_files),
+        omitted_files=tuple(omitted_files),
+    )
+
+    if not omitted_files and total_tokens <= _MAX_PROMPT_DIFF_TOKENS:
+        return PromptSizedDiff(text=local_diff.diff_text, input_coverage=coverage)
+
+    omitted_lines = tuple(_omitted_diff_file_line(file) for file in omitted_files)
     header = "\n".join(
         (
             "# Roaster note: diff input was capped before sending to the review model.",
             (
                 f"# Full diff estimate: ~{total_tokens} tokens; "
-                f"prompt diff cap: {_MAX_PROMPT_DIFF_TOKENS} tokens."
+                f"prompt diff cap: {_MAX_PROMPT_DIFF_TOKENS} tokens; "
+                f"per-file cap: {_MAX_PROMPT_DIFF_FILE_TOKENS} tokens."
             ),
             "# Omitted file diffs:",
             *(omitted_lines or ("# - (none)",)),
@@ -147,16 +176,32 @@ def _prompt_sized_diff(local_diff: LocalDiff) -> str:
     )
     body = "".join(included_segments).strip()
     if not body:
-        return header.rstrip()
-    return f"{header}{body}"
+        return PromptSizedDiff(text=header.rstrip(), input_coverage=coverage)
+    return PromptSizedDiff(text=f"{header}{body}", input_coverage=coverage)
 
 
-def _omitted_diff_file_line(diff_file: DiffFile, *, reason: str) -> str:
-    path = diff_file.path or "(unknown path)"
+def _omitted_review_input_file(
+    diff_file: DiffFile,
+    *,
+    reason: ReviewInputOmissionReason,
+) -> OmittedReviewInputFile:
+    return OmittedReviewInputFile(
+        path=diff_file.path or "(unknown path)",
+        change_kind=diff_file.change_kind,
+        byte_size=diff_file.byte_size,
+        estimated_tokens=diff_file.estimated_tokens,
+        added_lines=diff_file.added_lines,
+        removed_lines=diff_file.removed_lines,
+        reason=reason,
+    )
+
+
+def _omitted_diff_file_line(file: OmittedReviewInputFile) -> str:
+    reason = file.reason.replace("_", " ")
     return (
-        f"# - {path} ({diff_file.change_kind}, {diff_file.byte_size} bytes, "
-        f"~{diff_file.estimated_tokens} tokens, "
-        f"+{diff_file.added_lines}/-{diff_file.removed_lines}; "
+        f"# - {file.path} ({file.change_kind}, {file.byte_size} bytes, "
+        f"~{file.estimated_tokens} tokens, "
+        f"+{file.added_lines}/-{file.removed_lines}; "
         f"{reason})"
     )
 
@@ -223,18 +268,21 @@ def _claude_code_build_invocation(request: HarnessReviewRequest) -> HarnessProce
         "--json-schema",
         json.dumps(_claude_diff_findings_schema()),
     ]
+    prompt_text, input_coverage = _assemble_review_prompt(
+        review_definition=request.review_definition,
+        target=request.target,
+    )
     return HarnessProcessInvocation(
         argv=tuple(argv),
-        stdin=_assemble_review_prompt(
-            review_definition=request.review_definition,
-            target=request.target,
-        ),
+        stdin=prompt_text,
+        input_coverage=input_coverage,
     )
 
 
 def _parse_findings_payload(
     payload: Any,
     usage: ReviewUsage | None,
+    input_coverage: ReviewInputCoverage | None,
 ) -> ReviewExecutionResponse | RoasterFailure:
     findings_output = _validate_findings_output(payload)
     if isinstance(findings_output, RoasterFailure):
@@ -244,6 +292,7 @@ def _parse_findings_payload(
     return ReviewExecutionResponse(
         payload=FindingsReview(findings=findings),
         usage=usage,
+        input_coverage=input_coverage,
     )
 
 
@@ -349,6 +398,7 @@ def _truncate_prose(text: str, limit: int = _PROSE_SNIPPET_MAX_CHARS) -> str:
 def _claude_code_parse_stdout(
     request: HarnessReviewRequest,
     stdout: str,
+    input_coverage: ReviewInputCoverage | None,
 ) -> ReviewExecutionResponse | RoasterFailure:
     result_event = _extract_json_result(stdout)
     if isinstance(result_event, RoasterFailure):
@@ -357,7 +407,7 @@ def _claude_code_parse_stdout(
     usage = _extract_usage(result_event)
     structured = result_event.get("structured_output")
     if structured is not None:
-        return _parse_findings_payload(structured, usage)
+        return _parse_findings_payload(structured, usage, input_coverage)
 
     result_text = result_event.get("result")
     if isinstance(result_text, str):
@@ -520,4 +570,4 @@ class HarnessRuntime:
                 ),
             )
 
-        return _claude_code_parse_stdout(request, "".join(stdout_lines))
+        return _claude_code_parse_stdout(request, "".join(stdout_lines), invocation.input_coverage)

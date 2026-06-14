@@ -7,14 +7,16 @@ from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, ValidationError, field_validator, model_serializer
+from pydantic import Field, ValidationError, field_validator, model_serializer, model_validator
 
 from asdl_core.clinkr.models import ClinkrModel
 from asdl_core.clinkr.serialization import serialize_to_json_dict
 from roaster.diff_parsing import DiffFile, parse_unified_diff
 
 Severity = Literal["info", "warning", "error"]
+ReviewInputOmissionReason = Literal["file_exceeds_cap", "diff_budget_exhausted"]
 StrictInt: TypeAlias = Annotated[int, Field(strict=True)]
+NonNegativeStrictInt: TypeAlias = Annotated[int, Field(strict=True, ge=0)]
 
 
 @dataclass(frozen=True)
@@ -410,12 +412,45 @@ class ReviewUsage(ClinkrModel):
         return self.input_tokens + self.cache_creation_input_tokens + self.cache_read_input_tokens
 
 
+class OmittedReviewInputFile(ClinkrModel):
+    """One filtered-diff file segment omitted from bounded review prompt input."""
+
+    path: str = Field(min_length=1)
+    change_kind: str = Field(min_length=1)
+    byte_size: NonNegativeStrictInt
+    estimated_tokens: NonNegativeStrictInt
+    added_lines: NonNegativeStrictInt
+    removed_lines: NonNegativeStrictInt
+    reason: ReviewInputOmissionReason
+
+
+class ReviewInputCoverage(ClinkrModel):
+    """Coverage facts for the filtered diff supplied to the review prompt."""
+
+    full_diff_estimated_tokens: NonNegativeStrictInt
+    prompt_diff_token_cap: NonNegativeStrictInt
+    prompt_diff_file_token_cap: NonNegativeStrictInt
+    changed_path_count: NonNegativeStrictInt
+    included_file_count: NonNegativeStrictInt
+    omitted_file_count: NonNegativeStrictInt
+    omitted_files: tuple[OmittedReviewInputFile, ...]
+
+    @model_validator(mode="after")
+    def _validate_counts(self) -> ReviewInputCoverage:
+        if self.omitted_file_count != len(self.omitted_files):
+            raise ValueError("omitted_file_count must equal omitted_files length")
+        if self.included_file_count + self.omitted_file_count > self.changed_path_count:
+            raise ValueError("included and omitted file counts cannot exceed changed_path_count")
+        return self
+
+
 @dataclass(frozen=True)
 class ReviewExecutionResponse:
     """Structured review payload returned by the review executor."""
 
     payload: ReviewPayload
     usage: ReviewUsage | None = None
+    input_coverage: ReviewInputCoverage | None = None
 
 
 class LocalReviewResult(ClinkrModel):
@@ -427,11 +462,12 @@ class LocalReviewResult(ClinkrModel):
     base_ref: str | None
     payload: ReviewPayload
     usage: ReviewUsage | None = None
+    input_coverage: ReviewInputCoverage | None = None
 
     @model_serializer
     def serialize_model(self) -> dict[str, Any]:
         """Serialize the local-review result for JSON output."""
-        return {
+        data = {
             "review_name": self.review_name,
             "review_path": self.review_path,
             "model": self.model,
@@ -439,6 +475,9 @@ class LocalReviewResult(ClinkrModel):
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,
             **serialize_to_json_dict(self.payload),
         }
+        if self.input_coverage is not None:
+            data["input_coverage"] = serialize_to_json_dict(self.input_coverage)
+        return data
 
 
 @dataclass(frozen=True)

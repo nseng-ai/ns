@@ -9,7 +9,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import ReviewFinding
+from pydantic import ValidationError
+
+from roaster.models import ReviewFinding, ReviewInputCoverage
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -21,6 +23,7 @@ _FOOTER = "_Post-only steelthread: this comment never blocks the check._"
 _INLINE_MARKER_PREFIX = "roaster-inline"
 _ACTIVITY_LOG_HEADING = "### Activity Log"
 _ACTIVITY_LOG_CAP = 10
+_OMITTED_INPUT_FILES_RENDER_LIMIT = 10
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,7 @@ class FindingsPayload:
     base_ref: str
     count: int
     findings: tuple[ReviewFinding, ...]
+    input_coverage: ReviewInputCoverage | None = None
     error_type: str | None = None
     error_message: str | None = None
 
@@ -131,11 +135,19 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
     if not isinstance(count, int):
         count = len(findings)
 
+    input_coverage = None
+    if "input_coverage" in inner:
+        parsed_coverage = _parse_input_coverage(inner["input_coverage"])
+        if isinstance(parsed_coverage, FindingsPayloadParseError):
+            return parsed_coverage
+        input_coverage = parsed_coverage
+
     return FindingsPayload(
         review_name=review_name,
         base_ref=base_ref,
         count=count,
         findings=tuple(findings),
+        input_coverage=input_coverage,
     )
 
 
@@ -176,10 +188,14 @@ def render_findings_comment(
 
     if payload.is_error:
         lines.extend(_render_error_body(payload))
-    elif payload.count == 0:
-        lines.append(f"**No findings** against base `{payload.base_ref}`. ✅")
     else:
-        lines.extend(_render_findings_body(payload))
+        if payload.input_coverage is not None:
+            lines.extend(_render_input_coverage(payload.input_coverage))
+            lines.append("")
+        if payload.count == 0:
+            lines.extend(_render_no_findings_body(payload))
+        else:
+            lines.extend(_render_findings_body(payload))
 
     return "\n".join(lines)
 
@@ -279,6 +295,63 @@ def _render_error_body(payload: FindingsPayload) -> list[str]:
     ]
 
 
+def _render_input_coverage(coverage: ReviewInputCoverage) -> list[str]:
+    lines = [
+        "### Review input coverage",
+        "",
+        (
+            f"- **Filtered diff files:** {coverage.changed_path_count} "
+            f"({coverage.included_file_count} supplied to bounded prompt input, "
+            f"{coverage.omitted_file_count} omitted)"
+        ),
+        f"- **Filtered diff estimate:** ~{coverage.full_diff_estimated_tokens} tokens",
+        (
+            f"- **Prompt caps:** {coverage.prompt_diff_token_cap} diff tokens total; "
+            f"{coverage.prompt_diff_file_token_cap} tokens per file diff"
+        ),
+    ]
+    if coverage.omitted_file_count == 0:
+        lines.extend(
+            [
+                "",
+                (
+                    "Bounded prompt input included all files in the filtered diff after "
+                    "configured roaster exclusions."
+                ),
+            ]
+        )
+        return lines
+
+    lines.extend(
+        [
+            "",
+            (
+                "Review completed with bounded prompt input. The following filtered-diff file "
+                "segments were not supplied in prompt input after configured roaster exclusions:"
+            ),
+        ]
+    )
+    rendered_files = coverage.omitted_files[:_OMITTED_INPUT_FILES_RENDER_LIMIT]
+    for file in rendered_files:
+        lines.append(
+            f"- `{file.path}` ({file.change_kind}, {file.byte_size} bytes, "
+            f"~{file.estimated_tokens} tokens, +{file.added_lines}/-{file.removed_lines}; "
+            f"{file.reason.replace('_', ' ')})"
+        )
+    remaining = coverage.omitted_file_count - len(rendered_files)
+    if remaining > 0:
+        lines.append(f"- …and {remaining} more omitted file diff(s).")
+    return lines
+
+
+def _render_no_findings_body(payload: FindingsPayload) -> list[str]:
+    if payload.input_coverage is not None and payload.input_coverage.omitted_file_count > 0:
+        return [
+            f"**No findings in the reviewed bounded input** against base `{payload.base_ref}`. ✅"
+        ]
+    return [f"**No findings** against base `{payload.base_ref}`. ✅"]
+
+
 def _render_findings_body(payload: FindingsPayload) -> list[str]:
     noun = "finding" if payload.count == 1 else "findings"
     body: list[str] = [
@@ -358,6 +431,16 @@ def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingSt
         fallback_only_count=fallback_only_count,
         api_error=api_error,
     )
+
+
+def _parse_input_coverage(item: Any) -> ReviewInputCoverage | FindingsPayloadParseError:
+    if not isinstance(item, dict):
+        return FindingsPayloadParseError(message="`input_coverage` must be an object when present")
+
+    try:
+        return ReviewInputCoverage.model_validate(item)
+    except ValidationError as exc:
+        return FindingsPayloadParseError(message=f"input_coverage: {exc}")
 
 
 def _parse_finding_result(item: Any, *, index: int) -> ReviewFinding | FindingsPayloadParseError:

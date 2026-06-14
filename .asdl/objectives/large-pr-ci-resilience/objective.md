@@ -4,7 +4,7 @@
 
 Oversized pull requests should not make CI/CD unusable or non-actionable. PR #1419 exposed that the current review/CI surface can cross multiple platform and model limits at once: GitHub cannot serve the PR diff through the normal diff endpoint once the file count exceeds 300, roaster sends an unbounded whole-diff prompt to Claude Code, and all roaster review matrix jobs fail with `prompt_too_long` instead of producing a deterministic, review-key-specific, actionable status.
 
-The fix should make large-PR behavior explicit and graceful: detect oversized diffs before invoking expensive/fragile review paths, degrade or shard according to a documented policy, preserve useful CI signal from ordinary checks, and publish clear comments/check outcomes that tell the author what happened and how to proceed.
+The fix should make large-PR behavior explicit and graceful: bound oversized diff input before invoking expensive/fragile review paths, disclose any partial semantic-review coverage according to a documented policy, preserve useful CI signal from ordinary checks, and publish clear comments/check outcomes that tell the author what happened and how to proceed.
 
 Observed evidence from PR #1419 (`retire-pr-address-python-package-and-bridge`, head `48d4e885`, base `master`):
 
@@ -26,8 +26,8 @@ Observed evidence from PR #1419 (`retire-pr-address-python-package-and-bridge`, 
 ## Scope
 
 - Make roaster and GitHub Actions behavior robust when a PR is too large for GitHub's normal diff API and/or the selected LLM context window.
-- Add deterministic preflight limits using file count, diff byte/token estimate, and/or changed path count before invoking Claude Code.
-- Define and implement a graceful degradation policy for oversized reviews: skip with a clear neutral/successful explanatory result, shard into bounded review units, or require smaller PRs depending on the chosen product decision.
+- Add deterministic prompt-input limits using filtered-diff token estimates before invoking Claude Code.
+- Define and implement the chosen graceful degradation policy for oversized reviews: filtered bounded semantic review with disclosed partial coverage.
 - Preserve review metadata on failures so summary comments/check output include the actual review key and base ref, not `unknown`.
 - Ensure publication remains one-comment-per-review-key and does not race or clobber unrelated review summaries when multiple matrix jobs fail.
 - Handle GitHub diff-fetch limits explicitly where tooling uses `gh pr diff`; use local checkout diff or the paginated Pull Request Files API when appropriate.
@@ -45,7 +45,7 @@ Observed evidence from PR #1419 (`retire-pr-address-python-package-and-bridge`, 
 ## Completion Criteria
 
 - An oversized PR no longer fails roaster with Claude Code `prompt_too_long` caused by an unbounded whole-diff prompt.
-- The chosen oversized-review policy is documented in code/tests and is visible in PR output: authors can tell whether review was skipped, sharded, or intentionally failed and why.
+- The chosen oversized-review policy is documented in code/tests and is visible in PR output: authors can tell whether the filtered diff was fully supplied to the review prompt or reviewed with bounded partial coverage, and why.
 - Roaster failure/skip comments preserve `review_name`, `base_ref`, run URL, and inline-posting status; matrix jobs no longer collapse into `roaster:unknown` comments.
 - Tooling paths that need PR file inventories or diffs handle GitHub's 300-file diff limit deliberately rather than surfacing raw HTTP 406 as an unexpected failure.
 - CI evidence demonstrates the fix with a synthetic or real PR-sized case at or above the observed threshold (318 changed files / ~207k prompt tokens) and ordinary repo checks remain green.
@@ -59,19 +59,18 @@ Assumptions:
 - Claude Code's effective request limit for the observed roaster invocation is 200,000 tokens, and PR #1419 crossed it by roughly 6,800–7,100 tokens depending on reviewer instructions.
 - GitHub's normal PR diff endpoint/file rendering limit is relevant to local and CI tooling because `gh pr diff` fails once the PR exceeds 300 files, while the paginated Pull Request Files API can still enumerate the 318 files.
 - The roaster audit found no remaining roaster path that depends on GitHub's 300-file PR diff endpoint: review discovery/run use local checkout `git diff`, base-ref lookup uses `gh pr view` metadata only, and inline posting uses the paginated Pull Request Files API only when findings exist.
-- A deterministic preflight can estimate enough about prompt size before calling the model to avoid provider-side 400 failures.
+- Harness-owned prompt assembly can estimate enough about filtered diff size before calling the model to keep prompt input bounded without converting ordinary harness/runtime failures into successful negative review results.
 
 Risks:
 
-- The hard-fail budget preflight implementation was removed/deferred after code-quality review. Current branch work does not by itself prevent a future oversized PR from reaching harness prompt caps or provider-side limits.
+- The selected bounded-review policy intentionally omits whole filtered-diff file segments from prompt input when caps are reached. That de-risks provider `prompt_too_long` failures but leaves a residual review-depth limitation that must be disclosed clearly to authors.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover generic structured nonzero envelope parsing/rendering and no-inline noop paths, but broader live PR race behavior remains to be verified after a durable oversized-review policy lands.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover structured coverage rendering and no-inline noop paths, but broader live PR race behavior remains to be verified after the bounded-review policy lands.
 - GitHub diff/file discovery risk is de-risked for the observed oversized case: roaster avoids `gh pr diff`/`PullRequest.diff` and uses local checkout diff or paginated PR file metadata. Extremely huge PRs could still expose separate GitHub REST pagination or review-thread volume limits, but that is distinct from the 300-file diff endpoint failure.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
 ## Open Questions
 
-- Reopened after review: the hard-fail budget preflight was removed/deferred, so the durable oversized-review policy is not currently implemented on this branch.
 - If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
-- Reopened after review: roaster does not currently enforce a changed-path or full-diff budget before harness invocation. Harness assembly keeps direct defensive caps, but these are not a product-level preflight policy.
+- What oversized synthetic or real PR run should provide final live CI evidence that bounded review input prevents provider `prompt_too_long` while preserving useful deterministic checks?
 - Partially resolved: publication preserves review-key-specific markers for generic nonzero envelopes that already include structured `data`; roaster no longer creates custom negative failure envelopes for harness/runtime failures.
