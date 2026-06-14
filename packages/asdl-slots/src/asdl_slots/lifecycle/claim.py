@@ -7,12 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeOccupancy
-from asdl_slots.checkout_planning import (
-    CheckoutCurrentWorktreeBranch,
-    CurrentWorktreeRedirect,
-    DetachCurrentWorktree,
-    plan_current_wt_redirect,
-)
+from asdl_slots.checkout_planning import CurrentWorktreeRedirect, plan_current_wt_redirect
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import (
     MainWorktreeMatch,
@@ -21,6 +16,7 @@ from asdl_slots.inventory import (
     SlotRecord,
     build_slot_inventory,
 )
+from asdl_slots.lifecycle.current_worktree_redirect import execute_current_worktree_redirect
 from asdl_slots.lifecycle.operation_state import operation_recovery_instruction
 from asdl_slots.lifecycle.outcomes import SlotClaimOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
@@ -60,7 +56,10 @@ def claim_branch(
         if source_failure is not None:
             return source_failure
     if plan.caller_redirect is not None:
-        redirect_failure = _redirect_caller_worktree(slots_ctx, plan.caller_redirect)
+        redirect_failure = execute_current_worktree_redirect(
+            plan.caller_redirect,
+            slots_ctx=slots_ctx,
+        )
         if redirect_failure is not None:
             return redirect_failure
 
@@ -240,34 +239,6 @@ def _pool_full_claim_failure(inventory: SlotInventory) -> SlotLifecycleFailure:
             "Run `slot init` or `slot resize` before claiming a branch."
         )
     return SlotLifecycleFailure(error_type="pool_full", message=message)
-
-
-def _redirect_caller_worktree(
-    slots_ctx: SlotsCliContext,
-    redirect: CurrentWorktreeRedirect,
-) -> SlotLifecycleFailure | None:
-    action = redirect.action
-    if isinstance(action, CheckoutCurrentWorktreeBranch):
-        failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, action.branch)
-        if failure is not None:
-            return SlotLifecycleFailure(
-                error_type="slot_allocation_error",
-                message=(
-                    f"Failed to check out {_redirect_failure_subject(action)} in "
-                    f"{slots_ctx.repo.root}: {failure.message}"
-                ),
-            )
-        return None
-    if isinstance(action, DetachCurrentWorktree):
-        slots_ctx.git.detach_head(slots_ctx.repo.root, action.ref)
-        return None
-    raise AssertionError(f"unknown current worktree redirect action: {action!r}")
-
-
-def _redirect_failure_subject(action: CheckoutCurrentWorktreeBranch) -> str:
-    if action.role == "trunk":
-        return f"trunk branch '{action.branch}'"
-    return f"'{action.branch}'"
 
 
 def _current_slot_dirty_failure(
