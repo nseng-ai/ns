@@ -4,10 +4,10 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { getFeedbackManifestSchema } from "./feedback-manifest-contracts.ts";
-import { loadJsonInput, loadJsonRecord, type JsonInputError, type JsonInputResult } from "./json-input.ts";
+import { loadJsonInput, loadJsonRecord, type JsonInputResult } from "./json-input.ts";
 import { hasConfiguredPayloadSession, type PayloadReference } from "./payload-store.ts";
-import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact } from "./session-artifacts.ts";
+import { prArtifactDescriptor } from "./session-artifacts.ts";
+import { resolvePlanFeedbackSessionInputs, type OperationResult } from "./session-inputs.ts";
 
 const wrapperPayloadSchema = z.looseObject({
 	manifest: z.unknown(),
@@ -15,7 +15,6 @@ const wrapperPayloadSchema = z.looseObject({
 });
 
 type WrapperPayload = z.infer<typeof wrapperPayloadSchema>;
-type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: JsonInputError["errorType"]; message: string };
 
 const classificationTemplateParseSchema = z.object({
 	manifest_json: z.string().optional(),
@@ -155,34 +154,12 @@ async function persistValidatedClassification(options: {
 
 async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
 	if (request.pr_number === undefined) throw new Error("plan-feedback session mode requires pr_number");
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({ explicitHarnessSessionId: request.harness_session_id ?? null, env: ctx.env, clock: ctx.context.payloadClock });
-	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
-	const store = storeResult.value;
-	const manifest = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "manifest" }),
-		role: "summary",
-		schema: getFeedbackManifestSchema,
-	});
-	if (manifest.type === "error") return failure(manifest.errorType, manifest.message);
-	const classification = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "classification" }),
-		role: "summary",
-		schema: classificationArtifactSchema,
-	});
-	if (classification.type === "error") return failure(classification.errorType, classification.message);
-	if (classification.value.value.pr_number !== request.pr_number) {
-		return failure(
-			"invalid_request",
-			`Resolved classification artifact PR number ${classification.value.value.pr_number} does not match requested PR ${request.pr_number}.`,
-		);
-	}
-	const resolvedInputs = { manifest: manifest.value.reference, classification: classification.value.reference };
-	const result = planFeedback({ manifest: manifest.value.value, classification: classification.value.value.classification });
-	const resultWithResolvedInputs = { ...result, resolved_inputs: resolvedInputs };
+	const sessionInputs = await resolvePlanFeedbackSessionInputs({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
+	if (sessionInputs.type === "error") return failure(sessionInputs.errorType, sessionInputs.message);
+	const result = planFeedback({ manifest: sessionInputs.value.manifest, classification: sessionInputs.value.classification.classification });
+	const resultWithResolvedInputs = { ...result, resolved_inputs: sessionInputs.value.resolvedInputs };
 	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
-	const planReference = await store.writeJsonArtifact({
+	const planReference = await sessionInputs.value.store.writeJsonArtifact({
 		descriptor: prArtifactDescriptor({ prNumber: request.pr_number, kind: "plan" }),
 		role: "summary",
 		payload: resultWithResolvedInputs,

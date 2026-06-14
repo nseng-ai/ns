@@ -4,7 +4,7 @@ import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResu
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadOperationPayload, parseJsonWithSchema, type JsonInputError } from "./json-input.ts";
+import { loadOperationPayload, parseJsonWithSchema } from "./json-input.ts";
 import type { PayloadArtifactStore } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
@@ -20,9 +20,10 @@ import {
 	type StackFeedbackPlanResult,
 	type StackFeedbackPlanValidationSummary,
 } from "./stack-feedback-plan-contracts.ts";
-import { stackFeedbackPrepResultInputSchema, type StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
+import type { StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
-import { classificationArtifactSchema, prArtifactDescriptor, resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "./session-artifacts.ts";
+import { stackArtifactDescriptor } from "./session-artifacts.ts";
+import { resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
@@ -36,7 +37,6 @@ interface StackFeedbackPlanInputResult {
 	payload: StackFeedbackPlanInput;
 	resolvedInputs: StackFeedbackPlanResolvedInputs | undefined;
 }
-type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: JsonInputError["errorType"]; message: string };
 
 export const stackFeedbackPlanOperation = defineExecOperation({
 	spec: {
@@ -164,40 +164,7 @@ function stackFeedbackPlanInputFromPayload(
 }
 
 async function loadStackFeedbackPlanInputFromSession(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanInputResult>> {
-	const prep = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: stackArtifactDescriptor("prep"),
-		role: "summary",
-		schema: stackFeedbackPrepResultInputSchema,
-	});
-	if (prep.type === "error") return prep;
-	const classifications: StackFeedbackPlanInput["classifications"] = [];
-	const resolvedClassifications: StackFeedbackPlanResolvedInputs["classifications"] = [];
-	for (const prResult of prep.value.value.stack) {
-		const classification = await resolveLatestJsonSessionArtifact({
-			store,
-			descriptor: prArtifactDescriptor({ prNumber: prResult.pr_number, kind: "classification" }),
-			role: "summary",
-			schema: classificationArtifactSchema,
-		});
-		if (classification.type === "error") return classification;
-		if (classification.value.value.pr_number !== prResult.pr_number) {
-			return {
-				type: "error",
-				errorType: "invalid_request",
-				message: `Resolved classification artifact PR number ${classification.value.value.pr_number} does not match stack prep PR ${prResult.pr_number}.`,
-			};
-		}
-		classifications.push({ pr_number: prResult.pr_number, classification: classification.value.value.classification });
-		resolvedClassifications.push({ pr_number: prResult.pr_number, reference: classification.value.reference });
-	}
-	return {
-		type: "ok",
-		value: {
-			payload: { prep: prep.value.value, classifications },
-			resolvedInputs: { prep: prep.value.reference, classifications: resolvedClassifications },
-		},
-	};
+	return await resolveStackFeedbackPlanSessionInput(store);
 }
 
 function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; value: Map<number, unknown> } | { type: "error"; message: string } {

@@ -16,7 +16,7 @@ import {
 	type PayloadReference,
 	type PayloadStoreFactory,
 } from "./payload-store.ts";
-import { prArtifactDescriptor, resolveLatestJsonSessionArtifact } from "./session-artifacts.ts";
+import { resolvePrFeedbackSourceFromSession } from "./session-inputs.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -139,21 +139,7 @@ async function resolvePrNumberFeedbackSource(options: {
 	harnessSessionId: string | undefined;
 	ctx: PrAddressExecContext;
 }): Promise<{ type: "ok"; value: FeedbackSourceResolution } | ({ type: "error" } & PayloadOperationError)> {
-	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
-	const storeResult = await options.ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: options.harnessSessionId ?? null,
-		env: options.ctx.env,
-		clock: options.ctx.context.payloadClock,
-	});
-	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-	const store = storeResult.value;
-	const artifact = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: prArtifactDescriptor({ prNumber: options.prNumber, kind: "feedback" }),
-		role: "raw",
-	});
-	if (artifact.type === "error") return { type: "error", errorType: artifact.errorType, message: artifact.message };
-	return { type: "ok", value: { payloadPath: artifact.value.reference.payload_path, store, resolvedInput: artifact.value.reference } };
+	return await resolvePrFeedbackSourceFromSession({ ctx: options.ctx, prNumber: options.prNumber, harnessSessionId: options.harnessSessionId });
 }
 
 const readFeedbackDetailsSelectionSchema = z.looseObject({
