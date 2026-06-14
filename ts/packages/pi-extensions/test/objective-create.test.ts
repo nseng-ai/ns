@@ -1,6 +1,7 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { withTempRepoSkill } from "@asdl/core/testing";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, { type CommandContext, type ExecResult, type ExtensionAPI, type NotifyLevel } from "../src/objective.ts";
@@ -89,23 +90,6 @@ function createContext(cwd = ROOT): {
 	return { ctx, notifications, waitForIdleCalls: () => waits };
 }
 
-async function withTempRepoSkill<T>(
-	skillName: string,
-	markdown: string,
-	callback: (repoDir: string, skillPath: string, skillDir: string) => Promise<T>,
-): Promise<T> {
-	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-repo-`));
-	const skillDir = join(repoDir, "skills", skillName);
-	const skillPath = join(skillDir, "SKILL.md");
-	await mkdir(skillDir, { recursive: true });
-	await writeFile(skillPath, markdown, "utf8");
-	try {
-		return await callback(repoDir, skillPath, skillDir);
-	} finally {
-		await rm(repoDir, { recursive: true, force: true });
-	}
-}
-
 async function runObjectiveCreate(args: string, commandInfos: CommandInfo[] = [], cwd: string = ROOT): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -137,7 +121,7 @@ describe("objective:create command", () => {
 	});
 
 	test("reads objective-create backing skill directly and preserves initial user request", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath, skillDir) => {
+		await withTempRepoSkill({ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN }, async ({ repoDir, skillPath, skillDir }) => {
 			const result = await runObjectiveCreate("  create slug alpha for typeahead-friendly Objective creation  ", [], repoDir);
 
 			expect(result.waitForIdleCalls()).toBe(1);
@@ -159,7 +143,7 @@ describe("objective:create command", () => {
 	});
 
 	test("empty args still invokes the objective-create interview from backing skill", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir, skillPath) => {
+		await withTempRepoSkill({ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN }, async ({ repoDir, skillPath }) => {
 			const result = await runObjectiveCreate("", [], repoDir);
 
 			expect(result.waitForIdleCalls()).toBe(1);
@@ -193,7 +177,7 @@ describe("objective:create command", () => {
 	});
 
 	test("objective-create initial request fence grows beyond embedded backticks", async () => {
-		await withTempRepoSkill("objective-create", CREATE_SKILL_MARKDOWN, async (repoDir) => {
+		await withTempRepoSkill({ skillName: "objective-create", markdown: CREATE_SKILL_MARKDOWN }, async ({ repoDir }) => {
 			const result = await runObjectiveCreate("make `code` and ```nested``` safe", [], repoDir);
 
 			expect(result.pi.sentUserMessages[0]).toContain("````text\nmake `code` and ```nested``` safe\n````");

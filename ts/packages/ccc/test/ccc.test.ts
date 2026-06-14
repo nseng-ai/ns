@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildPlanContentSlugPrompt, formatImplBranchContextCommand } from "@asdl/branch-context";
+import { withTempRepoSkill } from "@asdl/core/testing";
 import { buildSlugModelArgs } from "@asdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
@@ -81,34 +82,34 @@ describe("CCC cmux command suite", () => {
 
 	test("ccc:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
-		const repoDir = await makeTempDir();
-		const skillDir = join(repoDir, "skills", "ccc-sidebar");
-		await mkdir(skillDir, { recursive: true });
-		const skillPath = join(skillDir, "SKILL.md");
-		await writeFile(skillPath, "---\nname: ccc-sidebar\n---\nUse direct `--description` command shape.\n", "utf8");
-		const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
-		const controller = createCccSidebarController(pi);
-		registerCccSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
+		await withTempRepoSkill(
+			{ skillName: "ccc-sidebar", markdown: "---\nname: ccc-sidebar\n---\nUse direct `--description` command shape.\n" },
+			async ({ repoDir, skillPath }) => {
+				const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
+				const controller = createCccSidebarController(pi);
+				registerCccSidebarCommands(pi, controller);
+				const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
-		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
+				await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
 
-		expect(ctx.waitCount).toBe(1);
-		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toContain("<skill name=\"ccc-sidebar\"");
-		expect(pi.sentUserMessages[0]).toContain("Requested variant: PR sidebar.");
-		expect(pi.sentUserMessages[0]).toContain("--description");
-		expect(pi.setModels).toEqual([FAST_MODEL]);
-		expect(pi.thinkingLevels).toEqual(["minimal"]);
-		expect(ctx.statuses).toEqual([
-			{ key: "pi:ccc-sidebar", value: "preparing cmux sidebar…" },
-			{ key: "pi:ccc-sidebar", value: undefined },
-		]);
+				expect(ctx.waitCount).toBe(1);
+				expect(pi.sentUserMessages).toHaveLength(1);
+				expect(pi.sentUserMessages[0]).toContain("<skill name=\"ccc-sidebar\"");
+				expect(pi.sentUserMessages[0]).toContain("Requested variant: PR sidebar.");
+				expect(pi.sentUserMessages[0]).toContain("--description");
+				expect(pi.setModels).toEqual([FAST_MODEL]);
+				expect(pi.thinkingLevels).toEqual(["minimal"]);
+				expect(ctx.statuses).toEqual([
+					{ key: "pi:ccc-sidebar", value: "preparing cmux sidebar…" },
+					{ key: "pi:ccc-sidebar", value: undefined },
+				]);
 
-		await pi.emitAgentEnd(ctx);
+				await pi.emitAgentEnd(ctx);
 
-		expect(pi.setModels).toEqual([FAST_MODEL, PREVIOUS_MODEL]);
-		expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
+				expect(pi.setModels).toEqual([FAST_MODEL, PREVIOUS_MODEL]);
+				expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
+			},
+		);
 	});
 
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
