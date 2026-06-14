@@ -16,15 +16,6 @@ export function notImplementedHandler(commandName: string) {
 	};
 }
 
-export const copyRequestSchema = z.object({
-	namespace: z.string().optional().describe("Namespace."),
-	base: z.boolean().default(false).describe("Copy Base Namespace."),
-	from_branch: z.string().optional().describe("Source branch."),
-	to_branch: z.string().optional().describe("Destination branch."),
-	overwrite: z.boolean().default(false).describe("Overwrite destination Entries."),
-	key_glob: z.string().optional().describe("Entry Key glob."),
-});
-
 export const exportRequestSchema = z.object({
 	output_dir: z.string().optional().describe("Output directory."),
 	namespace: z.string().optional().describe("Namespace."),
