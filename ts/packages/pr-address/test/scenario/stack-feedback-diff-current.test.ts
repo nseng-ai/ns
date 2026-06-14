@@ -3,7 +3,9 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runScenario, type ScenarioRun } from "../support/run-scenario.ts";
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import { stackArtifactDescriptor } from "../../src/session-artifacts.ts";
+import { fixedClock, runScenario, type ScenarioRun, type ScenarioRunOptions } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const newTempDir = useTempDirs();
@@ -20,11 +22,20 @@ interface DiffEnvelope {
 		missing_or_outdated_planned_threads: Array<Record<string, unknown>>;
 		new_unresolved_threads: Array<Record<string, unknown>>;
 		errors: Array<{ code: string }>;
+		resolved_inputs?: {
+			stack_plan: { descriptor: string; sequence: number };
+			current_prep: { descriptor: string; sequence: number };
+		};
 	};
 }
 
-function runDiffWithArgs(args: readonly string[], stdinText = ""): ScenarioRun {
-	return runScenario(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { stdin: stdinText });
+function expectOk<T>(result: PayloadResult<T>): T {
+	if (result.type !== "ok") throw new Error(`expected ok payload result, got ${result.errorType}: ${result.message}`);
+	return result.value;
+}
+
+function runDiffWithArgs(args: readonly string[], stdinText = "", options: ScenarioRunOptions = {}): ScenarioRun {
+	return runScenario(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { ...options, stdin: stdinText });
 }
 
 function runDiff(payload: unknown): ScenarioRun {
@@ -69,6 +80,58 @@ describe("stack-feedback-diff-current", () => {
 		expect(await run.exit).toBe(1);
 		const codes = parseDiffEnvelope(run.stdout.join(""));
 		expect(codes.data.errors.map((error) => error.code)).toEqual(["missing_current_pr", "unknown_current_pr", "duplicate_planned_thread"]);
+	});
+});
+
+describe("stack-feedback-diff-current session inputs", () => {
+	async function seedSession(root: string, sessionId: string, options: { plan: unknown; prep: unknown }): Promise<void> {
+		const store = expectOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-01-02T03:04:05.000Z") }));
+		expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: options.plan }));
+		expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("prep"), role: "summary", payload: options.prep }));
+	}
+
+	test("resolves latest stack plan and current prep from an empty-stdin harness session", async () => {
+		const root = join(await makeTempDir(), "payload-root");
+		await seedSession(root, "stack-session", {
+			plan: stackPlan({ threadId: "PRRT_1" }),
+			prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
+		});
+
+		const run = runDiffWithArgs([], "", { env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "stack-session" } });
+
+		expect(await run.exit).toBe(0);
+		const envelope = parseDiffEnvelope(run.stdout.join(""));
+		expect(envelope.data.safe_to_resolve_planned).toBe(true);
+		expect(envelope.data.resolved_inputs?.stack_plan).toMatchObject({ descriptor: "pr-address-stack-plan", sequence: 1 });
+		expect(envelope.data.resolved_inputs?.current_prep).toMatchObject({ descriptor: "pr-address-stack-prep", sequence: 2 });
+	});
+
+	test("keeps resolved input audit facts on drift", async () => {
+		const root = join(await makeTempDir(), "payload-root");
+		await seedSession(root, "stack-session", {
+			plan: stackPlan({ threadId: "PRRT_1" }),
+			prep: currentPrep({
+				shouldIncludeResolved: true,
+				threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })],
+			}),
+		});
+
+		const run = runDiffWithArgs([], "", { env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "stack-session" } });
+
+		expect(await run.exit).toBe(1);
+		const envelope = parseDiffEnvelope(run.stdout.join(""));
+		expect(envelope.data.safe_to_resolve_planned).toBe(false);
+		expect(envelope.data.resolved_inputs?.stack_plan.descriptor).toBe("pr-address-stack-plan");
+		expect(envelope.data.resolved_inputs?.current_prep.descriptor).toBe("pr-address-stack-prep");
+	});
+
+	test("requires a harness session when empty stdin has no explicit source", async () => {
+		const run = runDiffWithArgs([], "", { env: { PATH: "/fake/bin" } });
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("harness_session_required");
+		expect(envelope.message).toContain("HARNESS_SESSION_ID");
 	});
 });
 

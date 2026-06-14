@@ -145,8 +145,10 @@ export const summarizeFeedbackResultSchema = z.object({
 // --- read-feedback-detail ----------------------------------------------------------
 
 export const readFeedbackDetailRequestSchema = z.object({
-	payload_path: z.string(),
+	payload_path: nullableStringSchema.optional(),
+	pr_number: nullableIntSchema.optional(),
 	json_pointer: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 export const readFeedbackDetailResultSchema = z.object({
@@ -154,10 +156,13 @@ export const readFeedbackDetailResultSchema = z.object({
 	json_pointer: z.string(),
 	detail_kind: detailKindSchema,
 	value: z.unknown(),
+	resolved_inputs: z.object({ feedback: payloadReferenceSchema }).optional(),
 });
 
 export const readFeedbackDetailsRequestSchema = z.object({
 	selection_json: nullableStringSchema.optional(),
+	pr_number: nullableIntSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 const selectedFeedbackDetailSummarySchema = z.object({
@@ -182,4 +187,5 @@ export const readFeedbackDetailsResultSchema = z.object({
 	selected_payload_reference: payloadReferenceSchema,
 	details: z.array(selectedFeedbackDetailSummarySchema),
 	counts: selectedFeedbackDetailCountsSchema,
+	resolved_inputs: z.object({ feedback: payloadReferenceSchema }).optional(),
 });

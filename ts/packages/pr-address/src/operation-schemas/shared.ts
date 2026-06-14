@@ -114,6 +114,7 @@ export const payloadJsonOrFileRequestSchema = z.object({
 export const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSchema.extend({
 	stack_plan_reference: nullableStringSchema.optional(),
 	current_prep_reference: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({

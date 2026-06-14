@@ -294,10 +294,16 @@ for targeted full-body inspection instead of pasting the full raw payload.
 
 **Input fields:**
 
-| Field          | Required | Description                                                     |
-| -------------- | -------- | --------------------------------------------------------------- |
-| `payload_path` | yes      | Raw payload path from `manifest.payload_reference.payload_path` |
-| `json_pointer` | yes      | JSON Pointer copied from a manifest item or body locator        |
+| Field                | Required | Description                                                                                                   |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `payload_path`       | source   | Raw payload path from `manifest.payload_reference.payload_path`; mutually exclusive with `pr_number`          |
+| `pr_number`          | source   | PR number whose latest session raw feedback artifact should be read (`pr-address-pr-<n>-feedback`, role raw)  |
+| `json_pointer`       | yes      | JSON Pointer copied from a manifest item or body locator                                                      |
+| `harness_session_id` | payload  | Optional manual/debug override for `pr_number`; normally supplied by the harness through `HARNESS_SESSION_ID` |
+
+Pass exactly one feedback source: `--payload-path` for explicit compatibility,
+or `--pr-number` to resolve the latest raw feedback artifact in the current
+payload session.
 
 Allowed pointer families:
 
@@ -311,12 +317,13 @@ Allowed pointer families:
 
 **Output fields (under `data`):**
 
-| Field          | Description                                                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `payload_path` | Echo of the raw payload path                                                                                                          |
-| `json_pointer` | Echo of the selected pointer                                                                                                          |
-| `detail_kind`  | `review`, `review_body`, `review_thread`, `thread_comment`, `thread_comment_body`, `discussion_comment`, or `discussion_comment_body` |
-| `value`        | Selected JSON value or body text                                                                                                      |
+| Field             | Description                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `payload_path`    | Echo of the raw payload path                                                                                                          |
+| `json_pointer`    | Echo of the selected pointer                                                                                                          |
+| `detail_kind`     | `review`, `review_body`, `review_thread`, `thread_comment`, `thread_comment_body`, `discussion_comment`, or `discussion_comment_body` |
+| `value`           | Selected JSON value or body text                                                                                                      |
+| `resolved_inputs` | Only for `--pr-number`: `feedback` is the exact raw payload artifact resolved from the session                                        |
 
 All `author` fields in feedback envelopes and selected values are normalized
 strings (the login, or an empty string when unknown) — never objects. Do not
@@ -328,6 +335,11 @@ payloads return `exit_code: 2` with an error type/message.
 **Example:**
 
 ```bash
+pr-address exec read-feedback-detail \
+  --pr-number 630 \
+  --json-pointer /data/review_threads/0/comments/0/body \
+  --format json
+
 pr-address exec read-feedback-detail \
   --payload-path /tmp/asdl/sessions/.../payloads/...raw.json \
   --json-pointer /data/review_threads/0/comments/0/body \
@@ -345,16 +357,25 @@ when classification or execution needs several original bodies/items.
 `--selection-json` is also available for direct/manual invocation.
 
 ```bash
+printf '%s' '{"json_pointers":["/data/reviews/0/body"]}' \
+  | pr-address exec read-feedback-details --pr-number 630 --format json
+
 printf '%s' '{"payload_path":"/tmp/asdl/sessions/.../payloads/...raw.json","json_pointers":["/data/reviews/0/body"]}' \
   | pr-address exec read-feedback-details --format json
 ```
 
 **Input fields:**
 
-| Field           | Required | Description                                                                      |
-| --------------- | -------- | -------------------------------------------------------------------------------- |
-| `payload_path`  | yes      | Raw payload path from `manifest.payload_reference.payload_path`                  |
-| `json_pointers` | yes      | Non-empty array of allowed JSON Pointers copied from manifest body/item locators |
+| Field                | Required | Description                                                                                                       |
+| -------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `payload_path`       | source   | Raw payload path from `manifest.payload_reference.payload_path`; mutually exclusive with `pr_number`              |
+| `pr_number`          | source   | PR number whose latest session raw feedback artifact should be read; may be top-level or in the selection JSON    |
+| `json_pointers`      | yes      | Non-empty array of allowed JSON Pointers copied from manifest body/item locators                                  |
+| `harness_session_id` | payload  | Optional manual/debug override for PR-number resolution; normally supplied by the harness through the environment |
+
+Pass exactly one feedback source: selection `payload_path`, selection
+`pr_number`, or top-level `--pr-number`. Mixed sources fail before reading or
+writing payload artifacts.
 
 Allowed pointer families are the same as `read-feedback-detail`:
 
@@ -374,6 +395,7 @@ Allowed pointer families are the same as `read-feedback-detail`:
 | `selected_payload_reference` | Store-owned reference for the `.summary.json` artifact containing selected values                                   |
 | `details`                    | One compact entry per requested pointer: source pointer, detail kind, artifact pointer, value kind, and char counts |
 | `counts`                     | Requested/selected counts split into body-value and item-value totals                                               |
+| `resolved_inputs`            | Only for PR-number mode: `feedback` is the exact raw payload artifact resolved from the session                     |
 
 The stdout JSON intentionally omits selected body text and full selected item
 objects. To inspect a selected value, read

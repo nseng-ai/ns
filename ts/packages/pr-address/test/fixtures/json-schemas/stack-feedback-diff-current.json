@@ -1,6 +1,7 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "payload_json": {
         "anyOf": [
@@ -10,9 +11,7 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload Json"
+        ]
       },
       "payload_file": {
         "anyOf": [
@@ -22,9 +21,7 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload File"
+        ]
       },
       "stack_plan_reference": {
         "anyOf": [
@@ -34,9 +31,7 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Stack Plan Reference"
+        ]
       },
       "current_prep_reference": {
         "anyOf": [
@@ -46,93 +41,522 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Current Prep Reference"
+        ]
+      },
+      "harness_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
-    "title": "StackFeedbackDiffCurrentRequest",
-    "type": "object"
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "StackFeedbackDiffCurrentError": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "pr_number": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Pr Number"
-          },
-          "thread_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Thread Id"
-          }
-        },
-        "required": [
-          "code",
-          "message"
-        ],
-        "title": "StackFeedbackDiffCurrentError",
-        "type": "object"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
       },
-      "StackFeedbackDiffCurrentSummary": {
-        "additionalProperties": false,
+      "safe_to_resolve_planned": {
+        "type": "boolean"
+      },
+      "planned_still_unresolved": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pr_number": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "branch": {
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "source_batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "pr_number",
+            "branch",
+            "thread_id",
+            "summary"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "planned_already_resolved": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pr_number": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "branch": {
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "source_batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "pr_number",
+            "branch",
+            "thread_id",
+            "summary"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "new_unresolved_threads": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pr_number": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "branch": {
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "type": "boolean"
+            },
+            "comment_count": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "pr_number",
+            "branch",
+            "thread_id",
+            "path",
+            "is_outdated",
+            "comment_count"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "missing_or_outdated_planned_threads": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pr_number": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "branch": {
+              "type": "string"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "source_batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "type": "string"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "changed_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "pr_number",
+            "branch",
+            "thread_id",
+            "summary",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "pr_number": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "summary": {
+        "type": "object",
         "properties": {
           "pr_count": {
-            "title": "Pr Count",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "planned_actionable_review_threads": {
-            "title": "Planned Actionable Review Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "planned_known_review_threads": {
-            "title": "Planned Known Review Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "current_unresolved_review_threads": {
-            "title": "Current Unresolved Review Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "planned_still_unresolved": {
-            "title": "Planned Still Unresolved",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "planned_already_resolved": {
-            "title": "Planned Already Resolved",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "new_unresolved_threads": {
-            "title": "New Unresolved Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "missing_or_outdated_planned_threads": {
-            "title": "Missing Or Outdated Planned Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -145,396 +569,131 @@
           "new_unresolved_threads",
           "missing_or_outdated_planned_threads"
         ],
-        "title": "StackFeedbackDiffCurrentSummary",
-        "type": "object"
+        "additionalProperties": false
       },
-      "StackFeedbackDiffCurrentThread": {
-        "additionalProperties": false,
+      "resolved_inputs": {
+        "type": "object",
         "properties": {
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "title": {
-            "anyOf": [
-              {
+          "stack_plan": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Title"
-          },
-          "url": {
-            "anyOf": [
-              {
+              "session_id": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Url"
-          },
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Line"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          },
-          "is_outdated": {
-            "title": "Is Outdated",
-            "type": "boolean"
-          },
-          "comment_count": {
-            "title": "Comment Count",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "pr_number",
-          "branch",
-          "thread_id",
-          "path",
-          "is_outdated",
-          "comment_count"
-        ],
-        "title": "StackFeedbackDiffCurrentThread",
-        "type": "object"
-      },
-      "StackFeedbackDiffMissingOrOutdatedThread": {
-        "additionalProperties": false,
-        "properties": {
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "title": {
-            "anyOf": [
-              {
+              "descriptor": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Title"
-          },
-          "url": {
-            "anyOf": [
-              {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Url"
-          },
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "source_batch_id": {
-            "anyOf": [
-              {
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
                 "type": "string"
               },
-              {
-                "type": "null"
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
               }
-            ],
-            "default": null,
-            "title": "Source Batch Id"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Path"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Line"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          },
-          "is_outdated": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Is Outdated"
-          },
-          "reason": {
-            "title": "Reason",
-            "type": "string"
-          },
-          "changed_fields": {
-            "default": [],
-            "items": {
-              "type": "string"
             },
-            "title": "Changed Fields",
-            "type": "array"
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          },
+          "current_prep": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
-          "pr_number",
-          "branch",
-          "thread_id",
-          "summary",
-          "reason"
+          "stack_plan",
+          "current_prep"
         ],
-        "title": "StackFeedbackDiffMissingOrOutdatedThread",
-        "type": "object"
-      },
-      "StackFeedbackDiffPlannedThread": {
-        "additionalProperties": false,
-        "properties": {
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Title"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Url"
-          },
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "source_batch_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Source Batch Id"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Path"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Line"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          },
-          "is_outdated": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Is Outdated"
-          }
-        },
-        "required": [
-          "pr_number",
-          "branch",
-          "thread_id",
-          "summary"
-        ],
-        "title": "StackFeedbackDiffPlannedThread",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "valid": {
-        "title": "Valid",
-        "type": "boolean"
-      },
-      "safe_to_resolve_planned": {
-        "title": "Safe To Resolve Planned",
-        "type": "boolean"
-      },
-      "planned_still_unresolved": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/StackFeedbackDiffPlannedThread"
-        },
-        "title": "Planned Still Unresolved",
-        "type": "array"
-      },
-      "planned_already_resolved": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/StackFeedbackDiffPlannedThread"
-        },
-        "title": "Planned Already Resolved",
-        "type": "array"
-      },
-      "new_unresolved_threads": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/StackFeedbackDiffCurrentThread"
-        },
-        "title": "New Unresolved Threads",
-        "type": "array"
-      },
-      "missing_or_outdated_planned_threads": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/StackFeedbackDiffMissingOrOutdatedThread"
-        },
-        "title": "Missing Or Outdated Planned Threads",
-        "type": "array"
-      },
-      "warnings": {
-        "default": [],
-        "items": {
-          "type": "string"
-        },
-        "title": "Warnings",
-        "type": "array"
-      },
-      "errors": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/StackFeedbackDiffCurrentError"
-        },
-        "title": "Errors",
-        "type": "array"
-      },
-      "summary": {
-        "$ref": "#/$defs/StackFeedbackDiffCurrentSummary"
+        "additionalProperties": false
       }
     },
     "required": [
@@ -542,7 +701,6 @@
       "safe_to_resolve_planned",
       "summary"
     ],
-    "title": "StackFeedbackDiffCurrentResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

@@ -1,6 +1,7 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "selection_json": {
         "anyOf": [
@@ -10,64 +11,82 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Selection Json"
+        ]
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "harness_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
-    "title": "ReadFeedbackDetailsRequest",
-    "type": "object"
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "PayloadReference": {
-        "additionalProperties": false,
-        "description": "Store-owned facts for a written payload artifact.",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "payload_path": {
+        "type": "string"
+      },
+      "selected_payload_reference": {
+        "type": "object",
         "properties": {
           "payload_path": {
-            "title": "Payload Path",
             "type": "string"
           },
           "session_id": {
-            "title": "Session Id",
             "type": "string"
           },
           "descriptor": {
-            "title": "Descriptor",
             "type": "string"
           },
           "role": {
+            "type": "string",
             "enum": [
               "raw",
               "summary",
               "log"
-            ],
-            "title": "Role",
-            "type": "string"
+            ]
           },
           "created_at_utc": {
-            "title": "Created At Utc",
             "type": "string"
           },
           "sequence": {
-            "title": "Sequence",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "payload_bytes": {
-            "title": "Payload Bytes",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "content_type": {
-            "title": "Content Type",
             "type": "string"
           },
           "extension": {
+            "type": "string",
             "enum": [
               "json",
               "txt"
-            ],
-            "title": "Extension",
-            "type": "string"
+            ]
           }
         },
         "required": [
@@ -81,27 +100,107 @@
           "content_type",
           "extension"
         ],
-        "title": "PayloadReference",
-        "type": "object"
+        "additionalProperties": false
       },
-      "SelectedFeedbackDetailCounts": {
-        "additionalProperties": false,
+      "details": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "json_pointer": {
+              "type": "string"
+            },
+            "detail_kind": {
+              "type": "string",
+              "enum": [
+                "review",
+                "review_body",
+                "review_thread",
+                "thread_comment",
+                "thread_comment_body",
+                "discussion_comment",
+                "discussion_comment_body"
+              ]
+            },
+            "artifact_json_pointer": {
+              "type": "string"
+            },
+            "value_kind": {
+              "type": "string",
+              "enum": [
+                "string",
+                "object"
+              ]
+            },
+            "value_chars": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "body_chars": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "object_keys": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "json_pointer",
+            "detail_kind",
+            "artifact_json_pointer",
+            "value_kind"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "counts": {
+        "type": "object",
         "properties": {
           "requested": {
-            "title": "Requested",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "selected": {
-            "title": "Selected",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "body_values": {
-            "title": "Body Values",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "item_values": {
-            "title": "Item Values",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -110,109 +209,73 @@
           "body_values",
           "item_values"
         ],
-        "title": "SelectedFeedbackDetailCounts",
-        "type": "object"
+        "additionalProperties": false
       },
-      "SelectedFeedbackDetailSummary": {
-        "additionalProperties": false,
+      "resolved_inputs": {
+        "type": "object",
         "properties": {
-          "json_pointer": {
-            "title": "Json Pointer",
-            "type": "string"
-          },
-          "detail_kind": {
-            "enum": [
-              "review",
-              "review_body",
-              "review_thread",
-              "thread_comment",
-              "thread_comment_body",
-              "discussion_comment",
-              "discussion_comment_body"
-            ],
-            "title": "Detail Kind",
-            "type": "string"
-          },
-          "artifact_json_pointer": {
-            "title": "Artifact Json Pointer",
-            "type": "string"
-          },
-          "value_kind": {
-            "enum": [
-              "string",
-              "object"
-            ],
-            "title": "Value Kind",
-            "type": "string"
-          },
-          "value_chars": {
-            "anyOf": [
-              {
-                "type": "integer"
+          "feedback": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Value Chars"
-          },
-          "body_chars": {
-            "anyOf": [
-              {
-                "type": "integer"
+              "session_id": {
+                "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Body Chars"
-          },
-          "object_keys": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+              "descriptor": {
+                "type": "string"
               },
-              {
-                "type": "null"
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
               }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
             ],
-            "default": null,
-            "title": "Object Keys"
+            "additionalProperties": false
           }
         },
         "required": [
-          "json_pointer",
-          "detail_kind",
-          "artifact_json_pointer",
-          "value_kind"
+          "feedback"
         ],
-        "title": "SelectedFeedbackDetailSummary",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "payload_path": {
-        "title": "Payload Path",
-        "type": "string"
-      },
-      "selected_payload_reference": {
-        "$ref": "#/$defs/PayloadReference"
-      },
-      "details": {
-        "items": {
-          "$ref": "#/$defs/SelectedFeedbackDetailSummary"
-        },
-        "title": "Details",
-        "type": "array"
-      },
-      "counts": {
-        "$ref": "#/$defs/SelectedFeedbackDetailCounts"
+        "additionalProperties": false
       }
     },
     "required": [
@@ -221,7 +284,6 @@
       "details",
       "counts"
     ],
-    "title": "ReadFeedbackDetailsResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

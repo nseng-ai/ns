@@ -140,6 +140,7 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 	warnings: z.array(z.string()).optional(),
 	errors: z.array(stackFeedbackDiffCurrentErrorSchema).optional(),
 	summary: stackFeedbackDiffCurrentSummarySchema,
+	resolved_inputs: z.object({ stack_plan: payloadReferenceSchema, current_prep: payloadReferenceSchema }).optional(),
 });
 
 // --- stack-feedback-prep -----------------------------------------------------------
