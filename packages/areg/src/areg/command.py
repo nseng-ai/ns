@@ -478,7 +478,7 @@ def convert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, .
 @click.argument("skills", nargs=-1, required=True, metavar="SKILL...")
 @click.pass_obj
 def revert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ...]) -> None:
-    """Revert local skills from invoke-only commands to normal skills.
+    """Revert local skills from extension-command backing files to normal skills.
 
     SKILL may be a local skill name or a path to a local skill directory/SKILL.md.
     """
