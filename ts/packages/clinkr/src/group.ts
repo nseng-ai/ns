@@ -15,14 +15,9 @@ import {
 	type SurfacePlan,
 } from "./surface.ts";
 
-export interface ClinkrExecutionInfo {
-	format: ClinkrFormat;
-}
-
 export type ClinkrHandler<TContext, S extends z.ZodObject, T> = (
 	ctx: TContext,
 	request: z.output<S>,
-	info: ClinkrExecutionInfo,
 ) => Promise<ClinkrExit<T>>;
 
 export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
@@ -101,7 +96,7 @@ interface RegisteredCommand<TContext> {
 interface RenderedExecution<TContext> {
 	type: "rendered";
 	resultSchema: z.ZodType | undefined;
-	handler: (ctx: TContext, request: unknown, info: ClinkrExecutionInfo) => Promise<ClinkrExit<unknown>>;
+	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
 }
@@ -249,7 +244,7 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		resultSchema: spec.resultSchema,
 		// Erase the command generics once; zod re-establishes the request shape
 		// at parse time, so the cast is backed by a runtime guarantee.
-		handler: spec.handler as (ctx: TContext, request: unknown, info: ClinkrExecutionInfo) => Promise<ClinkrExit<unknown>>,
+		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
 		renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
 		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
 	};
@@ -370,7 +365,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 				const format = clinkrFormatFromOption(opts["format"]);
 				let exit: ClinkrExit<unknown>;
 				try {
-					exit = await registered.execution.handler(context, parsed.data, { format });
+					exit = await registered.execution.handler(context, parsed.data);
 				} catch (error) {
 					if (!(error instanceof ClinkrFailure)) throw error;
 					exit = { type: "failure", errorType: error.errorType, message: error.message };

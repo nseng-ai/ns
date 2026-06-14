@@ -172,6 +172,206 @@ describe("asdl-dev preview-url CLI help and parsing", () => {
 	});
 });
 
+describe("asdl-dev cp CLI behavior", () => {
+	test("default cp drafts with the text-generation gateway and commits a valid model message", async () => {
+		const message = `[cp] Update CLI checkpoint
+
+- Add command table coverage`;
+		const run = runWithFakes(["cp"], {
+			checkpoint: {
+				snapshot: {
+					root: "/repo",
+					branch: "feature/demo",
+					status: " M src/app.ts\n",
+					diff: "diff --git a/src/app.ts b/src/app.ts\n",
+					clean: false,
+				},
+				commit: { summary: "def456 [cp] Update CLI checkpoint" },
+			},
+			textGeneration: { results: [{ ok: true, text: message }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe(`def456 [cp] Update CLI checkpoint\n${message}\n`);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
+		expect(run.textGeneration.generateTextCalls).toEqual([
+			expect.objectContaining({
+				modelRef: "openai-codex/gpt-5.4-mini",
+				operation: "checkpoint-message",
+				maxTokens: 512,
+				reasoning: "low",
+			}),
+		]);
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## git status --porcelain\n\n M src/app.ts");
+		expect(run.textGeneration.generateTextCalls[0]?.prompt).toContain("## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts");
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
+	});
+
+	test("cp compacts oversized dirty-worktree diffs before text generation", async () => {
+		const message = `[cp] Compact checkpoint prompt
+
+- Summarize large pending diff`;
+		const run = runWithFakes(["cp"], {
+			checkpoint: {
+				snapshot: {
+					root: "/repo",
+					branch: "feature/demo",
+					status: " M src/large-cli.ts\n",
+					diff: largeCheckpointDiff(),
+					clean: false,
+				},
+				commit: { summary: "abc123 [cp] Compact checkpoint prompt" },
+			},
+			textGeneration: { results: [{ ok: true, text: message }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		const prompt = run.textGeneration.generateTextCalls[0]?.prompt ?? "";
+		expect(prompt.length).toBeLessThan(26_000);
+		expect(prompt).toContain("Large diff compacted for checkpoint message generation.");
+		expect(prompt).toContain("- src/large-cli.ts");
+		expect(prompt).not.toContain("CLI_FULL_DIFF_SENTINEL_SHOULD_NOT_APPEAR");
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
+	});
+
+	test("checkpoint model can be selected by environment", async () => {
+		const message = `[cp] Update env model
+
+- Use configured model ref`;
+		const run = runWithFakes(
+			["cp"],
+			{
+				textGeneration: { results: [{ ok: true, text: message }] },
+				checkpoint: { commit: { summary: "abc123 [cp] Update env model" } },
+			},
+			{ env: { ASDL_DEV_CHECKPOINT_MODEL: "openai-codex/custom-mini" } },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(run.textGeneration.generateTextCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message }]);
+	});
+
+	test("model generation error exits 2 without committing", async () => {
+		const run = runWithFakes(["cp"], {
+			textGeneration: { results: [{ ok: false, error: "auth failed" }] },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("auth failed\n");
+		expect(run.textGeneration.generateTextCalls).toHaveLength(1);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
+	});
+
+	test("invalid first model output triggers one repair request and commits the repaired message", async () => {
+		const repaired = `[cp] Repair checkpoint message
+
+- Keep only valid bullets`;
+		const run = runWithFakes(["cp"], {
+			textGeneration: {
+				results: [
+					{ ok: true, text: "not a commit message" },
+					{ ok: true, text: repaired },
+				],
+			},
+			checkpoint: { commit: { summary: "abc123 [cp] Repair checkpoint message" } },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.textGeneration.generateTextCalls).toHaveLength(2);
+		expect(run.textGeneration.generateTextCalls[1]?.prompt).toContain("## previous invalid draft\n\nnot a commit message");
+		expect(run.textGeneration.generateTextCalls[1]?.prompt).toContain("## validation feedback");
+		expect(run.textGeneration.generateTextCalls[1]?.prompt).toContain("missing_cp_prefix");
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([{ cwd: "/work", message: repaired }]);
+	});
+
+	test("invalid first and repaired output exits 2 without committing", async () => {
+		const run = runWithFakes(["cp"], {
+			textGeneration: {
+				results: [
+					{ ok: true, text: "not a commit message" },
+					{ ok: true, text: "still invalid" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Model produced an invalid checkpoint message after 2 attempts.");
+		expect(run.stderr.join("")).toContain("missing_cp_prefix");
+		expect(run.textGeneration.generateTextCalls).toHaveLength(2);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
+	});
+
+	test("clean worktree exits without model generation or committing", async () => {
+		const run = runWithFakes(["cp"], {
+			checkpoint: {
+				snapshot: {
+					root: "/repo",
+					branch: "feature/demo",
+					status: "",
+					diff: "",
+					clean: true,
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
+	});
+
+	test("trunk branch exits without model generation or committing", async () => {
+		const run = runWithFakes(["cp"], {
+			checkpoint: {
+				snapshot: {
+					root: "/repo",
+					branch: "main",
+					status: " M file.ts\n",
+					diff: "diff --git a/file.ts b/file.ts\n",
+					clean: false,
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toBe("Refusing to create checkpoint commit on trunk branch: main\n");
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+		expect(run.checkpoint.createCommitWithPreparedMessageCalls).toEqual([]);
+	});
+
+	test("unknown text backend exits 2 before inspecting git", async () => {
+		const run = runWithFakes(["cp"], {}, { env: { ASDL_DEV_TEXT_BACKEND: "bogus" } });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain('Invalid ASDL_DEV_TEXT_BACKEND="bogus"');
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([]);
+		expect(run.textGeneration.generateTextCalls).toEqual([]);
+	});
+
+	test("cp rejects unsupported arguments", async () => {
+		const run = runWithFakes(["cp", "--bogus"]);
+
+		expect(await run.exit).toBe(2);
+		// PINNED CLINKR SEMANTICS (usage errors): lowercase error: format
+		expect(run.stderr.join("")).toContain("error: unknown option");
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([]);
+	});
+
+	test("cp accepts a bare option terminator", async () => {
+		const run = runWithFakes(["cp", "--"]);
+
+		expect(await run.exit).toBe(0);
+		// PINNED CLINKR SEMANTICS (raw command): commander strips the -- terminator; old parser rejected it.
+		expect(run.checkpoint.loadPendingWorktreeCalls).toEqual([{ cwd: "/work" }]);
+	});
+});
 describe("asdl-dev preview-url success behavior", () => {
 	test("default success output prints only the preview URL", async () => {
 		const run = runWithFakes(["preview-url"], { vercel: { deployments: [deploymentRecord()] } });

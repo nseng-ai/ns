@@ -28,7 +28,7 @@
 - [~] Port write operations: `put` and `delete`.
   - Preserve overwrite semantics, `--file` / `--stdin` input modes, content limits (UTF-8, binary rejection, 1 MiB `--force` cap), Entry Key validation, detached-HEAD-when-branch-omitted handling, and post-mutation reporting (branch, namespace/base, key, Entry Locator, commit).
   - Policy: directly executable after preview with fake/local-throwaway-repo gateways. Ask before changing content limits or key/namespace validation.
-  - Evidence: public TypeScript `put` CLI is implemented with byte-oriented file/stdin source reading, Clinkr format metadata for JSON stdin rejection, content guardrails, validation, Base/named Namespace locators, overwrite/sibling preservation, and fake-driven scenario/unit tests. `delete` remains unimplemented and is the next write-operation slice.
+  - Evidence: public TypeScript `put` CLI is implemented with byte-oriented file/stdin source reading, content guardrails, validation through the shared Entry request resolver, Base/named Namespace locators, overwrite/sibling preservation, and fake-driven scenario/unit tests. Review remediation intentionally supports `put --stdin --format json` because TypeScript Clinkr treats JSON format as output-only; no Clinkr execution-info seam remains. `delete` remains unimplemented and is the next write-operation slice.
 
 - [ ] Port `copy` and `export`.
   - `copy`: exactly-one-scope (`--base` / `--namespace`), `--key-glob` (where `*` matches `/`), conflict-abort-unless-`--overwrite`, `--dry-run`, cross-branch behavior.

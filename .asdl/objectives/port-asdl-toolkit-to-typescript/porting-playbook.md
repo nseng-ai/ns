@@ -13,7 +13,7 @@ Classify at least:
 - JSON schemas, payload artifact layouts, golden fixtures, wrapper scripts, config entry points, and safety guarantees.
 - External-system behaviors such as git/GitHub reads, live mutations, publishing, or no-push guarantees.
 
-`pr-address` showed why this matters: durable contracts included its skill/CLI/JSON/payload/mutation-safety behavior, while several click/parser details and Python module boundaries were incidental or intentionally replaced.
+`pr-address` showed why this matters: durable contracts included its skill/CLI/JSON/payload/mutation-safety behavior, while several click/parser details and Python module boundaries were incidental or intentionally replaced. `brmem put` reinforced the same rule: Python runtime/parser constraints, such as stdin being reserved for JSON request input, must be classified separately from durable storage and output contracts before TypeScript preserves them.
 
 ## 2. Port in vertical slices
 
@@ -38,7 +38,7 @@ Future ports do not need the exact operation order, but they should keep each sl
 
 Do not framework-first a capability port. Add package-local runtime, payload/reference, and adapter seams when only one capability needs them. Move only repeated, stable gaps into shared TS foundations such as `@asdl/clinkr` or `@asdl/core`.
 
-`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing.
+`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing. Do not add shared framework concepts solely to emulate a Python-only precondition; if TypeScript's runtime does not share the precondition, prefer an explicit compatibility reclassification with tests and an Objective update.
 
 ## 4. Use fake-driven gateways and parity evidence
 

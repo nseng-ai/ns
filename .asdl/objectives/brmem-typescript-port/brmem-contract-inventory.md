@@ -296,7 +296,8 @@ Machine mode rules:
 
 - `--format json` produces stable JSON envelopes.
 - `--json-schema` is eager and exits `0` for operations.
-- `put --stdin --format json` is rejected because JSON mode uses stdin for the request body.
+- Python `put --stdin --format json` is rejected because Python Clinkr machine input uses stdin for the request body.
+- TypeScript Clinkr treats `--format json` as output-only and does not consume stdin for request input, so TypeScript `put --stdin --format json` is intentionally supported.
 - `get` human mode intentionally prints only stored content; JSON mode includes metadata and content.
 
 ### Likely incidental
@@ -323,7 +324,7 @@ Inputs/flags:
 
 Behavior:
 
-- Rejects `--stdin` with JSON mode.
+- TypeScript supports `--stdin` with `--format json`; Python rejects that combination for Python runtime input-mode reasons.
 - Rejects `--stdin` together with `--file`.
 - If neither `--stdin` nor `--file` is supplied, infers a default source file from the Entry Key basename.
 - If no basename can be inferred, fails with `source_file_missing`.
@@ -356,7 +357,7 @@ JSON `data` fields:
 
 Failure `error_type`s observed in tests/source include:
 
-- `stdin_unsupported_in_json_mode`
+- `stdin_unsupported_in_json_mode` (Python-only runtime input-mode failure; not carried forward as a durable TS error)
 - `stdin_and_file_conflict`
 - `source_file_missing`
 - `source_file_unreadable`

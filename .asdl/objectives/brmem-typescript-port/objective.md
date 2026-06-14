@@ -8,6 +8,8 @@
 
 The new implementation lives in a standalone `ts/packages/brmem` package that exports both a reusable library and the CLI, mirroring the deliberate self-containment of the Python `brmem` package and keeping it importable by sibling TypeScript consumers. Native brmem proves the git ref/blob/tree plumbing seam that later capability ports and consumers will reuse.
 
+Compatibility is anchored on public skill behavior, CLI shape, JSON envelopes, exit codes, and git-ref storage semantics, not on every Python runtime/parser accident. When the inventory identifies behavior caused by Python Clinkr internals rather than user-visible storage or output semantics, the TypeScript port may intentionally diverge if the rationale is explicit, scenario-tested, and recorded in a Semantic Update.
+
 ## Scope
 
 - Public `brmem` skill invocation and the standalone `brmem` CLI in both local-checkout and installed-skill contexts.
