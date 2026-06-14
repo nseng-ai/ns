@@ -229,6 +229,21 @@ describe("sdl project command discovery", () => {
 		expect(run.context.execCalls).toEqual([]);
 	});
 
+	test("project-local cp help uses project command metadata without module import", async () => {
+		const cwd = await createOverrideProject("throw new Error('help should not import this module');\n");
+		const run = runWithFakes(["cp", "--help"], { exec: [] }, { cwd });
+
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: sdl cp");
+		expect(help).toContain("Run project-specific SDL command 'cp'.");
+		expect(help).not.toContain("model-authored");
+		expect(help).not.toContain("SDL_CHECKPOINT_MODEL");
+		expect(help).not.toContain("ASDL_DEV_CHECKPOINT_MODEL");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
 	test("project-only command runs when invoked", async () => {
 		const cwd = await createCommandProject(
 			"hello.ts",

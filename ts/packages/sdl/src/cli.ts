@@ -8,7 +8,7 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { commandDescription, discoverProjectCommandNames, listSdlCommandInfos, runSdlCommand, type SdlCommandInfo } from "./command-registry.ts";
+import { discoverProjectCommandNames, listSdlCommandInfos, runSdlCommand, type SdlCommandInfo } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
 import type { SdlContext } from "./sdk.ts";
 
@@ -50,7 +50,7 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 		group.command(
 			rawCommand({
 				name: commandName,
-				description: commandDescription(commandName),
+				description: commandInfo.fullDescription,
 				summary: commandInfo.description,
 				schema: z.object({}),
 				run: async (ctx) => {
@@ -66,7 +66,7 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 }
 
 export function listSdlCommands(): SdlCommandInfo[] {
-	return listSdlCommandInfos();
+	return listSdlCommandInfos().map(({ name, description }) => ({ name, description }));
 }
 
 export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Promise<number> {

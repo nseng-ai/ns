@@ -13,6 +13,10 @@ export interface SdlCommandInfo {
 	description: string;
 }
 
+export interface SdlCommandCliInfo extends SdlCommandInfo {
+	fullDescription: string;
+}
+
 export type ProjectCommandDiscoveryResult = { ok: true; names: readonly string[] } | { ok: false; message: string };
 
 const PROJECT_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
@@ -87,24 +91,28 @@ ${formatUnknownError(error)}` };
 	return { ok: true, names: [...commandNames].sort() };
 }
 
-export function listSdlCommandInfos(options: { projectCommandNames?: readonly string[] | undefined } = {}): SdlCommandInfo[] {
-	const commandNames = new Set<string>(Object.keys(builtInCommands));
-	for (const commandName of options.projectCommandNames ?? []) {
-		commandNames.add(commandName);
+export function listSdlCommandInfos(options: { projectCommandNames?: readonly string[] | undefined } = {}): SdlCommandCliInfo[] {
+	const commandInfos = new Map<string, SdlCommandCliInfo>();
+	for (const [commandName, meta] of Object.entries(builtInCommandMeta)) {
+		commandInfos.set(commandName, {
+			name: commandName,
+			description: meta.summary,
+			fullDescription: meta.description,
+		});
 	}
-	return [...commandNames].sort().map((name) => ({ name, description: commandSummary(name) }));
-}
-
-export function commandSummary(commandName: string): string {
-	return isBuiltInCommandName(commandName) ? builtInCommandMeta[commandName].summary : `Run project-specific SDL command '${commandName}'.`;
-}
-
-export function commandDescription(commandName: string): string {
-	return isBuiltInCommandName(commandName) ? builtInCommandMeta[commandName].description : commandSummary(commandName);
+	for (const commandName of options.projectCommandNames ?? []) {
+		const description = projectCommandDescription(commandName);
+		commandInfos.set(commandName, { name: commandName, description, fullDescription: description });
+	}
+	return [...commandInfos.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export function isBuiltInCommandName(commandName: string): commandName is keyof typeof builtInCommands {
 	return Object.hasOwn(builtInCommands, commandName);
+}
+
+function projectCommandDescription(commandName: string): string {
+	return `Run project-specific SDL command '${commandName}'.`;
 }
 
 export async function loadSdlCommand(commandName: string, cwd: string): Promise<{ ok: true; command: SdlCommand } | { ok: false; message: string }> {
