@@ -21,10 +21,12 @@ from roaster.models import (
     DiffReviewTarget,
     FindingsReview,
     LocalDiff,
+    ModelNotSupportedByHarness,
     ReviewExecutionResponse,
     ReviewFinding,
     ReviewPayload,
     ReviewUsage,
+    RoasterFailure,
 )
 
 REPO_ROOT = Path("/repo")
@@ -64,6 +66,7 @@ def _build_context(
     payload: ReviewPayload | None = None,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
+    default_response: ReviewExecutionResponse | RoasterFailure | None = None,
     review_sources_by_key: dict[str, str] | None = None,
     changed_paths: tuple[str, ...] = ("app.py",),
 ) -> RoasterCliContext:
@@ -84,7 +87,8 @@ def _build_context(
             ),
         ),
         harness_runtime=FakeHarnessRuntime(
-            default_response=ReviewExecutionResponse(payload=payload, usage=usage),
+            default_response=default_response
+            or ReviewExecutionResponse(payload=payload, usage=usage),
         ),
         pr_gateway=FakePRGateway(),
         cwd=Path("/anywhere"),
@@ -267,10 +271,45 @@ def test_review_run_json_output_for_oversized_diff_preserves_failure_metadata(
     assert data["base_ref"] == "master"
     assert data["model"] == "sonnet"
     assert data["error_type"] == "review_budget_exceeded"
-    assert data["changed_path_count"] == 301
-    assert data["max_changed_paths"] == 300
+    assert data["budget"]["changed_path_count"] == 301
+    assert data["budget"]["max_changed_paths"] == 300
     assert isinstance(ctx.harness_runtime, FakeHarnessRuntime)
     assert ctx.harness_runtime.executed_requests == ()
+
+
+def test_review_run_json_output_for_harness_failure_preserves_failure_metadata(
+    cli_group: ClinkrGroup,
+) -> None:
+    ctx = _build_context(
+        default_response=ModelNotSupportedByHarness(
+            message="Model 'gpt-5-mini' is not supported by Claude Code."
+        )
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "gpt-5-mini",
+            "--format",
+            "json",
+        ],
+        obj=_obj(ctx),
+    )
+
+    assert result.exit_code == 1, result.output
+    output = json.loads(result.stdout)
+    assert output["exit_code"] == 1
+    data = output["data"]
+    assert data["review_name"] == "dignified-python"
+    assert data["base_ref"] == "master"
+    assert data["model"] == "gpt-5-mini"
+    assert data["error_type"] == "model_not_supported_by_harness"
+    assert data["message"] == "Model 'gpt-5-mini' is not supported by Claude Code."
+    assert "budget" not in data
 
 
 def test_review_list_human_output(cli_group: ClinkrGroup) -> None:

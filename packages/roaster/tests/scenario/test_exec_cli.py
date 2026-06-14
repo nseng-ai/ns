@@ -198,10 +198,13 @@ def test_format_findings_comment_renders_budget_failure_for_review_marker(
             "base_ref": "master",
             "error_type": "review_budget_exceeded",
             "message": "Budget exceeded.",
-            "changed_path_count": 301,
-            "diff_token_estimate": 151_000,
-            "max_changed_paths": 300,
-            "max_diff_tokens": 150_000,
+            "budget": {
+                "changed_path_count": 301,
+                "diff_token_estimate": 151_000,
+                "max_changed_paths": 300,
+                "max_diff_tokens": 150_000,
+                "max_file_diff_tokens": 40_000,
+            },
         },
     }
 
@@ -470,10 +473,13 @@ def test_post_inline_findings_handles_budget_failure_as_noop(
             "base_ref": "master",
             "error_type": "review_budget_exceeded",
             "message": "Budget exceeded.",
-            "changed_path_count": 301,
-            "diff_token_estimate": 151_000,
-            "max_changed_paths": 300,
-            "max_diff_tokens": 150_000,
+            "budget": {
+                "changed_path_count": 301,
+                "diff_token_estimate": 151_000,
+                "max_changed_paths": 300,
+                "max_diff_tokens": 150_000,
+                "max_file_diff_tokens": 40_000,
+            },
         },
     }
 

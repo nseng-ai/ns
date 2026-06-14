@@ -65,12 +65,12 @@ Risks:
 - The too-permissive degradation risk is de-risked for the first implementation slice: oversized roaster reviews are intentionally red checks, not soft-pass or neutral skips.
 - The too-strict policy risk is accepted for now. Valid mechanical migrations that exceed the budget must split/shrink or follow a documented maintainer bypass process if one is later established.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover the budget-failure marker/comment shape and no-inline noop path, but broader live PR race behavior remains to be verified manually after merge.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover budget-failure marker/comment shape, structured non-budget post-metadata failure metadata, and no-inline noop paths, but broader live PR race behavior remains to be verified manually after merge.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
 ## Open Questions
 
 - Resolved for the first implementation slice: oversized roaster reviews are hard failures. The red check should say the review was not run, include review key/base/size facts, and tell authors to split/shrink the PR or use a documented maintainer bypass process if one exists.
 - If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
-- Resolved for the first implementation slice: roaster enforces both GitHub's 300 changed-path boundary and a conservative 150,000 estimated full-diff token budget below Claude Code's observed 200,000-token limit.
-- Resolved for the first implementation slice: budget-failure publication remains review-key-specific, not aggregate, so matrix jobs use distinct `<!-- roaster:<review_name> -->` summary markers.
+- Resolved for the first implementation slice: roaster enforces GitHub's 300 changed-path boundary, a conservative 150,000 estimated full-diff token budget below Claude Code's observed 200,000-token limit, and a 40,000-token per-file budget matching the harness assembly guard.
+- Resolved for the first implementation slice: post-metadata failures remain review-key-specific, not aggregate, so budget failures and harness/runtime failures after review resolution use distinct `<!-- roaster:<review_name> -->` summary markers.

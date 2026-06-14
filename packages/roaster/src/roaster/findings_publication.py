@@ -9,7 +9,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
-from roaster.models import ReviewFinding
+from roaster.models import ReviewBudgetFacts, ReviewFinding
+from roaster.review_budget import OVERSIZED_REVIEW_NEXT_STEP
 
 _SEVERITY_LABELS: dict[str, str] = {
     "error": "⛔ error",
@@ -55,10 +56,7 @@ class FindingsPayload:
     findings: tuple[ReviewFinding, ...]
     error_type: str | None = None
     error_message: str | None = None
-    changed_path_count: int | None = None
-    diff_token_estimate: int | None = None
-    max_changed_paths: int | None = None
-    max_diff_tokens: int | None = None
+    budget: ReviewBudgetFacts | None = None
 
     @property
     def is_error(self) -> bool:
@@ -276,20 +274,22 @@ def _render_error_body(payload: FindingsPayload) -> list[str]:
             f"- **Error type:** `{payload.error_type}`",
             f"- **Message:** {payload.error_message or '(none)'}",
         ]
-        if payload.changed_path_count is not None and payload.max_changed_paths is not None:
+        if payload.budget is not None:
             lines.append(
-                f"- **Changed paths:** {payload.changed_path_count} "
-                f"(limit: {payload.max_changed_paths})"
+                f"- **Changed paths:** {payload.budget.changed_path_count} "
+                f"(limit: {payload.budget.max_changed_paths})"
             )
-        if payload.diff_token_estimate is not None and payload.max_diff_tokens is not None:
             lines.append(
-                f"- **Estimated full diff tokens:** {payload.diff_token_estimate} "
-                f"(limit: {payload.max_diff_tokens})"
+                f"- **Estimated full diff tokens:** {payload.budget.diff_token_estimate} "
+                f"(limit: {payload.budget.max_diff_tokens})"
             )
-        lines.append(
-            "- **Next step:** Split or shrink the PR, or follow a documented maintainer "
-            "bypass process if one exists."
-        )
+            if payload.budget.oversized_file_paths:
+                paths = ", ".join(f"`{path}`" for path in payload.budget.oversized_file_paths)
+                lines.append(
+                    f"- **Files over per-file token limit:** {paths} "
+                    f"(limit: {payload.budget.max_file_diff_tokens})"
+                )
+        lines.append(f"- **Next step:** {OVERSIZED_REVIEW_NEXT_STEP}")
         return lines
 
     return [
@@ -358,6 +358,44 @@ def _coerce_int(value: Any) -> int | None:
     return None
 
 
+def _parse_budget_facts(data: dict[str, Any]) -> ReviewBudgetFacts | None:
+    raw_budget = data.get("budget")
+    if isinstance(raw_budget, dict):
+        return _parse_budget_facts_object(raw_budget)
+
+    if "changed_path_count" in data:
+        return _parse_budget_facts_object(data)
+    return None
+
+
+def _parse_budget_facts_object(data: dict[str, Any]) -> ReviewBudgetFacts | None:
+    changed_path_count = _coerce_int(data.get("changed_path_count"))
+    diff_token_estimate = _coerce_int(data.get("diff_token_estimate"))
+    max_changed_paths = _coerce_int(data.get("max_changed_paths"))
+    max_diff_tokens = _coerce_int(data.get("max_diff_tokens"))
+    max_file_diff_tokens = _coerce_int(data.get("max_file_diff_tokens"))
+    if (
+        changed_path_count is None
+        or diff_token_estimate is None
+        or max_changed_paths is None
+        or max_diff_tokens is None
+        or max_file_diff_tokens is None
+    ):
+        return None
+
+    oversized_file_paths = data.get("oversized_file_paths", [])
+    if not isinstance(oversized_file_paths, list):
+        oversized_file_paths = []
+    return ReviewBudgetFacts(
+        changed_path_count=changed_path_count,
+        diff_token_estimate=diff_token_estimate,
+        max_changed_paths=max_changed_paths,
+        max_diff_tokens=max_diff_tokens,
+        max_file_diff_tokens=max_file_diff_tokens,
+        oversized_file_paths=tuple(path for path in oversized_file_paths if isinstance(path, str)),
+    )
+
+
 def _parse_nonzero_findings_payload(data: dict[str, Any]) -> FindingsPayload:
     inner = data.get("data")
     if isinstance(inner, dict):
@@ -374,10 +412,7 @@ def _parse_nonzero_findings_payload(data: dict[str, Any]) -> FindingsPayload:
                 inner.get("message") or data.get("message"),
                 default="",
             ),
-            changed_path_count=_coerce_int(inner.get("changed_path_count")),
-            diff_token_estimate=_coerce_int(inner.get("diff_token_estimate")),
-            max_changed_paths=_coerce_int(inner.get("max_changed_paths")),
-            max_diff_tokens=_coerce_int(inner.get("max_diff_tokens")),
+            budget=_parse_budget_facts(inner),
         )
 
     return FindingsPayload(

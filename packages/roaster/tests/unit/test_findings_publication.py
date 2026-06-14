@@ -23,7 +23,7 @@ from roaster.findings_publication import (
     render_inline_body,
     summary_marker_for_review,
 )
-from roaster.models import ReviewFinding
+from roaster.models import ReviewBudgetFacts, ReviewFinding
 
 
 def _single_finding(**overrides: object) -> ReviewFinding:
@@ -171,10 +171,13 @@ def test_render_budget_failure_payload_uses_specific_hard_fail_body() -> None:
             "Review 'dignified-python' was not run against base 'master' because the PR "
             "exceeds the roaster review budget."
         ),
-        changed_path_count=301,
-        diff_token_estimate=151_000,
-        max_changed_paths=300,
-        max_diff_tokens=150_000,
+        budget=ReviewBudgetFacts(
+            changed_path_count=301,
+            diff_token_estimate=151_000,
+            max_changed_paths=300,
+            max_diff_tokens=150_000,
+            max_file_diff_tokens=40_000,
+        ),
     )
 
     body = render_findings_comment(payload)
@@ -323,10 +326,13 @@ def test_parse_nonzero_structured_data_preserves_review_metadata_and_budget_fiel
                 "base_ref": "master",
                 "error_type": "review_budget_exceeded",
                 "message": "Budget exceeded.",
-                "changed_path_count": 301,
-                "diff_token_estimate": 151_000,
-                "max_changed_paths": 300,
-                "max_diff_tokens": 150_000,
+                "budget": {
+                    "changed_path_count": 301,
+                    "diff_token_estimate": 151_000,
+                    "max_changed_paths": 300,
+                    "max_diff_tokens": 150_000,
+                    "max_file_diff_tokens": 40_000,
+                },
             },
         }
     )
@@ -338,11 +344,39 @@ def test_parse_nonzero_structured_data_preserves_review_metadata_and_budget_fiel
     assert payload.base_ref == "master"
     assert payload.error_type == "review_budget_exceeded"
     assert payload.error_message == "Budget exceeded."
-    assert payload.changed_path_count == 301
-    assert payload.diff_token_estimate == 151_000
-    assert payload.max_changed_paths == 300
-    assert payload.max_diff_tokens == 150_000
+    assert payload.budget == ReviewBudgetFacts(
+        changed_path_count=301,
+        diff_token_estimate=151_000,
+        max_changed_paths=300,
+        max_diff_tokens=150_000,
+        max_file_diff_tokens=40_000,
+    )
     assert payload.findings == ()
+
+
+def test_parse_nonzero_structured_nonbudget_failure_preserves_review_metadata() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 1,
+            "message": "Claude Code failed.",
+            "data": {
+                "review_name": "typescript-style",
+                "base_ref": "master",
+                "model": "sonnet",
+                "error_type": "harness_execution_failed",
+                "message": "prompt too long",
+            },
+        }
+    )
+
+    payload = _parse_payload(raw)
+
+    assert payload.is_error is True
+    assert payload.review_name == "typescript-style"
+    assert payload.base_ref == "master"
+    assert payload.error_type == "harness_execution_failed"
+    assert payload.error_message == "prompt too long"
+    assert payload.budget is None
 
 
 def test_parse_error_shape_produces_error_payload() -> None:

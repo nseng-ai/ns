@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from asdl_core.clinkr.non_ideal_state import error_type_for
 from roaster.gateways.local_diff.gateway import LocalDiffGateway
 from roaster.gateways.review_catalog.gateway import ReviewCatalogGateway
 from roaster.harness.invocation import HarnessReviewRequest, HarnessRuntime
@@ -20,7 +21,11 @@ from roaster.models import (
     ReviewSource,
     RoasterFailure,
 )
-from roaster.review_budget import ReviewBudgetAssessment, assess_review_budget
+from roaster.review_budget import (
+    OVERSIZED_REVIEW_NEXT_STEP,
+    ReviewBudgetAssessment,
+    assess_review_budget,
+)
 from roaster.review_definition import parse_review_definition
 
 
@@ -69,7 +74,6 @@ def run_review_by_key(
     if budget_assessment.exceeded:
         return _review_budget_failure_result(
             review_name=review_definition.name,
-            review_path=str(review_source.path),
             model=resolved_model,
             base_ref=local_diff.base_ref,
             assessment=budget_assessment,
@@ -83,7 +87,13 @@ def run_review_by_key(
         )
     )
     if not isinstance(execution_response, ReviewExecutionResponse):
-        return execution_response
+        return _local_review_failure_result(
+            review_name=review_definition.name,
+            model=resolved_model,
+            base_ref=local_diff.base_ref,
+            error_type=error_type_for(execution_response),
+            message=execution_response.message,
+        )
 
     return LocalReviewResult(
         review_name=review_definition.name,
@@ -98,7 +108,6 @@ def run_review_by_key(
 def _review_budget_failure_result(
     *,
     review_name: str,
-    review_path: str | None,
     model: str | None,
     base_ref: str | None,
     assessment: ReviewBudgetAssessment,
@@ -106,19 +115,31 @@ def _review_budget_failure_result(
     reasons = "; ".join(assessment.exceeded_reasons)
     return LocalReviewFailureResult(
         review_name=review_name,
-        review_path=review_path,
         model=model,
         base_ref=base_ref,
         error_type="review_budget_exceeded",
         message=(
             f"Review {review_name!r} was not run against base {base_ref!r} because the PR "
-            f"exceeds the roaster review budget: {reasons}. Split or shrink the PR, or "
-            "follow a documented maintainer bypass process if one exists."
+            f"exceeds the roaster review budget: {reasons}. {OVERSIZED_REVIEW_NEXT_STEP}"
         ),
-        changed_path_count=assessment.changed_path_count,
-        diff_token_estimate=assessment.diff_token_estimate,
-        max_changed_paths=assessment.max_changed_paths,
-        max_diff_tokens=assessment.max_diff_tokens,
+        budget=assessment.facts,
+    )
+
+
+def _local_review_failure_result(
+    *,
+    review_name: str,
+    model: str | None,
+    base_ref: str | None,
+    error_type: str,
+    message: str,
+) -> LocalReviewFailureResult:
+    return LocalReviewFailureResult(
+        review_name=review_name,
+        model=model,
+        base_ref=base_ref,
+        error_type=error_type,
+        message=message,
     )
 
 

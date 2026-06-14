@@ -59,15 +59,20 @@ def render_review_run(result: LocalReviewResult | LocalReviewFailureResult) -> N
     click.echo(f"Base ref: {result.base_ref}")
     if isinstance(result, LocalReviewFailureResult):
         click.echo(result.message)
-        if result.changed_path_count is not None and result.max_changed_paths is not None:
+        if result.budget is not None:
             click.echo(
-                f"Changed paths: {result.changed_path_count} (limit: {result.max_changed_paths})"
+                f"Changed paths: {result.budget.changed_path_count} "
+                f"(limit: {result.budget.max_changed_paths})"
             )
-        if result.diff_token_estimate is not None and result.max_diff_tokens is not None:
             click.echo(
-                f"Estimated full diff tokens: {result.diff_token_estimate} "
-                f"(limit: {result.max_diff_tokens})"
+                f"Estimated full diff tokens: {result.budget.diff_token_estimate} "
+                f"(limit: {result.budget.max_diff_tokens})"
             )
+            if result.budget.oversized_file_paths:
+                click.echo(
+                    "Files over per-file token limit: "
+                    + ", ".join(result.budget.oversized_file_paths)
+                )
         return
     if result.usage is not None:
         usage = result.usage

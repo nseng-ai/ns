@@ -34,6 +34,7 @@ from roaster.models import (
     ReviewUsage,
     RoasterFailure,
 )
+from roaster.review_budget import DEFAULT_REVIEW_BUDGET
 
 ProgressWriter = Callable[[str], None]
 BinaryLocator = Callable[[str], str | None]
@@ -62,10 +63,10 @@ CLAUDE_CODE_NAME = "claude-code"
 _CLAUDE_CODE_MODEL_ALIASES = frozenset({"sonnet", "opus", "haiku"})
 _CLAUDE_CODE_MODEL_PREFIXES = ("claude-",)
 _PROSE_SNIPPET_MAX_CHARS = 500
-# Defensive prompt assembly caps for eligible reviews. User-visible CI hard-fail
-# policy lives in roaster.review_budget and runs before harness invocation.
-_MAX_PROMPT_DIFF_TOKENS = 120_000
-_MAX_PROMPT_DIFF_FILE_TOKENS = 40_000
+# Defensive prompt assembly caps for direct harness callers. Normal roaster review
+# workflow enforces the same budget before harness invocation.
+_MAX_PROMPT_DIFF_TOKENS = DEFAULT_REVIEW_BUDGET.max_diff_tokens
+_MAX_PROMPT_DIFF_FILE_TOKENS = DEFAULT_REVIEW_BUDGET.max_file_diff_tokens
 _READ_ONLY_TOOLS = "Bash,Read"
 
 

@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from roaster.diff_parsing import estimate_tokens
-from roaster.models import LocalDiff
+from roaster.models import LocalDiff, ReviewBudgetFacts
+
+OVERSIZED_REVIEW_NEXT_STEP = (
+    "Split or shrink the PR, or follow a documented maintainer bypass process if one exists."
+)
 
 
 @dataclass(frozen=True)
@@ -20,6 +24,9 @@ class ReviewBudget:
     # the full-diff policy below that to leave room for system prompts, review
     # instructions, changed-path listings, schemas, and tool envelope overhead.
     max_diff_tokens: int = 150_000
+    # A review that omits one very large file is still a partial review. Make
+    # the harness per-file prompt cap part of the same hard-fail policy.
+    max_file_diff_tokens: int = 40_000
 
 
 DEFAULT_REVIEW_BUDGET = ReviewBudget()
@@ -29,10 +36,7 @@ DEFAULT_REVIEW_BUDGET = ReviewBudget()
 class ReviewBudgetAssessment:
     """Computed review-size facts and policy violations for one local diff."""
 
-    changed_path_count: int
-    diff_token_estimate: int
-    max_changed_paths: int
-    max_diff_tokens: int
+    facts: ReviewBudgetFacts
     exceeded_reasons: tuple[str, ...]
 
     @property
@@ -48,6 +52,11 @@ def assess_review_budget(
     """Assess whether ``local_diff`` is small enough for a roaster review run."""
     changed_path_count = len(local_diff.changed_paths)
     diff_token_estimate = estimate_tokens(local_diff.diff_text)
+    oversized_file_paths = tuple(
+        diff_file.path
+        for diff_file in local_diff.files
+        if diff_file.estimated_tokens > budget.max_file_diff_tokens
+    )
     reasons: list[str] = []
     if changed_path_count > budget.max_changed_paths:
         reasons.append(f"changed paths {changed_path_count} > {budget.max_changed_paths}")
@@ -55,10 +64,19 @@ def assess_review_budget(
         reasons.append(
             f"estimated full diff tokens {diff_token_estimate} > {budget.max_diff_tokens}"
         )
+    if oversized_file_paths:
+        reasons.append(
+            "file diff token estimate exceeds per-file limit "
+            f"{budget.max_file_diff_tokens}: {', '.join(oversized_file_paths)}"
+        )
     return ReviewBudgetAssessment(
-        changed_path_count=changed_path_count,
-        diff_token_estimate=diff_token_estimate,
-        max_changed_paths=budget.max_changed_paths,
-        max_diff_tokens=budget.max_diff_tokens,
+        facts=ReviewBudgetFacts(
+            changed_path_count=changed_path_count,
+            diff_token_estimate=diff_token_estimate,
+            max_changed_paths=budget.max_changed_paths,
+            max_diff_tokens=budget.max_diff_tokens,
+            max_file_diff_tokens=budget.max_file_diff_tokens,
+            oversized_file_paths=oversized_file_paths,
+        ),
         exceeded_reasons=tuple(reasons),
     )

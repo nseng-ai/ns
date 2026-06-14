@@ -10,16 +10,16 @@
   - Chosen policy: hard-fail oversized roaster reviews before Claude Code. The red check explains that the review was not run, reports the review key, base ref, changed-path count, full-diff token estimate, thresholds, and tells authors to split/shrink the PR or follow a documented maintainer bypass process if one exists.
 
 - [x] Add roaster preflight budgeting before Claude Code invocation.
-  - `roaster.review_budget` now assesses local checkout diffs before harness invocation with `max_changed_paths=300` and `max_diff_tokens=150_000`. Oversized diffs return a typed `LocalReviewFailureResult` and tests assert the fake harness receives no execution request.
+  - `roaster.review_budget` now assesses local checkout diffs before harness invocation with `max_changed_paths=300`, `max_diff_tokens=150_000`, and `max_file_diff_tokens=40_000`. Oversized diffs return a typed `LocalReviewFailureResult`, tests assert the fake harness receives no execution request, and harness assembly caps are pinned to the default review budget.
 
 - [~] Make GitHub diff/file discovery large-PR aware.
   - The roaster review hard-fail path uses the existing local checkout diff gateway in Actions rather than `gh pr diff`, so this implementation avoids GitHub's 300-file diff endpoint for review budgeting. Broader GitHub inventory hardening remains open if another path still depends on PR diff endpoints.
 
-- [~] Preserve review identity and base identity through failures and skips.
-  - Budget preflight failures now use structured negative Clinkr envelopes that carry `review_name`, `review_path`, `model`, `base_ref`, and budget facts into publication. Existing unstructured infrastructure failures still fall back to generic failure handling.
+- [x] Preserve review identity and base identity through failures and skips.
+  - Budget preflight failures and post-metadata harness/runtime failures now use structured negative Clinkr envelopes that carry `review_name`, `model`, `base_ref`, and relevant failure facts into publication instead of collapsing to `roaster:unknown`.
 
 - [~] Harden summary comment publication for matrix-job failures.
-  - Budget-failure comments now use review-key-specific markers and hard-fail wording, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Broader live PR race behavior remains to be verified.
+  - Budget-failure comments now use review-key-specific markers and hard-fail wording, structured non-budget post-metadata failures preserve review-key-specific markers, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Broader live PR race behavior remains to be verified.
 
 ## Parked
 

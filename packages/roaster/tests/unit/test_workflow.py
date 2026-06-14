@@ -160,20 +160,20 @@ def test_oversized_review_returns_budget_failure_before_harness_execution() -> N
 
     assert isinstance(result, LocalReviewFailureResult)
     assert result.review_name == REVIEW_KEY
-    assert result.review_path == "/repo/reviews/dignified-python.md"
     assert result.model == "sonnet"
     assert result.base_ref == "master"
     assert result.error_type == "review_budget_exceeded"
-    assert result.changed_path_count == 301
-    assert result.max_changed_paths == 300
-    assert result.diff_token_estimate is not None
-    assert result.max_diff_tokens == 150_000
+    assert result.budget is not None
+    assert result.budget.changed_path_count == 301
+    assert result.budget.max_changed_paths == 300
+    assert result.budget.diff_token_estimate is not None
+    assert result.budget.max_diff_tokens == 150_000
     assert "Review 'dignified-python' was not run against base 'master'" in result.message
     assert "changed paths 301 > 300" in result.message
     assert fakes.harness_runtime.executed_requests == ()
 
 
-def test_unsupported_default_model_failure_propagates_after_model_resolution() -> None:
+def test_post_metadata_harness_failure_preserves_review_metadata() -> None:
     source = (
         "---\n"
         "description: Review Python diffs.\n"
@@ -191,6 +191,11 @@ def test_unsupported_default_model_failure_propagates_after_model_resolution() -
 
     result = _run(fakes=fakes)
 
-    assert isinstance(result, RoasterFailure)
-    assert error_type_for(result) == "model_not_supported_by_harness"
+    assert isinstance(result, LocalReviewFailureResult)
+    assert result.review_name == REVIEW_KEY
+    assert result.model == "gpt-5-mini"
+    assert result.base_ref == "master"
+    assert result.error_type == "model_not_supported_by_harness"
+    assert result.message == "Model 'gpt-5-mini' is not supported by Claude Code."
+    assert result.budget is None
     assert fakes.harness_runtime.executed_requests[0].model == "gpt-5-mini"
