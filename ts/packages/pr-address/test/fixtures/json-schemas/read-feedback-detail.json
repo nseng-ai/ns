@@ -1,35 +1,61 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "payload_path": {
-        "title": "Payload Path",
-        "type": "string"
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "json_pointer": {
-        "title": "Json Pointer",
         "type": "string"
+      },
+      "harness_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [
-      "payload_path",
       "json_pointer"
     ],
-    "title": "ReadFeedbackDetailRequest",
-    "type": "object"
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "payload_path": {
-        "title": "Payload Path",
         "type": "string"
       },
       "json_pointer": {
-        "title": "Json Pointer",
         "type": "string"
       },
       "detail_kind": {
+        "type": "string",
         "enum": [
           "review",
           "review_body",
@@ -38,12 +64,74 @@
           "thread_comment_body",
           "discussion_comment",
           "discussion_comment_body"
-        ],
-        "title": "Detail Kind",
-        "type": "string"
+        ]
       },
-      "value": {
-        "title": "Value"
+      "value": {},
+      "resolved_inputs": {
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "feedback"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [
@@ -52,7 +140,6 @@
       "detail_kind",
       "value"
     ],
-    "title": "ReadFeedbackDetailResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

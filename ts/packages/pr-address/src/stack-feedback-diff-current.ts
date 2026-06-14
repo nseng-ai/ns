@@ -3,6 +3,8 @@ import { z } from "zod";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
+import type { PayloadReference } from "./payload-store.ts";
+import { resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "./session-artifacts.ts";
 import { stackFeedbackPlanConsumerResultSchema, type StackFeedbackPlanConsumerItem, type StackFeedbackPlanConsumerResult } from "./stack-feedback-plan-contracts.ts";
 import {
 	stackFeedbackPrepResultWithManifestSchema,
@@ -62,7 +64,20 @@ const stackFeedbackDiffCurrentParseSchema = z.object({
 	payload_file: z.string().optional(),
 	stack_plan_reference: z.string().optional(),
 	current_prep_reference: z.string().optional(),
+	harness_session_id: z.string().optional(),
 });
+
+interface StackFeedbackDiffCurrentResolvedInputs {
+	stack_plan: PayloadReference;
+	current_prep: PayloadReference;
+}
+
+interface StackFeedbackDiffCurrentInputResult {
+	payload: { stack_plan: unknown; current_prep: unknown };
+	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs | undefined;
+}
+
+type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: string; message: string };
 
 export const stackFeedbackDiffCurrentOperation = defineExecOperation({
 	spec: {
@@ -77,25 +92,79 @@ async function runStackFeedbackDiffCurrentOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
+	const inputResult = await loadStackFeedbackDiffCurrentInput(ctx, request);
+	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
+	const { payload, resolvedInputs } = inputResult.value;
+
+	const result = diffStackFeedbackCurrent(payload);
+	const data = resolvedInputs === undefined ? result : { ...result, resolved_inputs: resolvedInputs };
+	if (result.valid && result.safe_to_resolve_planned) return ok(data);
+	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", data);
+}
+
+async function loadStackFeedbackDiffCurrentInput(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
+): Promise<OperationResult<StackFeedbackDiffCurrentInputResult>> {
+	const hasExplicitSource =
+		request.payload_json !== undefined || request.payload_file !== undefined || request.stack_plan_reference !== undefined || request.current_prep_reference !== undefined;
+	if (hasExplicitSource) return await loadStackFeedbackDiffCurrentInputFromPayloadSources(ctx, request, ctx.stdin);
+
+	const stdinText = await ctx.stdin();
+	if (stdinText.trim() !== "") return await loadStackFeedbackDiffCurrentInputFromPayloadSources(ctx, request, async () => stdinText);
+
+	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
+		explicitHarnessSessionId: request.harness_session_id ?? null,
+		env: ctx.env,
+		clock: ctx.context.payloadClock,
+	});
+	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
+	const store = storeResult.value;
+
+	const stackPlan = await resolveLatestJsonSessionArtifact({
+		store,
+		descriptor: stackArtifactDescriptor("plan"),
+		role: "summary",
+		schema: stackFeedbackPlanConsumerResultSchema,
+	});
+	if (stackPlan.type === "error") return { type: "error", errorType: stackPlan.errorType, message: stackPlan.message };
+	const currentPrep = await resolveLatestJsonSessionArtifact({
+		store,
+		descriptor: stackArtifactDescriptor("prep"),
+		role: "summary",
+		schema: stackFeedbackPrepResultWithManifestSchema,
+	});
+	if (currentPrep.type === "error") return { type: "error", errorType: currentPrep.errorType, message: currentPrep.message };
+
+	return {
+		type: "ok",
+		value: {
+			payload: { stack_plan: stackPlan.value.value, current_prep: currentPrep.value.value },
+			resolvedInputs: { stack_plan: stackPlan.value.reference, current_prep: currentPrep.value.reference },
+		},
+	};
+}
+
+async function loadStackFeedbackDiffCurrentInputFromPayloadSources(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<StackFeedbackDiffCurrentInputResult>> {
 	const payloadResult = await loadOperationPayload({
 		commandName: "stack-feedback-diff-current",
 		inputDescription: "stack feedback diff JSON payload",
 		payloadSchema: stackFeedbackDiffCurrentInputSchema,
 		request,
-		stdin: ctx.stdin,
+		stdin,
 		canOmitPayloadWhenAllFieldsReferenced: true,
 		fields: stackFeedbackDiffCurrentPayloadFields,
 	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
+	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
 	const payloadValue = payloadResult.value;
 	if (payloadValue.stack_plan === undefined || payloadValue.current_prep === undefined) {
 		throw new Error("stack-feedback-diff-current payload fields missing despite field resolution");
 	}
-	const diffRequest = { stack_plan: payloadValue.stack_plan, current_prep: payloadValue.current_prep };
-
-	const result = diffStackFeedbackCurrent(diffRequest);
-	if (result.valid && result.safe_to_resolve_planned) return ok(result);
-	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", result);
+	return { type: "ok", value: { payload: { stack_plan: payloadValue.stack_plan, current_prep: payloadValue.current_prep }, resolvedInputs: undefined } };
 }
 
 export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {

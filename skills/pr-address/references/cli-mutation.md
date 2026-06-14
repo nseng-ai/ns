@@ -199,16 +199,24 @@ Compare a validated `stack-feedback-plan` result with a freshly fetched current
 helper is local/read-only: it does not call GitHub, does not mutate GitHub, and
 uses compact manifests only rather than raw feedback bodies.
 
-Run a fresh prep with resolved threads immediately before diffing:
+Preferred session workflow: after `stack-feedback-plan` has written
+`pr-address-stack-plan.summary.json`, run a fresh `stack-feedback-prep
+--include-resolved` in the same harness session so it writes the latest
+`pr-address-stack-prep.summary.json`. Then invoke the diff helper with empty
+stdin and no explicit source flags; it resolves those two latest session
+artifacts and reports the exact references under `resolved_inputs`.
 
 ```bash
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
   | pr-address exec stack-feedback-prep \
       --include-resolved \
       --format json
+
+pr-address exec stack-feedback-diff-current \
+  --format json
 ```
 
-Then diff the saved plan against that fresh prep. With both reference options,
+Manual/reference compatibility remains available. With both reference options,
 no stdin payload is needed at all — point each option at the saved artifact
 (`data.stack_plan_reference.payload_path` from the plan run and
 `data.stack_summary_reference.payload_path` from the fresh prep run):
@@ -240,12 +248,16 @@ pr-address exec stack-feedback-diff-current \
 | `current_prep`           | source   | Fresh `data` object from `stack-feedback-prep --include-resolved` for the same stack                |
 | `stack_plan_reference`   | source   | `--stack-plan-reference <path>`: read `stack_plan` from a saved stack plan artifact file            |
 | `current_prep_reference` | source   | `--current-prep-reference <path>`: read `current_prep` from a saved prep artifact file              |
+| `harness_session_id`     | payload  | Optional manual/debug override for empty-stdin session lookup                                       |
 
-Each input requires exactly one source: its embedded payload key or its
-reference option. Mixing a reference with its embedded key fails with
-`exit_code: 2`, as does a missing, unreadable, or non-JSON reference file or a
-referenced file with the wrong artifact shape. References are validated by
-shape, not provenance, so artifacts from any derived payload session are accepted.
+With no explicit source and empty stdin, the helper resolves the latest
+`pr-address-stack-plan` summary artifact and latest `pr-address-stack-prep`
+summary artifact from the current payload session. Otherwise each input requires
+exactly one source: its embedded payload key or its reference option. Mixing a
+reference with its embedded key fails with `exit_code: 2`, as does a missing,
+unreadable, or non-JSON reference file or a referenced file with the wrong
+artifact shape. References are validated by shape, not provenance, so artifacts
+from any derived payload session are accepted.
 
 **Output fields (under `data`):**
 
@@ -260,6 +272,7 @@ shape, not provenance, so artifacts from any derived payload session are accepte
 | `warnings`                              | Conservative safety warnings, including missing `include_resolved` provenance                   |
 | `errors`                                | Structured invalid-input errors such as stack PR mismatch or malformed plan/current data        |
 | `summary`                               | Counts for PRs, planned/current thread sets, and every drift category                           |
+| `resolved_inputs`                       | Only for empty-stdin session mode: exact `stack_plan` and `current_prep` payload references     |
 
 `safe_to_resolve_planned` is true only when the current prep includes resolved
 threads, every planned actionable review thread is still unresolved with
