@@ -11,6 +11,7 @@ from asdl_core.prompts.embedded import load_embedded_default_prompt
 from asdl_core.prompts.errors import PromptError
 from asdl_core.prompts.models import PromptProvenance, PromptResolution
 from asdl_core.prompts.resolver import resolve_prompt
+from asdl_core.testing import symlink_or_skip
 
 
 def _repo_root() -> Path:
@@ -20,13 +21,6 @@ def _repo_root() -> Path:
             if (candidate / ".asdl" / "prompts" / "subagent-launch.md").exists():
                 return candidate
     raise AssertionError("Could not find repository root with .asdl/prompts/subagent-launch.md")
-
-
-def _symlink_to(link_path: Path, target_path: Path, *, target_is_directory: bool) -> None:
-    try:
-        link_path.symlink_to(target_path, target_is_directory=target_is_directory)
-    except OSError as exc:
-        pytest.skip(f"symlink creation is unavailable: {exc}")
 
 
 def test_prompt_error_exposes_stable_type_message_and_string() -> None:
@@ -128,7 +122,7 @@ def test_resolve_prompt_rejects_symlinked_prompt_file(tmp_path: Path) -> None:
     secret_path.write_text("secret material\n", encoding="utf-8")
     prompt_path = tmp_path / ".asdl" / "prompts" / "subagent-launch.md"
     prompt_path.parent.mkdir(parents=True)
-    _symlink_to(prompt_path, secret_path, target_is_directory=False)
+    symlink_or_skip(prompt_path, secret_path, target_is_directory=False)
 
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("subagent-launch", repo_root=tmp_path)
@@ -142,7 +136,7 @@ def test_resolve_prompt_rejects_symlinked_repo_prompt_directory(tmp_path: Path) 
     outside_prompt_path = outside_asdl / "prompts" / "subagent-launch.md"
     outside_prompt_path.parent.mkdir(parents=True)
     outside_prompt_path.write_text("outside prompt\n", encoding="utf-8")
-    _symlink_to(tmp_path / ".asdl", outside_asdl, target_is_directory=True)
+    symlink_or_skip(tmp_path / ".asdl", outside_asdl, target_is_directory=True)
 
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("subagent-launch", repo_root=tmp_path)
@@ -156,7 +150,7 @@ def test_resolve_prompt_rejects_explicit_symlinked_prompt_root(tmp_path: Path) -
     actual_prompt_root.mkdir()
     (actual_prompt_root / "launch.md").write_text("linked prompt\n", encoding="utf-8")
     prompt_root = tmp_path / "prompts-link"
-    _symlink_to(prompt_root, actual_prompt_root, target_is_directory=True)
+    symlink_or_skip(prompt_root, actual_prompt_root, target_is_directory=True)
 
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("launch", prompt_root=prompt_root)
@@ -170,7 +164,7 @@ def test_resolve_prompt_rejects_symlinked_repo_prompt_directory_before_default(
 ) -> None:
     outside_asdl = tmp_path / "outside-asdl"
     outside_asdl.mkdir()
-    _symlink_to(tmp_path / ".asdl", outside_asdl, target_is_directory=True)
+    symlink_or_skip(tmp_path / ".asdl", outside_asdl, target_is_directory=True)
 
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("subagent-launch", repo_root=tmp_path)
@@ -185,7 +179,7 @@ def test_resolve_prompt_rejects_explicit_symlinked_prompt_root_before_missing_re
     actual_prompt_root = tmp_path / "actual-prompts"
     actual_prompt_root.mkdir()
     prompt_root = tmp_path / "prompts-link"
-    _symlink_to(prompt_root, actual_prompt_root, target_is_directory=True)
+    symlink_or_skip(prompt_root, actual_prompt_root, target_is_directory=True)
 
     with pytest.raises(PromptError) as exc_info:
         resolve_prompt("missing", prompt_root=prompt_root, embedded_defaults={})
