@@ -223,6 +223,9 @@ importers:
 
   packages/sdlcc:
     dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
       '@opentui/core':
         specifier: 0.4.1
         version: 0.4.1(typescript@5.9.3)(web-tree-sitter@0.25.10)

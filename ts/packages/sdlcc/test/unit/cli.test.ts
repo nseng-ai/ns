@@ -42,8 +42,8 @@ describe("runSdlccCli", () => {
 		const run = runWithFakes(["--help"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: sdlcc");
-		expect(run.stdout.join("")).toContain("bun ts/packages/sdlcc/src/cli.ts");
+		expect(run.stdout.join("")).toContain("Usage: sdlcc [options]");
+		expect(run.stdout.join("")).toContain("Open a full-screen OpenTUI hello-world screen.");
 		expect(run.stderr).toEqual([]);
 		expect(run.startCalls).toEqual([]);
 	});
@@ -61,7 +61,7 @@ describe("runSdlccCli", () => {
 		const run = runWithFakes(["--version"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe("sdlcc 0.1.0\n");
+		expect(run.stdout.join("")).toBe("0.1.0\n");
 		expect(run.stderr).toEqual([]);
 		expect(run.startCalls).toEqual([]);
 	});
@@ -71,8 +71,7 @@ describe("runSdlccCli", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout).toEqual([]);
-		expect(run.stderr.join("")).toContain("Unknown sdlcc argument: status");
-		expect(run.stderr.join("")).toContain("sdlcc --help");
+		expect(run.stderr.join("")).toContain("error: too many arguments");
 		expect(run.startCalls).toEqual([]);
 	});
 });

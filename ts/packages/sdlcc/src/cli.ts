@@ -1,11 +1,26 @@
 #!/usr/bin/env bun
 
-import { buildHelloWorldModel, formatHelpText, formatVersionText } from "./hello-world.ts";
+import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+
+import { buildHelloWorldModel } from "./hello-world.ts";
+
+const VERSION = "0.1.0";
 
 export interface SdlccCliDeps {
 	readonly stdout?: ((text: string) => void) | undefined;
 	readonly stderr?: ((text: string) => void) | undefined;
 	readonly startTui?: (() => Promise<void> | void) | undefined;
+}
+
+type SdlccCliContext = Record<string, never>;
+
+export function buildCli(): ClinkrGroup<SdlccCliContext> {
+	return new ClinkrGroup<SdlccCliContext>({
+		name: "sdlcc",
+		description: "Open a full-screen OpenTUI hello-world screen.",
+		version: VERSION,
+		runtimeInfo,
+	});
 }
 
 export async function runSdlccCli(args: readonly string[], deps: SdlccCliDeps = {}): Promise<number> {
@@ -17,18 +32,12 @@ export async function runSdlccCli(args: readonly string[], deps: SdlccCliDeps = 
 		return 0;
 	}
 
-	if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
-		stdout(formatHelpText());
-		return 0;
-	}
+	const io = resolveIo({ stdout, stderr });
+	return await buildCli().run(args, { context: {}, io });
+}
 
-	if (args.length === 1 && args[0] === "--version") {
-		stdout(`${formatVersionText()}\n`);
-		return 0;
-	}
-
-	stderr(`Unknown sdlcc argument: ${args.join(" ")}\nRun 'sdlcc --help' for usage.\n`);
-	return 2;
+function runtimeInfo(): string {
+	return "runtime: bun\nentry_point: sdlcc bin sdlcc -> ts/packages/sdlcc/src/cli.ts\n";
 }
 
 async function startDefaultTui(): Promise<void> {

@@ -11,6 +11,7 @@
     "start": "bun src/cli.ts"
   },
   "dependencies": {
+    "@asdl/clinkr": "workspace:*",
     "@opentui/core": "0.4.1"
   }
 }
