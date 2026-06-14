@@ -22,10 +22,10 @@ interface ExecCall {
 
 class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
-	private readonly behavior: { result?: Partial<ExecResult>; error?: Error };
+	private readonly behavior: { result?: Partial<ExecResult>; results?: Partial<ExecResult>[]; error?: Error };
 
-	constructor(behavior: { result?: Partial<ExecResult>; error?: Error }) {
-		this.behavior = behavior;
+	constructor(behavior: { result?: Partial<ExecResult>; results?: Partial<ExecResult>[]; error?: Error }) {
+		this.behavior = behavior.results === undefined ? behavior : { ...behavior, results: [...behavior.results] };
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
@@ -33,13 +33,24 @@ class FakeSlugPi implements CommandExecApi {
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
 		}
-		const result = this.behavior.result ?? {};
+		const result = this.nextResult();
 		return {
 			stdout: result.stdout ?? "",
 			stderr: result.stderr ?? "",
 			code: result.code ?? 0,
 			killed: result.killed ?? false,
 		};
+	}
+
+	private nextResult(): Partial<ExecResult> {
+		if (this.behavior.results !== undefined) {
+			const result = this.behavior.results.shift();
+			if (result === undefined) {
+				throw new Error("unexpected extra slug model execution");
+			}
+			return result;
+		}
+		return this.behavior.result ?? {};
 	}
 }
 
@@ -149,6 +160,25 @@ describe("derivePlanContentSlug", () => {
 			expectNoFallback(error);
 			expect((error as Error).message).toContain("empty output");
 		}
+	});
+
+	test("repeated killed Pi model command fails with no fallback after one retry", async () => {
+		const filePath = await makePlanFile();
+		const pi = new FakeSlugPi({
+			results: [
+				{ code: 143, killed: true },
+				{ code: 143, killed: true },
+			],
+		});
+
+		try {
+			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+			throw new Error("expected slug derivation to fail");
+		} catch (error) {
+			expectNoFallback(error);
+			expect((error as Error).message).toContain("Pi slug model command failed (exit code 143; process was killed or timed out).");
+		}
+		expect(pi.calls).toHaveLength(2);
 	});
 
 	test("invalid normalized slug output fails with no fallback", async () => {

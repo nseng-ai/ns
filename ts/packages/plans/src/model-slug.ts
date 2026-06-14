@@ -6,6 +6,7 @@ export const SLUG_MODEL_THINKING = "minimal";
 export const SLUG_MODEL_TIMEOUT_MS = 60_000;
 
 const MAX_ERROR_CHARS = 4_000;
+const SLUG_MODEL_MAX_ATTEMPTS = 2;
 
 export interface SlugModelExecOptions {
 	cwd?: string;
@@ -54,64 +55,75 @@ export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Prom
 	const args = buildSlugModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
 
-	let result: SlugModelCommandResult;
-	try {
-		result = await input.exec("pi", args, execOptions(input.cwd, input.signal));
-	} catch (error) {
+	let retriedKilledResult = false;
+	for (let attempt = 1; attempt <= SLUG_MODEL_MAX_ATTEMPTS; attempt += 1) {
+		let result: SlugModelCommandResult;
+		try {
+			result = await input.exec("pi", args, execOptions(input.cwd, input.signal));
+		} catch (error) {
+			return {
+				ok: false,
+				failure: {
+					lines: [
+						"Pi slug model command failed before completion.",
+						`Command: ${displayCommand}`,
+						`Error: ${error instanceof Error ? error.message : String(error)}`,
+					],
+				},
+			};
+		}
+
+		if (shouldRetryKilledSlugModelResult(result, input.signal, attempt)) {
+			retriedKilledResult = true;
+			continue;
+		}
+
+		if (result.code !== 0 || result.killed) {
+			const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+			return {
+				ok: false,
+				failure: {
+					lines: [
+						`Pi slug model command failed (${status}).`,
+						...(retriedKilledResult ? ["Retried once after a killed/timeout result."] : []),
+						`Command: ${displayCommand}`,
+						formatOutputSection("stdout", result.stdout ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+						formatOutputSection("stderr", result.stderr ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+					],
+				},
+			};
+		}
+
+		const rawOutput = result.stdout ?? "";
+		if (rawOutput.trim().length === 0) {
+			return { ok: false, failure: { lines: ["Pi slug model returned empty output."] } };
+		}
+
+		const slug = input.normalizeOutput(rawOutput);
+		if (slug === undefined) {
+			return {
+				ok: false,
+				failure: {
+					lines: [
+						`Pi slug model output could not be normalized into a ${input.slugKind}.`,
+						formatOutputSection("stdout", rawOutput, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
+					],
+				},
+			};
+		}
+
 		return {
-			ok: false,
-			failure: {
-				lines: [
-					"Pi slug model command failed before completion.",
-					`Command: ${displayCommand}`,
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				],
+			ok: true,
+			evidence: {
+				slug,
+				rawOutput,
+				provider: model.provider,
+				model: model.modelId,
 			},
 		};
 	}
 
-	if (result.code !== 0 || result.killed) {
-		const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
-		return {
-			ok: false,
-			failure: {
-				lines: [
-					`Pi slug model command failed (${status}).`,
-					`Command: ${displayCommand}`,
-					formatOutputSection("stdout", result.stdout ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-					formatOutputSection("stderr", result.stderr ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-				],
-			},
-		};
-	}
-
-	const rawOutput = result.stdout ?? "";
-	if (rawOutput.trim().length === 0) {
-		return { ok: false, failure: { lines: ["Pi slug model returned empty output."] } };
-	}
-
-	const slug = input.normalizeOutput(rawOutput);
-	if (slug === undefined) {
-		return {
-			ok: false,
-			failure: {
-				lines: [
-					`Pi slug model output could not be normalized into a ${input.slugKind}.`,
-					formatOutputSection("stdout", rawOutput, { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
-				],
-			},
-		};
-	}
-
-	return {
-		ok: true,
-		evidence: {
-			slug,
-			rawOutput,
-			provider: model.provider,
-			model: model.modelId,
-		},
-	};
+	return { ok: false, failure: { lines: ["Pi slug model command failed without a result."] } };
 }
 
 export function buildSlugModelArgs(prompt: string, model: ParsedModelRef = DEFAULT_FAST_MODEL): string[] {
@@ -145,4 +157,8 @@ function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExe
 		options.signal = signal;
 	}
 	return options;
+}
+
+function shouldRetryKilledSlugModelResult(result: SlugModelCommandResult, signal: AbortSignal | undefined, attempt: number): boolean {
+	return result.killed === true && signal?.aborted !== true && attempt < SLUG_MODEL_MAX_ATTEMPTS;
 }
