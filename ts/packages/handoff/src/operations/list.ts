@@ -32,11 +32,11 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 			detachedMessage: "Cannot list handoffs in detached HEAD; pass --branch <branch> or --all.",
 		});
 		if (resolved.type !== "resolved") return resolved;
-		branch = resolved.branch;
+		branch = resolved.value;
 	}
 
 	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE, branch });
-	if (entries.type === "error") return gatewayFailure<ListResult>(entries.error, "Failed to list handoffs");
+	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to list handoffs");
 	const handoffs = await collectHandoffSummaries({
 		entries: entries.value,
 		brmem: ctx.brmem,
@@ -44,7 +44,7 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 		cwd: ctx.cwd,
 		includeDeleted: request.include_deleted,
 	});
-	if (handoffs.type !== "summaries") return handoffs;
+	if (handoffs.type !== "resolved") return handoffs;
 	return ok({
 		scope: request.all ? "all-branches" : "branch",
 		branch: branch ?? null,

@@ -3,6 +3,7 @@ import { failure, type ClinkrExit } from "@asdl/clinkr";
 import type { GitGateway } from "@asdl/core/git";
 import { z } from "zod";
 import { HANDOFF_NAMESPACE, handoffSlugFromKey, isHandoffKey } from "./identity.ts";
+import { resolved, type Resolved } from "./operations/shared.ts";
 
 export const branchStateSchema = z.enum(["active", "deleted"]);
 export type BranchState = z.infer<typeof branchStateSchema>;
@@ -25,12 +26,11 @@ export interface CollectHandoffSummariesOptions {
 	includeDeleted: boolean;
 }
 
-export type CollectHandoffSummariesResult = { type: "summaries"; value: readonly HandoffSummary[] } | ClinkrExit<never>;
-
-export async function collectHandoffSummaries(options: CollectHandoffSummariesOptions): Promise<CollectHandoffSummariesResult> {
+export async function collectHandoffSummaries(options: CollectHandoffSummariesOptions): Promise<Resolved<readonly HandoffSummary[]>> {
 	const handoffs: { summary: HandoffSummary; updatedTime: number }[] = [];
 	const branchStates = new Map<string, BranchState>();
 	const seen = new Set<string>();
+	// Keep update-time lookups serial so the first error is deterministic; the real fix is for brmem.listEntries to return updatedAt and remove this N+1.
 	for (const entry of options.entries) {
 		if (entry.namespace !== HANDOFF_NAMESPACE || !isHandoffKey(entry.key)) continue;
 		const identity = `${entry.branch}\0${entry.key}`;
@@ -70,10 +70,13 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 		});
 	}
 
-	handoffs.sort((left, right) => left.summary.slug.localeCompare(right.summary.slug));
-	handoffs.sort((left, right) => right.updatedTime - left.updatedTime);
-	handoffs.sort((left, right) => left.summary.branch.localeCompare(right.summary.branch));
-	return { type: "summaries", value: handoffs.map((item) => item.summary) };
+	handoffs.sort(
+		(a, b) =>
+			a.summary.branch.localeCompare(b.summary.branch)
+			|| b.updatedTime - a.updatedTime
+			|| a.summary.slug.localeCompare(b.summary.slug),
+	);
+	return resolved(handoffs.map((item) => item.summary));
 }
 
 async function branchState(
