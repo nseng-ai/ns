@@ -6,6 +6,7 @@ The founding rule survives unchanged: **the advisor never edits source code.** I
 
 ---
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-execute-review-loop -->
 ## `execute <plan>` — dispatch and review
 
 ### Preconditions (check all before dispatching)
@@ -67,9 +68,11 @@ Review like a tech lead reviewing a PR against the spec — never fix anything y
 | **BLOCK** | STOP condition hit, scope violated unrecoverably, or revisions exhausted | Mark BLOCKED in the index with the reason. Refine or rewrite the plan with what was learned. Tell the user what happened and what changed in the plan. |
 
 Running verification commands inside the executor's worktree is fine — it's isolated and disposable. The no-mutating-commands rule protects the user's working tree, not the worktree.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-execute-review-loop -->
 
 ---
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-reconcile-loop -->
 ## `reconcile` — keep `plans/` alive
 
 Process what happened since the last session. Read `plans/README.md` and every plan file, then per status:
@@ -80,6 +83,7 @@ Process what happened since the last session. Read `plans/README.md` and every p
 - **TODO** — run the drift check. If drifted: re-verify the finding still exists (it may have been fixed in passing), then refresh the "Current state" excerpts and `Planned at` SHA. If the finding is gone, mark REJECTED ("fixed independently").
 
 Finish with a short report: what's verified done, what was refreshed, what's rejected, and what's executable right now.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-reconcile-loop -->
 
 ---
 

@@ -28,11 +28,13 @@ The economics of this skill: an expensive, high-ceiling model does the part wher
 Map the territory before judging it:
 
 - Read `README`, `CLAUDE.md`/`AGENTS.md`, `CONTRIBUTING`, root config files (`package.json`, `pyproject.toml`, `go.mod`, etc.), CI config, and the directory structure.
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-recon-verification-baseline -->
 - Identify: language(s), framework(s), package manager, **how to build / test / lint / typecheck** (exact commands — these go into every plan as verification gates), test coverage shape, deployment target.
 - Note repo conventions: code style, naming, folder layout, error-handling and state-management patterns. Plans must tell the executor to *match* these, with examples.
 - Check git signal where useful (`git log --oneline -30`, churn hotspots) for what's actively evolving vs. frozen.
 
 If the repo has no working verification command (no tests, broken build), record that — "establish a verification baseline" is often finding #1, and it must precede risky plans in the dependency order.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-recon-verification-baseline -->
 
 ### Phase 2 — Audit (parallel)
 
@@ -86,6 +88,7 @@ plans/
 
 **Excerpts come from your own reads, never from a subagent's report.** Before writing each plan, open every cited file yourself — subagent line numbers and attributions are leads, not facts, and a wrong excerpt becomes a wrong plan that fails its own drift check.
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-plan-authoring-contract -->
 Before writing anything: record `git rev-parse --short HEAD` — every plan stamps the commit it was written against (the executor uses it for drift detection). If `plans/` already exists from a previous run, **reconcile, don't duplicate**: read `plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `plans/` exists for some unrelated purpose, use `advisor-plans/` instead and say so.
 
 Write each plan **for the weakest plausible executor**. That means:
@@ -99,6 +102,7 @@ Write each plan **for the weakest plausible executor**. That means:
 - Escape hatches: "if X turns out to be true, STOP and report back instead of improvising."
 
 Finish by writing `plans/README.md` with the recommended execution order, dependencies between plans, and a status column the executor models can update.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-plan-authoring-contract -->
 
 ## Invocation variants
 
@@ -108,9 +112,11 @@ Finish by writing `plans/README.md` with the recommended execution order, depend
 - `branch` → audit only the current working branch's changes: scope = files changed since the merge-base with the default branch (`git diff --name-only $(git merge-base origin/<default> HEAD)..HEAD`) plus their direct importers/callers. Light recon, all categories, usually no subagents. **Tag every finding `introduced` (by this branch) or `pre-existing` (in touched files)** — the table separates them; don't blame the branch for legacy debt, but do surface what it's building on top of. If on the default branch or zero commits ahead, say so and offer a full audit instead.
 - `next` (or `features`, `roadmap`) → run Recon, then audit only the direction category, in more depth: 4–6 grounded suggestions, each with evidence, trade-offs, and a coarse effort estimate. Selected ones become design/spike plans, not build-everything plans.
 - `plan <description>` → skip the audit; the user already knows what they want. Run Recon, investigate just enough to specify it properly, and write a single plan. If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-review-execute-reconcile-variants -->
 - `review-plan <file>` → critique an existing plan in `plans/` against the template's standards and tighten it. If you authored the plan in this same session, also have a fresh-context subagent read it cold and report ambiguities — self-critique misses gaps you mentally fill from context the executor won't have.
 - `execute <plan>` → dispatch a cheaper executor subagent on one plan (isolated worktree), then review its diff like a tech lead — re-run done criteria, check scope, read the code — and render a verdict. Requires a host agent that can spawn subagents in an isolated worktree; if yours can't, say so and hand the plan over for manual execution instead. **Read [references/closing-the-loop.md](references/closing-the-loop.md) before the first dispatch.**
 - `reconcile` → process what happened since last session: verify DONE plans, investigate BLOCKED ones, refresh drifted TODOs, retire dead findings. See [references/closing-the-loop.md](references/closing-the-loop.md).
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-review-execute-reconcile-variants -->
 - `--issues` (modifier on any planning invocation) → also publish each written plan as a GitHub issue via `gh`, URL recorded in the plan and index. Only with the explicit flag. See [references/closing-the-loop.md](references/closing-the-loop.md).
 
 ## Tone of the output
