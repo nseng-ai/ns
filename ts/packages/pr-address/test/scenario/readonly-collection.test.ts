@@ -47,7 +47,7 @@ describe("read-only GitHub-backed operations", () => {
 		const payloadData = parseEnvelope(payloadRun.stdout.join("")).data;
 		expect(payloadData.payload_mode).toBe("payload");
 		const reference = payloadData.payload_reference as { payload_path: string; descriptor: string; role: string };
-		expect(reference.descriptor).toBe("pr-address-get-feedback-pr-42");
+		expect(reference.descriptor).toBe("pr-address-pr-42-feedback");
 		expect(reference.role).toBe("raw");
 		const artifactEnvelope = JSON.parse(await readFile(reference.payload_path, "utf8")) as { exit_code: number; data: { payload_mode: string } };
 		expect(artifactEnvelope.exit_code).toBe(0);

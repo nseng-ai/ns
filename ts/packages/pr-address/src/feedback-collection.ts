@@ -4,6 +4,7 @@ import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { buildGetFeedbackPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
+import { prArtifactDescriptor } from "./session-artifacts.ts";
 
 const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
@@ -70,12 +71,19 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 	if (store === undefined) return ok(inlineResult);
 
 	const rawReference = await store.writeJsonArtifact({
-		descriptor: `pr-address-get-feedback-pr-${snapshot.pr_number}`,
+		descriptor: prArtifactDescriptor({ prNumber: snapshot.pr_number, kind: "feedback" }),
 		role: "raw",
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
-	return ok(buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value));
+	const manifest = buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value);
+	const manifestReference = await store.writeJsonArtifact({
+		descriptor: prArtifactDescriptor({ prNumber: snapshot.pr_number, kind: "manifest" }),
+		role: "summary",
+		payload: manifest,
+	});
+	if (manifestReference.type === "error") return failure(manifestReference.errorType, manifestReference.message);
+	return ok(manifest);
 }
 
 export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: PayloadReference): unknown {

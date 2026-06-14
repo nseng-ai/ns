@@ -323,6 +323,18 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root)));
 	});
 
+	test("accepts stdin for the full plan payload", async () => {
+		const root = await makePayloadRoot();
+		const run = runScenario(["exec", "stack-feedback-plan", "--format", "json"], {
+			env: payloadEnv("session", root, planFixture.session_id),
+			payloadClock: fixedClock(planFixture.clock_iso),
+			stdin: validPlanCase.payload_json_template,
+		});
+
+		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
+		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
+	});
+
 	test("rejects --prep-reference combined with an embedded prep key", async () => {
 		const root = await makePayloadRoot();
 		const scratch = await makeScratchDir();
@@ -399,6 +411,75 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		expect(envelope.error_type).toBe("invalid_request");
 		expect(envelope.message).toContain("Invalid stack-feedback-plan --prep-reference");
 		expect(envelope.message).toContain("harness_session_id");
+	});
+
+	async function seedStackSession(root: string, classificationsToValidate: "all" | "first-only" = "all"): Promise<void> {
+		const prepRun = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+			github: fixtureGithubGateway(),
+			env: payloadEnv("session", root, planFixture.session_id),
+			payloadClock: fixedClock(prepFixture.clock_iso),
+		});
+		expect(await prepRun.exit).toBe(0);
+		const prepEnvelope = JSON.parse(prepRun.stdout.join("")) as { data: { stack: Array<{ pr_number: number; manifest: unknown }> } };
+		const classifications = (planTemplate().classifications as Array<{ pr_number: number; classification: unknown }>).filter(
+			(_item, index) => classificationsToValidate === "all" || index === 0,
+		);
+		for (const item of classifications) {
+			const prepItem = prepEnvelope.data.stack.find((candidate) => candidate.pr_number === item.pr_number);
+			if (prepItem === undefined) throw new Error(`missing prep item for PR ${item.pr_number}`);
+			const validateRun = runScenario(
+				[
+					"exec",
+					"validate-feedback-classification",
+					"--manifest-json",
+					JSON.stringify(prepItem.manifest),
+					"--classification-json",
+					JSON.stringify(item.classification),
+					"--format",
+					"json",
+				],
+				{ env: payloadEnv("session", root, planFixture.session_id), payloadClock: fixedClock(planFixture.clock_iso) },
+			);
+			expect(await validateRun.exit).toBe(0);
+		}
+	}
+
+	test("resolves latest stack prep and per-PR classifications from the session", async () => {
+		const root = await makePayloadRoot();
+		await seedStackSession(root);
+
+		const run = runPlan([], root);
+
+		expect(await run.exit).toBe(0);
+		const envelope = JSON.parse(run.stdout.join("")) as {
+			data: {
+				valid: boolean;
+				resolved_inputs: {
+					prep: { descriptor: string; sequence: number };
+					classifications: Array<{ pr_number: number; reference: { descriptor: string; sequence: number } }>;
+				};
+				stack_plan_reference: { descriptor: string; sequence: number };
+			};
+		};
+		expect(envelope.data.valid).toBe(true);
+		expect(envelope.data.resolved_inputs.prep).toMatchObject({ descriptor: "pr-address-stack-prep", sequence: 7 });
+		expect(envelope.data.resolved_inputs.classifications).toEqual([
+			expect.objectContaining({ pr_number: 101, reference: expect.objectContaining({ descriptor: "pr-address-pr-101-classification", sequence: 8 }) }),
+			expect.objectContaining({ pr_number: 102, reference: expect.objectContaining({ descriptor: "pr-address-pr-102-classification", sequence: 9 }) }),
+		]);
+		expect(envelope.data.stack_plan_reference).toMatchObject({ descriptor: "pr-address-stack-plan", sequence: 10 });
+	});
+
+	test("implicit stack planning reports the missing per-PR classification descriptor", async () => {
+		const root = await makePayloadRoot();
+		await seedStackSession(root, "first-only");
+
+		const run = runPlan([], root);
+
+		expect(await run.exit).toBe(2);
+		const envelope = errorEnvelope(run);
+		expect(envelope.error_type).toBe("payload_lookup_failed");
+		expect(envelope.message).toContain("pr-address-pr-102-classification");
 	});
 });
 

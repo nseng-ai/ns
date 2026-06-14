@@ -4,6 +4,7 @@ import { type PrAddressExecContext } from "./exec-operation.ts";
 import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { prArtifactDescriptor, stackArtifactDescriptor } from "./session-artifacts.ts";
 import {
 	prepManifestViewSchema,
 	type StackFeedbackPrInput,
@@ -61,7 +62,7 @@ export async function prepareStackFeedbackStack(options: {
 		stack_summary_reference: null,
 		summary: prepSummary(prResults),
 	};
-	const stackSummaryReference = await options.store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-prep", role: "summary", payload: resultWithoutReference });
+	const stackSummaryReference = await options.store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("prep"), role: "summary", payload: resultWithoutReference });
 	if (stackSummaryReference.type === "error") return { type: "error", exit: failure(stackSummaryReference.errorType, stackSummaryReference.message) };
 	return { type: "ok", value: { result: { ...resultWithoutReference, stack_summary_reference: stackSummaryReference.value }, stackSummaryReference: stackSummaryReference.value } };
 }
@@ -103,7 +104,7 @@ async function writeStackPrArtifacts(options: {
 		discussionComments: snapshot.discussion_comments,
 	});
 	const rawReference = await options.store.writeJsonArtifact({
-		descriptor: `pr-address-stack-feedback-pr-${prNumber}`,
+		descriptor: prArtifactDescriptor({ prNumber, kind: "feedback" }),
 		role: "raw",
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
@@ -114,10 +115,10 @@ async function writeStackPrArtifacts(options: {
 	const templateResult = buildFeedbackClassificationTemplate(manifest);
 	if (templateResult.type === "error") throw new Error(templateResult.message);
 
-	const manifestReference = await options.store.writeJsonArtifact({ descriptor: `pr-address-stack-manifest-pr-${prNumber}`, role: "summary", payload: manifest });
+	const manifestReference = await options.store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: manifest });
 	if (manifestReference.type === "error") return { type: "error", exit: failure(manifestReference.errorType, manifestReference.message) };
 	const templateReference = await options.store.writeJsonArtifact({
-		descriptor: `pr-address-stack-classification-template-pr-${prNumber}`,
+		descriptor: prArtifactDescriptor({ prNumber, kind: "classification-template" }),
 		role: "summary",
 		payload: templateResult.value,
 	});
