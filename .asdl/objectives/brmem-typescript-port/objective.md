@@ -28,7 +28,7 @@ Compatibility is anchored on public skill behavior, CLI shape, JSON envelopes, e
 - No user-facing `brmem` workflow or command-surface redesign by default; breaking contract changes require explicit approval and compatibility rationale.
 - No blind module-for-module port of the Python `brmem` package or of Python `asdl-core` git helpers.
 - No change to the git-ref storage layout, branch encoding, Entry Locator shape, or Entry Key / Namespace rules while Python and TypeScript must interoperate; any change requires an explicit cross-language migration decision.
-- No rewiring of existing TypeScript consumers in this Objective. Migrating `@asdl/core/brmem-cli.ts` (the shell-out launcher) and `branch-context/brmem-gateway.ts` onto native brmem is deliberate follow-up, tracked separately; this Objective only delivers native brmem and proves it can back them.
+- No requirement to migrate TypeScript consumers from CLI shell-out onto the native brmem library in this Objective. Consumer features may use the public `brmem` CLI through shared launcher helpers, but direct native-library rewiring for `@asdl/core/brmem-cli.ts`, `branch-context/brmem-gateway.ts`, `ccc` dispatch prompt storage, or similar consumers remains deliberate follow-up; this Objective delivers native brmem and proves it can back those consumers later.
 - No extraction of a shared git ref/blob/tree gateway into `@asdl/core` until a second consumer proves the seam. Keep brmem-specific git plumbing package-local; coordinate only genuinely reusable gaps with `ts-cli-foundation`.
 - No direct browser-compatibility requirement; brmem depends on local git state.
 - No npm registry publish requirement for cutover.
@@ -90,7 +90,7 @@ Assumptions:
 - The current TypeScript workspace is the right home: pnpm workspaces, Node ESM, strict TypeScript, Vitest, and command shells built through `@asdl/clinkr`.
 - brmem's only external dependency is local git; preserving the ref layout and Entry Locator is sufficient for Python/TypeScript interoperability during transition.
 - The run-from-source shim accepted for `pr-address` is an adequate installed model for `brmem`; checkout-free bundling and npm publish are not required for cutover.
-- Sibling TypeScript consumers can continue shelling out to the `brmem` CLI through the existing `@asdl/core` launcher until their own follow-up migration; native brmem does not need to rewire them to be the default.
+- Sibling TypeScript consumers can continue shelling out to the `brmem` CLI through the shared `@asdl/core/brmem-cli` launcher until their own follow-up migration; native brmem does not need to rewire them to be the default. PR #1466 (`branch-memory-dispatch-prompt-delivery`) corroborates this boundary by storing `ccc` dispatch prompt payloads in Branch Memory through the CLI launcher rather than a direct native-library dependency.
 
 Risks:
 
@@ -100,7 +100,7 @@ Risks:
 - Some Python tests or fixtures may encode accidental implementation behavior rather than durable contract; each slice must distinguish the two before pinning a fixture.
 - Deleting `packages/brmem` too early could remove a useful rollback/reference and cross-language parity oracle before TypeScript contracts are mature; deletion is gated on parity, distribution, and skill-doc evidence.
 - Keeping the Python fallback too long undermines the single-language goal and leaves two implementations writing the same refs; the retirement phase should be short and explicit once parity is proven.
-- Scope creep into consumer migration (`@asdl/core` launcher, branch-context gateway) would blur this Objective's boundary; that work is deliberately deferred.
+- Scope creep into direct native-library consumer migration (`@asdl/core` launcher, branch-context gateway, `ccc` dispatch prompt storage, or similar callers) would blur this Objective's boundary; that work is deliberately deferred. CLI-shellout consumer integrations are acceptable evidence for public `brmem` usability, but they do not complete the native brmem cutover rows.
 - **Temporary CI dependency to remove at cutover:** the cross-language parity tests (`ts/packages/brmem/test/gateways/python-parity.test.ts`) shell out to the Python `brmem` CLI via `uv`, so the `typescript` job in `.github/workflows/ci.yml` now runs `./.github/actions/setup-python-uv` (Python + `uv` + `uv sync`). This couples the otherwise pure-TypeScript CI job to the Python toolchain. When the Python reference is retired (parity tests deleted alongside `packages/brmem`), **uninstall that dependency**: remove the `setup-python-uv` step from the `typescript` job so the TS pipeline stops depending on Python/`uv`.
 
 ## Open Questions
