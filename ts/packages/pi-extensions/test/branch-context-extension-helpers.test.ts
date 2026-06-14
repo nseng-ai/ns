@@ -137,6 +137,11 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("dispatch_runner_subagent.model");
 		expect(checkedInContent).toContain("default_model");
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
+		expect(checkedInContent).toContain("one-command validation baseline");
+		expect(checkedInContent).toContain("before risky implementation work");
+		expect(checkedInContent).toContain("does not require the planner to run every validation command");
+		expect(checkedInContent).toContain("trust-nothing closeout");
+		expect(checkedInContent).toContain("changed tests/assertions");
 	});
 });
 describe("buildWriteGrilledPlanPrompt", () => {

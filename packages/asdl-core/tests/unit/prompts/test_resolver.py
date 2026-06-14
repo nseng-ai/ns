@@ -313,4 +313,9 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert "content/excerpt drift anchor" in resolution.content
     assert "plan-specific STOP conditions" in resolution.content
     assert "cold-read executability gaps check" in resolution.content
+    assert "one-command validation baseline" in resolution.content
+    assert "before risky implementation work" in resolution.content
+    assert "does not require the planner to run every validation command" in resolution.content
+    assert "trust-nothing closeout" in resolution.content
+    assert "changed tests/assertions" in resolution.content
     assert "Claude/Anthropic `claude-haiku-4-5`" in resolution.content

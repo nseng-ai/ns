@@ -12,7 +12,8 @@
   - Evidence: PR #1477 landed the protocol in the current branch-context implementation prompt/skill path, including graceful pre-contract plan handling.
 - [x] Implement the bilateral slice — `plans-write` and `planned-branch-impl` together, umbrella `planned-branch` pointer line, upstack-impl-session coverage confirmed.
   - Evidence: PR #1477 landed prompt/skill/test coverage for the bilateral prototype, and PR #1479 documented the rollback boundary in the Objective update plus code-adjacent branch-context docs.
-- [ ] Implement the remaining accepted in-family candidate slice: candidate 6 trust-nothing closeout/review guidance and candidate 11 verification-baseline-first ordering, preserving the prototype rollback boundary until the trial is accepted.
+- [x] Implement the remaining accepted in-family candidate slice: candidate 6 trust-nothing closeout/review guidance and candidate 11 verification-baseline-first ordering, preserving the prototype rollback boundary until the trial is accepted.
+  - Evidence: local branch diff adds concise Saved plan authoring policy for trust-nothing closeout checks and verification-baseline-first sequencing in `.asdl/prompts/plans-write.md` and `skills/enriched-plan-save/SKILL.md`, with Python and TypeScript prompt-surface assertions plus focused/full validation passing.
 
 ## Parked
 
