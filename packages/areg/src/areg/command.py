@@ -88,6 +88,97 @@ def _require_local_skill(project_dir: Path, skill_name: str) -> Path:
     return skill_md
 
 
+def _is_path_like_skill_spec(skill_spec: str) -> bool:
+    candidate = Path(skill_spec)
+    has_separator = "/" in skill_spec or "\\" in skill_spec
+    return candidate.is_absolute() or has_separator or skill_spec.endswith("SKILL.md")
+
+
+def _path_like_skill_spec_path(project_dir: Path, skill_spec: str) -> Path:
+    candidate = Path(skill_spec)
+    if candidate.is_absolute():
+        if candidate.exists():
+            return candidate
+        raise click.ClickException(f"Skill path {skill_spec} does not exist.")
+
+    cwd_candidate = Path.cwd() / candidate
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    project_candidate = project_dir / candidate
+    if project_candidate.exists():
+        return project_candidate
+
+    raise click.ClickException(
+        f"Skill path {skill_spec} does not exist relative to the current directory "
+        f"or project {project_dir}."
+    )
+
+
+def _canonical_source_skill_name(project_dir: Path, skill_spec: str, spec_path: Path) -> str | None:
+    skills_root = project_dir / "skills"
+    if not spec_path.is_relative_to(skills_root):
+        return None
+
+    local_relative = spec_path.relative_to(skills_root)
+    if len(local_relative.parts) == 1:
+        skill_name = local_relative.parts[0]
+    elif len(local_relative.parts) == 2 and local_relative.parts[1] == "SKILL.md":
+        skill_name = local_relative.parts[0]
+    else:
+        raise click.ClickException(
+            f"Skill path {skill_spec} must be a local skill directory or SKILL.md file."
+        )
+
+    _require_local_skill(project_dir, skill_name)
+    return skill_name
+
+
+def _canonical_local_skill_name(project_dir: Path, skill_spec: str) -> str:
+    if not _is_path_like_skill_spec(skill_spec):
+        _require_local_skill(project_dir, skill_spec)
+        return skill_spec
+
+    spec_path = _path_like_skill_spec_path(project_dir, skill_spec)
+    source_skill_name = _canonical_source_skill_name(project_dir, skill_spec, spec_path)
+    if source_skill_name is not None:
+        return source_skill_name
+
+    resolved_path = spec_path.resolve()
+    if resolved_path.is_file() and resolved_path.name == "SKILL.md":
+        resolved_skill_dir = resolved_path.parent
+    elif resolved_path.is_dir():
+        resolved_skill_dir = resolved_path
+    else:
+        raise click.ClickException(
+            f"Skill path {skill_spec} must be a local skill directory or SKILL.md file."
+        )
+
+    skills_root = project_dir / "skills"
+    if not skills_root.exists():
+        raise click.ClickException(
+            f"Skill path {skill_spec} does not resolve to a local skill under skills/<name>; "
+            "refusing to edit it."
+        )
+    resolved_skills_root = skills_root.resolve()
+    if not resolved_skill_dir.is_relative_to(resolved_skills_root):
+        raise click.ClickException(
+            f"Skill path {skill_spec} does not resolve to a local skill under skills/<name>; "
+            "refusing to edit it."
+        )
+
+    local_relative = resolved_skill_dir.relative_to(resolved_skills_root)
+    if len(local_relative.parts) != 1:
+        raise click.ClickException(
+            f"Skill path {skill_spec} does not resolve to a local skill under skills/<name>; "
+            "refusing to edit it."
+        )
+
+    skill_name = local_relative.parts[0]
+    _require_local_skill(project_dir, skill_name)
+    return skill_name
+
+
 def _frontmatter_end_index(lines: list[str], *, path: Path) -> int:
     if not lines or lines[0].rstrip("\r\n") != "---":
         raise click.ClickException(f"{path} has malformed frontmatter: missing opening delimiter.")
@@ -253,12 +344,22 @@ def command_group() -> None:
     help="Project directory or subdirectory (default: current directory).",
 )
 @click.option("--dry-run", is_flag=True, help="Show planned edits without writing files.")
-@click.argument("skills", nargs=-1, required=True)
+@click.argument("skills", nargs=-1, required=True, metavar="SKILL...")
 @click.pass_obj
 def convert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ...]) -> None:
-    """Convert local skills to invoke-only commands."""
+    """Convert local skills to invoke-only commands.
+
+    SKILL may be a local skill name or a path to a local skill directory/SKILL.md.
+
+    Examples:
+      areg command convert pr-address
+      areg command convert skills/pr-address
+      areg command convert skills/pr-address/SKILL.md
+      areg command convert .agents/skills/pr-address
+    """
     project_dir = _resolve_git_root(ctx, path)
-    for skill_name in skills:
+    for skill_spec in skills:
+        skill_name = _canonical_local_skill_name(project_dir, skill_spec)
         click.echo(f"Converting {skill_name}...")
         _apply_command_plan(
             _build_convert_plan(project_dir, skill_name), project_dir=project_dir, dry_run=dry_run
@@ -273,12 +374,16 @@ def convert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, .
     help="Project directory or subdirectory (default: current directory).",
 )
 @click.option("--dry-run", is_flag=True, help="Show planned edits without writing files.")
-@click.argument("skills", nargs=-1, required=True)
+@click.argument("skills", nargs=-1, required=True, metavar="SKILL...")
 @click.pass_obj
 def revert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ...]) -> None:
-    """Revert local skills from invoke-only commands to normal skills."""
+    """Revert local skills from invoke-only commands to normal skills.
+
+    SKILL may be a local skill name or a path to a local skill directory/SKILL.md.
+    """
     project_dir = _resolve_git_root(ctx, path)
-    for skill_name in skills:
+    for skill_spec in skills:
+        skill_name = _canonical_local_skill_name(project_dir, skill_spec)
         click.echo(f"Reverting {skill_name}...")
         _apply_command_plan(
             _build_revert_plan(project_dir, skill_name), project_dir=project_dir, dry_run=dry_run
