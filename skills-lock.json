@@ -21,6 +21,11 @@
       "sourceType": "local",
       "computedHash": "fcd066d02e100d651bec9b4e9c7076b9e76e638b5cd6b2cd9beeb00c4c7bc3a3"
     },
+    "ccc-available-work": {
+      "source": "skills/ccc-available-work",
+      "sourceType": "local",
+      "computedHash": "06cf2b56426fff66e7f80ceccfdbb1ac5bd4d826946897cb3d45541c52a537b1"
+    },
     "ccc-sidebar": {
       "source": "skills/ccc-sidebar",
       "sourceType": "local",
