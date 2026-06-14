@@ -4,8 +4,8 @@ import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResu
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
-import { loadJsonInput, loadOperationPayload } from "./json-input.ts";
-import { PayloadStore } from "./payload-store.ts";
+import { loadOperationPayload, parseJsonWithSchema, type JsonInputError } from "./json-input.ts";
+import type { PayloadArtifactStore } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
@@ -32,6 +32,12 @@ const stackFeedbackPlanParseSchema = z.object({
 	stdout_mode: z.enum(["full", "compact"]).default("full"),
 });
 
+type StackFeedbackPlanInputResult = {
+	payload: StackFeedbackPlanInput;
+	resolvedInputs: StackFeedbackPlanResolvedInputs | undefined;
+};
+type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: JsonInputError["errorType"]; message: string };
+
 export const stackFeedbackPlanOperation = defineExecOperation({
 	spec: {
 		name: "stack-feedback-plan",
@@ -43,7 +49,7 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 
 async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the plan payload; preserve that ordering.
-	const storeResult = await PayloadStore.fromEnvironment({
+	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitHarnessSessionId: request.harness_session_id ?? null,
 		env: ctx.env,
 		clock: ctx.context.payloadClock,
@@ -102,18 +108,22 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 async function loadStackFeedbackPlanInput(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackPlanParseSchema>,
-	store: PayloadStore,
-): Promise<
-	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: StackFeedbackPlanResolvedInputs | undefined } }
-	| { type: "error"; errorType: string; message: string }
-> {
+	store: PayloadArtifactStore,
+): Promise<OperationResult<StackFeedbackPlanInputResult>> {
 	const hasExplicitSource = request.payload_json !== undefined || request.payload_file !== undefined || request.prep_reference !== undefined;
-	if (!hasExplicitSource) {
-		const stdinText = await ctx.stdin();
-		if (stdinText.trim() === "") return await loadStackFeedbackPlanInputFromSession(store);
-		return loadStackFeedbackPlanInputFromStdin(stdinText);
-	}
+	if (hasExplicitSource) return await loadStackFeedbackPlanInputFromExplicitSources(ctx, request, store);
 
+	const stdinText = await ctx.stdin();
+	// Compatibility path: empty stdin with no explicit source resolves the latest artifacts from the payload session.
+	if (stdinText.trim() === "") return await loadStackFeedbackPlanInputFromSession(store);
+	return loadStackFeedbackPlanInputFromInlineText(stdinText);
+}
+
+async function loadStackFeedbackPlanInputFromExplicitSources(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackPlanParseSchema>,
+	store: PayloadArtifactStore,
+): Promise<OperationResult<StackFeedbackPlanInputResult>> {
 	const payloadResult = await loadOperationPayload({
 		commandName: "stack-feedback-plan",
 		inputDescription: "stack feedback plan JSON payload",
@@ -121,33 +131,29 @@ async function loadStackFeedbackPlanInput(
 		request,
 		stdin: ctx.stdin,
 		fields: stackFeedbackPlanPayloadFields,
+		store,
 	});
 	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-	const payloadValue = payloadResult.value;
-	if (payloadValue.prep === undefined) {
-		throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
-	}
-	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
+	return stackFeedbackPlanInputFromPayload(payloadResult.value, { missingPrep: "throw" });
 }
 
-async function loadStackFeedbackPlanInputFromStdin(
-	stdinText: string,
-): Promise<
-	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: undefined } }
-	| { type: "error"; errorType: string; message: string }
-> {
-	const payloadResult = await loadJsonInput({
-		optionValue: stdinText,
-		commandName: "stack-feedback-plan",
-		inputDescription: "stack feedback plan JSON payload",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
+function loadStackFeedbackPlanInputFromInlineText(stdinText: string): OperationResult<StackFeedbackPlanInputResult> {
+	const payloadResult = parseJsonWithSchema({
+		text: stdinText,
 		schema: stackFeedbackPlanPayloadSchema,
-		stdin: async () => "",
+		jsonDescription: "stack-feedback-plan stack feedback plan JSON payload",
+		schemaDescription: "stack-feedback-plan stack feedback plan JSON payload",
 	});
 	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-	const payloadValue = payloadResult.value;
+	return stackFeedbackPlanInputFromPayload(payloadResult.value, { missingPrep: "error" });
+}
+
+function stackFeedbackPlanInputFromPayload(
+	payloadValue: z.infer<typeof stackFeedbackPlanPayloadSchema>,
+	options: { missingPrep: "error" | "throw" },
+): OperationResult<StackFeedbackPlanInputResult> {
 	if (payloadValue.prep === undefined) {
+		if (options.missingPrep === "throw") throw new Error("stack-feedback-plan payload.prep missing despite field resolution");
 		return {
 			type: "error",
 			errorType: "invalid_request",
@@ -157,12 +163,7 @@ async function loadStackFeedbackPlanInputFromStdin(
 	return { type: "ok", value: { payload: { ...payloadValue, prep: payloadValue.prep }, resolvedInputs: undefined } };
 }
 
-async function loadStackFeedbackPlanInputFromSession(
-	store: PayloadStore,
-): Promise<
-	| { type: "ok"; value: { payload: StackFeedbackPlanInput; resolvedInputs: StackFeedbackPlanResolvedInputs } }
-	| { type: "error"; errorType: string; message: string }
-> {
+async function loadStackFeedbackPlanInputFromSession(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanInputResult>> {
 	const prep = await resolveLatestJsonSessionArtifact({
 		store,
 		descriptor: stackArtifactDescriptor("prep"),

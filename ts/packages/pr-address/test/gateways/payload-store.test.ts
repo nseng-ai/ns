@@ -7,12 +7,15 @@ import { useTempDirs } from "../support/temp.ts";
 
 import {
 	defaultPayloadRoot,
+	hasConfiguredPayloadSession,
+	InMemoryPayloadStoreFactory,
 	PayloadStore,
 	readJsonPayloadArtifact,
 	readJsonPayloadArtifactValue,
 	resolveHarnessSessionId,
 	resolveJsonPointer,
 	resolvePayloadRoot,
+	type PayloadArtifactStore,
 	type PayloadClock,
 	type PayloadResult,
 } from "../../src/payload-store.ts";
@@ -103,6 +106,14 @@ async function fileMode(path: string): Promise<number> {
 	return (await stat(path)).mode & 0o777;
 }
 
+async function writeLatestLookupFixture(store: PayloadArtifactStore): Promise<void> {
+	expectOk(await store.writeJsonArtifact({ descriptor: "target", role: "summary", payload: { value: 1 } }));
+	expectOk(await store.writeJsonArtifact({ descriptor: "target", role: "raw", payload: { value: "wrong-role" } }));
+	expectOk(await store.writeTextArtifact({ descriptor: "target", role: "log", text: "wrong-extension\n" }));
+	expectOk(await store.writeJsonArtifact({ descriptor: "other", role: "summary", payload: { value: "wrong-descriptor" } }));
+	expectOk(await store.writeJsonArtifact({ descriptor: "target", role: "summary", payload: { value: 2 } }));
+}
+
 describe("payload store write parity with Python asdl_core.payloads", () => {
 	test("replaying fixture writes produces a byte-identical session tree and references", async () => {
 		const tempDir = await makeTempDir();
@@ -150,6 +161,88 @@ describe("payload store write parity with Python asdl_core.payloads", () => {
 		expect(containing.root).toBe(store.root);
 		expect(containing.sessionId).toBe("sess-1");
 		expect(containing.payloadDir).toBe(store.payloadDir);
+	});
+});
+
+describe("payload store latest JSON artifact lookup", () => {
+	test("node-backed lookup chooses the highest matching sequence and returns a canonical reference", async () => {
+		const tempDir = await makeTempDir();
+		const root = join(tempDir, "payload-root");
+		const store = expectOk(
+			await PayloadStore.open({
+				root,
+				sessionId: "sess-latest",
+				clock: sequenceClock([
+					"2026-06-03T12:00:00Z",
+					"2026-06-03T12:00:01Z",
+					"2026-06-03T12:00:02Z",
+					"2026-06-03T12:00:03Z",
+					"2026-06-03T12:00:04Z",
+				]),
+			}),
+		);
+
+		await writeLatestLookupFixture(store);
+		const resolved = expectOk(await store.findLatestJsonArtifact({ descriptor: "target", role: "summary" }));
+
+		expect(resolved.value).toEqual({ value: 2 });
+		expect(resolved.reference).toEqual({
+			payload_path: join(store.payloadDir, "20260603t120004z-0005-target.summary.json"),
+			session_id: "sess-latest",
+			descriptor: "target",
+			role: "summary",
+			created_at_utc: "2026-06-03T12:00:04Z",
+			sequence: 5,
+			payload_bytes: Buffer.byteLength(JSON.stringify({ value: 2 }, null, 2) + "\n", "utf8"),
+			content_type: "application/json",
+			extension: "json",
+		});
+	});
+
+	test("in-memory lookup matches node-backed latest lookup semantics", async () => {
+		const root = "/tmp/pr-address-payload-root";
+		const factory = new InMemoryPayloadStoreFactory();
+		const store = expectOk(
+			await factory.open({
+				root,
+				sessionId: "sess-latest",
+				clock: sequenceClock([
+					"2026-06-03T12:00:00Z",
+					"2026-06-03T12:00:01Z",
+					"2026-06-03T12:00:02Z",
+					"2026-06-03T12:00:03Z",
+					"2026-06-03T12:00:04Z",
+				]),
+			}),
+		);
+
+		await writeLatestLookupFixture(store);
+		const resolved = expectOk(await store.findLatestJsonArtifact({ descriptor: "target", role: "summary" }));
+
+		expect(resolved.value).toEqual({ value: 2 });
+		expect(resolved.reference).toMatchObject({
+			payload_path: join(root, "sessions", "sess-latest", "payloads", "20260603t120004z-0005-target.summary.json"),
+			session_id: "sess-latest",
+			descriptor: "target",
+			role: "summary",
+			created_at_utc: "2026-06-03T12:00:04Z",
+			sequence: 5,
+			content_type: "application/json",
+			extension: "json",
+		});
+		expect(resolved.reference.payload_bytes).toBe(Buffer.byteLength(JSON.stringify({ value: 2 }, null, 2) + "\n", "utf8"));
+	});
+
+	test("missing latest JSON lookup reports descriptor role and session", async () => {
+		const tempDir = await makeTempDir();
+		const store = expectOk(await PayloadStore.open({ root: join(tempDir, "payload-root"), sessionId: "sess-latest" }));
+
+		const error = expectError(await store.findLatestJsonArtifact({ descriptor: "missing", role: "summary" }));
+
+		expect(error.errorType).toBe("payload_lookup_failed");
+		expect(error.message).toContain("missing");
+		expect(error.message).toContain("role summary");
+		expect(error.message).toContain("session sess-latest");
 	});
 });
 
@@ -264,6 +357,13 @@ describe("payload store environment and safety behavior", () => {
 		const result = resolveHarnessSessionId("Bad Session", { env: {} });
 
 		expect(expectError(result)).toEqual({ errorType: "harness_session_invalid", message: "Harness session id must be a safe segment: 'Bad Session'" });
+	});
+
+	test("hasConfiguredPayloadSession reports non-empty explicit or environment session ids", () => {
+		expect(hasConfiguredPayloadSession("explicit-session", { env: {} })).toBe(true);
+		expect(hasConfiguredPayloadSession("", { env: { HARNESS_SESSION_ID: "env-session" } })).toBe(true);
+		expect(hasConfiguredPayloadSession(null, { env: { HARNESS_SESSION_ID: "" } })).toBe(false);
+		expect(hasConfiguredPayloadSession(undefined, { env: {} })).toBe(false);
 	});
 
 	test("defaultPayloadRoot nests an asdl directory under the temp directory", async () => {
