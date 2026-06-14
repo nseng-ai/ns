@@ -29,7 +29,7 @@ Work in two layers:
 
 1. **Collect and audit candidates.** Build separate branch candidates and Objective candidates from cmux, local Git branches, current-stack Graphite facts, Objective records, and selected PR/diff evidence.
 2. **Filter and present availability.** Use cmux occupancy and cited branch↔Objective links to decide what is already open, then use LLM judgment to rank the remaining work.
-3. **Render stack-first.** When Graphite facts exist, organize branch candidates by stack shape first. Availability sections are annotations on the stack, not the primary structure. Put off-stack local branches and Objective-only candidates after the stack view.
+3. **Render stack-first.** When Graphite facts exist, organize branch candidates by stack shape first. Render the left side as a `gt ls`-style tree derived from structured Graphite edges, then align minimal row facts to the right. Put off-stack local branches and Objective-only candidates after the stack view.
 
 Branches and Objectives are separate candidate types. Link them only when you have evidence, and record the source and confidence for each link.
 
@@ -95,7 +95,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 9. For top candidates or ambiguous branches, optionally inspect targeted PR/diff evidence:
 
    ```bash
-   gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt
+   gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt,mergeStateStatus
    git log --oneline <trunk>..<branch>
    git diff --stat <trunk>...<branch>
    ```
@@ -125,62 +125,66 @@ Branch-context and Branch Memory attachment inspection is future work, not requi
 
 ## Availability rules
 
-A branch is **already open** when any open cmux workspace has an existing `current_directory` whose Git HEAD is that branch. Workspace title and description labels are useful hints but are not authoritative occupancy evidence.
+A branch is `OPENED` when any open cmux workspace has an existing `current_directory` whose Git HEAD is that branch. Workspace title and description labels are useful hints but are not authoritative occupancy evidence.
 
-An Objective is **already open** when an already-open branch is authoritatively linked to it. Authoritative links include deterministic `updated_branches` matches and evidence-cited LLM-inferred links with enough confidence to affect availability.
+An Objective is already open when an `OPENED` branch is authoritatively linked to it. Authoritative links include deterministic `updated_branches` matches and evidence-cited LLM-inferred links with enough confidence to affect availability.
 
 If occupancy evidence is incomplete, keep the candidate visible and mark it uncertain rather than suppressing it.
 
-## Relevance rules
+## Row states
 
-Use LLM judgment over branch names, Objective prose, PR state, commit logs, and diffs to label relevance. Relevance ranks candidates; it does not hide branch candidates.
+Use this exclusive state set. Prefer a computable state over a judgment-heavy one.
 
-Suggested branch relevance labels:
+- `TRUNK` — the trunk/base branch row.
+- `OPENED` — this exact branch is checked out in an open cmux workspace. Occupancy is authoritative only from workspace `current_directory` Git HEAD, not workspace title/description.
+- `READY` — the branch is available for local continuation now. This includes branches with known feedback or failing checks when the next action is local work.
+- `NEEDS_RESTACK` — branch/PR evidence says the first local action is restack/update/conflict handling, such as PR `mergeStateStatus` `DIRTY` or explicit merge-conflict/rebase evidence.
+- `STALE` — merged, superseded, empty/no-diff, or probably old.
+- `UNKNOWN` — not enough evidence to classify.
 
-- `live` — likely continuable now;
-- `blocked_or_needs_restack` — meaningful work exists but continuation likely needs prerequisite cleanup;
-- `probably_stale` — old or low-confidence work that may still be useful;
-- `superseded` — evidence suggests another branch/Objective replaced it;
-- `unknown` — not enough evidence.
+Do not use `BLOCKED`, `WAITING`, `NEEDS_FIX`, or broad “not recommended” states. Put review/check details, if needed, in PR state or omit them; do not add a `WHY` column.
 
-Put stale, superseded, blocked, or low-confidence branches in `Available but stale/uncertain` rather than omitting them. Already-open branches go in `Already open elsewhere` even if they are relevant.
+Relevance ranks candidates; it does not hide branch candidates. Stale, restack-needed, unknown, and already-open branches stay visible in stack order with one of the states above.
 
 ## Output template
 
-Default to a Graphite-stack-oriented report. Lead with a compact recommendation line, then show a stack-shaped table for every Graphite stack where you have structured evidence. Keep the user's eye on branch order and dependency shape; do not force them to reconstruct the stack from four separate lists.
+Default to a Graphite-stack-oriented report. Lead with only the recommended branch name, then show a stack-shaped aligned plain-text block for every Graphite stack where you have structured evidence. Do not use Markdown pipe tables. Do not include a `WHY`, confidence, or evidence column in the main report.
 
-Use section labels as row annotations:
-
-- `READY` — best continuation target now;
-- `OPEN` — already open in cmux;
-- `BLOCKED` — meaningful but likely needs restack/review/other prerequisite;
-- `STALE` — merged, superseded, or probably old;
-- `UNKNOWN` — insufficient evidence.
+The stack block has separate `TREE` and `BRANCH` columns so branch names start at one fixed column. The `TREE` column carries only topology glyphs and indentation. Use a `gt ls`-style shape derived from structured `stack-branches` edges; never parse human-facing `gt ls` output. A simple linear stack can use `◯`, `│ ◯`, `│ │ ◯`, etc.; use `◉` for rows whose state is `OPENED`.
 
 ```text
-Recommended now: <branch> (<why this row is the next useful continuation>)
+Recommended now
+  <branch>
 
 Graphite stacks
-TOPO      | BRANCH        | STATE   | CMUX        | PR        | OBJECTIVE              | WHY
-----------+---------------+---------+-------------+-----------+------------------------+-----------------------------
-◯         | parent        | BLOCKED |             | #123 open | objective-slug         | needs downstack review
-│ ◉       | child         | OPEN    | ◎ ws57 clean| #124 open | objective-slug         | current session
-│ │ ●     | next-child    | READY   |             | #125 open | objective-slug         | available, latest actionable PR
-◯─┴─┴─┘   | master        | TRUNK   | ws60 clean  |           |                        |
 
-Off-stack available branches
-- <branch> — <READY|BLOCKED|STALE|UNKNOWN>; confidence <...>; evidence: <terse cited evidence>
+  TREE          BRANCH                                                   STATE          CMUX        PR       OBJECTIVE
+  ◯             parent                                                   READY                     #123     objective-slug
+  │ ◉           child                                                    OPENED         ws57 clean  #124     objective-slug
+  │ │ ◯         next-child                                               READY                     #125     objective-slug
+  ◯             master                                                   TRUNK          ws60
+
+Off-stack branches
+
+  STATE          BRANCH                                                   CMUX        PR       OBJECTIVE
+  READY          available-branch                                         ws88 clean  #130     objective-slug
+  NEEDS_RESTACK  merge-dirty-branch                                                   #131
+  STALE          merged-or-empty-branch                                               #120
+  UNKNOWN        insufficient-evidence-branch
 
 Objective-only candidates
-- <objective slug> — no available linked branch found; confidence <...>; evidence: <objective status/prose/updated_branches evidence>
+
+  OBJECTIVE                         STATUS
+  objective-with-no-linked-branch   open
 
 Already-open workspaces not represented above
-- <branch or DETACHED@sha> — <workspace refs/cwds>; <active/caller/dirty notes>
+
+  OPENED  DETACHED@abc1234  ws19 clean
 ```
 
-For stack rows, include branch name, state, cmux occupancy, PR state, linked Objective, confidence/evidence in `WHY`, and enough topology glyphs to make parent/child order obvious. If a complete stack shape is unavailable, still group known current/open-worktree stack branches together and clearly label the stack as partial. If Graphite evidence is entirely unavailable, fall back to the same sections without topology and say why.
+Column alignment matters more than separators. Keep row text compact: branch name, state, cmux occupancy, PR number/state when known, and linked Objective slug when evidence supports it. If a complete stack shape is unavailable, still group known current/open-worktree stack branches together and clearly label the stack as partial. If Graphite evidence is entirely unavailable, fall back to the same aligned sections without topology and state that Graphite evidence was unavailable.
 
-Do not hide candidates only because they are stale or already open. Stale and open rows stay visible in stack order; row state tells the user why they are not recommended.
+Do not hide candidates only because they are stale or already open. Stale and opened rows stay visible in stack order.
 
 ## Read-only command recipe
 
@@ -222,7 +226,7 @@ For selected Objectives or shortlist branches only:
 
 ```bash
 objective exec read-objective <slug> --format md
-gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt
+gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt,mergeStateStatus
 git log --oneline <trunk>..<branch>
 git diff --stat <trunk>...<branch>
 ```
