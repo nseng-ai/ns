@@ -1,11 +1,59 @@
 import { describe, expect, test } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { expandSkillBlock, type SkillCommandInfo } from "../src/skill-expansion.ts";
+import { expandSkillBlock, invokeSkillPromptTurn, type SkillCommandInfo } from "../src/skill-expansion.ts";
 
 function host(commands: readonly SkillCommandInfo[]): { getCommands(): readonly SkillCommandInfo[] } {
 	return {
 		getCommands(): readonly SkillCommandInfo[] {
 			return commands;
+		},
+	};
+}
+
+function promptTurnHost(commands: readonly SkillCommandInfo[]): {
+	sentUserMessages: string[];
+	getCommands(): readonly SkillCommandInfo[];
+	sendUserMessage(content: string): void;
+} {
+	const sentUserMessages: string[] = [];
+	return {
+		sentUserMessages,
+		getCommands(): readonly SkillCommandInfo[] {
+			return commands;
+		},
+		sendUserMessage(content: string): void {
+			sentUserMessages.push(content);
+		},
+	};
+}
+
+function promptTurnContext(): {
+	notifications: Array<{ message: string; level: "info" | "warning" | undefined }>;
+	waits: () => number;
+	ctx: {
+		hasUI: boolean;
+		ui: { notify(message: string, level?: "info" | "warning"): void };
+		waitForIdle(): Promise<void>;
+	};
+} {
+	const notifications: Array<{ message: string; level: "info" | "warning" | undefined }> = [];
+	let waitCount = 0;
+	return {
+		notifications,
+		waits: () => waitCount,
+		ctx: {
+			hasUI: true,
+			ui: {
+				notify(message: string, level?: "info" | "warning"): void {
+					notifications.push({ message, level });
+				},
+			},
+			async waitForIdle(): Promise<void> {
+				waitCount += 1;
+			},
 		},
 	};
 }
@@ -146,5 +194,54 @@ Do next work.
 
 		expect(expanded?.body).toBe("# Objective Current");
 		expect(expanded?.body).not.toContain("name: objective-current");
+	});
+});
+
+describe("invokeSkillPromptTurn", () => {
+	test("waits, expands the skill, notifies, and sends the built prompt", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "skill-prompt-turn-"));
+		const skillPath = join(dir, "SKILL.md");
+		await writeFile(skillPath, "---\nname: objective-create\n---\n\n# Objective Create\n", "utf8");
+		try {
+			const testHost = promptTurnHost([skillCommand("objective-create", skillPath, dir)]);
+			const context = promptTurnContext();
+
+			await invokeSkillPromptTurn({
+				host: testHost,
+				ctx: context.ctx,
+				skillName: "objective-create",
+				successMessage: (skill) => `Starting ${skill.name}`,
+				fallbackMessage: "missing skill",
+				buildPrompt: (skillBlock) => `prompt:\n${skillBlock ?? "fallback"}`,
+			});
+
+			expect(context.waits()).toBe(1);
+			expect(context.notifications).toEqual([{ message: "Starting objective-create", level: "info" }]);
+			expect(testHost.sentUserMessages).toHaveLength(1);
+			expect(testHost.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
+			expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("uses the fallback prompt and warning when the skill is unavailable", async () => {
+		const testHost = promptTurnHost([]);
+		const context = promptTurnContext();
+
+		await invokeSkillPromptTurn({
+			host: testHost,
+			ctx: context.ctx,
+			skillName: "objective-create",
+			successMessage: "unused",
+			fallbackMessage: "objective-create skill was not found; using fallback prompt.",
+			buildPrompt: (skillBlock) => skillBlock ?? "fallback prompt",
+		});
+
+		expect(context.waits()).toBe(1);
+		expect(context.notifications).toEqual([
+			{ message: "objective-create skill was not found; using fallback prompt.", level: "warning" },
+		]);
+		expect(testHost.sentUserMessages).toEqual(["fallback prompt"]);
 	});
 });

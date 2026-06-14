@@ -169,7 +169,7 @@ describe("cmux Objective sidebar", () => {
 		pi.assertDone();
 		expect(ctx.selections).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" });
+		expect(ctx.notifications.at(-1)).toEqual({ message: "No active Objectives. Create one with /objective:create.", level: "info" });
 	});
 
 	test("ccc:sidebar:objective-summary missing workspace skips deterministic work", async () => {

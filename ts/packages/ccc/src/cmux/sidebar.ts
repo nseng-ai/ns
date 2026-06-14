@@ -176,7 +176,7 @@ async function resolveObjectiveSidebarSlug(pi: ExtensionAPI, args: string, ctx: 
 		}
 
 		if (choicesResult.records.length === 0) {
-			notify(ctx, "No active Objectives. Create one with /skill:objective-create.", "info");
+			notify(ctx, "No active Objectives. Create one with /objective:create.", "info");
 			return undefined;
 		}
 

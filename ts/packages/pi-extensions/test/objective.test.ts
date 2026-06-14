@@ -207,6 +207,16 @@ hidden-frontmatter-token: do-not-include
 Use the selected Objective.
 `;
 
+const CREATE_SKILL_MARKDOWN = `---
+name: objective-create
+hidden-frontmatter-token: do-not-include
+---
+
+# Test Objective Create Skill
+
+Create one Objective.
+`;
+
 function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
 	return {
 		name: `skill:${skillName}`,
@@ -297,6 +307,28 @@ async function runObjectiveCommand(
 	}
 
 	const context = createContext(contextOptions);
+	await command.handler(args, context.ctx);
+	return { pi, ...context };
+}
+
+async function runObjectiveCreate(
+	args: string,
+	commandInfos: CommandInfo[] = [],
+): Promise<{
+	pi: FakePi;
+	notifications: Notification[];
+	selections: Selection[];
+	waitForIdleCalls: () => number;
+}> {
+	const pi = new FakePi([], commandInfos);
+	objectiveExtension(pi);
+	const command = pi.commands.get("objective:create");
+	expect(command).toBeDefined();
+	if (!command) {
+		throw new Error("objective:create was not registered");
+	}
+
+	const context = createContext();
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -503,6 +535,61 @@ test("does not register removed Objective Graphite stack wrapper", () => {
 	expect(pi.commands.has(removedCommand)).toBe(false);
 });
 
+describe("objective:create command", () => {
+	test("registers a typeahead-friendly wrapper for objective-create", () => {
+		const pi = new FakePi();
+
+		objectiveExtension(pi);
+
+		const command = pi.commands.get("objective:create");
+		expect(command).toBeDefined();
+		expect(command?.argumentHint).toBe("[objective-slug-title-or-context]");
+		expect(command?.description).toContain("objective-create");
+	});
+
+	test("expands objective-create skill and preserves initial user request", async () => {
+		await withTempSkill("objective-create", CREATE_SKILL_MARKDOWN, async (skillPath, skillDir) => {
+			const result = await runObjectiveCreate("  create slug alpha for typeahead-friendly Objective creation  ", [
+				skillCommandInfo("objective-create", skillPath, skillDir),
+			]);
+
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.selections).toEqual([]);
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
+			expect(result.pi.sentUserMessages[0]).toContain(`References are relative to ${skillDir}.`);
+			expect(result.pi.sentUserMessages[0]).toContain("# Test Objective Create Skill\n\nCreate one Objective.");
+			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
+			expect(result.pi.sentUserMessages[0]).toContain("Run objective-create with this initial user request:");
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"```text\ncreate slug alpha for typeahead-friendly Objective creation\n```",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain("slug-confirmation workflow before writing files");
+			expect(result.notifications).toContainEqual({
+				message: "Invoking objective-create with initial context.",
+				level: "info",
+			});
+		});
+	});
+
+	test("empty args still invokes the objective-create interview", async () => {
+		const result = await runObjectiveCreate("");
+
+		result.pi.assertDone();
+		expect(result.pi.execCalls).toEqual([]);
+		expect(result.waitForIdleCalls()).toBe(1);
+		expect(result.pi.sentUserMessages[0]).toContain("The objective-create skill was not found among loaded Pi skills.");
+		expect(result.pi.sentUserMessages[0]).toContain(
+			"No initial Objective creation request was provided. Start the objective-create interview",
+		);
+		expect(result.notifications).toContainEqual({
+			message: "objective-create skill was not found; using fallback prompt.",
+			level: "warning",
+		});
+	});
+});
 
 describe("objective:stack-impl command", () => {
 	test("registers the skill-backed wrapper command", () => {
@@ -645,7 +732,7 @@ describe("objective:stack-impl command", () => {
 
 		result.pi.assertDone();
 		expect(result.notifications).toEqual([
-			{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
+			{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
 		]);
 		expect(result.selections).toEqual([]);
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -1092,7 +1179,7 @@ describe("objective command shared selection policy", () => {
 				expect(result.pi.execCalls).toHaveLength(1);
 				expectListActiveObjectivesCall(result);
 				expect(result.notifications).toEqual([
-					{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
+					{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
 				]);
 				expect(result.selections).toEqual([]);
 				expect(result.pi.sentUserMessages).toEqual([]);

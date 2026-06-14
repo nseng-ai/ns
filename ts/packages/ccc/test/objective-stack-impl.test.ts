@@ -234,7 +234,7 @@ describe("objective stack impl CCC orchestration", () => {
 
 		result.host.assertDone();
 		expect(result.notifications).toEqual([
-			{ message: "No active Objectives. Create one with /skill:objective-create.", level: "info" },
+			{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
 		]);
 		expect(result.selections).toEqual([]);
 		expect(result.host.sentUserMessages).toEqual([]);
