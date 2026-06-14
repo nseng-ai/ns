@@ -1,38 +1,38 @@
 import { runCheckpointIfPending } from "@asdl/sdl/checkpoint";
+import type { SdlContext } from "@asdl/sdl/sdk";
 
 import type { AsdlDevContext } from "./context.ts";
-import { runSubmitCommand, type SubmitOutputListener, type SubmitRestackConfirmationPrompt } from "./submit.ts";
+import { writeCommandResultOutput } from "./output.ts";
+import { runSubmitCommand, type SubmitRestackConfirmationPrompt } from "./submit.ts";
 
-export type SubmitCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+export interface SubmitCliRunDeps extends Pick<SdlContext, "cwd" | "env" | "onOutput" | "confirm"> {
+	stdout: NonNullable<SdlContext["stdout"]>;
+	stderr: NonNullable<SdlContext["stderr"]>;
+}
 
 export interface RunSubmitCliCommandOptions {
 	context: AsdlDevContext;
-	cwd: string;
-	env: Record<string, string | undefined>;
+	runDeps: SubmitCliRunDeps;
 	restack: boolean;
-	stdout: (text: string) => void;
-	stderr: (text: string) => void;
-	onOutput?: SubmitOutputListener | undefined;
-	confirm?: SubmitCliConfirmPrompt | undefined;
 }
 
 export async function runSubmitCliCommand(options: RunSubmitCliCommandOptions): Promise<number> {
 	const checkpoint = await runCheckpointIfPending({
-		cwd: options.cwd,
-		env: options.env,
+		cwd: options.runDeps.cwd,
+		env: options.runDeps.env,
 		gateway: options.context.checkpoint,
 		textGeneration: options.context.textGeneration,
 	});
 	if (checkpoint.kind === "failed") {
-		options.stderr(formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr));
+		options.runDeps.stderr(formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr));
 		return checkpoint.output.exitCode;
 	}
 	if (checkpoint.kind === "checkpointed") {
-		writeCommandResultOutput(checkpoint.output, options);
+		writeCommandResultOutput(checkpoint.output, options.runDeps);
 	}
 
 	const result = await runSubmitCommand({
-		cwd: options.cwd,
+		cwd: options.runDeps.cwd,
 		gateway: options.context.submit,
 		metadataGateway: options.context.submitMetadata,
 		restack: options.restack,
@@ -40,26 +40,17 @@ export async function runSubmitCliCommand(options: RunSubmitCliCommandOptions): 
 			githubPr: options.context.githubPr,
 			textGeneration: options.context.textGeneration,
 			git: options.context.git,
-			env: options.env,
+			env: options.runDeps.env,
 		},
-		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
-		...(options.confirm === undefined
+		...(options.runDeps.onOutput === undefined ? {} : { onOutput: options.runDeps.onOutput }),
+		...(options.runDeps.confirm === undefined
 			? {}
 			: {
-					confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => options.confirm?.(prompt.title, prompt.message) ?? false,
+					confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => options.runDeps.confirm?.(prompt.title, prompt.message) ?? false,
 				}),
 	});
-	writeCommandResultOutput(result, options);
+	writeCommandResultOutput(result, options.runDeps);
 	return result.exitCode;
-}
-
-function writeCommandResultOutput(result: { stdout: string; stderr: string }, deps: Pick<RunSubmitCliCommandOptions, "stdout" | "stderr">): void {
-	if (result.stdout !== "") {
-		deps.stdout(result.stdout);
-	}
-	if (result.stderr !== "") {
-		deps.stderr(result.stderr);
-	}
 }
 
 function formatCheckpointBeforeSubmitFailure(stderr: string): string {

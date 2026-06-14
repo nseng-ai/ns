@@ -1,5 +1,24 @@
 import type { PreviewUrlFailurePayload, PreviewUrlPayload } from "./preview-url.ts";
 
+export interface CommandResultOutput {
+	stdout: string;
+	stderr: string;
+}
+
+export interface CommandResultOutputDeps {
+	stdout(text: string): void;
+	stderr(text: string): void;
+}
+
+export function writeCommandResultOutput(result: CommandResultOutput, deps: CommandResultOutputDeps): void {
+	if (result.stdout !== "") {
+		deps.stdout(result.stdout);
+	}
+	if (result.stderr !== "") {
+		deps.stderr(result.stderr);
+	}
+}
+
 export function formatJson(payload: PreviewUrlPayload): string {
 	return `${JSON.stringify(payload)}\n`;
 }
