@@ -45,6 +45,8 @@ def is_under_project(path: Path, *, project_dir: Path) -> bool:
 
 
 def _require_under_project(path: Path, *, project_dir: Path, verb: str) -> None:
+    if not path.exists():
+        raise click.ClickException(f"{path} does not exist; refusing to {verb} it.")
     resolved = path.resolve()
     if not is_under_project(resolved, project_dir=project_dir):
         raise click.ClickException(f"{path} resolves outside {project_dir}; refusing to {verb} it.")
