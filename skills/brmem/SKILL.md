@@ -39,6 +39,25 @@ Commands default to the current branch unless you pass `--branch`. For read-only
 `brmem` is durable and inspectable, not secret. Do not store credentials,
 private tokens, binary assets, generated build output, or large datasets.
 
+## Install and runtime
+
+Public `brmem` invocation should come from an asdl checkout with:
+
+```text
+just install-brmem
+# or
+just install-tools
+```
+
+The installed command is a TypeScript-backed source shim. It uses the enclosing
+asdl checkout when run inside one, and otherwise uses the checkout that installed
+it. The shim requires the workspace Node version and `ts/node_modules`; the
+install recipes run `just ts-install`, and a broken checkout can be repaired by
+running `just ts-install` there.
+
+If `brmem` is missing, install the shim instead of invoking `uv run brmem` or a
+checkout-local Python fallback.
+
 ## Command chooser
 
 | Goal                                          | Command                                                         | Writes? |
@@ -108,8 +127,9 @@ brmem put notes/add-cache.md --branch feature/add-cache --file /tmp/note.md
 brmem put notes/add-cache.md --namespace scratch --branch feature/add-cache --file /tmp/note.md
 ```
 
-Use `--stdin` only for interactive human-mode writes. Do not combine `--stdin`
-with `--format json`.
+Agents should prefer `--file <path>` for prepared content. Use `--stdin` for
+piped content. Add `--format json` when the caller needs a machine-readable
+success or failure envelope.
 
 ## Read Branch Memory
 

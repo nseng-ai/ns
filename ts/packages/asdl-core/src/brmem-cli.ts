@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-
 import {
 	MAX_ERROR_CHARS,
 	formatCommand,
@@ -101,32 +98,9 @@ export function resolveBrmemCommandCandidates(
 	cwd: string,
 	options: { exists?: (path: string) => boolean } = {},
 ): BrmemCommandCandidate[] {
-	const exists = options.exists ?? existsSync;
-	const startDir = resolve(cwd);
-	const candidates: BrmemCommandCandidate[] = [];
-	const seen = new Set<string>();
-
-	const add = (candidate: BrmemCommandCandidate) => {
-		const key = JSON.stringify(candidate);
-		if (!seen.has(key)) {
-			seen.add(key);
-			candidates.push(candidate);
-		}
-	};
-
-	const venvRoot = findAncestorContaining(startDir, join(".venv", "bin", "brmem"), exists);
-	if (venvRoot) {
-		add({ command: join(venvRoot, ".venv", "bin", "brmem"), prefixArgs: [] });
-	}
-
-	add({ command: "brmem", prefixArgs: [] });
-
-	const projectRoot = findAncestorContaining(startDir, "pyproject.toml", exists);
-	if (projectRoot) {
-		add({ command: "uv", prefixArgs: ["run", "--directory", projectRoot, "brmem"] });
-	}
-
-	return candidates;
+	void cwd;
+	void options;
+	return [{ command: "brmem", prefixArgs: [] }];
 }
 
 export async function runBrmemCandidate(options: RunBrmemCandidateOptions): Promise<BrmemCandidateRun> {
@@ -229,7 +203,7 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 
 export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
 	return [
-		"No brmem command available. Tried all configured brmem command candidates.",
+		"No brmem command available. Install the TypeScript-backed public shim with `just install-brmem` or `just install-tools`, then ensure `brmem` is on PATH.",
 		...failures.map((failure) => `\n${failure.failure}`),
 	].join("\n");
 }
@@ -285,24 +259,6 @@ function envelopeStatusText(envelope: Record<string, unknown>): string | undefin
 		return envelope.error;
 	}
 	return undefined;
-}
-
-function findAncestorContaining(
-	startDir: string,
-	relativePath: string,
-	exists: (path: string) => boolean,
-): string | undefined {
-	let current = resolve(startDir);
-	for (;;) {
-		if (exists(join(current, relativePath))) {
-			return current;
-		}
-		const parent = dirname(current);
-		if (parent === current) {
-			return undefined;
-		}
-		current = parent;
-	}
 }
 
 function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined) {

@@ -9,7 +9,6 @@ import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status
 import {
 	makeGitRepo,
 	makeGraphiteRepo,
-	makePyprojectRoot,
 	standardGraphiteRows,
 	withTempRoot,
 	writeGraphiteMetadataDb,
@@ -142,10 +141,6 @@ function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
-function uvBrmemListStep(projectRoot: string, result: Partial<ExecResult>): ScriptedExec {
-	return step("uv", ["run", "--directory", projectRoot, "brmem", "list", "--format", "json"], result);
-}
-
 const TEST_THEME: StatusTheme = {
 	fg(color, value) {
 		const code = color === "accent" ? "36" : "90";
@@ -230,16 +225,10 @@ describe("loadWorktreeStatus", () => {
 		});
 	});
 
-	test("uses a later brmem candidate after an earlier candidate is unavailable", async () => {
-		await withTempRoot(makePyprojectRoot(), async (root) => {
+	test("does not fall back to Python candidates after PATH brmem is unavailable", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
-				uvBrmemListStep(root, {
-					stdout: JSON.stringify({
-						exit_code: 0,
-						data: { entries: [{ namespace: "notes", key: "adapter/details.md" }] },
-					}),
-				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -247,7 +236,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(notes: adapter)");
+			expect(status.brmem).toBe("unavailable");
 		});
 	});
 
@@ -306,16 +295,10 @@ describe("loadWorktreeStatus", () => {
 		});
 	});
 
-	test("uses a later brmem candidate after an earlier candidate returns a nonzero envelope", async () => {
-		await withTempRoot(makePyprojectRoot(), async (root) => {
+	test("does not fall back to Python candidates after PATH brmem returns a nonzero envelope", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
-				uvBrmemListStep(root, {
-					stdout: JSON.stringify({
-						exit_code: 0,
-						data: { entries: [{ namespace: "notes", key: "fallback/details.md" }] },
-					}),
-				}),
 				...basicGitStatusScript(),
 			]);
 
@@ -323,7 +306,7 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.brmem).toBe("(notes: fallback)");
+			expect(status.brmem).toBe("unavailable");
 		});
 	});
 

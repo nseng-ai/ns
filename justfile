@@ -71,6 +71,15 @@ install-pr-address: ts-install
     chmod +x "$HOME/.local/bin/pr-address"
     @echo "installed: $HOME/.local/bin/pr-address (canonical checkout: {{justfile_directory()}})"
 
+# Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-brmem: ts-install
+    mkdir -p "$HOME/.local/bin"
+    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{justfile_directory()}}/ts/packages/brmem/scripts/brmem-shim" > "$HOME/.local/bin/brmem"
+    chmod +x "$HOME/.local/bin/brmem"
+    @echo "installed: $HOME/.local/bin/brmem (canonical checkout: {{justfile_directory()}})"
+
 # Link the branch-context bin through pnpm so `branch-context` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
 link-branch-context: ts-install
@@ -92,14 +101,13 @@ areg-check:
 refresh-skills:
     uv run areg update-skills
 
-# Install slot, brmem, handoff, and asdl-objectives as editable uv tools.
-# Note: slot ships from asdl-slots; brmem ships from packages/brmem.
-install-tools:
+# Install public tools: slot, handoff, and objective as editable uv tools;
+# brmem via the TypeScript source shim installed by install-brmem.
+install-tools: install-brmem
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
-    uv tool install --force --editable {{justfile_directory()}}/packages/brmem
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-handoff
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem, handoff, objective"
+    @echo "installed: slot, brmem (TypeScript shim), handoff, objective"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
