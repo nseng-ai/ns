@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { runCli } from "@asdl/sdl/cli";
@@ -83,6 +85,7 @@ function runWithFakes(args: readonly string[], state: TestState = {}) {
 		exit: runCli(args, {
 			context,
 			cwd: context.cwd,
+			homeDir: join(context.cwd, ".home"),
 			env: context.env,
 			stdout: (text) => {
 				stdout.push(text);
@@ -468,7 +471,7 @@ describe("sdl submit CLI", () => {
 			liveOutput.push({ stream, text });
 		};
 
-		expect(await runCli(["submit"], { context })).toBe(0);
+		expect(await runCli(["submit"], { context, homeDir: join(context.cwd, ".home") })).toBe(0);
 		expect(stdout.join("")).toContain("gt submit succeeded");
 		expect(stderr.join("")).toBe("");
 		expect(confirmations).toEqual(["Run gt restack before submit?"]);

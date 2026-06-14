@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import { listSdlCommands, runCli } from "@asdl/sdl/cli";
@@ -60,7 +62,7 @@ class ScriptedChangesContext implements SdlContext {
 	};
 }
 
-function runWithFakes(args: readonly string[], state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined> } = {}) {
+function runWithFakes(args: readonly string[], state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined>; homeDir?: string } = {}) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const context = new ScriptedChangesContext(state, options);
@@ -71,6 +73,7 @@ function runWithFakes(args: readonly string[], state: TestState = {}, options: {
 		exit: runCli(args, {
 			context,
 			cwd: context.cwd,
+			homeDir: options.homeDir ?? join(context.cwd, ".home"),
 			env: context.env,
 			stdout: (text) => {
 				stdout.push(text);
