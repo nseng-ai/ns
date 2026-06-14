@@ -86,7 +86,12 @@ FindingsCommentBodyParseResult: TypeAlias = (
 )
 
 
-def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
+def parse_findings_payload_result(
+    raw: str,
+    *,
+    fallback_review_name: str = "unknown",
+    fallback_base_ref: str = "unknown",
+) -> FindingsPayloadParseResult:
     """Parse a roaster clinkr envelope, returning a payload or error object."""
     try:
         data = json.loads(raw)
@@ -105,9 +110,16 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     exit_code = data.get("exit_code")
     if exit_code != 0:
+        inner = data.get("data")
+        if isinstance(inner, dict):
+            review_name = _coerce_str(inner.get("review_name"), default=fallback_review_name)
+            base_ref = _coerce_str(inner.get("base_ref"), default=fallback_base_ref)
+        else:
+            review_name = fallback_review_name
+            base_ref = fallback_base_ref
         return FindingsPayload(
-            review_name="unknown",
-            base_ref="unknown",
+            review_name=review_name,
+            base_ref=base_ref,
             count=0,
             findings=(),
             error_type=_coerce_str(data.get("error_type"), default="unknown"),

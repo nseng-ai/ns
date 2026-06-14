@@ -418,6 +418,48 @@ def test_parse_error_shape_produces_error_payload() -> None:
     assert payload.error_message == "claude not on PATH"
 
 
+def test_parse_error_shape_uses_identity_fallbacks() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 2,
+            "error_type": "prompt_too_long",
+            "message": "request exceeds context window",
+        }
+    )
+
+    result = parse_findings_payload_result(
+        raw,
+        fallback_review_name="dignified-python",
+        fallback_base_ref="master",
+    )
+
+    assert isinstance(result, FindingsPayload)
+    assert result.review_name == "dignified-python"
+    assert result.base_ref == "master"
+    assert result.error_type == "prompt_too_long"
+
+
+def test_parse_error_shape_prefers_structured_identity() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 2,
+            "error_type": "prompt_too_long",
+            "message": "request exceeds context window",
+            "data": {"review_name": "typescript-style", "base_ref": "main"},
+        }
+    )
+
+    result = parse_findings_payload_result(
+        raw,
+        fallback_review_name="dignified-python",
+        fallback_base_ref="master",
+    )
+
+    assert isinstance(result, FindingsPayload)
+    assert result.review_name == "typescript-style"
+    assert result.base_ref == "main"
+
+
 def test_parse_result_returns_error_object_for_non_json() -> None:
     result = _parse_error("not json")
 

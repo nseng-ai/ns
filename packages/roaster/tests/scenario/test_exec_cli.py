@@ -206,6 +206,34 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
+def test_format_findings_comment_uses_failure_identity_fallbacks(
+    cli_group: ClinkrGroup,
+) -> None:
+    payload = {
+        "exit_code": 2,
+        "error_type": "prompt_too_long",
+        "message": "request exceeds context window",
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "format-findings-comment",
+            "--review-name",
+            "dignified-python",
+            "--base-ref",
+            "master",
+        ],
+        input=json.dumps(payload),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("<!-- roaster:dignified-python -->\n")
+    assert "## roaster · `dignified-python`" in result.output
+    assert "**Roaster failed** against base `master`. ⚠️" in result.output
+
+
 def test_format_findings_comment_fails_on_malformed_stdin(
     cli_group: ClinkrGroup,
 ) -> None:

@@ -65,7 +65,7 @@ Risks:
 
 - The selected bounded-review policy intentionally omits whole filtered-diff file segments from prompt input when caps are reached. That de-risks provider `prompt_too_long` failures but leaves a residual review-depth limitation that must be disclosed clearly to authors.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover structured coverage rendering and no-inline noop paths, but broader live PR race behavior remains to be verified after the bounded-review policy lands.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover structured coverage rendering, no-inline noop paths, and formatter fallbacks that preserve review/base identity for nonzero failure envelopes without structured data. Broader live PR race behavior remains to be verified after the bounded-review policy lands.
 - GitHub diff/file discovery risk is de-risked for the observed oversized case: roaster avoids `gh pr diff`/`PullRequest.diff` and uses local checkout diff or paginated PR file metadata. Extremely huge PRs could still expose separate GitHub REST pagination or review-thread volume limits, but that is distinct from the 300-file diff endpoint failure.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
@@ -73,4 +73,4 @@ Risks:
 
 - If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
 - What oversized synthetic or real PR run should provide final live CI evidence that bounded review input prevents provider `prompt_too_long` while preserving useful deterministic checks?
-- Partially resolved: publication preserves review-key-specific markers for generic nonzero envelopes that already include structured `data`; roaster no longer creates custom negative failure envelopes for harness/runtime failures.
+- Resolved for current roaster failures: publication preserves review-key-specific markers for generic nonzero envelopes that include structured `data`, and the CI formatter receives review/base fallbacks for ordinary harness/runtime failure envelopes without `data`. Roaster still does not create custom negative failure envelopes for harness/runtime failures.

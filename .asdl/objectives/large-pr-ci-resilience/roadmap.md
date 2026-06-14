@@ -16,8 +16,8 @@
 - [x] Make GitHub diff/file discovery large-PR aware.
   - Audit found no remaining roaster path that depends on GitHub's 300-file PR diff endpoint. Discovery and review execution use local checkout `git diff`; workflow base-ref lookup uses `gh pr view` metadata only; inline posting uses the paginated Pull Request Files API only when findings exist.
 
-- [~] Preserve review identity and base identity through failures and skips.
-  - Publication parsing now preserves `review_name`, `base_ref`, `error_type`, and `message` for generic nonzero Clinkr envelopes that already contain structured `data`. Roaster review execution no longer produces custom negative result payloads for harness/runtime failures.
+- [x] Preserve review identity and base identity through failures and skips.
+  - Publication parsing now preserves `review_name`, `base_ref`, `error_type`, and `message` for generic nonzero Clinkr envelopes that already contain structured `data`. For ordinary nonzero Clinkr failures without structured `data`, the CI workflow now passes `REVIEW_KEY` and `BASE_REF` as formatter fallbacks so matrix jobs render review-specific markers instead of collapsing into `roaster:unknown`. Roaster review execution still does not produce custom negative result payloads for harness/runtime failures.
 
 - [~] Harden summary comment publication for matrix-job failures.
   - Structured nonzero envelopes can render review-key-specific summary markers, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Successful bounded reviews now render a compact input-coverage section before findings/no-findings, including a capped omitted-file list and bounded-input no-findings wording. Broader live PR race behavior remains to be verified.

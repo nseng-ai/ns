@@ -64,6 +64,8 @@ def test_roaster_workflow_posts_inline_findings_before_summary_comment() -> None
 
     assert post_inline_index < format_index < post_summary_index
     assert '--inline-result-file "$inline_result_file"' in workflow
+    assert '--review-name "$REVIEW_KEY"' in workflow
+    assert '--base-ref "$BASE_REF"' in workflow
     assert '> "$inline_result_file"' in workflow
 
 
