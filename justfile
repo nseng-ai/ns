@@ -65,16 +65,17 @@ js-test: ts-test
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-pr-address: (_install-ts-shim "pr-address" "{{justfile_directory()}}/ts/packages/pr-address/scripts/pr-address-shim")
+install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/scripts/pr-address-shim")
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-brmem: (_install-ts-shim "brmem" "{{justfile_directory()}}/ts/packages/brmem/scripts/brmem-shim")
+install-brmem: (_install-ts-shim "brmem" "ts/packages/brmem/scripts/brmem-shim")
 
 _install-ts-shim tool script: ts-install
     mkdir -p "$HOME/.local/bin"
-    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{script}}" > "$HOME/.local/bin/{{tool}}"
+    rm -f "$HOME/.local/bin/{{tool}}"
+    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{justfile_directory()}}/{{script}}" > "$HOME/.local/bin/{{tool}}"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
