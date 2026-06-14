@@ -65,12 +65,22 @@ Risks:
 
 - The selected bounded-review policy intentionally omits whole filtered-diff file segments from prompt input when caps are reached. That de-risks provider `prompt_too_long` failures but leaves a residual review-depth limitation that must be disclosed clearly to authors.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover structured coverage rendering, no-inline noop paths, and formatter fallbacks that preserve review/base identity for nonzero failure envelopes without structured data. Broader live PR race behavior remains to be verified after the bounded-review policy lands.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover structured coverage rendering, no-inline noop paths, and formatter fallbacks that preserve review/base identity for nonzero failure envelopes without structured data. Broader live PR race behavior is accepted as post-closure follow-up evidence rather than active implementation work.
 - GitHub diff/file discovery risk is de-risked for the observed oversized case: roaster avoids `gh pr diff`/`PullRequest.diff` and uses local checkout diff or paginated PR file metadata. Extremely huge PRs could still expose separate GitHub REST pagination or review-thread volume limits, but that is distinct from the 300-file diff endpoint failure.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
 ## Open Questions
 
 - If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
-- What oversized synthetic or real PR run should provide final live CI evidence that bounded review input prevents provider `prompt_too_long` while preserving useful deterministic checks?
+- If a later oversized synthetic or real PR run disproves bounded-review behavior, what narrower follow-up should own that evidence?
 - Resolved for current roaster failures: publication preserves review-key-specific markers for generic nonzero envelopes that include structured `data`, and the CI formatter receives review/base fallbacks for ordinary harness/runtime failure envelopes without `data`. Roaster still does not create custom negative failure envelopes for harness/runtime failures.
+
+## Closure
+
+Outcome: completed with one accepted residual verification caveat.
+
+Key evidence: roaster now bounds filtered diff prompt input with a `120_000` estimated-token total cap and `40_000` estimated-token per-file cap, reports `ReviewInputCoverage` through JSON and PR summary comments, avoids GitHub's 300-file diff endpoint for current roaster review paths, and preserves review/base identity for failure comments through structured data or workflow-provided fallbacks. Targeted roaster harness/workflow/CLI/publication tests, `just python-check`, and `just dprint-check` passed during the closing branch work.
+
+Accepted residual limitation: a live oversized synthetic or real PR run after PR #1500 lands is still useful evidence for GitHub check/comment behavior and duplicate/canceled run presentation. That evidence is not active Objective work; if it exposes a bug, open a narrower follow-up Objective or issue for that specific failure.
+
+Follow-ups: keep semantic sharding and PR-size policy parked unless bounded single-call review coverage proves insufficient in practice.
