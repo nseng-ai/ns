@@ -278,24 +278,51 @@ function compactManifest(commentIds: number[] = [10]): object {
 }
 
 describe("pr feedback watch command parsing", () => {
-	test("parses start by default and supports implicit start options", () => {
+	test("parses bare command as toggle with dispatch defaults", () => {
 		expect(parseWatchCommandArgs("")).toEqual({
 			type: "valid",
-			action: "start",
-			options: { intervalMs: 15_000, shouldAllowDirty: false, shouldDispatchExisting: false },
+			action: "toggle",
+			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
 		});
-		expect(parseWatchCommandArgs("--interval-seconds 10 --allow-dirty --dispatch-existing")).toEqual({
+	});
+
+	test("parses explicit start and once with dispatch defaults", () => {
+		expect(parseWatchCommandArgs("start")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 10_000, shouldAllowDirty: true, shouldDispatchExisting: true },
+			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
+		});
+		expect(parseWatchCommandArgs("once")).toEqual({
+			type: "valid",
+			action: "once",
+			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
+		});
+	});
+
+	test("parses implicit start options and existing feedback mode flags", () => {
+		expect(parseWatchCommandArgs("--interval-seconds 10 --allow-dirty")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 10_000, shouldAllowDirty: true, existingFeedbackMode: "dispatch" },
+		});
+		expect(parseWatchCommandArgs("start --baseline-existing")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "baseline" },
+		});
+		expect(parseWatchCommandArgs("start --dispatch-existing")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
 		});
 		expect(parseWatchCommandArgs("status")).toMatchObject({ type: "valid", action: "status" });
 	});
 
-	test("rejects unknown actions, unknown options, and too-small intervals", () => {
+	test("rejects unknown actions, unknown options, conflicting modes, and too-small intervals", () => {
 		expect(parseWatchCommandArgs("bogus")).toMatchObject({ type: "invalid" });
 		expect(parseWatchCommandArgs("start --wat")).toMatchObject({ type: "invalid" });
 		expect(parseWatchCommandArgs("start --interval-seconds 9")).toMatchObject({ type: "invalid" });
+		expect(parseWatchCommandArgs("start --dispatch-existing --baseline-existing")).toMatchObject({ type: "invalid" });
 	});
 });
 
@@ -387,12 +414,25 @@ describe("pr feedback watch extension", () => {
 		expect(pi.calls).toEqual([]);
 	});
 
-	test("empty command starts and baselines existing feedback without dispatching", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+	test("empty command starts and dispatches existing actionable feedback", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
+
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+		expect(pi.userMessages[0]).not.toContain("discussion:90");
+		pi.assertDone();
+	});
+
+	test("start with baseline-existing preserves old baseline behavior", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
@@ -400,12 +440,24 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
-	test("once without dispatch-existing baselines current feedback", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep()]);
+	test("once dispatches current feedback by default", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+		pi.assertDone();
+	});
+
+	test("once with baseline-existing baselines current feedback", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep()]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("baselined");
@@ -436,8 +488,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(1);
@@ -460,9 +512,9 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:11");
@@ -484,8 +536,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.calls.filter((call) => call.command === "pr-address")).toHaveLength(2);
@@ -504,8 +556,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
@@ -529,8 +581,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("REST check failed");
@@ -547,6 +599,34 @@ describe("pr feedback watch extension", () => {
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
+		pi.assertDone();
+	});
+
+	test("bare command toggles active watcher off without retracting queued prompt", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
+
+		expect(pi.userMessages).toHaveLength(1);
+		expect(ctx.notifications.at(-1)?.message).toBe("PR feedback watch stopped.");
+		expect(ctx.statuses.get("code:pr-feedback-watch")).toBeUndefined();
+		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("stopped"))).toBe(true);
+		pi.assertDone();
+	});
+
+	test("explicit stop remains supported", async () => {
+		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("stop", ctx);
+
+		expect(ctx.notifications.at(-1)?.message).toBe("PR feedback watch stopped.");
+		expect(ctx.statuses.get("code:pr-feedback-watch")).toBeUndefined();
 		pi.assertDone();
 	});
 
