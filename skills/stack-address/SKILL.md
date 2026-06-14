@@ -66,6 +66,10 @@ Do not trigger this skill for single-PR feedback; use `pr-address` instead.
 - Require an open PR for every non-trunk stack branch; stop on missing PRs
   unless the user explicitly overrides.
 - Do not `gt submit`, `git push`, or `gh pr create` unless explicitly asked.
+- If a terminal report after manual `gt submit`/`gt up` includes Graphite
+  `fallen behind` or `Run gt restack` guidance, explicitly ask whether to run
+  `gt restack` and resolve conflicts. Do not silently stop without this prompt,
+  and do not restack before approval.
 - Use one lowercase safe `ASDL_PAYLOAD_SESSION_ID` for the whole run.
 - Store helper stdout outside the worktree under `git rev-parse --git-path`; in
   linked worktrees `.git` is a pointer file, not a scratch directory.
@@ -396,12 +400,14 @@ Report:
 
 Never push or submit unless the user explicitly asks for that extra step. When
 the current user turn only reports a successful manual `gt submit`, record the
-omnibus PR number or URL if provided, then stop. Do not push, submit, mutate
-GitHub feedback, re-resolve threads, rerun mutation helpers, or continue
-implementation unless the user explicitly asks for another action. This
-terminal-report rule does not override a current explicit `stack-address`,
-`code-stack-address`, or `pr-stack-address` invocation; in that case, run the
-workflow from preflight.
+omnibus PR number or URL if provided. If the same report includes Graphite
+navigation/topology guidance such as a downstack branch `fallen behind` or
+`Run gt restack`, ask whether to run `gt restack` and resolve conflicts; do not
+restack until the user approves. Then stop. Do not push, submit, mutate GitHub
+feedback, re-resolve threads, rerun mutation helpers, or continue implementation
+unless the user explicitly asks for another action. This terminal-report rule
+does not override a current explicit `stack-address`, `code-stack-address`, or
+`pr-stack-address` invocation; in that case, run the workflow from preflight.
 
 ## Push-down status
 
