@@ -71,13 +71,13 @@ Assumptions:
 - A flat command surface is acceptable for the first pass and is consistent with the current `sdl cp` command shape.
 - Hard cutover is preferred over compatibility aliases: users and agents should update to the SDL command immediately when a slice migrates.
 - `asdl-dev` can shrink or disappear as durable workflows migrate into SDL; remaining repo-internal developer utilities should be justified separately.
-- The first implementation should establish the general project-specific SDL extension mechanism before moving `submit` or deferred PR metadata flows such as `pr-regen`.
+- The first implementation should establish the general project-specific SDL extension mechanism before moving `submit` or deferred PR metadata flows such as `pr-regen`. Revised by the submit groundwork slice: general command loading exists, and typed SDK/request-schema support has started, but the actual `sdl submit` surface remains unfinished.
 
 Risks:
 
 - The migration can become a broad namespace churn project unless each slice ties a command move to tests, docs, and deletion of the old surface.
-- Project-specific SDL extensions could blur product boundaries if docs do not distinguish public SDK surface, internal migration exports, and repo-local command modules. De-risked for the general command-loading slice by the SDL README/context baseline plus CLI tests that prove project-only command discovery/loading beyond `cp`, while option/argument schemas and dynamic Pi mirrors remain deliberate follow-ups.
-- Hard cutover may break agent muscle memory and stale docs; source searches and parity metadata updates need to be part of every slice. The SDL docs baseline records the hard-cutover policy, but Pi docs, skill conventions, parity metadata, and old command surfaces still need command-specific updates as migrations land.
+- Project-specific SDL extensions could blur product boundaries if docs do not distinguish public SDK surface, internal migration exports, and repo-local command modules. De-risked for the general command-loading slice by the SDL README/context baseline plus CLI tests that prove project-only command discovery/loading beyond `cp`; further de-risked for option-bearing commands by the submit groundwork branch's typed SDK/context additions, while selected-command CLI parsing, docs, and dynamic Pi mirror design remain follow-ups.
+- Hard cutover may break agent muscle memory and stale docs; source searches and parity metadata updates need to be part of every slice. The SDL docs baseline records the hard-cutover policy, but Pi docs, skill conventions, parity metadata, and old command surfaces still need command-specific updates as migrations land. The submit groundwork slice shows a specific partial-cutover risk: deleting or extracting the old submit CLI registration before the SDL replacement, `/sdl:*` mirror, tests, docs, and skills land leaves the Objective in progress rather than complete.
 - `submit`, `land`, `autobranch`, `autoslot`, and review-feedback flows mutate Git, Graphite, GitHub, or worktree-slot state; moving their public boundary must not weaken existing safety checks.
 - Keeping implementation cores in CCC while exposing SDL commands could create another “shared TypeScript is not shared CLI” gap unless SDL scenario tests and skills prove non-Pi reachability.
 
