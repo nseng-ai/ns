@@ -34,7 +34,7 @@ It is resolved through:
 asdl exec resolve-prompt plans-write --format json
 ```
 
-The structured grilling variant is `/enriched-plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`.
+The structured grilling variant is `/enriched-plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 
 CLI/agent workflows save with:
 

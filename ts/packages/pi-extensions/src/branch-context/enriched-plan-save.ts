@@ -47,7 +47,7 @@ const WRITE_PLAN_PROMPT_RESOLVE_TIMEOUT_MS = 10_000;
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contract:
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
 - Make the plan self-contained. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
-- Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and validation commands.
+- Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and proportional validation guidance.
 - Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order over vague instructions.
 - If you inspected evidence during planning, summarize the discovered facts in the plan so the downstream agent does not need to rediscover them unless verification is required.
 
@@ -64,7 +64,7 @@ Recommended saved plan sections:
 - External/off-repo research context, or a note that none was used when that helps remove ambiguity.
 - Files, symbols, commands, and tests likely to change.
 - Step-by-step implementation approach.
-- Validation commands and expected results.
+- Validation guidance and expected results. Do not over-specify routine test/check scope as a planning decision; leave ordinary validation coverage to the implementing agent's project policy and changed-file judgment.
 - Risks, assumptions, edge cases, and open questions.
 
 Workflow:
@@ -145,12 +145,13 @@ Structured grilling contract:
 - If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_saved_plan_file.
 
 Save/no-save decision:
-- If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, validation scope, and compatibility expectations.
+- If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, compatibility expectations, and irreversible migration or data-safety choices.
+- Do not ask routine validation-scope or test-coverage questions. Ordinary validation coverage is the downstream implementation agent's responsibility, guided by project policy and changed-file judgment.
 - If only non-blocking assumptions remain, fold them into the normal saved plan sections and proceed.
 - Do not include a full Q&A transcript or special Q&A section in the saved plan.
 
 Final plan requirements:
-- Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation, risks/assumptions/open questions, and review/remediation.
+- Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
 - Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
 - Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
 }

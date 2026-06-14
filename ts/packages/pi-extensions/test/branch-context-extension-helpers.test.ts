@@ -61,6 +61,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
 		expect(prompt).toContain("Embed all relevant context discovered during planning");
+		expect(prompt).toContain("proportional validation guidance");
 		expect(prompt).toContain("External research/context contract");
 		expect(prompt).toContain("web searches");
 		expect(prompt).toContain("GitHub issues/PRs");
@@ -68,7 +69,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Do not include secrets");
 		expect(prompt).toContain("Recommended saved plan sections");
 		expect(prompt).toContain("External/off-repo research context");
-		expect(prompt).toContain("Validation commands and expected results");
+		expect(prompt).toContain("Validation guidance and expected results");
+		expect(prompt).toContain("leave ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("do not generate or pass a slug");
 		expect(prompt).toContain("Codex-backed slug model");
 		expect(prompt).toContain('"content": "# Plan');
@@ -160,6 +162,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("end_grill");
 		expect(prompt).toContain("do not call write_saved_plan_file");
 		expect(prompt).toContain("material requirements remain unresolved");
+		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
+		expect(prompt).toContain("validation guidance");
+		expect(prompt).not.toContain("validation scope");
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
 		expect(prompt).toContain("Do not create a branch or write Branch Memory");

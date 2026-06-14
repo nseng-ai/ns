@@ -24,6 +24,8 @@ Before the first user-facing question, do a bounded exploration pass:
 
 Explore the codebase instead of asking when the answer is discoverable. Create documentation lazily only when there is something specific to write.
 
+Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
+
 ## During the session
 
 Challenge terminology against the glossary immediately. If the glossary defines a term one way and the plan appears to use it another way, surface the conflict and ask which meaning should win.

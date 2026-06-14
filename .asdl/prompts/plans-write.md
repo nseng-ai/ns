@@ -2,7 +2,7 @@ Plan audience and hermetic context contract:
 
 - Treat the saved Markdown plan as the only planning context available to a completely fresh downstream implementation session.
 - Make the plan self-contained with respect to planning knowledge. Do not rely on this conversation, hidden context, tool transcripts, or "as discussed" references.
-- Preserve non-trivial planning knowledge needed to make the same decisions again: user intent, success criteria, constraints, decisions, rationale, rejected alternatives, assumptions, risks, validation expectations, and external/off-repo findings.
+- Preserve non-trivial planning knowledge needed to make the same decisions again: user intent, success criteria, constraints, decisions, rationale, rejected alternatives, assumptions, risks, proportional validation expectations, and external/off-repo findings.
 - Include repo facts only when they are decision-shaping, surprising, expensive to rediscover, or needed to prevent a likely wrong turn.
 - Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order when they carry decision-critical context.
 
@@ -50,7 +50,7 @@ Recommended saved plan sections:
 - Non-trivial planning context, including external/off-repo findings if used.
 - Relevant code areas and implementation slices.
 - Intermediate checkpoint strategy for larger or multi-slice implementation plans.
-- Validation commands and expected results.
+- Validation guidance and expected results. Do not over-specify routine test/check scope as a planning decision; leave ordinary validation coverage to the implementing agent's project policy and changed-file judgment.
 - Risks, assumptions, edge cases, and open questions.
 - Subagent orchestration opportunities.
 - Closeout review plan.

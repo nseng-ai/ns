@@ -150,6 +150,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
 		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
+		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
 	});
 
@@ -158,6 +159,7 @@ describe("grill-ui prompt", () => {
 
 		expect(prompt).toContain("fallback=\"true\"");
 		expect(prompt).toContain("Interview the user relentlessly");
+		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Fallback target");
 		expect(prompt).toContain("If grill_ask returns action: \"end_grill\"");
 		expect(prompt).toContain("Show current grill status");
@@ -174,6 +176,7 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("docs-aware preflight");
+		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
 	});
 
@@ -185,6 +188,7 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("CONTEXT-MAP.md");
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("Offer ADRs sparingly");
+		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Documentation updates");
 		expect(prompt).toContain("Fallback docs target");
 	});
@@ -730,9 +734,10 @@ describe("registerGrillUiExtension", () => {
 		expect(schema.type).toBe("object");
 		expect(schema.required).toEqual(["question", "recommended", "options"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(tool.promptGuidelines?.every((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME) || guideline.includes("estimatedRemaining"))).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME))).toBe(true);
 		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(true);
 		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("estimatedRemaining"))).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("validation-scope"))).toBe(true);
 		expect((schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining).toBeDefined();
 	});
 });
