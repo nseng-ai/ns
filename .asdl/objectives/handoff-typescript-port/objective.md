@@ -92,7 +92,7 @@ Assumptions:
 
 - The active public Handoff CLI contract is the standalone `handoff` command, not the `asdl handoff` plugin path. The Python plugin can be retired like the `pr-address` plugin if inventory does not find active user-facing usage.
 - Current create/pickup behavior is intentionally skill/Pi-owned. The TypeScript package does not need new create/pickup CLI commands to complete the port.
-- The TypeScript `brmem` CLI is now the correct storage boundary for handoff; direct native `@asdl/brmem` imports are optional and should be introduced only where they simplify package-local code without violating public package exports.
+- The TypeScript `brmem` CLI is now the correct storage boundary for handoff operations. Direct native `@asdl/brmem` imports are appropriate for stable public validation/ref-layout helpers when they simplify package-local code without bypassing Branch Memory storage behavior; implementation evidence now includes reusing the public `mustEntryLocator` helper for Handoff Entry Locator construction.
 - `@asdl/core` Git helpers are sufficient for ordinary branch facts such as current branch and local branch presence; per-entry Branch Memory updated timestamps may still need package-local read-only git plumbing.
 - The run-from-source shim distribution model accepted for `pr-address` and `brmem` is adequate for `handoff`; implementation evidence showed `just install-handoff` must also remove a stale project-venv `handoff` console script so the standalone command resolves to the TypeScript shim in activated dev environments.
 - TypeScript Clinkr's Python-parity machine envelope remains the correct v1 machine contract for migrated CLIs.
@@ -109,7 +109,7 @@ Risks:
 ## Open Questions
 
 - Does fresh inventory find any active user-facing `asdl handoff` plugin usage that should block plugin retirement, or can the standalone `handoff` CLI become the sole active public surface?
-- Should `@asdl/handoff` use only the public `brmem` CLI via `@asdl/core/brmem-cli`, or import selected public `@asdl/brmem` library helpers where they are exported and stable? Current recommendation: use `@asdl/brmem` public helper exports for validation/ref-layout and the public `brmem` CLI for storage operations.
+- Resolved for v1: `@asdl/handoff` uses public `@asdl/brmem` helper exports for validation/ref-layout, including `mustEntryLocator`, and the public `brmem` CLI for storage operations. Keep broader native storage imports out of scope unless a later implementation slice proves a simpler public boundary.
 - Is exact markdown table output required beyond current Python scenario assertions, or is structured markdown compatibility enough once tests preserve headings/columns/rows/order?
 - Should package-local per-entry timestamp git plumbing later become a shared `brmem` helper/API, and only after which second consumer proves the seam?
 - What commit should be recorded as the final rollback/reference point for Python `packages/asdl-handoff` once deletion lands?
