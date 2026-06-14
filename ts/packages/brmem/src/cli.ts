@@ -6,6 +6,7 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
+import type { BrmemSourceReader } from "./source-reader.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
@@ -15,9 +16,9 @@ import {
 	exportRequestSchema,
 	notImplementedHandler,
 	notImplementedResultSchema,
-	putRequestSchema,
 	resolvePromptRequestSchema,
 } from "./operations/not-implemented.ts";
+import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
 
 export const VERSION = "0.1.0";
 
@@ -26,6 +27,7 @@ export interface CliDeps {
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	stdin?: (() => Promise<string>) | undefined;
+	sourceReader?: BrmemSourceReader | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 }
@@ -42,8 +44,10 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		description: "Write content to a Branch Memory Entry.",
 		schema: putRequestSchema,
 		positionals: { key: { position: 0 } },
-		resultSchema: notImplementedResultSchema,
-		handler: notImplementedHandler("put"),
+		options: { force: { short: "-f" } },
+		resultSchema: putResultSchema,
+		handler: runPut,
+		renderHuman: renderPut,
 	});
 	root.command({
 		name: "get",
@@ -121,6 +125,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		cwd,
 		env: deps.env ?? context.env,
 		stdin: deps.stdin ?? context.stdin,
+		sourceReader: deps.sourceReader ?? context.sourceReader,
 	};
 	return await buildCli().run(args, { context: runContext, io });
 }
