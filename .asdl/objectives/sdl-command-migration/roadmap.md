@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Define the SDL project-specific extension model and documentation baseline.
+- [x] Define the SDL project-specific extension model and documentation baseline.
   - Policy: direct execution after preview.
-  - Evidence: `ts/packages/sdl/README.md` explains project-specific SDL commands; SDL domain vocabulary is added via `ts/packages/sdl/CONTEXT.md` or the context map; Pi and skill convention docs describe `/sdl:*` as the lifecycle namespace for migrated workflows and document hard cutover from `asdl-dev` and `/code:*`.
+  - Evidence: `ts/packages/sdl/README.md` explains flat `.asdl/commands/<command>.ts` project-specific SDL command modules, `@asdl/sdl/sdk` as the public author API, internal migration exports, hard cutover from `asdl-dev` and `/code:*`, and `/sdl:*` mirrors for migrated Pi surfaces; `ts/packages/sdl/CONTEXT.md` now records SDL command vocabulary; `CONTEXT-MAP.md` now tracks SDL and its boundaries with Pi extensions, `asdl-dev`, and CCC. Broader Pi docs and skill convention cleanup remain part of command-specific migration slices and the stale-vocabulary cleanup row.
 
 - [ ] Implement or standardize general project-specific SDL command loading beyond the one-off `cp` override.
   - Policy: direct execution after preview, but steer first if the design changes the public SDK surface for command authors.
