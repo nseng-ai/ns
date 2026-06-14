@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from areg.cli import main
@@ -35,6 +36,34 @@ def _write_github_skill(project_dir: Path, name: str) -> None:
     skill_dir = project_dir / ".agents" / "skills" / name
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
+
+
+def _symlink_dir(link_path: Path, target: Path) -> None:
+    link_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link_path.symlink_to(target, target_is_directory=True)
+    except OSError as e:
+        pytest.skip(f"Symlink creation is unsupported in this environment: {e}")
+
+
+def _symlink_file(link_path: Path, target: Path) -> None:
+    link_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link_path.symlink_to(target)
+    except OSError as e:
+        pytest.skip(f"Symlink creation is unsupported in this environment: {e}")
+
+
+def _install_agents_skill_symlink(project_dir: Path, name: str) -> Path:
+    link_path = project_dir / ".agents" / "skills" / name
+    _symlink_dir(link_path, Path("..") / ".." / "skills" / name)
+    return link_path
+
+
+def _install_claude_skill_symlink(project_dir: Path, name: str) -> Path:
+    link_path = project_dir / ".claude" / "skills" / name
+    _symlink_dir(link_path, Path("..") / ".." / ".agents" / "skills" / name)
+    return link_path
 
 
 def _sidecar(project_dir: Path, name: str) -> Path:
@@ -148,6 +177,152 @@ def test_command_convert_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert "Would write" in result.output
 
 
+def test_command_convert_accepts_canonical_skill_dir_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "dir-skill")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), str(tmp_path / "skills" / "dir-skill")],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "dir-skill").read_text(encoding="utf-8") == _CODEX_OPENAI_POLICY
+    assert "Converting dir-skill" in result.output
+
+
+def test_command_convert_accepts_project_relative_skill_dir_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "relative-skill")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), "skills/relative-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "relative-skill").is_file()
+    assert "Converting relative-skill" in result.output
+
+
+def test_command_convert_accepts_skill_md_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "md-skill")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), "skills/md-skill/SKILL.md"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "md-skill").is_file()
+    assert "Converting md-skill" in result.output
+
+
+def test_command_convert_accepts_agents_symlink_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "agents-skill")
+    agents_skill_dir = _install_agents_skill_symlink(tmp_path, "agents-skill")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), str(agents_skill_dir)],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "agents-skill").is_file()
+    assert "Converting agents-skill" in result.output
+    assert agents_skill_dir.is_symlink()
+
+
+def test_command_convert_accepts_claude_symlink_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(tmp_path, "claude-skill")
+    _install_agents_skill_symlink(tmp_path, "claude-skill")
+    claude_skill_dir = _install_claude_skill_symlink(tmp_path, "claude-skill")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), str(claude_skill_dir)],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "disable-model-invocation: true" in skill_md.read_text(encoding="utf-8")
+    assert _sidecar(tmp_path, "claude-skill").is_file()
+    assert "Converting claude-skill" in result.output
+    assert claude_skill_dir.is_symlink()
+
+
+def test_command_convert_rejects_real_agents_skill_path(tmp_path: Path) -> None:
+    _write_github_skill(tmp_path, "remote-skill")
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "command",
+            "convert",
+            "--path",
+            str(tmp_path),
+            str(tmp_path / ".agents" / "skills" / "remote-skill"),
+        ],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "does not resolve to a local skill under skills/<name>" in result.output
+    assert not (tmp_path / ".agents" / "skills" / "remote-skill" / "agents").exists()
+
+
+def test_command_convert_rejects_symlinked_canonical_skill_dir_path(tmp_path: Path) -> None:
+    _write_local_skill(tmp_path, "target-skill")
+    _symlink_dir(tmp_path / "skills" / "linked-skill", Path("target-skill"))
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), "skills/linked-skill"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "is a symlink; refusing to edit it" in result.output
+    assert not _sidecar(tmp_path, "target-skill").exists()
+
+
+def test_command_convert_rejects_symlinked_canonical_skill_md_path(tmp_path: Path) -> None:
+    _write_local_skill(tmp_path, "target-md")
+    linked_dir = tmp_path / "skills" / "linked-md"
+    linked_dir.mkdir(parents=True)
+    _symlink_file(linked_dir / "SKILL.md", Path("..") / "target-md" / "SKILL.md")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--path", str(tmp_path), "skills/linked-md/SKILL.md"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code != 0
+    assert "SKILL.md" in result.output
+    assert "symlink" in result.output
+    assert not _sidecar(tmp_path, "target-md").exists()
+
+
+def test_command_convert_help_describes_path_arguments(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        main,
+        ["command", "convert", "--help"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "SKILL may be a local skill name or a path" in result.output
+    assert "skills/pr-address/SKILL.md" in result.output
+    assert ".agents/skills/pr-address" in result.output
+
+
 def test_command_convert_rejects_github_skill(tmp_path: Path) -> None:
     _write_github_skill(tmp_path, "remote-skill")
 
@@ -192,6 +367,27 @@ def test_command_revert_removes_flag_sidecar_and_empty_agents_dir(tmp_path: Path
     assert skill_md.read_text(encoding="utf-8") == "---\nname: my-skill\n---\n\n# body\n"
     assert not _sidecar(tmp_path, "my-skill").exists()
     assert not (tmp_path / "skills" / "my-skill" / "agents").exists()
+
+
+def test_command_revert_accepts_skill_dir_path(tmp_path: Path) -> None:
+    skill_md = _write_local_skill(
+        tmp_path,
+        "path-revert",
+        "---\nname: path-revert\ndisable-model-invocation: true\n---\n\n# body\n",
+    )
+    _sidecar(tmp_path, "path-revert").parent.mkdir(parents=True)
+    _sidecar(tmp_path, "path-revert").write_text(_CODEX_OPENAI_POLICY, encoding="utf-8")
+
+    result = CliRunner().invoke(
+        main,
+        ["command", "revert", "--path", str(tmp_path), "skills/path-revert"],
+        obj=_ctx(tmp_path),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert skill_md.read_text(encoding="utf-8") == "---\nname: path-revert\n---\n\n# body\n"
+    assert not _sidecar(tmp_path, "path-revert").exists()
+    assert "Reverting path-revert" in result.output
 
 
 def test_command_revert_is_idempotent(tmp_path: Path) -> None:
