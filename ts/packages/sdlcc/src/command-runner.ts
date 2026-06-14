@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { isRecord } from "./json-fields.ts";
+
 const execFileAsync = promisify(execFile);
 
 export interface StackMapCommandOutput {
@@ -37,6 +39,3 @@ function commandFailureOutput(error: unknown): StackMapCommandOutput {
 	};
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}

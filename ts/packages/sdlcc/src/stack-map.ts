@@ -44,9 +44,9 @@ export interface StackMapBranchNode {
 	readonly children?: readonly StackMapBranchNode[] | undefined;
 }
 
-export interface StackMapPrototypeModel {
+export interface StackMapModel {
 	readonly title: string;
-	readonly question: string;
+	readonly diagnostics: readonly string[];
 	readonly trunk: StackMapBranchNode;
 	readonly currentBranch: string;
 }
@@ -57,22 +57,20 @@ export type StackMapCmuxChoice =
 	| { readonly type: "tab"; readonly target: StackMapCmuxTabTarget }
 	| { readonly type: "open-new"; readonly branch: string; readonly slot?: StackMapSlotAssignment | undefined };
 
-export type StackMapPrototypeMode =
+export type StackMapMode =
 	| { readonly type: "rows" }
 	| { readonly type: "cmux-choice"; readonly branch: string; readonly choices: readonly StackMapCmuxChoice[]; readonly selectedIndex: number };
 
-export interface StackMapPrototypeState {
+export interface StackMapState {
 	readonly selectedBranch: string;
 	readonly filter: StackMapBranchFilter;
-	readonly showQuestion: boolean;
-	readonly mode: StackMapPrototypeMode;
+	readonly mode: StackMapMode;
 	readonly statusMessage?: string | undefined;
 }
 
-export type StackMapPrototypeAction =
+export type StackMapAction =
 	| { readonly type: "move-selection"; readonly delta: number }
 	| { readonly type: "toggle-filter" }
-	| { readonly type: "toggle-question" }
 	| { readonly type: "show-cmux-choice"; readonly branch: string; readonly choices: readonly StackMapCmuxChoice[] }
 	| { readonly type: "move-choice"; readonly delta: number }
 	| { readonly type: "cancel-choice" }
@@ -108,95 +106,19 @@ interface StackMapTableWidths {
 	readonly cmux: number;
 }
 
-export function buildStackMapPrototypeModel(): StackMapPrototypeModel {
-	const currentSlot: StackMapSlotAssignment = {
-		slotName: "slot-05",
-		branch: "sdlcc-stack-map-prototype",
-		worktreePath: "/repo/worktrees/slot-05",
-		status: "assigned",
-	};
-	const currentTab: StackMapCmuxTabTarget = {
-		windowRef: "window:1",
-		workspaceRef: "workspace:31",
-		workspaceTitle: "sdlcc-stack-map-prototype",
-		paneRef: "pane:31",
-		surfaceRef: "surface:31",
-		tabRef: "tab:31",
-		tabTitle: "π - slot-05",
-		surfaceType: "terminal",
-		isActive: true,
-		isHere: true,
-		isSelected: true,
-		match: { type: "slot-worktree", slotName: currentSlot.slotName, worktreePath: currentSlot.worktreePath ?? "" },
-	};
-
-	return {
-		title: "sdlcc stack-map prototype",
-		question:
-			"Prototype question: does a branch list with a persistent left-side Graphite topology overlay feel like the right base surface for sdlcc?",
-		currentBranch: "sdlcc-stack-map-prototype",
-		trunk: {
-			name: "main",
-			graphiteNote: "repo",
-			children: [
-				{
-					name: "planned-branch-plan-contract",
-					graphiteNote: "parent",
-					children: [
-						{
-							name: "branch-context-sdl-hooks",
-							graphiteNote: "PR #84",
-							slots: [{ slotName: "slot-03", branch: "branch-context-sdl-hooks", status: "assigned" }],
-						},
-						{
-							name: "sdlcc-stack-map-prototype",
-							graphiteNote: "current",
-							slots: [currentSlot],
-							cmuxTabs: [currentTab],
-						},
-					],
-				},
-				{
-					name: "brmem-typescript-port",
-					graphiteNote: "needs restack",
-					slots: [{ slotName: "slot-09", branch: "brmem-typescript-port", status: "assigned" }],
-					children: [
-						{
-							name: "brmem-umbrella-playbook-lessons",
-							graphiteNote: "upstack",
-						},
-					],
-				},
-				{
-					name: "large-pr-ci-resilience",
-					graphiteNote: "ready",
-					children: [
-						{
-							name: "roaster-bounded-diff-review-coverage",
-							graphiteNote: "PR #91",
-							slots: [{ slotName: "slot-12", branch: "roaster-bounded-diff-review-coverage", status: "assigned" }],
-						},
-					],
-				},
-			],
-		},
-	};
-}
-
-export function createInitialStackMapState(model: StackMapPrototypeModel): StackMapPrototypeState {
+export function createInitialStackMapState(model: StackMapModel): StackMapState {
 	return {
 		selectedBranch: model.currentBranch,
 		filter: "all",
-		showQuestion: true,
 		mode: { type: "rows" },
 	};
 }
 
-export function reduceStackMapPrototypeState(
-	model: StackMapPrototypeModel,
-	state: StackMapPrototypeState,
-	action: StackMapPrototypeAction,
-): StackMapPrototypeState {
+export function reduceStackMapState(
+	model: StackMapModel,
+	state: StackMapState,
+	action: StackMapAction,
+): StackMapState {
 	switch (action.type) {
 		case "move-selection":
 			return state.mode.type === "rows" ? moveSelection(model, state, action.delta) : state;
@@ -206,11 +128,6 @@ export function reduceStackMapPrototypeState(
 				filter: state.filter === "all" ? "cmux" : "all",
 				mode: { type: "rows" },
 			});
-		case "toggle-question":
-			return {
-				...state,
-				showQuestion: !state.showQuestion,
-			};
 		case "show-cmux-choice":
 			return {
 				...state,
@@ -226,7 +143,7 @@ export function reduceStackMapPrototypeState(
 	}
 }
 
-export function buildVisibleStackMapRows(model: StackMapPrototypeModel, state: StackMapPrototypeState): readonly StackMapVisibleRow[] {
+export function buildVisibleStackMapRows(model: StackMapModel, state: StackMapState): readonly StackMapVisibleRow[] {
 	return buildGtLsTopologyRows(model, state.filter).map((row) => {
 		const isCurrent = row.branch.name === model.currentBranch;
 		const branchLabel = isCurrent ? `${row.branch.name} ← current` : row.branch.name;
@@ -245,7 +162,7 @@ export function buildVisibleStackMapRows(model: StackMapPrototypeModel, state: S
 	});
 }
 
-export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, state: StackMapPrototypeState): string {
+export function renderStackMapFrame(model: StackMapModel, state: StackMapState): string {
 	const rows = buildVisibleStackMapRows(model, state);
 	const topoWidth = Math.max("TOPO".length, ...rows.map((row) => row.topo.length));
 	const tableWidths = buildStackMapTableWidths(rows);
@@ -253,7 +170,10 @@ export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, stat
 
 	const lines: string[] = [];
 	lines.push(model.title);
-	if (state.showQuestion) lines.push(model.question);
+	if (model.diagnostics.length > 0) {
+		lines.push("Diagnostics:");
+		for (const diagnostic of model.diagnostics) lines.push(`- ${diagnostic}`);
+	}
 	lines.push("");
 	lines.push(`${"".padEnd(2)}${"TOPO".padEnd(topoWidth)}  ${formatStackMapTableHeader(tableWidths)}`);
 	lines.push(`${"".padEnd(2)}${"─".repeat(topoWidth)}──${formatStackMapTableRule(tableWidths)}`);
@@ -275,17 +195,17 @@ export function renderStackMapPrototypeFrame(model: StackMapPrototypeModel, stat
 	return lines.join("\n");
 }
 
-export function getSelectedStackMapBranch(model: StackMapPrototypeModel, state: StackMapPrototypeState): StackMapBranchNode | undefined {
+export function getSelectedStackMapBranch(model: StackMapModel, state: StackMapState): StackMapBranchNode | undefined {
 	return collectStackMapBranches(model.trunk).find((branch) => branch.name === state.selectedBranch);
 }
 
-export function planStackMapCmuxActivation(model: StackMapPrototypeModel, state: StackMapPrototypeState): StackMapCmuxActivationPlan {
+export function planStackMapCmuxActivation(model: StackMapModel, state: StackMapState): StackMapCmuxActivationPlan {
 	const branch = getSelectedStackMapBranch(model, state);
 	if (branch === undefined) return { type: "unavailable", reason: "No selected branch is visible." };
 
 	const targets = branch.cmuxTabs ?? [];
 	const slot = branch.slots?.[0];
-	if (targets.length === 0) return slot === undefined ? { type: "open-new", branch: branch.name } : { type: "open-new", branch: branch.name, slot };
+	if (targets.length === 0) return openNewPlan(branch.name, slot);
 	if (targets.length === 1) {
 		const target = targets[0];
 		return target === undefined ? { type: "unavailable", branch: branch.name, reason: "Selected branch has an unreadable cmux tab target." } : { type: "focus-tab", branch: branch.name, target };
@@ -299,8 +219,16 @@ export function choicesForCmuxActivationPlan(plan: StackMapCmuxActivationPlan): 
 	if (plan.type !== "choose-tab") return [];
 	return [
 		...plan.targets.map((target): StackMapCmuxChoice => ({ type: "tab", target })),
-		plan.slot === undefined ? { type: "open-new", branch: plan.branch } : { type: "open-new", branch: plan.branch, slot: plan.slot },
+		openNewChoice(plan.branch, plan.slot),
 	];
+}
+
+function openNewPlan(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxActivationPlan {
+	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
+}
+
+function openNewChoice(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxChoice {
+	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
 }
 
 export function matchCmuxTabsToBranches(options: {
@@ -364,7 +292,7 @@ function formatStackMapTableCells(branch: string, graphite: string, cmux: string
 	return `${branch.padEnd(widths.branch)} │ ${graphite.padEnd(widths.graphite)} │ ${cmux.padEnd(widths.cmux)}`;
 }
 
-function moveSelection(model: StackMapPrototypeModel, state: StackMapPrototypeState, delta: number): StackMapPrototypeState {
+function moveSelection(model: StackMapModel, state: StackMapState, delta: number): StackMapState {
 	const rows = buildVisibleStackMapRows(model, state);
 	if (rows.length === 0) return state;
 
@@ -380,7 +308,7 @@ function moveSelection(model: StackMapPrototypeModel, state: StackMapPrototypeSt
 	};
 }
 
-function moveCmuxChoice(state: StackMapPrototypeState, delta: number): StackMapPrototypeState {
+function moveCmuxChoice(state: StackMapState, delta: number): StackMapState {
 	if (state.mode.type !== "cmux-choice") return state;
 	return {
 		...state,
@@ -391,7 +319,7 @@ function moveCmuxChoice(state: StackMapPrototypeState, delta: number): StackMapP
 	};
 }
 
-function keepSelectedVisible(model: StackMapPrototypeModel, state: StackMapPrototypeState): StackMapPrototypeState {
+function keepSelectedVisible(model: StackMapModel, state: StackMapState): StackMapState {
 	const rows = buildVisibleStackMapRows(model, state);
 	if (rows.some((row) => row.branch.name === state.selectedBranch)) return state;
 
@@ -404,7 +332,7 @@ function keepSelectedVisible(model: StackMapPrototypeModel, state: StackMapProto
 	};
 }
 
-function buildGtLsTopologyRows(model: StackMapPrototypeModel, filter: StackMapBranchFilter): readonly GtLsTopologyRow[] {
+function buildGtLsTopologyRows(model: StackMapModel, filter: StackMapBranchFilter): readonly GtLsTopologyRow[] {
 	const lanes = sortBranchesByName(model.trunk.children ?? []).filter((branch) => filter === "all" || hasCmuxEvidenceInSubtree(branch));
 	const rows: GtLsTopologyRow[] = [];
 	lanes.forEach((branch, laneIndex) => rows.push(...buildLaneRows(branch, laneIndex, model.currentBranch)));
@@ -477,7 +405,7 @@ function formatTabLabel(tab: StackMapCmuxTabTarget): string {
 
 function renderSelectedBranchState(
 	branch: StackMapBranchNode | undefined,
-	state: StackMapPrototypeState,
+	state: StackMapState,
 	visibleCount: number,
 ): string {
 	if (branch === undefined) return `State: filter=${state.filter}; visibleBranches=0; selected=<none>`;
@@ -490,7 +418,7 @@ function renderSelectedBranchState(
 	].filter((line): line is string => line !== undefined).join("\n");
 }
 
-function renderCmuxChooser(mode: Extract<StackMapPrototypeMode, { type: "cmux-choice" }>): readonly string[] {
+function renderCmuxChooser(mode: Extract<StackMapMode, { type: "cmux-choice" }>): readonly string[] {
 	return [
 		`Cmux chooser for ${mode.branch}:`,
 		...mode.choices.map((choice, index) => `${index === mode.selectedIndex ? "›" : " "} ${formatCmuxChoice(choice)}`),
@@ -509,9 +437,9 @@ function formatCmuxChoice(choice: StackMapCmuxChoice): string {
 	].filter((part): part is string => part !== undefined && part.length > 0).join("  ");
 }
 
-function renderFooter(state: StackMapPrototypeState): string {
+function renderFooter(state: StackMapState): string {
 	if (state.mode.type === "cmux-choice") return "Keys: ↑/k previous  ↓/j next  Enter activate  Esc cancel chooser  q quit";
-	return "Keys: ↑/k previous  ↓/j next  c cmux  o cmux-only/all  ? hide/show question  q/Esc quit";
+	return "Keys: ↑/k previous  ↓/j next  c cmux  o cmux-only/all  q/Esc quit";
 }
 
 function cmuxActionHint(branch: StackMapBranchNode): string {

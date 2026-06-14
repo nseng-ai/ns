@@ -7,7 +7,7 @@ import { rawCommand } from "@asdl/clinkr/raw";
 
 import { runRealCommand, type StackMapCommandRunner } from "./command-runner.ts";
 import { formatSdlccCmuxReportHuman, formatSdlccCmuxReportJson, runSdlccCmuxReport } from "./cmux-report.ts";
-import { loadStackMapPrototypeModel } from "./stack-map-model-loader.ts";
+import { loadStackMapModel } from "./stack-map-model-loader.ts";
 
 const VERSION = "0.1.0";
 
@@ -31,7 +31,7 @@ interface SdlccCliContext {
 export function buildCli(): ClinkrGroup<SdlccCliContext> {
 	const root = new ClinkrGroup<SdlccCliContext>({
 		name: "sdlcc",
-		description: "Open a full-screen OpenTUI stack-map prototype.",
+		description: "Open a full-screen OpenTUI stack map.",
 		version: VERSION,
 		runtimeInfo,
 	});
@@ -88,11 +88,11 @@ function runtimeInfo(): string {
 }
 
 async function startDefaultTui(): Promise<void> {
-	const [{ startStackMapPrototypeTui }, model] = await Promise.all([
-		import("./stack-map-prototype-renderer.ts"),
-		loadStackMapPrototypeModel(),
+	const [{ startStackMapTui }, model] = await Promise.all([
+		import("./stack-map-renderer.ts"),
+		loadStackMapModel(),
 	]);
-	await startStackMapPrototypeTui({ model });
+	await startStackMapTui({ model });
 }
 
 if (import.meta.main) {

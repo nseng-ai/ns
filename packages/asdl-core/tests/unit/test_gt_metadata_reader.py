@@ -5,8 +5,13 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.gt.metadata_reader import read_stack_from_metadata_db
+from asdl_core.gt.metadata_reader import (
+    read_branch_graph_from_metadata_db,
+    read_stack_from_metadata_db,
+)
 from asdl_core.gt.types import (
+    BranchMetadataGraph,
+    BranchMetadataGraphRow,
     ChildrenCorruption,
     DescendantWalk,
     GtCommandFailure,
@@ -68,6 +73,84 @@ def _build_metadata_db(tmp_path: Path, branches: list[_BranchRow]) -> Path:
             ],
         )
     return db_path
+
+
+def test_gt_metadata_graph_reader_reads_rows_and_restack_fact(tmp_path: Path) -> None:
+    db_path = _build_metadata_db(
+        tmp_path,
+        [
+            _BranchRow("main", None, ("feat/current",), "TRUNK"),
+            _BranchRow("feat/current", "main", ("feat/restack",), "VALID"),
+            _BranchRow("feat/restack", "feat/current", (), "BAD_PARENT_NAME"),
+        ],
+    )
+
+    result = read_branch_graph_from_metadata_db(db_path)
+
+    assert result == BranchMetadataGraph(
+        rows=(
+            BranchMetadataGraphRow(
+                name="feat/current",
+                parent="main",
+                children=("feat/restack",),
+                validation_result="VALID",
+            ),
+            BranchMetadataGraphRow(
+                name="feat/restack",
+                parent="feat/current",
+                children=(),
+                validation_result="BAD_PARENT_NAME",
+            ),
+            BranchMetadataGraphRow(
+                name="main",
+                parent=None,
+                children=("feat/current",),
+                validation_result="TRUNK",
+            ),
+        )
+    )
+    assert result.rows_by_name()["feat/restack"].needs_restack is True
+
+
+def test_gt_metadata_graph_reader_records_malformed_children(tmp_path: Path) -> None:
+    db_path = _build_metadata_db(
+        tmp_path,
+        [
+            _BranchRow("main", None, ("feat/current",), "TRUNK"),
+            _BranchRow("feat/current", "main", raw_children=json.dumps(["feat/a", 1])),
+            _BranchRow("", None),
+        ],
+    )
+
+    result = read_branch_graph_from_metadata_db(db_path)
+
+    assert isinstance(result, BranchMetadataGraph)
+    assert result.empty_branch_name_rows == 1
+    assert result.rows_by_name()["feat/current"].children == ("feat/a",)
+    assert result.rows_by_name()["feat/current"].children_corruption == ChildrenCorruption(
+        branch="feat/current",
+        kind="non_string",
+    )
+    assert result.render_warnings() == (
+        "Graphite metadata row has an empty branch_name; row ignored",
+        "children metadata for feat/current contains non-string entries",
+    )
+
+
+def test_gt_metadata_graph_reader_returns_failure_for_missing_db_and_schema_mismatch(
+    tmp_path: Path,
+) -> None:
+    missing = read_branch_graph_from_metadata_db(tmp_path / ".graphite_metadata.db")
+    assert isinstance(missing, GtCommandFailure)
+    assert "not found" in missing.message
+
+    db_path = tmp_path / "schema-mismatch.db"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY)")
+
+    mismatch = read_branch_graph_from_metadata_db(db_path)
+    assert isinstance(mismatch, GtCommandFailure)
+    assert "schema mismatch" in mismatch.message
 
 
 def test_gt_metadata_reader_reads_linear_stack(tmp_path: Path) -> None:

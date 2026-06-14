@@ -72,6 +72,42 @@ class StackFork:
 
 
 @dataclass(frozen=True)
+class BranchMetadataGraphRow:
+    """One parsed row from Graphite's branch metadata graph."""
+
+    name: str
+    parent: str | None
+    children: tuple[str, ...]
+    validation_result: str | None
+    children_corruption: ChildrenCorruption | None = None
+
+    @property
+    def needs_restack(self) -> bool:
+        return self.validation_result == "BAD_PARENT_NAME"
+
+
+@dataclass(frozen=True)
+class BranchMetadataGraph:
+    """Parsed Graphite branch metadata graph rows plus read diagnostics."""
+
+    rows: tuple[BranchMetadataGraphRow, ...]
+    empty_branch_name_rows: int = 0
+
+    def rows_by_name(self) -> dict[str, BranchMetadataGraphRow]:
+        return {row.name: row for row in self.rows}
+
+    def render_warnings(self) -> tuple[str, ...]:
+        warnings: list[str] = []
+        warnings.extend(EMPTY_BRANCH_NAME_WARNING for _ in range(self.empty_branch_name_rows))
+        warnings.extend(
+            render_children_corruption(row.children_corruption)
+            for row in self.rows
+            if row.children_corruption is not None
+        )
+        return tuple(warnings)
+
+
+@dataclass(frozen=True)
 class DescendantWalk:
     """Integrity facts collected while walking first-child descendants."""
 

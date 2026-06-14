@@ -71,7 +71,7 @@ describe("runSdlccCli", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("Usage: sdlcc [options]");
-		expect(run.stdout.join("")).toContain("Open a full-screen OpenTUI stack-map prototype.");
+		expect(run.stdout.join("")).toContain("Open a full-screen OpenTUI stack map.");
 		expect(run.stdout.join("")).toContain("cmux");
 		expect(run.stderr).toEqual([]);
 		expect(run.startCalls).toEqual([]);

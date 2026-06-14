@@ -3,28 +3,28 @@ import { fileURLToPath } from "node:url";
 import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 
 import { runRealCommand, type StackMapCommandOutput, type StackMapCommandRunner } from "./command-runner.ts";
+import { isRecord, stringField } from "./json-fields.ts";
 import {
-	buildStackMapPrototypeModel,
 	choicesForCmuxActivationPlan,
 	createInitialStackMapState,
 	planStackMapCmuxActivation,
-	reduceStackMapPrototypeState,
-	renderStackMapPrototypeFrame,
+	reduceStackMapState,
+	renderStackMapFrame,
 	type StackMapCmuxActivationPlan,
 	type StackMapCmuxChoice,
 	type StackMapCmuxTabTarget,
-	type StackMapPrototypeModel,
-	type StackMapPrototypeState,
+	type StackMapModel,
+	type StackMapState,
 	type StackMapSlotAssignment,
-} from "./stack-map-prototype.ts";
+} from "./stack-map.ts";
 
 const SDLCC_CLI_ENTRYPOINT_PATH = fileURLToPath(new URL("./cli.ts", import.meta.url));
 
 const COMMAND_TIMEOUT_MS = 10_000;
 const SLOT_CHECKOUT_TIMEOUT_MS = 30_000;
 
-export interface StartStackMapPrototypeTuiOptions {
-	readonly model?: StackMapPrototypeModel | undefined;
+export interface StartStackMapTuiOptions {
+	readonly model: StackMapModel;
 	readonly activationExecutor?: StackMapCmuxActivationExecutor | undefined;
 }
 
@@ -38,7 +38,7 @@ export interface CreateStackMapCmuxActivationExecutorOptions {
 	readonly runCommand?: StackMapCommandRunner | undefined;
 }
 
-interface MountedStackMapPrototypeScreen {
+interface MountedStackMapScreen {
 	readonly frame: TextRenderable;
 }
 
@@ -48,8 +48,8 @@ interface SlotCheckoutTarget {
 	readonly worktreePath: string;
 }
 
-export async function startStackMapPrototypeTui(options: StartStackMapPrototypeTuiOptions = {}): Promise<void> {
-	const model = options.model ?? buildStackMapPrototypeModel();
+export async function startStackMapTui(options: StartStackMapTuiOptions): Promise<void> {
+	const model = options.model;
 	const activationExecutor = options.activationExecutor ?? createStackMapCmuxActivationExecutor();
 	let state = createInitialStackMapState(model);
 	let renderer: CliRenderer | undefined;
@@ -57,11 +57,11 @@ export async function startStackMapPrototypeTui(options: StartStackMapPrototypeT
 
 	try {
 		renderer = await createCliRenderer({ exitOnCtrlC: true });
-		const screen = mountStackMapPrototypeScreen(renderer, model, state);
-		const setState = (nextState: StackMapPrototypeState): void => {
+		const screen = mountStackMapScreen(renderer, model, state);
+		const setState = (nextState: StackMapState): void => {
 			if (nextState === state) return;
 			state = nextState;
-			screen.frame.content = renderStackMapPrototypeFrame(model, state);
+			screen.frame.content = renderStackMapFrame(model, state);
 			renderer?.requestRender();
 		};
 
@@ -118,11 +118,11 @@ export function buildSdlccCmuxReportBootstrapCommand(cliEntrypointPath: string =
 	return `bun ${shellQuote(cliEntrypointPath)} cmux report || true; exec ${"${SHELL:-/bin/zsh}"} -l`;
 }
 
-function mountStackMapPrototypeScreen(
+function mountStackMapScreen(
 	renderer: CliRenderer,
-	model: StackMapPrototypeModel,
-	state: StackMapPrototypeState,
-): MountedStackMapPrototypeScreen {
+	model: StackMapModel,
+	state: StackMapState,
+): MountedStackMapScreen {
 	const root = new BoxRenderable(renderer, {
 		id: "sdlcc-stack-map-root",
 		width: "100%",
@@ -139,7 +139,7 @@ function mountStackMapPrototypeScreen(
 
 	const frame = new TextRenderable(renderer, {
 		id: "sdlcc-stack-map-frame",
-		content: renderStackMapPrototypeFrame(model, state),
+		content: renderStackMapFrame(model, state),
 		fg: "#cdd6f4",
 		width: "100%",
 		height: "100%",
@@ -153,9 +153,9 @@ function mountStackMapPrototypeScreen(
 }
 
 async function handleStackMapKey(options: {
-	readonly model: StackMapPrototypeModel;
-	readonly getState: () => StackMapPrototypeState;
-	readonly setState: (state: StackMapPrototypeState) => void;
+	readonly model: StackMapModel;
+	readonly getState: () => StackMapState;
+	readonly setState: (state: StackMapState) => void;
 	readonly key: KeyEvent;
 	readonly renderer: CliRenderer | undefined;
 	readonly activationExecutor: StackMapCmuxActivationExecutor;
@@ -171,7 +171,7 @@ async function handleStackMapKey(options: {
 	}
 	if (key.name === "escape") {
 		if (state.mode.type === "cmux-choice") {
-			options.setState(reduceStackMapPrototypeState(model, state, { type: "cancel-choice" }));
+			options.setState(reduceStackMapState(model, state, { type: "cancel-choice" }));
 			return;
 		}
 		options.renderer?.destroy();
@@ -193,16 +193,16 @@ async function handleStackMapKey(options: {
 
 	const plan = planStackMapCmuxActivation(model, state);
 	if (plan.type === "choose-tab") {
-		options.setState(reduceStackMapPrototypeState(model, state, { type: "show-cmux-choice", branch: plan.branch, choices: choicesForCmuxActivationPlan(plan) }));
+		options.setState(reduceStackMapState(model, state, { type: "show-cmux-choice", branch: plan.branch, choices: choicesForCmuxActivationPlan(plan) }));
 		return;
 	}
 	await executeActivationPlan(options, plan);
 }
 
 async function handleChooserKey(options: {
-	readonly model: StackMapPrototypeModel;
-	readonly getState: () => StackMapPrototypeState;
-	readonly setState: (state: StackMapPrototypeState) => void;
+	readonly model: StackMapModel;
+	readonly getState: () => StackMapState;
+	readonly setState: (state: StackMapState) => void;
 	readonly key: KeyEvent;
 	readonly renderer: CliRenderer | undefined;
 	readonly activationExecutor: StackMapCmuxActivationExecutor;
@@ -215,11 +215,11 @@ async function handleChooserKey(options: {
 	switch (options.key.name) {
 		case "up":
 		case "k":
-			options.setState(reduceStackMapPrototypeState(options.model, state, { type: "move-choice", delta: -1 }));
+			options.setState(reduceStackMapState(options.model, state, { type: "move-choice", delta: -1 }));
 			return;
 		case "down":
 		case "j":
-			options.setState(reduceStackMapPrototypeState(options.model, state, { type: "move-choice", delta: 1 }));
+			options.setState(reduceStackMapState(options.model, state, { type: "move-choice", delta: 1 }));
 			return;
 		case "enter":
 		case "return":
@@ -229,68 +229,64 @@ async function handleChooserKey(options: {
 }
 
 function reduceFromRowsKey(
-	model: StackMapPrototypeModel,
-	state: StackMapPrototypeState,
+	model: StackMapModel,
+	state: StackMapState,
 	key: KeyEvent,
-): StackMapPrototypeState {
+): StackMapState {
 	switch (key.name) {
 		case "up":
 		case "k":
-			return reduceStackMapPrototypeState(model, state, { type: "move-selection", delta: -1 });
+			return reduceStackMapState(model, state, { type: "move-selection", delta: -1 });
 		case "down":
 		case "j":
-			return reduceStackMapPrototypeState(model, state, { type: "move-selection", delta: 1 });
+			return reduceStackMapState(model, state, { type: "move-selection", delta: 1 });
 		case "o":
-			return reduceStackMapPrototypeState(model, state, { type: "toggle-filter" });
-		case "?":
-			return reduceStackMapPrototypeState(model, state, { type: "toggle-question" });
+			return reduceStackMapState(model, state, { type: "toggle-filter" });
 		default:
 			return state;
 	}
 }
 
 async function executeChoice(options: {
-	readonly model: StackMapPrototypeModel;
-	readonly getState: () => StackMapPrototypeState;
-	readonly setState: (state: StackMapPrototypeState) => void;
+	readonly model: StackMapModel;
+	readonly getState: () => StackMapState;
+	readonly setState: (state: StackMapState) => void;
 	readonly activationExecutor: StackMapCmuxActivationExecutor;
 	readonly setActivating: (value: boolean) => void;
 }, choice: StackMapCmuxChoice | undefined): Promise<void> {
 	const state = options.getState();
 	if (choice === undefined) {
-		options.setState(reduceStackMapPrototypeState(options.model, state, { type: "set-status", message: "No cmux chooser item is selected." }));
+		options.setState(reduceStackMapState(options.model, state, { type: "set-status", message: "No cmux chooser item is selected." }));
 		return;
 	}
 	const plan: StackMapCmuxActivationPlan = choice.type === "tab"
 		? { type: "focus-tab", branch: state.selectedBranch, target: choice.target }
-		: choice.slot === undefined
-			? { type: "open-new", branch: choice.branch }
-			: { type: "open-new", branch: choice.branch, slot: choice.slot };
+		: openNewActivationPlan(choice.branch, choice.slot);
 	await executeActivationPlan(options, plan);
 }
 
 async function executeActivationPlan(options: {
-	readonly model: StackMapPrototypeModel;
-	readonly getState: () => StackMapPrototypeState;
-	readonly setState: (state: StackMapPrototypeState) => void;
+	readonly model: StackMapModel;
+	readonly getState: () => StackMapState;
+	readonly setState: (state: StackMapState) => void;
 	readonly activationExecutor: StackMapCmuxActivationExecutor;
 	readonly setActivating: (value: boolean) => void;
 }, plan: StackMapCmuxActivationPlan): Promise<void> {
 	const state = options.getState();
 	if (plan.type === "unavailable") {
-		options.setState(reduceStackMapPrototypeState(options.model, state, { type: "set-status", message: plan.reason }));
+		options.setState(reduceStackMapState(options.model, state, { type: "set-status", message: plan.reason }));
 		return;
 	}
 
 	options.setActivating(true);
 	try {
 		const pendingMessage = plan.type === "focus-tab" ? `Focusing cmux tab for ${plan.branch}…` : `Opening cmux workspace for ${plan.branch}…`;
-		options.setState(reduceStackMapPrototypeState(options.model, state, { type: "set-status", message: pendingMessage }));
+		options.setState(reduceStackMapState(options.model, state, { type: "set-status", message: pendingMessage }));
 		const result = plan.type === "focus-tab"
 			? await options.activationExecutor.focusTab(plan.target)
 			: await options.activationExecutor.openNew(plan.branch, plan.slot);
 		const message = result.type === "failed" ? result.message : result.type === "focused" ? `Focused cmux tab for ${plan.branch}.` : result.message;
-		options.setState(reduceStackMapPrototypeState(options.model, options.getState(), { type: "set-status", message }));
+		options.setState(reduceStackMapState(options.model, options.getState(), { type: "set-status", message }));
 	} finally {
 		options.setActivating(false);
 	}
@@ -320,6 +316,10 @@ function parseSlotCheckoutTarget(stdout: string): SlotCheckoutTarget | undefined
 	return { slotName, branchName, worktreePath };
 }
 
+function openNewActivationPlan(branch: string, slot: StackMapSlotAssignment | undefined): StackMapCmuxActivationPlan {
+	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
+}
+
 function slotTargetFromAssignment(branch: string, slot: StackMapSlotAssignment): SlotCheckoutTarget {
 	return {
 		slotName: slot.slotName,
@@ -334,13 +334,4 @@ function commandFailureMessage(commandName: string, result: StackMapCommandOutpu
 
 function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function stringField(record: Record<string, unknown>, key: string): string | undefined {
-	const value = record[key];
-	return typeof value === "string" ? value : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
