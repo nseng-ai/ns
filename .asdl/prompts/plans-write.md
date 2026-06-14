@@ -18,6 +18,7 @@ Plan contract prototype:
 - Include a provenance and content/excerpt drift anchor when repo state matters: current branch, commit, and date for human forensics, plus short current-state excerpts the executor can compare against live code before editing. The excerpts are the mechanical check; the SHA is not the authority.
 - State the scope boundary: in-scope files/areas and explicit out-of-scope files/areas, with one-line reasons where likely confusion exists.
 - Define verification gates as commands and expected success. Add per-step gates where natural; if there is no independent gate, say `no independent gate; verified by <later command>` instead of inventing one.
+- When the target repo lacks a credible one-command validation baseline, sequence the first implementation slice to establish or document that baseline before risky implementation work. This is planning guidance; it does not require the planner to run every validation command before saving.
 - Add 2-4 plan-specific STOP conditions for assumptions unique to this plan. Do not copy universal branch-context STOP behavior into every plan.
 - Before saving a non-trivial plan, run a cold-read executability gaps check: ask a fresh-context reviewer/subagent to report only what a downstream executor would have to guess. Label review-model examples by harness, such as Pi/OpenAI `openai-codex/gpt-5.4-mini:medium` and Claude/Anthropic `claude-haiku-4-5`; do not reuse those review-only examples for implementation subagents.
 
@@ -90,6 +91,7 @@ Subagent model routing:
 Closeout review plan:
 
 - Keep closeout guidance concise; do not paste reusable closeout boilerplate unless this plan needs a special exception.
+- Include a compact trust-nothing closeout check when useful: rerun declared done criteria/gates, compare changed files to the plan's in-scope/out-of-scope lists, inspect documented deviations, and read changed tests/assertions for meaningful coverage instead of trusting green output alone.
 - Plans should include exactly one in-session style review subagent per applicable review family, run after implementation is complete and focused validation has passed.
 - The cheap-model guidance in this section is exclusively for review-only subagents after implementation is complete; never apply it to implementation/editing subagents. Review-only subagents may use the review definition's `default_model` when available. For OpenAI-family Pi routing, the cheap review-capable pattern is `openai-codex/gpt-5.4-mini:medium`.
 - If TypeScript-family files (`.ts`, `.tsx`, `.mts`, `.cts`) are likely to change, include a single in-session `typescript-style` review subagent on the changed diff.
