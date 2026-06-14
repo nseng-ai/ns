@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { BRANCH_CONTEXT_PLAN_KEY } from "@asdl/branch-context";
 import { DEFAULT_FAST_MODEL } from "@asdl/plans";
 import {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -13,6 +12,7 @@ import {
 } from "../src/branch-context-extension.ts";
 
 import {
+	PLAN_KEY,
 	PLAN_SLUG,
 	REPO_ROOT,
 	ROOT,
@@ -183,6 +183,7 @@ describe("formatCreateBranchContextPreview", () => {
 			savedPlanFileStem: "local-filename-plan",
 			filePath: `/plans/gh--owner--repo/main/local-filename-plan.md`,
 			fileName: "local-filename-plan.md",
+			planKey: PLAN_KEY,
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "graphite",
 			isExplicitTargetBranch: false,
@@ -204,7 +205,7 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
 		expect(text).toContain("Branch creation: graphite");
-		expect(text).toContain(`Branch Memory key: ${BRANCH_CONTEXT_PLAN_KEY}`);
+		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
 	});
 
 	test("reports session-derived latest saved plan", () => {
@@ -214,6 +215,7 @@ describe("formatCreateBranchContextPreview", () => {
 			savedPlanFileStem: "session-file-plan",
 			filePath: `/plans/gh--owner--repo/main/session-file-plan.md`,
 			fileName: "session-file-plan.md",
+			planKey: PLAN_KEY,
 			targetBranch: TARGET_BRANCH,
 			branchCreation: "plain-git",
 			isExplicitTargetBranch: false,

@@ -8,7 +8,7 @@ import { createTempDirTracker } from "@asdl/core/testing";
 import { encodeBranchForPlanPath } from "@asdl/plans";
 
 import { attachBranchContextEntry } from "../src/attach.ts";
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "../src/constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/constants.ts";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
@@ -17,6 +17,7 @@ const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source-plan";
 const TARGET_BRANCH = "branch-contexts/manual-context";
 const PLAN_SLUG = "branch-scoped-plan";
+const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);
 const REPO_KEY = "gh--owner--repo";
 
 const NO_COMMANDS: CommandExecApi = {
@@ -58,7 +59,7 @@ async function writeSavedPlan(
 }
 
 describe("attachBranchContextEntry", () => {
-	test("attaches a saved plan as the canonical plan key and preserves the plan slug", async () => {
+	test("attaches a saved plan as the named plan key and preserves the plan slug", async () => {
 		const planStoreRoot = await makePlanStore();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
@@ -69,12 +70,12 @@ describe("attachBranchContextEntry", () => {
 		expect(evidence).toMatchObject({
 			branch: TARGET_BRANCH,
 			namespace: BRANCH_CONTEXT_NAMESPACE,
-			key: BRANCH_CONTEXT_PLAN_KEY,
+			key: PLAN_KEY,
 			sourceFile,
 			planSlug: PLAN_SLUG,
 		});
-		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: BRANCH_CONTEXT_PLAN_KEY }]);
-		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: BRANCH_CONTEXT_PLAN_KEY, sourceFile }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY }]);
+		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile }]);
 	});
 
 	test("rejects a missing saved-plan slug with available slugs from one store listing", async () => {
@@ -123,7 +124,7 @@ describe("attachBranchContextEntry", () => {
 
 		expect(evidence.branch).toBe(TARGET_BRANCH);
 		expect(git.currentBranchCalls).toEqual([]);
-		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: BRANCH_CONTEXT_PLAN_KEY, sourceFile }]);
+		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile }]);
 	});
 
 	test("fails from detached HEAD when no branch override is supplied", async () => {

@@ -3,8 +3,10 @@ export {
 	type BranchContextContext,
 } from "./context.ts";
 export {
+	BRANCH_CONTEXT_LEGACY_PLAN_KEY,
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_PLAN_KEY,
+	buildBranchContextPlanKey,
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
 	deriveTargetBranch,

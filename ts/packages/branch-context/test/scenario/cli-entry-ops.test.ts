@@ -327,7 +327,7 @@ describe("branch-context exec", () => {
 		expect(run.brmem.attachPlanCalls).toEqual([{ cwd: repoRoot, branch, key: "notes", sourceFile }]);
 	});
 
-	test("attach --plan stores a saved plan as plan.md and reports the plan slug", async () => {
+	test("attach --plan stores a saved plan as a named key and reports the plan slug", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
 		const sourceFile = await writeSavedPlan(planStoreRoot);
@@ -455,7 +455,7 @@ describe("branch-context exec", () => {
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
 
-	test("list flags the canonical plan entry", async () => {
+	test("list labels Markdown plan entries without making plan.md canonical", async () => {
 		const repoRoot = await makeTempDir();
 		const branch = "branch-contexts/manual-context";
 		const run = runWithFakes(["exec", "list"], {
@@ -465,7 +465,7 @@ describe("branch-context exec", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("- plan.md (plan)");
+		expect(run.stdout.join("")).toContain(`- ${PLAN_KEY} (plan)`);
 		expect(run.stdout.join("")).toContain("- notes");
 	});
 

@@ -103,7 +103,10 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session reuses one session-created attached plan when the local plan store is missing", async () => {
 		const events: string[] = [];
-		const pi = new FakePi([brmemListAttachedPlansStep(IMPL_BRANCH, [{ key: PLAN_KEY }]), gitCheckoutStep(IMPL_BRANCH)], events);
+		const pi = new FakePi([
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			gitCheckoutStep(IMPL_BRANCH),
+		], events);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
 				throw missingPlanStoreError();
@@ -181,7 +184,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
+			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", explicitBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: explicit --branch");
@@ -205,7 +208,7 @@ describe("branch-context-upstack-impl-session", () => {
 		pi.assertDone();
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
+			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", explicitBranch, "--format", "json"] },
 		]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("Dry run: no branch would be created, no plan would be attached, no checkout would happen");
@@ -262,7 +265,7 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "git", args: ["branch", "--show-current"] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
+			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reuse source: current branch");
@@ -316,18 +319,20 @@ describe("branch-context-upstack-impl-session", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"] },
+			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"] },
 		]);
 		const content = pi.sentMessages[0]?.content ?? "";
 		expect(content).toContain("No existing branch context with an attached plan could be reused.");
-		expect(content).toContain("Branch-context key `plan.md` is absent.");
+		expect(content).toContain("Multiple branch-context entries exist");
+		expect(content).toContain("- alpha.md");
+		expect(content).toContain("- beta.md");
 		expect(context.replacementUserMessages).toEqual([]);
 	});
 
 	test("branch-context:upstack-impl-session falls through to the current branch when the session candidate fails verification", async () => {
 		const currentBranch = "branch-contexts/current-target";
 		const pi = new FakePi([
-			brmemListAttachedPlansStep(IMPL_BRANCH, []),
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 1 }),
 			gitCurrentBranchStep(currentBranch),
 			brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]),
 			gitCheckoutStep(currentBranch),
@@ -355,7 +360,7 @@ describe("branch-context-upstack-impl-session", () => {
 		expect(pi.execCalls.map((call) => ({ command: call.command, args: call.args }))).toEqual([
 			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"] },
 			{ command: "git", args: ["branch", "--show-current"] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
+			{ command: "brmem", args: ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", currentBranch, "--format", "json"] },
 			{ command: "git", args: ["checkout", currentBranch] },
 		]);
 		expect(pi.sentMessages[0]?.content).toContain("Reusing existing branch context and attached plan.");
@@ -365,7 +370,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session aggregates session and current-branch failures into one error", async () => {
 		const pi = new FakePi([
-			brmemListAttachedPlansStep(IMPL_BRANCH, []),
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 1 }),
 			gitCurrentBranchStep(SOURCE_BRANCH, { stdout: "" }),
 		]);
 		const fakes = createBranchContextOperationFakes({

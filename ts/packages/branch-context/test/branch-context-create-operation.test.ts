@@ -20,7 +20,7 @@ import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
 
 const PLAN_SLUG = "branch-scoped-plan";
-const PLAN_KEY = "plan.md";
+const PLAN_KEY = `${PLAN_SLUG}.md`;
 const PLAN_FILE = "/tmp/branch-scoped-plan.md";
 const TARGET_BRANCH = "branch-contexts/branch-scoped-plan";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";

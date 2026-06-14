@@ -7,7 +7,7 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 The workflow has two storage layers:
 
 - **Local plan store**: `~/.asdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`, owned by `@asdl/plans` and the `enriched-plan` CLI.
-- **Attached plan**: Branch Memory namespace `branch-context`, key `plan.md`, on the implementation branch, owned by `@asdl/branch-context` and the `branch-context` CLI.
+- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@asdl/branch-context` and the `branch-context` CLI. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
 
@@ -15,7 +15,7 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 
 1. Save a source-branch plan with `/enriched-plan:save`, `/enriched-plan:grill-and-save`, or `enriched-plan exec save`.
 2. Create a branch and attach its branch context with `/branch-context:from-plan` or `branch-context exec from-plan`.
-3. Attach the plan to Branch Memory namespace `branch-context`, key `plan.md`, on the implementation branch.
+3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with `/branch-context:impl` or `branch-context exec load`.
 
 For Pi users, `/branch-context:upstack-impl-session` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/branch-context:impl` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
@@ -72,7 +72,7 @@ Pi users run `/branch-context:from-plan`. CLI/agent workflows use:
 branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
 ```
 
-The branch-context slug is derived from saved plan content by the workflow surface. It drives the default target branch name. The attached plan key is always `plan.md`; it is not slug-derived.
+The branch-context slug is derived from saved plan content by the workflow surface. It drives the default target branch name and the new from-plan attached key `<branch-context-slug>.md`. Passing `--branch <branch>` changes only the target branch, not the attached key.
 
 The CLI default branch creation mode is `plain-git` when `--branch-creation` is omitted. The project-local Pi adapter requests Graphite creation by default.
 
@@ -80,7 +80,7 @@ Attached plan contract:
 
 ```text
 Namespace: branch-context
-Key: plan.md
+Key: <branch-context-slug>.md
 Branch: <target-implementation-branch>
 ```
 
@@ -90,8 +90,8 @@ Pi users can run `/branch-context:upstack-impl-session` after saving a plan. The
 
 ```text
 Resolve Saved plan from Local plan store
-├─ found: create branch and attach branch context as plan.md
-└─ no Saved plan available: verify existing branch context with plan.md
+├─ found: create branch and attach branch context as <branch-context-slug>.md
+└─ no Saved plan available: verify an existing branch context entry
 
 Selected branch + branch-context entry
 → git checkout <branch>
@@ -117,7 +117,7 @@ Pi users run `/branch-context:impl`. CLI/agent workflows use:
 branch-context exec load [<key>] [--prompt-file <path>] [--format json]
 ```
 
-By default, load selects the exact attached plan entry `plan.md` from the current branch. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search.
+By default, load auto-selects only when the current branch has exactly one branch-context entry. If multiple entries exist, pass an explicit key. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search. Legacy `plan.md` entries remain readable when explicitly requested or when they are the only entry.
 
 Agent workflows that need the full implementation prompt should pass `--prompt-file <path>` and then read the returned `implementation_prompt_file` from disk. Avoid `--include-content` and `--include-prompt` in normal agent operation because they can print large plan bodies to stdout.
 
@@ -137,7 +137,7 @@ branch-context exec check <key> [--branch <branch>] [--format json]
 branch-context exec delete <key> [--branch <branch>] [--format json]
 ```
 
-Use `attach --plan` to attach a saved plan as the canonical `plan.md` entry. Use `attach <key> --file <path>` only when intentionally creating an arbitrary branch-context entry with an explicit key. Prefer `list` and `check` for read-only diagnostics before falling back to raw Branch Memory commands.
+Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attach <key> --file <path>` only when intentionally creating an arbitrary branch-context entry with an explicit key. Prefer `list` and `check` for read-only diagnostics before falling back to raw Branch Memory commands.
 
 ## Mechanics and invariants
 
@@ -165,7 +165,7 @@ On the creation path, `/branch-context:upstack-impl-session` resolves a Saved pl
 
 An explicit plan path may be absolute or current-user home-relative with `~` or `~/`; a leading `@` is accepted and stripped, and the normalized path must be absolute and end in `.md`.
 
-After resolving the Saved plan, the command derives the branch-context slug from the plan content. With Graphite creation, it verifies that the current branch is trunk or Graphite-tracked before creating a branch or attaching a plan. Only after those preconditions pass does it create the target branch and attach the plan in Branch Memory namespace `branch-context` with key `plan.md`.
+After resolving the Saved plan, the command derives the branch-context slug from the plan content. With Graphite creation, it verifies that the current branch is trunk or Graphite-tracked before creating a branch or attaching a plan. Only after those preconditions pass does it create the target branch and attach the plan in Branch Memory namespace `branch-context` with key `<branch-context-slug>.md`.
 
 On the resumption path, Saved-plan resolution has failed only because no Saved plan is available for the current repository/source branch: the Local plan store directory is missing, or it exists but contains no Markdown plan files. That narrow failure means the command may be running after the branch was already created. Other Saved-plan resolution failures still fail normally.
 
@@ -179,7 +179,7 @@ Candidate selection order for resumption is:
 
 Candidates are verified in that order and the first verified candidate wins. If no candidate verifies, the command fails with one message listing every verification failure, including a current branch that could not be resolved.
 
-After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/branch-context:impl` in that new session, adding `<key>` only when the selected key differs from `plan.md`. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
+After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/branch-context:impl <key>` in that new session when the selected key is named. Legacy `plan.md` may still render as bare `/branch-context:impl`. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
 
 Ambiguity is explicit. If the current session contains multiple candidate branches with branch-context output, the command refuses to choose implicitly and asks you to rerun with `--branch <target-branch>`. If a branch-context entry cannot be selected unambiguously on the chosen branch, rerun `/branch-context:impl <key>` manually from that branch or inspect the branch-context keys first.
 
@@ -225,7 +225,7 @@ Common recovery paths:
 - If no Saved plan is found, run `/enriched-plan:save` or pass an explicit saved-plan path.
 - If the target branch already exists, choose another branch or inspect the existing branch before retrying.
 - If slug validation fails, choose a clearer 3-7 word kebab-case slug from the plan content and retry.
-- If `branch-context/plan.md` already exists on the target branch, the workflow refuses to overwrite it.
+- If the derived branch-context key already exists on the target branch, the workflow refuses to overwrite it.
 - If Graphite tracking fails after local branch creation, inspect the created branch manually; no attached plan is stored.
 - If loading fails, inspect the `branch-context` namespace on the current branch.
 
@@ -233,7 +233,7 @@ Read-only attached-plan inspection:
 
 ```text
 branch-context exec list --branch <branch> [--format json]
-branch-context exec check plan.md --branch <branch> [--format json]
+branch-context exec check <key> --branch <branch> [--format json]
 branch-context exec load [<key>] --prompt-file <path> [--format json]
 ```
 
@@ -241,7 +241,7 @@ Raw Branch Memory inspection is a fallback for diagnostics only:
 
 ```text
 brmem list --namespace branch-context --branch <branch>
-brmem get plan.md --namespace branch-context --branch <branch>
+brmem get <key> --namespace branch-context --branch <branch>
 ```
 
 ## Related surfaces

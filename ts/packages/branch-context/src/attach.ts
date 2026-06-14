@@ -1,4 +1,4 @@
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
+import { BRANCH_CONTEXT_LEGACY_PLAN_KEY, BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import { normalizeRequestedBranchContextKey } from "./attached-plan.ts";
 import { type AttachedPlanEntry, type BranchContextBrmemGateway, type BrmemPutData } from "./brmem-gateway.ts";
 import type { BranchContextContext } from "./context.ts";
@@ -179,7 +179,7 @@ export function formatListEvidence(branch: string, entries: readonly AttachedPla
 		return lines.join("\n");
 	}
 	for (const entry of entries) {
-		const label = entry.key === BRANCH_CONTEXT_PLAN_KEY ? " (plan)" : "";
+		const label = entry.key === BRANCH_CONTEXT_LEGACY_PLAN_KEY ? " (legacy plan)" : entry.key.endsWith(".md") ? " (plan)" : "";
 		lines.push(`- ${entry.key}${label}`);
 	}
 	return lines.join("\n");
@@ -211,7 +211,7 @@ async function resolveAttachSource(
 			throw new Error([`Multiple saved plans found for slug \`${params.planSlug}\`; choose a file explicitly.`, "", ...matches.map((plan) => `- ${plan.branchKey}: ${plan.filePath}`)].join("\n"));
 		}
 		const match = matches[0]!;
-		return { key: BRANCH_CONTEXT_PLAN_KEY, sourceFile: match.filePath, planSlug: match.slug };
+		return { key: buildBranchContextPlanKey(match.slug), sourceFile: match.filePath, planSlug: match.slug };
 	}
 	if (params.key === undefined || params.filePath === undefined) {
 		throw new Error("Attach requires either --plan <slug> or <key> --file <path>.");

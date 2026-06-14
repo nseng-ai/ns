@@ -16,7 +16,7 @@ import type { ExecResult } from "@asdl/core/exec";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
-const PLAN_KEY = "plan.md";
+const PLAN_KEY = `${PLAN_SLUG}.md`;
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const SOURCE_BRANCH = "source-branch";
 

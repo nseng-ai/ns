@@ -1,6 +1,6 @@
 import type { BrmemPutData } from "./brmem-gateway.ts";
 import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError } from "./attach.ts";
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BranchContextGraphiteGateway } from "./graphite-gateway.ts";
 import { formatCommand, type CommandExecApi } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
@@ -8,7 +8,7 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@asdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
-export { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
+export { BRANCH_CONTEXT_LEGACY_PLAN_KEY, BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY, buildBranchContextPlanKey } from "./constants.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -134,7 +134,7 @@ export function buildBranchContextCreateOperation(params: CreateBranchContextFro
 		branch,
 		branchCreation,
 		namespace: BRANCH_CONTEXT_NAMESPACE,
-		key: BRANCH_CONTEXT_PLAN_KEY,
+		key: buildBranchContextPlanKey(slug),
 		params: operationParams,
 	};
 	if (summary === undefined) {
