@@ -6,7 +6,6 @@ import type { TextGenerationGateway } from "./text-generation.ts";
 export type { PositionalSpec } from "@asdl/clinkr/raw";
 export { z } from "zod";
 export type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
-export type { ExtensionAPI, ExtensionFactory } from "./extension-api.ts";
 
 export interface ExecOptions {
 	timeoutMs?: number;
@@ -25,7 +24,7 @@ export type SdlOutputStream = "stdout" | "stderr";
 export type SdlConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
 export interface SdlContext {
-	/** Current repository working directory for command-module execution. */
+	/** Current repository working directory for command-entry execution. */
 	cwd: string;
 	/** Environment visible to SDL commands and shell execution. */
 	env: Record<string, string | undefined>;

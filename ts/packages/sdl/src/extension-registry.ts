@@ -1,30 +1,35 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import changesExtension from "./built-in-extensions/changes.ts";
 import {
 	SDL_COMMAND_NAME_PATTERN,
 	SDL_COMMAND_NAME_RULE,
-	builtInCommandDefinitions,
 	commandInfoForLoadedCommand,
-	formatUnknownError,
+	listBuiltInSdlCommandCandidates,
 	validateSdlCommand,
+	type BuiltInSdlCommandCandidate,
+	type SdlCommandCandidate,
 	type SdlCommandCliInfo,
+	type SdlCommandSourceInfo,
+	type SdlCommandSourceLevel,
 } from "./command-registry.ts";
-import { createExtensionApi, type ExtensionCommandContribution, type ExtensionFactory, type ExtensionSourceInfo, type ExtensionSourceLevel } from "./extension-api.ts";
-import { discoverExtensionsInRoot, type ExtensionDiscoveryDiagnostic } from "./extension-discovery.ts";
-import { loadExtensionFactory, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
+import { discoverExtensionsInRoot, type DiscoveredExtensionCommand, type ExtensionDiscoveryDiagnostic } from "./extension-discovery.ts";
+import { loadSdlCommandEntry, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
 import type { SdlCommand } from "./sdk.ts";
 
-export interface BuiltInExtensionSpec {
-	id: string;
-	factory: ExtensionFactory;
-}
+export type ExtensionSourceLevel = SdlCommandSourceLevel;
+export type ExtensionSourceInfo = SdlCommandSourceInfo;
 
-export interface LoadedExtensions {
-	commands: ReadonlyMap<string, SdlCommand>;
+export interface SdlCommandCatalog {
+	candidates: ReadonlyMap<string, ExtensionCommandCandidate>;
 	commandInfos: readonly SdlCommandCliInfo[];
 	diagnostics: readonly ExtensionDiagnostic[];
+}
+
+export type ExtensionCommandCandidate = BuiltInSdlCommandCandidate | ExternalSdlCommandCandidate;
+
+export interface ExternalSdlCommandCandidate extends SdlCommandCandidate {
+	entryPath: string;
 }
 
 export type ExtensionDiagnostic = ExtensionErrorDiagnostic | ExtensionOverrideDiagnostic;
@@ -46,80 +51,101 @@ export interface ExtensionOverrideDiagnostic {
 	overridingSource: ExtensionSourceInfo;
 }
 
-interface LoadExtensionsOptions {
+export type SelectedSdlCommandLoadResult =
+	| { ok: true; command: SdlCommand; source: ExtensionSourceInfo }
+	| { ok: false; diagnostic: ExtensionErrorDiagnostic };
+
+interface LoadSdlCommandCatalogOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	homeDir?: string | undefined;
-	builtInExtensions?: readonly BuiltInExtensionSpec[] | undefined;
 }
 
-interface LoadedCommandContribution {
+interface LoadedLevelCandidate {
 	name: string;
-	command: SdlCommand;
+	candidate: ExtensionCommandCandidate;
 	source: ExtensionSourceInfo;
 }
 
 const SOURCE_LEVELS = ["built-in", "global", "project"] as const satisfies readonly ExtensionSourceLevel[];
 
-const DEFAULT_BUILT_IN_EXTENSIONS = [
-	{ id: "changes", factory: changesExtension },
-] as const satisfies readonly BuiltInExtensionSpec[];
-
-export async function loadExtensions(options: LoadExtensionsOptions): Promise<LoadedExtensions> {
+export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOptions): Promise<SdlCommandCatalog> {
 	void options.env;
 	const diagnostics: ExtensionDiagnostic[] = [];
-	const contributionsByLevel = new Map<ExtensionSourceLevel, ExtensionCommandContribution[]>();
+	const candidatesByLevel = new Map<ExtensionSourceLevel, ExtensionCommandCandidate[]>();
 	for (const level of SOURCE_LEVELS) {
-		contributionsByLevel.set(level, []);
+		candidatesByLevel.set(level, []);
 	}
 
-	for (const [name, definition] of Object.entries(builtInCommandDefinitions)) {
-		addContribution(contributionsByLevel, {
-			name,
-			command: definition.command,
-			source: { level: "built-in", label: `built-in command ${name}` },
-		});
-	}
-
-	for (const spec of options.builtInExtensions ?? DEFAULT_BUILT_IN_EXTENSIONS) {
-		const source: ExtensionSourceInfo = { level: "built-in", label: `built-in extension ${spec.id}` };
-		const result = await runExtensionFactory(spec.factory, source);
-		diagnostics.push(...result.diagnostics);
-		for (const contribution of result.contributions) addContribution(contributionsByLevel, contribution);
+	for (const candidate of listBuiltInSdlCommandCandidates()) {
+		addCandidate(candidatesByLevel, candidate);
 	}
 
 	const home = options.homeDir ?? homedir();
-	await loadRootExtensions({ level: "global", rootDir: join(home, ".asdl", "extensions"), diagnostics, contributionsByLevel });
-	await loadRootExtensions({ level: "project", rootDir: join(options.cwd, ".asdl", "extensions"), diagnostics, contributionsByLevel });
+	loadRootCandidates({ level: "global", rootDir: join(home, ".asdl", "extensions"), diagnostics, candidatesByLevel });
+	loadRootCandidates({ level: "project", rootDir: join(options.cwd, ".asdl", "extensions"), diagnostics, candidatesByLevel });
 
-	const merged = new Map<string, LoadedCommandContribution>();
+	const merged = new Map<string, LoadedLevelCandidate>();
 	for (const level of SOURCE_LEVELS) {
-		const contributions = contributionsByLevel.get(level) ?? [];
-		const validation = validateLevelContributions(level, contributions);
+		const levelCandidates = candidatesByLevel.get(level) ?? [];
+		const validation = validateLevelCandidates(level, levelCandidates);
 		diagnostics.push(...validation.diagnostics);
-		for (const contribution of validation.contributions) {
-			const existing = merged.get(contribution.name);
+		for (const candidate of validation.candidates) {
+			const existing = merged.get(candidate.name);
 			if (existing !== undefined) {
 				diagnostics.push({
 					severity: "info",
 					code: "extension_command_override",
-					message: `SDL command ${contribution.name} from ${formatSource(contribution.source)} overrides ${formatSource(existing.source)}.`,
-					commandName: contribution.name,
+					message: `SDL command ${candidate.name} from ${formatSource(candidate.source)} overrides ${formatSource(existing.source)}.`,
+					commandName: candidate.name,
 					overriddenSource: existing.source,
-					overridingSource: contribution.source,
+					overridingSource: candidate.source,
 				});
 			}
-			merged.set(contribution.name, contribution);
+			merged.set(candidate.name, candidate);
 		}
 	}
 
-	const commands = new Map<string, SdlCommand>();
-	const commandInfos: SdlCommandCliInfo[] = [];
-	for (const contribution of [...merged.values()].sort((left, right) => left.name.localeCompare(right.name))) {
-		commands.set(contribution.name, contribution.command);
-		commandInfos.push(commandInfoForLoadedCommand(contribution.command, contribution.source.level));
+	const sortedCandidates = [...merged.values()].sort((left, right) => left.name.localeCompare(right.name));
+	return {
+		candidates: new Map(sortedCandidates.map((candidate) => [candidate.name, candidate.candidate])),
+		commandInfos: sortedCandidates.map(({ candidate }) => ({ name: candidate.name, description: candidate.description, fullDescription: candidate.fullDescription })),
+		diagnostics,
+	};
+}
+
+export async function loadSelectedSdlCommand(candidate: ExtensionCommandCandidate): Promise<SelectedSdlCommandLoadResult> {
+	if (isBuiltInCandidate(candidate)) {
+		return { ok: true, command: candidate.command, source: candidate.source };
 	}
-	return { commands, commandInfos, diagnostics };
+
+	const loaded = await loadSdlCommandEntry(candidate.entryPath);
+	if (!loaded.ok) {
+		return { ok: false, diagnostic: fromLoadDiagnostic(loaded.diagnostic, candidate.source.level) };
+	}
+	const validation = validateSdlCommand(loaded.defaultExport, candidate.name, formatSource(candidate.source));
+	if (!validation.ok) {
+		return {
+			ok: false,
+			diagnostic: {
+				severity: "error",
+				code: "extension_command_invalid",
+				message: validation.message,
+				path: candidate.entryPath,
+				sourceLevel: candidate.source.level,
+			},
+		};
+	}
+	return { ok: true, command: validation.command, source: candidate.source };
+}
+
+export function commandInfosForSelectedCommand(
+	commandInfos: readonly SdlCommandCliInfo[],
+	loaded: { command: SdlCommand; source: ExtensionSourceInfo } | undefined,
+): readonly SdlCommandCliInfo[] {
+	if (loaded === undefined) return commandInfos;
+	const loadedInfo = commandInfoForLoadedCommand(loaded.command, loaded.source.level);
+	return commandInfos.map((info) => (info.name === loadedInfo.name ? loadedInfo : info));
 }
 
 export function hasExtensionErrors(diagnostics: readonly ExtensionDiagnostic[]): boolean {
@@ -133,91 +159,57 @@ export function formatExtensionErrorDiagnostics(diagnostics: readonly ExtensionD
 		.join("\n");
 }
 
-async function loadRootExtensions(options: {
+function loadRootCandidates(options: {
 	level: "global" | "project";
 	rootDir: string;
 	diagnostics: ExtensionDiagnostic[];
-	contributionsByLevel: Map<ExtensionSourceLevel, ExtensionCommandContribution[]>;
-}): Promise<void> {
+	candidatesByLevel: Map<ExtensionSourceLevel, ExtensionCommandCandidate[]>;
+}): void {
 	const discovered = discoverExtensionsInRoot(options.rootDir);
 	for (const diagnostic of discovered.diagnostics) {
 		options.diagnostics.push(fromDiscoveryDiagnostic(diagnostic, options.level));
 	}
-
-	for (const extension of discovered.extensions) {
-		const source: ExtensionSourceInfo = { level: options.level, label: extension.displayPath, path: extension.entryPath };
-		const loaded = await loadExtensionFactory(extension.entryPath);
-		if (!loaded.ok) {
-			options.diagnostics.push(fromLoadDiagnostic(loaded.diagnostic, options.level));
-			continue;
-		}
-		const result = await runExtensionFactory(loaded.factory, source);
-		options.diagnostics.push(...result.diagnostics);
-		for (const contribution of result.contributions) addContribution(options.contributionsByLevel, contribution);
+	for (const command of discovered.commands) {
+		addCandidate(options.candidatesByLevel, externalCandidateForLevel(command, options.level));
 	}
 }
 
-async function runExtensionFactory(
-	factory: ExtensionFactory,
-	source: ExtensionSourceInfo,
-): Promise<{ contributions: readonly ExtensionCommandContribution[]; diagnostics: readonly ExtensionErrorDiagnostic[] }> {
-	const created = createExtensionApi(source);
-	try {
-		await factory(created.api);
-	} catch (error) {
-		return {
-			contributions: created.contributions,
-			diagnostics: [
-				{
-					severity: "error",
-					code: "extension_factory_failed",
-					message: `Extension factory failed for ${formatSource(source)}.\n${formatUnknownError(error)}`,
-					...(source.path === undefined ? {} : { path: source.path }),
-					sourceLevel: source.level,
-				},
-			],
-		};
-	}
-	return { contributions: created.contributions, diagnostics: [] };
+function externalCandidateForLevel(command: DiscoveredExtensionCommand, level: "global" | "project"): ExternalSdlCommandCandidate {
+	return {
+		name: command.name,
+		description: command.description,
+		fullDescription: command.fullDescription,
+		entryPath: command.entryPath,
+		source: { level, label: command.displayPath, path: command.entryPath },
+	};
 }
 
-function validateLevelContributions(
+function validateLevelCandidates(
 	level: ExtensionSourceLevel,
-	contributions: readonly ExtensionCommandContribution[],
+	candidates: readonly ExtensionCommandCandidate[],
 ): {
-	contributions: readonly LoadedCommandContribution[];
+	candidates: readonly LoadedLevelCandidate[];
 	diagnostics: readonly ExtensionDiagnostic[];
 } {
 	const diagnostics: ExtensionDiagnostic[] = [];
-	const validated: LoadedCommandContribution[] = [];
-	for (const contribution of contributions) {
-		if (contribution.name === undefined || !SDL_COMMAND_NAME_PATTERN.test(contribution.name)) {
+	const validated: LoadedLevelCandidate[] = [];
+	for (const candidate of candidates) {
+		if (!SDL_COMMAND_NAME_PATTERN.test(candidate.name)) {
 			diagnostics.push({
 				severity: "error",
 				code: "extension_command_name_invalid",
-				message: `Invalid SDL command contribution from ${formatSource(contribution.source)}: command name must match ${SDL_COMMAND_NAME_RULE}.`,
-				...(contribution.source.path === undefined ? {} : { path: contribution.source.path }),
-				sourceLevel: contribution.source.level,
+				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command name must match ${SDL_COMMAND_NAME_RULE}.`,
+				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
+				sourceLevel: candidate.source.level,
 			});
 			continue;
 		}
-		const validation = validateSdlCommand(contribution.command, contribution.name, formatSource(contribution.source));
-		if (!validation.ok) {
-			diagnostics.push({
-				severity: "error",
-				code: "extension_command_invalid",
-				message: validation.message,
-				...(contribution.source.path === undefined ? {} : { path: contribution.source.path }),
-				sourceLevel: contribution.source.level,
-			});
-			continue;
-		}
-		validated.push({ name: contribution.name, command: validation.command, source: contribution.source });
+		validated.push({ name: candidate.name, candidate, source: candidate.source });
 	}
 
-	const counts = new Map<string, LoadedCommandContribution[]>();
-	for (const contribution of validated) {
-		counts.set(contribution.name, [...(counts.get(contribution.name) ?? []), contribution]);
+	const counts = new Map<string, LoadedLevelCandidate[]>();
+	for (const candidate of validated) {
+		counts.set(candidate.name, [...(counts.get(candidate.name) ?? []), candidate]);
 	}
 	const duplicateNames = new Set([...counts.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
 	for (const name of duplicateNames) {
@@ -230,17 +222,21 @@ function validateLevelContributions(
 		});
 	}
 	return {
-		contributions: validated.filter((contribution) => !duplicateNames.has(contribution.name)),
+		candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)),
 		diagnostics,
 	};
 }
 
-function addContribution(
-	contributionsByLevel: Map<ExtensionSourceLevel, ExtensionCommandContribution[]>,
-	contribution: ExtensionCommandContribution,
+function addCandidate(
+	candidatesByLevel: Map<ExtensionSourceLevel, ExtensionCommandCandidate[]>,
+	candidate: ExtensionCommandCandidate,
 ): void {
-	const existing = contributionsByLevel.get(contribution.source.level) ?? [];
-	contributionsByLevel.set(contribution.source.level, [...existing, contribution]);
+	const existing = candidatesByLevel.get(candidate.source.level) ?? [];
+	candidatesByLevel.set(candidate.source.level, [...existing, candidate]);
+}
+
+function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {
+	return candidate.source.level === "built-in";
 }
 
 function fromDiscoveryDiagnostic(diagnostic: ExtensionDiscoveryDiagnostic, sourceLevel: ExtensionSourceLevel): ExtensionErrorDiagnostic {

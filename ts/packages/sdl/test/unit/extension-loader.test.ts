@@ -5,8 +5,8 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { createExtensionApi } from "../../src/extension-api.ts";
-import { loadExtensionFactory } from "../../src/extension-loader.ts";
+import { validateSdlCommand } from "../../src/command-registry.ts";
+import { loadSdlCommandEntry } from "../../src/extension-loader.ts";
 import { z, type SdlCommand } from "../../src/sdk.ts";
 
 const tempDirs: string[] = [];
@@ -27,40 +27,51 @@ afterEach(() => {
 });
 
 describe("extension loader", () => {
-	test("loads a TypeScript extension factory with SDK identity", async () => {
+	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import type { ExtensionAPI } from "@asdl/sdl/sdk";
 import { defineCommand, ok, z } from "@asdl/sdl/sdk";
 
-export default function extension(api: ExtensionAPI): void {
-	api.registerCommand(defineCommand({
-		name: "greet",
-		description: "Say hello.",
-		schema: z.object({ loud: z.boolean().default(false) }),
-		run(_ctx, request) { return ok(request.loud ? "HELLO" : "hello"); },
-	}));
-}
+export default defineCommand({
+	name: "greet",
+	description: "Say hello.",
+	schema: z.object({ loud: z.boolean().default(false) }),
+	run(_ctx, request) { return ok(request.loud ? "HELLO" : "hello"); },
+});
 `);
 
-		const loaded = await loadExtensionFactory(modulePath);
+		const loaded = await loadSdlCommandEntry(modulePath);
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		const created = createExtensionApi({ level: "project", label: "test", path: modulePath });
-		await loaded.factory(created.api);
-		const command = created.contributions[0]?.command as SdlCommand | undefined;
+		const validation = validateSdlCommand(loaded.defaultExport, "greet", modulePath);
+		expect(validation.ok).toBe(true);
+		if (!validation.ok) return;
+		const command: SdlCommand | undefined = validation.command;
 		expect(command?.name).toBe("greet");
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
 	});
 
-	test("non-function default export is a structured error", async () => {
-		const modulePath = await createModule("export default { nope: true };\n");
+	test("invalid default export is left to command validation", async () => {
+		const modulePath = await createModule("export default { name: 'greet' };\n");
 
-		const loaded = await loadExtensionFactory(modulePath);
+		const loaded = await loadSdlCommandEntry(modulePath);
+
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
+		expect(validateSdlCommand(loaded.defaultExport, "greet", modulePath)).toMatchObject({
+			ok: false,
+			message: expect.stringContaining("command description must be a string"),
+		});
+	});
+
+	test("import failures are structured errors", async () => {
+		const modulePath = await createModule("throw new Error('boom');\n");
+
+		const loaded = await loadSdlCommandEntry(modulePath);
 
 		expect(loaded).toMatchObject({
 			ok: false,
-			diagnostic: { code: "extension_default_not_function", path: modulePath },
+			diagnostic: { code: "extension_command_import_failed", path: modulePath },
 		});
 	});
 });

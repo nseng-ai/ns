@@ -15,10 +15,10 @@ A migration slice should delete the old `asdl-dev <name>` command and old `/code
 
 ## Command extensions
 
-SDL treats project-specific lifecycle behavior as first-class. Extension factories can contribute flat SDL commands from these roots, loaded in increasing precedence:
+SDL treats project-specific lifecycle behavior as first-class. Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in extensions / built-in command table < ~/.asdl/extensions < <cwd>/.asdl/extensions
+built-in command table < ~/.asdl/extensions < <cwd>/.asdl/extensions
 ```
 
 Global and project roots support these one-level entry shapes:
@@ -31,56 +31,61 @@ Global and project roots support these one-level entry shapes:
 .asdl/extensions/package-name/package.json
 ```
 
-Package manifests use an `asdl.extensions` array of relative entry paths:
+Direct files and directory indexes infer the command name from the file or directory name. They appear in top-level help with a generic description until selected. Package manifests can provide top-level help metadata without executing TypeScript:
 
 ```json
 {
   "asdl": {
-    "extensions": ["./src/index.ts"]
+    "commands": [
+      {
+        "name": "greet",
+        "description": "Say hello.",
+        "fullDescription": "Say hello with custom project policy.",
+        "entry": "./src/greet.ts"
+      }
+    ]
   }
 }
 ```
 
-Extension modules default-export a factory. The prototype `ExtensionAPI` has one method: `registerCommand(command)`.
+Manifest command entries require `name`, `description`, and a relative POSIX-style `entry` path to a `.ts` or `.js` file. `fullDescription` is optional and defaults to `description`.
+
+Command entry modules default-export a command object created with `defineCommand()`:
 
 ```ts
-import type { ExtensionAPI } from "@asdl/sdl/sdk";
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 
-export default function extension(api: ExtensionAPI): void {
-  api.registerCommand(defineCommand({
-    name: "greet",
-    description: "Say hello.",
-    run() {
-      return ok("hello");
-    },
-  }));
-}
+export default defineCommand({
+  name: "greet",
+  description: "Say hello.",
+  run() {
+    return ok("hello");
+  },
+});
 ```
 
 Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, colons, spaces, and uppercase names are not supported in this prototype.
 
 Duplicate command names within one source level are errors. Across source levels, higher-precedence sources override lower-precedence sources: project overrides global and built-in; global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
-Extension factories are eagerly executed for every `sdl` invocation, including `sdl --help`, because SDL must run factories to know contributed commands. There is no trust gate or opt-out yet; only run SDL in repositories whose extension code you are willing to execute.
+Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. SDL imports and validates exactly one external command entry only when that command is selected, including selected-command help and JSON schema.
 
 The legacy `.asdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
 Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. Existing exact mirrors such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` continue to delegate to `sdl`, but arbitrary extension commands are not dynamically mirrored into Pi.
 
-## Public extension SDK
+## Public command-entry SDK
 
-Extension authors should import only from `@asdl/sdl/sdk`:
+Command authors should import only from `@asdl/sdl/sdk`:
 
 ```ts
-import type { ExtensionAPI } from "@asdl/sdl/sdk";
 import { defineCommand, failed, ok, z } from "@asdl/sdl/sdk";
+import type { SdlContext, SdlResult } from "@asdl/sdl/sdk";
 ```
 
-That SDK subpath is the public author API for SDL extensions. It exposes the extension and command shapes and helpers, including:
+That SDK subpath is the public author API for SDL command entries. It exposes:
 
-- `ExtensionAPI` and `ExtensionFactory` types for extension factories;
-- `defineCommand()` for declaring command contributions;
+- `defineCommand()` for declaring command entries;
 - `ok()` and `failed()` for returning command results;
 - `z` for declaring command schemas through the SDK-owned Zod boundary;
 - `SdlContext` for command execution capabilities;
@@ -94,7 +99,7 @@ That SDK subpath is the public author API for SDL extensions. It exposes the ext
 - `ctx.model`: raw text-generation capability;
 - optional durable output hooks (`ctx.stdout`, `ctx.stderr`), live-output hook (`ctx.onOutput`), and confirmation hook (`ctx.confirm`) for command-owned progress and prompts.
 
-Command modules own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
+Command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 
 ## Internal migration exports
 
@@ -123,7 +128,7 @@ Environment:
 
 During the transition from `asdl-dev cp`, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
 
-Projects may override `sdl cp` by registering a command named `cp` from `.asdl/extensions` or `~/.asdl/extensions`. When no extension override exists, SDL uses the built-in `cp` implementation.
+Projects may override `sdl cp` by contributing a command named `cp` from `.asdl/extensions` or `~/.asdl/extensions`. When no extension override exists, SDL uses the built-in `cp` implementation.
 
 Pi exposes the same capability as `/sdl:cp` through `.pi/extensions/sdl.ts`; `/code:cp` is not retained as a compatibility alias.
 
@@ -172,12 +177,12 @@ Environment:
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for failed submit output interpretation.
 
-`submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden only through the `.asdl/extensions` extension factory path. `asdl-dev submit`, `/code:submit`, and project-local fake Pi metadata are not retained as compatibility surfaces.
+`submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden through a `.asdl/extensions` command entry or manifest descriptor. `asdl-dev submit`, `/code:submit`, and project-local fake Pi metadata are not retained as compatibility surfaces.
 
 ## Testing future command migrations
 
 Future SDL command slices should update tests and docs with the command surface change:
 
-- SDL CLI scenario tests should cover user-facing `sdl <name>` behavior, including project/global extension factories when relevant.
+- SDL CLI scenario tests should cover user-facing `sdl <name>` behavior, including project/global extension command entries when relevant.
 - Pi registration and parity tests should cover `/sdl:<name>` mirrors when a command is exposed in Pi.
 - Source searches should prove stale `asdl-dev <name>` and `/code:<name>` surfaces were deleted or are mentioned only as explicitly labeled migration-away context.
