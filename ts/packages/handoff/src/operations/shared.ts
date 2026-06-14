@@ -1,4 +1,4 @@
-import { buildEntryLocator, validateBranchName, type BrmemErrorInfo } from "@asdl/brmem";
+import { mustEntryLocator, validateBranchName, type BrmemErrorInfo } from "@asdl/brmem";
 import { failure, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -37,11 +37,7 @@ export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFai
 }
 
 export function mustHandoffEntryLocator(key: string, branch: string): string {
-	const locator = buildEntryLocator(HANDOFF_NAMESPACE, key, branch);
-	if (locator.type === "error") {
-		throw new Error(`Validated handoff key/branch failed to build Entry Locator: ${locator.error.message}`);
-	}
-	return locator.value;
+	return mustEntryLocator(HANDOFF_NAMESPACE, key, branch);
 }
 
 export async function confirmFromStdin(options: {

@@ -92,7 +92,7 @@ Assumptions:
 
 - The active public Handoff CLI contract is the standalone `handoff` command, not the `asdl handoff` plugin path. The Python plugin can be retired like the `pr-address` plugin if inventory does not find active user-facing usage.
 - Current create/pickup behavior is intentionally skill/Pi-owned. The TypeScript package does not need new create/pickup CLI commands to complete the port.
-- The TypeScript `brmem` CLI is now the correct storage boundary for handoff; direct native `@asdl/brmem` imports are optional and should be introduced only where they simplify package-local code without violating public package exports.
+- The TypeScript `brmem` CLI is now the correct storage boundary for handoff operations. Direct native `@asdl/brmem` imports are appropriate for stable public validation/ref-layout helpers when they simplify package-local code without bypassing Branch Memory storage behavior; implementation evidence now includes reusing the public `mustEntryLocator` helper for Handoff Entry Locator construction.
 - `@asdl/core` Git helpers are sufficient for ordinary branch facts such as current branch and local branch presence; per-entry Branch Memory updated timestamps may still need package-local read-only git plumbing.
 - The run-from-source shim distribution model accepted for `pr-address` and `brmem` is adequate for `handoff`; implementation evidence showed `just install-handoff` must also remove a stale project-venv `handoff` console script so the standalone command resolves to the TypeScript shim in activated dev environments.
 - TypeScript Clinkr's Python-parity machine envelope remains the correct v1 machine contract for migrated CLIs.
@@ -108,8 +108,16 @@ Risks:
 
 ## Open Questions
 
-- Does fresh inventory find any active user-facing `asdl handoff` plugin usage that should block plugin retirement, or can the standalone `handoff` CLI become the sole active public surface?
-- Should `@asdl/handoff` use only the public `brmem` CLI via `@asdl/core/brmem-cli`, or import selected public `@asdl/brmem` library helpers where they are exported and stable? Current recommendation: use `@asdl/brmem` public helper exports for validation/ref-layout and the public `brmem` CLI for storage operations.
-- Is exact markdown table output required beyond current Python scenario assertions, or is structured markdown compatibility enough once tests preserve headings/columns/rows/order?
-- Should package-local per-entry timestamp git plumbing later become a shared `brmem` helper/API, and only after which second consumer proves the seam?
-- What commit should be recorded as the final rollback/reference point for Python `packages/asdl-handoff` once deletion lands?
+- Resolved 2026-06-14: fresh inventory found no active user-facing `asdl handoff` plugin usage. The standalone `handoff` CLI is the sole active public CLI surface, and the plugin path is retired.
+- Resolved for v1: `@asdl/handoff` uses public `@asdl/brmem` helper exports for validation/ref-layout, including `mustEntryLocator`, and the public `brmem` CLI for storage operations. Keep broader native storage imports out of scope unless a later implementation slice proves a simpler public boundary.
+- Resolved 2026-06-14: exact markdown table output is preserved at the current durable contract level through the Clinkr `renderMarkdown` hook and Handoff scenario tests.
+- Resolved for v1: package-local per-entry timestamp git plumbing stays local. A shared `brmem` helper/API remains out of scope until a second consumer proves the seam.
+- Resolved 2026-06-14: final rollback/reference point for deleted Python `packages/asdl-handoff` is commit `c7953b640c94fad4182df35c277fe19dfbe5eca7`.
+
+## Closure
+
+Closed 2026-06-14 as completed. Handoff is now TypeScript-backed by default through the standalone `@asdl/handoff` CLI; `handoff list`, `delete`, and `gc` preserve the durable public contracts; create and pickup remain Pi/skill workflows over Branch Memory; the run-from-source shim is installed by `just install-handoff` and `just install-tools`; and the historical Python `packages/asdl-handoff` package plus `asdl handoff` plugin path are retired from active workspace, config, tests, publish paths, and context inventory.
+
+Final rollback/reference evidence for the deleted Python package is commit `c7953b640c94fad4182df35c277fe19dfbe5eca7`. The umbrella TypeScript migration Objective now records Handoff as the third TS-default capability and captures the reusable lessons from this port: Branch Memory consumer boundaries, package-local per-entry timestamp plumbing, explicit plugin retirement, Clinkr markdown rendering, skill/Pi-owned create/pickup boundaries, and stale Python console-script shim cleanup.
+
+Remaining follow-up belongs to the umbrella migration sequence: the next planned capability is `objective` unless new evidence changes the persisted order.
