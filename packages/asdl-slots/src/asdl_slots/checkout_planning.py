@@ -174,6 +174,11 @@ def plan_current_wt_redirect(
             action=DetachCurrentWorktree(ref=trunk),
             note=None,
         )
+    if trunk == moving_branch:
+        return CurrentWorktreeRedirect(
+            action=DetachCurrentWorktree(ref=moving_branch),
+            note=None,
+        )
 
     busy_wt = next(
         (wt for wt in git.list_worktrees() if wt.branch == trunk and wt.path != cwd),

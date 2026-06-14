@@ -126,6 +126,35 @@ def test_slot_claim_moves_branch_from_other_slot(cli_group: ClinkrGroup, tmp_pat
     assert fakes.git._checkout_calls == [(current_path, "master")]
 
 
+def test_slot_claim_from_main_worktree_moves_current_branch_to_available_slot(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = (tmp_path / "repo").resolve()
+    target_path = _slot_path(slots_root, "slot-01")
+    fakes = _fake_for_repo(
+        tmp_path,
+        branches=("master",),
+        current_root=repo_root,
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="master", is_bare=False),
+            WorktreeInfo(path=target_path, branch=None, is_bare=False),
+        ),
+    )
+
+    result = CliRunner().invoke(cli_group, ["claim", "master"], obj=_make_obj(fakes))
+
+    assert result.exit_code == 0, result.output
+    assert "Claimed" in result.output
+    assert "slot-01" in result.output
+    assert "master" in result.output
+    assert fakes.git.get_current_branch(repo_root) == DetachedHead()
+    assert fakes.git.get_current_branch(target_path) == "master"
+    assert fakes.git._detach_head_calls == [(repo_root, "master")]
+    assert fakes.git._checkout_calls == [(target_path, "master")]
+
+
 def test_slot_claim_format_json(cli_group: ClinkrGroup, tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     current_path = _slot_path(slots_root, "slot-01")

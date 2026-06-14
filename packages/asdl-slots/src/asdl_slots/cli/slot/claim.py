@@ -84,6 +84,7 @@ def _claim_to_result(outcome: SlotClaimOutcome) -> SlotClaimResult:
     name="claim",
     help=(
         "Move a local branch from another managed slot into the current slot worktree. "
+        "From the main worktree, move its current branch into the lowest available slot. "
         "Also checks out an unassigned local branch into the current slot."
     ),
     human_renderer=render_slot_claim,

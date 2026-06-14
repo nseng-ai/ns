@@ -6,9 +6,21 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from asdl_core.git.types import WorktreeOccupancy
+from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeOccupancy
+from asdl_slots.checkout_planning import (
+    CheckoutCurrentWorktreeBranch,
+    CurrentWorktreeRedirect,
+    DetachCurrentWorktree,
+    plan_current_wt_redirect,
+)
 from asdl_slots.context import SlotsCliContext
-from asdl_slots.inventory import MainWorktreeMatch, SlotMatch, SlotRecord, build_slot_inventory
+from asdl_slots.inventory import (
+    MainWorktreeMatch,
+    SlotInventory,
+    SlotMatch,
+    SlotRecord,
+    build_slot_inventory,
+)
 from asdl_slots.lifecycle.operation_state import operation_recovery_instruction
 from asdl_slots.lifecycle.outcomes import SlotClaimOutcome, SlotLifecycleFailure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
@@ -20,6 +32,7 @@ class ClaimPlan:
     branch_name: str
     source: SlotRecord | None
     already_current: bool
+    caller_redirect: CurrentWorktreeRedirect | None = None
 
 
 def claim_branch(
@@ -46,6 +59,10 @@ def claim_branch(
         source_failure = _detach_source_slot(slots_ctx, plan.source, branch_name, trunk_branch)
         if source_failure is not None:
             return source_failure
+    if plan.caller_redirect is not None:
+        redirect_failure = _redirect_caller_worktree(slots_ctx, plan.caller_redirect)
+        if redirect_failure is not None:
+            return redirect_failure
 
     checkout_failure = slots_ctx.git.checkout_branch(plan.current.path, branch_name)
     if checkout_failure is not None:
@@ -77,13 +94,7 @@ def plan_claim(
 
     current = _current_slot_record(inventory.records, slots_ctx.repo.root)
     if current is None:
-        return SlotLifecycleFailure(
-            error_type="not_current_slot",
-            message=(
-                "`slot claim` must be run from a managed slot worktree "
-                f"(current worktree: {slots_ctx.repo.root})."
-            ),
-        )
+        return _plan_claim_from_main_worktree(slots_ctx, inventory, branch_name)
 
     if current.operation is not None:
         return SlotLifecycleFailure(
@@ -145,6 +156,118 @@ def _current_slot_record(records: tuple[SlotRecord, ...], root: Path) -> SlotRec
         if record.path == root:
             return record
     return None
+
+
+def _plan_claim_from_main_worktree(
+    slots_ctx: SlotsCliContext,
+    inventory: SlotInventory,
+    branch_name: str,
+) -> ClaimPlan | SlotLifecycleFailure:
+    if slots_ctx.repo.root != slots_ctx.repo.main_repo_root:
+        return _not_current_slot_failure(slots_ctx)
+
+    match = inventory.find_by_branch(branch_name)
+    if not isinstance(match, MainWorktreeMatch):
+        return _not_current_slot_failure(slots_ctx)
+    if match.worktree.path != slots_ctx.repo.root:
+        return SlotLifecycleFailure(
+            error_type="branch_in_main_worktree",
+            message=(
+                f"Branch '{branch_name}' is checked out in the main worktree at "
+                f"{match.worktree.path}. Run `slot claim` from that worktree to move it "
+                "into a slot."
+            ),
+        )
+
+    current_branch = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
+    if isinstance(current_branch, GitCommandFailure):
+        return SlotLifecycleFailure(
+            error_type="current_branch_failed",
+            message=(
+                f"Failed to determine current branch at {slots_ctx.repo.root}: "
+                f"{current_branch.message}"
+            ),
+        )
+    if isinstance(current_branch, DetachedHead) or current_branch != branch_name:
+        return _not_current_slot_failure(slots_ctx)
+
+    target = inventory.lowest_available(slots_ctx.git)
+    if target is None:
+        return _pool_full_claim_failure(inventory)
+    if slots_ctx.git.has_uncommitted_changes(slots_ctx.repo.root):
+        return SlotLifecycleFailure(
+            error_type="dirty_current_worktree",
+            message=(
+                f"Current worktree at {slots_ctx.repo.root} has uncommitted changes. "
+                "Commit or stash before claiming its branch into a slot."
+            ),
+        )
+
+    return ClaimPlan(
+        current=target,
+        branch_name=branch_name,
+        source=None,
+        already_current=False,
+        caller_redirect=plan_current_wt_redirect(
+            slots_ctx.git,
+            cwd=slots_ctx.repo.root,
+            moving_branch=branch_name,
+        ),
+    )
+
+
+def _not_current_slot_failure(slots_ctx: SlotsCliContext) -> SlotLifecycleFailure:
+    return SlotLifecycleFailure(
+        error_type="not_current_slot",
+        message=(
+            "`slot claim` must be run from a managed slot worktree, or from the main "
+            "worktree when moving a branch into the lowest available slot "
+            f"(current worktree: {slots_ctx.repo.root})."
+        ),
+    )
+
+
+def _pool_full_claim_failure(inventory: SlotInventory) -> SlotLifecycleFailure:
+    assigned = tuple(record for record in inventory.records if record.branch is not None)
+    if assigned:
+        details = "\n".join(f"  {record.slot_name} -> {record.branch}" for record in assigned)
+        message = (
+            f"Pool is full. Currently assigned:\n{details}\nFree a slot before claiming a branch."
+        )
+    else:
+        message = (
+            "Pool is full (no slots available). "
+            "Run `slot init` or `slot resize` before claiming a branch."
+        )
+    return SlotLifecycleFailure(error_type="pool_full", message=message)
+
+
+def _redirect_caller_worktree(
+    slots_ctx: SlotsCliContext,
+    redirect: CurrentWorktreeRedirect,
+) -> SlotLifecycleFailure | None:
+    action = redirect.action
+    if isinstance(action, CheckoutCurrentWorktreeBranch):
+        failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, action.branch)
+        if failure is not None:
+            return SlotLifecycleFailure(
+                error_type="slot_allocation_error",
+                message=(
+                    f"Failed to check out {_redirect_failure_subject(action)} in "
+                    f"{slots_ctx.repo.root}: {failure.message}"
+                ),
+            )
+        return None
+    if isinstance(action, DetachCurrentWorktree):
+        slots_ctx.git.detach_head(slots_ctx.repo.root, action.ref)
+        return None
+    raise AssertionError(f"unknown current worktree redirect action: {action!r}")
+
+
+def _redirect_failure_subject(action: CheckoutCurrentWorktreeBranch) -> str:
+    if action.role == "trunk":
+        return f"trunk branch '{action.branch}'"
+    return f"'{action.branch}'"
 
 
 def _current_slot_dirty_failure(
