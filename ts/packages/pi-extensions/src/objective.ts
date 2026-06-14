@@ -47,6 +47,15 @@ interface ObjectiveCreateCommandSpec {
 	actionPrompt: string;
 }
 
+interface InvokeObjectiveCreateSkillOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	spec: ObjectiveCreateCommandSpec;
+	rawArgs: string;
+}
+
+interface HandleObjectiveCreateCommandOptions extends InvokeObjectiveCreateSkillOptions {}
+
 export interface ObjectiveListParsedArgs {
 	args: string[];
 	help: boolean;
@@ -195,12 +204,8 @@ async function chooseObjectiveAndInvoke(
 	await invokeObjectiveSkill(pi, ctx, spec, slug);
 }
 
-async function invokeObjectiveCreateSkill(
-	pi: ExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveCreateCommandSpec,
-	rawArgs: string,
-): Promise<void> {
+async function invokeObjectiveCreateSkill(options: InvokeObjectiveCreateSkillOptions): Promise<void> {
+	const { pi, ctx, spec, rawArgs } = options;
 	await ctx.waitForIdle();
 	const initialRequest = rawArgs.trim();
 	let skillBlock: string;
@@ -238,14 +243,10 @@ ${buildFencedTextBlock(initialRequest)}
 Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
 }
 
-async function handleObjectiveCreateCommand(
-	pi: ExtensionAPI,
-	spec: ObjectiveCreateCommandSpec,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
+async function handleObjectiveCreateCommand(options: HandleObjectiveCreateCommandOptions): Promise<void> {
+	const { ctx } = options;
 	try {
-		await invokeObjectiveCreateSkill(pi, ctx, spec, args);
+		await invokeObjectiveCreateSkill(options);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (ctx.hasUI) {
@@ -751,7 +752,8 @@ export default function objectiveExtension(pi: ExtensionAPI): void {
 	pi.registerCommand(OBJECTIVE_CREATE_COMMAND.commandName, {
 		description: OBJECTIVE_CREATE_COMMAND.description,
 		argumentHint: OBJECTIVE_CREATE_ARGUMENT_HINT,
-		handler: async (args, ctx) => handleObjectiveCreateCommand(pi, OBJECTIVE_CREATE_COMMAND, args, ctx),
+		handler: async (args, ctx) =>
+			handleObjectiveCreateCommand({ pi, spec: OBJECTIVE_CREATE_COMMAND, rawArgs: args, ctx }),
 	});
 
 	for (const spec of OBJECTIVE_COMMANDS) {

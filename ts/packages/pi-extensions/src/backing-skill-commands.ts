@@ -28,6 +28,13 @@ export interface DerivedPiCommand {
 	command: string;
 }
 
+interface HandleBackingSkillCommandOptions {
+	host: BackingSkillCommandHost;
+	spec: DerivedPiCommand;
+	args: string;
+	ctx: BackingSkillCommandContext;
+}
+
 export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"branch-context",
 	"enriched-plan",
@@ -162,19 +169,15 @@ export function registerBackingSkillCommands(host: BackingSkillCommandHost): voi
 		host.registerCommand(spec.surface, {
 			description: `Invoke ${spec.skillName} as a command-converted backing skill.`,
 			argumentHint: "[initial request]",
-			handler: async (args, ctx) => handleBackingSkillCommand(host, spec, args, ctx),
+			handler: async (args, ctx) => handleBackingSkillCommand({ host, spec, args, ctx }),
 		});
 	}
 }
 
 export default registerBackingSkillCommands;
 
-async function handleBackingSkillCommand(
-	host: BackingSkillCommandHost,
-	spec: DerivedPiCommand,
-	args: string,
-	ctx: BackingSkillCommandContext,
-): Promise<void> {
+async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptions): Promise<void> {
+	const { host, spec, args, ctx } = options;
 	await ctx.waitForIdle();
 	let skillBlock: string;
 	try {
