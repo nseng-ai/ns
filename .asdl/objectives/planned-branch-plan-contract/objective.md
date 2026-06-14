@@ -74,11 +74,11 @@ Risks:
 - **Scope padding**: if scope breaches are painful, planners over-broaden in-scope lists defensively; the counter-pressure is that fat in-scope lists weaken the drift check.
 - **Cold-read failure modes**: a strong reader infers gaps away (use a cheap model, report-don't-resolve prompt); an unfocused reader returns noise (executability gaps only).
 - **Template inflation**: `plans-write` is a public skill; every added section costs tokens on every plan-write. The contract additions must earn their length, and a skill-audit pass on the edited skills is appropriate evidence.
+- **Trial reversibility**: PR #1479 documents the prototype as prompt-policy/test surface only. Rollback is a single PR/commit revert with no migration, compatibility shim, Branch Memory mutation, or long-lived feature flag; dependent work should remain separate until the trial is accepted.
 - **Sprawl**: eleven candidates invite scope creep; the disposition discipline and split-out rule are the containment.
 
 ## Open Questions
 
 - Does the trust-nothing review checklist (candidate 6) need a third landing surface, and which skill owns review of implemented planned-branch work?
 - What evidence threshold justifies Phase 2 CLI push-down of the drift check — drift caught usefully, or the manual check being skipped under context pressure?
-- Should pre-contract plans get a migration note in `plans-write`, or is recognition-without-application in `planned-branch-impl` sufficient?
 - Are candidates 8 and 10 better expressed as edits to `objective-create`/`objective-next` (split out) or rejected as already-implicit in current Objective interview practice?
