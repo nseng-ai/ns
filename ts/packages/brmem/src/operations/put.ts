@@ -1,13 +1,12 @@
-import { failure, ok, type ClinkrExecutionInfo } from "@asdl/clinkr";
+import { failure, ok } from "@asdl/clinkr";
 import { posix } from "node:path";
 import { TextDecoder } from "node:util";
 import { z } from "zod";
 
 import { checkEntryNotBinary, checkEntrySize } from "../content-limits.ts";
 import type { BrmemCliContext } from "../context.ts";
-import { mustEntryLocator, namespaceDisplayLabel, normalizeNamespaceOption } from "../ref-layout.ts";
-import { firstFailure, validateBranchName, validateEntryKey, validateNamespaceName, validationMessage } from "../validation.ts";
-import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
+import { mustEntryLocator, namespaceDisplayLabel } from "../ref-layout.ts";
+import { gatewayFailure, resolveEntryRequest } from "./shared.ts";
 
 const STDIN_SOURCE_FILE = "<stdin>";
 
@@ -32,13 +31,7 @@ export const putResultSchema = z.object({
 export type PutRequest = z.infer<typeof putRequestSchema>;
 export type PutResult = z.infer<typeof putResultSchema>;
 
-export async function runPut(ctx: BrmemCliContext, request: PutRequest, info: ClinkrExecutionInfo) {
-	if (request.stdin && info.format === "json") {
-		return failure(
-			"stdin_unsupported_in_json_mode",
-			"brmem put --stdin is only supported in the human CLI; JSON mode already uses stdin for the request body.",
-		);
-	}
+export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 	if (request.stdin && request.file !== undefined) {
 		return failure("stdin_and_file_conflict", "--stdin and --file are mutually exclusive.");
 	}
@@ -60,29 +53,23 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest, info: Cl
 	const decoded = decodeUtf8(source.bytes, source.sourceFile);
 	if (decoded.type === "failure") return decoded.failure;
 
-	const resolvedBranch = request.branch ?? (await resolveCurrentBranch(ctx));
-	if (typeof resolvedBranch !== "string") return resolvedBranch;
-	const namespace = normalizeNamespaceOption(request.namespace);
-	const validationFailure = firstFailure(
-		["invalid_namespace", validationMessage("namespace", namespace, validateNamespaceName(namespace))],
-		["invalid_key", validationMessage("key", request.key, validateEntryKey(request.key))],
-		["invalid_branch_name", validationMessage("branch name", resolvedBranch, validateBranchName(resolvedBranch))],
-	);
-	if (validationFailure !== undefined) return failure(validationFailure[0], validationFailure[1]);
+	const resolved = await resolveEntryRequest(ctx, request);
+	if (resolved.type !== "resolved") return resolved;
+	const { namespace, key, branch } = resolved.value;
 
 	const result = await ctx.gateway.putEntry({
 		namespace,
-		key: request.key,
-		branch: resolvedBranch,
+		key,
+		branch,
 		content: decoded.content,
 	});
 	if (result.type === "error") return gatewayFailure<PutResult>(result.error);
 
 	return ok({
 		namespace,
-		key: request.key,
-		branch: resolvedBranch,
-		ref_name: mustEntryLocator(namespace, request.key, resolvedBranch),
+		key,
+		branch,
+		ref_name: mustEntryLocator(namespace, key, branch),
 		commit: result.value.commitSha,
 		source_file: source.sourceFile,
 	});

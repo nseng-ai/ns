@@ -64,14 +64,30 @@ describe("put operation", () => {
 		expect(get.stdout.join("")).toBe("stdin body\n");
 	});
 
-	it("rejects conflicting or JSON stdin source modes", async () => {
-		const jsonStdin = runScenario(["put", "stdin.md", "--stdin", "--format", "json"]);
-		expect(await jsonStdin.exit).toBe(2);
+	it("supports stdin in JSON output mode", async () => {
+		const gateway = new FakeBrmemGateway({ currentBranch: "feat/x" });
+		const jsonStdin = runScenario(["put", "stdin.md", "--stdin", "--format", "json"], {
+			gateway,
+			stdin: "stdin body\n",
+		});
+		expect(await jsonStdin.exit).toBe(0);
 		expect(JSON.parse(jsonStdin.stdout.join(""))).toMatchObject({
-			exit_code: 2,
-			error_type: "stdin_unsupported_in_json_mode",
+			exit_code: 0,
+			data: {
+				namespace: "base",
+				key: "stdin.md",
+				branch: "feat/x",
+				ref_name: "refs/brmem/base/feat---x:stdin.md",
+				source_file: "<stdin>",
+			},
 		});
 
+		const get = runScenario(["get", "stdin.md"], { gateway });
+		expect(await get.exit).toBe(0);
+		expect(get.stdout.join("")).toBe("stdin body\n");
+	});
+
+	it("rejects conflicting stdin source modes", async () => {
 		const conflict = runScenario(["put", "stdin.md", "--stdin", "--file", "stdin.md"]);
 		expect(await conflict.exit).toBe(2);
 		expect(conflict.stderr.join("")).toContain("--stdin and --file are mutually exclusive.");

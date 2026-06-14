@@ -6,7 +6,7 @@ Implemented the public TypeScript `brmem put` CLI slice in `ts/packages/brmem`.
 
 The slice wires `put` off the explicit `not_implemented` path and onto a real operation with byte-oriented source ingestion, Python-compatible content guardrails, strict UTF-8 decoding, Entry Key / Namespace / branch validation, gateway-backed Snapshot Ref mutation, Entry Locator reporting, JSON success fields, and stable human output lines.
 
-A minimal shared Clinkr execution metadata seam now passes the requested rendered format to handlers, allowing `put --stdin --format json` to fail with the durable `stdin_unsupported_in_json_mode` error type without parsing raw argv in `@asdl/brmem`. The seam also supports a small option alias spec used for `brmem put -f`.
+Review remediation reclassified `put --stdin --format json` as a Python-runtime-specific constraint rather than a durable TypeScript contract. TypeScript Clinkr treats JSON format as output-only and does not read stdin for request bodies, so the TypeScript `put` operation now supports stdin while emitting the normal JSON success envelope. The temporary Clinkr execution metadata seam was removed, `runPut` now reuses the shared Entry request resolver for Namespace / Entry Key / branch validation, and the unrelated retired `asdl-dev cp` scenario cleanup was split out of this branch.
 
 ## Objective Impact
 
@@ -14,7 +14,7 @@ The write-operations roadmap row is now in progress rather than untouched: publi
 
 Compatibility decisions used for this slice:
 
-- exact exit codes, error types, and structured JSON field names/values for `put` success and expected failures;
+- exact exit codes, error types, and structured JSON field names/values for `put` success and expected failures, except the Python-only `stdin_unsupported_in_json_mode` runtime-input failure is not carried forward to TypeScript;
 - stable human-output substrings/lines rather than byte-for-byte full prose golden parity;
 - a brmem-local byte source reader instead of changing the shared `@asdl/core/stdin` string helper;
 - no new Python↔TypeScript CLI parity probe for `put`, because the existing storage seam parity plus comprehensive TypeScript scenario/unit coverage covers this slice's durable behavior.

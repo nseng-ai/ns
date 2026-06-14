@@ -11,12 +11,6 @@ function buildGroup(): ClinkrGroup<null> {
 		schema: z.object({}),
 		handler: async () => ok({ answer: 42 }),
 	});
-	group.command({
-		name: "format-info",
-		schema: z.object({ flag: z.boolean().default(false) }),
-		options: { flag: { short: "-f" } },
-		handler: async (_ctx, request, info) => ok({ format: info.format, flag: request.flag }),
-	});
 	return group;
 }
 
@@ -68,13 +62,5 @@ describe("--format dispatch", () => {
 			context: null,
 		});
 		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, data: { answer: 42 } });
-	});
-
-	test("rendered handlers receive requested format metadata", async () => {
-		const jsonRun = await runForTest(buildGroup(), ["format-info", "--format", "json"], { context: null });
-		expect(parseEnvelope(jsonRun.stdout)).toEqual({ exit_code: 0, data: { format: "json", flag: false } });
-
-		const humanRun = await runForTest(buildGroup(), ["format-info", "--format", "md", "-f"], { context: null });
-		expect(humanRun.stdout).toBe('{\n  "format": "human",\n  "flag": true\n}\n');
 	});
 });

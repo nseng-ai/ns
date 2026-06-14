@@ -1,7 +1,6 @@
 export { ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,
-	ClinkrExecutionInfo,
 	ClinkrGroupOptions,
 	ClinkrHandler,
 	ClinkrRunOptions,
