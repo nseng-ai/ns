@@ -2,7 +2,15 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import type { StackMapBranchNode, StackMapCmuxWorkspace, StackMapPrototypeModel } from "./stack-map-prototype.ts";
+import {
+	matchCmuxTabsToBranches,
+	type StackMapBranchNode,
+	type StackMapCmuxSurfaceType,
+	type StackMapParsedCmuxTab,
+	type StackMapPrototypeModel,
+	type StackMapSlotAssignment,
+	type StackMapSlotStatus,
+} from "./stack-map-prototype.ts";
 
 const execFileAsync = promisify(execFile);
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -41,11 +49,6 @@ interface StackBranchEdge {
 	readonly child: string;
 }
 
-interface SlotAssignment {
-	readonly slotName: string;
-	readonly branch: string;
-}
-
 interface GraphiteMetadataBranch {
 	readonly branch: string;
 	readonly parent: string | undefined;
@@ -61,35 +64,48 @@ export async function loadStackMapPrototypeModel(options: LoadStackMapPrototypeM
 
 	const slotResult = await loadSlotAssignments(runCommand, cwd);
 	const slotAssignments = slotResult.type === "success" ? slotResult.assignments : [];
+	const cmuxResult = await loadCmuxTabs(runCommand, cwd);
 	const metadataResult = await loadGraphiteMetadataBranches(runCommand, cwd);
 	const recentBranchesResult = await loadRecentLocalBranches(runCommand, cwd);
 	if (metadataResult.type === "success") {
-		return buildStackMapModelFromMetadata(
-			stackResult.data,
-			metadataResult.branches,
-			slotAssignments,
-			recentBranchesResult.type === "success" ? recentBranchesResult.branches : [],
-			[slotResult.type === "failure" ? slotResult.message : undefined, recentBranchesResult.type === "failure" ? recentBranchesResult.message : undefined].filter(
-				(note): note is string => note !== undefined,
+		return withCmuxTabs(
+			buildStackMapModelFromMetadata(
+				stackResult.data,
+				metadataResult.branches,
+				slotAssignments,
+				recentBranchesResult.type === "success" ? recentBranchesResult.branches : [],
+				[
+					slotResult.type === "failure" ? slotResult.message : undefined,
+					cmuxResult.type === "failure" ? cmuxResult.message : undefined,
+					recentBranchesResult.type === "failure" ? recentBranchesResult.message : undefined,
+				].filter((note): note is string => note !== undefined),
 			),
+			slotAssignments,
+			cmuxResult.type === "success" ? cmuxResult.tabs : [],
 		);
 	}
 
-	return buildStackMapModelFromCommands(
-		stackResult.data,
+	return withCmuxTabs(
+		buildStackMapModelFromCommands(
+			stackResult.data,
+			slotAssignments,
+			[metadataResult.message, slotResult.type === "failure" ? slotResult.message : undefined, cmuxResult.type === "failure" ? cmuxResult.message : undefined]
+				.filter((note): note is string => note !== undefined)
+				.join(" "),
+		),
 		slotAssignments,
-		[metadataResult.message, slotResult.type === "failure" ? slotResult.message : undefined].filter((note): note is string => note !== undefined).join(" "),
+		cmuxResult.type === "success" ? cmuxResult.tabs : [],
 	);
 }
 
 export function buildStackMapModelFromMetadata(
 	stack: StackBranchesData,
 	metadataBranches: readonly GraphiteMetadataBranch[],
-	slotAssignments: readonly SlotAssignment[],
+	slotAssignments: readonly StackMapSlotAssignment[],
 	recentBranches: readonly string[],
 	warnings: readonly string[] = [],
 ): StackMapPrototypeModel {
-	const slotLabelsByBranch = new Map(slotAssignments.map((assignment) => [assignment.branch, assignment.slotName]));
+	const slotsByBranch = slotsByBranchName(slotAssignments);
 	const metadataByBranch = new Map(metadataBranches.map((branch) => [branch.branch, branch]));
 	const selectedBranches = selectVisibleMetadataBranches({
 		stack,
@@ -101,7 +117,7 @@ export function buildStackMapModelFromMetadata(
 		metadataByBranch,
 		selectedBranches,
 		current: stack.current,
-		slotLabelsByBranch,
+		slotsByBranch,
 		trunk: stack.trunk,
 		visited: new Set(),
 	});
@@ -121,10 +137,10 @@ export function buildStackMapModelFromMetadata(
 
 export function buildStackMapModelFromCommands(
 	stack: StackBranchesData,
-	slotAssignments: readonly SlotAssignment[],
+	slotAssignments: readonly StackMapSlotAssignment[],
 	slotWarning?: string | undefined,
 ): StackMapPrototypeModel {
-	const slotLabelsByBranch = new Map(slotAssignments.map((assignment) => [assignment.branch, assignment.slotName]));
+	const slotsByBranch = slotsByBranchName(slotAssignments);
 	const childrenByParent = new Map<string, string[]>();
 	for (const edge of stack.edges) {
 		const children = childrenByParent.get(edge.parent) ?? [];
@@ -137,13 +153,13 @@ export function buildStackMapModelFromCommands(
 		childrenByParent,
 		knownBranches,
 		current: stack.current,
-		slotLabelsByBranch,
+		slotsByBranch,
 		trunk: stack.trunk,
 		visited: new Set(),
 	});
 	const modeled = collectBranchNames(root);
 	const missing = stack.branches.filter((branch) => !modeled.has(branch));
-	const trunk = missing.length === 0 ? root : { ...root, children: [...(root.children ?? []), ...missing.map((branch) => leafBranchNode(branch, stack, slotLabelsByBranch))] };
+	const trunk = missing.length === 0 ? root : { ...root, children: [...(root.children ?? []), ...missing.map((branch) => leafBranchNode(branch, stack, slotsByBranch))] };
 	const notes = [
 		"Loaded from `slot gt exec stack-branches --format json`; slot labels from `slot list --format json`.",
 		...stack.warnings,
@@ -158,6 +174,16 @@ export function buildStackMapModelFromCommands(
 	};
 }
 
+export function parseCmuxTreeTabs(stdout: string): { type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout.trim() || "{}");
+	} catch (error) {
+		return { type: "failure", message: `cmux tree JSON was invalid: ${error instanceof Error ? error.message : String(error)}` };
+	}
+	return parseCmuxTreeData(parsed);
+}
+
 async function loadStackBranches(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; data: StackBranchesData } | { type: "failure"; message: string }> {
 	const result = await runCommand("slot", ["gt", "exec", "stack-branches", "--format", "json"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
 	const parsed = parseMachineEnvelopeData(result.stdout, "slot gt exec stack-branches JSON");
@@ -169,13 +195,21 @@ async function loadStackBranches(runCommand: StackMapCommandRunner, cwd: string)
 	return { type: "success", data: data.data };
 }
 
-async function loadSlotAssignments(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; assignments: readonly SlotAssignment[] } | { type: "failure"; message: string }> {
+async function loadSlotAssignments(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; assignments: readonly StackMapSlotAssignment[] } | { type: "failure"; message: string }> {
 	const result = await runCommand("slot", ["list", "--format", "json"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
 	if (result.code !== 0) return { type: "failure", message: `Could not load slot labels: ${result.stderr.trim() || result.stdout.trim() || `slot list exited ${result.code}`}` };
 
 	const parsed = parseMachineEnvelopeData(result.stdout, "slot list JSON");
 	if (parsed.type === "failure") return { type: "failure", message: `Could not load slot labels: ${parsed.message}` };
 	return parseSlotAssignments(parsed.data);
+}
+
+async function loadCmuxTabs(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string }> {
+	const result = await runCommand("cmux", ["tree", "--json", "--all"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
+	if (result.code !== 0) return { type: "failure", message: `Could not load cmux tab inventory: ${result.stderr.trim() || result.stdout.trim() || `cmux tree exited ${result.code}`}` };
+	const parsed = parseCmuxTreeTabs(result.stdout);
+	if (parsed.type === "failure") return { type: "failure", message: `Could not load cmux tab inventory: ${parsed.message}` };
+	return parsed;
 }
 
 async function loadGraphiteMetadataBranches(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; branches: readonly GraphiteMetadataBranch[] } | { type: "failure"; message: string }> {
@@ -246,16 +280,102 @@ function parseStackBranchesData(data: unknown): { type: "success"; data: StackBr
 	return { type: "success", data: { branches, trunk, current, edges, warnings } };
 }
 
-function parseSlotAssignments(data: unknown): { type: "success"; assignments: readonly SlotAssignment[] } | { type: "failure"; message: string } {
+function parseSlotAssignments(data: unknown): { type: "success"; assignments: readonly StackMapSlotAssignment[] } | { type: "failure"; message: string } {
 	if (!isRecord(data) || !Array.isArray(data.rows)) return { type: "failure", message: "Could not load slot labels: slot list data was missing rows." };
-	const assignments: SlotAssignment[] = [];
+	const assignments: StackMapSlotAssignment[] = [];
 	for (const row of data.rows) {
 		if (!isRecord(row)) continue;
 		const slotName = stringField(row, "slot_name");
 		const branch = stringField(row, "branch");
-		if (slotName !== undefined && branch !== undefined) assignments.push({ slotName, branch });
+		if (slotName === undefined || branch === undefined) continue;
+		const worktreePath = optionalStringField(row, "worktree_path");
+		const status = normalizeSlotStatus(optionalStringField(row, "status"));
+		assignments.push(worktreePath === undefined ? { slotName, branch, status } : { slotName, branch, worktreePath, status });
 	}
 	return { type: "success", assignments };
+}
+
+function parseCmuxTreeData(data: unknown): { type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string } {
+	if (!isRecord(data)) return { type: "failure", message: "cmux tree was not a JSON object." };
+	const windows = data.windows;
+	if (!Array.isArray(windows)) return { type: "failure", message: "cmux tree was missing windows." };
+
+	const tabs: StackMapParsedCmuxTab[] = [];
+	for (const window of windows) {
+		if (!isRecord(window)) continue;
+		const windowRef = stringField(window, "ref");
+		const workspaces = window.workspaces;
+		if (windowRef === undefined || !Array.isArray(workspaces)) continue;
+		for (const workspace of workspaces) {
+			if (!isRecord(workspace)) continue;
+			const workspaceRef = stringField(workspace, "ref");
+			const workspaceTitle = stringField(workspace, "title");
+			const panes = workspace.panes;
+			if (workspaceRef === undefined || workspaceTitle === undefined || !Array.isArray(panes)) continue;
+			for (const pane of panes) {
+				if (!isRecord(pane)) continue;
+				const paneRef = stringField(pane, "ref");
+				const surfaces = pane.surfaces;
+				if (paneRef === undefined || !Array.isArray(surfaces)) continue;
+				for (const surface of surfaces) {
+					const tab = parseCmuxSurfaceTab({ windowRef, workspaceRef, workspaceTitle, workspace, paneRef, pane, surface });
+					if (tab !== undefined) tabs.push(tab);
+				}
+			}
+		}
+	}
+	return { type: "success", tabs };
+}
+
+function parseCmuxSurfaceTab(options: {
+	readonly windowRef: string;
+	readonly workspaceRef: string;
+	readonly workspaceTitle: string;
+	readonly workspace: Record<string, unknown>;
+	readonly paneRef: string;
+	readonly pane: Record<string, unknown>;
+	readonly surface: unknown;
+}): StackMapParsedCmuxTab | undefined {
+	if (!isRecord(options.surface)) return undefined;
+	const surfaceRef = stringField(options.surface, "ref");
+	const tabRef = stringField(options.surface, "tab_ref") ?? surfaceRef;
+	const tabTitle = stringField(options.surface, "title");
+	if (surfaceRef === undefined || tabRef === undefined || tabTitle === undefined) return undefined;
+
+	const workspaceDescription = optionalStringField(options.workspace, "description");
+	return {
+		windowRef: options.windowRef,
+		workspaceRef: options.workspaceRef,
+		workspaceTitle: options.workspaceTitle,
+		...(workspaceDescription === undefined ? {} : { workspaceDescription }),
+		paneRef: options.paneRef,
+		surfaceRef,
+		tabRef,
+		tabTitle,
+		surfaceType: normalizeSurfaceType(optionalStringField(options.surface, "type")),
+		...(optionalStringField(options.surface, "tty") === undefined ? {} : { tty: optionalStringField(options.surface, "tty") }),
+		isActive: booleanField(options.surface, "active") ?? booleanField(options.pane, "active") ?? false,
+		isHere: booleanField(options.surface, "here") ?? false,
+		isSelected: booleanField(options.surface, "selected") ?? booleanField(options.surface, "selected_in_pane") ?? false,
+		...explicitBranchEntry(options.surface, options.pane, options.workspace),
+		...explicitWorktreeEntry(options.surface, options.pane, options.workspace),
+	};
+}
+
+function explicitBranchEntry(...records: readonly Record<string, unknown>[]): { readonly explicitBranch?: string } {
+	for (const record of records) {
+		const branch = optionalStringField(record, "branch") ?? optionalStringField(record, "branch_name");
+		if (branch !== undefined) return { explicitBranch: branch };
+	}
+	return {};
+}
+
+function explicitWorktreeEntry(...records: readonly Record<string, unknown>[]): { readonly explicitWorktreePath?: string } {
+	for (const record of records) {
+		const path = optionalStringField(record, "worktree_path") ?? optionalStringField(record, "cwd");
+		if (path !== undefined) return { explicitWorktreePath: path };
+	}
+	return {};
 }
 
 function parseGraphiteMetadataBranches(stdout: string): { type: "success"; branches: readonly GraphiteMetadataBranch[] } | { type: "failure"; message: string } {
@@ -287,7 +407,7 @@ function parseGraphiteMetadataBranches(stdout: string): { type: "success"; branc
 function selectVisibleMetadataBranches(options: {
 	readonly stack: StackBranchesData;
 	readonly metadataByBranch: ReadonlyMap<string, GraphiteMetadataBranch>;
-	readonly slotAssignments: readonly SlotAssignment[];
+	readonly slotAssignments: readonly StackMapSlotAssignment[];
 	readonly recentBranches: readonly string[];
 }): ReadonlySet<string> {
 	const selected = new Set<string>([options.stack.trunk, options.stack.current, ...options.stack.branches]);
@@ -330,20 +450,20 @@ function buildMetadataBranchTree(
 		readonly metadataByBranch: ReadonlyMap<string, GraphiteMetadataBranch>;
 		readonly selectedBranches: ReadonlySet<string>;
 		readonly current: string;
-		readonly slotLabelsByBranch: ReadonlyMap<string, string>;
+		readonly slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>;
 		readonly trunk: string;
 		readonly visited: Set<string>;
 	},
 ): StackMapBranchNode {
-	if (options.visited.has(branch)) return leafBranchNode(branch, { current: options.current, trunk: options.trunk }, options.slotLabelsByBranch);
+	if (options.visited.has(branch)) return leafBranchNode(branch, { current: options.current, trunk: options.trunk }, options.slotsByBranch);
 	options.visited.add(branch);
-	const children = (metadataChildren(branch, options.metadataByBranch))
+	const children = metadataChildren(branch, options.metadataByBranch)
 		.filter((child) => options.selectedBranches.has(child))
 		.map((child) => buildMetadataBranchTree(child, options));
 	return {
 		name: branch,
 		graphiteNote: graphiteNoteForBranch(branch, options.current, options.trunk),
-		workspaces: workspaceForBranch(branch, options.slotLabelsByBranch),
+		slots: slotsForBranch(branch, options.slotsByBranch),
 		children,
 	};
 }
@@ -375,12 +495,12 @@ function buildBranchNode(
 		readonly childrenByParent: ReadonlyMap<string, readonly string[]>;
 		readonly knownBranches: ReadonlySet<string>;
 		readonly current: string;
-		readonly slotLabelsByBranch: ReadonlyMap<string, string>;
+		readonly slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>;
 		readonly trunk: string;
 		readonly visited: Set<string>;
 	},
 ): StackMapBranchNode {
-	if (options.visited.has(branch)) return leafBranchNode(branch, { current: options.current, trunk: options.trunk }, options.slotLabelsByBranch);
+	if (options.visited.has(branch)) return leafBranchNode(branch, { current: options.current, trunk: options.trunk }, options.slotsByBranch);
 	options.visited.add(branch);
 	const children = (options.childrenByParent.get(branch) ?? [])
 		.filter((child) => options.knownBranches.has(child))
@@ -388,7 +508,7 @@ function buildBranchNode(
 	return {
 		name: branch,
 		graphiteNote: graphiteNoteForBranch(branch, options.current, options.trunk),
-		workspaces: workspaceForBranch(branch, options.slotLabelsByBranch),
+		slots: slotsForBranch(branch, options.slotsByBranch),
 		children,
 	};
 }
@@ -396,12 +516,12 @@ function buildBranchNode(
 function leafBranchNode(
 	branch: string,
 	stack: Pick<StackBranchesData, "current" | "trunk">,
-	slotLabelsByBranch: ReadonlyMap<string, string>,
+	slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>,
 ): StackMapBranchNode {
 	return {
 		name: branch,
 		graphiteNote: graphiteNoteForBranch(branch, stack.current, stack.trunk),
-		workspaces: workspaceForBranch(branch, slotLabelsByBranch),
+		slots: slotsForBranch(branch, slotsByBranch),
 	};
 }
 
@@ -411,10 +531,27 @@ function graphiteNoteForBranch(branch: string, current: string, trunk: string): 
 	return undefined;
 }
 
-function workspaceForBranch(branch: string, slotLabelsByBranch: ReadonlyMap<string, string>): readonly StackMapCmuxWorkspace[] | undefined {
-	const slotName = slotLabelsByBranch.get(branch);
-	if (slotName === undefined) return undefined;
-	return [{ label: slotName }];
+function slotsByBranchName(assignments: readonly StackMapSlotAssignment[]): ReadonlyMap<string, readonly StackMapSlotAssignment[]> {
+	const byBranch = new Map<string, StackMapSlotAssignment[]>();
+	for (const assignment of assignments) {
+		const current = byBranch.get(assignment.branch) ?? [];
+		current.push(assignment);
+		byBranch.set(assignment.branch, current);
+	}
+	return byBranch;
+}
+
+function slotsForBranch(branch: string, slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>): readonly StackMapSlotAssignment[] | undefined {
+	const slots = slotsByBranch.get(branch);
+	return slots === undefined || slots.length === 0 ? undefined : slots;
+}
+
+function withCmuxTabs(model: StackMapPrototypeModel, slots: readonly StackMapSlotAssignment[], tabs: readonly StackMapParsedCmuxTab[]): StackMapPrototypeModel {
+	if (tabs.length === 0) return model;
+	return {
+		...model,
+		trunk: matchCmuxTabsToBranches({ root: model.trunk, slots, tabs }),
+	};
 }
 
 function collectBranchNames(root: StackMapBranchNode): ReadonlySet<string> {
@@ -464,6 +601,21 @@ function stringArrayField(record: Record<string, unknown>, key: string): readonl
 function stringField(record: Record<string, unknown>, key: string): string | undefined {
 	const value = record[key];
 	return typeof value === "string" ? value : undefined;
+}
+
+function booleanField(record: Record<string, unknown>, key: string): boolean | undefined {
+	const value = record[key];
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeSlotStatus(status: string | undefined): StackMapSlotStatus {
+	if (status === "assigned" || status === "available") return status;
+	return "unknown";
+}
+
+function normalizeSurfaceType(type: string | undefined): StackMapCmuxSurfaceType {
+	if (type === "terminal" || type === "browser" || type === "agent-session") return type;
+	return "unknown";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
