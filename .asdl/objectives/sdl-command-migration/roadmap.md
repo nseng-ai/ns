@@ -10,9 +10,9 @@
   - Policy: direct execution after preview, but steer first if the design changes the public SDK surface for command authors.
   - Evidence: `ts/packages/sdl/src/command-registry.ts` generalizes flat `.asdl/commands/*.ts` discovery/loading; `sdl --help` scans filenames only while invocation imports and validates the selected module; `ts/packages/sdl/src/cp-command.ts` remains a wrapper over the generic runner; SDL scenario tests cover project-only discovery, no-import help, invocation, load failures, name mismatches, invalid filenames, ignored `.d.ts` files, and the existing `cp` override. `ts/packages/sdl/README.md` and `ts/packages/sdl/CONTEXT.md` document CLI-only dynamic loading, no public SDK shape change, and deferred Pi mirror/argument-schema follow-ups. Verification: targeted SDL/Pi package tests and checks passed; full TypeScript test/check passed; docs dprint check passed.
 
-- [ ] Migrate `submit` as the first hard-cutover lifecycle command.
+- [~] Migrate `submit` as the first hard-cutover lifecycle command.
   - Policy: direct execution after preview; ask first before running the mutating submit command itself as validation.
-  - Evidence: `sdl submit` and `/sdl:submit` exist; `asdl-dev submit` and `/code:submit` are deleted rather than retained as aliases; tests cover dirty-worktree checkpoint-before-submit behavior, restack guidance, Graphite submit invocation, and PR metadata behavior; the driving skill/prose moves from `code-submit` to SDL naming.
+  - Evidence so far: branch diff against Graphite parent `master` and PR #1498 add `ts/packages/asdl-dev/src/submit-cli-command.ts`, remove the inline `asdl-dev submit` registration from `ts/packages/asdl-dev/src/cli.ts`, export the submit helper for migration reuse, re-export `PositionalSpec` through `@asdl/clinkr/raw`, and extend `@asdl/sdl/sdk` command/context types for schemas, positionals, output streams, confirmation prompts, and extension bags. Completion still requires `sdl submit` and `/sdl:submit`, removal of `/code:submit`, migrated submit behavior tests, docs/skill/parity updates, and source-search evidence that stale active submit instructions are gone.
 
 - [ ] Migrate read-only worktree inspection from `/code:changes` to SDL.
   - Policy: direct execution after preview.
