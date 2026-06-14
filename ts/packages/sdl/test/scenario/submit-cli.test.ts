@@ -21,6 +21,7 @@ interface TestState {
 }
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/asdl-tools/1517";
 
 class ScriptedSubmitContext implements SdlContext {
 	readonly cwd: string;
@@ -202,6 +203,61 @@ describe("sdl submit CLI", () => {
 			]),
 		);
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+	});
+
+	test("accepts submit-output PR links when current PR verification lags", async () => {
+		const run = runWithFakes(["submit"], {
+			exec: [
+				...cleanCheckpointResponses(),
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+				{
+					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+					result: { stdout: `implicit-session-resolution-feedback-read-helpers: ${LAGGING_VERIFICATION_PR_URL} (created)\n` },
+				},
+				{ match: "gt branch info --no-interactive", result: { stdout: "implicit-session-resolution-feedback-read-helpers\n6 seconds ago\n" } },
+				{
+					match: "gh pr view 1517 --json number,url,title,body,headRefName,baseRefName",
+					result: {
+						stdout: JSON.stringify({
+							number: 1517,
+							url: LAGGING_VERIFICATION_PR_URL,
+							title: "Existing PR title",
+							body: "Hand edited body",
+							headRefName: "feature/demo",
+							baseRefName: "main",
+						}),
+					},
+				},
+				{ match: "gh pr view 1517 --json commits", result: { stdout: commitsJson() } },
+			],
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("gt submit succeeded");
+		expect(run.stdout.join("")).toContain(`#1517 ${LAGGING_VERIFICATION_PR_URL}`);
+		expect(run.stderr.join("")).toBe("");
+		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+	});
+
+	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
+		const run = runWithFakes(["submit"], {
+			exec: [
+				...cleanCheckpointResponses(),
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: "Submitted stack without PR URL\n" } },
+				{ match: "gt branch info --no-interactive", result: { code: 1, stderr: "No PR found for current branch.\n" } },
+			],
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("gt submit exited 0, but the current branch still has no PR.");
+		expect(error).toContain("Submitted stack without PR URL");
+		expect(error).toContain("`sdl submit` checkpoints outstanding worktree changes before submitting.");
 	});
 
 	test("dirty worktree checkpoints before submitting", async () => {
