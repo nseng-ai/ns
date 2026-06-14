@@ -75,10 +75,16 @@ that source slot at trunk first and then checks out the branch in the
 current slot. If the branch is not checked out anywhere, it checks the
 branch out directly in the current slot.
 
-`slot claim` must be run from a managed `slot-XX` worktree. It refuses
-when the current slot or source slot is dirty, when either slot has an
-operation in progress, or when the branch is checked out in the main
-worktree or another non-slot worktree.
+When run from the main worktree for the branch that is currently checked
+out there, `slot claim BRANCH` moves that branch into the lowest available
+clean detached slot and leaves the main worktree detached or redirected to
+a safe branch.
+
+`slot claim` must be run from a managed `slot-XX` worktree or from the main
+worktree for its current branch. It refuses when the current slot, source
+slot, or moving main worktree is dirty, when either slot has an operation
+in progress, or when the branch is checked out in a different non-slot
+worktree.
 
 ## Opt-in shell integration
 

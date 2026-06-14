@@ -7,10 +7,7 @@ from asdl_slots.checkout_planning import (
     AssignToSlot,
     BranchInMainWorktree,
     BranchInUse,
-    CheckoutCurrentWorktreeBranch,
     CurrentCheckoutPlan,
-    CurrentWorktreeRedirect,
-    DetachCurrentWorktree,
     PoolFull,
     ReuseAssignment,
     plan_checkout,
@@ -22,19 +19,14 @@ from asdl_slots.errors import (
     DirtyCurrentWorktreeError,
     SlotAllocationError,
 )
-from asdl_slots.inventory import SlotRecord, build_slot_inventory
+from asdl_slots.inventory import build_slot_inventory
+from asdl_slots.lifecycle.current_worktree_redirect import execute_current_worktree_redirect
 from asdl_slots.lifecycle.operation_state import operation_recovery_instruction
 from asdl_slots.lifecycle.outcomes import SlotCheckoutOutcome, SlotLifecycleFailure
+from asdl_slots.lifecycle.pool_full import pool_full_failure
 from asdl_slots.repo_context import ensure_slots_metadata_dir
 
 ExecutableCheckoutPlan = ReuseAssignment | BranchInMainWorktree | AssignToSlot
-
-
-def _assigned_detail(record: SlotRecord) -> str:
-    suffix = ""
-    if record.operation is not None:
-        suffix = f" ({record.operation} in progress)"
-    return f"  {record.slot_name} -> {record.branch}{suffix}"
 
 
 def checkout_branch(
@@ -82,7 +74,7 @@ def checkout_branch(
     )
     plan = plan_checkout(inventory, slots_ctx.git, branch_name)
     if isinstance(plan, PoolFull):
-        return _pool_full_failure(plan)
+        return pool_full_failure(plan.assigned, action="checking out a new branch")
     if isinstance(plan, BranchInUse):
         return _branch_in_use_failure(plan.occupancy)
     return _execute_plan(
@@ -128,11 +120,11 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
 
     assert isinstance(current_plan, CurrentCheckoutPlan)
     if isinstance(current_plan.plan, PoolFull):
-        return _pool_full_failure(current_plan.plan)
+        return pool_full_failure(current_plan.plan.assigned, action="checking out a new branch")
     if isinstance(current_plan.plan, BranchInUse):
         return _branch_in_use_failure(current_plan.plan.occupancy)
     if current_plan.redirect is not None:
-        redirect_failure = _execute_current_worktree_redirect(
+        redirect_failure = execute_current_worktree_redirect(
             current_plan.redirect,
             slots_ctx=slots_ctx,
         )
@@ -147,21 +139,6 @@ def checkout_current(slots_ctx: SlotsCliContext) -> SlotCheckoutOutcome | SlotLi
     )
 
 
-def _pool_full_failure(outcome: PoolFull) -> SlotLifecycleFailure:
-    if outcome.assigned:
-        details = "\n".join(_assigned_detail(record) for record in outcome.assigned)
-        message = (
-            f"Pool is full. Currently assigned:\n{details}\n"
-            "Free a slot before checking out a new branch."
-        )
-    else:
-        message = (
-            "Pool is full (no slots available). "
-            "Run `slot init` or `slot resize` before checking out a new branch."
-        )
-    return SlotLifecycleFailure(error_type="pool_full", message=message)
-
-
 def _branch_in_use_failure(occupancy: WorktreeOccupancy) -> SlotLifecycleFailure:
     if occupancy.operation is not None:
         recovery_instruction = operation_recovery_instruction(occupancy.operation)
@@ -173,35 +150,6 @@ def _branch_in_use_failure(occupancy: WorktreeOccupancy) -> SlotLifecycleFailure
     else:
         message = f"Branch '{occupancy.branch}' is already checked out at {occupancy.path}."
     return SlotLifecycleFailure(error_type="branch_in_use", message=message)
-
-
-def _execute_current_worktree_redirect(
-    redirect: CurrentWorktreeRedirect,
-    *,
-    slots_ctx: SlotsCliContext,
-) -> SlotLifecycleFailure | None:
-    action = redirect.action
-    if isinstance(action, CheckoutCurrentWorktreeBranch):
-        failure = slots_ctx.git.checkout_branch(slots_ctx.repo.root, action.branch)
-        if failure is not None:
-            return SlotLifecycleFailure(
-                error_type="slot_allocation_error",
-                message=(
-                    f"Failed to check out {_current_redirect_failure_subject(action)} in "
-                    f"{slots_ctx.repo.root}: {failure.message}"
-                ),
-            )
-        return None
-    if isinstance(action, DetachCurrentWorktree):
-        slots_ctx.git.detach_head(slots_ctx.repo.root, action.ref)
-        return None
-    raise AssertionError(f"unknown current worktree redirect action: {action!r}")
-
-
-def _current_redirect_failure_subject(action: CheckoutCurrentWorktreeBranch) -> str:
-    if action.role == "trunk":
-        return f"trunk branch '{action.branch}'"
-    return f"'{action.branch}'"
 
 
 def _execute_plan(

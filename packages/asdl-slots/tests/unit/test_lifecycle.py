@@ -319,6 +319,60 @@ def test_checkout_current_redirect_failure_uses_planner_subject(tmp_path: Path) 
     assert git._checkout_calls == [(repo_root, "some-other")]
 
 
+def test_checkout_current_detaches_main_when_moving_trunk_branch(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master",),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="master", is_bare=False),
+            slot_worktree(slots_root, 1, None),
+        ),
+        trunk_branch="master",
+    )
+
+    outcome = checkout_current(ctx)
+
+    assert isinstance(outcome, SlotCheckoutOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "master"
+    assert git.get_current_branch(repo_root) == DetachedHead()
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "master"
+    assert git._detach_head_calls == [(repo_root, "master")]
+    assert git._checkout_calls == [(slot_path(slots_root, 1), "master")]
+
+
+def test_claim_branch_from_main_worktree_moves_current_branch_into_available_slot(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master",),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="master", is_bare=False),
+            slot_worktree(slots_root, 1, None),
+        ),
+        trunk_branch="master",
+    )
+
+    outcome = claim_branch(ctx, "master")
+
+    assert isinstance(outcome, SlotClaimOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "master"
+    assert outcome.worktree_path == slot_path(slots_root, 1)
+    assert outcome.replaced_branch_name is None
+    assert outcome.source_slot_name is None
+    assert outcome.already_current is False
+    assert git.get_current_branch(repo_root) == DetachedHead()
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "master"
+    assert git._detach_head_calls == [(repo_root, "master")]
+    assert git._checkout_calls == [(slot_path(slots_root, 1), "master")]
+
+
 def test_claim_branch_moves_branch_from_other_slot_into_current_slot(tmp_path: Path) -> None:
     slots_root = tmp_path / "slots"
     current_path = slot_path(slots_root, 1)
@@ -368,6 +422,32 @@ def test_claim_branch_checks_out_unassigned_branch_into_current_slot(tmp_path: P
     assert git._detach_head_calls == []
     assert git._checkout_calls == [(current_path, "feat/target")]
     assert git.get_current_branch(current_path) == "feat/target"
+
+
+def test_claim_branch_from_main_worktree_pool_full_reports_assigned_slots(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master", "feat/a"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="master", is_bare=False),
+            slot_worktree(slots_root, 1, "feat/a"),
+        ),
+        trunk_branch="master",
+    )
+
+    outcome = claim_branch(ctx, "master")
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "pool_full"
+    assert "slot-01 -> feat/a" in outcome.message
+    assert "Free a slot before claiming a branch." in outcome.message
+    assert git.get_current_branch(repo_root) == "master"
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == []
 
 
 def test_claim_branch_rejects_dirty_current_slot(tmp_path: Path) -> None:
