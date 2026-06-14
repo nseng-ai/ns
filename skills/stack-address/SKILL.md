@@ -28,6 +28,20 @@ resolving original lower-stack review threads with explicit stack-tip wording.
 Not normal `pr-address`: that skill is scoped to the current PR; this one is
 stack-scoped and must use the tested `pr-address exec` stack helpers.
 
+## When to use
+
+Run this skill when the user explicitly invokes `stack-address`,
+`code-stack-address`, or `pr-stack-address`, or otherwise clearly asks for a
+stack-wide PR feedback pass across the current Graphite stack.
+
+An explicit invocation starts this workflow even when earlier conversation
+context includes a successful manual `gt submit` report, PR URL, or prior
+stack-address closeout. Treat that submit evidence as context for the new run;
+do not apply the manual-submit stop rule unless the current user turn is only
+reporting the submit result and not asking to run or continue stack-address.
+
+Do not trigger this skill for single-PR feedback; use `pr-address` instead.
+
 ## Load with
 
 - `graphite` for stack topology, navigation, and branch creation.
@@ -380,11 +394,14 @@ Report:
   `gt submit --no-interactive` when ready, wait for CI, and re-request review if
   needed.
 
-Never push or submit unless the user explicitly asks for that extra step. If
-the user reports a successful manual `gt submit`, record the omnibus PR number
-or URL if provided, then stop. Do not push, submit, mutate GitHub feedback,
-re-resolve threads, rerun mutation helpers, or continue implementation unless
-the user explicitly asks for another action.
+Never push or submit unless the user explicitly asks for that extra step. When
+the current user turn only reports a successful manual `gt submit`, record the
+omnibus PR number or URL if provided, then stop. Do not push, submit, mutate
+GitHub feedback, re-resolve threads, rerun mutation helpers, or continue
+implementation unless the user explicitly asks for another action. This
+terminal-report rule does not override a current explicit `stack-address`,
+`code-stack-address`, or `pr-stack-address` invocation; in that case, run the
+workflow from preflight.
 
 ## Push-down status
 
