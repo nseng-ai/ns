@@ -8,7 +8,7 @@ import {
 	type StackMapCommandOptions,
 	type StackMapCommandOutput,
 } from "../../src/stack-map-model-loader.ts";
-import { buildNewWorkspaceArgs, createStackMapCmuxActivationExecutor } from "../../src/stack-map-prototype-renderer.ts";
+import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-prototype-renderer.ts";
 import {
 	choicesForCmuxActivationPlan,
 	createInitialStackMapState,
@@ -236,9 +236,9 @@ describe("createStackMapCmuxActivationExecutor", () => {
 		});
 
 		await expect(executor.openNew("feature/current", { slotName: "slot-04", branch: "feature/current", worktreePath: "/repo/slot-04", status: "assigned" })).resolves.toMatchObject({ type: "opened" });
-		expect(calls).toEqual([
-			"/repo/slot-04$ cmux new-workspace --name feature/current --description sdlcc cmux workspace for feature/current --cwd /repo/slot-04",
-		]);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain("/repo/slot-04$ cmux new-workspace --name feature/current --description sdlcc cmux workspace for feature/current --cwd /repo/slot-04 --command bun '");
+		expect(calls[0]).toContain("/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
 		expect(buildNewWorkspaceArgs({ branchName: "feature/current", worktreePath: "/repo/slot-04", description: "desc" })).toEqual([
 			"new-workspace",
 			"--name",
@@ -247,7 +247,11 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			"desc",
 			"--cwd",
 			"/repo/slot-04",
+			"--command",
+			buildSdlccCmuxReportBootstrapCommand(),
 		]);
+		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe("bun '/repo/with space/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
+		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe("bun '/repo/with'\\''quote/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
 	});
 });
 

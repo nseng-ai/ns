@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
-    "@opentui/core": "0.4.1"
+    "@opentui/core": "0.4.1",
+    "zod": "^4.4.3"
   }
 }

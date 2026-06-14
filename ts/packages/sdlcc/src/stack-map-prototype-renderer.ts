@@ -1,9 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 
-import type { StackMapCommandOutput, StackMapCommandRunner } from "./stack-map-model-loader.ts";
+import { runRealCommand, type StackMapCommandOutput, type StackMapCommandRunner } from "./command-runner.ts";
 import {
 	buildStackMapPrototypeModel,
 	choicesForCmuxActivationPlan,
@@ -19,7 +18,8 @@ import {
 	type StackMapSlotAssignment,
 } from "./stack-map-prototype.ts";
 
-const execFileAsync = promisify(execFile);
+const SDLCC_CLI_ENTRYPOINT_PATH = fileURLToPath(new URL("./cli.ts", import.meta.url));
+
 const COMMAND_TIMEOUT_MS = 10_000;
 const SLOT_CHECKOUT_TIMEOUT_MS = 30_000;
 
@@ -111,7 +111,11 @@ export function createStackMapCmuxActivationExecutor(options: CreateStackMapCmux
 }
 
 export function buildNewWorkspaceArgs(options: { readonly branchName: string; readonly worktreePath: string; readonly description: string }): readonly string[] {
-	return ["new-workspace", "--name", options.branchName, "--description", options.description, "--cwd", options.worktreePath];
+	return ["new-workspace", "--name", options.branchName, "--description", options.description, "--cwd", options.worktreePath, "--command", buildSdlccCmuxReportBootstrapCommand()];
+}
+
+export function buildSdlccCmuxReportBootstrapCommand(cliEntrypointPath: string = SDLCC_CLI_ENTRYPOINT_PATH): string {
+	return `bun ${shellQuote(cliEntrypointPath)} cmux report || true; exec ${"${SHELL:-/bin/zsh}"} -l`;
 }
 
 function mountStackMapPrototypeScreen(
@@ -324,25 +328,12 @@ function slotTargetFromAssignment(branch: string, slot: StackMapSlotAssignment):
 	};
 }
 
-async function runRealCommand(command: string, args: readonly string[], options: { readonly cwd: string; readonly timeoutMs: number }): Promise<StackMapCommandOutput> {
-	try {
-		const result = await execFileAsync(command, [...args], {
-			cwd: options.cwd,
-			timeout: options.timeoutMs,
-		});
-		return { code: 0, stdout: result.stdout, stderr: result.stderr };
-	} catch (error) {
-		if (!isRecord(error)) return { code: 1, stdout: "", stderr: String(error) };
-		return {
-			code: typeof error.code === "number" ? error.code : 1,
-			stdout: typeof error.stdout === "string" ? error.stdout : "",
-			stderr: typeof error.stderr === "string" ? error.stderr : String(error),
-		};
-	}
-}
-
 function commandFailureMessage(commandName: string, result: StackMapCommandOutput): string {
 	return `${commandName} failed with exit code ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
+}
+
+function shellQuote(value: string): string {
+	return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function stringField(record: Record<string, unknown>, key: string): string | undefined {
