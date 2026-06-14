@@ -418,17 +418,6 @@ class ReviewExecutionResponse:
     usage: ReviewUsage | None = None
 
 
-class ReviewBudgetFacts(ClinkrModel):
-    """Review-size facts carried through budget-failure publication."""
-
-    changed_path_count: int
-    diff_token_estimate: int
-    max_changed_paths: int
-    max_diff_tokens: int
-    max_file_diff_tokens: int
-    oversized_file_paths: tuple[str, ...] = ()
-
-
 class LocalReviewResult(ClinkrModel):
     """Structured result returned by a successful CI roaster CLI review."""
 
@@ -450,31 +439,6 @@ class LocalReviewResult(ClinkrModel):
             "usage": serialize_to_json_dict(self.usage) if self.usage else None,
             **serialize_to_json_dict(self.payload),
         }
-
-
-class LocalReviewFailureResult(ClinkrModel):
-    """Structured expected non-success result after review metadata is known."""
-
-    review_name: str
-    model: str | None
-    base_ref: str | None
-    error_type: str
-    message: str
-    budget: ReviewBudgetFacts | None = None
-
-    @model_serializer
-    def serialize_model(self) -> dict[str, Any]:
-        """Serialize failure results without irrelevant null feature payloads."""
-        data: dict[str, Any] = {
-            "review_name": self.review_name,
-            "model": self.model,
-            "base_ref": self.base_ref,
-            "error_type": self.error_type,
-            "message": self.message,
-        }
-        if self.budget is not None:
-            data["budget"] = serialize_to_json_dict(self.budget)
-        return data
 
 
 @dataclass(frozen=True)

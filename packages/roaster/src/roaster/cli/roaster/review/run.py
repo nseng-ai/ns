@@ -16,7 +16,6 @@ from roaster.models import (
     FindingsReview,
     GitDiffFailedError,
     GitInvocationFailedError,
-    LocalReviewFailureResult,
     LocalReviewResult,
     RepoRootUnavailableError,
     ResolvedReviewRunPlan,
@@ -52,28 +51,11 @@ class ReviewRunRequest(ClinkrModel):
     ] = None
 
 
-def render_review_run(result: LocalReviewResult | LocalReviewFailureResult) -> None:
+def render_review_run(result: LocalReviewResult) -> None:
     """Render findings output for the human CLI."""
     click.echo(f"Reviewer: {result.review_name}")
     click.echo(f"Model: {result.model}")
     click.echo(f"Base ref: {result.base_ref}")
-    if isinstance(result, LocalReviewFailureResult):
-        click.echo(result.message)
-        if result.budget is not None:
-            click.echo(
-                f"Changed paths: {result.budget.changed_path_count} "
-                f"(limit: {result.budget.max_changed_paths})"
-            )
-            click.echo(
-                f"Estimated full diff tokens: {result.budget.diff_token_estimate} "
-                f"(limit: {result.budget.max_diff_tokens})"
-            )
-            if result.budget.oversized_file_paths:
-                click.echo(
-                    "Files over per-file token limit: "
-                    + ", ".join(result.budget.oversized_file_paths)
-                )
-        return
     if result.usage is not None:
         usage = result.usage
         click.echo(
@@ -105,7 +87,7 @@ def render_review_run(result: LocalReviewResult | LocalReviewFailureResult) -> N
 def run_review_command(
     ctx: click.Context,
     request: ReviewRunRequest,
-) -> ClinkrExit[LocalReviewResult | LocalReviewFailureResult]:
+) -> ClinkrExit[LocalReviewResult]:
     roaster_context = load_typed_context(ctx, RoasterCliContext)
     click.echo(f"▶ Running review '{request.key}'", err=True)
     try:
@@ -132,9 +114,6 @@ def run_review_command(
         raise ClinkrFailure(error_type="git_invocation_failed", message=str(exc)) from exc
     except GitDiffFailedError as exc:
         raise ClinkrFailure(error_type="git_diff_failed", message=str(exc)) from exc
-
-    if isinstance(result, LocalReviewFailureResult):
-        return ClinkrExit.negative(result, message=result.message)
 
     result = Ensure.ideal_state(result)
     return ClinkrExit.ok(result)

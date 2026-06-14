@@ -12,7 +12,6 @@ from roaster.models import (
     DiffReviewTarget,
     FindingsReview,
     LocalDiff,
-    LocalReviewFailureResult,
     LocalReviewResult,
     ModelNotSupportedByHarness,
     ResolvedReviewRunPlan,
@@ -25,10 +24,6 @@ REVIEW_KEY = "dignified-python"
 SAMPLE_SOURCE = (
     "---\ndescription: Review Python diffs.\ndefault_model: sonnet\n---\n\nFlag concrete issues.\n"
 )
-
-
-def _diff_text_for_paths(paths: tuple[str, ...]) -> str:
-    return "".join(f"diff --git a/{path} b/{path}\n+changed\n" for path in paths)
 
 
 @dataclass(frozen=True)
@@ -71,7 +66,7 @@ def _run(
     requested_base_ref: str | None = None,
     fakes: _Fakes | None = None,
     progress: Callable[[ResolvedReviewRunPlan], None] | None = None,
-) -> LocalReviewResult | LocalReviewFailureResult | RoasterFailure:
+) -> LocalReviewResult | RoasterFailure:
     if fakes is None:
         fakes = _fakes()
     return run_review_by_key(
@@ -147,33 +142,7 @@ def test_run_review_by_key_reports_resolved_run_plan_before_execution() -> None:
     ]
 
 
-def test_oversized_review_returns_budget_failure_before_harness_execution() -> None:
-    paths = tuple(f"pkg/file_{index}.py" for index in range(301))
-    fakes = _fakes(
-        default_diff=LocalDiff(
-            base_ref="master",
-            diff_text=_diff_text_for_paths(paths),
-        )
-    )
-
-    result = _run(fakes=fakes)
-
-    assert isinstance(result, LocalReviewFailureResult)
-    assert result.review_name == REVIEW_KEY
-    assert result.model == "sonnet"
-    assert result.base_ref == "master"
-    assert result.error_type == "review_budget_exceeded"
-    assert result.budget is not None
-    assert result.budget.changed_path_count == 301
-    assert result.budget.max_changed_paths == 300
-    assert result.budget.diff_token_estimate is not None
-    assert result.budget.max_diff_tokens == 150_000
-    assert "Review 'dignified-python' was not run against base 'master'" in result.message
-    assert "changed paths 301 > 300" in result.message
-    assert fakes.harness_runtime.executed_requests == ()
-
-
-def test_post_metadata_harness_failure_preserves_review_metadata() -> None:
+def test_post_metadata_harness_failure_propagates_roaster_failure() -> None:
     source = (
         "---\n"
         "description: Review Python diffs.\n"
@@ -191,11 +160,6 @@ def test_post_metadata_harness_failure_preserves_review_metadata() -> None:
 
     result = _run(fakes=fakes)
 
-    assert isinstance(result, LocalReviewFailureResult)
-    assert result.review_name == REVIEW_KEY
-    assert result.model == "gpt-5-mini"
-    assert result.base_ref == "master"
-    assert result.error_type == "model_not_supported_by_harness"
+    assert isinstance(result, ModelNotSupportedByHarness)
     assert result.message == "Model 'gpt-5-mini' is not supported by Claude Code."
-    assert result.budget is None
     assert fakes.harness_runtime.executed_requests[0].model == "gpt-5-mini"

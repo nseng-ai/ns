@@ -23,7 +23,7 @@ from roaster.findings_publication import (
     render_inline_body,
     summary_marker_for_review,
 )
-from roaster.models import ReviewBudgetFacts, ReviewFinding
+from roaster.models import ReviewFinding
 
 
 def _single_finding(**overrides: object) -> ReviewFinding:
@@ -160,37 +160,6 @@ def test_render_includes_details_block_and_footer() -> None:
     assert "_Post-only steelthread: this comment never blocks the check._" in body
 
 
-def test_render_budget_failure_payload_uses_specific_hard_fail_body() -> None:
-    payload = FindingsPayload(
-        review_name="dignified-python",
-        base_ref="master",
-        count=0,
-        findings=(),
-        error_type="review_budget_exceeded",
-        error_message=(
-            "Review 'dignified-python' was not run against base 'master' because the PR "
-            "exceeds the roaster review budget."
-        ),
-        budget=ReviewBudgetFacts(
-            changed_path_count=301,
-            diff_token_estimate=151_000,
-            max_changed_paths=300,
-            max_diff_tokens=150_000,
-            max_file_diff_tokens=40_000,
-        ),
-    )
-
-    body = render_findings_comment(payload)
-
-    assert body.startswith("<!-- roaster:dignified-python -->\n")
-    assert "**Review not run** against base `master`" in body
-    assert "- **Error type:** `review_budget_exceeded`" in body
-    assert "- **Changed paths:** 301 (limit: 300)" in body
-    assert "- **Estimated full diff tokens:** 151000 (limit: 150000)" in body
-    assert "Split or shrink the PR" in body
-    assert "Post-only steelthread" not in body
-
-
 def test_render_error_payload_flags_failure_without_footer() -> None:
     payload = FindingsPayload(
         review_name="dignified-python",
@@ -316,23 +285,16 @@ def test_parse_count_derives_from_findings_when_absent() -> None:
     assert payload.count == 1
 
 
-def test_parse_nonzero_structured_data_preserves_review_metadata_and_budget_fields() -> None:
+def test_parse_nonzero_structured_data_preserves_review_metadata() -> None:
     raw = json.dumps(
         {
-            "exit_code": 1,
-            "message": "Review was not run.",
+            "exit_code": 2,
+            "message": "Claude Code failed.",
             "data": {
-                "review_name": "dignified-python",
+                "review_name": "typescript-style",
                 "base_ref": "master",
-                "error_type": "review_budget_exceeded",
-                "message": "Budget exceeded.",
-                "budget": {
-                    "changed_path_count": 301,
-                    "diff_token_estimate": 151_000,
-                    "max_changed_paths": 300,
-                    "max_diff_tokens": 150_000,
-                    "max_file_diff_tokens": 40_000,
-                },
+                "error_type": "harness_execution_failed",
+                "message": "prompt too long",
             },
         }
     )
@@ -340,17 +302,10 @@ def test_parse_nonzero_structured_data_preserves_review_metadata_and_budget_fiel
     payload = _parse_payload(raw)
 
     assert payload.is_error is True
-    assert payload.review_name == "dignified-python"
+    assert payload.review_name == "typescript-style"
     assert payload.base_ref == "master"
-    assert payload.error_type == "review_budget_exceeded"
-    assert payload.error_message == "Budget exceeded."
-    assert payload.budget == ReviewBudgetFacts(
-        changed_path_count=301,
-        diff_token_estimate=151_000,
-        max_changed_paths=300,
-        max_diff_tokens=150_000,
-        max_file_diff_tokens=40_000,
-    )
+    assert payload.error_type == "harness_execution_failed"
+    assert payload.error_message == "prompt too long"
     assert payload.findings == ()
 
 
@@ -376,7 +331,6 @@ def test_parse_nonzero_structured_nonbudget_failure_preserves_review_metadata() 
     assert payload.base_ref == "master"
     assert payload.error_type == "harness_execution_failed"
     assert payload.error_message == "prompt too long"
-    assert payload.budget is None
 
 
 def test_parse_error_shape_produces_error_payload() -> None:
