@@ -89,7 +89,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const [headSha = "", headDate = ""] = log.stdout.trim().split("\t");
 		return brmemFound({
 			headSha,
-			headDate,
+			headDate: normalizeGitIsoTimestamp(headDate),
 			blobSha: blobSha.stdout.trim(),
 			sizeBytes: Number(size.stdout.trim()),
 		});
@@ -345,9 +345,13 @@ function parseEntryUpdateLog(stdout: string): Map<string, string> {
 		const columns = line.split("\t");
 		const path = columns[columns.length - 1];
 		if (path === undefined || path.length === 0) continue;
-		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, currentUpdatedAt);
+		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, normalizeGitIsoTimestamp(currentUpdatedAt));
 	}
 	return updatedAtByPath;
+}
+
+function normalizeGitIsoTimestamp(timestamp: string): string {
+	return timestamp.endsWith("Z") ? `${timestamp.slice(0, -1)}+00:00` : timestamp;
 }
 
 function formatInvalid(label: string, value: string, reason: string): string {

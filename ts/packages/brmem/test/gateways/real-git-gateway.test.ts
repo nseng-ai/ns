@@ -14,6 +14,28 @@ describe("RealGitBrmemGateway", () => {
 		expect(commands.calls).toEqual([{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/work", env: process.env } }]);
 	});
 
+	it("normalizes UTC timestamps from Git when listing Entries", async () => {
+		const commands = new RecordingCommands([
+			{ command: "git", args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"], result: { stdout: "refs/brmem/base/feat---x\n" } },
+			{ command: "git", args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/feat---x"], result: { stdout: "body.md\tbody-sha\nnested/plan.md\tplan-sha\n" } },
+			{
+				command: "git",
+				args: ["log", "--format=%cI", "--name-status", "refs/brmem/base/feat---x"],
+				result: { stdout: "2026-02-03T04:06:07Z\nA\tnested/plan.md\n\n2026-02-03T04:05:06Z\nA\tbody.md\n" },
+			},
+		]);
+		const gateway = new RealGitBrmemGateway("/work", commands);
+
+		const listed = await gateway.listEntries({ namespace: "base", branch: "feat/x" });
+
+		expect(listed).toMatchObject({ type: "ok" });
+		if (listed.type !== "ok") throw new Error("unexpected list error");
+		expect(listed.value.map((entry) => ({ key: entry.key, updatedAt: entry.updatedAt }))).toEqual([
+			{ key: "body.md", updatedAt: "2026-02-03T04:05:06+00:00" },
+			{ key: "nested/plan.md", updatedAt: "2026-02-03T04:06:07+00:00" },
+		]);
+	});
+
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
 		const repo = createTempGitRepo();
 		try {
@@ -39,7 +61,6 @@ describe("RealGitBrmemGateway", () => {
 			repo.cleanup();
 		}
 	});
-
 
 	it("deletes Entries while preserving siblings and leaving an empty Snapshot", async () => {
 		const repo = createTempGitRepo();
