@@ -5,9 +5,9 @@
 - [x] Record the out-of-sequence selection in the parent TypeScript migration Objective.
   - Updated `port-asdl-toolkit-to-typescript` so `areg` is no longer merely parked pending evidence, and explained why this Objective intentionally jumps ahead of the default `handoff`/`objective` sequence.
   - Evidence: parent migration ledger, roadmap, and Semantic Update `updates/2026-06-14T210247Z-areg-promoted-out-of-sequence.md` identify `areg-typescript-port` as the active capability slice and preserve the remaining sequence implications.
-- [ ] Inventory current `areg` contracts before porting implementation.
-  - Classify durable versus incidental behavior for CLI commands, hidden `exec skillx` JSON, help/usage output, exit codes, managed project files, `skills-lock.json`, `asdl.toml` and legacy `areg.json`, local skill layout checks, command-conversion behavior, and external `git`/`gh`/`npx` boundaries.
-  - Evidence: a contract inventory document or Semantic Update cites current Python source/tests and names accepted divergences before implementation relies on them.
+- [x] Inventory current `areg` contracts before porting implementation.
+  - Classified durable versus incidental behavior for CLI commands, hidden `exec skillx` JSON, help/usage output, exit codes, managed project files, `skills-lock.json`, `asdl.toml` and legacy `areg.json`, local skill layout checks, command-conversion behavior, and external `git`/`gh`/`npx` boundaries.
+  - Evidence: `areg-contract-inventory.md` cites current Python source/tests and records accepted TypeScript divergences before implementation relies on them.
 - [ ] Establish the TypeScript package shell and gateway seams.
   - Add a `ts/packages/areg` package with strict TypeScript, Vitest tests, package-local command wiring, and fake-driven gateways for filesystem, Git-root/tool checks, `gh api`, `npx skills`, transient skillx workspaces, and project configuration where needed.
   - Keep seams package-local unless repeated use proves a shared `@asdl/core` or `@asdl/clinkr` extraction.
