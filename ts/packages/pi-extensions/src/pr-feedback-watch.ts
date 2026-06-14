@@ -363,9 +363,7 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 	pi.on("session_start", (_event, ctx) => {
 		controller.activate(ctx);
 	});
-	pi.on("agent_end", () => {
-		void controller.handleAgentEnd();
-	});
+	pi.on("agent_end", () => controller.handleAgentEnd());
 	pi.on("session_shutdown", () => {
 		controller.stop("shutdown");
 	});
@@ -771,6 +769,7 @@ class PrFeedbackWatchController {
 
 	async handleAgentEnd(): Promise<void> {
 		if (this.queuedItems.length === 0) return;
+		const completedQueuedKeys = new Set(this.queuedItems.map((item) => item.key));
 		const session = this.activeSession;
 		if (session === undefined || !this.isActiveSession(session)) return;
 		const snapshot = await this.loadSnapshot(session);
@@ -778,8 +777,27 @@ class PrFeedbackWatchController {
 			this.recordError(snapshot.message);
 			return;
 		}
-		this.baseline(snapshot.snapshot);
+		this.updateContextFromSnapshot(snapshot.snapshot);
 		this.queuedItems = [];
+		const newItems = this.unattemptedActionableItems(snapshot.snapshot, completedQueuedKeys);
+		if (newItems.length > 0) {
+			if (!this.options.shouldAllowDirty) {
+				const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
+				if (dirty) {
+					this.state = { ...this.state, state: "paused", queuedCount: 0 };
+					this.renderStatus("PR watch: paused dirty tree");
+					if (!this.hasNotifiedDirtyPause) {
+						this.hasNotifiedDirtyPause = true;
+						notify(session.ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
+					}
+					return;
+				}
+			}
+			this.hasNotifiedDirtyPause = false;
+			await this.dispatchNewItems(session, newItems, snapshot.snapshot);
+			return;
+		}
+		this.baseline(snapshot.snapshot);
 		this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped", queuedCount: 0 };
 		this.renderStatus();
 	}
@@ -1077,6 +1095,10 @@ class PrFeedbackWatchController {
 				itemKeys: snapshot.ignoredItems.map((ignored) => ignored.item.key),
 			});
 		}
+	}
+
+	private unattemptedActionableItems(snapshot: FeedbackSnapshot, completedQueuedKeys: ReadonlySet<string>): FeedbackItemKey[] {
+		return snapshot.items.filter((item) => !this.attemptedKeys.has(item.key) && !completedQueuedKeys.has(item.key));
 	}
 
 	private async dispatchNewItems(session: ActiveSession, items: readonly FeedbackItemKey[], snapshot: FeedbackSnapshot): Promise<void> {
