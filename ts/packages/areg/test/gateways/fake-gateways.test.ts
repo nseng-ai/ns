@@ -37,21 +37,19 @@ describe("areg gateway fakes", () => {
 		]);
 	});
 
-	test("host fake implements tool checks, git-root outcomes, and read-only operation logs", async () => {
-		const host: AregHostGateway = new FakeAregHostGateway({ tools: { gh: "/bin/gh", npx: null }, gitRoot: "/repo" });
+	test("host fake implements tool checks and read-only operation logs", async () => {
+		const host: AregHostGateway = new FakeAregHostGateway({ tools: { gh: "/bin/gh", npx: null } });
 		expect(await host.checkTool({ tool: "gh", cwd: "/work", env: {} })).toEqual({ type: "found", tool: "gh", path: "/bin/gh" });
 		expect(await host.checkTool({ tool: "npx", cwd: "/work", env: {} })).toMatchObject({ type: "missing", tool: "npx" });
-		expect(await host.resolveGitRoot({ cwd: "/work", env: {} })).toEqual({ type: "found", repoRoot: "/repo" });
 
 		const fake = host as FakeAregHostGateway;
 		const operations = fake.operations();
 		expect(operations).toEqual([
 			{ type: "check-tool", tool: "gh", cwd: "/work" },
 			{ type: "check-tool", tool: "npx", cwd: "/work" },
-			{ type: "resolve-git-root", cwd: "/work" },
 		]);
 		(operations as Array<{ type: "check-tool"; tool: "gh"; cwd: string }>).splice(0);
-		expect(fake.operations()).toHaveLength(3);
+		expect(fake.operations()).toHaveLength(2);
 	});
 
 	test("github fake copies configured skill lists and returned lists", async () => {
@@ -66,25 +64,19 @@ describe("areg gateway fakes", () => {
 		expect(await github.listSkillDirectoryNames({ repo: "missing/repo", env: {} })).toMatchObject({ type: "missing" });
 	});
 
-	test("npx skills fake copies requests, configured output, and failures", async () => {
-		const installed = ["one"];
+	test("npx skills fake copies requests and failures", async () => {
 		const skillNames = ["one"];
 		const targetAgents = ["codex"];
-		const npxSkills: AregNpxSkillsGateway = new FakeAregNpxSkillsGateway({ installedSkillNames: installed });
-		installed.push("mutated-after-construction");
+		const npxSkills: AregNpxSkillsGateway = new FakeAregNpxSkillsGateway();
 
 		const result = await npxSkills.addSkills({ sourceRepo: "owner/repo", skillNames, targetAgents, cwd: "/repo", env: {} });
 		skillNames.push("mutated-request");
 		targetAgents.push("claude-code");
-		expect(result).toEqual({ type: "ok", installedSkillNames: ["one"] });
-		if (result.type === "ok") (result.installedSkillNames as string[]).push("mutated-return");
+		expect(result).toEqual({ type: "ok" });
 
 		const fake = npxSkills as FakeAregNpxSkillsGateway;
 		expect(fake.operations()).toEqual([{ type: "add-skills", sourceRepo: "owner/repo", skillNames: ["one"], targetAgents: ["codex"], cwd: "/repo" }]);
-		expect(await npxSkills.addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: [], cwd: "/repo", env: {} })).toEqual({
-			type: "ok",
-			installedSkillNames: ["one"],
-		});
+		expect(await npxSkills.addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: [], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
 
 		const failing = new FakeAregNpxSkillsGateway({ failure: { code: "npx-failed", message: "npx failed", displayCommand: "npx skills add" } });
 		expect(await failing.addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: [], cwd: "/repo", env: {} })).toMatchObject({

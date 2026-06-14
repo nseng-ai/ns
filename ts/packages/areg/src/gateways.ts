@@ -13,14 +13,8 @@ export type AregToolCheckResult =
 	| { type: "found"; tool: AregHostToolName; path: string }
 	| { type: "missing"; tool: AregHostToolName; message: string };
 
-export type AregGitRootResult =
-	| { type: "found"; repoRoot: string }
-	| { type: "not-a-git-repo"; message: string }
-	| { type: "error"; error: AregErrorInfo };
-
 export interface AregHostGateway {
 	checkTool(options: { tool: AregHostToolName; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregToolCheckResult>;
-	resolveGitRoot(options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<AregGitRootResult>;
 }
 
 export type AregGithubSkillListResult =
@@ -42,9 +36,7 @@ export interface AregNpxSkillsAddRequest {
 	env: NodeJS.ProcessEnv;
 }
 
-export type AregNpxSkillsAddResult =
-	| { type: "ok"; installedSkillNames: readonly string[] }
-	| { type: "error"; error: AregErrorInfo };
+export type AregNpxSkillsAddResult = { type: "ok" } | { type: "error"; error: AregErrorInfo };
 
 export interface AregNpxSkillsGateway {
 	addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult>;

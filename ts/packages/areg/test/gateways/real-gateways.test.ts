@@ -104,10 +104,7 @@ describe("real areg gateways", () => {
 		]);
 		const runner = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--skill", "a", "--skill", "b", "--agent", "codex", "-y"], "ok\n")]);
 		const gateway = new RealAregNpxSkillsGateway({ runner: runner.runner });
-		expect(await gateway.addSkills({ sourceRepo: "owner/repo", skillNames: ["a", "b"], targetAgents: ["codex"], cwd: "/repo", env: {} })).toEqual({
-			type: "ok",
-			installedSkillNames: [],
-		});
+		expect(await gateway.addSkills({ sourceRepo: "owner/repo", skillNames: ["a", "b"], targetAgents: ["codex"], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
 		runner.assertDone();
 
 		const failing = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--agent", "codex", "-y"], "", 1, "failed")]);
@@ -198,6 +195,6 @@ class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
 			await writeFile(path.join(skillRoot, "z.txt"), "z");
 			await writeFile(path.join(skillRoot, "nested", "a.txt"), "a");
 		}
-		return { type: "ok", installedSkillNames: [] };
+		return { type: "ok" };
 	}
 }

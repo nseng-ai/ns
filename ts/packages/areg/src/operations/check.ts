@@ -1,8 +1,10 @@
 import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
+import { sortStrings } from "../sort.ts";
 
 const SOURCE_TYPES = ["local", "github", "git", "gitlab"] as const;
 const CHECK_ISSUE_CODES = [
@@ -84,12 +86,20 @@ const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 type SourceType = (typeof SOURCE_TYPES)[number];
 type CheckIssueCode = (typeof CHECK_ISSUE_CODES)[number];
 
-interface LockfileSkill {
-	name: string;
+interface LockfileSkillData {
 	source: string;
 	sourceType: SourceType;
 	computedHash: string;
 	skillPath?: string | undefined;
+}
+
+interface LockfileSkill extends LockfileSkillData {
+	name: string;
+}
+
+interface SkillsLockfileData {
+	version: 1;
+	skills: Record<string, LockfileSkillData>;
 }
 
 interface SkillsLockfile {
@@ -102,6 +112,18 @@ interface CheckIssue {
 	code: CheckIssueCode;
 	message: string;
 }
+
+const lockfileSkillSchema: z.ZodType<LockfileSkillData> = z.object({
+	source: z.string(),
+	sourceType: z.enum(SOURCE_TYPES),
+	computedHash: z.string(),
+	skillPath: z.string().optional(),
+});
+
+const skillsLockfileSchema: z.ZodType<SkillsLockfileData> = z.object({
+	version: z.literal(1),
+	skills: z.record(z.string(), lockfileSkillSchema),
+});
 
 const checkIssueSchema = z.object({
 	skill: z.string(),
@@ -134,11 +156,9 @@ export async function runCheck(ctx: AregCliContext, request: CheckRequest): Prom
 	if (lockfileResult.type === "error") {
 		return negative(lockfileResult.message, emptyReport(inspection.projectDir));
 	}
-	if (lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local")) {
-		const piSettings = parsePiExclusions(inspection.piSettings);
-		if (piSettings.type === "error") return negative(piSettings.message, emptyReport(inspection.projectDir));
-	}
-	const report = buildCheckReport(inspection, lockfileResult.lockfile);
+	const piExclusions = lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local") ? parsePiExclusions(inspection.piSettings) : { type: "ok" as const, exclusions: [] };
+	if (piExclusions.type === "error") return negative(piExclusions.message, emptyReport(inspection.projectDir));
+	const report = buildCheckReport(inspection, lockfileResult.lockfile, piExclusions.exclusions);
 	if (report.ok) return ok(report);
 	return negative(formatCheckReport(report), report);
 }
@@ -148,7 +168,7 @@ export function renderCheck(report: CheckReport): string {
 	return formatCheckReport(report);
 }
 
-export function buildCheckReport(inspection: AregCheckProjectInspectionResult, lockfile: SkillsLockfile): CheckReport {
+export function buildCheckReport(inspection: AregCheckProjectInspectionResult, lockfile: SkillsLockfile, piExclusions: readonly string[] = []): CheckReport {
 	const issues: CheckIssue[] = [];
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	for (const entry of lockfile.skills) {
@@ -156,7 +176,7 @@ export function buildCheckReport(inspection: AregCheckProjectInspectionResult, l
 		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
-		if (entry.sourceType === "local") issues.push(...checkInvokeOnly(entry, inspected, inspection));
+		if (entry.sourceType === "local") issues.push(...checkInvokeOnly(entry, inspected, inspection, piExclusions));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
@@ -170,20 +190,14 @@ export function buildCheckReport(inspection: AregCheckProjectInspectionResult, l
 }
 
 export function parseLockfileData(data: unknown): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
-	const root = requireRecord(data, "root");
-	if (root.type === "error") return invalidLockfile(root.reason);
-	const version = root.value.version;
-	if (version === undefined) return invalidLockfile("$.version is required and must be 1");
-	if (typeof version !== "number" || !Number.isInteger(version) || version !== 1) return invalidLockfile("$.version must be 1");
-	const skillsValue = root.value.skills;
-	if (skillsValue === undefined) return invalidLockfile("$.skills is required and must be an object");
-	const skillsObject = requireRecord(skillsValue, "$.skills");
-	if (skillsObject.type === "error") return invalidLockfile(skillsObject.reason);
+	const result = skillsLockfileSchema.safeParse(data);
+	if (!result.success) return invalidLockfile(formatZodIssue(result.error.issues[0]));
+	const lockfileData = result.data as SkillsLockfileData;
 	const skills: LockfileSkill[] = [];
-	for (const name of Object.keys(skillsObject.value).sort((left, right) => left.localeCompare(right))) {
-		const parsed = parseLockfileSkill(name, skillsObject.value[name]);
-		if (parsed.type === "error") return parsed;
-		skills.push(parsed.skill);
+	for (const name of sortStrings(Object.keys(lockfileData.skills))) {
+		const skill = lockfileData.skills[name];
+		if (skill === undefined) continue;
+		skills.push({ name, source: skill.source, sourceType: skill.sourceType, computedHash: skill.computedHash, skillPath: skill.skillPath });
 	}
 	return { type: "ok", lockfile: { version: 1, skills } };
 }
@@ -242,7 +256,7 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 		grouped.set(issue.skill, existing);
 	}
 	const lines: string[] = [];
-	for (const skill of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
+	for (const skill of sortStrings([...grouped.keys()])) {
 		lines.push("", `${skill}:`);
 		for (const issue of grouped.get(skill) ?? []) lines.push(`  ${issue.message}`);
 	}
@@ -251,31 +265,14 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 }
 
 function parseInspectedLockfile(inspection: AregCheckProjectInspectionResult): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
-	if (inspection.lockfile.type === "missing") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this a areg project?` };
-	if (inspection.lockfile.type !== "file") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this a areg project?` };
+	if (inspection.lockfile.type !== "file") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this an areg project?` };
 	let data: unknown;
 	try {
 		data = JSON.parse(inspection.lockfile.text);
 	} catch (error) {
-		return { type: "error", message: `Invalid JSON in skills-lock.json: ${errorMessage(error)}` };
+		return { type: "error", message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}` };
 	}
 	return parseLockfileData(data);
-}
-
-function parseLockfileSkill(name: string, raw: unknown): { type: "ok"; skill: LockfileSkill } | { type: "error"; message: string } {
-	const path = `$.skills.${name}`;
-	const data = requireRecord(raw, path);
-	if (data.type === "error") return invalidLockfile(data.reason);
-	const source = requireStringField(data.value, "source", path);
-	if (source.type === "error") return invalidLockfile(source.reason);
-	const sourceType = requireStringField(data.value, "sourceType", path);
-	if (sourceType.type === "error") return invalidLockfile(sourceType.reason);
-	if (!isSourceType(sourceType.value)) return invalidLockfile(`${path}.sourceType must be one of ${[...SOURCE_TYPES].sort().join(", ")}`);
-	const computedHash = requireStringField(data.value, "computedHash", path);
-	if (computedHash.type === "error") return invalidLockfile(computedHash.reason);
-	const skillPath = optionalStringField(data.value, "skillPath", path);
-	if (skillPath.type === "error") return invalidLockfile(skillPath.reason);
-	return { type: "ok", skill: { name, source: source.value, sourceType: sourceType.value, computedHash: computedHash.value, skillPath: skillPath.value } };
 }
 
 function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
@@ -334,7 +331,7 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 	return [];
 }
 
-function checkInvokeOnly(entry: LockfileSkill, inspected: AregCheckSkillInspection, inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+function checkInvokeOnly(entry: LockfileSkill, inspected: AregCheckSkillInspection, inspection: AregCheckProjectInspectionResult, piExclusions: readonly string[]): CheckIssue[] {
 	if (inspected.localSkillMd.type !== "file") return [];
 	const frontmatter = parseSkillFrontmatterText(inspected.localSkillMd.text);
 	if (frontmatter.type === "error") return [];
@@ -343,9 +340,7 @@ function checkInvokeOnly(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 	const issues: CheckIssue[] = [];
 	if (flagEnabled && !sidecarExists) issues.push(issue(entry.name, "invoke_only_missing_openai_policy", `skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`));
 	if (!flagEnabled && sidecarExists) issues.push(issue(entry.name, "openai_policy_without_invoke_only", `skills/${entry.name}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`));
-	const piExclusion = parsePiExclusions(inspection.piSettings);
-	if (piExclusion.type === "error") return issues;
-	const isPiExcluded = piExclusion.exclusions.includes(`-skills/${entry.name}`);
+	const isPiExcluded = piExclusions.includes(`-skills/${entry.name}`);
 	if ((flagEnabled || sidecarExists) && !isPiExcluded) {
 		issues.push(issue(entry.name, "command_converted_missing_pi_exclusion", `.pi/settings.json missing -skills/${entry.name} for command-converted skill`));
 	}
@@ -374,13 +369,13 @@ function checkOrphansAndDangling(lockfile: SkillsLockfile, inspection: AregCheck
 	const excluded = new Set(inspection.excludedSkillNames);
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	const issues: CheckIssue[] = [];
-	for (const name of [...inspection.skillsDirectoryNames].sort((left, right) => left.localeCompare(right))) {
+	for (const name of sortStrings(inspection.skillsDirectoryNames)) {
 		if (!lockNames.has(name) && !excluded.has(name)) issues.push(issue(name, "orphan_in_skills", `Orphaned directory skills/${name}/ has no entry in skills-lock.json`));
 	}
-	for (const name of [...inspection.agentsSkillNames].sort((left, right) => left.localeCompare(right))) {
+	for (const name of sortStrings(inspection.agentsSkillNames)) {
 		if (!lockNames.has(name) && !excluded.has(name)) issues.push(issue(name, "orphan_in_agents", `Orphaned directory .agents/skills/${name}/ has no entry in skills-lock.json`));
 	}
-	for (const name of [...lockNames].sort((left, right) => left.localeCompare(right))) {
+	for (const name of sortStrings([...lockNames])) {
 		const inspected = byName.get(name) ?? missingSkillInspection(name);
 		if (inspected.skillsPath.type === "missing" && inspected.agentsPath.type === "missing" && inspected.claudePath.type === "missing") {
 			issues.push(issue(name, "dangling_lockfile", `Dangling lockfile entry: no directories found on disk for ${name}`));
@@ -412,7 +407,7 @@ function parsePiExclusions(settings: AregCheckTextFileState): { type: "ok"; excl
 	try {
 		data = JSON.parse(settings.text);
 	} catch (error) {
-		return { type: "error", message: `Invalid JSON in .pi/settings.json: ${errorMessage(error)}.` };
+		return { type: "error", message: `Invalid JSON in .pi/settings.json: ${formatErrorMessage(error)}.` };
 	}
 	if (!isRecord(data)) return { type: "error", message: ".pi/settings.json must contain a JSON object." };
 	if (data.skills === undefined) return { type: "ok", exclusions: [] };
@@ -432,31 +427,10 @@ function invalidLockfile(reason: string): { type: "error"; message: string } {
 	return { type: "error", message: `Invalid skills-lock.json: ${reason}.` };
 }
 
-function requireRecord(value: unknown, path: string): { type: "ok"; value: Record<string, unknown> } | { type: "error"; reason: string } {
-	if (!isRecord(value)) return { type: "error", reason: `${path} must be an object` };
-	return { type: "ok", value };
-}
-
-function requireStringField(data: Record<string, unknown>, field: string, path: string): { type: "ok"; value: string } | { type: "error"; reason: string } {
-	if (!(field in data)) return { type: "error", reason: `${path}.${field} is required and must be a string` };
-	const value = data[field];
-	if (typeof value !== "string") return { type: "error", reason: `${path}.${field} must be a string` };
-	return { type: "ok", value };
-}
-
-function optionalStringField(data: Record<string, unknown>, field: string, path: string): { type: "ok"; value?: string | undefined } | { type: "error"; reason: string } {
-	if (!(field in data)) return { type: "ok" };
-	const value = data[field];
-	if (typeof value !== "string") return { type: "error", reason: `${path}.${field} must be a string` };
-	return { type: "ok", value };
-}
-
-function isSourceType(value: string): value is SourceType {
-	return (SOURCE_TYPES as readonly string[]).includes(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+function formatZodIssue(issue: z.core.$ZodIssue | undefined): string {
+	if (issue === undefined) return "invalid lockfile";
+	const path = issue.path.length === 0 ? "$" : `$.${issue.path.join(".")}`;
+	return `${path}: ${issue.message}`;
 }
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {
@@ -470,8 +444,4 @@ function emptyReport(projectDir: string): CheckReport {
 function missingSkillInspection(name: string): AregCheckSkillInspection {
 	const missing = { type: "missing" as const };
 	return { name, skillsPath: missing, agentsPath: missing, claudePath: missing, localSkillMd: missing, remoteSkillMd: missing, openaiPolicy: missing };
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
