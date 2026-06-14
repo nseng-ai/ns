@@ -1,20 +1,19 @@
 import { spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createTempDirTracker } from "@asdl/core/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../..", import.meta.url)));
 const SHIM_TEMPLATE = join(REPO_ROOT, "ts/packages/brmem/scripts/brmem-shim");
 const CANONICAL_TOKEN = "@@ASDL_CANONICAL_CHECKOUT@@";
 
-const tempDirs: string[] = [];
+const tempDirs = createTempDirTracker();
 
 afterEach(async () => {
-	const pending = tempDirs.splice(0);
-	await Promise.all(pending.map((dir) => rm(dir, { recursive: true, force: true })));
+	await tempDirs.cleanup();
 });
 
 /** Renders the shim template into an installed `brmem` the way `just install-brmem` does. */
@@ -56,9 +55,7 @@ function runShim(shimPath: string, args: readonly string[], options: { cwd: stri
 }
 
 async function makeTempDir(prefix: string): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), prefix));
-	tempDirs.push(dir);
-	return dir;
+	return tempDirs.makeTempDir(prefix);
 }
 
 describe("brmem shim", () => {
