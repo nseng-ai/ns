@@ -40,6 +40,19 @@ def _write_file(project: Path, relpath: str, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
+def _install_generic_replacement_layer(project: Path) -> None:
+    _write_file(
+        project,
+        ".pi/extensions/backing-skill-commands.ts",
+        "export default function register() {}\n",
+    )
+    _write_file(
+        project,
+        "ts/packages/pi-extensions/src/backing-skill-commands.ts",
+        "export default function register() {}\n",
+    )
+
+
 def _make_local_skill(project: Path, name: str) -> None:
     """Create a properly-structured local skill with correct symlink chain."""
     skill_dir = project / "skills" / name
@@ -133,6 +146,8 @@ def test_check_happy_invoke_only_local_skill(tmp_path: Path) -> None:
     sidecar = tmp_path / "skills" / "my-skill" / "agents" / "openai.yaml"
     sidecar.parent.mkdir()
     sidecar.write_text("policy:\n  allow_implicit_invocation: false\n", encoding="utf-8")
+    _install_generic_replacement_layer(tmp_path)
+    _write_file(tmp_path, ".pi/settings.json", json.dumps({"skills": ["-skills/my-skill"]}) + "\n")
     _make_lockfile(tmp_path, {"my-skill": _local_lock_entry("my-skill")})
     _make_agents_md(tmp_path, ["my-skill"])
 

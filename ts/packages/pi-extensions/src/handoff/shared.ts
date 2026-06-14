@@ -2,7 +2,7 @@ import { runAvailableBrmemCommand } from "@asdl/core/brmem-cli";
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
-import { expandSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
+import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "./identity.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
@@ -61,12 +61,16 @@ export async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx:
 	return undefined;
 }
 
-export async function expandHandoffSkill(pi: Pick<ExtensionAPI, "getCommands">, skillName: string): Promise<ExpandedSkillBlock | undefined> {
-	const getCommands = pi.getCommands;
-	if (getCommands === undefined) {
-		return undefined;
+export async function expandHandoffSkill(cwd: string, skillName: string): Promise<ExpandedSkillBlock | undefined> {
+	try {
+		return await expandRepoSkillBlock({ cwd, skillName });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.startsWith("Could not find ")) {
+			return undefined;
+		}
+		throw error;
 	}
-	return expandSkillBlock({ getCommands: () => getCommands.call(pi) }, skillName);
 }
 
 export async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, action: "pick up" | "list" | "create"): Promise<string> {

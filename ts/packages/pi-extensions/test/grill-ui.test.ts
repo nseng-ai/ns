@@ -1,11 +1,10 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
 import { buildGrillAskRows } from "../src/grill-ui/view.ts";
-import type { SkillCommandInfo } from "../src/skill-expansion.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
@@ -37,7 +36,6 @@ class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentUserMessages: string[] = [];
-	commandsList: SkillCommandInfo[] = [];
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
@@ -45,10 +43,6 @@ class FakePi implements ExtensionAPI {
 
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
-	}
-
-	getCommands(): readonly SkillCommandInfo[] {
-		return this.commandsList;
 	}
 
 	sendUserMessage(content: string): void {
@@ -129,9 +123,11 @@ function commandContext(
 		editorResult?: string;
 		onEditorTitle?: (title: string) => void;
 		onNotification?: (notification: Notification) => void;
+		cwd?: string;
 	} = {},
 ): GrillUiCommandContext {
 	return {
+		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
 		ui: {
 			editor: async (title) => {
@@ -209,7 +205,9 @@ describe("/pi:grill-me command", () => {
 	test("expands the pi-grill-ui skill when available", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "pi-grill-ui-test-"));
 		try {
-			const skillPath = join(dir, "SKILL.md");
+			const skillDir = join(dir, "skills", GRILL_UI_SKILL_NAME);
+			const skillPath = join(skillDir, "SKILL.md");
+			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,
 				`---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
@@ -217,15 +215,8 @@ describe("/pi:grill-me command", () => {
 			);
 
 			const { pi, command } = register();
-			pi.commandsList = [
-				{
-					name: `skill:${GRILL_UI_SKILL_NAME}`,
-					source: "skill",
-					sourceInfo: { path: skillPath, baseDir: dir },
-				},
-			];
 
-			await command.handler("Target design", commandContext({ hasUI: false }));
+			await command.handler("Target design", commandContext({ cwd: dir, hasUI: false }));
 
 			expect(pi.sentUserMessages).toHaveLength(1);
 			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`);
@@ -281,7 +272,9 @@ describe("/pi:grill-with-docs command", () => {
 	test("expands the pi-grill-with-docs-ui skill when available", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "pi-grill-with-docs-ui-test-"));
 		try {
-			const skillPath = join(dir, "SKILL.md");
+			const skillDir = join(dir, "skills", GRILL_WITH_DOCS_UI_SKILL_NAME);
+			const skillPath = join(skillDir, "SKILL.md");
+			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,
 				`---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
@@ -289,15 +282,8 @@ describe("/pi:grill-with-docs command", () => {
 			);
 
 			const { pi, docsCommand } = register();
-			pi.commandsList = [
-				{
-					name: `skill:${GRILL_WITH_DOCS_UI_SKILL_NAME}`,
-					source: "skill",
-					sourceInfo: { path: skillPath, baseDir: dir },
-				},
-			];
 
-			await docsCommand.handler("Target docs design", commandContext({ hasUI: false }));
+			await docsCommand.handler("Target docs design", commandContext({ cwd: dir, hasUI: false }));
 
 			expect(pi.sentUserMessages).toHaveLength(1);
 			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`);

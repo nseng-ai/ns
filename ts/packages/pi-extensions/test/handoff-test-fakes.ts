@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -241,6 +241,7 @@ export function createContext(
 		inputResponse?: string;
 		inputUnavailable?: boolean;
 		sessionFile?: string;
+		cwd?: string;
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -314,7 +315,7 @@ export function createContext(
 	}
 
 	const ctx: CommandContext = {
-		cwd: ROOT,
+		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
 		mode: options.mode ?? "tui",
 		ui,
@@ -343,6 +344,7 @@ interface RunExtensionCommandOptions {
 		selectIndex?: number;
 		inputResponse?: string;
 		inputUnavailable?: boolean;
+		cwd?: string;
 	};
 	commandInfos?: CommandInfo[];
 	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean };
@@ -433,16 +435,18 @@ export function brmemListJson(entries: Array<string | { key: string; branch: str
 	});
 }
 
-export async function withTempSkill<T>(callback: (skillPath: string) => Promise<T>): Promise<T> {
+export async function withTempSkill<T>(callback: (skillPath: string, repoDir: string) => Promise<T>): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
-	const skillPath = join(dir, "SKILL.md");
+	const skillDir = join(dir, "skills", "handoff-create");
+	await mkdir(skillDir, { recursive: true });
+	const skillPath = join(skillDir, "SKILL.md");
 	await writeFile(
 		skillPath,
 		`---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`,
 		"utf8",
 	);
 	try {
-		return await callback(skillPath);
+		return await callback(skillPath, dir);
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

@@ -50,12 +50,12 @@ describe("handoff-tab extension", () => {
 	});
 
 	test("handoff-tab command queues create prompt with content-derived slug instructions", async () => {
-		await withTempSkill(async (skillPath) => {
+		await withTempSkill(async (skillPath, repoDir) => {
 			const result = await runCommand(
 				"ccc:handoff-tab",
 				"finish handoff tab implementation",
 				[branchStep(), cmuxIdentifyStep()],
-				{},
+				{ cwd: repoDir },
 				[skillCommandInfo(skillPath)],
 			);
 

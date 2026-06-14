@@ -139,7 +139,7 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
 	let skillReadError: string | undefined;
 	try {
-		skill = await expandHandoffSkill(pi, CREATE_HANDOFF_SKILL_NAME);
+		skill = await expandHandoffSkill(ctx.cwd, CREATE_HANDOFF_SKILL_NAME);
 	} catch (error) {
 		skillReadError = formatErrorMessage(error);
 	}
