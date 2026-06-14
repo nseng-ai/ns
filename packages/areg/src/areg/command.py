@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from json import JSONDecodeError
 from pathlib import Path
 
 import click
@@ -31,6 +30,7 @@ from areg.invoke_only import (
     skill_dir,
     skill_md_path,
 )
+from areg.json_config import extract_string_list_field, read_json_object
 
 _FLAG_LINE_PREFIX = f"{DISABLE_MODEL_INVOCATION_KEY}:"
 _PI_SKILL_EXCLUSION_PREFIX = "-skills/"
@@ -284,33 +284,18 @@ def _pi_skill_exclusion(skill_name: str) -> str:
 
 
 def _read_pi_settings(settings_path: Path) -> dict[str, object]:
-    content = read_existing_text(settings_path)
-    try:
-        parsed = json.loads(content)
-    except JSONDecodeError as e:
-        raise click.ClickException(f"Invalid JSON in {settings_path}: {e.msg}.") from e
-
-    if not isinstance(parsed, dict):
-        raise click.ClickException(f"{settings_path} must contain a JSON object.")
-    return parsed
+    return read_json_object(settings_path, description=str(settings_path))
 
 
 def _settings_skills(settings: dict[str, object], settings_path: Path) -> list[str]:
     if "skills" not in settings:
         return []
 
-    value = settings["skills"]
-    if not isinstance(value, list):
-        raise click.ClickException(f"{settings_path} field 'skills' must be an array of strings.")
-
-    skills: list[str] = []
-    for item in value:
-        if not isinstance(item, str):
-            raise click.ClickException(
-                f"{settings_path} field 'skills' must be an array of strings."
-            )
-        skills.append(item)
-    return skills
+    return extract_string_list_field(
+        settings,
+        "skills",
+        error_message=f"{settings_path} field 'skills' must be an array of strings.",
+    )
 
 
 def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
