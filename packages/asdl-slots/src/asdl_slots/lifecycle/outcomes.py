@@ -26,6 +26,17 @@ class SlotLifecycleFailure:
 
 
 @dataclass(frozen=True)
+class SlotClaimOutcome:
+    slot_name: str
+    branch_name: str
+    worktree_path: Path
+    replaced_branch_name: str | None
+    source_slot_name: str | None
+    source_worktree_path: Path | None
+    already_current: bool
+
+
+@dataclass(frozen=True)
 class SlotInitOutcome:
     created: tuple[str, ...]
     pool_size: int

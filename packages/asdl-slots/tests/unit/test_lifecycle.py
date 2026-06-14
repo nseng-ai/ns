@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from asdl_core.git.types import (
 )
 from asdl_slots.inventory import SlotInventory, SlotRecord
 from asdl_slots.lifecycle.checkout import checkout_branch, checkout_current
+from asdl_slots.lifecycle.claim import claim_branch
 from asdl_slots.lifecycle.free import (
     execute_free_plan,
     free_slots,
@@ -30,6 +32,7 @@ from asdl_slots.lifecycle.gc import (
 )
 from asdl_slots.lifecycle.outcomes import (
     SlotCheckoutOutcome,
+    SlotClaimOutcome,
     SlotFreeOutcome,
     SlotFreePlan,
     SlotGcOutcome,
@@ -314,6 +317,94 @@ def test_checkout_current_redirect_failure_uses_planner_subject(tmp_path: Path) 
         f"Failed to check out 'some-other' in {repo_root}: fatal: checkout failed"
     )
     assert git._checkout_calls == [(repo_root, "some-other")]
+
+
+def test_claim_branch_moves_branch_from_other_slot_into_current_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    current_path = slot_path(slots_root, 1)
+    source_path = slot_path(slots_root, 10)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/current", "master"),
+        worktrees=(
+            slot_worktree(slots_root, 1, "feat/current"),
+            slot_worktree(slots_root, 10, "master"),
+        ),
+        trunk_branch="master",
+    )
+    ctx = replace(ctx, repo=replace(ctx.repo, root=current_path))
+
+    outcome = claim_branch(ctx, "master")
+
+    assert isinstance(outcome, SlotClaimOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "master"
+    assert outcome.worktree_path == current_path
+    assert outcome.replaced_branch_name == "feat/current"
+    assert outcome.source_slot_name == "slot-10"
+    assert outcome.source_worktree_path == source_path
+    assert outcome.already_current is False
+    assert git.get_current_branch(source_path) == DetachedHead()
+    assert git.get_current_branch(current_path) == "master"
+    assert git._detach_head_calls == [(source_path, "master")]
+    assert git._checkout_calls == [(current_path, "master")]
+
+
+def test_claim_branch_checks_out_unassigned_branch_into_current_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    current_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/current", "feat/target"),
+        worktrees=(slot_worktree(slots_root, 1, "feat/current"),),
+    )
+    ctx = replace(ctx, repo=replace(ctx.repo, root=current_path))
+
+    outcome = claim_branch(ctx, "feat/target")
+
+    assert isinstance(outcome, SlotClaimOutcome)
+    assert outcome.source_slot_name is None
+    assert outcome.replaced_branch_name == "feat/current"
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == [(current_path, "feat/target")]
+    assert git.get_current_branch(current_path) == "feat/target"
+
+
+def test_claim_branch_rejects_dirty_current_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    current_path = slot_path(slots_root, 1)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/current", "feat/target"),
+        worktrees=(slot_worktree(slots_root, 1, "feat/current"),),
+        file_status_by_path={
+            current_path: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+    ctx = replace(ctx, repo=replace(ctx.repo, root=current_path))
+
+    outcome = claim_branch(ctx, "feat/target")
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "dirty_current_slot"
+    assert "slot-01 has uncommitted changes" in outcome.message
+    assert git._checkout_calls == []
+
+
+def test_claim_branch_requires_current_slot(tmp_path: Path) -> None:
+    slots_root = tmp_path / "slots"
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("main", "feat/target"),
+        worktrees=(slot_worktree(slots_root, 1, "feat/target"),),
+    )
+
+    outcome = claim_branch(ctx, "feat/target")
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "not_current_slot"
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == []
 
 
 def test_initialize_pool_creates_n_detached_worktrees_at_trunk(tmp_path: Path) -> None:
