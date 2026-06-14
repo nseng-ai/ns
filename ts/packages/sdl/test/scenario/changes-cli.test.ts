@@ -26,10 +26,11 @@ interface TestState {
 }
 
 interface RunWithFakesOptions {
-	state?: TestState;
-	cwd?: string;
-	env?: Record<string, string | undefined>;
-	homeDir?: string;
+	args: readonly string[];
+	state?: TestState | undefined;
+	cwd?: string | undefined;
+	env?: Record<string, string | undefined> | undefined;
+	homeDir?: string | undefined;
 }
 
 class ScriptedChangesContext implements SdlContext {
@@ -69,15 +70,19 @@ class ScriptedChangesContext implements SdlContext {
 	};
 }
 
-function runWithFakes(args: readonly string[], options: RunWithFakesOptions = {}) {
+function runWithFakes(options: RunWithFakesOptions) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const context = new ScriptedChangesContext(options.state, options);
+	const contextOptions = {
+		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+		...(options.env === undefined ? {} : { env: options.env }),
+	};
+	const context = new ScriptedChangesContext(options.state, contextOptions);
 	return {
 		context,
 		stdout,
 		stderr,
-		exit: runCli(args, {
+		exit: runCli(options.args, {
 			context,
 			cwd: context.cwd,
 			homeDir: options.homeDir ?? join(context.cwd, ".home"),
@@ -153,12 +158,12 @@ describe("sdl changes CLI", () => {
 			},
 		]);
 
-		const topHelp = runWithFakes(["--help"], { state: { exec: [] } });
+		const topHelp = runWithFakes({ args: ["--help"], state: { exec: [] } });
 		expect(await topHelp.exit).toBe(0);
 		expect(topHelp.stdout.join("")).toContain("changes");
 		expect(topHelp.stderr.join("")).toBe("");
 
-		const commandHelp = runWithFakes(["changes", "--help"], { state: { exec: [] } });
+		const commandHelp = runWithFakes({ args: ["changes", "--help"], state: { exec: [] } });
 		expect(await commandHelp.exit).toBe(0);
 		const help = commandHelp.stdout.join("");
 		expect(help).toContain("Usage: sdl changes");
@@ -167,13 +172,13 @@ describe("sdl changes CLI", () => {
 		expect(help).toContain("PI_DRAFT_MODEL");
 		expect(help).not.toContain("--format");
 
-		const schema = runWithFakes(["changes", "--json-schema"], { state: { exec: [] } });
+		const schema = runWithFakes({ args: ["changes", "--json-schema"], state: { exec: [] } });
 		expect(await schema.exit).toBe(0);
 		expect(parseJsonOutput(schema)).toHaveProperty("input_json_schema");
 	});
 
 	test("clean worktree reports no outstanding changes without model generation", async () => {
-		const run = runWithFakes(["changes"], { state: { exec: cleanSnapshotResponses() } });
+		const run = runWithFakes({ args: ["changes"], state: { exec: cleanSnapshotResponses() } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
@@ -188,7 +193,8 @@ describe("sdl changes CLI", () => {
 	});
 
 	test("dirty worktree prints model bullets and raw status without mutation", async () => {
-		const run = runWithFakes(["changes"], {
+		const run = runWithFakes({
+			args: ["changes"],
 			state: { textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }] },
 		});
 
@@ -220,14 +226,16 @@ describe("sdl changes CLI", () => {
 	});
 
 	test("changes model can be selected by SDL environment with legacy fallback", async () => {
-		const selected = runWithFakes(["changes"], {
+		const selected = runWithFakes({
+			args: ["changes"],
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
 			env: { SDL_CHANGES_MODEL: "openai-codex/custom-mini", PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
 		});
 		expect(await selected.exit).toBe(0);
 		expect(selected.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
 
-		const fallback = runWithFakes(["changes"], {
+		const fallback = runWithFakes({
+			args: ["changes"],
 			state: { textGeneration: [{ ok: true, text: "- Summarize fallback model" }] },
 			env: { PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
 		});
@@ -236,7 +244,7 @@ describe("sdl changes CLI", () => {
 	});
 
 	test("model generation and validation failures exit 2 without mutation", async () => {
-		const invalid = runWithFakes(["changes"], { state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] } });
+		const invalid = runWithFakes({ args: ["changes"], state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] } });
 		expect(await invalid.exit).toBe(2);
 		expect(invalid.stdout.join("")).toBe("");
 		expect(invalid.stderr.join("")).toContain("Model returned an invalid changes summary");
@@ -247,21 +255,23 @@ describe("sdl changes CLI", () => {
 			"git diff HEAD --no-ext-diff",
 		]);
 
-		const failed = runWithFakes(["changes"], { state: { textGeneration: [{ ok: false, error: "auth failed" }] } });
+		const failed = runWithFakes({ args: ["changes"], state: { textGeneration: [{ ok: false, error: "auth failed" }] } });
 		expect(await failed.exit).toBe(2);
 		expect(failed.stderr.join("")).toBe("auth failed\n");
 		expect(formattedExecCalls(failed.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call))).toBe(false);
 	});
 
 	test("git errors fail with command details", async () => {
-		const notGit = runWithFakes(["changes"], {
+		const notGit = runWithFakes({
+			args: ["changes"],
 			state: { exec: [{ match: "git rev-parse --show-toplevel", result: { code: 128, stderr: "fatal: not a git repository" } }] },
 		});
 		expect(await notGit.exit).toBe(2);
 		expect(notGit.stderr.join("")).toBe("Not inside a git repository.\nexit 128: fatal: not a git repository\n");
 		expect(notGit.context.modelCalls).toEqual([]);
 
-		const statusFailed = runWithFakes(["changes"], {
+		const statusFailed = runWithFakes({
+			args: ["changes"],
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
