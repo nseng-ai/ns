@@ -1,5 +1,6 @@
 # Handoff Plan Template
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START improve-plan-template -->
 Every plan is written for an executor model that has **zero context**: it has not seen the advisor session, the audit, the other plans, or any prior conversation. It may be a smaller/cheaper model. Assume it is competent at following explicit instructions and weak at filling gaps, recovering from ambiguity, or knowing when to stop.
 
 Three properties make a plan executable by a weaker model:
@@ -190,3 +191,4 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Would a reviewer reading only "Why this matters" + "Done criteria" understand what they're approving?
 - No secret values anywhere in the file — locations and credential types only.
 - "Planned at" SHA is filled in and the in-scope paths in the drift check match the Scope section.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END improve-plan-template -->
