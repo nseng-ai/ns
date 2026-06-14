@@ -2,6 +2,32 @@
 
 This document captures the current public contract and implementation evidence for porting `handoff` from Python to TypeScript. It is a drift anchor for downstream implementers; re-read current source before editing if files have changed.
 
+## Audit Summary — 2026-06-14
+
+Fresh inventory found no active user-facing references to `asdl handoff`:
+
+```bash
+rg -n "\basdl handoff\b" README.md docs src packages ts .agents skills tests justfile pyproject.toml CONTEXT-MAP.md
+# no matches
+```
+
+Active public references outside the Python package use the standalone `handoff` command and Pi slash-command surfaces:
+
+- `docs/pi/README.md` and `docs/pi/handoff-artifacts.md` document `/handoff:create`, `/handoff:pickup`, `/handoff:list`, standalone `handoff list`, `handoff delete`, and `handoff gc`. They currently say deletion is available through the **Python CLI**; update that wording during the TypeScript shim cutover, not during contract inventory.
+- `skills/handoff*.md` and `skills/handoff/references/*.md` use standalone `handoff list/delete/gc` and direct `brmem --namespace handoff` only for storage/admin fallback.
+- `ts/packages/pi-extensions/src/handoff.ts` shells out to standalone `handoff list --format json` / `handoff list --branch <branch> --format json` / `handoff list --all --format json`; it does not invoke `asdl handoff`.
+- `ts/packages/pi-extensions/src/handoff/shared.ts` uses direct TypeScript `brmem` discovery/helpers for create existence checks and direct `brmem get` for pickup reads.
+
+Plugin and Python-package references are limited to current implementation/config/test ownership:
+
+- `packages/asdl-handoff/pyproject.toml` exposes both the standalone `handoff` script and `asdl.plugins` entry point.
+- root `pyproject.toml` includes `packages/asdl-handoff` in the uv workspace, optional `plugins`, dev dependencies, Ruff sources, known-first-party, and pytest testpaths.
+- `justfile` installs Python `packages/asdl-handoff` in `install-tools` and publishes `asdl-handoff` in `publish`.
+- `tests/scenario/test_plugins.py` contains the only active `asdl_handoff` plugin smoke coverage, including `asdl_handoff.cli.plugin:build_handoff_plugin` and a root-context JSON-mode regression test.
+- `CONTEXT-MAP.md` still points Handoff domain language at `packages/asdl-handoff/CONTEXT.md` until the TypeScript package context exists.
+
+Plugin-retirement policy from this audit: no active user-facing or agent-facing instruction requires `asdl handoff`. Retiring the Python `asdl.plugins` path is unblocked after TypeScript parity, public shim cutover, docs/skill wording updates, and deletion/config cleanup. Removal work must delete or replace the root plugin smoke tests that import `asdl_handoff`; no compatibility shim is required by current inventory.
+
 ## Current Source Files
 
 Python package:
@@ -78,6 +104,7 @@ handoff = "asdl_handoff.cli.plugin:build_handoff_plugin"
 Durable:
 
 - standalone `handoff` command exists;
+- root `handoff --runtime` exists and currently prints `runtime: python` plus `entry_point: asdl_handoff.cli.main:main`;
 - package version is `0.1.0` unless changed by broader release policy.
 
 Likely retirement candidate:
@@ -447,15 +474,38 @@ Under `--format json`, preview and prompt must go to stderr so stdout is machine
 
 ## Plugin Contract and Retirement
 
-The Python package currently mounts as an `asdl.plugins` entry point. Root plugin tests verify `asdl handoff list --all --format json` through plugin discovery.
+The Python package currently mounts as an `asdl.plugins` entry point. Root plugin tests verify the discovered plugin by invoking `handoff list --all --format json` under a synthetic parent command; this is plugin-discovery coverage, not evidence that users are instructed to run `asdl handoff`.
 
-Current recommendation: retire this plugin during TypeScript cutover, as `pr-address` retired its Python plugin. The durable public surface should be standalone `handoff` plus Pi/skills. A downstream implementer must grep for active references before deletion:
+Fresh audit command:
 
 ```bash
-rg "asdl handoff|handoff list|handoff delete|handoff gc|/handoff:|handoff-create|handoff-pickup" README.md docs src packages ts .agents skills tests
+rg -n "\basdl handoff\b" README.md docs src packages ts .agents skills tests justfile pyproject.toml CONTEXT-MAP.md
 ```
 
-Stop if active docs/skills instruct normal users or agents to run `asdl handoff`. Decide whether to update those consumers to standalone `handoff` or preserve a plugin compatibility path.
+Result: no matches. Active docs, skills, and Pi extension code refer to standalone `handoff` and `/handoff:*`, not `asdl handoff`.
+
+Retirement decision: retire the plugin during TypeScript cutover, as `pr-address` retired its Python plugin. The durable public surface is standalone `handoff` plus Pi/skills. A downstream implementer should still rerun the grep before deletion, but current inventory does not require preserving a plugin compatibility path.
+
+Deletion/cutover implications:
+
+- remove `asdl_handoff` imports and handoff plugin smoke cases from `tests/scenario/test_plugins.py`;
+- remove `asdl-handoff` from root uv workspace/config/dev/plugin dependency lists after the TypeScript CLI is default;
+- update `just install-tools` to install the TypeScript shim instead of the Python package;
+- update docs that currently say "Python CLI" to refer to the TypeScript/default `handoff` CLI;
+- move Handoff domain context ownership from `packages/asdl-handoff/CONTEXT.md` to `ts/packages/handoff/CONTEXT.md` when that package exists.
+
+## Pi and Skill Consumer Contract
+
+Current Pi and skill consumers depend on the standalone command and JSON payload shape:
+
+- `/handoff:list` in `ts/packages/pi-extensions/src/handoff.ts` executes `handoff list --format json`, `handoff list --branch <branch> --format json`, or `handoff list --all --format json`.
+- Pi parses `data.handoffs[]` items with `branch`, `key`, and flat `.md` Handoff Keys, deriving the displayed slug from the key. It also tolerates a legacy `data.entries[]` shape from older Branch Memory list output, but the TypeScript `handoff` port should preserve the current `data.handoffs[]` contract rather than relying on that fallback.
+- Pi pickup reads artifact bodies with `brmem get <slug>.md --namespace handoff --branch <branch>` after resolving the handoff through `handoff list`.
+- Pi create uses the `handoff-create` skill/fallback prompt and `brmem put` directly; no `handoff create` CLI operation is required or expected.
+- `handoff-pickup` skill instructions require `data.handoffs` fields: `branch`, `branch_state`, `slug`, `key`, `entry_locator`, and `updated_at`.
+- `handoff` umbrella/admin skills require standalone `handoff delete` and `handoff gc` for cleanup and use raw `brmem` only for storage recovery, copy, or move flows not covered by the CLI.
+
+Compatibility caution: `ts/packages/pi-extensions/src/handoff/identity.ts` uses a stricter lower-case-dash `parseFlatHandoffSlug` for Pi-authored slugs than Python `handoff delete` currently enforces. Do not accidentally narrow the standalone CLI delete/list contract to the Pi slug regex unless an explicit compatibility decision and tests say so; preserve Python's current slug-to-key validation for CLI deletion.
 
 ## TypeScript Implementation Anchors
 

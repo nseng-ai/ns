@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Inventory the current public `handoff` contract and confirm plugin-retirement policy.
+- [x] Inventory the current public `handoff` contract and confirm plugin-retirement policy.
   - Deliverable: `contract-inventory.md` reviewed against the current Python package, skills, Pi extension code, root plugin tests, and package context.
   - Contract sources to inspect before editing implementation: `packages/asdl-handoff/CONTEXT.md`, `packages/asdl-handoff/pyproject.toml`, `packages/asdl-handoff/src/asdl_handoff/cli/handoff/*.py`, `packages/asdl-handoff/src/asdl_handoff/testing/fake_brmem_gateway.py`, `packages/asdl-handoff/tests/scenario/test_handoff_cli.py`, `.agents/skills/handoff*.md`, `skills/handoff*.md` if present, `ts/packages/pi-extensions/src/handoff.ts`, `ts/packages/pi-extensions/src/handoff/shared.ts`, `tests/scenario/test_plugins.py`, `justfile`, and `CONTEXT-MAP.md`.
   - Classify durable contract vs incidental implementation detail. Durable by default: command names, flags, JSON data fields, exit codes, Handoff Namespace/key/slug rules, Branch State values, markdown table shape, interactive confirmation semantics, and stderr/stdout separation under JSON mode. Incidental by default: exact Rich table bytes, exact Commander/Click usage wording, Python module boundaries, and Python plugin mechanics unless active user-facing usage proves otherwise.
