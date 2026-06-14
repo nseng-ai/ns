@@ -1299,7 +1299,7 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
 	if (status.state === "error") return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
-	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s`;
+	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
 	return "PR watch: active";
 }
 

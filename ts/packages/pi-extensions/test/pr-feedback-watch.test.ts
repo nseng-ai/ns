@@ -437,6 +437,7 @@ describe("pr feedback watch extension", () => {
 		expect(pi.userMessages).toEqual([]);
 		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
 		expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
+		expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · /code:pr-feedback-watch stops");
 		pi.assertDone();
 	});
 
