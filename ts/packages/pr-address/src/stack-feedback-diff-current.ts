@@ -3,8 +3,13 @@ import { z } from "zod";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
-import type { PayloadReference } from "./payload-store.ts";
-import { resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "./session-artifacts.ts";
+import {
+	openPayloadStoreFromContext,
+	resolveOperationInput,
+	resolveStackFeedbackDiffCurrentSessionInput,
+	type OperationResult,
+	type StackFeedbackDiffCurrentResolvedInputs,
+} from "./session-inputs.ts";
 import { stackFeedbackPlanConsumerResultSchema, type StackFeedbackPlanConsumerItem, type StackFeedbackPlanConsumerResult } from "./stack-feedback-plan-contracts.ts";
 import {
 	stackFeedbackPrepResultWithManifestSchema,
@@ -67,17 +72,10 @@ const stackFeedbackDiffCurrentParseSchema = z.object({
 	harness_session_id: z.string().optional(),
 });
 
-interface StackFeedbackDiffCurrentResolvedInputs {
-	stack_plan: PayloadReference;
-	current_prep: PayloadReference;
-}
-
 interface StackFeedbackDiffCurrentInputResult {
 	payload: { stack_plan: unknown; current_prep: unknown };
 	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs | undefined;
 }
-
-type OperationResult<T> = { type: "ok"; value: T } | { type: "error"; errorType: string; message: string };
 
 export const stackFeedbackDiffCurrentOperation = defineExecOperation({
 	spec: {
@@ -105,51 +103,34 @@ async function runStackFeedbackDiffCurrentOperation(
 async function loadStackFeedbackDiffCurrentInput(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
-): Promise<OperationResult<StackFeedbackDiffCurrentInputResult>> {
-	const hasExplicitSource =
-		request.payload_json !== undefined || request.payload_file !== undefined || request.stack_plan_reference !== undefined || request.current_prep_reference !== undefined;
-	if (hasExplicitSource) return await loadStackFeedbackDiffCurrentInputFromPayloadSources(ctx, request, ctx.stdin);
-
-	const stdinText = await ctx.stdin();
-	if (stdinText.trim() !== "") return await loadStackFeedbackDiffCurrentInputFromPayloadSources(ctx, request, async () => stdinText);
-
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: request.harness_session_id ?? null,
-		env: ctx.env,
-		clock: ctx.context.payloadClock,
-	});
-	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-	const store = storeResult.value;
-
-	const stackPlan = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: stackArtifactDescriptor("plan"),
-		role: "summary",
-		schema: stackFeedbackPlanConsumerResultSchema,
-	});
-	if (stackPlan.type === "error") return { type: "error", errorType: stackPlan.errorType, message: stackPlan.message };
-	const currentPrep = await resolveLatestJsonSessionArtifact({
-		store,
-		descriptor: stackArtifactDescriptor("prep"),
-		role: "summary",
-		schema: stackFeedbackPrepResultWithManifestSchema,
-	});
-	if (currentPrep.type === "error") return { type: "error", errorType: currentPrep.errorType, message: currentPrep.message };
-
-	return {
-		type: "ok",
-		value: {
-			payload: { stack_plan: stackPlan.value.value, current_prep: currentPrep.value.value },
-			resolvedInputs: { stack_plan: stackPlan.value.reference, current_prep: currentPrep.value.reference },
+): Promise<OperationResult<StackFeedbackDiffCurrentInputResult, string>> {
+	const resolved = await resolveOperationInput({
+		commandName: "stack-feedback-diff-current",
+		explicitSource: {
+			present:
+				request.payload_json !== undefined ||
+				request.payload_file !== undefined ||
+				request.stack_plan_reference !== undefined ||
+				request.current_prep_reference !== undefined,
+			description: "payload input (--payload-json/--payload-file/--stack-plan-reference/--current-prep-reference)",
+			resolve: async (stdin) => await loadStackFeedbackDiffCurrentInputFromPayloadSources(request, stdin),
 		},
-	};
+		stdin: { read: ctx.stdin, nonEmptyMode: "payload" },
+		sessionSource: {
+			selected: false,
+			description: "latest stack plan and current prep from the payload session",
+			resolve: async () => await loadStackFeedbackDiffCurrentInputFromSession(ctx, request),
+		},
+		defaultSource: "session",
+	});
+	if (resolved.type === "error") return resolved;
+	return { type: "ok", value: resolved.value.value };
 }
 
 async function loadStackFeedbackDiffCurrentInputFromPayloadSources(
-	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
 	stdin: () => Promise<string>,
-): Promise<OperationResult<StackFeedbackDiffCurrentInputResult>> {
+): Promise<OperationResult<StackFeedbackDiffCurrentInputResult, string>> {
 	const payloadResult = await loadOperationPayload({
 		commandName: "stack-feedback-diff-current",
 		inputDescription: "stack feedback diff JSON payload",
@@ -165,6 +146,15 @@ async function loadStackFeedbackDiffCurrentInputFromPayloadSources(
 		throw new Error("stack-feedback-diff-current payload fields missing despite field resolution");
 	}
 	return { type: "ok", value: { payload: { stack_plan: payloadValue.stack_plan, current_prep: payloadValue.current_prep }, resolvedInputs: undefined } };
+}
+
+async function loadStackFeedbackDiffCurrentInputFromSession(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
+): Promise<OperationResult<StackFeedbackDiffCurrentInputResult, string>> {
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
+	if (storeResult.type === "error") return storeResult;
+	return await resolveStackFeedbackDiffCurrentSessionInput(storeResult.value);
 }
 
 export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {
