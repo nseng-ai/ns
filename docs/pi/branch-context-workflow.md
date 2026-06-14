@@ -121,6 +121,10 @@ By default, load selects the exact attached plan entry `plan.md` from the curren
 
 Agent workflows that need the full implementation prompt should pass `--prompt-file <path>` and then read the returned `implementation_prompt_file` from disk. Avoid `--include-content` and `--include-prompt` in normal agent operation because they can print large plan bodies to stdout.
 
+## Branch-context plan contract trial rollback
+
+The code-adjacent rollback note for the trial protocol lives in `ts/packages/branch-context/README.md`.
+
 ## Branch-context primitives
 
 `branch-context exec from-plan` is documented sugar over primitive branch-context operations. The primitive operation set is also available for repair, admin, and non-plan entries:
