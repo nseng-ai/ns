@@ -1,10 +1,12 @@
 # sdlcc
 
-`sdlcc` is the first OpenTUI command-and-control infrastructure spike for this repository. It currently opens a full-screen hello-world screen using the imperative `@opentui/core` API.
+`sdlcc` is the first OpenTUI command-and-control infrastructure spike for this repository. It currently opens a full-screen throwaway stack-map prototype.
 
-## Non-goals
+## Prototype question
 
-This package does not wire real Graphite, cmux, Objective, handoff, branch-context, Git, or GitHub workflows yet.
+Does a branch list with a persistent left-side Graphite topology overlay feel like the right base surface for `sdlcc`?
+
+The current prototype queries Graphite metadata from `.graphite_metadata.db`, seeds the visible row set from the current branch, active slot branches, and recent local branches, and overlays slot labels from `slot list --format json`. It is intentionally not wired to real cmux, Objective, handoff, branch-context, GitHub, or restack-status workflows yet.
 
 ## Smoke test
 
@@ -17,9 +19,17 @@ bun ts/packages/sdlcc/src/cli.ts
 Optional package-local run:
 
 ```bash
-pnpm --dir ts --filter sdlcc run start
+pnpm --dir ts --filter sdlcc run prototype:stack-map
 ```
 
-Expected display: a full-screen OpenTUI hello-world view that says `Hello from sdlcc` and shows the exit hint.
+Expected display: a full-screen OpenTUI branch list for the current Graphite stack, with Graphite topology glyphs on the left and branch metadata / slot labels aligned in table columns.
 
-Exit with `q` or Ctrl-C. Automated repository checks remain Node/pnpm/Vitest-compatible; the native renderer smoke requires Bun.
+Keys:
+
+- `↑`/`k`: previous branch
+- `↓`/`j`: next branch
+- `o`: toggle all branches vs. cmux-only rows
+- `?`: hide/show the prototype question
+- `q` or `Esc`: exit
+
+When the prototype answers the shape question, delete the throwaway shell or absorb the validated branch/topology model into the real `sdlcc` surface.

@@ -2,7 +2,7 @@
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 
-import { buildHelloWorldModel } from "./hello-world.ts";
+import { loadStackMapPrototypeModel } from "./stack-map-model-loader.ts";
 
 const VERSION = "0.1.0";
 
@@ -17,7 +17,7 @@ type SdlccCliContext = Record<string, never>;
 export function buildCli(): ClinkrGroup<SdlccCliContext> {
 	return new ClinkrGroup<SdlccCliContext>({
 		name: "sdlcc",
-		description: "Open a full-screen OpenTUI hello-world screen.",
+		description: "Open a full-screen OpenTUI stack-map prototype.",
 		version: VERSION,
 		runtimeInfo,
 	});
@@ -41,8 +41,11 @@ function runtimeInfo(): string {
 }
 
 async function startDefaultTui(): Promise<void> {
-	const { startHelloWorldTui } = await import("./opentui-renderer.ts");
-	await startHelloWorldTui({ model: buildHelloWorldModel() });
+	const [{ startStackMapPrototypeTui }, model] = await Promise.all([
+		import("./stack-map-prototype-renderer.ts"),
+		loadStackMapPrototypeModel(),
+	]);
+	await startStackMapPrototypeTui({ model });
 }
 
 if (import.meta.main) {
