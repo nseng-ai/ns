@@ -101,7 +101,14 @@ def parse_findings_payload_result(raw: str) -> FindingsPayloadParseResult:
 
     exit_code = data.get("exit_code")
     if exit_code != 0:
-        return _parse_nonzero_findings_payload(data)
+        return FindingsPayload(
+            review_name="unknown",
+            base_ref="unknown",
+            count=0,
+            findings=(),
+            error_type=_coerce_str(data.get("error_type"), default="unknown"),
+            error_message=_coerce_str(data.get("message"), default=""),
+        )
 
     inner = data.get("data")
     if not isinstance(inner, dict):
@@ -322,34 +329,6 @@ def _coerce_str(value: Any, *, default: str) -> str:
     if isinstance(value, str) and value:
         return value
     return default
-
-
-def _parse_nonzero_findings_payload(data: dict[str, Any]) -> FindingsPayload:
-    inner = data.get("data")
-    if isinstance(inner, dict):
-        return FindingsPayload(
-            review_name=_coerce_str(inner.get("review_name"), default="unknown"),
-            base_ref=_coerce_str(inner.get("base_ref"), default="unknown"),
-            count=0,
-            findings=(),
-            error_type=_coerce_str(
-                inner.get("error_type") or data.get("error_type"),
-                default="unknown",
-            ),
-            error_message=_coerce_str(
-                inner.get("message") or data.get("message"),
-                default="",
-            ),
-        )
-
-    return FindingsPayload(
-        review_name="unknown",
-        base_ref="unknown",
-        count=0,
-        findings=(),
-        error_type=_coerce_str(data.get("error_type"), default="unknown"),
-        error_message=_coerce_str(data.get("message"), default=""),
-    )
 
 
 def _parse_inline_posting_status_object(data: dict[str, Any]) -> InlinePostingStatusParseResult:

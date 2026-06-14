@@ -187,35 +187,6 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
-def test_format_findings_comment_renders_structured_error_payload_for_review_marker(
-    cli_group: ClinkrGroup,
-) -> None:
-    payload = {
-        "exit_code": 2,
-        "message": "Claude Code failed.",
-        "data": {
-            "review_name": "typescript-style",
-            "base_ref": "master",
-            "error_type": "harness_execution_failed",
-            "message": "prompt too long",
-        },
-    }
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli_group,
-        ["exec", "format-findings-comment"],
-        input=json.dumps(payload),
-    )
-
-    assert result.exit_code == 0, result.output
-    assert result.output.startswith("<!-- roaster:typescript-style -->\n")
-    assert "## roaster · `typescript-style`" in result.output
-    assert "**Roaster failed** against base `master`. ⚠️" in result.output
-    assert "- **Error type:** `harness_execution_failed`" in result.output
-    assert "- **Message:** prompt too long" in result.output
-
-
 def test_format_findings_comment_fails_on_malformed_stdin(
     cli_group: ClinkrGroup,
 ) -> None:
@@ -458,13 +429,8 @@ def test_post_inline_findings_handles_error_payload_as_noop(
     fake = _UnexpectedInlineQueryGateway()
     payload = {
         "exit_code": 2,
-        "message": "Claude Code failed.",
-        "data": {
-            "review_name": "typescript-style",
-            "base_ref": "master",
-            "error_type": "harness_execution_failed",
-            "message": "prompt too long",
-        },
+        "error_type": "harness_execution_failed",
+        "message": "prompt too long",
     }
 
     runner = CliRunner()

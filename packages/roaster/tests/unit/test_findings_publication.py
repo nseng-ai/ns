@@ -285,54 +285,6 @@ def test_parse_count_derives_from_findings_when_absent() -> None:
     assert payload.count == 1
 
 
-def test_parse_nonzero_structured_data_preserves_review_metadata() -> None:
-    raw = json.dumps(
-        {
-            "exit_code": 2,
-            "message": "Claude Code failed.",
-            "data": {
-                "review_name": "typescript-style",
-                "base_ref": "master",
-                "error_type": "harness_execution_failed",
-                "message": "prompt too long",
-            },
-        }
-    )
-
-    payload = _parse_payload(raw)
-
-    assert payload.is_error is True
-    assert payload.review_name == "typescript-style"
-    assert payload.base_ref == "master"
-    assert payload.error_type == "harness_execution_failed"
-    assert payload.error_message == "prompt too long"
-    assert payload.findings == ()
-
-
-def test_parse_nonzero_structured_nonbudget_failure_preserves_review_metadata() -> None:
-    raw = json.dumps(
-        {
-            "exit_code": 1,
-            "message": "Claude Code failed.",
-            "data": {
-                "review_name": "typescript-style",
-                "base_ref": "master",
-                "model": "sonnet",
-                "error_type": "harness_execution_failed",
-                "message": "prompt too long",
-            },
-        }
-    )
-
-    payload = _parse_payload(raw)
-
-    assert payload.is_error is True
-    assert payload.review_name == "typescript-style"
-    assert payload.base_ref == "master"
-    assert payload.error_type == "harness_execution_failed"
-    assert payload.error_message == "prompt too long"
-
-
 def test_parse_error_shape_produces_error_payload() -> None:
     raw = json.dumps(
         {
@@ -345,6 +297,10 @@ def test_parse_error_shape_produces_error_payload() -> None:
     payload = _parse_payload(raw)
 
     assert payload.is_error is True
+    assert payload.review_name == "unknown"
+    assert payload.base_ref == "unknown"
+    assert payload.count == 0
+    assert payload.findings == ()
     assert payload.error_type == "harness_binary_missing"
     assert payload.error_message == "claude not on PATH"
 
