@@ -16,13 +16,6 @@ export function notImplementedHandler(commandName: string) {
 	};
 }
 
-export const putRequestSchema = z.object({
-	key: z.string().optional().describe("Entry Key."),
-	namespace: z.string().optional().describe("Namespace."),
-	branch: z.string().optional().describe("Branch."),
-	file: z.string().optional().describe("Read content from file."),
-});
-
 export const deleteRequestSchema = z.object({
 	key: z.string().optional().describe("Entry Key."),
 	namespace: z.string().optional().describe("Namespace."),

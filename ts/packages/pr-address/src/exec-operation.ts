@@ -82,11 +82,11 @@ function requireOperationSchemaDocument(operation: string): JsonSchemaDocument {
 function withRepoContextPrecondition<S extends z.ZodObject, T>(
 	handler: ClinkrHandler<PrAddressExecContext, S, T>,
 ): ClinkrHandler<PrAddressExecContext, S, T> {
-	return async (ctx, request) => {
+	return async (ctx, request, info) => {
 		const probe = await ctx.context.git.isInsideWorkTree({ cwd: ctx.cwd, env: ctx.env });
 		if (probe.type === "outside") {
 			return failure("repo_context_required", "pr-address must run inside the target git repository (gh resolves the repo from the current directory).");
 		}
-		return handler(ctx, request);
+		return handler(ctx, request, info);
 	};
 }

@@ -9,14 +9,20 @@ import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.
 import {
 	buildSurfacePlan,
 	type OptionPlan,
+	type OptionSpec,
 	type PositionalPlan,
 	type PositionalSpec,
 	type SurfacePlan,
 } from "./surface.ts";
 
+export interface ClinkrExecutionInfo {
+	format: ClinkrFormat;
+}
+
 export type ClinkrHandler<TContext, S extends z.ZodObject, T> = (
 	ctx: TContext,
 	request: z.output<S>,
+	info: ClinkrExecutionInfo,
 ) => Promise<ClinkrExit<T>>;
 
 export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
@@ -46,6 +52,7 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	/** Rendered commands cannot opt into raw mode; use `@asdl/clinkr/raw`. */
 	isRawExit?: never;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 }
 
 export interface RawCommandSpec<TContext, S extends z.ZodObject> {
@@ -57,6 +64,7 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	isRawExit: true;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
 	handler?: never;
 	resultSchema?: never;
 	renderHuman?: never;
@@ -93,7 +101,7 @@ interface RegisteredCommand<TContext> {
 interface RenderedExecution<TContext> {
 	type: "rendered";
 	resultSchema: z.ZodType | undefined;
-	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
+	handler: (ctx: TContext, request: unknown, info: ClinkrExecutionInfo) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
 }
@@ -145,7 +153,7 @@ export class ClinkrGroup<TContext> {
 	command<S extends z.ZodObject, T>(
 		spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
 	): this {
-		const plan = buildSurfacePlan(spec.name, spec.schema, spec.positionals ?? {});
+		const plan = buildSurfacePlan(spec.name, spec.schema, spec.positionals ?? {}, spec.options ?? {});
 		this.registeredCommands.push({
 			name: spec.name,
 			description: spec.description,
@@ -241,7 +249,7 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		resultSchema: spec.resultSchema,
 		// Erase the command generics once; zod re-establishes the request shape
 		// at parse time, so the cast is backed by a runtime guarantee.
-		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
+		handler: spec.handler as (ctx: TContext, request: unknown, info: ClinkrExecutionInfo) => Promise<ClinkrExit<unknown>>,
 		renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
 		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
 	};
@@ -282,6 +290,10 @@ function exitCodeForCommanderError(error: CommanderError): number {
 	}
 	// All parse/usage errors exit 2 (Click parity; commander defaults to 1).
 	return 2;
+}
+
+function clinkrFormatFromOption(requestedFormat: unknown): ClinkrFormat {
+	return requestedFormat === "json" ? "json" : "human";
 }
 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
@@ -355,17 +367,14 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 				}
 				return;
 			case "rendered": {
+				const format = clinkrFormatFromOption(opts["format"]);
 				let exit: ClinkrExit<unknown>;
 				try {
-					exit = await registered.execution.handler(context, parsed.data);
+					exit = await registered.execution.handler(context, parsed.data, { format });
 				} catch (error) {
 					if (!(error instanceof ClinkrFailure)) throw error;
 					exit = { type: "failure", errorType: error.errorType, message: error.message };
 				}
-				const requestedFormat = opts["format"];
-				const format: ClinkrFormat =
-					requestedFormat === "json" ? "json" :
-					requestedFormat === "markdown" || requestedFormat === "md" ? "human" : "human";
 				state.exitCode = emitExit(exit, {
 					format,
 					io,

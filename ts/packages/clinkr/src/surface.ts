@@ -20,6 +20,10 @@ export interface OptionPlan {
 	description: string;
 }
 
+export interface OptionSpec {
+	short?: string | undefined;
+}
+
 export interface PositionalPlan {
 	key: string;
 	name: string;
@@ -101,13 +105,12 @@ function kebabCase(key: string): string {
 	return key.replaceAll("_", "-");
 }
 
-function buildFlag(key: string, kind: FieldKind, unwrapped: UnwrappedField): string {
+function buildFlag(key: string, kind: FieldKind, unwrapped: UnwrappedField, optionSpec: OptionSpec | undefined): string {
 	const kebab = kebabCase(key);
-	if (kind.type === "boolean") {
-		if (unwrapped.hasDefault && unwrapped.defaultValue === true) return `--no-${kebab}`;
-		return `--${kebab}`;
-	}
-	return `--${kebab} <value>`;
+	const longFlag = kind.type === "boolean" && unwrapped.hasDefault && unwrapped.defaultValue === true ? `--no-${kebab}` : `--${kebab}`;
+	const valueSuffix = kind.type === "boolean" ? "" : " <value>";
+	if (optionSpec?.short === undefined) return `${longFlag}${valueSuffix}`;
+	return `${optionSpec.short}, ${longFlag}${valueSuffix}`;
 }
 
 function describeField(unwrapped: UnwrappedField): string {
@@ -126,12 +129,25 @@ export function buildSurfacePlan(
 	commandName: string,
 	schema: z.ZodObject,
 	positionals: Readonly<Partial<Record<string, PositionalSpec>>> = {},
+	optionSpecs: Readonly<Partial<Record<string, OptionSpec>>> = {},
 ): SurfacePlan {
 	const shape = schema.def.shape;
 	for (const key of Object.keys(positionals)) {
 		if (!(key in shape)) {
 			throw new Error(
 				`clinkr: positional spec references unknown field '${key}' in command '${commandName}'`,
+			);
+		}
+	}
+	for (const key of Object.keys(optionSpecs)) {
+		if (!(key in shape)) {
+			throw new Error(
+				`clinkr: option spec references unknown field '${key}' in command '${commandName}'`,
+			);
+		}
+		if (positionals[key] !== undefined) {
+			throw new Error(
+				`clinkr: option spec references positional field '${key}' in command '${commandName}'`,
 			);
 		}
 	}
@@ -160,7 +176,7 @@ export function buildSurfacePlan(
 			});
 			continue;
 		}
-		const flag = buildFlag(key, kind, unwrapped);
+		const flag = buildFlag(key, kind, unwrapped, optionSpecs[key]);
 		options.push({
 			key,
 			flag,

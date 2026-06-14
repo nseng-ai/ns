@@ -25,10 +25,10 @@
   - Policy: directly executable after preview on the proven storage seam. Ask before changing exit-code or envelope semantics.
   - Evidence: TypeScript scenario tests cover `get`, `check`, and `list` human/JSON behavior, exit codes, branch/namespace resolution, hidden-command boundaries, and history-at reads; workspace validation passed for the branch evidence.
 
-- [ ] Port write operations: `put` and `delete`.
+- [~] Port write operations: `put` and `delete`.
   - Preserve overwrite semantics, `--file` / `--stdin` input modes, content limits (UTF-8, binary rejection, 1 MiB `--force` cap), Entry Key validation, detached-HEAD-when-branch-omitted handling, and post-mutation reporting (branch, namespace/base, key, Entry Locator, commit).
   - Policy: directly executable after preview with fake/local-throwaway-repo gateways. Ask before changing content limits or key/namespace validation.
-  - Evidence: fake-driven and scenario tests for success, overwrite, validation-failure, and abort paths.
+  - Evidence: public TypeScript `put` CLI is implemented with byte-oriented file/stdin source reading, Clinkr format metadata for JSON stdin rejection, content guardrails, validation, Base/named Namespace locators, overwrite/sibling preservation, and fake-driven scenario/unit tests. `delete` remains unimplemented and is the next write-operation slice.
 
 - [ ] Port `copy` and `export`.
   - `copy`: exactly-one-scope (`--base` / `--namespace`), `--key-glob` (where `*` matches `/`), conflict-abort-unless-`--overwrite`, `--dry-run`, cross-branch behavior.
