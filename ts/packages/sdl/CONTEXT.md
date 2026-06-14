@@ -1,6 +1,6 @@
 # @asdl/sdl
 
-`@asdl/sdl` owns the Source Development Lifecycle command boundary: lifecycle workflows that have migrated into SDL are invoked as `sdl <name>` and may have thin Pi mirrors at `/sdl:<name>`. Project-specific command behavior is allowed when it is part of the development lifecycle, but command authors use only the public SDL command-module SDK.
+`@asdl/sdl` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL: users invoke them as `sdl <name>` and may have thin Pi mirrors at `/sdl:<name>`. Project-specific command behavior is allowed when it belongs to that lifecycle, but command authors use only the public SDL command-module SDK.
 
 ## Language
 
@@ -9,8 +9,8 @@ The `@asdl/sdl` package and `sdl` CLI. SDL is the public lifecycle command bound
 *Avoid*: repo-internal developer CLI, generic ASDL namespace, lower orchestration implementation.
 
 **Source Development Lifecycle CLI**:
-The expanded meaning of `sdl`: the user-facing CLI for source-control and development-lifecycle workflows that have migrated out of private repo tooling.
-*Avoid*: Source Data Language, generic script runner, synonym for all ASDL tools.
+The expanded meaning of `sdl`: the user-facing CLI for source-control and software-development-lifecycle workflows that have migrated out of private repo tooling.
+*Avoid*: Software Development Lifecycle as the expansion of SDL in this package, Source Data Language, generic script runner, synonym for all ASDL tools.
 
 **SDL command surface**:
 The user-facing invocation pair for a migrated lifecycle command: `sdl <name>` plus optional `/sdl:<name>` Pi mirror when implemented.
