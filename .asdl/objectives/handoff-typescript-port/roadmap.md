@@ -9,11 +9,11 @@
   - Policy: direct documentation/inventory edits are allowed. Stop if active docs/skills instruct users to run `asdl handoff`; ask whether to preserve the plugin or retire it with compatibility notes.
   - Evidence: checked-in contract inventory plus focused grep evidence for plugin usage and public command references.
 
-- [ ] Add `@asdl/clinkr` markdown renderer support if still needed.
-  - Current planning evidence: TypeScript Clinkr accepts `--format markdown` and `--format md`, but `ts/packages/clinkr/src/group.ts` notes they route through the human channel until a `renderMarkdown` hook exists. Python `handoff list` has a distinct markdown renderer and tests assert markdown table output.
-  - Implement the smallest framework change: an optional `renderMarkdown` command spec field; normalize `--format md` to markdown; use `renderMarkdown` for markdown/md when present; fall back to `renderHuman` when absent; keep JSON and failure behavior unchanged.
+- [x] Add `@asdl/clinkr` markdown renderer support if still needed.
+  - Current planning evidence: TypeScript Clinkr accepted `--format markdown` and `--format md`, but `ts/packages/clinkr/src/group.ts` routed them through the human channel until a `renderMarkdown` hook existed. Python `handoff list` has a distinct markdown renderer and tests assert markdown table output.
+  - Implemented the smallest framework change: an optional `renderMarkdown` command spec field; `--format md` normalizes to markdown; markdown/md use `renderMarkdown` for ok exits when present and fall back to `renderHuman`/indented JSON when absent; JSON, legacy machine output, raw commands, and non-ok exits remain unchanged.
   - Policy: direct execution after preview. Ask before changing machine-envelope behavior, failure exit codes, raw command behavior, or unrelated Clinkr surface semantics.
-  - Evidence: focused Clinkr tests for markdown renderer, fallback behavior, JSON unaffected, and schema/help unaffected; `pnpm --dir ts/packages/clinkr run check`; `pnpm --dir ts/packages/clinkr run test`; relevant workspace TS checks.
+  - Evidence: local branch diff against `add-handoff-typescript-port-objective`; PR #1504 corroborates the same file set; `pnpm --dir ts/packages/clinkr run check`; `pnpm --dir ts/packages/clinkr run test`; `pnpm --dir ts run check`; `pnpm --dir ts run test`; `git diff --check`.
 
 - [ ] Scaffold `ts/packages/handoff` and port `handoff list` as the first vertical slice.
   - Package identity: npm/workspace package `@asdl/handoff`, bin `handoff`, version `0.1.0`, root export `./src/index.ts`, Node ESM, strict TS, Vitest, dependencies on `@asdl/clinkr`, `@asdl/core`, `@asdl/brmem`, and `zod`.

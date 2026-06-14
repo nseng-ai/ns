@@ -100,7 +100,7 @@ Assumptions:
 Risks:
 
 - The `asdl handoff` plugin path might still be used by undocumented consumers. Mitigation: inventory repo docs/skills/tests before deletion and record the retirement decision.
-- Markdown rendering may be subtly wrong if TS Clinkr continues to collapse markdown into human rendering. Mitigation: add a first-class Clinkr markdown renderer hook and tests before or alongside `handoff list`.
+- Markdown rendering may be subtly wrong if TS Clinkr continues to collapse markdown into human rendering. This framework risk is de-risked for Clinkr by the first-class `renderMarkdown` hook and focused/full TypeScript validation on PR #1504; the remaining Handoff risk is preserving exact `handoff list` markdown table bytes when the Handoff package consumes the hook.
 - Per-entry `updated_at` is easy to confuse with Snapshot head date. The Python handoff adapter deliberately used direct git log by key because public `brmem check` exposed Snapshot metadata. Mitigation: preserve per-entry timestamp behavior with tests.
 - Interactive confirmation must keep JSON stdout machine-readable. Prompts/previews need stderr routing under JSON mode.
 - Deleting the Python package affects uv workspace config, plugin discovery tests, publish configuration, and context docs; final deletion must run broad validation.

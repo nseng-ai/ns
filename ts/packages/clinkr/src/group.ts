@@ -37,6 +37,8 @@ export interface ClinkrCommandSpec<TContext, S extends z.ZodObject, T> {
 	schemaDocument?: () => JsonSchemaDocument;
 	/** Human rendering for the ok variant; default is indented JSON of the data. */
 	renderHuman?: (data: T) => string;
+	/** Markdown rendering for the ok variant; falls back to human rendering when absent. */
+	renderMarkdown?: (data: T) => string;
 	/**
 	 * Deprecated-from-birth escape hatch: routes the whole exit union through a
 	 * legacy machine shape under `--format json` so migrated commands keep their
@@ -63,6 +65,7 @@ export interface RawCommandSpec<TContext, S extends z.ZodObject> {
 	handler?: never;
 	resultSchema?: never;
 	renderHuman?: never;
+	renderMarkdown?: never;
 	legacyMachine?: never;
 	schemaDocument?: never;
 }
@@ -98,6 +101,7 @@ interface RenderedExecution<TContext> {
 	resultSchema: z.ZodType | undefined;
 	handler: (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>;
 	renderHuman: ((data: unknown) => string) | undefined;
+	renderMarkdown: ((data: unknown) => string) | undefined;
 	legacyMachine: ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined;
 }
 
@@ -251,6 +255,7 @@ function executionOf<TContext, S extends z.ZodObject, T>(
 		// at parse time, so the cast is backed by a runtime guarantee.
 		handler: spec.handler as (ctx: TContext, request: unknown) => Promise<ClinkrExit<unknown>>,
 		renderHuman: spec.renderHuman as ((data: unknown) => string) | undefined,
+		renderMarkdown: spec.renderMarkdown as ((data: unknown) => string) | undefined,
 		legacyMachine: spec.legacyMachine as ((exit: ClinkrExit<unknown>) => LegacyMachineOutput) | undefined,
 	};
 }
@@ -293,7 +298,9 @@ function exitCodeForCommanderError(error: CommanderError): number {
 }
 
 function clinkrFormatFromOption(requestedFormat: unknown): ClinkrFormat {
-	return requestedFormat === "json" ? "json" : "human";
+	if (requestedFormat === "json") return "json";
+	if (requestedFormat === "markdown" || requestedFormat === "md") return "markdown";
+	return "human";
 }
 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {
@@ -315,7 +322,6 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 	}
 	if (registered.execution.type === "rendered") {
 		command.addOption(
-			// markdown/md render via the human channel until a renderMarkdown hook exists.
 			new Option("--format <format>", "Output format.")
 				.choices(["human", "json", "markdown", "md"])
 				.default("human"),
@@ -379,6 +385,7 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 					format,
 					io,
 					renderHuman: registered.execution.renderHuman,
+					renderMarkdown: registered.execution.renderMarkdown,
 					legacyMachine: registered.execution.legacyMachine,
 				});
 				return;
