@@ -5,7 +5,9 @@ import type { HandoffCliContext } from "../context.ts";
 import { HANDOFF_NAMESPACE } from "../identity.ts";
 
 export type Resolved<T> = { type: "resolved"; value: T } | ClinkrExit<never>;
-export const resolved = <T>(value: T): Resolved<T> => ({ type: "resolved", value });
+export function resolved<T>(value: T): Resolved<T> {
+	return { type: "resolved", value };
+}
 
 export async function resolveBranch(
 	ctx: HandoffCliContext,
