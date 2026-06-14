@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from areg.cli import main
@@ -12,6 +11,7 @@ from areg.gateways.gh.fake import FakeGhCli
 from areg.gateways.npx_skills.fake import FakeNpxSkills
 from areg.gateways.skillx_workspace.fake import FakeSkillxWorkspaceInstaller
 from areg.invoke_only import CODEX_OPENAI_POLICY as _CODEX_OPENAI_POLICY
+from asdl_core.testing import symlink_or_skip
 
 
 def _ctx(project_dir: Path) -> AregContext:
@@ -40,10 +40,7 @@ def _write_github_skill(project_dir: Path, name: str) -> None:
 
 def _symlink_path(link_path: Path, target: Path, *, target_is_directory: bool) -> None:
     link_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        link_path.symlink_to(target, target_is_directory=target_is_directory)
-    except OSError as e:
-        pytest.skip(f"Symlink creation is unsupported in this environment: {e}")
+    symlink_or_skip(link_path, target, target_is_directory=target_is_directory)
 
 
 def _install_agents_skill_symlink(project_dir: Path, name: str) -> Path:
