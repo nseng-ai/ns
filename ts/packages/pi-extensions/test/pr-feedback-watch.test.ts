@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
@@ -282,7 +282,7 @@ describe("pr feedback watch command parsing", () => {
 		expect(parseWatchCommandArgs("")).toEqual({
 			type: "valid",
 			action: "toggle",
-			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
+			options: { intervalMs: 15_000, shouldAllowDirty: true, existingFeedbackMode: "dispatch" },
 		});
 	});
 
@@ -290,12 +290,12 @@ describe("pr feedback watch command parsing", () => {
 		expect(parseWatchCommandArgs("start")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
+			options: { intervalMs: 15_000, shouldAllowDirty: true, existingFeedbackMode: "dispatch" },
 		});
 		expect(parseWatchCommandArgs("once")).toEqual({
 			type: "valid",
 			action: "once",
-			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
+			options: { intervalMs: 15_000, shouldAllowDirty: true, existingFeedbackMode: "dispatch" },
 		});
 	});
 
@@ -308,9 +308,14 @@ describe("pr feedback watch command parsing", () => {
 		expect(parseWatchCommandArgs("start --baseline-existing")).toEqual({
 			type: "valid",
 			action: "start",
-			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "baseline" },
+			options: { intervalMs: 15_000, shouldAllowDirty: true, existingFeedbackMode: "baseline" },
 		});
 		expect(parseWatchCommandArgs("start --dispatch-existing")).toEqual({
+			type: "valid",
+			action: "start",
+			options: { intervalMs: 15_000, shouldAllowDirty: true, existingFeedbackMode: "dispatch" },
+		});
+		expect(parseWatchCommandArgs("start --pause-on-dirty")).toEqual({
 			type: "valid",
 			action: "start",
 			options: { intervalMs: 15_000, shouldAllowDirty: false, existingFeedbackMode: "dispatch" },
@@ -428,17 +433,28 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("start with baseline-existing preserves old baseline behavior", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
-		const ctx = new FakeContext();
-		prFeedbackWatchExtension(pi, { runner: RUNNER });
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-06-14T05:40:00.000Z"));
+		try {
+			const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+			const ctx = new FakeContext();
+			prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
+			await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
 
-		expect(pi.userMessages).toEqual([]);
-		expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
-		expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
-		expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · /code:pr-feedback-watch stops");
-		pi.assertDone();
+			expect(pi.userMessages).toEqual([]);
+			expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
+			expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
+			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · checked 0s ago · /code:pr-feedback-watch stops");
+
+			vi.advanceTimersByTime(5_000);
+			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · checked 5s ago · /code:pr-feedback-watch stops");
+
+			await pi.commands.get("code:pr-feedback-watch")?.handler("stop", ctx);
+			pi.assertDone();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("once dispatches current feedback by default", async () => {
@@ -545,7 +561,7 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
-	test("dirty tree pauses before heavy normalization after REST changes", async () => {
+	test("pause-on-dirty pauses before heavy normalization after REST changes", async () => {
 		const pi = new FakePi([
 			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
 			currentUserStep(),
@@ -557,8 +573,8 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing", ctx);
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --baseline-existing --pause-on-dirty", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing --pause-on-dirty", ctx);
 
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
@@ -591,15 +607,15 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
-	test("start with dispatch-existing pauses on dirty tree", async () => {
+	test("start with dispatch-existing works on dirty tree by default", async () => {
 		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
 
-		expect(pi.userMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
 		pi.assertDone();
 	});
 
@@ -631,7 +647,7 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
-	test("dirty tree pauses dispatch unless allow-dirty is set", async () => {
+	test("pause-on-dirty pauses dispatch unless allow-dirty is set", async () => {
 		const pi = new FakePi([
 			prepareStep(compactManifest(), "pr-feedback-watch-1"),
 			currentUserStep(),
@@ -644,7 +660,7 @@ describe("pr feedback watch extension", () => {
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
-		await pi.commands.get("code:pr-feedback-watch")?.handler("once --dispatch-existing", ctx);
+		await pi.commands.get("code:pr-feedback-watch")?.handler("once --dispatch-existing --pause-on-dirty", ctx);
 		expect(pi.userMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)?.message).toContain("dirty");
 

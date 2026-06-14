@@ -26,6 +26,7 @@ export const PR_FEEDBACK_WATCH_STATE_TYPE = "code-pr-feedback-watch-state";
 const DEFAULT_INTERVAL_MS = 15_000;
 const MIN_INTERVAL_MS = 10_000;
 const HEAVY_FALLBACK_INTERVAL_MS = 60_000;
+const STATUS_REFRESH_INTERVAL_MS = 1_000;
 const REST_FINGERPRINT_SKEW_MS = 2_000;
 const REST_FAILURES_BEFORE_HEAVY_FALLBACK = 3;
 const REST_FAILURE_STATUS = "PR watch: REST check failed; retrying";
@@ -357,7 +358,7 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 
 	const options: WatchCommandOptions = {
 		intervalMs: DEFAULT_INTERVAL_MS,
-		shouldAllowDirty: false,
+		shouldAllowDirty: true,
 		existingFeedbackMode: "dispatch",
 	};
 	let hasDispatchExistingFlag = false;
@@ -368,6 +369,10 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		const token = tokens[index];
 		if (token === "--allow-dirty") {
 			options.shouldAllowDirty = true;
+			continue;
+		}
+		if (token === "--pause-on-dirty") {
+			options.shouldAllowDirty = false;
 			continue;
 		}
 		if (token === "--dispatch-existing") {
@@ -638,10 +643,11 @@ class PrFeedbackWatchController {
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
 	private timer: ReturnType<typeof setTimeout> | undefined;
+	private statusRefreshTimer: ReturnType<typeof setInterval> | undefined;
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
-	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: false, existingFeedbackMode: "dispatch" };
+	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: true, existingFeedbackMode: "dispatch" };
 	private seenKeys = new Set<string>();
 	private attemptedKeys = new Set<string>();
 	private queuedItems: FeedbackItemKey[] = [];
@@ -758,6 +764,7 @@ class PrFeedbackWatchController {
 	}
 
 	private closeActiveSession(): void {
+		this.clearStatusRefreshTimer();
 		const session = this.activeSession;
 		if (session !== undefined) {
 			session.ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, undefined);
@@ -1112,6 +1119,29 @@ class PrFeedbackWatchController {
 		this.timer = undefined;
 	}
 
+	private updateStatusRefreshTimer(shouldAllowRefresh: boolean): void {
+		if (!shouldAllowRefresh || !shouldRefreshStatusAge(this.status())) {
+			this.clearStatusRefreshTimer();
+			return;
+		}
+		if (this.statusRefreshTimer !== undefined) return;
+		this.statusRefreshTimer = setInterval(() => {
+			const ctx = this.activeSession?.ctx;
+			if (ctx === undefined || !shouldRefreshStatusAge(this.status())) {
+				this.clearStatusRefreshTimer();
+				return;
+			}
+			ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, defaultStatusLine(this.status()));
+		}, STATUS_REFRESH_INTERVAL_MS);
+		const maybeTimer = this.statusRefreshTimer as { unref?: () => void };
+		maybeTimer.unref?.();
+	}
+
+	private clearStatusRefreshTimer(): void {
+		if (this.statusRefreshTimer !== undefined) clearInterval(this.statusRefreshTimer);
+		this.statusRefreshTimer = undefined;
+	}
+
 	private restoreState(ctx: ExtensionContext): void {
 		const entries = ctx.sessionManager?.getBranch?.() ?? ctx.sessionManager?.getEntries?.() ?? [];
 		this.seenKeys = new Set<string>();
@@ -1155,6 +1185,7 @@ class PrFeedbackWatchController {
 		const ctx = this.activeSession?.ctx;
 		if (ctx === undefined) return;
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
+		this.updateStatusRefreshTimer(value === undefined);
 	}
 
 }
@@ -1299,8 +1330,26 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
 	if (status.state === "error") return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
-	if (status.prNumber !== undefined) return `PR watch: #${status.prNumber} REST polling ${Math.round(status.intervalMs / 1_000)}s · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
+	if (status.prNumber !== undefined) {
+		const intervalSeconds = Math.round(status.intervalMs / 1_000);
+		const lastChecked = status.lastRestPollAt === undefined ? "" : ` · checked ${formatElapsedSince(status.lastRestPollAt)} ago`;
+		return `PR watch: #${status.prNumber} REST polling ${intervalSeconds}s${lastChecked} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
+	}
 	return "PR watch: active";
+}
+
+function shouldRefreshStatusAge(status: WatchStatus): boolean {
+	return status.isEnabled && status.state === "active" && status.mode === "rest_fingerprint" && status.prNumber !== undefined && status.lastRestPollAt !== undefined;
+}
+
+function formatElapsedSince(iso: string): string {
+	const timestamp = Date.parse(iso);
+	if (!Number.isFinite(timestamp)) return "recently";
+	const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1_000));
+	if (elapsedSeconds < 60) return `${elapsedSeconds}s`;
+	const minutes = Math.floor(elapsedSeconds / 60);
+	const seconds = elapsedSeconds % 60;
+	return `${minutes}m ${seconds}s`;
 }
 
 function formatWatchStatus(status: WatchStatus): string {
