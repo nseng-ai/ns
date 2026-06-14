@@ -104,7 +104,7 @@ async function runJustThenInvokeSkill(pi: ExtensionAPI, ctx: CommandContext): Pr
 	try {
 		skill = await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME });
 	} catch {
-		// Skill expansion is best-effort; the fallback prompt below still gives the agent the just failure.
+		// Missing skill is handled below by sending the repository workflow fallback prompt.
 		skill = undefined;
 	}
 	if (ctx.hasUI) {
