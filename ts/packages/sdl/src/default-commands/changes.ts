@@ -1,6 +1,7 @@
 import { draftChangesSummary } from "../changes-model-summary.ts";
 import { formatOutstandingChangesMessage } from "../changes-summary.ts";
-import { formatPendingWorktreeCommandDetails, loadPendingWorktreeSnapshot, type PendingWorktreeError } from "../pending-worktree.ts";
+import { formatCheckpointSnapshotError } from "../checkpoint.ts";
+import { loadPendingWorktreeSnapshot } from "../pending-worktree.ts";
 import { defineCommand, failed, ok } from "../sdk.ts";
 
 export const defaultChangesCommand = defineCommand({
@@ -12,7 +13,7 @@ export const defaultChangesCommand = defineCommand({
 			execGit: (args, timeout) => ctx.exec("git", args, { timeoutMs: timeout }),
 		});
 		if (!loaded.ok) {
-			return failed(formatChangesSnapshotError(loaded.error), 2);
+			return failed(formatCheckpointSnapshotError(loaded.error), 2);
 		}
 
 		const snapshot = loaded.snapshot;
@@ -29,16 +30,3 @@ export const defaultChangesCommand = defineCommand({
 	},
 });
 
-function formatChangesSnapshotError(error: PendingWorktreeError): string {
-	const details = formatPendingWorktreeCommandDetails(error.result);
-	if (error.kind === "not_git_repo") {
-		return `Not inside a git repository.\n${details}`;
-	}
-	if (error.kind === "detached_head") {
-		return `Could not determine current branch.\n${details}`;
-	}
-	if (error.kind === "status_failed") {
-		return `Could not inspect git status.\n${details}`;
-	}
-	return `Could not capture git diff.\n${details}`;
-}
