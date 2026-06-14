@@ -3,9 +3,20 @@ import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
-const SDL_COMMAND_NAMES = ["cp", "submit"] as const;
+const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
 
 export const sdlExtensionParity = definePiSurfaceParity([
+	{
+		kind: "command",
+		surface: "sdl:changes",
+		workflow: "Summarize outstanding worktree changes without committing",
+		parity: "FULL",
+		cli: "sdl changes",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Pi command delegates to the built-in SDL changes command through registerCliCommandExtension.",
+	},
 	{
 		kind: "command",
 		surface: "sdl:cp",

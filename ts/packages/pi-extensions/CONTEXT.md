@@ -157,16 +157,16 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control management workflows that still belong to the code command family; checkpoint creation has moved to the native `/sdl:cp` namespace.
-*Avoid*: visibility flag, prototype marker, package prefix, checkpoint prefix.
+The Pi slash-command namespace for codebase/source-control management workflows that still belong to the code command family; pending-worktree inspection has moved to `/sdl:changes`, and checkpoint creation has moved to `/sdl:cp`.
+*Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/code:changes`, `/sdl:cp`, and `/code:autobranch` before presentation or mutation.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/sdl:changes`, `/sdl:cp`, and `/code:autobranch` before presentation or mutation.
 *Avoid*: stash, checkpoint, worktree status renderer.
 
 **Outstanding changes summary**:
-A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `/code:changes` before any checkpoint decision. The summary text is drafted by the shared fast-text model harness; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
-*Avoid*: checkpoint message, diffstat only, worktree status footer.
+A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
+*Avoid*: checkpoint message, diffstat only, worktree status footer, Pi-only changes card.
 
 **Checkpoint message**:
 The validated commit message generated, repaired, or fallback-created from a pending worktree snapshot.

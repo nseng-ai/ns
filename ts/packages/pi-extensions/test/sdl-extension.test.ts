@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
 import sdlExtension from "../src/sdl-extension.ts";
 import type { CommandContext, ExtensionAPI } from "../src/cli-command-extension.ts";
 
@@ -85,14 +86,18 @@ describe("sdl Pi extension", () => {
 
 		sdlExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:cp", "sdl:submit"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:changes", "sdl:cp", "sdl:submit"]);
+		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("dev:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
+		expect(pi.commands.get("sdl:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
 		expect(pi.commands.get("sdl:cp")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
 		expect(pi.commands.get("sdl:submit")?.description).toBe(
 			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		);
+		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
+		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 	});
 
 	test("runs the shared cp command-module runner", async () => {

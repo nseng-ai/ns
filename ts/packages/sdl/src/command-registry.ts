@@ -1,11 +1,19 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
 import { loadSdkCommandModule } from "./sdk-module-loader.ts";
 import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
-import { CHECKPOINT_MODEL_ENV, DEFAULT_CHECKPOINT_MODEL_REF, LEGACY_CHECKPOINT_MODEL_ENV } from "./text-generation.ts";
+import {
+	CHANGES_MODEL_ENV,
+	CHECKPOINT_MODEL_ENV,
+	DEFAULT_CHECKPOINT_MODEL_REF,
+	DEFAULT_CHANGES_MODEL_REF,
+	LEGACY_CHANGES_MODEL_ENV,
+	LEGACY_CHECKPOINT_MODEL_ENV,
+} from "./text-generation.ts";
 
 export interface SdlCommandInfo {
 	name: string;
@@ -22,6 +30,18 @@ const PROJECT_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const PROJECT_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
 const builtInCommandDefinitions = {
+	changes: {
+		command: defaultChangesCommand,
+		summary: "Summarize outstanding worktree changes without committing.",
+		description: `Summarize outstanding worktree changes without committing.
+
+The command captures a pending worktree snapshot with read-only git commands. Clean worktrees print that there are no outstanding changes. Dirty worktrees ask the configured text-generation model for 1–4 reviewer-facing bullets, then print the bullets and raw porcelain status lines.
+
+Environment:
+  ${CHANGES_MODEL_ENV}  Model reference for generated changes summaries. Defaults to ${DEFAULT_CHANGES_MODEL_REF}. Falls back to ${LEGACY_CHANGES_MODEL_ENV} when unset.
+
+The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`,
+	},
 	cp: {
 		command: defaultCpCommand,
 		summary: "Create a checkpoint commit for the current diff.",
