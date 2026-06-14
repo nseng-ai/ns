@@ -401,8 +401,7 @@ function expectedMismatches(actual: Record<string, string>, expected: Record<str
 
 export function buildBrmemPayloadPiLaunchCommand(branchName: string, launchOptions: PiLaunchOptions): string {
 	const getArgs = ["get", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", branchName];
-	const directGetCommand = `${formatCommand("brmem", getArgs)} 2>/dev/null`;
-	const fallbackGetCommand = formatCommand("uv", ["run", "--directory", ".", "brmem", ...getArgs]);
+	const getCommand = formatCommand("brmem", getArgs);
 	const piArgs = ["pi"];
 	if (launchOptions.model !== undefined) {
 		piArgs.push("--provider", launchOptions.model.provider, "--model", launchOptions.model.id);
@@ -411,7 +410,7 @@ export function buildBrmemPayloadPiLaunchCommand(branchName: string, launchOptio
 		piArgs.push("--thinking", launchOptions.thinkingLevel);
 	}
 	const piCommand = `exec ${piArgs.map(formatShellArg).join(" ")} "$payload"`;
-	return `payload="$(${directGetCommand} || ${fallbackGetCommand})" && ${piCommand}`;
+	return `payload="$(${getCommand})" && ${piCommand}`;
 }
 
 function formatDispatchPromptStorageFailure(branchName: string, error: BrmemErrorInfo): string {

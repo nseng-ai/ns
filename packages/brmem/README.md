@@ -1,5 +1,15 @@
 # brmem
 
+> **Current public default:** public `brmem` invocation is TypeScript-backed via
+> the source shim documented in [`ts/packages/brmem`](../../ts/packages/brmem/README.md).
+> Install it from an asdl checkout with `just install-brmem` or `just install-tools`.
+>
+> This Python package is temporarily retained in-repo as a reference/fallback
+> and cross-language parity oracle until the Objective's Python retirement row.
+> Command and Git-ref storage semantics documented here should remain consistent
+> with the TypeScript CLI, but distribution and install guidance should point to
+> the TypeScript shim.
+
 `brmem` gives skills and agents a place to keep branch-local context without
 putting that context in commits, PR comments, GitHub issues, or working-tree
 files. Use it when a branch needs durable memory that should stay attached to
@@ -212,9 +222,10 @@ The command prints the chosen path and reports whether it came from the
 project or global tier. It requires a Git checkout so it can find the
 project-local prompt path.
 
-Packaged defaults live at `skills/<plugin-name>/default-prompt.md`.
-`just install-tools` seeds global defaults without overwriting existing global
-customizations.
+Public `brmem` installation is handled by the TypeScript source shim. If a
+prompt plugin workflow needs global prompt defaults, follow that owning skill's
+setup instructions; do not rely on the legacy Python package as the public
+install path.
 
 ## Rules Worth Remembering
 

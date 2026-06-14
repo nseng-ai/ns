@@ -41,11 +41,11 @@
   - Policy: directly executable after preview. Ask before changing prompt search order or tier semantics.
   - Evidence: TypeScript hidden `exec resolve-prompt` is implemented and validated. Scenario tests cover project-local resolution, global fallback, project-over-global precedence, missing-prompt exit-`2`, not-in-git exit-`2` before global fallback, and human stdout path rendering. A focused real resolver test proves git repo-root discovery and prompt file existence against a throwaway checkout. JSON parity preserves `data.path` / `data.tier`; human stderr tier output is documented as a current TypeScript Clinkr renderer limitation.
 
-- [ ] Cut over the public skill, wrapper, and distribution paths to the TypeScript default.
+- [x] Cut over the public skill, wrapper, and distribution paths to the TypeScript default.
   - Make the standalone TypeScript `brmem` CLI the default invocation surface; provide a run-from-source shim installed by a `just` recipe (mirroring `pr-address`), allowed to require an asdl checkout with `ts/node_modules`.
   - Update the public skill and developer/distribution docs to point at the TypeScript path.
   - Policy: docs, wrapper behavior/tests, and local-checkout behavior are directly executable after preview. npm/PyPI publishing and checkout-free bundling are out of scope unless a new requirement is explicitly accepted.
-  - Evidence: shim resolution checks (enclosing-worktree vs baked checkout, missing-`node_modules` failure) and updated skill/docs.
+  - Evidence: `ts/packages/brmem/scripts/brmem-shim`, wrapper tests for enclosing-checkout/canonical/missing-dependency/no-checkout behavior, `just install-brmem`, `install-tools` routing through the TypeScript shim, public skill/docs refresh, PATH-only shell-out helper behavior, manual rendered-shim runtime smoke, and full `just` validation.
 
 - [ ] Retire Python fallback and delete `packages/brmem` from active paths.
   - Gate on full operation parity, cross-language storage parity, run-from-source distribution evidence, and skill/docs naming the TypeScript CLI as the sole surface.
