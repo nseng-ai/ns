@@ -80,6 +80,12 @@ def _request(*, model: str = "sonnet") -> HarnessReviewRequest:
     )
 
 
+def _file_diff(path: str, *, old: str = "old", new: str = "new") -> str:
+    return (
+        f"diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n-{old}\n+{new}\n"
+    )
+
+
 def _assert_no_json_refs(value: object) -> None:
     if isinstance(value, dict):
         assert "$defs" not in value
@@ -211,6 +217,8 @@ def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
 
 
 def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_TOKENS", 1_000_000)
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_FILE_TOKENS", 1_000_000)
     large_diff = "x" * (200 * 1024)
     request = HarnessReviewRequest(
         model="sonnet",
@@ -223,6 +231,81 @@ def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) ->
     assert isinstance(result, ReviewExecutionResponse)
     assert all(large_diff not in arg for arg in captured["cmd"])
     assert large_diff in process.stdin.buffer
+
+
+def test_under_budget_diff_reports_complete_input_coverage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = HarnessReviewRequest(
+        model="sonnet",
+        review_definition=_request().review_definition,
+        target=DiffReviewTarget(
+            local_diff=LocalDiff(base_ref="main", diff_text=_file_diff("app.py"))
+        ),
+    )
+
+    result, _captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert result.input_coverage is not None
+    assert result.input_coverage.changed_path_count == 1
+    assert result.input_coverage.included_file_count == 1
+    assert result.input_coverage.omitted_file_count == 0
+    assert result.input_coverage.omitted_files == ()
+    assert "# Roaster note: diff input was capped" not in process.stdin.buffer
+
+
+def test_per_file_cap_omits_file_even_when_total_diff_is_under_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_TOKENS", 10_000)
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_FILE_TOKENS", 50)
+    large_payload = "x" * 500
+    diff = _file_diff("large.json", old=large_payload, new=f"{large_payload}y") + _file_diff(
+        "small.py"
+    )
+    request = HarnessReviewRequest(
+        model="sonnet",
+        review_definition=_request().review_definition,
+        target=DiffReviewTarget(local_diff=LocalDiff(base_ref="main", diff_text=diff)),
+    )
+
+    result, _captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert result.input_coverage is not None
+    assert result.input_coverage.changed_path_count == 2
+    assert result.input_coverage.included_file_count == 1
+    assert result.input_coverage.omitted_file_count == 1
+    omitted = result.input_coverage.omitted_files[0]
+    assert omitted.path == "large.json"
+    assert omitted.reason == "file_exceeds_cap"
+    assert large_payload not in process.stdin.buffer
+    assert "diff --git a/small.py b/small.py" in process.stdin.buffer
+
+
+def test_total_budget_exhaustion_reports_omitted_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_TOKENS", 100)
+    monkeypatch.setattr(harness_invocation, "_MAX_PROMPT_DIFF_FILE_TOKENS", 1_000)
+    payload = "x" * 80
+    diff = "".join(_file_diff(f"file{index}.py", new=payload) for index in range(4))
+    request = HarnessReviewRequest(
+        model="sonnet",
+        review_definition=_request().review_definition,
+        target=DiffReviewTarget(local_diff=LocalDiff(base_ref="main", diff_text=diff)),
+    )
+
+    result, _captured, process = _run_with_process(monkeypatch, request=request)
+
+    assert isinstance(result, ReviewExecutionResponse)
+    assert result.input_coverage is not None
+    assert result.input_coverage.included_file_count > 0
+    assert result.input_coverage.omitted_file_count > 0
+    omitted_reasons = {file.reason for file in result.input_coverage.omitted_files}
+    assert omitted_reasons == {"diff_budget_exhausted"}
+    assert "diff budget exhausted" in process.stdin.buffer
 
 
 def test_oversized_diff_files_are_omitted_from_prompt(
@@ -254,6 +337,12 @@ def test_oversized_diff_files_are_omitted_from_prompt(
     result, _captured, process = _run_with_process(monkeypatch, request=request)
 
     assert isinstance(result, ReviewExecutionResponse)
+    assert result.input_coverage is not None
+    assert result.input_coverage.changed_path_count == 2
+    assert result.input_coverage.included_file_count == 1
+    assert result.input_coverage.omitted_file_count == 1
+    assert result.input_coverage.omitted_files[0].path == "large.json"
+    assert result.input_coverage.omitted_files[0].reason == "file_exceeds_cap"
     assert "# Roaster note: diff input was capped" in process.stdin.buffer
     assert "# - large.json" in process.stdin.buffer
     assert large_payload not in process.stdin.buffer

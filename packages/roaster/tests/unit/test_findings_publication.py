@@ -23,7 +23,7 @@ from roaster.findings_publication import (
     render_inline_body,
     summary_marker_for_review,
 )
-from roaster.models import ReviewFinding
+from roaster.models import OmittedReviewInputFile, ReviewFinding, ReviewInputCoverage
 
 
 def _single_finding(**overrides: object) -> ReviewFinding:
@@ -38,18 +38,56 @@ def _single_finding(**overrides: object) -> ReviewFinding:
     return ReviewFinding.from_json_dict(base)
 
 
+def _complete_coverage() -> ReviewInputCoverage:
+    return ReviewInputCoverage(
+        full_diff_estimated_tokens=42,
+        prompt_diff_token_cap=120_000,
+        prompt_diff_file_token_cap=40_000,
+        changed_path_count=1,
+        included_file_count=1,
+        omitted_file_count=0,
+        omitted_files=(),
+    )
+
+
+def _partial_coverage(*, omitted_count: int = 1) -> ReviewInputCoverage:
+    omitted_files = tuple(
+        OmittedReviewInputFile(
+            path=f"generated/{index}.py",
+            change_kind="modified",
+            byte_size=10_000 + index,
+            estimated_tokens=2_500 + index,
+            added_lines=10,
+            removed_lines=2,
+            reason="diff_budget_exhausted",
+        )
+        for index in range(omitted_count)
+    )
+    return ReviewInputCoverage(
+        full_diff_estimated_tokens=250_000,
+        prompt_diff_token_cap=120_000,
+        prompt_diff_file_token_cap=40_000,
+        changed_path_count=omitted_count + 2,
+        included_file_count=2,
+        omitted_file_count=omitted_count,
+        omitted_files=omitted_files,
+    )
+
+
 def _payload(
     *,
     review_name: str = "dignified-python",
     base_ref: str = "master",
     findings: tuple[ReviewFinding, ...] = (),
     count: int | None = None,
+    input_coverage: ReviewInputCoverage | None = None,
 ) -> FindingsPayload:
     return FindingsPayload(
         review_name=review_name,
         base_ref=base_ref,
         count=len(findings) if count is None else count,
         findings=findings,
+        input_coverage=input_coverage,
     )
 
 
@@ -105,6 +143,36 @@ def test_render_empty_findings_omits_footer() -> None:
     body = render_findings_comment(_payload())
 
     assert "Post-only steelthread" not in body
+
+
+def test_render_complete_input_coverage_section() -> None:
+    body = render_findings_comment(_payload(input_coverage=_complete_coverage()))
+
+    assert "### Review input coverage" in body
+    assert "Filtered diff files:** 1 (1 supplied to bounded prompt input, 0 omitted)" in body
+    assert "included all files in the filtered diff after configured roaster exclusions" in body
+    assert "**No findings** against base `master`. ✅" in body
+
+
+def test_render_partial_input_coverage_section_and_bounded_no_findings_wording() -> None:
+    body = render_findings_comment(_payload(input_coverage=_partial_coverage()))
+
+    assert "### Review input coverage" in body
+    assert "Review completed with bounded prompt input" in body
+    assert "not supplied in prompt input after configured roaster exclusions" in body
+    assert "`generated/0.py`" in body
+    assert "diff budget exhausted" in body
+    assert "**No findings in the reviewed bounded input** against base `master`. ✅" in body
+    assert "**No findings** against base `master`. ✅" not in body
+
+
+def test_render_partial_input_coverage_limits_omitted_file_list() -> None:
+    body = render_findings_comment(_payload(input_coverage=_partial_coverage(omitted_count=12)))
+
+    assert "`generated/0.py`" in body
+    assert "`generated/9.py`" in body
+    assert "`generated/10.py`" not in body
+    assert "and 2 more omitted file diff(s)" in body
 
 
 @pytest.mark.parametrize(
@@ -253,6 +321,50 @@ def test_parse_success_wrapped_payload() -> None:
     assert payload.is_error is False
 
 
+def test_parse_success_payload_preserves_input_coverage() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 0,
+            "data": {
+                "review_name": "dignified-python",
+                "base_ref": "master",
+                "findings": [],
+                "input_coverage": {
+                    "full_diff_estimated_tokens": 42,
+                    "prompt_diff_token_cap": 120_000,
+                    "prompt_diff_file_token_cap": 40_000,
+                    "changed_path_count": 1,
+                    "included_file_count": 1,
+                    "omitted_file_count": 0,
+                    "omitted_files": [],
+                },
+            },
+        }
+    )
+
+    payload = _parse_payload(raw)
+
+    assert payload.input_coverage is not None
+    assert payload.input_coverage.changed_path_count == 1
+    assert payload.input_coverage.omitted_files == ()
+
+
+def test_parse_success_payload_rejects_malformed_input_coverage() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 0,
+            "data": {
+                "findings": [],
+                "input_coverage": {"changed_path_count": "one"},
+            },
+        }
+    )
+
+    result = _parse_error(raw)
+
+    assert "input_coverage" in result.message
+
+
 def test_parse_missing_optional_payload_fields_uses_defaults() -> None:
     payload = _parse_payload(json.dumps({"exit_code": 0, "data": {}}))
 
@@ -260,6 +372,7 @@ def test_parse_missing_optional_payload_fields_uses_defaults() -> None:
     assert payload.base_ref == "unknown"
     assert payload.findings == ()
     assert payload.count == 0
+    assert payload.input_coverage is None
 
 
 def test_parse_count_derives_from_findings_when_absent() -> None:
@@ -303,6 +416,48 @@ def test_parse_error_shape_produces_error_payload() -> None:
     assert payload.findings == ()
     assert payload.error_type == "harness_binary_missing"
     assert payload.error_message == "claude not on PATH"
+
+
+def test_parse_error_shape_uses_identity_fallbacks() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 2,
+            "error_type": "prompt_too_long",
+            "message": "request exceeds context window",
+        }
+    )
+
+    result = parse_findings_payload_result(
+        raw,
+        fallback_review_name="dignified-python",
+        fallback_base_ref="master",
+    )
+
+    assert isinstance(result, FindingsPayload)
+    assert result.review_name == "dignified-python"
+    assert result.base_ref == "master"
+    assert result.error_type == "prompt_too_long"
+
+
+def test_parse_error_shape_prefers_structured_identity() -> None:
+    raw = json.dumps(
+        {
+            "exit_code": 2,
+            "error_type": "prompt_too_long",
+            "message": "request exceeds context window",
+            "data": {"review_name": "typescript-style", "base_ref": "main"},
+        }
+    )
+
+    result = parse_findings_payload_result(
+        raw,
+        fallback_review_name="dignified-python",
+        fallback_base_ref="master",
+    )
+
+    assert isinstance(result, FindingsPayload)
+    assert result.review_name == "typescript-style"
+    assert result.base_ref == "main"
 
 
 def test_parse_result_returns_error_object_for_non_json() -> None:

@@ -24,6 +24,7 @@ from roaster.models import (
     ModelNotSupportedByHarness,
     ReviewExecutionResponse,
     ReviewFinding,
+    ReviewInputCoverage,
     ReviewPayload,
     ReviewUsage,
     RoasterFailure,
@@ -61,11 +62,24 @@ def _diff_text_for_paths(paths: tuple[str, ...]) -> str:
     return "".join(f"diff --git a/{path} b/{path}\n+changed\n" for path in paths)
 
 
+def _input_coverage() -> ReviewInputCoverage:
+    return ReviewInputCoverage(
+        full_diff_estimated_tokens=42,
+        prompt_diff_token_cap=120_000,
+        prompt_diff_file_token_cap=40_000,
+        changed_path_count=1,
+        included_file_count=1,
+        omitted_file_count=0,
+        omitted_files=(),
+    )
+
+
 def _build_context(
     *,
     payload: ReviewPayload | None = None,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
+    input_coverage: ReviewInputCoverage | None = None,
     default_response: ReviewExecutionResponse | RoasterFailure | None = None,
     review_sources_by_key: dict[str, str] | None = None,
     changed_paths: tuple[str, ...] = ("app.py",),
@@ -88,7 +102,7 @@ def _build_context(
         ),
         harness_runtime=FakeHarnessRuntime(
             default_response=default_response
-            or ReviewExecutionResponse(payload=payload, usage=usage),
+            or ReviewExecutionResponse(payload=payload, usage=usage, input_coverage=input_coverage),
         ),
         pr_gateway=FakePRGateway(),
         cwd=Path("/anywhere"),
@@ -100,6 +114,7 @@ def _context(
     payload: ReviewPayload | None = None,
     keys: tuple[str, ...] | None = None,
     usage: ReviewUsage | None = None,
+    input_coverage: ReviewInputCoverage | None = None,
     review_sources_by_key: dict[str, str] | None = None,
     changed_paths: tuple[str, ...] = ("app.py",),
 ) -> ClinkrContextObject:
@@ -107,6 +122,7 @@ def _context(
         payload=payload,
         keys=keys,
         usage=usage,
+        input_coverage=input_coverage,
         review_sources_by_key=review_sources_by_key,
         changed_paths=changed_paths,
     )
@@ -240,6 +256,31 @@ def test_review_run_json_output(cli_group: ClinkrGroup) -> None:
     assert data["format"] == "findings"
     assert data["count"] == 1
     assert data["findings"][0]["summary"] == "Avoid print in library code"
+
+
+def test_review_run_json_output_includes_input_coverage_when_present(
+    cli_group: ClinkrGroup,
+) -> None:
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "review",
+            "run",
+            REVIEW_KEY,
+            "--model",
+            "sonnet",
+            "--format",
+            "json",
+        ],
+        obj=_context(input_coverage=_input_coverage()),
+    )
+
+    assert result.exit_code == 0, result.output
+    output = json.loads(result.stdout)
+    coverage = output["data"]["input_coverage"]
+    assert coverage["changed_path_count"] == 1
+    assert coverage["included_file_count"] == 1
+    assert coverage["omitted_file_count"] == 0
 
 
 def test_review_run_json_output_for_harness_failure_is_clinkr_failure(

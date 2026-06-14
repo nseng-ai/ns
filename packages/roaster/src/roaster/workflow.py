@@ -80,6 +80,7 @@ def run_review_by_key(
         base_ref=local_diff.base_ref,
         payload=execution_response.payload,
         usage=execution_response.usage,
+        input_coverage=execution_response.input_coverage,
     )
 
 

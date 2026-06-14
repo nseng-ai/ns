@@ -16,6 +16,7 @@ from roaster.models import (
     ModelNotSupportedByHarness,
     ResolvedReviewRunPlan,
     ReviewExecutionResponse,
+    ReviewInputCoverage,
     RoasterFailure,
 )
 from roaster.workflow import run_review_by_key
@@ -140,6 +141,29 @@ def test_run_review_by_key_reports_resolved_run_plan_before_execution() -> None:
             changed_path_count=1,
         )
     ]
+
+
+def test_run_review_by_key_carries_input_coverage_from_harness_response() -> None:
+    coverage = ReviewInputCoverage(
+        full_diff_estimated_tokens=42,
+        prompt_diff_token_cap=120_000,
+        prompt_diff_file_token_cap=40_000,
+        changed_path_count=1,
+        included_file_count=1,
+        omitted_file_count=0,
+        omitted_files=(),
+    )
+    fakes = _fakes(
+        default_response=ReviewExecutionResponse(
+            payload=FindingsReview(findings=()),
+            input_coverage=coverage,
+        )
+    )
+
+    result = _run(fakes=fakes)
+
+    assert isinstance(result, LocalReviewResult)
+    assert result.input_coverage == coverage
 
 
 def test_post_metadata_harness_failure_propagates_roaster_failure() -> None:

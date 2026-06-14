@@ -110,6 +110,8 @@ jobs:
 
           uv run roaster exec format-findings-comment \
             --inline-result-file "$inline_result_file" \
+            --review-name "$REVIEW_KEY" \
+            --base-ref "$BASE_REF" \
             < "$roaster_output_file" \
             | uv run roaster exec post-findings-comment \
                 --pr-number "$PR_NUMBER" \

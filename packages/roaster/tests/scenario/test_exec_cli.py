@@ -166,6 +166,25 @@ def test_format_findings_comment_renders_empty_findings(cli_group: ClinkrGroup) 
     assert "| Severity |" not in result.output
 
 
+def test_format_findings_comment_renders_partial_input_coverage(
+    cli_group: ClinkrGroup,
+) -> None:
+    payload = _findings_payload([], input_coverage=_input_coverage_payload(omitted=True))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_group,
+        ["exec", "format-findings-comment"],
+        input=json.dumps(payload),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "### Review input coverage" in result.output
+    assert "`large.json`" in result.output
+    assert "file exceeds cap" in result.output
+    assert "No findings in the reviewed bounded input" in result.output
+
+
 def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -> None:
     payload = {
         "exit_code": 2,
@@ -185,6 +204,34 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "- **Error type:** `harness_binary_missing`" in result.output
     assert "- **Message:** claude not on PATH" in result.output
     assert "Post-only steelthread" not in result.output
+
+
+def test_format_findings_comment_uses_failure_identity_fallbacks(
+    cli_group: ClinkrGroup,
+) -> None:
+    payload = {
+        "exit_code": 2,
+        "error_type": "prompt_too_long",
+        "message": "request exceeds context window",
+    }
+
+    result = CliRunner().invoke(
+        cli_group,
+        [
+            "exec",
+            "format-findings-comment",
+            "--review-name",
+            "dignified-python",
+            "--base-ref",
+            "master",
+        ],
+        input=json.dumps(payload),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("<!-- roaster:dignified-python -->\n")
+    assert "## roaster · `dignified-python`" in result.output
+    assert "**Roaster failed** against base `master`. ⚠️" in result.output
 
 
 def test_format_findings_comment_fails_on_malformed_stdin(
@@ -228,16 +275,48 @@ def test_exec_help_lists_post_inline_findings(cli_group: ClinkrGroup) -> None:
     assert "post-inline-findings" in result.output
 
 
-def _findings_payload(findings: list[dict[str, object]]) -> dict[str, object]:
+def _input_coverage_payload(*, omitted: bool = False) -> dict[str, object]:
+    omitted_files: list[dict[str, object]] = []
+    if omitted:
+        omitted_files.append(
+            {
+                "path": "large.json",
+                "change_kind": "modified",
+                "byte_size": 100_000,
+                "estimated_tokens": 25_000,
+                "added_lines": 50,
+                "removed_lines": 10,
+                "reason": "file_exceeds_cap",
+            }
+        )
+    return {
+        "full_diff_estimated_tokens": 150_000 if omitted else 42,
+        "prompt_diff_token_cap": 120_000,
+        "prompt_diff_file_token_cap": 40_000,
+        "changed_path_count": 2 if omitted else 1,
+        "included_file_count": 1,
+        "omitted_file_count": 1 if omitted else 0,
+        "omitted_files": omitted_files,
+    }
+
+
+def _findings_payload(
+    findings: list[dict[str, object]],
+    *,
+    input_coverage: dict[str, object] | None = None,
+) -> dict[str, object]:
+    data: dict[str, object] = {
+        "review_name": "dignified-python",
+        "base_ref": "master",
+        "format": "findings",
+        "count": len(findings),
+        "findings": findings,
+    }
+    if input_coverage is not None:
+        data["input_coverage"] = input_coverage
     return {
         "exit_code": 0,
-        "data": {
-            "review_name": "dignified-python",
-            "base_ref": "master",
-            "format": "findings",
-            "count": len(findings),
-            "findings": findings,
-        },
+        "data": data,
     }
 
 

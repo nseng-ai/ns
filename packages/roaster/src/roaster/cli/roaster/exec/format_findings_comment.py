@@ -33,9 +33,23 @@ from roaster.findings_publication import (
     type=click.Path(path_type=Path, exists=True, dir_okay=False, readable=True),
     help="JSON result file from roaster exec post-inline-findings.",
 )
-def format_findings_comment_command(inline_result_file: Path | None) -> None:
+@click.option(
+    "--review-name",
+    default="unknown",
+    help="Fallback review name for failure envelopes.",
+)
+@click.option("--base-ref", default="unknown", help="Fallback base ref for failure envelopes.")
+def format_findings_comment_command(
+    inline_result_file: Path | None,
+    review_name: str,
+    base_ref: str,
+) -> None:
     raw = sys.stdin.read()
-    payload = parse_findings_payload_result(raw)
+    payload = parse_findings_payload_result(
+        raw,
+        fallback_review_name=review_name,
+        fallback_base_ref=base_ref,
+    )
     if isinstance(payload, FindingsPayloadParseError):
         click.echo(f"format-findings-comment: {payload.message}", err=True)
         sys.exit(1)
