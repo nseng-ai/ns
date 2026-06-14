@@ -8,7 +8,7 @@ describe("FakeBrmemGateway", () => {
 			currentBranch: "feat/x",
 			entries: [
 				{ namespace: "base", branch: "feat/x", key: "scratch", content: "base content" },
-				{ namespace: "notes", branch: "feat/x", key: "plan/body.md", content: "named content" },
+				{ namespace: "notes", branch: "feat/x", key: "plan/body.md", content: "named content", updatedAt: "2026-02-03T04:05:06+00:00" },
 			],
 		});
 		expect(await gateway.currentBranch()).toEqual({ type: "ok", value: "feat/x" });
@@ -17,6 +17,11 @@ describe("FakeBrmemGateway", () => {
 			value: { content: "base content" },
 		});
 		expect(await gateway.getEntry({ namespace: "notes", branch: "feat/x", key: "missing" })).toEqual({ type: "missing" });
+		const listed = await gateway.listEntries({ namespace: "notes", branch: "feat/x" });
+		if (listed.type !== "ok") throw new Error("unexpected error");
+		expect(listed.value.map((entry) => ({ key: entry.key, updatedAt: entry.updatedAt }))).toEqual([
+			{ key: "plan/body.md", updatedAt: "2026-02-03T04:05:06+00:00" },
+		]);
 	});
 
 	it("lists entries sorted by Base Namespace, namespace, key, and branch", async () => {
@@ -71,38 +76,6 @@ describe("FakeBrmemGateway", () => {
 		expect(await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "resume.md", at: "unknown" })).toEqual({ type: "missing" });
 	});
 
-	it("resolves per-Entry update timestamps", async () => {
-		const gateway = new FakeBrmemGateway({
-			entries: [{ namespace: "handoff", branch: "feat/x", key: "seed.md", content: "seed", updatedAt: "2026-02-03T04:05:06+00:00" }],
-		});
-		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "seed.md" })).toEqual({
-			type: "found",
-			value: "2026-02-03T04:05:06+00:00",
-		});
-		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "missing.md" })).toEqual({ type: "missing" });
-	});
-
-	it("assigns deterministic sequential update timestamps to puts", async () => {
-		const gateway = new FakeBrmemGateway();
-		await gateway.putEntry({ namespace: "handoff", branch: "feat/x", key: "a.md", content: "A" });
-		await gateway.putEntry({ namespace: "handoff", branch: "feat/x", key: "b.md", content: "B" });
-		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "a.md" })).toEqual({
-			type: "found",
-			value: "2026-01-01T00:00:01+00:00",
-		});
-		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "b.md" })).toEqual({
-			type: "found",
-			value: "2026-01-01T00:00:02+00:00",
-		});
-	});
-
-	it("returns configured entryUpdatedAt errors", async () => {
-		const gateway = new FakeBrmemGateway({ operationErrors: { entryUpdatedAt: { code: "metadata_failed", message: "metadata unavailable" } } });
-		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "a.md" })).toEqual({
-			type: "error",
-			error: { code: "metadata_failed", message: "metadata unavailable" },
-		});
-	});
 
 	it("copies snapshots and key globs with conflict behavior", async () => {
 		const gateway = new FakeBrmemGateway({

@@ -1,4 +1,4 @@
-import { FakeBrmemGateway, type BrmemOptionalResult } from "@asdl/brmem";
+import { FakeBrmemGateway } from "@asdl/brmem";
 import { describe, expect, test } from "vitest";
 
 import { parseJsonOutput, putHandoffEntry, runScenario } from "../support/run-scenario.ts";
@@ -96,22 +96,6 @@ describe("handoff list", () => {
 		]);
 	});
 
-	test("fails when included timestamp is unavailable but skips deleted timestamps in active-only lists", async () => {
-		const gateway = new MissingUpdatedAtGateway(["feat/deleted"]);
-		await putHandoffEntry(gateway, { key: "live.md", branch: "feat/live", content: "live" });
-		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
-
-		const active = runScenario(["list", "--all", "--format", "json"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/live"] } });
-		expect(await active.exit).toBe(0);
-		expect((parseJsonOutput(active) as { data: { handoffs: { slug: string }[] } }).data.handoffs.map((handoff) => handoff.slug)).toEqual(["live"]);
-
-		const all = runScenario(["list", "--all", "--include-deleted", "--format", "json"], {
-			brmem: gateway,
-			gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/live"] },
-		});
-		expect(await all.exit).toBe(2);
-		expect(parseJsonOutput(all)).toMatchObject({ error_type: "handoff_updated_at_unavailable" });
-	});
 
 	test("detached head and branch/all conflict are durable failures", async () => {
 		const detached = runScenario(["list", "--include-deleted", "--format", "json"], { gitState: { currentBranch: { type: "detached" } } });
@@ -123,17 +107,3 @@ describe("handoff list", () => {
 		expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "branch_and_all_conflict", message: "--branch and --all are mutually exclusive." });
 	});
 });
-
-class MissingUpdatedAtGateway extends FakeBrmemGateway {
-	private readonly branches: ReadonlySet<string>;
-
-	constructor(branches: readonly string[]) {
-		super();
-		this.branches = new Set(branches);
-	}
-
-	override async entryUpdatedAt(options: { namespace: string; key: string; branch: string }): Promise<BrmemOptionalResult<string>> {
-		if (this.branches.has(options.branch)) return { type: "missing" };
-		return await super.entryUpdatedAt(options);
-	}
-}

@@ -10,6 +10,7 @@ import type {
 	DeleteEntryResult,
 	EntryContent,
 	EntryDiagnostic,
+	ListedEntry,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
@@ -52,7 +53,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 
 	async listEntries(options: { namespace: string; key?: string | undefined; branch?: string | undefined }) {
 		const validation = validateNamespaceName(options.namespace);
-		if (validation.type === "invalid") return brmemError<readonly EntryRef[]>("invalid_namespace", formatInvalid("namespace", options.namespace, validation.reason));
+		if (validation.type === "invalid") return brmemError<readonly ListedEntry[]>("invalid_namespace", formatInvalid("namespace", options.namespace, validation.reason));
 		return await this.collectEntries({ allNamespaces: false, namespace: options.namespace, key: options.key, branch: options.branch });
 	}
 
@@ -88,25 +89,10 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const [headSha = "", headDate = ""] = log.stdout.trim().split("\t");
 		return brmemFound({
 			headSha,
-			headDate,
+			headDate: normalizeGitIsoTimestamp(headDate),
 			blobSha: blobSha.stdout.trim(),
 			sizeBytes: Number(size.stdout.trim()),
 		});
-	}
-
-	async entryUpdatedAt(options: { namespace: string; key: string; branch: string }) {
-		const validation = await this.validateEntryAddress(options);
-		if (validation.type === "error") return brmemOptionalError<string>(validation.error.code, validation.error.message, validation.error.displayCommand);
-		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
-		const target = `${snapshotRef}:${options.key}`;
-		// Keep the existence probe here so callers do not need a separate pre-check before asking for per-key update metadata.
-		const existence = await runGit(this.commands, ["cat-file", "-e", target], { cwd: this.cwd });
-		if (existence.code !== 0) return brmemMissing<string>();
-		const log = await runGit(this.commands, ["log", "-1", "--format=%cI", snapshotRef, "--", options.key], { cwd: this.cwd });
-		if (log.code !== 0) return brmemOptionalError<string>("git_log_failed", commandMessage("Could not resolve Entry update metadata.", log), log.displayCommand);
-		const updatedAt = log.stdout.trim();
-		if (updatedAt.length === 0) return brmemOptionalError<string>("entry_metadata_unavailable", "Could not resolve Entry update metadata.", log.displayCommand);
-		return brmemFound(updatedAt);
 	}
 
 	async putEntry(options: { namespace: string; key: string; branch: string; content: string }): Promise<BrmemResult<PutEntryResult>> {
@@ -205,7 +191,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		namespace?: string | undefined;
 		key?: string | undefined;
 		branch?: string | undefined;
-	}): Promise<BrmemResult<readonly EntryRef[]>> {
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		if (options.key !== undefined) {
 			const keyValidation = validateEntryKey(options.key);
 			if (keyValidation.type === "invalid") return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
@@ -216,7 +202,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		}
 		const result = await runGit(this.commands, ["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()], { cwd: this.cwd });
 		if (result.code !== 0) return brmemOk([]);
-		const entries: EntryRef[] = [];
+		const entries: ListedEntry[] = [];
 		for (const line of result.stdout.split("\n")) {
 			const snapshotRef = line.trim();
 			if (snapshotRef.length === 0) continue;
@@ -224,9 +210,16 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			if (parsed === undefined) continue;
 			if (!options.allNamespaces && parsed.namespace !== options.namespace) continue;
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
-			for (const path of (await enumerateTreeEntries(this.commands, this.cwd, snapshotRef)).keys()) {
+			const treeEntries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+			const updatedAtByPath = await enumerateEntryUpdatedAt(this.commands, this.cwd, snapshotRef);
+			if (updatedAtByPath.type === "error") return updatedAtByPath;
+			for (const path of treeEntries.keys()) {
 				if (options.key !== undefined && path !== options.key) continue;
-				entries.push(mustEntryRef(parsed.namespace, path, parsed.branch));
+				const updatedAt = updatedAtByPath.value.get(path);
+				if (updatedAt === undefined) {
+					return brmemError("entry_metadata_unavailable", `Could not resolve Entry update metadata for ${JSON.stringify(path)}.`);
+				}
+				entries.push({ ...mustEntryRef(parsed.namespace, path, parsed.branch), updatedAt });
 			}
 		}
 		return brmemOk(entries.sort(compareEntries));
@@ -330,6 +323,35 @@ async function enumerateTreeEntries(commands: CommandExecApi, cwd: string, refOr
 		entries.set(path, blobSha);
 	}
 	return entries;
+}
+
+async function enumerateEntryUpdatedAt(commands: CommandExecApi, cwd: string, snapshotRef: string): Promise<BrmemResult<Map<string, string>>> {
+	const result = await runGit(commands, ["log", "--format=%cI", "--name-status", snapshotRef], { cwd });
+	if (result.code !== 0) return gitError("git_log_failed", "Could not resolve Entry update metadata.", result);
+	return brmemOk(parseEntryUpdateLog(result.stdout));
+}
+
+function parseEntryUpdateLog(stdout: string): Map<string, string> {
+	const updatedAtByPath = new Map<string, string>();
+	let currentUpdatedAt: string | undefined;
+	for (const rawLine of stdout.split("\n")) {
+		const line = rawLine.trimEnd();
+		if (line.length === 0) continue;
+		if (!line.includes("\t")) {
+			currentUpdatedAt = line;
+			continue;
+		}
+		if (currentUpdatedAt === undefined) continue;
+		const columns = line.split("\t");
+		const path = columns[columns.length - 1];
+		if (path === undefined || path.length === 0) continue;
+		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, normalizeGitIsoTimestamp(currentUpdatedAt));
+	}
+	return updatedAtByPath;
+}
+
+function normalizeGitIsoTimestamp(timestamp: string): string {
+	return timestamp.endsWith("Z") ? `${timestamp.slice(0, -1)}+00:00` : timestamp;
 }
 
 function formatInvalid(label: string, value: string, reason: string): string {

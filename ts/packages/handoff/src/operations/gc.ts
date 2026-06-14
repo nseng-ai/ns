@@ -76,7 +76,7 @@ export function renderGc(result: GcResult): string {
 async function loadAllSummaries(ctx: HandoffCliContext) {
 	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE });
 	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to load handoffs");
-	return await collectHandoffSummaries({ entries: entries.value, brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd, includeDeleted: true });
+	return await collectHandoffSummaries({ entries: entries.value, git: ctx.git, cwd: ctx.cwd, includeDeleted: true });
 }
 
 function previewResult(summaries: readonly HandoffSummary[], dryRun: boolean): GcResult {

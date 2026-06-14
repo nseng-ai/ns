@@ -1,4 +1,4 @@
-import type { BrmemGateway, EntryRef } from "@asdl/brmem";
+import type { ListedEntry } from "@asdl/brmem";
 import { failure, type ClinkrExit } from "@asdl/clinkr";
 import type { GitGateway } from "@asdl/core/git";
 import { z } from "zod";
@@ -19,8 +19,7 @@ export const handoffSummarySchema = z.object({
 export type HandoffSummary = z.infer<typeof handoffSummarySchema>;
 
 export interface CollectHandoffSummariesOptions {
-	entries: readonly EntryRef[];
-	brmem: BrmemGateway;
+	entries: readonly ListedEntry[];
 	git: GitGateway;
 	cwd: string;
 	includeDeleted: boolean;
@@ -30,7 +29,6 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 	const handoffs: { summary: HandoffSummary; updatedTime: number }[] = [];
 	const branchStates = new Map<string, BranchState>();
 	const seen = new Set<string>();
-	// Keep update-time lookups serial so the first error is deterministic; the real fix is for brmem.listEntries to return updatedAt and remove this N+1.
 	for (const entry of options.entries) {
 		if (entry.namespace !== HANDOFF_NAMESPACE || !isHandoffKey(entry.key)) continue;
 		const identity = `${entry.branch}\0${entry.key}`;
@@ -42,21 +40,6 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 		if (state === "deleted" && !options.includeDeleted) continue;
 
 		const slug = handoffSlugFromKey(entry.key);
-		const updatedAt = await options.brmem.entryUpdatedAt({ namespace: entry.namespace, key: entry.key, branch: entry.branch });
-		if (updatedAt.type === "error") return failure(updatedAt.error.code, updatedAt.error.message);
-		if (updatedAt.type === "missing") {
-			return failure(
-				"handoff_updated_at_unavailable",
-				`Cannot determine updated timestamp for handoff ${JSON.stringify(slug)} on branch ${JSON.stringify(entry.branch)}.`,
-			);
-		}
-		const parsed = Date.parse(updatedAt.value);
-		if (Number.isNaN(parsed)) {
-			return failure(
-				"handoff_updated_at_unavailable",
-				`Cannot determine updated timestamp for handoff ${JSON.stringify(slug)} on branch ${JSON.stringify(entry.branch)}: gateway returned invalid timestamp ${JSON.stringify(updatedAt.value)}.`,
-			);
-		}
 		handoffs.push({
 			summary: {
 				branch: entry.branch,
@@ -64,9 +47,9 @@ export async function collectHandoffSummaries(options: CollectHandoffSummariesOp
 				slug,
 				key: entry.key,
 				entry_locator: entry.entryLocator,
-				updated_at: updatedAt.value,
+				updated_at: entry.updatedAt,
 			},
-			updatedTime: parsed,
+			updatedTime: Date.parse(entry.updatedAt),
 		});
 	}
 

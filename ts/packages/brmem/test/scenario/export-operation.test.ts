@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import { brmemMissing, brmemOk } from "../../src/contracts.ts";
 import { FakeBrmemGateway } from "../../src/fake-gateway.ts";
-import type { EntryContent, EntryDiagnostic } from "../../src/gateway.ts";
+import type { EntryContent, EntryDiagnostic, ListedEntry } from "../../src/gateway.ts";
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
-import { mustEntryRef, type EntryRef } from "../../src/ref-layout.ts";
+import { mustEntryRef } from "../../src/ref-layout.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 import { createTempGitRepo } from "../support/temp-git-repo.ts";
 
@@ -355,8 +355,8 @@ class DuplicateListGateway extends FakeBrmemGateway {
 	}
 
 	override async listEntries(_options: { namespace: string; key?: string | undefined; branch?: string | undefined }) {
-		const entry = mustEntryRef("base", "same.md", "main");
-		return brmemOk<readonly EntryRef[]>([entry, entry]);
+		const entry = { ...mustEntryRef("base", "same.md", "main"), updatedAt: "2026-01-01T00:00:01+00:00" };
+		return brmemOk<readonly ListedEntry[]>([entry, entry]);
 	}
 }
 
