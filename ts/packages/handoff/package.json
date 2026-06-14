@@ -1,0 +1,22 @@
+{
+  "name": "@asdl/handoff",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "bin": {
+    "handoff": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/handoff/test"
+  },
+  "dependencies": {
+    "@asdl/brmem": "workspace:*",
+    "@asdl/clinkr": "workspace:*",
+    "@asdl/core": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

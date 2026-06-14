@@ -15,39 +15,39 @@
   - Policy: direct execution after preview. Ask before changing machine-envelope behavior, failure exit codes, raw command behavior, or unrelated Clinkr surface semantics.
   - Evidence: local branch diff against `add-handoff-typescript-port-objective`; PR #1504 corroborates the same file set; `pnpm --dir ts/packages/clinkr run check`; `pnpm --dir ts/packages/clinkr run test`; `pnpm --dir ts run check`; `pnpm --dir ts run test`; `git diff --check`.
 
-- [ ] Scaffold `ts/packages/handoff` and port `handoff list` as the first vertical slice.
+- [x] Scaffold `ts/packages/handoff` and port `handoff list` as the first vertical slice.
   - Package identity: npm/workspace package `@asdl/handoff`, bin `handoff`, version `0.1.0`, root export `./src/index.ts`, Node ESM, strict TS, Vitest, dependencies on `@asdl/clinkr`, `@asdl/core`, `@asdl/brmem`, and `zod`.
   - Initial files: `package.json`, `tsconfig.json`, `README.md`, `CONTEXT.md`, `src/cli.ts`, `src/context.ts`, `src/contracts.ts`, `src/identity.ts`, `src/inventory.ts`, `src/brmem-gateway.ts`, `src/real-brmem-cli-gateway.ts`, `src/fake-brmem-gateway.ts`, `src/operations/list.ts`, `src/operations/shared.ts`, `src/index.ts`, and focused tests under `test/scenario`, `test/gateways`, and `test/support`.
   - CLI runtime: `handoff --runtime` should print `runtime: typescript` and `entry_point: @asdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts`.
   - `list` must preserve `--branch`, `--all`, `--include-deleted`, JSON fields, markdown table rows, current-branch resolution, deleted-branch filtering, namespace/key filtering, and sorting.
   - Policy: direct execution after preview. Ask before changing `--all` to `--all-branches`, changing `branch_state`, changing JSON fields, or dropping markdown output.
-  - Evidence: scenario tests ported from Python for help/version/runtime/list; fake gateway tests; limited real adapter smoke; `pnpm --dir ts/packages/handoff run check`; `pnpm --dir ts/packages/handoff run test`; broader TS checks.
+  - Evidence: TypeScript package files under `ts/packages/handoff/**`; scenario tests for help/version/runtime/list and exact markdown sorting; fake gateway coverage; validation passed with `pnpm --dir ts/packages/handoff run check`, `pnpm --dir ts/packages/handoff run test`, `pnpm --dir ts run check`, `pnpm --dir ts run test`, and `just`.
 
-- [ ] Port `handoff delete`.
+- [x] Port `handoff delete`.
   - Preserve command shape: `handoff delete [--branch <branch>] [-f|--force] <slug>`.
   - Preserve slug validation: non-empty slug, no `.md` suffix, no `/`, generated Handoff Key `<slug>.md`, Branch Memory Entry Key validation through public `@asdl/brmem` helpers.
   - Preserve branch behavior: explicit `--branch` works in detached HEAD; omitted branch uses current branch; detached HEAD error says to pass `--branch <branch>`.
   - Preserve confirmation behavior: prompt on stderr when not forced; `y`/`yes` deletes; empty/`n`/`no` cancels; invalid input repeats; JSON stdout remains machine-readable.
   - Preserve JSON fields: `branch`, `slug`, `key`, `entry_locator`, `deleted`, `cancelled`, `commit`.
   - Policy: direct execution after preview with fake and throwaway-repo tests. Ask before changing prompt text/stream semantics, force behavior, slug rules, or missing-handoff error type.
-  - Evidence: scenario tests ported from Python delete cases; real smoke using TS `brmem put`, TS `handoff delete`, and TS `brmem check`; targeted TS package checks/tests.
+  - Evidence: TypeScript `delete` operation and scenario tests cover force, explicit deleted branch, interactive accept/decline with JSON stdout separation, slug/branch validation, not-found, and detached-head behavior; validation passed with focused package gates, TypeScript workspace gates, and `just`.
 
-- [ ] Port `handoff gc`.
+- [x] Port `handoff gc`.
   - Preserve command shape: `handoff gc [--dry-run] [-f|--force]`.
   - Preserve `--dry-run`/`--force` conflict with error type `conflicting_flags`.
   - Preserve actions: `kept_active`, `would_delete`, `deleted`, `error`.
   - Preserve count fields: `would_delete_count`, `deleted_count`, `kept_count`, `error_count`, `dry_run`, `cancelled`.
   - Preserve interactive behavior: preview and prompt on stderr under JSON mode; no prompt when no candidates; declined confirmation returns success with `cancelled: true` and no deletion.
   - Policy: direct execution after preview with fake and throwaway-repo tests. Ask before changing candidate classification, action names, count semantics, or confirmation behavior.
-  - Evidence: scenario tests ported from Python gc cases; real smoke with one active-branch handoff and one deleted-branch handoff; targeted TS package checks/tests.
+  - Evidence: TypeScript `gc` operation and scenario tests cover dry-run, force deletion, interactive accept/decline with JSON stdout separation, no-candidate behavior, and `--dry-run`/`--force` conflict; validation passed with focused package gates, TypeScript workspace gates, and `just`.
 
-- [ ] Cut over public shim, install recipe, skills, and docs to the TypeScript default.
+- [x] Cut over public shim, install recipe, skills, and docs to the TypeScript default.
   - Add `ts/packages/handoff/scripts/handoff-shim`, modeled on `ts/packages/brmem/scripts/brmem-shim`: inside an asdl checkout, run enclosing checkout source; outside, run baked canonical checkout; require `ts/node_modules`; fail clearly with `just ts-install`, `just install-handoff`, or `just install-tools` instructions.
   - Add `just install-handoff` through the shared `_install-ts-shim` helper.
   - Update `just install-tools` to install TypeScript `handoff` shim instead of uv-installing Python `packages/asdl-handoff`, while keeping Python package present until deletion.
   - Refresh README/skills/docs so public install/runtime instructions point to the TypeScript path. Keep command snippets stable unless inventory proves they were stale.
   - Policy: direct execution after preview. Ask before changing the accepted run-from-source distribution model, publishing to npm/PyPI, or changing skill create/pickup workflow semantics.
-  - Evidence: wrapper tests; manual `just install-handoff`; `handoff --runtime`; `handoff --help`; `handoff list --format json`; focused TS validation; dprint validation for docs.
+  - Evidence: `ts/packages/handoff/scripts/handoff-shim`; wrapper tests; `just install-handoff`; bare `handoff --runtime` reports TypeScript after removing a stale project-venv console script; `handoff --help`; `handoff list --format json`; docs/context updates; focused TS validation; dprint validation; full `just`.
 
 - [ ] Retire the Python fallback and remove the `asdl handoff` plugin path.
   - Gate on complete TypeScript operation parity, real shim evidence, docs/skills pointing to TS, and explicit plugin-retirement decision.

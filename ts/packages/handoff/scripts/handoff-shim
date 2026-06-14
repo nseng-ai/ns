@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# handoff — runs the asdl handoff TypeScript CLI from source.
+set -euo pipefail
+
+canonical_checkout="@@ASDL_CANONICAL_CHECKOUT@@"
+cli_rel_path="ts/packages/handoff/src/cli.ts"
+
+run_checkout() {
+  local checkout="$1"
+  shift
+  if [[ ! -d "$checkout/ts/node_modules" ]]; then
+    echo "handoff: $checkout has no ts/node_modules; run 'just ts-install' there first" >&2
+    exit 2
+  fi
+  exec node "$checkout/$cli_rel_path" "$@"
+}
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$repo_root" && -f "$repo_root/$cli_rel_path" ]]; then
+  run_checkout "$repo_root" "$@"
+fi
+
+if [[ -f "$canonical_checkout/$cli_rel_path" ]]; then
+  run_checkout "$canonical_checkout" "$@"
+fi
+
+echo "handoff: no asdl checkout found (cwd is not inside an asdl checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an asdl checkout with: just install-handoff or just install-tools" >&2
+exit 2

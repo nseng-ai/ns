@@ -94,7 +94,7 @@ Assumptions:
 - Current create/pickup behavior is intentionally skill/Pi-owned. The TypeScript package does not need new create/pickup CLI commands to complete the port.
 - The TypeScript `brmem` CLI is now the correct storage boundary for handoff; direct native `@asdl/brmem` imports are optional and should be introduced only where they simplify package-local code without violating public package exports.
 - `@asdl/core` Git helpers are sufficient for ordinary branch facts such as current branch and local branch presence; per-entry Branch Memory updated timestamps may still need package-local read-only git plumbing.
-- The run-from-source shim distribution model accepted for `pr-address` and `brmem` is adequate for `handoff`.
+- The run-from-source shim distribution model accepted for `pr-address` and `brmem` is adequate for `handoff`; implementation evidence showed `just install-handoff` must also remove a stale project-venv `handoff` console script so the standalone command resolves to the TypeScript shim in activated dev environments.
 - TypeScript Clinkr's Python-parity machine envelope remains the correct v1 machine contract for migrated CLIs.
 
 Risks:
