@@ -1,6 +1,8 @@
 import {
 	brmemCommandFailure,
+	checkBrmemEntry,
 	parseBrmemPutData,
+	putBrmemEntryFromFile,
 	runAvailableBrmemCommand,
 	type BrmemCommandErrorInfo,
 	type BrmemCommandResult,
@@ -66,62 +68,26 @@ export class RealBranchContextBrmemGateway implements BranchContextBrmemGateway 
 	}
 
 	async attachmentPresence(params: BrmemAttachmentParams): Promise<BrmemAttachmentPresenceResult> {
-		const run = await this.runBrmem(params, ["check", params.key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", params.branch, "--format", "json"]);
-		if (!run.ok) return { type: "error", error: run.error };
-		if (run.value.result.killed) {
-			return { type: "error", error: failure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
-		}
-		if (run.value.result.code === 0) {
-			return { type: "present", displayCommand: run.value.displayCommand };
-		}
-		if (run.value.result.code === 1) {
-			return { type: "absent" };
-		}
-		return { type: "error", error: failure("brmem_check_failed", "brmem check failed", run.value) };
+		return checkBrmemEntry({
+			gateway: this.pi,
+			cwd: params.cwd,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: params.key,
+			branch: params.branch,
+			signal: params.signal,
+		});
 	}
 
 	async attachPlan(params: BrmemAttachPlanParams): Promise<BrmemResult<BrmemPutData>> {
-		const run = await this.runBrmem(params, [
-			"put",
-			params.key,
-			"--namespace",
-			BRANCH_CONTEXT_NAMESPACE,
-			"--branch",
-			params.branch,
-			"--file",
-			params.sourceFile,
-			"--format",
-			"json",
-		]);
-		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return { ok: false, error: failure("brmem_put_failed", "brmem put failed", run.value) };
-		}
-
-		try {
-			const data = parseBrmemPutData(run.value.result.stdout);
-			const mismatch = validatePutData(data, params);
-			if (mismatch !== undefined) {
-				return {
-					ok: false,
-					error: {
-						code: "brmem_unexpected_put_data",
-						message: mismatch.message,
-						displayCommand: run.value.displayCommand,
-					},
-				};
-			}
-			return { ok: true, value: data };
-		} catch (caught) {
-			return {
-				ok: false,
-				error: {
-					code: "brmem_malformed_put",
-					message: caught instanceof Error ? caught.message : String(caught),
-					displayCommand: run.value.displayCommand,
-				},
-			};
-		}
+		return putBrmemEntryFromFile({
+			gateway: this.pi,
+			cwd: params.cwd,
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: params.key,
+			branch: params.branch,
+			sourceFile: params.sourceFile,
+			signal: params.signal,
+		});
 	}
 
 	async listAttachedPlans(params: BrmemCwdParams & { branch: string }): Promise<BrmemResult<AttachedPlanEntry[]>> {
@@ -262,17 +228,6 @@ function parseListEntry(
 	}
 
 	return { namespace, key, branch, refName };
-}
-
-function validatePutData(data: BrmemPutData, expected: BrmemAttachPlanParams): Error | undefined {
-	const mismatches = expectedMismatches(
-		{ namespace: data.namespace, key: data.key, branch: data.branch, source_file: data.sourceFile },
-		{ namespace: BRANCH_CONTEXT_NAMESPACE, key: expected.key, branch: expected.branch, source_file: expected.sourceFile },
-	);
-	if (mismatches.length === 0) {
-		return undefined;
-	}
-	return new Error(`Unexpected brmem put JSON data: ${mismatches.join(", ")}.`);
 }
 
 function expectedMismatches(actual: Record<string, string>, expected: Record<string, string>): string[] {
