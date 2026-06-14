@@ -25,6 +25,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Internal PR stack address workflow retrospective](internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
+- [Harness skill/command/prompt invocation mechanics](harness-skill-invocation.md): how Claude Code, Codex, and Pi discover, surface, and gate skills/commands — invocation-control flags, ambient context cost, read roots, and namespacing — input to `areg` command conversion.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 
 Agents should consult this README first, then follow the narrowest relevant link instead of scanning the whole repository.
