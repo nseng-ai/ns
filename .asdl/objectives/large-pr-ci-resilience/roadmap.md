@@ -12,8 +12,8 @@
 - [x] Add roaster preflight budgeting before Claude Code invocation.
   - `roaster.review_budget` now assesses local checkout diffs before harness invocation with `max_changed_paths=300`, `max_diff_tokens=150_000`, and `max_file_diff_tokens=40_000`. Oversized diffs return a typed `LocalReviewFailureResult`, tests assert the fake harness receives no execution request, and harness assembly caps are pinned to the default review budget.
 
-- [~] Make GitHub diff/file discovery large-PR aware.
-  - The roaster review hard-fail path uses the existing local checkout diff gateway in Actions rather than `gh pr diff`, so this implementation avoids GitHub's 300-file diff endpoint for review budgeting. Broader GitHub inventory hardening remains open if another path still depends on PR diff endpoints.
+- [x] Make GitHub diff/file discovery large-PR aware.
+  - Audit found no remaining roaster path that depends on GitHub's 300-file PR diff endpoint. Discovery and review execution use local checkout `git diff`; workflow base-ref lookup uses `gh pr view` metadata only; inline posting uses the paginated Pull Request Files API only when findings exist; budget-failure inline posting no-ops before querying changed files.
 
 - [x] Preserve review identity and base identity through failures and skips.
   - Budget preflight failures and post-metadata harness/runtime failures now use structured negative Clinkr envelopes that carry `review_name`, `model`, `base_ref`, and relevant failure facts into publication instead of collapsing to `roaster:unknown`.
