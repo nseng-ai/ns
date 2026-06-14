@@ -27,6 +27,11 @@ export interface SkillExpansionOptions {
 	readTextFile?: (path: string) => Promise<string>;
 }
 
+export interface SkillPathExpansionOptions extends SkillExpansionOptions {
+	skillName: string;
+	skillPath: string;
+}
+
 export interface SkillPromptTurnHost extends SkillExpansionHost {
 	sendUserMessage(content: string): Promise<void> | void;
 }
@@ -52,6 +57,10 @@ function stripSkillFrontmatter(markdown: string): string {
 	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 }
 
+function buildSkillBlock(skillName: string, skillPath: string, baseDir: string, body: string): string {
+	return `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`;
+}
+
 export async function expandSkillBlock(
 	host: SkillExpansionHost,
 	skillName: string,
@@ -75,7 +84,22 @@ export async function expandSkillBlock(
 		path: skillPath,
 		baseDir,
 		body,
-		block: `<skill name="${skillName}" location="${skillPath}">\nReferences are relative to ${baseDir}.\n\n${body}\n</skill>`,
+		block: buildSkillBlock(skillName, skillPath, baseDir, body),
+	};
+}
+
+export async function expandSkillBlockFromPath(options: SkillPathExpansionOptions): Promise<ExpandedSkillBlock> {
+	const readTextFile = options.readTextFile ?? ((path: string) => readFile(path, "utf8"));
+	const body = stripSkillFrontmatter(await readTextFile(options.skillPath));
+	const baseDir = dirname(options.skillPath);
+
+	return {
+		name: options.skillName,
+		commandName: `direct:${options.skillName}`,
+		path: options.skillPath,
+		baseDir,
+		body,
+		block: buildSkillBlock(options.skillName, options.skillPath, baseDir, body),
 	};
 }
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -301,9 +301,15 @@ def _settings_skills(settings: dict[str, object], settings_path: Path) -> list[s
     value = settings["skills"]
     if not isinstance(value, list):
         raise click.ClickException(f"{settings_path} field 'skills' must be an array of strings.")
-    if not all(isinstance(item, str) for item in value):
-        raise click.ClickException(f"{settings_path} field 'skills' must be an array of strings.")
-    return value
+
+    skills: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise click.ClickException(
+                f"{settings_path} field 'skills' must be an array of strings."
+            )
+        skills.append(item)
+    return skills
 
 
 def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
@@ -318,7 +324,8 @@ def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
         raise click.ClickException(f"{settings_path} exists but is not a file.")
     if settings_path.exists() and not settings_path.resolve().is_relative_to(project_dir):
         raise click.ClickException(
-            f"Pi settings.json at {settings_path} resolves outside {project_dir}; refusing to manage it."
+            f"Pi settings.json at {settings_path} resolves outside {project_dir}; "
+            "refusing to manage it."
         )
 
 
@@ -508,5 +515,7 @@ def list_cmd(ctx: AregContext, path: str) -> None:
     for skill_md in skill_mds:
         skill_name = skill_md.parent.name
         state = read_invoke_only_state(project_dir, skill_name)
-        pi_status = "pi-excluded" if _pi_skill_exclusion_present(project_dir, skill_name) else "pi-visible"
+        pi_status = (
+            "pi-excluded" if _pi_skill_exclusion_present(project_dir, skill_name) else "pi-visible"
+        )
         click.echo(f"{skill_name}\t{_STATUS_LABELS[state.status]}\t{pi_status}")

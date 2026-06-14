@@ -1,10 +1,12 @@
+import { join } from "node:path";
+
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
 
 import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
 import { definePiSurfaceParity } from "./parity.ts";
-import { invokeSkillPromptTurn } from "./skill-expansion.ts";
+import { expandSkillBlockFromPath, invokeSkillPromptTurn } from "./skill-expansion.ts";
 import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
@@ -44,7 +46,6 @@ interface ObjectiveCreateCommandSpec {
 	commandName: typeof OBJECTIVE_CREATE_COMMAND_NAME;
 	skillName: typeof OBJECTIVE_CREATE_SKILL_NAME;
 	description: string;
-	fallbackPrompt: string;
 	actionPrompt: string;
 }
 
@@ -121,9 +122,7 @@ interface CustomCliCommandSpec {
 const OBJECTIVE_CREATE_COMMAND: ObjectiveCreateCommandSpec = {
 	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
 	skillName: OBJECTIVE_CREATE_SKILL_NAME,
-	description: "Invoke objective-create to interview for and create a new Objective.",
-	fallbackPrompt:
-		"The objective-create skill was not found among loaded Pi skills. Follow the repository's Objective creation workflow anyway: create exactly one Objective under .asdl/objectives/<slug>/, require an explicit or confirmed slug before writing, interview before drafting durable content, default to planning-only unless execution policy is explicitly requested, and never overwrite an existing Objective.",
+	description: "Read objective-create backing Markdown to interview for and create a new Objective.",
 	actionPrompt: "Run objective-create with this initial user request:",
 };
 
@@ -204,37 +203,48 @@ async function invokeObjectiveCreateSkill(
 	spec: ObjectiveCreateCommandSpec,
 	rawArgs: string,
 ): Promise<void> {
+	await ctx.waitForIdle();
 	const initialRequest = rawArgs.trim();
-	await invokeSkillPromptTurn({
-		host: pi,
-		ctx,
-		skillName: spec.skillName,
-		successMessage: `Invoking ${spec.skillName}${initialRequest ? " with initial context" : ""}.`,
-		fallbackMessage: `${spec.skillName} skill was not found; using fallback prompt.`,
-		buildPrompt: (skillBlock) => buildObjectiveCreateSkillPrompt(spec, skillBlock, initialRequest),
-	});
+	const skillPath = join(ctx.cwd, "skills", spec.skillName, "SKILL.md");
+	let skillBlock: string;
+	try {
+		skillBlock = (await expandSkillBlockFromPath({ skillName: spec.skillName, skillPath })).block;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`Failed to read ${spec.skillName} backing skill at ${skillPath}: ${message}`);
+	}
+
+	if (ctx.hasUI) {
+		ctx.ui.notify(`Invoking ${spec.skillName}${initialRequest ? " with initial context" : ""}.`, "info");
+	}
+
+	await pi.sendUserMessage(buildObjectiveCreateSkillPrompt(spec, skillBlock, initialRequest));
 }
 
 function buildObjectiveCreateSkillPrompt(
 	spec: ObjectiveCreateCommandSpec,
-	skillBlock: string | undefined,
+	skillBlock: string,
 	initialRequest: string,
 ): string {
 	if (initialRequest === "") {
-		return `${skillBlock ?? spec.fallbackPrompt}
+		return `${skillBlock}
 
 No initial Objective creation request was provided. Start the objective-create interview by asking the first necessary question before writing files.`;
 	}
 
-	return `${skillBlock ?? spec.fallbackPrompt}
+	return `${skillBlock}
 
 ${spec.actionPrompt}
 
-\`\`\`text
-${initialRequest}
-\`\`\`
+${fencedTextBlock(initialRequest)}
 
 Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
+}
+
+function fencedTextBlock(content: string): string {
+	const longestBacktickRun = Math.max(0, ...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0));
+	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
+	return `${fence}text\n${content}\n${fence}`;
 }
 
 async function handleObjectiveCreateCommand(
