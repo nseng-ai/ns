@@ -113,13 +113,13 @@ async function loadStackFeedbackPlanInput(
 	const resolved = await resolveOperationInput({
 		commandName: "stack-feedback-plan",
 		explicitSource: {
-			present: request.payload_json !== undefined || request.payload_file !== undefined || request.prep_reference !== undefined,
+			hasExplicitSource: request.payload_json !== undefined || request.payload_file !== undefined || request.prep_reference !== undefined,
 			description: "payload input (--payload-json/--payload-file/--prep-reference)",
 			resolve: async (stdin) => await loadStackFeedbackPlanInputFromExplicitSources(request, store, stdin),
 		},
 		stdin: { read: ctx.stdin, nonEmptyMode: "inline-json", resolveInlineJson: loadStackFeedbackPlanInputFromInlineText },
 		sessionSource: {
-			selected: false,
+			isSelected: false,
 			description: "latest stack prep and per-PR classifications from the payload session",
 			resolve: async () => await resolveStackFeedbackPlanSessionInput(store),
 		},

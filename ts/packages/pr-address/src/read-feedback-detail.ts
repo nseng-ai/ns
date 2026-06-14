@@ -303,7 +303,7 @@ async function resolveFeedbackSourceChoice(
 		const resolved = await resolveOperationInput<FeedbackSourceChoice>({
 			commandName: "read-feedback-detail",
 			explicitSource: {
-				present: options.payloadPath !== undefined,
+				hasExplicitSource: options.payloadPath !== undefined,
 				description: "--payload-path",
 				resolve: async () => {
 					if (options.payloadPath === undefined) throw new Error("read-feedback-detail payload-path source was selected without payload_path");
@@ -311,7 +311,7 @@ async function resolveFeedbackSourceChoice(
 				},
 			},
 			sessionSource: {
-				selected: options.prNumber !== undefined,
+				isSelected: options.prNumber !== undefined,
 				description: "--pr-number",
 				resolve: async () => {
 					if (options.prNumber === undefined) throw new Error("read-feedback-detail PR-number source was selected without pr_number");
@@ -345,7 +345,7 @@ async function resolveFeedbackSourceChoice(
 	const resolved = await resolveOperationInput<FeedbackSourceChoice>({
 		commandName: "read-feedback-details",
 		explicitSource: {
-			present: selection.payload_path !== undefined,
+			hasExplicitSource: selection.payload_path !== undefined,
 			description: "selection payload_path",
 			resolve: async () => {
 				if (selection.payload_path === undefined) throw new Error("read-feedback-details payload-path source was selected without payload_path");
@@ -353,7 +353,7 @@ async function resolveFeedbackSourceChoice(
 			},
 		},
 		sessionSource: {
-			selected: prNumber !== undefined,
+			isSelected: prNumber !== undefined,
 			description: "selection pr_number or --pr-number",
 			resolve: async () => {
 				if (prNumber === undefined) throw new Error("read-feedback-details PR-number source resolution lost pr_number");

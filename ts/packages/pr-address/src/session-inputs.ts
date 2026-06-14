@@ -50,14 +50,14 @@ export interface ResolvedOperationInput<T> {
 export interface ResolveOperationInputOptions<T> {
 	commandName: string;
 	explicitSource: {
-		present: boolean;
+		hasExplicitSource: boolean;
 		description: string;
 		resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>>;
 	};
 	sessionSource?:
 		| {
 				/** True when a user selected session mode explicitly, e.g. with --pr-number. */
-				selected: boolean;
+				isSelected: boolean;
 				description: string;
 				resolve: () => Promise<OperationResult<T, string>>;
 			}
@@ -76,11 +76,11 @@ export interface ResolveOperationInputOptions<T> {
 }
 
 export async function resolveOperationInput<T>(options: ResolveOperationInputOptions<T>): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	const hasSelectedSessionSource = options.sessionSource?.selected ?? false;
-	if (options.explicitSource.present && hasSelectedSessionSource) {
+	const hasSelectedSessionSource = options.sessionSource?.isSelected ?? false;
+	if (options.explicitSource.hasExplicitSource && hasSelectedSessionSource) {
 		return { type: "error", errorType: "invalid_request", message: options.mixInputMessage ?? defaultMixInputMessage(options) };
 	}
-	if (options.explicitSource.present) return await resolveExplicitOperationInput(options, options.stdin?.read ?? emptyStdin);
+	if (options.explicitSource.hasExplicitSource) return await resolveExplicitOperationInput(options, options.stdin?.read ?? emptyStdin);
 	if (hasSelectedSessionSource) return await resolveSessionOperationInput(options);
 
 	if (options.stdin !== undefined) {
