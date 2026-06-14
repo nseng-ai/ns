@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { handoffKeyFromSlug, HANDOFF_NAMESPACE } from "../identity.ts";
-import { confirmFromStdin, gatewayFailure, handoffEntryLocator, resolveBranch } from "./shared.ts";
+import { confirmFromStdin, gatewayFailure, mustHandoffEntryLocator, resolveBranch } from "./shared.ts";
 
 export const deleteRequestSchema = z.object({
 	slug: z.string().describe("Handoff slug."),
@@ -31,8 +31,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		detachedMessage: "Cannot delete handoff in detached HEAD; pass --branch <branch>.",
 	});
 	if (branch.type !== "resolved") return branch;
-	const locator = handoffEntryLocator(key.value, branch.value);
-	if (locator.type !== "resolved") return locator;
+	const locator = mustHandoffEntryLocator(key.value, branch.value);
 
 	const existing = await ctx.brmem.checkEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.value });
 	if (existing.type === "error") return gatewayFailure(existing.error, "Failed to check handoff");
@@ -44,10 +43,8 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 			stderr: ctx.stderr,
 			prompt: `Delete handoff \`${request.slug}\` on branch \`${branch.value}\`? [y/N]: `,
 		});
-		if (confirmed === "yes") {
-			// Fall through to delete.
-		} else if (confirmed !== "no") return confirmed;
-		else return ok(cancelledResult(request.slug, key.value, branch.value, locator.value));
+		if (confirmed === "no") return ok(cancelledResult(request.slug, key.value, branch.value, locator));
+		if (confirmed !== "yes") return confirmed;
 	}
 
 	const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.value });
@@ -59,7 +56,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		branch: branch.value,
 		slug: request.slug,
 		key: key.value,
-		entry_locator: locator.value,
+		entry_locator: locator,
 		deleted: true,
 		cancelled: false,
 		commit: deleted.value.commitSha,

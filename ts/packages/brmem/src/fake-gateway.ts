@@ -10,6 +10,7 @@ import type {
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
 import { compareEntries, mustEntryRef } from "./ref-layout.ts";
+import { normalizeBrmemTimestamp } from "./timestamps.ts";
 
 export interface FakeEntrySeed {
 	namespace: string;
@@ -175,12 +176,13 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private seedEntry(seed: FakeEntrySeed): void {
 		const snapshot = this.ensureSnapshot(seed.namespace, seed.branch);
 		const commitSha = seed.headSha ?? this.nextSha("commit");
-		const updatedAt = seed.updatedAt ?? seed.headDate ?? this.nextTimestamp();
+		const updatedAt = normalizeBrmemTimestamp(seed.updatedAt ?? seed.headDate ?? this.nextTimestamp());
+		const headDate = normalizeBrmemTimestamp(seed.headDate ?? updatedAt);
 		snapshot.commitSha = commitSha;
 		snapshot.entries.set(seed.key, {
 			content: seed.content,
 			headSha: commitSha,
-			headDate: seed.headDate ?? updatedAt,
+			headDate,
 			blobSha: seed.blobSha ?? this.nextSha("blob"),
 			updatedAt,
 		});
@@ -231,7 +233,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	}
 
 	private nextTimestamp(): string {
-		const value = new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString().replace(".000Z", "+00:00");
+		const value = normalizeBrmemTimestamp(new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString());
 		this.timestampSequence += 1;
 		return value;
 	}

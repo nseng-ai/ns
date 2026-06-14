@@ -2,7 +2,7 @@ import type { ListedEntry } from "@asdl/brmem";
 import { failure, type ClinkrExit } from "@asdl/clinkr";
 import type { GitGateway } from "@asdl/core/git";
 import { z } from "zod";
-import { HANDOFF_NAMESPACE, handoffSlugFromKey, isHandoffKey } from "./identity.ts";
+import { handoffSlugFromKey, isHandoffKey } from "./identity.ts";
 import { resolved, type Resolved } from "./operations/shared.ts";
 
 export const branchStateSchema = z.enum(["active", "deleted"]);
@@ -28,12 +28,8 @@ export interface CollectHandoffSummariesOptions {
 export async function collectHandoffSummaries(options: CollectHandoffSummariesOptions): Promise<Resolved<readonly HandoffSummary[]>> {
 	const handoffs: { summary: HandoffSummary; updatedTime: number }[] = [];
 	const branchStates = new Map<string, BranchState>();
-	const seen = new Set<string>();
 	for (const entry of options.entries) {
-		if (entry.namespace !== HANDOFF_NAMESPACE || !isHandoffKey(entry.key)) continue;
-		const identity = `${entry.branch}\0${entry.key}`;
-		if (seen.has(identity)) continue;
-		seen.add(identity);
+		if (!isHandoffKey(entry.key)) continue;
 
 		const state = await branchState(entry.branch, options.git, options.cwd, branchStates);
 		if (typeof state !== "string") return state;

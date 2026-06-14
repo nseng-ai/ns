@@ -9,6 +9,7 @@ export interface HandoffCliContext {
 	git: GitGateway;
 	brmem: BrmemGateway;
 	stdin: () => Promise<string>;
+	// Interactive prompt/status sink; Clinkr framework stderr is supplied separately through runCli IO.
 	stderr: (text: string) => void;
 }
 

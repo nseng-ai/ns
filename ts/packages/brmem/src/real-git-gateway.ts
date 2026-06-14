@@ -22,6 +22,7 @@ import {
 	snapshotRefPrefixes,
 	type EntryRef,
 } from "./ref-layout.ts";
+import { normalizeBrmemTimestamp } from "./timestamps.ts";
 import { validateBranchName, validateEntryKey, validateKeyGlob, validateNamespaceName } from "./validation.ts";
 
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
@@ -89,7 +90,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const [headSha = "", headDate = ""] = log.stdout.trim().split("\t");
 		return brmemFound({
 			headSha,
-			headDate: normalizeGitIsoTimestamp(headDate),
+			headDate: normalizeBrmemTimestamp(headDate),
 			blobSha: blobSha.stdout.trim(),
 			sizeBytes: Number(size.stdout.trim()),
 		});
@@ -343,15 +344,13 @@ function parseEntryUpdateLog(stdout: string): Map<string, string> {
 		}
 		if (currentUpdatedAt === undefined) continue;
 		const columns = line.split("\t");
+		// Rename lines are Rxxx<TAB>old<TAB>new; the last column is the current path.
+		// Entry Keys reject control characters including tabs, so tab splitting is safe for managed paths.
 		const path = columns[columns.length - 1];
 		if (path === undefined || path.length === 0) continue;
-		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, normalizeGitIsoTimestamp(currentUpdatedAt));
+		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, normalizeBrmemTimestamp(currentUpdatedAt));
 	}
 	return updatedAtByPath;
-}
-
-function normalizeGitIsoTimestamp(timestamp: string): string {
-	return timestamp.endsWith("Z") ? `${timestamp.slice(0, -1)}+00:00` : timestamp;
 }
 
 function formatInvalid(label: string, value: string, reason: string): string {

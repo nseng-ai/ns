@@ -38,9 +38,6 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	};
 	const deps: CliDeps = {
 		context,
-		cwd,
-		env: context.env,
-		stdin: context.stdin,
 		stdout: (text) => stdout.push(text),
 		stderr: stderrWriter,
 	};
