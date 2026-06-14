@@ -363,9 +363,7 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 	pi.on("session_start", (_event, ctx) => {
 		controller.activate(ctx);
 	});
-	pi.on("agent_end", () => {
-		void controller.handleAgentEnd();
-	});
+	pi.on("agent_end", () => controller.handleAgentEnd());
 	pi.on("session_shutdown", () => {
 		controller.stop("shutdown");
 	});
@@ -729,11 +727,7 @@ class PrFeedbackWatchController {
 		this.updateContextFromSnapshot(snapshot.snapshot);
 		await this.initializeRestBaseline(session, snapshot.snapshot);
 		if (shouldDispatchExistingFeedback(options)) {
-			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-			if (dirty && !options.shouldAllowDirty) {
-				this.state = { ...this.state, state: "paused" };
-				this.renderStatus("PR watch: paused dirty tree");
-				notify(ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
+			if (await this.pauseIfWorkingTreeDirty(session)) {
 				this.scheduleNextPoll(session);
 				return;
 			}
@@ -771,6 +765,7 @@ class PrFeedbackWatchController {
 
 	async handleAgentEnd(): Promise<void> {
 		if (this.queuedItems.length === 0) return;
+		const completedQueuedKeys = new Set(this.queuedItems.map((item) => item.key));
 		const session = this.activeSession;
 		if (session === undefined || !this.isActiveSession(session)) return;
 		const snapshot = await this.loadSnapshot(session);
@@ -778,8 +773,16 @@ class PrFeedbackWatchController {
 			this.recordError(snapshot.message);
 			return;
 		}
-		this.baseline(snapshot.snapshot);
+		this.updateContextFromSnapshot(snapshot.snapshot);
 		this.queuedItems = [];
+		const newItems = this.unattemptedActionableItems(snapshot.snapshot, completedQueuedKeys);
+		if (newItems.length > 0) {
+			if (!this.options.shouldAllowDirty && await this.pauseIfWorkingTreeDirty(session, { queuedCount: 0 })) return;
+			this.hasNotifiedDirtyPause = false;
+			await this.dispatchNewItems(session, newItems, snapshot.snapshot);
+			return;
+		}
+		this.baseline(snapshot.snapshot);
 		this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped", queuedCount: 0 };
 		this.renderStatus();
 	}
@@ -887,17 +890,7 @@ class PrFeedbackWatchController {
 			if (!this.state.isEnabled) notify(session.ctx, "No new PR feedback detected.", "info");
 			return;
 		}
-		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-		if (dirty && !this.options.shouldAllowDirty) {
-			this.state = { ...this.state, state: "paused" };
-			this.renderStatus("PR watch: paused dirty tree");
-			if (!this.hasNotifiedDirtyPause) {
-				this.hasNotifiedDirtyPause = true;
-				notify(session.ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
-			}
-			return;
-		}
-		this.hasNotifiedDirtyPause = false;
+		if (await this.pauseIfWorkingTreeDirty(session)) return;
 		this.renderStatus("PR watch: checking changed feedback");
 		await this.pollWithHeavySnapshot(session, options, { reason: "rest_changed", fingerprint: result.fingerprint });
 	}
@@ -939,19 +932,7 @@ class PrFeedbackWatchController {
 			notify(session.ctx, "No new PR feedback detected; current feedback is now baselined.", "info");
 			return;
 		}
-		if (context.reason !== "rest_changed") {
-			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
-			if (dirty && !this.options.shouldAllowDirty) {
-				this.state = { ...this.state, state: "paused" };
-				this.renderStatus("PR watch: paused dirty tree");
-				if (!this.hasNotifiedDirtyPause) {
-					this.hasNotifiedDirtyPause = true;
-					notify(session.ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
-				}
-				return;
-			}
-			this.hasNotifiedDirtyPause = false;
-		}
+		if (context.reason !== "rest_changed" && await this.pauseIfWorkingTreeDirty(session)) return;
 		const newItems = options.existingFeedbackMode === "dispatch"
 			? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
 			: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
@@ -1077,6 +1058,26 @@ class PrFeedbackWatchController {
 				itemKeys: snapshot.ignoredItems.map((ignored) => ignored.item.key),
 			});
 		}
+	}
+
+	private unattemptedActionableItems(snapshot: FeedbackSnapshot, completedQueuedKeys: ReadonlySet<string>): FeedbackItemKey[] {
+		return snapshot.items.filter((item) => !this.attemptedKeys.has(item.key) && !completedQueuedKeys.has(item.key));
+	}
+
+	private async pauseIfWorkingTreeDirty(session: ActiveSession, options: { queuedCount?: number | undefined } = {}): Promise<boolean> {
+		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
+		if (!dirty || this.options.shouldAllowDirty) {
+			this.hasNotifiedDirtyPause = false;
+			return false;
+		}
+		const queuedCountUpdate = options.queuedCount === undefined ? {} : { queuedCount: options.queuedCount };
+		this.state = { ...this.state, ...queuedCountUpdate, state: "paused" };
+		this.renderStatus("PR watch: paused dirty tree");
+		if (!this.hasNotifiedDirtyPause) {
+			this.hasNotifiedDirtyPause = true;
+			notify(session.ctx, "PR feedback watch paused because the working tree is dirty.", "warning");
+		}
+		return true;
 	}
 
 	private async dispatchNewItems(session: ActiveSession, items: readonly FeedbackItemKey[], snapshot: FeedbackSnapshot): Promise<void> {

@@ -160,6 +160,13 @@ function matchesArgs(expected: string[] | ((args: string[]) => boolean), actual:
 	return expected(actual);
 }
 
+async function triggerAgentEnd(pi: FakePi): Promise<void> {
+	const handler = pi.handlers.get("agent_end");
+	expect(handler).toBeDefined();
+	if (handler === undefined) return;
+	await (handler as () => Promise<void> | void)();
+}
+
 function envelope(data: object): string {
 	return JSON.stringify({ exit_code: 0, data });
 }
@@ -437,6 +444,31 @@ describe("pr feedback watch extension", () => {
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
 		expect(pi.userMessages[0]).not.toContain("discussion:90");
+		pi.assertDone();
+	});
+
+	test("agent_end redispatches actionable feedback that arrived while queued", async () => {
+		const pi = new FakePi([
+			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			currentUserStep(),
+			headOidStep(),
+			...restFingerprintSteps(),
+			cleanStep(),
+			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-1"),
+			headOidStep(),
+		]);
+		const ctx = new FakeContext();
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+
+		await triggerAgentEnd(pi);
+
+		expect(pi.userMessages).toHaveLength(2);
+		expect(pi.userMessages[1]).toContain("thread-comment:PRRT_1:11");
+		expect(pi.userMessages[1]).not.toContain("thread-comment:PRRT_1:10");
 		pi.assertDone();
 	});
 
