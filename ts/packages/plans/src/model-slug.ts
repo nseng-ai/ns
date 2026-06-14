@@ -59,7 +59,7 @@ export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Prom
 	const args = buildSlugModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<slug-prompt>"]);
 
-	let retriedKilledResult = false;
+	let hasRetriedKilledResult = false;
 	let attempt = 1;
 	while (true) {
 		const outcome = await runSlugModelAttempt({
@@ -68,14 +68,14 @@ export async function deriveSlugWithModel(input: DeriveSlugWithModelInput): Prom
 			args,
 			displayCommand,
 			attempt,
-			retriedKilledResult,
+			hasRetriedKilledResult,
 		});
 
 		if (outcome.type === "terminal") {
 			return outcome.result;
 		}
 
-		retriedKilledResult = true;
+		hasRetriedKilledResult = true;
 		attempt += 1;
 	}
 }
@@ -86,7 +86,7 @@ interface RunSlugModelAttemptInput {
 	args: string[];
 	displayCommand: string;
 	attempt: number;
-	retriedKilledResult: boolean;
+	hasRetriedKilledResult: boolean;
 }
 
 async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<SlugModelAttemptOutcome> {
@@ -122,7 +122,7 @@ async function runSlugModelAttempt(options: RunSlugModelAttemptInput): Promise<S
 				failure: {
 					lines: [
 						`Pi slug model command failed (${status}).`,
-						...(options.retriedKilledResult ? ["Retried once after a killed/timeout result."] : []),
+						...(options.hasRetriedKilledResult ? ["Retried once after a killed/timeout result."] : []),
 						`Command: ${options.displayCommand}`,
 						formatOutputSection("stdout", result.stdout ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
 						formatOutputSection("stderr", result.stderr ?? "", { maxChars: MAX_ERROR_CHARS, maxLines: 80 }),
