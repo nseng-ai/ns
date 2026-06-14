@@ -202,6 +202,12 @@
       "sourceType": "local",
       "computedHash": "951da9512fbbca554522a6772a37a573cbe9b5e20e6c5dbba86e5bd17c11f208"
     },
+    "opentui": {
+      "source": "msmps/opentui-skill",
+      "sourceType": "github",
+      "skillPath": "skill/opentui/SKILL.md",
+      "computedHash": "2915038bb3297e759f740f9e6bfa885ed80a4a7fe945825f5874b48db9ce0fd2"
+    },
     "pi-grill-ui": {
       "source": "skills/pi-grill-ui",
       "sourceType": "local",

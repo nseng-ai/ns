@@ -1,0 +1,16 @@
+{
+  "name": "sdlcc",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "sdlcc": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdlcc/test",
+    "start": "bun src/cli.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "0.4.1"
+  }
+}
