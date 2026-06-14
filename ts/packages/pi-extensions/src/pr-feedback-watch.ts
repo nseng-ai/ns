@@ -33,7 +33,8 @@ const COMMAND_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 5_000;
 const TOP_LEVEL_BOT_DISCUSSION_AUTHORS = new Set(["vercel[bot]"]);
 
-type WatchCommandAction = "start" | "stop" | "status" | "once";
+type WatchCommandAction = "toggle" | "start" | "stop" | "status" | "once";
+type ExistingFeedbackMode = "dispatch" | "baseline";
 type FeedbackItemKind = "review" | "thread_comment" | "discussion_comment";
 type FeedbackFingerprintItemKind = "discussion_comment" | "review" | "review_comment";
 type WatchMode = "rest_fingerprint" | "heavy_fallback" | "stopped";
@@ -46,7 +47,7 @@ type WatchCommandParseResult =
 export interface WatchCommandOptions {
 	intervalMs: number;
 	shouldAllowDirty: boolean;
-	shouldDispatchExisting: boolean;
+	existingFeedbackMode: ExistingFeedbackMode;
 }
 
 export interface FeedbackItemKey {
@@ -290,7 +291,7 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 	const controller = new PrFeedbackWatchController(pi, options);
 
 	pi.registerCommand(PR_FEEDBACK_WATCH_COMMAND_NAME, {
-		description: "Watch the current branch PR for new feedback and dispatch constrained pr-address runs.",
+		description: "Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
 		handler: async (rawArgs, ctx) => {
 			const parsed = parseWatchCommandArgs(rawArgs, options.minimumIntervalMs ?? MIN_INTERVAL_MS);
 			if (parsed.type === "invalid") {
@@ -299,6 +300,15 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 			}
 
 			switch (parsed.action) {
+				case "toggle":
+					if (controller.status().isEnabled) {
+						controller.stop("user");
+						notify(ctx, "PR feedback watch stopped.", "info");
+						return;
+					}
+					await ctx.waitForIdle?.();
+					await controller.start(ctx, parsed.options);
+					return;
 				case "start":
 					await ctx.waitForIdle?.();
 					await controller.start(ctx, parsed.options);
@@ -337,16 +347,21 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 	const tokens = rawArgs.trim().length === 0 ? [] : rawArgs.trim().split(/\s+/);
 	const explicitActionToken = tokens[0];
 	const hasExplicitAction = explicitActionToken !== undefined && !explicitActionToken.startsWith("--");
-	const actionToken = hasExplicitAction ? explicitActionToken : "start";
+	const actionToken = tokens.length === 0 ? "toggle" : hasExplicitAction ? explicitActionToken : "start";
 	if (!isWatchCommandAction(actionToken)) {
 		return { type: "invalid", message: `Unknown pr-feedback-watch action: ${actionToken}` };
+	}
+	if ((actionToken === "stop" || actionToken === "status") && tokens.length > 1) {
+		return { type: "invalid", message: `${actionToken} does not accept options.` };
 	}
 
 	const options: WatchCommandOptions = {
 		intervalMs: DEFAULT_INTERVAL_MS,
 		shouldAllowDirty: false,
-		shouldDispatchExisting: false,
+		existingFeedbackMode: "dispatch",
 	};
+	let hasDispatchExistingFlag = false;
+	let hasBaselineExistingFlag = false;
 
 	const optionStartIndex = hasExplicitAction ? 1 : 0;
 	for (let index = optionStartIndex; index < tokens.length; index += 1) {
@@ -356,7 +371,13 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 			continue;
 		}
 		if (token === "--dispatch-existing") {
-			options.shouldDispatchExisting = true;
+			hasDispatchExistingFlag = true;
+			options.existingFeedbackMode = "dispatch";
+			continue;
+		}
+		if (token === "--baseline-existing") {
+			hasBaselineExistingFlag = true;
+			options.existingFeedbackMode = "baseline";
 			continue;
 		}
 		if (token === "--interval-seconds") {
@@ -376,9 +397,8 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		}
 		return { type: "invalid", message: `Unknown pr-feedback-watch option: ${token}` };
 	}
-
-	if ((actionToken === "stop" || actionToken === "status") && tokens.length > 1) {
-		return { type: "invalid", message: `${actionToken} does not accept options.` };
+	if (hasDispatchExistingFlag && hasBaselineExistingFlag) {
+		return { type: "invalid", message: "--dispatch-existing and --baseline-existing cannot be used together." };
 	}
 
 	return { type: "valid", action: actionToken, options };
@@ -621,7 +641,7 @@ class PrFeedbackWatchController {
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
-	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: false, shouldDispatchExisting: false };
+	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: false, existingFeedbackMode: "dispatch" };
 	private seenKeys = new Set<string>();
 	private attemptedKeys = new Set<string>();
 	private queuedItems: FeedbackItemKey[] = [];
@@ -659,8 +679,8 @@ class PrFeedbackWatchController {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
 		this.state = { ...this.state, isEnabled: true, state: "polling", intervalMs: options.intervalMs, lastError: undefined };
-		this.appendEvent("config", { details: { intervalMs: options.intervalMs, shouldAllowDirty: options.shouldAllowDirty } });
-		this.renderStatus("PR watch: baselining");
+		this.appendEvent("config", { details: { intervalMs: options.intervalMs, shouldAllowDirty: options.shouldAllowDirty, existingFeedbackMode: options.existingFeedbackMode } });
+		this.renderStatus(options.existingFeedbackMode === "baseline" ? "PR watch: baselining" : "PR watch: checking current feedback");
 		const snapshot = await this.loadSnapshot(session);
 		if (snapshot.type === "failed") {
 			this.recordError(snapshot.message);
@@ -675,7 +695,7 @@ class PrFeedbackWatchController {
 
 		this.updateContextFromSnapshot(snapshot.snapshot);
 		await this.initializeRestBaseline(session, snapshot.snapshot);
-		if (options.shouldDispatchExisting) {
+		if (shouldDispatchExistingFeedback(options)) {
 			const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
 			if (dirty && !options.shouldAllowDirty) {
 				this.state = { ...this.state, state: "paused" };
@@ -697,7 +717,7 @@ class PrFeedbackWatchController {
 	async once(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		await this.pollOnce(session, { scheduleNext: false, shouldDispatchExisting: options.shouldDispatchExisting });
+		await this.pollOnce(session, { scheduleNext: false, existingFeedbackMode: options.existingFeedbackMode });
 	}
 
 	stop(reason: "user" | "shutdown"): void {
@@ -753,7 +773,7 @@ class PrFeedbackWatchController {
 
 	private async pollOnce(
 		session: ActiveSession,
-		options: { scheduleNext: boolean; shouldDispatchExisting: boolean },
+		options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode },
 	): Promise<void> {
 		if (!this.isActiveSession(session)) return;
 		if (this.isPollInFlight) {
@@ -785,8 +805,8 @@ class PrFeedbackWatchController {
 		}
 	}
 
-	private canUseRestFingerprint(options: { shouldDispatchExisting: boolean }): boolean {
-		return !options.shouldDispatchExisting && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
+	private canUseRestFingerprint(options: { existingFeedbackMode: ExistingFeedbackMode }): boolean {
+		return options.existingFeedbackMode === "baseline" && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
 	}
 
 	private async initializeRestBaseline(session: ActiveSession, snapshot: FeedbackSnapshot): Promise<void> {
@@ -809,7 +829,7 @@ class PrFeedbackWatchController {
 		this.advanceRestFingerprint(result.fingerprint);
 	}
 
-	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; shouldDispatchExisting: boolean }): Promise<void> {
+	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode }): Promise<void> {
 		const identity = this.githubPrIdentity;
 		if (identity === undefined || this.lastRestFingerprintKey === undefined) {
 			await this.pollWithHeavySnapshot(session, options, { reason: "normal" });
@@ -848,7 +868,7 @@ class PrFeedbackWatchController {
 
 	private async pollWithHeavySnapshot(
 		session: ActiveSession,
-		options: { scheduleNext: boolean; shouldDispatchExisting: boolean },
+		options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode },
 		context: { reason: "normal" | "fallback" | "rest_changed"; fingerprint?: FeedbackFingerprint | undefined },
 	): Promise<void> {
 		if (context.reason === "fallback") this.renderStatus("PR watch: fallback polling 60s");
@@ -875,7 +895,7 @@ class PrFeedbackWatchController {
 		if (this.state.isEnabled && context.reason !== "rest_changed" && this.lastRestFingerprintKey === undefined) {
 			await this.initializeRestBaseline(session, snapshot);
 		}
-		if (!this.state.isEnabled && !options.shouldDispatchExisting) {
+		if (!this.state.isEnabled && options.existingFeedbackMode === "baseline") {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
 			this.state = { ...this.state, state: "stopped" };
@@ -896,7 +916,7 @@ class PrFeedbackWatchController {
 			}
 			this.hasNotifiedDirtyPause = false;
 		}
-		const newItems = options.shouldDispatchExisting
+		const newItems = options.existingFeedbackMode === "dispatch"
 			? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
 			: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
 		if (newItems.length === 0) {
@@ -1077,7 +1097,7 @@ class PrFeedbackWatchController {
 		this.clearTimer();
 		this.timer = setTimeout(() => {
 			this.timer = undefined;
-			void this.pollOnce(session, { scheduleNext: true, shouldDispatchExisting: false });
+			void this.pollOnce(session, { scheduleNext: true, existingFeedbackMode: "baseline" });
 		}, this.nextPollDelayMs());
 		const maybeTimer = this.timer as { unref?: () => void };
 		maybeTimer.unref?.();
@@ -1329,8 +1349,12 @@ function parseWatchEventEntry(value: unknown): WatchEventEntry | undefined {
 	};
 }
 
+function shouldDispatchExistingFeedback(options: WatchCommandOptions): boolean {
+	return options.existingFeedbackMode === "dispatch";
+}
+
 function isWatchCommandAction(value: string): value is WatchCommandAction {
-	return value === "start" || value === "stop" || value === "status" || value === "once";
+	return value === "toggle" || value === "start" || value === "stop" || value === "status" || value === "once";
 }
 
 function isWatchEventType(value: string): value is WatchEventEntry["type"] {
