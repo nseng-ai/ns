@@ -37,7 +37,7 @@ export type GcResult = z.infer<typeof gcResultSchema>;
 export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 	if (request.dry_run && request.force) return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
 	const summaries = await loadAllSummaries(ctx);
-	if (summaries.type !== "summaries") return summaries;
+	if (summaries.type !== "resolved") return summaries;
 	const preview = previewResult(summaries.value, request.dry_run);
 	if (request.dry_run || preview.would_delete_count === 0) return ok(preview);
 	if (request.force) return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
@@ -75,7 +75,7 @@ export function renderGc(result: GcResult): string {
 
 async function loadAllSummaries(ctx: HandoffCliContext) {
 	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE });
-	if (entries.type === "error") return gatewayFailure<GcResult>(entries.error, "Failed to load handoffs");
+	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to load handoffs");
 	return await collectHandoffSummaries({ entries: entries.value, brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd, includeDeleted: true });
 }
 

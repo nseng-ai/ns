@@ -31,35 +31,35 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		detachedMessage: "Cannot delete handoff in detached HEAD; pass --branch <branch>.",
 	});
 	if (branch.type !== "resolved") return branch;
-	const locator = handoffEntryLocator(key.value, branch.branch);
-	if (typeof locator !== "string") return locator;
+	const locator = handoffEntryLocator(key.value, branch.value);
+	if (locator.type !== "resolved") return locator;
 
-	const existing = await ctx.brmem.checkEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
-	if (existing.type === "error") return gatewayFailure<DeleteResult>(existing.error, "Failed to check handoff");
-	if (existing.type === "missing") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.branch}\`.`);
+	const existing = await ctx.brmem.checkEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.value });
+	if (existing.type === "error") return gatewayFailure(existing.error, "Failed to check handoff");
+	if (existing.type === "missing") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.value}\`.`);
 
 	if (!request.force) {
 		const confirmed = await confirmFromStdin({
 			stdin: ctx.stdin,
 			stderr: ctx.stderr,
-			prompt: `Delete handoff \`${request.slug}\` on branch \`${branch.branch}\`? [y/N]: `,
+			prompt: `Delete handoff \`${request.slug}\` on branch \`${branch.value}\`? [y/N]: `,
 		});
-		if (confirmed !== "yes") {
-			if (confirmed !== "no") return confirmed;
-			return ok(cancelledResult(request.slug, key.value, branch.branch, locator));
-		}
+		if (confirmed === "yes") {
+			// Fall through to delete.
+		} else if (confirmed !== "no") return confirmed;
+		else return ok(cancelledResult(request.slug, key.value, branch.value, locator.value));
 	}
 
-	const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
+	const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.value });
 	if (deleted.type === "error") {
-		if (deleted.error.code === "key_not_found") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.branch}\`.`);
-		return gatewayFailure<DeleteResult>(deleted.error, "Failed to delete handoff");
+		if (deleted.error.code === "key_not_found") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.value}\`.`);
+		return gatewayFailure(deleted.error, "Failed to delete handoff");
 	}
 	return ok({
-		branch: branch.branch,
+		branch: branch.value,
 		slug: request.slug,
 		key: key.value,
-		entry_locator: locator,
+		entry_locator: locator.value,
 		deleted: true,
 		cancelled: false,
 		commit: deleted.value.commitSha,

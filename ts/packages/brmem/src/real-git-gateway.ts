@@ -99,6 +99,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (validation.type === "error") return brmemOptionalError<string>(validation.error.code, validation.error.message, validation.error.displayCommand);
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const target = `${snapshotRef}:${options.key}`;
+		// Keep the existence probe here so callers do not need a separate pre-check before asking for per-key update metadata.
 		const existence = await runGit(this.commands, ["cat-file", "-e", target], { cwd: this.cwd });
 		if (existence.code !== 0) return brmemMissing<string>();
 		const log = await runGit(this.commands, ["log", "-1", "--format=%cI", snapshotRef, "--", options.key], { cwd: this.cwd });
