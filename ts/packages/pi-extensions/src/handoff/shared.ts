@@ -1,5 +1,6 @@
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { isRecord } from "../cmux/primitives.ts";
 import { expandSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "./identity.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
@@ -88,7 +89,7 @@ export async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, 
 }
 
 export async function checkHandoffExists(pi: ExtensionAPI, cwd: string, branch: string, key: string): Promise<HandoffExistsResult> {
-	const commandArgs = ["check", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch];
+	const commandArgs = ["check", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch, "--format", "json"];
 	let result: ExecResult;
 	try {
 		result = await pi.exec("brmem", commandArgs, { cwd, timeout: BRMEM_TIMEOUT_MS });
@@ -98,10 +99,13 @@ export async function checkHandoffExists(pi: ExtensionAPI, cwd: string, branch: 
 	if (result.code === 0 && !result.killed) {
 		return { type: "exists" };
 	}
-	if (result.code === 1 && !result.killed) {
+	if (result.code === 1 && !result.killed && isBrmemMissingEnvelope(result.stdout)) {
 		return { type: "missing" };
 	}
-	return { type: "failed", message: formatExecFailure(formatCommand("brmem", commandArgs), result) };
+	return {
+		type: "failed",
+		message: `brmem check failed before it could verify the handoff.\n\n${formatExecFailure(formatCommand("brmem", commandArgs), result)}`,
+	};
 }
 
 export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | undefined): void {
@@ -129,6 +133,15 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
 	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
+}
+
+function isBrmemMissingEnvelope(stdout: string): boolean {
+	try {
+		const payload: unknown = JSON.parse(stdout);
+		return isRecord(payload) && payload.exit_code === 1;
+	} catch {
+		return false;
+	}
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {
