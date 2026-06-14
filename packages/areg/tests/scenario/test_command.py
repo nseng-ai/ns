@@ -38,31 +38,27 @@ def _write_github_skill(project_dir: Path, name: str) -> None:
     (skill_dir / "SKILL.md").write_text(f"---\nname: {name}\n---\n", encoding="utf-8")
 
 
-def _symlink_dir(link_path: Path, target: Path) -> None:
+def _symlink_path(link_path: Path, target: Path, *, target_is_directory: bool) -> None:
     link_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        link_path.symlink_to(target, target_is_directory=True)
-    except OSError as e:
-        pytest.skip(f"Symlink creation is unsupported in this environment: {e}")
-
-
-def _symlink_file(link_path: Path, target: Path) -> None:
-    link_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        link_path.symlink_to(target)
+        link_path.symlink_to(target, target_is_directory=target_is_directory)
     except OSError as e:
         pytest.skip(f"Symlink creation is unsupported in this environment: {e}")
 
 
 def _install_agents_skill_symlink(project_dir: Path, name: str) -> Path:
     link_path = project_dir / ".agents" / "skills" / name
-    _symlink_dir(link_path, Path("..") / ".." / "skills" / name)
+    _symlink_path(link_path, Path("..") / ".." / "skills" / name, target_is_directory=True)
     return link_path
 
 
 def _install_claude_skill_symlink(project_dir: Path, name: str) -> Path:
     link_path = project_dir / ".claude" / "skills" / name
-    _symlink_dir(link_path, Path("..") / ".." / ".agents" / "skills" / name)
+    _symlink_path(
+        link_path,
+        Path("..") / ".." / ".agents" / "skills" / name,
+        target_is_directory=True,
+    )
     return link_path
 
 
@@ -279,7 +275,11 @@ def test_command_convert_rejects_real_agents_skill_path(tmp_path: Path) -> None:
 
 def test_command_convert_rejects_symlinked_canonical_skill_dir_path(tmp_path: Path) -> None:
     _write_local_skill(tmp_path, "target-skill")
-    _symlink_dir(tmp_path / "skills" / "linked-skill", Path("target-skill"))
+    _symlink_path(
+        tmp_path / "skills" / "linked-skill",
+        Path("target-skill"),
+        target_is_directory=True,
+    )
 
     result = CliRunner().invoke(
         main,
@@ -296,7 +296,11 @@ def test_command_convert_rejects_symlinked_canonical_skill_md_path(tmp_path: Pat
     _write_local_skill(tmp_path, "target-md")
     linked_dir = tmp_path / "skills" / "linked-md"
     linked_dir.mkdir(parents=True)
-    _symlink_file(linked_dir / "SKILL.md", Path("..") / "target-md" / "SKILL.md")
+    _symlink_path(
+        linked_dir / "SKILL.md",
+        Path("..") / "target-md" / "SKILL.md",
+        target_is_directory=False,
+    )
 
     result = CliRunner().invoke(
         main,
