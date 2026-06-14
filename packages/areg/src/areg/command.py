@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from json import JSONDecodeError
 from pathlib import Path
 
 import click
@@ -30,6 +32,7 @@ from areg.invoke_only import (
 )
 
 _FLAG_LINE_PREFIX = f"{DISABLE_MODEL_INVOCATION_KEY}:"
+_PI_SKILL_EXCLUSION_PREFIX = "-skills/"
 
 _STATUS_LABELS: dict[InvokeOnlyStatus, str] = {
     InvokeOnlyStatus.NORMAL: "normal",
@@ -271,6 +274,93 @@ def _plan_sidecar_write(sidecar: Path) -> TextFilePlan:
     )
 
 
+def _pi_settings_path(project_dir: Path) -> Path:
+    return project_dir / ".pi" / "settings.json"
+
+
+def _pi_skill_exclusion(skill_name: str) -> str:
+    return f"{_PI_SKILL_EXCLUSION_PREFIX}{skill_name}"
+
+
+def _read_pi_settings(settings_path: Path) -> dict[str, object]:
+    content = read_existing_text(settings_path)
+    try:
+        parsed = json.loads(content)
+    except JSONDecodeError as e:
+        raise click.ClickException(f"Invalid JSON in {settings_path}: {e.msg}.") from e
+
+    if not isinstance(parsed, dict):
+        raise click.ClickException(f"{settings_path} must contain a JSON object.")
+    return parsed
+
+
+def _settings_skills(settings: dict[str, object], settings_path: Path) -> list[str]:
+    if "skills" not in settings:
+        return []
+
+    value = settings["skills"]
+    if not isinstance(value, list):
+        raise click.ClickException(f"{settings_path} field 'skills' must be an array of strings.")
+    if not all(isinstance(item, str) for item in value):
+        raise click.ClickException(f"{settings_path} field 'skills' must be an array of strings.")
+    return value
+
+
+def _validate_pi_settings_path(project_dir: Path, settings_path: Path) -> None:
+    pi_dir = settings_path.parent
+    if pi_dir.is_symlink():
+        reject_symlink(pi_dir, description=".pi")
+    if pi_dir.exists() and not pi_dir.is_dir():
+        raise click.ClickException(f"{pi_dir} exists but is not a directory.")
+    if settings_path.is_symlink():
+        reject_symlink(settings_path, description="Pi settings.json")
+    if settings_path.exists() and not settings_path.is_file():
+        raise click.ClickException(f"{settings_path} exists but is not a file.")
+    if settings_path.exists() and not settings_path.resolve().is_relative_to(project_dir):
+        raise click.ClickException(
+            f"Pi settings.json at {settings_path} resolves outside {project_dir}; refusing to manage it."
+        )
+
+
+def _plan_pi_settings_update(project_dir: Path, skill_name: str, *, convert: bool) -> TextFilePlan:
+    settings_path = _pi_settings_path(project_dir)
+    _validate_pi_settings_path(project_dir, settings_path)
+    exclusion = _pi_skill_exclusion(skill_name)
+
+    settings: dict[str, object]
+    if settings_path.exists():
+        settings = _read_pi_settings(settings_path)
+    else:
+        settings = {}
+
+    skills = _settings_skills(settings, settings_path)
+    if convert:
+        if exclusion in skills:
+            return SkippedTextWrite(path=settings_path, reason="Pi skill exclusion already present")
+        settings["skills"] = [*skills, exclusion]
+    else:
+        new_skills = [skill for skill in skills if skill != exclusion]
+        if new_skills == skills:
+            return SkippedTextWrite(path=settings_path, reason="Pi skill exclusion absent")
+        settings["skills"] = new_skills
+
+    return TextWritePlan(
+        path=settings_path,
+        content=json.dumps(settings, indent=2) + "\n",
+        description="Pi settings.json",
+        create_parent=True,
+    )
+
+
+def _pi_skill_exclusion_present(project_dir: Path, skill_name: str) -> bool:
+    settings_path = _pi_settings_path(project_dir)
+    _validate_pi_settings_path(project_dir, settings_path)
+    if not settings_path.exists():
+        return False
+    settings = _read_pi_settings(settings_path)
+    return _pi_skill_exclusion(skill_name) in _settings_skills(settings, settings_path)
+
+
 def _build_convert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
     skill_md = _require_local_skill(project_dir, skill_name)
     sidecar = openai_policy_path(project_dir, skill_name)
@@ -278,6 +368,7 @@ def _build_convert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
         text_files=(
             _plan_skill_md_update(skill_md, convert=True),
             _plan_sidecar_write(sidecar),
+            _plan_pi_settings_update(project_dir, skill_name, convert=True),
         )
     )
 
@@ -294,7 +385,10 @@ def _build_revert_plan(project_dir: Path, skill_name: str) -> CommandEditPlan:
             RemoveEmptyDirPlan(path=sidecar.parent, description="empty skill agents directory"),
         )
     return CommandEditPlan(
-        text_files=(_plan_skill_md_update(skill_md, convert=False),),
+        text_files=(
+            _plan_skill_md_update(skill_md, convert=False),
+            _plan_pi_settings_update(project_dir, skill_name, convert=False),
+        ),
         delete_files=delete_files,
         remove_empty_dirs=remove_empty_dirs,
     )
@@ -333,7 +427,7 @@ def _apply_command_plan(plan: CommandEditPlan, *, project_dir: Path, dry_run: bo
 
 @click.group("command")
 def command_group() -> None:
-    """Convert skills to invoke-only commands (human-invocable, zero model-context cost)."""
+    """Convert local skills into extension-command backing files."""
 
 
 @command_group.command("convert")
@@ -347,7 +441,7 @@ def command_group() -> None:
 @click.argument("skills", nargs=-1, required=True, metavar="SKILL...")
 @click.pass_obj
 def convert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ...]) -> None:
-    """Convert local skills to invoke-only commands.
+    """Convert local skills to extension-command backing files.
 
     SKILL may be a local skill name or a path to a local skill directory/SKILL.md.
 
@@ -399,7 +493,7 @@ def revert_cmd(ctx: AregContext, path: str, dry_run: bool, skills: tuple[str, ..
 )
 @click.pass_obj
 def list_cmd(ctx: AregContext, path: str) -> None:
-    """List local skill invoke-only status."""
+    """List local skill command-conversion status."""
     project_dir = _resolve_git_root(ctx, path)
     skills_dir = project_dir / "skills"
     if not skills_dir.is_dir():
@@ -414,4 +508,5 @@ def list_cmd(ctx: AregContext, path: str) -> None:
     for skill_md in skill_mds:
         skill_name = skill_md.parent.name
         state = read_invoke_only_state(project_dir, skill_name)
-        click.echo(f"{skill_name}\t{_STATUS_LABELS[state.status]}")
+        pi_status = "pi-excluded" if _pi_skill_exclusion_present(project_dir, skill_name) else "pi-visible"
+        click.echo(f"{skill_name}\t{_STATUS_LABELS[state.status]}\t{pi_status}")
