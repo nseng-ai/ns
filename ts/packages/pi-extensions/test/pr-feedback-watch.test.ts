@@ -202,8 +202,16 @@ function restFingerprintStep(pathFragment: string, jq: string, items: object[]):
 	);
 }
 
-function restFingerprintSteps(options: { discussion?: object[]; reviews?: object[]; reviewComments?: object[] } = {}): ScriptedExec[] {
-	return [discussionFingerprintStep(options.discussion ?? []), reviewFingerprintStep(options.reviews ?? []), reviewCommentFingerprintStep(options.reviewComments ?? [])];
+function prChecksStep(checks: object[] = defaultPrChecks()): ScriptedExec {
+	return step("gh", ["pr", "checks", "123", "--json", "bucket"], { result: { stdout: JSON.stringify(checks) } });
+}
+
+function defaultPrChecks(): object[] {
+	return [{ bucket: "pending" }, { bucket: "pending" }, { bucket: "pending" }, { bucket: "pass" }, { bucket: "pass" }, { bucket: "pass" }, { bucket: "pass" }, { bucket: "fail" }];
+}
+
+function restFingerprintSteps(options: { discussion?: object[]; reviews?: object[]; reviewComments?: object[]; checks?: object[] } = {}): ScriptedExec[] {
+	return [discussionFingerprintStep(options.discussion ?? []), reviewFingerprintStep(options.reviews ?? []), reviewCommentFingerprintStep(options.reviewComments ?? []), prChecksStep(options.checks)];
 }
 
 function reviewCommentRestItem(id: number): object {
@@ -445,10 +453,10 @@ describe("pr feedback watch extension", () => {
 			expect(pi.userMessages).toEqual([]);
 			expect(pi.entries.map((entry) => entry.data).some((entry) => JSON.stringify(entry).includes("baseline"))).toBe(true);
 			expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
-			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · checked 0s ago · /code:pr-feedback-watch stops");
+			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR #123 · feedback 0s/15s · [ci](pending:3 ok:4 fail:1) · /code:pr-feedback-watch stops");
 
 			vi.advanceTimersByTime(5_000);
-			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR watch: #123 REST polling 15s · checked 5s ago · /code:pr-feedback-watch stops");
+			expect(ctx.statuses.get("code:pr-feedback-watch")).toBe("PR #123 · feedback 5s/15s · [ci](pending:3 ok:4 fail:1) · /code:pr-feedback-watch stops");
 
 			await pi.commands.get("code:pr-feedback-watch")?.handler("stop", ctx);
 			pi.assertDone();

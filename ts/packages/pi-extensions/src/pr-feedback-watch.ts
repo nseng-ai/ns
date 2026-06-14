@@ -267,8 +267,16 @@ interface WatchStatus {
 	lastPollAt?: string | undefined;
 	lastRestPollAt?: string | undefined;
 	lastHeavyCheckAt?: string | undefined;
+	checkSummary?: PrCheckSummary | undefined;
 	restFailures: number;
 	lastError?: string | undefined;
+}
+
+interface PrCheckSummary {
+	totalCount: number;
+	pendingCount: number;
+	passCount: number;
+	failCount: number;
 }
 
 interface WatchEventEntry {
@@ -834,6 +842,7 @@ class PrFeedbackWatchController {
 		}
 		this.restSinceIso = sinceIso;
 		this.advanceRestFingerprint(result.fingerprint);
+		await this.refreshCheckSummary(session, identity.number);
 	}
 
 	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode }): Promise<void> {
@@ -852,6 +861,7 @@ class PrFeedbackWatchController {
 			return;
 		}
 		this.markRestFingerprintSuccess(result.fingerprint);
+		await this.refreshCheckSummary(session, identity.number);
 		if (result.fingerprint.key === this.lastRestFingerprintKey) {
 			this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped" };
 			this.renderStatus();
@@ -973,6 +983,11 @@ class PrFeedbackWatchController {
 			lastPollAt: fingerprint.fetchedAt,
 			lastError: undefined,
 		};
+	}
+
+	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
+		const result = await loadPrCheckSummary(this.pi, session.cwd, prNumber, session.abortController.signal);
+		this.state = { ...this.state, checkSummary: result.type === "loaded" ? result.summary : undefined };
 	}
 
 	private async loadSnapshot(session: ActiveSession): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
@@ -1218,6 +1233,33 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 	return result.stdout.trim() || undefined;
 }
 
+async function loadPrCheckSummary(pi: ExecGateway, cwd: string, prNumber: number, signal?: AbortSignal): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
+	const result = await pi.exec("gh", ["pr", "checks", String(prNumber), "--json", "bucket"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
+	if (result.killed || (result.code !== 0 && result.stdout.trim().length === 0)) {
+		return { type: "failed", message: `gh pr checks failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
+	}
+	try {
+		return { type: "loaded", summary: parsePrCheckSummary(JSON.parse(result.stdout)) };
+	} catch {
+		return { type: "failed", message: "gh pr checks returned malformed JSON." };
+	}
+}
+
+function parsePrCheckSummary(value: unknown): PrCheckSummary {
+	const items = Array.isArray(value) ? value : [];
+	let pendingCount = 0;
+	let passCount = 0;
+	let failCount = 0;
+	for (const item of items) {
+		if (!isRecord(item)) continue;
+		const bucket = stringField(item, "bucket");
+		if (bucket === "pending") pendingCount += 1;
+		if (bucket === "pass") passCount += 1;
+		if (bucket === "fail") failCount += 1;
+	}
+	return { totalCount: items.length, pendingCount, passCount, failCount };
+}
+
 async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise<{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }> {
 	const { pi, cwd, identity, sinceIso, signal } = options;
 	const discussionEndpoint = discussionCommentsEndpoint(identity, sinceIso);
@@ -1332,10 +1374,15 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
 	if (status.prNumber !== undefined) {
 		const intervalSeconds = Math.round(status.intervalMs / 1_000);
-		const lastChecked = status.lastRestPollAt === undefined ? "" : ` · checked ${formatElapsedSince(status.lastRestPollAt)} ago`;
-		return `PR watch: #${status.prNumber} REST polling ${intervalSeconds}s${lastChecked} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
+		const feedbackAge = status.lastRestPollAt === undefined ? `feedback ${intervalSeconds}s` : `feedback ${formatElapsedSince(status.lastRestPollAt)}/${intervalSeconds}s`;
+		const checks = status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
+		return `PR #${status.prNumber} · ${feedbackAge}${checks} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
 	}
 	return "PR watch: active";
+}
+
+function formatCheckSummary(summary: PrCheckSummary): string {
+	return `[ci](pending:${summary.pendingCount} ok:${summary.passCount} fail:${summary.failCount})`;
 }
 
 function shouldRefreshStatusAge(status: WatchStatus): boolean {
@@ -1364,6 +1411,7 @@ function formatWatchStatus(status: WatchStatus): string {
 	];
 	if (status.prNumber !== undefined) lines.push(`PR: #${status.prNumber}`);
 	if (status.branch !== undefined) lines.push(`Branch: ${status.branch}`);
+	if (status.checkSummary !== undefined) lines.push(`CI: ${formatCheckSummary(status.checkSummary)}`);
 	if (status.lastRestPollAt !== undefined) lines.push(`Last REST poll: ${status.lastRestPollAt}`);
 	if (status.lastHeavyCheckAt !== undefined) lines.push(`Last heavy check: ${status.lastHeavyCheckAt}`);
 	if (status.lastPollAt !== undefined) lines.push(`Last poll: ${status.lastPollAt}`);
