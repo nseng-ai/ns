@@ -94,6 +94,20 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		});
 	}
 
+	async entryUpdatedAt(options: { namespace: string; key: string; branch: string }) {
+		const validation = await this.validateEntryAddress(options);
+		if (validation.type === "error") return brmemOptionalError<string>(validation.error.code, validation.error.message, validation.error.displayCommand);
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
+		const target = `${snapshotRef}:${options.key}`;
+		const existence = await runGit(this.commands, ["cat-file", "-e", target], { cwd: this.cwd });
+		if (existence.code !== 0) return brmemMissing<string>();
+		const log = await runGit(this.commands, ["log", "-1", "--format=%cI", snapshotRef, "--", options.key], { cwd: this.cwd });
+		if (log.code !== 0) return brmemOptionalError<string>("git_log_failed", commandMessage("Could not resolve Entry update metadata.", log), log.displayCommand);
+		const updatedAt = log.stdout.trim();
+		if (updatedAt.length === 0) return brmemOptionalError<string>("entry_metadata_unavailable", "Could not resolve Entry update metadata.", log.displayCommand);
+		return brmemFound(updatedAt);
+	}
+
 	async putEntry(options: { namespace: string; key: string; branch: string; content: string }): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;

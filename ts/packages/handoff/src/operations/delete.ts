@@ -34,7 +34,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	const locator = handoffEntryLocator(key.value, branch.branch);
 	if (typeof locator !== "string") return locator;
 
-	const existing = await ctx.brmem.check({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
+	const existing = await ctx.brmem.checkEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
 	if (existing.type === "error") return gatewayFailure<DeleteResult>(existing.error, "Failed to check handoff");
 	if (existing.type === "missing") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.branch}\`.`);
 
@@ -50,7 +50,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		}
 	}
 
-	const deleted = await ctx.brmem.delete({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
+	const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: key.value, branch: branch.branch });
 	if (deleted.type === "error") {
 		if (deleted.error.code === "key_not_found") return failure("handoff_not_found", `No handoff \`${request.slug}\` found on branch \`${branch.branch}\`.`);
 		return gatewayFailure<DeleteResult>(deleted.error, "Failed to delete handoff");
@@ -62,7 +62,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		entry_locator: locator,
 		deleted: true,
 		cancelled: false,
-		commit: deleted.value.commit,
+		commit: deleted.value.commitSha,
 	} satisfies DeleteResult);
 }
 

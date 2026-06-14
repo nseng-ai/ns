@@ -1,8 +1,7 @@
+import type { BrmemGateway, EntryRef } from "@asdl/brmem";
 import { failure, type ClinkrExit } from "@asdl/clinkr";
 import type { GitGateway } from "@asdl/core/git";
 import { z } from "zod";
-
-import type { HandoffBrmemGateway, HandoffEntryRef } from "./brmem-gateway.ts";
 import { HANDOFF_NAMESPACE, handoffSlugFromKey, isHandoffKey } from "./identity.ts";
 
 export const branchStateSchema = z.enum(["active", "deleted"]);
@@ -19,8 +18,8 @@ export const handoffSummarySchema = z.object({
 export type HandoffSummary = z.infer<typeof handoffSummarySchema>;
 
 export interface CollectHandoffSummariesOptions {
-	entries: readonly HandoffEntryRef[];
-	brmem: HandoffBrmemGateway;
+	entries: readonly EntryRef[];
+	brmem: BrmemGateway;
 	git: GitGateway;
 	cwd: string;
 	includeDeleted: boolean;

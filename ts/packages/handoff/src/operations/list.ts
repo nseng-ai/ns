@@ -1,11 +1,10 @@
 import { failure, ok } from "@asdl/clinkr";
-import { validateBranchName } from "@asdl/brmem";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { HANDOFF_NAMESPACE } from "../identity.ts";
 import { collectHandoffSummaries, handoffSummarySchema } from "../inventory.ts";
-import { gatewayFailure } from "./shared.ts";
+import { gatewayFailure, resolveBranch } from "./shared.ts";
 
 export const listRequestSchema = z.object({
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
@@ -27,24 +26,13 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	if (request.branch !== undefined && request.all) {
 		return failure("branch_and_all_conflict", "--branch and --all are mutually exclusive.");
 	}
-	if (request.branch !== undefined) {
-		const validation = validateBranchName(request.branch);
-		if (validation.type === "invalid") return failure("invalid_branch_name", `Invalid branch name ${JSON.stringify(request.branch)}: ${validation.reason}`);
-	}
-
 	let branch: string | undefined;
 	if (!request.all) {
-		if (request.branch !== undefined) branch = request.branch;
-		else {
-			const current = await ctx.git.currentBranch({ cwd: ctx.cwd });
-			if (!current.ok) {
-				if (current.error.code === "detached_head") {
-					return failure("detached_head", "Cannot list handoffs in detached HEAD; pass --branch <branch> or --all.");
-				}
-				return failure(current.error.code, current.error.message);
-			}
-			branch = current.value;
-		}
+		const resolved = await resolveBranch(ctx, request.branch, {
+			detachedMessage: "Cannot list handoffs in detached HEAD; pass --branch <branch> or --all.",
+		});
+		if (resolved.type !== "resolved") return resolved;
+		branch = resolved.branch;
 	}
 
 	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE, branch });

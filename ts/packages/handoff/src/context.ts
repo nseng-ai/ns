@@ -1,15 +1,13 @@
+import { RealGitBrmemGateway, type BrmemGateway } from "@asdl/brmem";
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { readStdin } from "@asdl/core/stdin";
-
-import type { HandoffBrmemGateway } from "./brmem-gateway.ts";
-import { RealBrmemCliGateway } from "./real-brmem-cli-gateway.ts";
 
 export interface HandoffCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	git: GitGateway;
-	brmem: HandoffBrmemGateway;
+	brmem: BrmemGateway;
 	stdin: () => Promise<string>;
 	stderr: (text: string) => void;
 }
@@ -22,7 +20,7 @@ export function createRealHandoffContext(options: { cwd?: string | undefined; en
 		cwd,
 		env,
 		git: new RealGitGateway(execApi),
-		brmem: new RealBrmemCliGateway({ cwd, execApi }),
+		brmem: new RealGitBrmemGateway(cwd, execApi),
 		stdin: readStdin,
 		stderr: (text) => process.stderr.write(text),
 	};

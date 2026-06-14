@@ -33,6 +33,44 @@ describe("RealGitBrmemGateway", () => {
 		}
 	});
 
+	it("resolves entryUpdatedAt through injected git commands", async () => {
+		const commands = new RecordingCommands([
+			{ command: "git", args: ["check-ref-format", "--branch", "feat/x"] },
+			{ command: "git", args: ["cat-file", "-e", "refs/brmem/ns/handoff/feat---x:alpha.md"] },
+			{ command: "git", args: ["log", "-1", "--format=%cI", "refs/brmem/ns/handoff/feat---x", "--", "alpha.md"], result: { stdout: "2026-02-03T04:05:06+00:00\n" } },
+		]);
+		const gateway = new RealGitBrmemGateway("/work", commands);
+
+		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "alpha.md" })).toEqual({
+			type: "found",
+			value: "2026-02-03T04:05:06+00:00",
+		});
+	});
+
+	it("returns missing entryUpdatedAt when the Entry is absent", async () => {
+		const commands = new RecordingCommands([
+			{ command: "git", args: ["check-ref-format", "--branch", "feat/x"] },
+			{ command: "git", args: ["cat-file", "-e", "refs/brmem/ns/handoff/feat---x:missing.md"], result: { code: 1 } },
+		]);
+		const gateway = new RealGitBrmemGateway("/work", commands);
+
+		expect(await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "missing.md" })).toEqual({ type: "missing" });
+	});
+
+	it("resolves entryUpdatedAt for an existing Entry in a throwaway repository", async () => {
+		const repo = createTempGitRepo();
+		try {
+			const gateway = new RealGitBrmemGateway(repo.path);
+			await gateway.putEntry({ namespace: "handoff", branch: "feat/x", key: "alpha.md", content: "alpha" });
+			const updatedAt = await gateway.entryUpdatedAt({ namespace: "handoff", branch: "feat/x", key: "alpha.md" });
+			expect(updatedAt).toMatchObject({ type: "found" });
+			if (updatedAt.type !== "found") throw new Error("unexpected timestamp failure");
+			expect(Date.parse(updatedAt.value)).not.toBeNaN();
+		} finally {
+			repo.cleanup();
+		}
+	});
+
 	it("deletes Entries while preserving siblings and leaving an empty Snapshot", async () => {
 		const repo = createTempGitRepo();
 		try {
