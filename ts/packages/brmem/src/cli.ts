@@ -10,9 +10,10 @@ import type { BrmemSourceReader } from "./source-reader.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
 import { copyRequestSchema, copyResultSchema, renderCopy, runCopy } from "./operations/copy.ts";
 import { deleteRequestSchema, deleteResultSchema, renderDelete, runDelete } from "./operations/delete.ts";
+import { exportRequestSchema, exportResultSchema, renderExport, runExport } from "./operations/export.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
-import { exportRequestSchema, notImplementedHandler, notImplementedResultSchema, resolvePromptRequestSchema } from "./operations/not-implemented.ts";
+import { notImplementedHandler, notImplementedResultSchema, resolvePromptRequestSchema } from "./operations/not-implemented.ts";
 import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
 
 export const VERSION = "0.1.0";
@@ -92,9 +93,9 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		name: "export",
 		description: "Export Branch Memory Entries to files.",
 		schema: exportRequestSchema,
-		positionals: { output_dir: { position: 0 } },
-		resultSchema: notImplementedResultSchema,
-		handler: notImplementedHandler("export"),
+		resultSchema: exportResultSchema,
+		handler: runExport,
+		renderHuman: renderExport,
 	});
 	const execGroup = new ClinkrGroup<BrmemCliContext>({
 		name: "exec",
