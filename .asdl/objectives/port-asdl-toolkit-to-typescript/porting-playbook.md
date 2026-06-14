@@ -1,6 +1,6 @@
 # TypeScript Capability Porting Playbook
 
-Reusable guidance extracted from the completed `pr-address` and `brmem` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+Reusable guidance extracted from the completed `pr-address`, `brmem`, and `handoff` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
 
 ## 1. Inventory public contracts before porting internals
 
@@ -16,6 +16,8 @@ Classify at least:
 `pr-address` showed why this matters: durable contracts included its skill/CLI/JSON/payload/mutation-safety behavior, while several click/parser details and Python module boundaries were incidental or intentionally replaced. `brmem put` reinforced the same rule: Python runtime/parser constraints, such as stdin being reserved for JSON request input, must be classified separately from durable storage and output contracts before TypeScript preserves them.
 
 For git-backed state capabilities, storage contracts outrank Python module shapes. `brmem` treated `refs/brmem/base|ns/...` Snapshot Refs, branch `/` to `---` encoding, Entry Locator shape, Entry Key and Namespace rules, content limits, exit codes, and JSON envelopes as durable contracts even while replacing the implementation language and package layout.
+
+`handoff` showed the same rule for consumer workflows over a storage layer: durable contracts included the Branch Memory namespace/key shape, Handoff Slug semantics, Branch State values, markdown table shape, JSON fields, stdout/stderr separation, and Pi/skill expectations, while Python package layout and the historical `asdl handoff` plugin path were incidental after inventory found no active user-facing usage.
 
 ## 2. Port in vertical slices
 
@@ -40,7 +42,9 @@ Future ports do not need the exact operation order, but they should keep each sl
 
 Do not framework-first a capability port. Add package-local runtime, payload/reference, and adapter seams when only one capability needs them. Move only repeated, stable gaps into shared TS foundations such as `@asdl/clinkr` or `@asdl/core`.
 
-`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing. `brmem` likewise kept ref/blob/tree plumbing package-local; shared shell-out helpers and machine-envelope parsing moved only after repeated CLI-backed consumers proved the need. Do not add shared framework concepts solely to emulate a Python-only precondition; if TypeScript's runtime does not share the precondition, prefer an explicit compatibility reclassification with tests and an Objective update.
+`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing. `brmem` likewise kept ref/blob/tree plumbing package-local; shared shell-out helpers and machine-envelope parsing moved only after repeated CLI-backed consumers proved the need.
+
+`handoff` promoted only one framework seam: first-class `renderMarkdown` support in `@asdl/clinkr`, because the Handoff markdown table was a durable public contract that the existing human renderer could not preserve. It kept per-entry timestamp git plumbing package-local and reused public `@asdl/brmem` validation/ref-layout helpers only where they removed duplication without turning Handoff into a native storage-layer implementation. Do not add shared framework concepts solely to emulate a Python-only precondition; if TypeScript's runtime does not share the precondition, prefer an explicit compatibility reclassification with tests and an Objective update.
 
 ## 4. Use fake-driven gateways and parity evidence
 
@@ -54,7 +58,7 @@ Prefer:
 - Structured parity where formatting or key order is not contractually meaningful.
 - Limited safe real-adapter smoke checks only when they de-risk local environment or API assumptions.
 
-`pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces. `brmem` combined fake tests, real-git tests, and temporary cross-language parity probes; those probes were valid migration evidence and were deleted once TypeScript became default and the Python reference was deleted.
+`pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces. `brmem` combined fake tests, real-git tests, and temporary cross-language parity probes; those probes were valid migration evidence and were deleted once TypeScript became default and the Python reference was deleted. `handoff` combined fake gateway scenarios with limited real `brmem`/real-git smoke tests to prove the consumer CLI still worked against actual Branch Memory refs after the Python fallback disappeared.
 
 ## 5. Retire fallback intentionally
 
@@ -67,7 +71,7 @@ Before deletion:
 - Decide and document rollback/reference evidence when the in-repo Python source is deleted; this may be external or an explicit in-repo pre-deletion commit for private packages.
 - Broaden validation when package deletion touches workspace config or shared tests.
 
-`pr-address` retired the `asdl pr-address` plugin instead of porting it, removed the TypeScript unknown-operation Python router, deleted `packages/asdl-pr-address`, moved the golden corpus under the TS package, and kept rollback as the frozen external PyPI artifact `asdl-pr-address==0.1.1`. `brmem` had no plugin to retire; its post-deletion reference is the recorded in-repo commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`, the last pre-deletion Python package source.
+`pr-address` retired the `asdl pr-address` plugin instead of porting it, removed the TypeScript unknown-operation Python router, deleted `packages/asdl-pr-address`, moved the golden corpus under the TS package, and kept rollback as the frozen external PyPI artifact `asdl-pr-address==0.1.1`. `brmem` had no plugin to retire; its post-deletion reference is the recorded in-repo commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`, the last pre-deletion Python package source. `handoff` explicitly retired the `asdl handoff` plugin after grep evidence showed no active user-facing usage, deleted `packages/asdl-handoff`, and recorded rollback/reference commit `c7953b640c94fad4182df35c277fe19dfbe5eca7`.
 
 ## 6. Treat distribution as a product decision
 
@@ -75,7 +79,9 @@ Do not inherit either the old Python `uvx` distribution model or `pr-address`'s 
 
 For `pr-address`, checkout-free bundling and npm publishing were explicitly dropped. The accepted installed CLI model is the run-from-source shim installed by `just install-pr-address`, which runs the checkout's TypeScript CLI and may require `ts/node_modules`.
 
-For `brmem`, actual consumers likewise did not require npm publishing or checkout-free bundling. The accepted installed model is the run-from-source TypeScript shim installed by `just install-brmem` and `install-tools`. This is capability-specific evidence for `pr-address` and `brmem`, not a blanket requirement for `handoff`, `objective`, or later ports; later ports still need their own consumer-backed distribution decision.
+For `brmem`, actual consumers likewise did not require npm publishing or checkout-free bundling. The accepted installed model is the run-from-source TypeScript shim installed by `just install-brmem` and `install-tools`.
+
+For `handoff`, the same installed model was sufficient for the standalone CLI and Pi/skill consumers, but cutover exposed an extra packaging lesson: `just install-handoff` must remove stale project-venv `handoff` console scripts so an activated Python development environment cannot shadow the TypeScript shim. This remains capability-specific evidence for completed ports, not a blanket requirement for `objective` or later ports; later ports still need their own consumer-backed distribution decision.
 
 ## 7. Record Semantic Updates at decision points
 

@@ -58,13 +58,13 @@
   - Policy: ask before starting broad deletion if any parity or plugin-retirement gate is missing. Once gates are evidenced, direct deletion is allowed after preview. Validate with full `just`, not only TypeScript package tests.
   - Evidence: `uv lock --check`; focused plugin/root Python tests updated and passing; TS package/workspace checks/tests; final `just`; runtime smoke after install.
 
-- [ ] Feed lessons into the umbrella TypeScript migration Objective and close this child Objective when ready.
+- [x] Feed lessons into the umbrella TypeScript migration Objective and close this child Objective when ready.
   - Update `.asdl/objectives/port-asdl-toolkit-to-typescript/objective.md` migration ledger to mark Handoff / `handoff` as TS-default with Python package retired.
   - Update umbrella roadmap with Handoff completion evidence and next capability (`objective`) per persisted order.
   - Update umbrella `porting-playbook.md` with lessons: Branch Memory consumer capabilities can depend on the public TypeScript `brmem` CLI; per-entry timestamp semantics may require narrow package-local git plumbing; plugin retirement must be explicit; markdown rendering became a real Clinkr framework seam; create/pickup workflows can remain skill/Pi-owned while CLI owns inventory/admin.
   - Close `handoff-typescript-port` if completion criteria are satisfied.
   - Policy: direct Objective/doc updates after implementation evidence exists. Do not rewrite historical updates; append new Semantic Updates.
-  - Evidence: Semantic Updates in this Objective and umbrella Objective; dprint validation; final validation references.
+  - Evidence: umbrella migration ledger, roadmap, and porting playbook updated; Semantic Updates `updates/2026-06-14-umbrella-closeout-and-objective-closure.md` and `../port-asdl-toolkit-to-typescript/updates/2026-06-14T232229Z-handoff-cutover-playbook-lessons.md`; targeted dprint validation.
 
 ## Parked
 

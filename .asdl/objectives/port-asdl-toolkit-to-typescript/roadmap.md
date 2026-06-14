@@ -29,7 +29,8 @@
   - Add cleaner TS-native APIs behind or alongside those contracts where useful.
   - Keep Python only for a short explicit retirement phase after TS default, then delete or archive it when callers, docs, and tests no longer depend on it.
   - Evidence: `brmem` completed as the second TS-default capability and fed git-ref storage parity, package-local plumbing, run-from-source shim, and post-deletion reference lessons back into [`porting-playbook.md`](porting-playbook.md), the migration ledger, and Semantic Update `updates/2026-06-14T172101Z-brmem-cutover-playbook-lessons.md`.
-  - Next planned capability remains `handoff` unless new evidence changes the order.
+  - Evidence: `handoff` completed as the third TS-default capability and fed Branch Memory consumer boundaries, Clinkr markdown rendering, package-local timestamp plumbing, plugin retirement, skill/Pi-owned create/pickup boundaries, and stale Python console-script shim lessons back into [`porting-playbook.md`](porting-playbook.md), the migration ledger, and Semantic Update `updates/2026-06-14T232229Z-handoff-cutover-playbook-lessons.md`.
+  - Next planned capability remains `objective` unless new evidence changes the order.
 - [ ] Burn down the end-of-migration debt ledger (`migration-debt.md`).
   - Each entry is a transitional compromise (legacy machine-output shapes, snake_case schema keys, Python-parity envelope) accepted to keep the port moving; every entry must be killed or deliberately recommitted before the umbrella closes.
   - New compromises of this type made during capability subobjectives must be appended to `migration-debt.md` when they are accepted.
