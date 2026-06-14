@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.gt.types import (
+    BranchMetadataGraph,
+    BranchMetadataGraphRow,
     ChildrenCorruption,
     DescendantWalk,
     GtCommandFailure,
@@ -22,15 +23,6 @@ from asdl_core.gt.types import (
     WalkRowMissing,
     WalkTermination,
 )
-
-
-@dataclass(frozen=True)
-class _BranchMetadataRow:
-    parent_branch_name: str | None
-    children: tuple[str, ...]
-    validation_result: str | None
-    children_corruption: ChildrenCorruption | None
-
 
 _REQUIRED_BRANCH_METADATA_COLUMNS = frozenset(
     {"branch_name", "parent_branch_name", "children", "validation_result"}
@@ -72,7 +64,7 @@ def _metadata_text(value: object) -> str | None:
 
 def _load_branch_metadata(
     db_path: Path,
-) -> tuple[dict[str, _BranchMetadataRow], int] | GtCommandFailure:
+) -> tuple[dict[str, BranchMetadataGraphRow], int] | GtCommandFailure:
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as connection:
             table_info = connection.execute("PRAGMA table_info(branch_metadata)").fetchall()
@@ -110,7 +102,7 @@ def _load_branch_metadata(
             returncode=None,
         )
 
-    rows: dict[str, _BranchMetadataRow] = {}
+    rows: dict[str, BranchMetadataGraphRow] = {}
     empty_branch_name_rows = 0
     for record in records:
         branch_name, parent_branch_name, raw_children, validation_result = record
@@ -120,8 +112,9 @@ def _load_branch_metadata(
         parent = _metadata_text(parent_branch_name)
         validation = _metadata_text(validation_result)
         children, children_corruption = _parse_children(branch_name, raw_children)
-        rows[branch_name] = _BranchMetadataRow(
-            parent_branch_name=parent,
+        rows[branch_name] = BranchMetadataGraphRow(
+            name=branch_name,
+            parent=parent,
             children=children,
             validation_result=validation,
             children_corruption=children_corruption,
@@ -130,7 +123,7 @@ def _load_branch_metadata(
 
 
 def _walk_ancestors(
-    rows: dict[str, _BranchMetadataRow],
+    rows: dict[str, BranchMetadataGraphRow],
     current_branch: str,
 ) -> tuple[tuple[str, ...], str, WalkTermination]:
     ancestor_names_reversed: list[str] = []
@@ -139,7 +132,7 @@ def _walk_ancestors(
 
     while True:
         row = rows[branch]
-        parent = row.parent_branch_name
+        parent = row.parent
         if parent is None:
             return tuple(reversed(ancestor_names_reversed)), branch, WalkCompleted()
         if parent in visited:
@@ -154,7 +147,7 @@ def _walk_ancestors(
 
 
 def _walk_first_child_descendants(
-    rows: dict[str, _BranchMetadataRow],
+    rows: dict[str, BranchMetadataGraphRow],
     current_branch: str,
 ) -> tuple[tuple[str, ...], DescendantWalk]:
     descendants: list[str] = []
@@ -197,7 +190,7 @@ def _walk_first_child_descendants(
 
 
 def _trunk_marker_status(
-    rows: dict[str, _BranchMetadataRow],
+    rows: dict[str, BranchMetadataGraphRow],
     terminus_branch: str,
 ) -> TrunkMarkerStatus:
     marked_trunks = tuple(
@@ -217,6 +210,24 @@ def _trunk_marker_status(
         terminus=terminus_branch,
         terminus_state=terminus_state,
         marked_trunks=marked_trunks,
+    )
+
+
+def read_branch_graph_from_metadata_db(db_path: Path) -> BranchMetadataGraph | GtCommandFailure:
+    """Read Graphite's full parsed branch metadata graph."""
+    if not db_path.exists():
+        return GtCommandFailure(
+            message=f"Graphite metadata store not found at {db_path}",
+            returncode=None,
+        )
+
+    loaded = _load_branch_metadata(db_path)
+    if isinstance(loaded, GtCommandFailure):
+        return loaded
+    rows, empty_branch_name_rows = loaded
+    return BranchMetadataGraph(
+        rows=tuple(rows[branch_name] for branch_name in sorted(rows)),
+        empty_branch_name_rows=empty_branch_name_rows,
     )
 
 

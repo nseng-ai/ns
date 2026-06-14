@@ -1,14 +1,18 @@
 # sdlcc
 
-`sdlcc` is the first OpenTUI command-and-control infrastructure spike for this repository. It currently opens a full-screen throwaway stack-map prototype.
+`sdlcc` opens a full-screen OpenTUI stack map for this repository. It shows the current Graphite branch graph, slot assignments, and strong cmux tab matches in one branch-oriented surface.
 
-## Prototype question
+## Stack map
 
-Does a branch list with a persistent left-side Graphite topology overlay feel like the right base surface for `sdlcc`?
+The stack map reads branch graph data from the sanctioned hidden command:
 
-The current prototype queries Graphite metadata from `.graphite_metadata.db`, seeds the visible row set from the current branch, active slot branches, and recent local branches, overlays slot assignments from `slot list --format json`, and reads cmux tab inventory from `cmux tree --json --all` when available. Objective, handoff, branch-context, GitHub, restack-status, and plan-mode workflows remain future work.
+```bash
+slot gt exec stack-map-branches --format json
+```
 
-## Smoke test
+That command owns Graphite metadata-store parsing on the Python side and returns selected branch rows, graph edges, assigned slot rows, and warnings. `sdlcc` separately reads cmux tab inventory with `cmux tree --json --all` and overlays tabs only when there is strong branch evidence.
+
+## Run
 
 From the repository root:
 
@@ -16,13 +20,13 @@ From the repository root:
 bun ts/packages/sdlcc/src/cli.ts
 ```
 
-Optional package-local run:
+Package-local run:
 
 ```bash
-pnpm --dir ts --filter sdlcc run prototype:stack-map
+pnpm --dir ts --filter sdlcc run stack-map
 ```
 
-Expected display: a full-screen OpenTUI branch list for the current Graphite stack, with Graphite topology glyphs on the left and branch metadata / slot or strong cmux-tab labels aligned in table columns.
+Expected display: a full-screen OpenTUI branch list with Graphite topology glyphs on the left and branch metadata / slot or strong cmux-tab labels aligned in table columns.
 
 Keys:
 
@@ -30,10 +34,9 @@ Keys:
 - `↓`/`j`: next branch
 - `c`: cmux action for the selected branch
 - `o`: toggle all branches vs. cmux-only rows
-- `?`: hide/show the prototype question
 - `q` or `Esc`: exit
 
-`c` uses only strong tab matches: explicit branch metadata or explicit worktree/cwd metadata that maps through `slot list`. Workspace titles, tab titles, descriptions, tty names, and visual labels such as `π - slot-05` are diagnostic only and are intentionally not activation targets.
+`c` uses only strong tab matches: explicit branch metadata or explicit worktree/cwd metadata that maps through slot rows. Workspace titles, tab titles, descriptions, tty names, and visual labels such as `π - slot-05` are diagnostic only and are intentionally not activation targets.
 
 Selected-branch `c` behavior:
 
@@ -55,8 +58,6 @@ The reporter writes:
 - `name=<current git branch>`
 - a harmless shell restore binding from `$SHELL`, falling back to `/bin/zsh`
 
-Use `sdlcc cmux report --json` for machine-readable success/failure output. Future loader/reconciliation work can query cmux resume metadata to match tabs reliably; this slice only writes the metadata.
+Use `sdlcc cmux report --json` for machine-readable success/failure output.
 
 Plan/session launch remains future work; there is deliberately no `p` key in this slice.
-
-When the prototype answers the shape question, delete the throwaway shell or absorb the validated branch/topology model into the real `sdlcc` surface.

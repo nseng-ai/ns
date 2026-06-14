@@ -1,29 +1,28 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	buildStackMapModelFromCommands,
-	buildStackMapModelFromMetadata,
-	loadStackMapPrototypeModel,
+	buildStackMapModelFromGraph,
+	loadStackMapModel,
 	parseCmuxTreeTabs,
 	type StackMapCommandOptions,
 	type StackMapCommandOutput,
 } from "../../src/stack-map-model-loader.ts";
-import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-prototype-renderer.ts";
+import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-renderer.ts";
 import {
 	buildVisibleStackMapRows,
 	choicesForCmuxActivationPlan,
 	createInitialStackMapState,
 	matchCmuxTabsToBranches,
 	planStackMapCmuxActivation,
-	reduceStackMapPrototypeState,
-	renderStackMapPrototypeFrame,
+	reduceStackMapState,
+	renderStackMapFrame,
 	type StackMapCmuxTabTarget,
-	type StackMapPrototypeModel,
-} from "../../src/stack-map-prototype.ts";
+	type StackMapModel,
+} from "../../src/stack-map.ts";
 
-const MODEL: StackMapPrototypeModel = {
+const MODEL: StackMapModel = {
 	title: "stack map",
-	question: "question",
+	diagnostics: ["loaded"],
 	currentBranch: "feature/current",
 	trunk: {
 		name: "main",
@@ -45,113 +44,50 @@ const MODEL: StackMapPrototypeModel = {
 	},
 };
 
-describe("buildStackMapModelFromMetadata", () => {
-	test("includes current branch, slot branches, recent local branches, and descendants from Graphite metadata", () => {
-		const model = buildStackMapModelFromMetadata(
-			{
-				branches: ["feature/current"],
-				trunk: "main",
-				current: "feature/current",
-				edges: [{ parent: "main", child: "feature/current" }],
-				warnings: [],
-			},
-			[
-				{ branch: "main", parent: undefined, children: ["feature/current", "feature/slot", "feature/recent"], validationResult: "TRUNK" },
-				{ branch: "feature/current", parent: "main", children: [], validationResult: "VALID" },
-				{ branch: "feature/slot", parent: "main", children: ["feature/slot-child"], validationResult: "VALID" },
-				{ branch: "feature/slot-child", parent: "feature/slot", children: [], validationResult: "VALID" },
-				{ branch: "feature/recent", parent: "main", children: [], validationResult: "VALID" },
+describe("buildStackMapModelFromGraph", () => {
+	test("builds topology from sanctioned graph rows, slots, and needs_restack facts", () => {
+		const model = buildStackMapModelFromGraph({
+			branches: [
+				{ name: "main", parent: undefined, children: ["feature/current", "feature/slot"], needsRestack: false },
+				{ name: "feature/current", parent: "main", children: [], needsRestack: false },
+				{ name: "feature/slot", parent: "main", children: ["feature/restack"], needsRestack: false },
+				{ name: "feature/restack", parent: "feature/slot", children: [], needsRestack: true },
 			],
-			[{ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" }],
-			["feature/recent"],
-		);
+			trunk: "main",
+			current: "feature/current",
+			edges: [
+				{ parent: "main", child: "feature/current" },
+				{ parent: "main", child: "feature/slot" },
+			],
+			slots: [{ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" }],
+			warnings: ["graph warning"],
+		});
 
-		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/current", "feature/slot", "feature/recent"]);
+		expect(model.title).toBe("sdlcc stack map");
+		expect(model.diagnostics).toContain("Loaded from `slot gt exec stack-map-branches --format json`.");
+		expect(model.diagnostics).toContain("graph warning");
+		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/current", "feature/slot"]);
 		expect(model.trunk.children?.[1]?.slots?.[0]).toEqual({ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" });
-		expect(model.trunk.children?.[1]?.children?.[0]?.name).toBe("feature/slot-child");
-	});
-
-	test("maps BAD_PARENT_NAME validation metadata to a restack note", () => {
-		const model = buildStackMapModelFromMetadata(
-			{
-				branches: ["feature/current"],
-				trunk: "main",
-				current: "feature/current",
-				edges: [{ parent: "main", child: "feature/current" }],
-				warnings: [],
-			},
-			[
-				{ branch: "main", parent: undefined, children: ["feature/current", "feature/restack"], validationResult: "TRUNK" },
-				{ branch: "feature/current", parent: "main", children: [], validationResult: "VALID" },
-				{ branch: "feature/restack", parent: "main", children: [], validationResult: "BAD_PARENT_NAME" },
-			],
-			[],
-			["feature/restack"],
-		);
-
-		expect(model.trunk.children?.find((branch) => branch.name === "feature/restack")?.graphiteNote).toBe("needs restack");
+		expect(model.trunk.children?.[1]?.children?.[0]?.graphiteNote).toBe("needs restack");
 	});
 });
 
-describe("buildStackMapModelFromCommands", () => {
-	test("builds branch topology from slot gt machine edges and slot labels", () => {
-		const model = buildStackMapModelFromCommands(
-			{
-				branches: ["feature/a", "feature/b", "feature/c"],
-				trunk: "main",
-				current: "feature/b",
-				edges: [
-					{ parent: "main", child: "feature/a" },
-					{ parent: "feature/a", child: "feature/b" },
-					{ parent: "feature/b", child: "feature/c" },
-				],
-				warnings: [],
-			},
-			[
-				{ branch: "feature/a", slotName: "slot-01", worktreePath: "/repo/slot-01", status: "assigned" },
-				{ branch: "feature/c", slotName: "slot-03", status: "unknown" },
-			],
-		);
-
-		expect(model.trunk.name).toBe("main");
-		expect(model.trunk.children?.[0]?.name).toBe("feature/a");
-		expect(model.trunk.children?.[0]?.slots?.[0]?.worktreePath).toBe("/repo/slot-01");
-		expect(model.trunk.children?.[0]?.children?.[0]?.name).toBe("feature/b");
-		expect(model.trunk.children?.[0]?.children?.[0]?.graphiteNote).toBe("current");
-		expect(model.trunk.children?.[0]?.children?.[0]?.children?.[0]?.slots?.[0]?.slotName).toBe("slot-03");
-	});
-});
-
-describe("loadStackMapPrototypeModel", () => {
-	test("queries stack, slots, cmux, Graphite metadata, and recent local branches", async () => {
+describe("loadStackMapModel", () => {
+	test("queries sanctioned graph and cmux inventory in parallel", async () => {
 		const calls: string[] = [];
-		const model = await loadStackMapPrototypeModel({
+		const model = await loadStackMapModel({
 			cwd: "/repo",
 			runCommand: async (command: string, args: readonly string[], options: StackMapCommandOptions): Promise<StackMapCommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
-				if (command === "slot" && args[0] === "gt") return successJson({ exit_code: 0, data: { branches: ["feature/a"], trunk: "main", current: "feature/a", edges: [{ parent: "main", child: "feature/a" }], warnings: [] } });
-				if (command === "slot") return successJson({ exit_code: 0, data: { rows: [{ slot_name: "slot-04", branch: "feature/a", worktree_path: "/repo/worktrees/slot-04", status: "assigned" }] } });
+				if (command === "slot") return successJson({ exit_code: 0, data: stackMapGraphFixture() });
 				if (command === "cmux") return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
-				if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/.git\n", stderr: "" };
-				if (command === "sqlite3") {
-					return successJson([
-						{ branch_name: "main", parent_branch_name: null, children: JSON.stringify(["feature/a", "feature/recent"]), validation_result: "TRUNK" },
-						{ branch_name: "feature/a", parent_branch_name: "main", children: "[]", validation_result: "VALID" },
-						{ branch_name: "feature/recent", parent_branch_name: "main", children: "[]", validation_result: "VALID" },
-					]);
-				}
-				if (command === "git" && args[0] === "for-each-ref") return { code: 0, stdout: "feature/recent\n", stderr: "" };
 				return { code: 2, stdout: "", stderr: `unexpected command ${command}` };
 			},
 		});
 
-		expect(calls).toEqual([
-			"/repo$ slot gt exec stack-branches --format json",
-			"/repo$ slot list --format json",
+		expect(calls.sort()).toEqual([
 			"/repo$ cmux tree --json --all",
-			"/repo$ git rev-parse --path-format=absolute --git-common-dir",
-			"/repo$ sqlite3 -readonly -json /repo/.git/.graphite_metadata.db SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
-			"/repo$ git for-each-ref --format=%(refname:short) --sort=-committerdate --count=40 refs/heads",
+			"/repo$ slot gt exec stack-map-branches --format json",
 		]);
 		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/a", "feature/recent"]);
 		expect(model.trunk.children?.[0]?.slots?.[0]?.slotName).toBe("slot-04");
@@ -174,6 +110,7 @@ describe("parseCmuxTreeTabs", () => {
 			tabRef: "tab:117",
 			tabTitle: "π - slot-04",
 			surfaceType: "terminal",
+			tty: "ttys000",
 			explicitWorktreePath: "/repo/worktrees/slot-04",
 		});
 	});
@@ -216,14 +153,14 @@ describe("planStackMapCmuxActivation", () => {
 	});
 });
 
-describe("reduceStackMapPrototypeState", () => {
+describe("reduceStackMapState", () => {
 	test("moves chooser selection and cancels without quitting rows", () => {
 		const first = cmuxTarget("surface:1");
 		const second = cmuxTarget("surface:2");
 		const choices = choicesForCmuxActivationPlan({ type: "choose-tab", branch: "feature/current", targets: [first, second], includeOpenNew: true });
-		const choosing = reduceStackMapPrototypeState(MODEL, createInitialStackMapState(MODEL), { type: "show-cmux-choice", branch: "feature/current", choices });
-		const moved = reduceStackMapPrototypeState(MODEL, choosing, { type: "move-choice", delta: 1 });
-		const cancelled = reduceStackMapPrototypeState(MODEL, moved, { type: "cancel-choice" });
+		const choosing = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), { type: "show-cmux-choice", branch: "feature/current", choices });
+		const moved = reduceStackMapState(MODEL, choosing, { type: "move-choice", delta: 1 });
+		const cancelled = reduceStackMapState(MODEL, moved, { type: "cancel-choice" });
 
 		expect(moved.mode).toMatchObject({ type: "cmux-choice", selectedIndex: 1 });
 		expect(cancelled.mode).toEqual({ type: "rows" });
@@ -279,9 +216,9 @@ describe("createStackMapCmuxActivationExecutor", () => {
 
 describe("buildVisibleStackMapRows", () => {
 	test("renders gt-ls-style lanes with exact glyphs, sorted lanes, and trunk join last", () => {
-		const model: StackMapPrototypeModel = {
+		const model: StackMapModel = {
 			title: "stack map",
-			question: "question",
+			diagnostics: [],
 			currentBranch: "b-leaf",
 			trunk: {
 				name: "main",
@@ -303,9 +240,9 @@ describe("buildVisibleStackMapRows", () => {
 	});
 
 	test("cmux filter includes the whole matching lane and hides unrelated lanes", () => {
-		const model: StackMapPrototypeModel = {
+		const model: StackMapModel = {
 			title: "stack map",
-			question: "question",
+			diagnostics: [],
 			currentBranch: "a-parent",
 			trunk: {
 				name: "main",
@@ -323,18 +260,20 @@ describe("buildVisibleStackMapRows", () => {
 	});
 });
 
-describe("renderStackMapPrototypeFrame", () => {
-	test("keeps branch rows aligned while rendering the trunk join under the final lane", () => {
-		const frame = renderStackMapPrototypeFrame(MODEL, createInitialStackMapState(MODEL));
+describe("renderStackMapFrame", () => {
+	test("keeps branch rows aligned while rendering diagnostics separately", () => {
+		const frame = renderStackMapFrame(MODEL, createInitialStackMapState(MODEL));
 		const lines = frame.split("\n");
 		const tableLines = lines.filter((line) => line.includes(" │ ") && !line.includes("─┼─"));
 		const header = tableLines[0];
 		const trunkLine = lines.find((line) => /^\s*◯\s+main/.test(line));
 
+		expect(frame).toContain("Diagnostics:\n- loaded");
 		expect(header).toContain("TOPO");
 		expect(header).toContain("  BRANCH");
 		expect(header).not.toContain("TOPO │ BRANCH");
 		expect(frame).toContain("c cmux");
+		expect(frame).not.toContain("? hide/show");
 		expect(trunkLine ?? "").toMatch(/^\s*◯\s+main/);
 		expect(trunkLine).toContain(" │ repo");
 		expect(frame).not.toContain("◯─┘");
@@ -345,7 +284,25 @@ describe("renderStackMapPrototypeFrame", () => {
 	});
 });
 
-function modelWithTabs(tabs: readonly StackMapCmuxTabTarget[]): StackMapPrototypeModel {
+function stackMapGraphFixture(): unknown {
+	return {
+		branches: [
+			{ name: "main", parent: null, children: ["feature/a", "feature/recent"], needs_restack: false },
+			{ name: "feature/a", parent: "main", children: [], needs_restack: false },
+			{ name: "feature/recent", parent: "main", children: [], needs_restack: false },
+		],
+		trunk: "main",
+		current: "feature/a",
+		edges: [
+			{ parent: "main", child: "feature/a" },
+			{ parent: "main", child: "feature/recent" },
+		],
+		slots: [{ slot_name: "slot-04", branch: "feature/a", worktree_path: "/repo/worktrees/slot-04", status: "assigned" }],
+		warnings: [],
+	};
+}
+
+function modelWithTabs(tabs: readonly StackMapCmuxTabTarget[]): StackMapModel {
 	return {
 		...MODEL,
 		trunk: {
