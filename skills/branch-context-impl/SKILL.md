@@ -15,7 +15,7 @@ prompt_file="$prompt_dir/prompt.md"
 branch-context exec load [key] --prompt-file "$prompt_file" --format json
 ```
 
-Reads the current branch by default and selects the attached plan from Branch Memory namespace `branch-context`, key `plan.md`. If the current branch has no attached branch-context entry and no explicit key was requested, it falls back to the current session's saved plan evidence or the latest `.md` file in the current repo/source-branch local plan store. An optional argument is treated as an exact attached Branch Memory key selector. JSON output is bounded metadata by default and includes `implementation_prompt_file` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
+Reads the current branch by default and auto-selects the attached plan only when Branch Memory namespace `branch-context` has exactly one entry. If multiple entries exist, pass an explicit key. If the current branch has no attached branch-context entry and no explicit key was requested, it falls back to the current session's saved plan evidence or the latest `.md` file in the current repo/source-branch local plan store. An optional argument is treated as an exact attached Branch Memory key selector. Legacy `plan.md` entries remain readable when explicitly requested or when they are the only entry. JSON output is bounded metadata by default and includes `implementation_prompt_file` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
 
 ## Workflow
 
@@ -32,5 +32,5 @@ Reads the current branch by default and selects the attached plan from Branch Me
 ## Recovery
 
 - No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/branch-context:from-plan` first.
-- Missing or unexpected attached plan key: inspect `brmem list --namespace branch-context --branch <branch>` and rerun `load <key>` only when the user explicitly wants a non-default key.
+- Missing, unexpected, or ambiguous attached plan key: inspect `brmem list --namespace branch-context --branch <branch>` and rerun `load <key>` only when the user explicitly chooses the key.
 - Current branch is trunk/default/detached: stop and ask for the intended implementation branch.

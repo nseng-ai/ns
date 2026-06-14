@@ -1,7 +1,8 @@
 import type { CommandExecApi } from "@asdl/core/exec";
 import type { BranchContextBrmemGateway } from "./brmem-gateway.ts";
+import { selectAttachedPlanKey } from "./attached-plan.ts";
 import type { BranchContextContext } from "./context.ts";
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 import { extractBranchContextEvidenceFromSessionEntry } from "./session-artifact.ts";
 
 export type ExistingBranchContextReuseSource = "explicit-branch" | "session-output" | "current-branch";
@@ -95,15 +96,28 @@ async function verifyCandidate(
 	options: ResolveExistingBranchContextReuseOptions,
 	candidate: ExistingBranchContextCandidate,
 ): Promise<CandidateVerification> {
-	const key = candidate.requestedKey ?? BRANCH_CONTEXT_PLAN_KEY;
-	const presence = await brmem.attachmentPresence({ cwd: options.cwd, branch: candidate.branch, key, signal: options.signal });
-	if (presence.type === "present") {
+	if (candidate.requestedKey !== undefined) {
+		const key = candidate.requestedKey;
+		const presence = await brmem.attachmentPresence({ cwd: options.cwd, branch: candidate.branch, key, signal: options.signal });
+		if (presence.type === "present") {
+			return { type: "verified", reuse: { branch: candidate.branch, key, source: candidate.source } };
+		}
+		if (presence.type === "absent") {
+			return { type: "failure", message: `Branch-context key \`${key}\` is absent.` };
+		}
+		return { type: "failure", message: presence.error.message };
+	}
+
+	const list = await brmem.listAttachedPlans({ cwd: options.cwd, branch: candidate.branch, signal: options.signal });
+	if (!list.ok) {
+		return { type: "failure", message: list.error.message };
+	}
+	try {
+		const key = selectAttachedPlanKey({ branch: candidate.branch, entries: list.value });
 		return { type: "verified", reuse: { branch: candidate.branch, key, source: candidate.source } };
+	} catch (error) {
+		return { type: "failure", message: error instanceof Error ? error.message : String(error) };
 	}
-	if (presence.type === "absent") {
-		return { type: "failure", message: `Branch-context key \`${key}\` is absent.` };
-	}
-	return { type: "failure", message: presence.error.message };
 }
 
 function collectSessionCandidates(entries: readonly unknown[]): ExistingBranchContextCandidate[] {

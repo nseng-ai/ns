@@ -19,7 +19,8 @@ import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } fro
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
 const PLAN_BRANCH = `branch-contexts/${PLAN_SLUG}`;
-const PLAN_KEY = "plan.md";
+const PLAN_KEY = `${PLAN_SLUG}.md`;
+const LEGACY_PLAN_KEY = "plan.md";
 const PLAN_REF = `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_BRANCH.replaceAll("/", "---")}:${PLAN_KEY}`;
 const PLAN_CONTENT = "# Attached Plan\n\n- Preserve all Markdown.\n- Then implement.\n";
 const tempDirs: string[] = [];
@@ -287,6 +288,15 @@ describe("loadAttachedPlan", () => {
 		});
 	});
 
+	test("loads a single legacy plan.md entry without an explicit key", async () => {
+		const pi = new FakePi(successfulLoadScript({ key: LEGACY_PLAN_KEY }));
+
+		const plan = await loadAttachedPlan(pi, {}, { cwd: ROOT, context: branchContext(pi) });
+
+		pi.assertDone();
+		expect(plan.selectedKey).toBe(LEGACY_PLAN_KEY);
+	});
+
 	test("loads an explicit exact key", async () => {
 		const exactPi = new FakePi(successfulLoadScript());
 		const exactPlan = await loadAttachedPlan(exactPi, { requestedKey: PLAN_KEY }, { cwd: ROOT, context: branchContext(exactPi) });
@@ -294,13 +304,13 @@ describe("loadAttachedPlan", () => {
 		expect(exactPlan.selectedKey).toBe(PLAN_KEY);
 	});
 
-	test("reports a missing plan entry with available keys", () => {
+	test("reports ambiguous no-key selection with available keys", () => {
 		expect(() =>
 			selectAttachedPlanKey({
 				branch: "branch-contexts/no-match",
 				entries: [attachedPlanEntry("beta.md"), attachedPlanEntry("alpha.md")],
 			}),
-		).toThrow(/No branch-context plan entry[\s\S]*Expected key: plan\.md[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
+		).toThrow(/Multiple branch-context entries[\s\S]*Pass an explicit branch-context key[\s\S]*- alpha\.md[\s\S]*- beta\.md/);
 	});
 
 	test("reports missing requested key with available keys", () => {

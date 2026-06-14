@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; amended by named branch-context plan keys
 
 ## Context
 
@@ -30,7 +30,7 @@ The fused from-plan flow survives as documented sugar: `branch-context exec from
 
 Branch context uses Branch Memory namespace `branch-context`.
 
-The canonical attached-plan entry key is fixed as the default `plan.md`. The old `<slug>.md` key duplicated information already scoped by the branch: the branch name carries the implementation slug, and Branch Memory already scopes entries by branch. Keeping the default key fixed makes no-argument loading deterministic and makes plan presence easy to check. Multiple keyed entries per branch are an intended direction; Pi/ccc key parameters are deliberate forward structure, built implementation commands include a key only when it differs from `plan.md`, and explicit keys bypass saved-plan fallback by design.
+Branch-context attached plans now use named Markdown keys for new attachments. `branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch. Legacy `plan.md` entries remain readable but are no longer the new default.
 
 There are no migration shims. This is unreleased private software, so pre-rename attached plans in namespace `planned-branch` with `<slug>.md` keys and old `planned-branch-output` session artifacts become orphaned. Manual recovery can read them through raw Branch Memory locators if needed.
 
@@ -40,9 +40,9 @@ There are no migration shims. This is unreleased private software, so pre-rename
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `@asdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                 | `@asdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                 |
 | `planned-branch exec create`                                                                | `branch-context exec from-plan --slug <slug> --plan-file <path>`                            |
-| `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads `plan.md`                             |
+| `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads only when exactly one entry exists    |
 | attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                              |
-| Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, plan key `plan.md`                                              |
+| Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, named Markdown plan keys                                        |
 | Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/branch-context:from-plan`, `/branch-context:impl`, `/branch-context:upstack-impl-session` |
 | skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `branch-context-from-plan`, `branch-context-impl`                         |
 
@@ -55,7 +55,7 @@ There are no migration shims. This is unreleased private software, so pre-rename
 - Active surfaces use branch-context vocabulary instead of planned-branch vocabulary.
 - `enriched-plan` is untouched: it remains the saved-plan intake surface from ADR 0005.
 - Existing planned-branch Branch Memory entries and session artifacts are not migrated.
-- No-argument implementation loading now means exact `plan.md`, not slug-derived or fuzzy key selection.
+- No-argument implementation loading now auto-selects only when exactly one branch-context entry exists; multiple entries require an explicit key.
 - Exact-key loading for non-plan entries is available for the multi-entry case; `my-notes` no longer fuzzy-matches `my-notes.md`.
 - CONTEXT files are not edited by this ADR. Their planned-branch language is known drift to handle in a dedicated rebaseline session.
 

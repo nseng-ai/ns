@@ -93,15 +93,15 @@ One saved plan file scoped to the repository and source branch where planning ha
 *Avoid*: attached plan, implementation branch plan, source file unqualified.
 
 **Branch-context slug**:
-The implementation slug derived from the saved plan body by the workflow surface before calling `branch-context exec from-plan`. It drives the default target branch; the attached-plan key remains fixed as `plan.md`.
-*Avoid*: saved-plan filename slug, Branch Memory key, path stem, deterministic fallback.
+The implementation slug derived from the saved plan body by the workflow surface before calling `branch-context exec from-plan`. It drives the default target branch and, for from-plan workflows, the default named attached-plan key `<branch-context-slug>.md`.
+*Avoid*: saved-plan filename slug, arbitrary Branch Memory key, path stem, deterministic fallback.
 
 **Branch context**:
 The standing Branch Memory context attached to a branch in namespace `branch-context`. A plan can be the founding entry, but the branch is not a special branch type.
 *Avoid*: planned branch, brmem branch, Objective branch, plan branch.
 
 **Attached plan**:
-The canonical Markdown implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context` with key `plan.md`.
+The canonical Markdown implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context` with a named Markdown key. New from-plan attachments use `<branch-context-slug>.md`; `plan.md` remains readable legacy storage.
 *Avoid*: saved plan, local plan store file, prompt template.
 
 **Branch Memory attachment**:

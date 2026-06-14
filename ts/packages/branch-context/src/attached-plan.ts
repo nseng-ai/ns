@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
 import type { AttachedPlanEntry } from "./brmem-gateway.ts";
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY } from "./constants.ts";
+import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 import type { CommandExecApi } from "@asdl/core/exec";
 import type { GitGateway } from "@asdl/core/git";
 import { resolveSelectedSavedPlanFile } from "@asdl/plans";
@@ -55,20 +55,20 @@ export class NoAttachedBranchContextEntriesError extends Error {
 	}
 }
 
-export class NoBranchContextPlanEntryError extends Error {
+export class AmbiguousBranchContextPlanEntryError extends Error {
 	readonly branch: string;
 
 	constructor(branch: string, availableKeys: readonly string[]) {
 		super(
 			[
-				`No branch-context plan entry exists on branch \`${branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
-				`Expected key: ${BRANCH_CONTEXT_PLAN_KEY}`,
+				`Multiple branch-context entries exist on branch \`${branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
+				"Pass an explicit branch-context key to choose which plan to load.",
 				"",
 				"Available keys:",
 				formatAvailableKeys([...availableKeys]),
 			].join("\n"),
 		);
-		this.name = "NoBranchContextPlanEntryError";
+		this.name = "AmbiguousBranchContextPlanEntryError";
 		this.branch = branch;
 	}
 }
@@ -103,8 +103,8 @@ export async function loadBranchContextPlan(
 	}
 }
 
-function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedBranchContextEntriesError | NoBranchContextPlanEntryError {
-	return error instanceof NoAttachedBranchContextEntriesError || error instanceof NoBranchContextPlanEntryError;
+function isSavedPlanFallbackEligibleError(error: unknown): error is NoAttachedBranchContextEntriesError {
+	return error instanceof NoAttachedBranchContextEntriesError;
 }
 
 export async function loadAttachedPlan(
@@ -200,12 +200,19 @@ export function normalizeRequestedBranchContextKey(requestedKey: string): string
 export function selectAttachedPlanKey(input: { branch: string; requestedKey?: string; entries: AttachedPlanEntry[] }): string {
 	const availableKeys = sortedUniqueKeys(input.entries);
 	const available = new Set(availableKeys);
-	const key = input.requestedKey === undefined ? BRANCH_CONTEXT_PLAN_KEY : normalizeRequestedBranchContextKey(input.requestedKey);
+	if (input.requestedKey === undefined) {
+		if (availableKeys.length === 1) {
+			return availableKeys[0]!;
+		}
+		if (availableKeys.length === 0) {
+			throw new NoAttachedBranchContextEntriesError(input.branch);
+		}
+		throw new AmbiguousBranchContextPlanEntryError(input.branch, availableKeys);
+	}
+
+	const key = normalizeRequestedBranchContextKey(input.requestedKey);
 	if (available.has(key)) {
 		return key;
-	}
-	if (input.requestedKey === undefined) {
-		throw new NoBranchContextPlanEntryError(input.branch, availableKeys);
 	}
 	throw new Error(
 		[

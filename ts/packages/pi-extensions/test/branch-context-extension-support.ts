@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { BRANCH_CONTEXT_NAMESPACE, buildPlanContentSlugPrompt, type BranchContextEvidence, type LoadedAttachedPlan } from "@asdl/branch-context";
+import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey, buildPlanContentSlugPrompt, type BranchContextEvidence, type LoadedAttachedPlan } from "@asdl/branch-context";
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
 import {
 	DEFAULT_FAST_MODEL,
@@ -29,7 +29,8 @@ export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../..");
 export const ROOT = "/repo";
 export const PLAN_SLUG = "branch-scoped-plan-extension";
-export const PLAN_KEY = "plan.md";
+export const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);
+export const LEGACY_PLAN_KEY = "plan.md";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 export const SOURCE_BRANCH = "source-branch";
 export const TARGET_BRANCH = "branch-contexts/wire-create-branch-context-command";
@@ -220,7 +221,7 @@ export function branchContextEvidenceFromParams(rawParams: unknown): BranchConte
 		slug: params.slug,
 		branch: params.branchName ?? params.slug,
 		branchCreation: params.branchCreation,
-		key: PLAN_KEY,
+		key: buildBranchContextPlanKey(params.slug),
 		sourceFile: params.filePath,
 		...(params.summary === undefined ? {} : { summary: params.summary }),
 	});
@@ -357,10 +358,30 @@ export function brmemListAttachedPlansStep(
 	entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>,
 	result: Partial<ExecResult> = {},
 ): ScriptedExec {
-	const hasPlanEntry = entries.some((entry) => entry.key === PLAN_KEY && (entry.branch ?? branch) === branch);
-	return step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], {
-		code: hasPlanEntry ? 0 : 1,
+	return step("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], {
+		stdout: brmemListEnvelope(branch, entries),
 		...result,
+	});
+}
+
+function brmemListEnvelope(branch: string, entries: Array<{ key: string; branch?: string; namespace?: string; refName?: string }>): string {
+	return JSON.stringify({
+		exit_code: 0,
+		data: {
+			namespace: BRANCH_CONTEXT_NAMESPACE,
+			key: null,
+			branch,
+			base: false,
+			entries: entries.map((entry) => {
+				const entryBranch = entry.branch ?? branch;
+				return {
+					namespace: entry.namespace ?? BRANCH_CONTEXT_NAMESPACE,
+					key: entry.key,
+					branch: entryBranch,
+					ref_name: entry.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${entryBranch.replaceAll("/", "---")}:${entry.key}`,
+				};
+			}),
+		},
 	});
 }
 

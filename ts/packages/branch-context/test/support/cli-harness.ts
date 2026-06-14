@@ -12,7 +12,8 @@ import { InMemoryBranchContextGraphiteGateway, type InMemoryGraphiteGatewayState
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";
-export const PLAN_KEY = "plan.md";
+export const PLAN_KEY = `${PLAN_SLUG}.md`;
+export const LEGACY_PLAN_KEY = "plan.md";
 export const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 export const PLAN_STORE_REPO_KEY = "gh--owner--repo";
 

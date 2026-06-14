@@ -109,7 +109,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch was created and no plan was attached.");
 		expect(pi.sentMessages[0]?.content).toContain(`Path: ${filePath}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Saved-plan file stem: plan`);
+		expect(pi.sentMessages[0]?.content).toContain(`Saved-plan file stem: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
@@ -143,7 +143,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Saved-plan file stem: ${sessionSlug}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${contentSlug}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${contentSlug}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${contentSlug}.md`);
 		expect(pi.sentMessages[0]?.content).not.toContain(`${newerDiskSlug}.md`);
 	});
 
@@ -197,7 +197,7 @@ describe("branch-context-from-plan", () => {
 			expect(pi.sentMessages[0]?.content).toContain(`Saved-plan file stem: ${savedPlanStem}`);
 			expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${contentSlug}`);
 			expect(pi.sentMessages[0]?.content).toContain(`Branch: ${contentSlug}`);
-			expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
+			expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${contentSlug}.md`);
 			expect(pi.sentMessages[0]?.content).not.toContain(`Branch: ${savedPlanStem}`);
 		}
 	});
@@ -217,7 +217,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${repairedSlug}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${repairedSlug}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${repairedSlug}.md`);
 	});
 
 	test("branch-context:from-plan ignores missing session file and falls back to disk latest", async () => {
@@ -295,7 +295,7 @@ describe("branch-context-from-plan", () => {
 		await command?.handler("--dry-run", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentMessages[0]?.content).toContain("Session saved-plan evidence basename must match slug");
+		expect(pi.sentMessages[0]?.content).toContain("Session saved-plan evidence points outside the current local plan store directory.");
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
@@ -541,7 +541,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Saved-plan file stem: bad");
 		expect(pi.sentMessages[0]?.content).toContain(`Content-derived slug: ${contentSlug}`);
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${contentSlug}`);
-		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
+		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${contentSlug}.md`);
 	});
 
 	test("branch-context:from-plan fails when model slug generation fails without fallback", async () => {

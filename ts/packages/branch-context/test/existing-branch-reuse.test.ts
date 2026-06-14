@@ -10,9 +10,9 @@ import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphi
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";
-const SESSION_KEY = "plan.md";
+const SESSION_KEY = "session-target.md";
 const CURRENT_BRANCH = "branch-contexts/current-target";
-const CURRENT_KEY = "plan.md";
+const CURRENT_KEY = "current-target.md";
 
 const pi: CommandExecApi = {
 	exec: async () => {
@@ -57,13 +57,14 @@ function sessionEntry(branch: string, key: string): unknown {
 
 describe("resolveExistingBranchContextReuse", () => {
 	test("verifies an explicit branch without touching git", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: "branch-contexts/explicit", key: "plan.md" }] });
+		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: "branch-contexts/explicit", key: "explicit-plan.md" }] });
 		const git = new InMemoryGitGateway();
 
 		const reuse = await resolveExistingBranchContextReuse(pi, { explicitBranch: "branch-contexts/explicit" }, { cwd: CWD, context: branchContext({ git, brmem }) });
 
-		expect(reuse).toEqual({ branch: "branch-contexts/explicit", key: "plan.md", source: "explicit-branch" });
-		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: CWD, branch: "branch-contexts/explicit", key: "plan.md" }]);
+		expect(reuse).toEqual({ branch: "branch-contexts/explicit", key: "explicit-plan.md", source: "explicit-branch" });
+		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: "branch-contexts/explicit" }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
@@ -119,10 +120,8 @@ describe("resolveExistingBranchContextReuse", () => {
 		);
 
 		expect(reuse).toEqual({ branch: CURRENT_BRANCH, key: CURRENT_KEY, source: "current-branch" });
-		expect(brmem.attachmentPresenceCalls).toEqual([
-			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
-			{ cwd: CWD, branch: CURRENT_BRANCH, key: CURRENT_KEY },
-		]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY }]);
+		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: CURRENT_BRANCH }]);
 		expect(git.currentBranchCalls).toHaveLength(1);
 	});
 

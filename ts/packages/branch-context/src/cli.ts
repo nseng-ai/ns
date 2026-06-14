@@ -50,7 +50,7 @@ const createRequestSchema = z.object({
 });
 
 const loadRequestSchema = z.object({
-	key: z.string().optional().describe("Branch-context key (defaults to plan.md)."),
+	key: z.string().optional().describe("Branch-context key (defaults to the only attached entry)."),
 	prompt_file: z.string().optional().describe("Write the implementation prompt to this file."),
 	include_content: z.boolean().optional().describe("Include the branch-context entry content in JSON output."),
 	include_prompt: z.boolean().optional().describe("Include the implementation prompt in JSON output."),
@@ -59,7 +59,7 @@ const loadRequestSchema = z.object({
 const attachRequestSchema = z.object({
 	key: z.string().optional().describe("Entry key for --file form."),
 	file: z.string().optional().describe("File to attach for arbitrary-key form."),
-	plan: z.string().optional().describe("Saved plan slug to attach as plan.md."),
+	plan: z.string().optional().describe("Saved plan slug to attach as <slug>.md."),
 	branch: z.string().optional().describe("Target branch (defaults to current branch)."),
 });
 
