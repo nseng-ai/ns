@@ -3,13 +3,20 @@ import { TextDecoder, TextEncoder } from "node:util";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
+import { brmemError, brmemOk, type BrmemResult } from "../../src/contracts.ts";
 import { FakeBrmemGateway, type FakeBrmemGatewayOptions } from "../../src/fake-gateway.ts";
 import type { BrmemGateway } from "../../src/gateway.ts";
+import type { BrmemPromptResolver } from "../../src/prompt-resolution.ts";
 import type { BrmemSourceReader, SourceBytesResult } from "../../src/source-reader.ts";
 
 export interface ScenarioRunOptions {
 	gateway?: BrmemGateway | undefined;
 	fake?: FakeBrmemGatewayOptions | undefined;
+	promptResolver?: BrmemPromptResolver | undefined;
+	repoRoot?: string | undefined;
+	homeRoot?: string | undefined;
+	inGitRepo?: boolean | undefined;
+	promptFiles?: readonly string[] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	cwd?: string | undefined;
 	stdin?: string | Uint8Array | (() => Promise<string | Uint8Array>) | undefined;
@@ -31,6 +38,14 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const cwd = options.cwd ?? "/repo";
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
+		promptResolver: options.promptResolver ??
+			new ScenarioPromptResolver({
+				cwd,
+				repoRoot: options.repoRoot,
+				homeRoot: options.homeRoot,
+				inGitRepo: options.inGitRepo,
+				promptFiles: options.promptFiles,
+			}),
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		stdin: async () => stringFromStdin(stdin),
@@ -50,6 +65,45 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 
 export function parseJsonOutput(run: ScenarioRun): unknown {
 	return JSON.parse(run.stdout.join(""));
+}
+
+class ScenarioPromptResolver implements BrmemPromptResolver {
+	private readonly repoRootValue: string;
+	private readonly homeRootValue: string;
+	private readonly isInGitRepo: boolean;
+	private readonly promptFiles: ReadonlySet<string>;
+
+	constructor(options: {
+		cwd: string;
+		repoRoot?: string | undefined;
+		homeRoot?: string | undefined;
+		inGitRepo?: boolean | undefined;
+		promptFiles?: readonly string[] | undefined;
+	}) {
+		this.repoRootValue = options.repoRoot ?? "/repo";
+		this.homeRootValue = options.homeRoot ?? "/home/tester";
+		this.isInGitRepo = options.inGitRepo ?? true;
+		this.promptFiles = new Set((options.promptFiles ?? []).map((path) => normalizePath(path, options.cwd)));
+	}
+
+	async repositoryRoot(options: { cwd: string }): Promise<BrmemResult<string>> {
+		if (!this.isInGitRepo) {
+			return brmemError(
+				"not-a-git-repo",
+				`Not inside a git repository: ${options.cwd}. ` +
+					"`brmem exec resolve-prompt` requires a git repo to resolve the project-local prompt path; run it from inside a checkout.",
+			);
+		}
+		return brmemOk(this.repoRootValue);
+	}
+
+	homeRoot(): string {
+		return this.homeRootValue;
+	}
+
+	async fileExists(path: string): Promise<boolean> {
+		return this.promptFiles.has(normalizePath(path, this.repoRootValue));
+	}
 }
 
 class ScenarioSourceReader implements BrmemSourceReader {

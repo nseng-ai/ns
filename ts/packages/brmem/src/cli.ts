@@ -13,8 +13,8 @@ import { deleteRequestSchema, deleteResultSchema, renderDelete, runDelete } from
 import { exportRequestSchema, exportResultSchema, renderExport, runExport } from "./operations/export.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
-import { notImplementedHandler, notImplementedResultSchema, resolvePromptRequestSchema } from "./operations/not-implemented.ts";
 import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
+import { resolvePromptRequestSchema, resolvePromptResultSchema, renderResolvePrompt, runResolvePrompt } from "./operations/resolve-prompt.ts";
 
 export const VERSION = "0.1.0";
 
@@ -106,9 +106,10 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		name: "resolve-prompt",
 		description: "Resolve a Branch Memory prompt path.",
 		schema: resolvePromptRequestSchema,
-		positionals: { prompt: { position: 0 } },
-		resultSchema: notImplementedResultSchema,
-		handler: notImplementedHandler("exec resolve-prompt"),
+		positionals: { name: { position: 0 } },
+		resultSchema: resolvePromptResultSchema,
+		handler: runResolvePrompt,
+		renderHuman: renderResolvePrompt,
 	});
 	root.group(execGroup);
 	return root;
@@ -117,7 +118,8 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
 	const io = resolveIo({ stdout: deps.stdout, stderr: deps.stderr });
 	const cwd = deps.cwd ?? process.cwd();
-	const context = deps.context ?? createRealBrmemContext({ cwd });
+	const env = deps.env ?? process.env;
+	const context = deps.context ?? createRealBrmemContext({ cwd, env });
 	const runContext: BrmemCliContext = {
 		...context,
 		cwd,
