@@ -44,6 +44,7 @@ export interface PayloadArtifactStore {
 	writeTextArtifact(options: { descriptor: string; role: LogPayloadRole; text: string }): Promise<PayloadResult<PayloadReference>>;
 	readJsonArtifact(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
 	readJsonArtifactValue(options: { payloadPath: string; pointer: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
+	findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>>;
 }
 
 export interface PayloadStoreFactory {
@@ -63,6 +64,11 @@ export interface PayloadReference {
 	payload_bytes: number;
 	content_type: string;
 	extension: PayloadExtension;
+}
+
+export interface ResolvedJsonPayloadArtifact {
+	reference: PayloadReference;
+	value: unknown;
 }
 
 export function isSafeSegment(value: string): boolean {
@@ -99,6 +105,16 @@ export function resolveHarnessSessionId(
 	}
 	if (isSafeSegment(harnessSessionId)) return { type: "ok", value: harnessSessionId };
 	return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${pythonRepr(harnessSessionId)}`);
+}
+
+export function hasConfiguredPayloadSession(
+	explicitHarnessSessionId: string | null | undefined,
+	options: { env?: NodeJS.ProcessEnv | undefined } = {},
+): boolean {
+	const sourceEnv = options.env ?? process.env;
+	if (explicitHarnessSessionId !== undefined && explicitHarnessSessionId !== null && explicitHarnessSessionId !== "") return true;
+	const envSessionId = sourceEnv[HARNESS_SESSION_ID_ENV];
+	return envSessionId !== undefined && envSessionId !== "";
 }
 
 export interface OpenPayloadStoreOptions {
@@ -227,6 +243,37 @@ export class PayloadStore implements PayloadArtifactStore {
 		return await readJsonPayloadArtifactValue(options.payloadPath, options.pointer, { allowedRoles: options.allowedRoles });
 	}
 
+	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		const candidate = await this.latestJsonPayloadCandidate(options);
+		if (candidate.type === "error") return candidate;
+		const payloadPath = join(this.payloadDir, candidate.value.filename);
+		let payloadStats;
+		try {
+			payloadStats = await stat(payloadPath);
+		} catch (error) {
+			return payloadError("payload_lookup_failed", `Failed to stat latest payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
+		}
+		const parsed = await this.readJsonArtifact({ payloadPath, allowedRoles: new Set([options.role]) });
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: {
+				reference: buildPayloadReference({
+					payloadPath,
+					sessionId: this.sessionId,
+					descriptor: candidate.value.parsed.descriptor,
+					role: candidate.value.parsed.role,
+					createdAtUtc: candidate.value.parsed.createdAtUtc,
+					sequence: candidate.value.parsed.sequence,
+					payloadBytes: payloadStats.size,
+					contentType: "application/json",
+					extension: candidate.value.parsed.extension,
+				}),
+				value: parsed.value,
+			},
+		};
+	}
+
 	private async writeArtifact(options: {
 		descriptor: string;
 		role: PayloadRole;
@@ -253,17 +300,17 @@ export class PayloadStore implements PayloadArtifactStore {
 			}
 			return {
 				type: "ok",
-				value: {
-					payload_path: payloadPath,
-					session_id: this.sessionId,
+				value: buildPayloadReference({
+					payloadPath,
+					sessionId: this.sessionId,
 					descriptor: options.descriptor,
 					role: options.role,
-					created_at_utc: createdAtUtc,
+					createdAtUtc,
 					sequence,
-					payload_bytes: options.payloadBytes.byteLength,
-					content_type: options.contentType,
+					payloadBytes: options.payloadBytes.byteLength,
+					contentType: options.contentType,
 					extension: options.extension,
-				},
+				}),
 			};
 		}
 	}
@@ -277,10 +324,29 @@ export class PayloadStore implements PayloadArtifactStore {
 		}
 		let maxSequence = 0;
 		for (const payloadEntry of payloadEntries) {
-			const match = PAYLOAD_FILENAME_PATTERN.exec(payloadEntry);
-			if (match?.groups?.sequence !== undefined) maxSequence = Math.max(maxSequence, Number(match.groups.sequence));
+			const parsed = parsePayloadFilename(payloadEntry);
+			if (parsed !== null) maxSequence = Math.max(maxSequence, parsed.sequence);
 		}
 		return { type: "ok", value: maxSequence + 1 };
+	}
+
+	private async latestJsonPayloadCandidate(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<{ filename: string; parsed: ParsedPayloadFilename }>> {
+		let entries: readonly string[];
+		try {
+			entries = await readdir(this.payloadDir);
+		} catch (error) {
+			return payloadError("payload_lookup_failed", `Failed to scan payload session ${this.sessionId} at ${this.payloadDir}: ${formatErrorMessage(error)}`);
+		}
+		let latest: { filename: string; parsed: ParsedPayloadFilename } | null = null;
+		for (const filename of entries) {
+			const parsed = parsePayloadFilename(filename);
+			if (parsed === null) continue;
+			if (parsed.descriptor !== options.descriptor || parsed.role !== options.role || parsed.extension !== "json") continue;
+			const candidate = { filename, parsed };
+			if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
+		}
+		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
+		return { type: "ok", value: latest };
 	}
 }
 
@@ -413,6 +479,38 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 		return resolveJsonPointer(document.value, options.pointer);
 	}
 
+	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		let latest: { payloadPath: string; parsed: ParsedPayloadFilename; text: string } | null = null;
+		for (const [payloadPath, text] of this.artifacts.entries()) {
+			if (dirname(payloadPath) !== this.payloadDir) continue;
+			const parsed = parsePayloadFilename(basename(payloadPath));
+			if (parsed === null) continue;
+			if (parsed.descriptor !== options.descriptor || parsed.role !== options.role || parsed.extension !== "json") continue;
+			const candidate = { payloadPath, parsed, text };
+			if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
+		}
+		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
+		const parsed = await this.readJsonArtifact({ payloadPath: latest.payloadPath, allowedRoles: new Set([options.role]) });
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: {
+				reference: buildPayloadReference({
+					payloadPath: latest.payloadPath,
+					sessionId: this.sessionId,
+					descriptor: latest.parsed.descriptor,
+					role: latest.parsed.role,
+					createdAtUtc: latest.parsed.createdAtUtc,
+					sequence: latest.parsed.sequence,
+					payloadBytes: Buffer.byteLength(latest.text, "utf8"),
+					contentType: "application/json",
+					extension: latest.parsed.extension,
+				}),
+				value: parsed.value,
+			},
+		};
+	}
+
 	private writeArtifact(options: { descriptor: string; role: PayloadRole; extension: PayloadExtension; contentType: string; text: string }): PayloadResult<PayloadReference> {
 		requireSafeSegment(options.descriptor, { label: "descriptor" });
 		const { createdAtUtc, filenameTimestamp } = payloadTimestamps(this.clock());
@@ -421,17 +519,17 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 		this.artifacts.set(payloadPath, options.text);
 		return {
 			type: "ok",
-			value: {
-				payload_path: payloadPath,
-				session_id: this.sessionId,
+			value: buildPayloadReference({
+				payloadPath,
+				sessionId: this.sessionId,
 				descriptor: options.descriptor,
 				role: options.role,
-				created_at_utc: createdAtUtc,
+				createdAtUtc,
 				sequence,
-				payload_bytes: Buffer.byteLength(options.text, "utf8"),
-				content_type: options.contentType,
+				payloadBytes: Buffer.byteLength(options.text, "utf8"),
+				contentType: options.contentType,
 				extension: options.extension,
-			},
+			}),
 		};
 	}
 
@@ -439,11 +537,19 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 		let maxSequence = 0;
 		for (const payloadPath of this.artifacts.keys()) {
 			if (dirname(payloadPath) !== this.payloadDir) continue;
-			const match = PAYLOAD_FILENAME_PATTERN.exec(basename(payloadPath));
-			if (match?.groups?.sequence !== undefined) maxSequence = Math.max(maxSequence, Number(match.groups.sequence));
+			const parsed = parsePayloadFilename(basename(payloadPath));
+			if (parsed !== null) maxSequence = Math.max(maxSequence, parsed.sequence);
 		}
 		return maxSequence + 1;
 	}
+}
+
+interface ParsedPayloadFilename {
+	sequence: number;
+	descriptor: string;
+	role: PayloadRole;
+	extension: PayloadExtension;
+	createdAtUtc: string;
 }
 
 export interface ValidatedPayloadArtifactName {
@@ -475,19 +581,17 @@ export async function validateContainedArtifactPath(payloadPath: string): Promis
 	if (basename(dirname(dirname(payloadDir))) !== "sessions") {
 		return payloadError("payload_lookup_failed", `Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`);
 	}
-	const match = PAYLOAD_FILENAME_PATTERN.exec(basename(payloadPath));
-	const groups = match?.groups;
-	if (groups?.sequence === undefined || groups.descriptor === undefined || groups.role === undefined || groups.extension === undefined) {
+	const parsed = parsePayloadFilename(basename(payloadPath));
+	if (parsed === null) {
 		return payloadError("payload_lookup_failed", `Payload artifact filename does not match payload contract: ${basename(payloadPath)}`);
 	}
 	return {
 		type: "ok",
 		value: {
-			sequence: Number(groups.sequence),
-			descriptor: groups.descriptor,
-			// The filename pattern's alternations guarantee these literal values at runtime.
-			role: groups.role as PayloadRole,
-			extension: groups.extension as PayloadExtension,
+			sequence: parsed.sequence,
+			descriptor: parsed.descriptor,
+			role: parsed.role,
+			extension: parsed.extension,
 		},
 	};
 }
@@ -872,9 +976,8 @@ function validateContainedArtifactPathShape(payloadPath: string): PayloadResult<
 	if (basename(sessionsDir) !== "sessions") {
 		return payloadError("payload_lookup_failed", `Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`);
 	}
-	const match = PAYLOAD_FILENAME_PATTERN.exec(basename(payloadPath));
-	const groups = match?.groups;
-	if (groups?.sequence === undefined || groups.descriptor === undefined || groups.role === undefined || groups.extension === undefined) {
+	const parsed = parsePayloadFilename(basename(payloadPath));
+	if (parsed === null) {
 		return payloadError("payload_lookup_failed", `Payload artifact filename does not match payload contract: ${basename(payloadPath)}`);
 	}
 	return {
@@ -882,10 +985,10 @@ function validateContainedArtifactPathShape(payloadPath: string): PayloadResult<
 		value: {
 			root: dirname(sessionsDir),
 			sessionId,
-			sequence: Number(groups.sequence),
-			descriptor: groups.descriptor,
-			role: groups.role as PayloadRole,
-			extension: groups.extension as PayloadExtension,
+			sequence: parsed.sequence,
+			descriptor: parsed.descriptor,
+			role: parsed.role,
+			extension: parsed.extension,
 		},
 	};
 }
@@ -950,6 +1053,54 @@ function payloadTimestamps(value: Date): { createdAtUtc: string; filenameTimesta
 function payloadFilename(options: { filenameTimestamp: string; sequence: number; descriptor: string; role: PayloadRole; extension: PayloadExtension }): string {
 	const sequenceText = String(options.sequence).padStart(4, "0");
 	return `${options.filenameTimestamp}-${sequenceText}-${options.descriptor}.${options.role}.${options.extension}`;
+}
+
+function parsePayloadFilename(filename: string): ParsedPayloadFilename | null {
+	const match = PAYLOAD_FILENAME_PATTERN.exec(filename);
+	const groups = match?.groups;
+	if (groups?.sequence === undefined || groups.descriptor === undefined || groups.role === undefined || groups.extension === undefined) return null;
+	return {
+		sequence: Number(groups.sequence),
+		descriptor: groups.descriptor,
+		role: groups.role as PayloadRole,
+		extension: groups.extension as PayloadExtension,
+		createdAtUtc: createdAtUtcFromFilenameTimestamp(filename.slice(0, 16)),
+	};
+}
+
+function createdAtUtcFromFilenameTimestamp(value: string): string {
+	return `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}Z`;
+}
+
+function buildPayloadReference(options: {
+	payloadPath: string;
+	sessionId: string;
+	descriptor: string;
+	role: PayloadRole;
+	createdAtUtc: string;
+	sequence: number;
+	payloadBytes: number;
+	contentType: string;
+	extension: PayloadExtension;
+}): PayloadReference {
+	return {
+		payload_path: options.payloadPath,
+		session_id: options.sessionId,
+		descriptor: options.descriptor,
+		role: options.role,
+		created_at_utc: options.createdAtUtc,
+		sequence: options.sequence,
+		payload_bytes: options.payloadBytes,
+		content_type: options.contentType,
+		extension: options.extension,
+	};
+}
+
+function missingLatestJsonArtifactError(options: { sessionId: string; descriptor: string; role: JsonPayloadRole }): PayloadResult<never> {
+	return payloadError(
+		"payload_lookup_failed",
+		`No JSON payload artifact found in session ${options.sessionId} for descriptor ${options.descriptor}, role ${options.role}, extension json.`,
+	);
 }
 
 /**

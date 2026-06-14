@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import { InMemoryPayloadStoreFactory, PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
@@ -145,6 +145,51 @@ describe("managed classification/planning CLI operations", () => {
 			};
 		};
 		expect(planEnvelope.data.valid).toBe(true);
+		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
+		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
+		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
+	});
+
+	test("plan-feedback resolves and writes session artifacts through an injected in-memory payload store", async () => {
+		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
+		const root = "/tmp/pr-address-in-memory-payload-root";
+		const sessionId = "session-plan";
+		const prNumber = 42;
+		const factory = new InMemoryPayloadStoreFactory();
+		const store = expectPayloadOk(await factory.open({ root, sessionId, clock: fixedClock("2026-06-09T08:30:00Z") }));
+		expectPayloadOk(
+			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
+		);
+		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
+
+		const validateRun = runScenario(
+			[
+				"exec",
+				"validate-feedback-classification",
+				"--manifest-json",
+				JSON.stringify(input.manifest),
+				"--classification-json",
+				JSON.stringify(input.classification),
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, env, payloadClock: fixedClock("2026-06-09T08:30:01Z"), payloadStoreFactory: factory },
+		);
+		expect(await validateRun.exit).toBe(0);
+
+		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
+			cwd: REPO_ROOT,
+			env,
+			payloadClock: fixedClock("2026-06-09T08:30:02Z"),
+			payloadStoreFactory: factory,
+		});
+		expect(await planRun.exit).toBe(0);
+		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
+			data: {
+				resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } };
+				plan_reference: { descriptor: string; sequence: number };
+			};
+		};
 		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
 		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
 		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
