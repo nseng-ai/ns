@@ -5,6 +5,7 @@ import process from "node:process";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
+import { formatElapsedMs } from "./time-format.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "ASDL_PI_CLI_TRACE";
@@ -697,15 +698,6 @@ function formatLiveOutputLine(line: LiveOutputLine): string {
 function truncateLiveProgressLine(text: string): string {
 	if (text.length <= LIVE_PROGRESS_MAX_LINE_CHARS) return text;
 	return `${text.slice(0, LIVE_PROGRESS_MAX_LINE_CHARS - 1)}…`;
-}
-
-function formatElapsedMs(elapsedMs: number): string {
-	const seconds = Math.max(0, Math.floor(elapsedMs / 1000));
-	if (seconds < 60) return `${seconds}s`;
-
-	const minutes = Math.floor(seconds / 60);
-	const remainingSeconds = seconds % 60;
-	return `${minutes}m ${remainingSeconds}s`;
 }
 
 function emitCliCommandOutput(pi: ExtensionAPI, ctx: CommandContext, details: CliCommandOutputDetails): void {

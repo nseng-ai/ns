@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { formatElapsedMs } from "./time-format.ts";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
 
@@ -1382,7 +1383,7 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
 	if (status.prNumber !== undefined) {
 		const intervalSeconds = Math.round(status.intervalMs / 1_000);
-		const feedbackAge = status.lastRestPollAt === undefined ? `feedback ${intervalSeconds}s` : `feedback ${formatElapsedSince(status.lastRestPollAt)}/${intervalSeconds}s`;
+		const feedbackAge = status.lastRestPollAt === undefined ? `feedback ${intervalSeconds}s` : `feedback ${formatElapsedSinceMs(status.lastRestPollAt)}/${intervalSeconds}s`;
 		const checks = status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
 		return `PR #${status.prNumber} · ${feedbackAge}${checks} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
 	}
@@ -1397,14 +1398,10 @@ function shouldRefreshStatusAge(status: WatchStatus): boolean {
 	return status.isEnabled && status.state === "active" && status.mode === "rest_fingerprint" && status.prNumber !== undefined && status.lastRestPollAt !== undefined;
 }
 
-function formatElapsedSince(iso: string): string {
+function formatElapsedSinceMs(iso: string): string {
 	const timestamp = Date.parse(iso);
 	if (!Number.isFinite(timestamp)) return "recently";
-	const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1_000));
-	if (elapsedSeconds < 60) return `${elapsedSeconds}s`;
-	const minutes = Math.floor(elapsedSeconds / 60);
-	const seconds = elapsedSeconds % 60;
-	return `${minutes}m ${seconds}s`;
+	return formatElapsedMs(Date.now() - timestamp);
 }
 
 function formatWatchStatus(status: WatchStatus): string {
