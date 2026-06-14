@@ -1,7 +1,7 @@
 import { envelopeJsonText, exitCodeForExit, toMachineEnvelope, type ClinkrExit } from "./exit.ts";
 import type { ClinkrIo } from "./io.ts";
 
-export type ClinkrFormat = "human" | "json";
+export type ClinkrFormat = "human" | "json" | "markdown";
 
 export type LegacyMachineSerialization = "indent2" | "compact";
 
@@ -15,6 +15,7 @@ export interface EmitExitOptions<T> {
 	format: ClinkrFormat;
 	io: ClinkrIo;
 	renderHuman?: ((data: T) => string) | undefined;
+	renderMarkdown?: ((data: T) => string) | undefined;
 	legacyMachine?: ((exit: ClinkrExit<T>) => LegacyMachineOutput) | undefined;
 }
 
@@ -34,11 +35,7 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	}
 	switch (exit.type) {
 		case "ok": {
-			const rendered =
-				options.renderHuman === undefined
-					? envelopeJsonText(exit.data)
-					: options.renderHuman(exit.data);
-			options.io.stdout(`${rendered}\n`);
+			options.io.stdout(`${renderOkData(exit.data, options)}\n`);
 			return 0;
 		}
 		case "negative":
@@ -48,4 +45,11 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;
 	}
+}
+
+function renderOkData<T>(data: T, options: EmitExitOptions<T>): string {
+	if (options.format === "markdown" && options.renderMarkdown !== undefined) {
+		return options.renderMarkdown(data);
+	}
+	return options.renderHuman === undefined ? envelopeJsonText(data) : options.renderHuman(data);
 }

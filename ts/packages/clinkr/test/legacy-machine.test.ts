@@ -71,6 +71,12 @@ describe("legacyMachine boundaries", () => {
 		expect(run.stdout).toBe('{\n  "value": 7\n}\n');
 	});
 
+	test("markdown mode ignores legacyMachine", async () => {
+		const run = await runForTest(buildGroup("ok"), ["act", "--format", "markdown"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe('{\n  "value": 7\n}\n');
+	});
+
 	test("usage errors keep clinkr semantics, not the legacy shape", async () => {
 		const group = new ClinkrGroup<null>({ name: "probe" });
 		group.command({
