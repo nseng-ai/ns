@@ -16,13 +16,6 @@ export function notImplementedHandler(commandName: string) {
 	};
 }
 
-export const exportRequestSchema = z.object({
-	output_dir: z.string().optional().describe("Output directory."),
-	namespace: z.string().optional().describe("Namespace."),
-	branch: z.string().optional().describe("Branch."),
-	all_branches: z.boolean().default(false).describe("Export all branches."),
-});
-
 export const resolvePromptRequestSchema = z.object({
 	prompt: z.string().optional().describe("Prompt path."),
 });
