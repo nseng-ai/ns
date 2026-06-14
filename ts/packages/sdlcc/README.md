@@ -37,9 +37,25 @@ Keys:
 
 Selected-branch `c` behavior:
 
-- zero strong cmux tab matches: run `slot checkout <branch> --format json --no-clipboard` if needed, then `cmux new-workspace --name <branch> --description <text> --cwd <worktreePath>`;
+- zero strong cmux tab matches: run `slot checkout <branch> --format json --no-clipboard` if needed, then `cmux new-workspace --name <branch> --description <text> --cwd <worktreePath> --command "bun <sdlcc source cli.ts> cmux report || true; exec ${SHELL:-/bin/zsh} -l"`;
 - one strong match: focus that surface with `cmux rpc surface.focus`;
 - two or more strong matches: show a tab chooser with every matching tab plus a final “Open new cmux tab/workspace anyway” option. `Esc` cancels the chooser; `q` quits the TUI.
+
+The bootstrap reporter is non-blocking: if reporting fails, the workspace still starts an interactive login shell. The bootstrap invokes the source `src/cli.ts` entrypoint from the TUI process instead of the target worktree's `sdlcc` binary, so opening an older/downstack branch can still write current cmux metadata.
+
+## cmux surface reporting
+
+`sdlcc cmux report` runs inside a cmux terminal surface and writes the current git branch/worktree identity into cmux `surface resume` metadata. It is strict by default: it must run inside cmux and inside a named git branch worktree. This slice intentionally has no public `--cwd`, `--branch`, `--workspace`, or `--surface` override flags.
+
+The reporter writes:
+
+- `kind=sdlcc-branch`
+- `source=sdlcc`
+- `cwd=<git worktree root>`
+- `name=<current git branch>`
+- a harmless shell restore binding from `$SHELL`, falling back to `/bin/zsh`
+
+Use `sdlcc cmux report --json` for machine-readable success/failure output. Future loader/reconciliation work can query cmux resume metadata to match tabs reliably; this slice only writes the metadata.
 
 Plan/session launch remains future work; there is deliberately no `p` key in this slice.
 

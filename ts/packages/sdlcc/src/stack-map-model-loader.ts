@@ -1,6 +1,4 @@
-import { execFile } from "node:child_process";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import {
 	matchCmuxTabsToBranches,
@@ -11,25 +9,14 @@ import {
 	type StackMapSlotAssignment,
 	type StackMapSlotStatus,
 } from "./stack-map-prototype.ts";
+import { runRealCommand, type StackMapCommandOptions, type StackMapCommandOutput, type StackMapCommandRunner } from "./command-runner.ts";
 
-const execFileAsync = promisify(execFile);
+export type { StackMapCommandOptions, StackMapCommandOutput, StackMapCommandRunner } from "./command-runner.ts";
+
 const COMMAND_TIMEOUT_MS = 10_000;
 const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
 const GRAPHITE_TOPOLOGY_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
 const RECENT_BRANCH_LIMIT = 40;
-
-export interface StackMapCommandOutput {
-	readonly code: number;
-	readonly stdout: string;
-	readonly stderr: string;
-}
-
-export type StackMapCommandRunner = (command: string, args: readonly string[], options: StackMapCommandOptions) => Promise<StackMapCommandOutput>;
-
-export interface StackMapCommandOptions {
-	readonly cwd: string;
-	readonly timeoutMs: number;
-}
 
 export interface LoadStackMapPrototypeModelOptions {
 	readonly cwd?: string | undefined;
@@ -229,28 +216,6 @@ async function loadRecentLocalBranches(runCommand: StackMapCommandRunner, cwd: s
 	const result = await runCommand("git", ["for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", `--count=${RECENT_BRANCH_LIMIT}`, "refs/heads"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
 	if (result.code !== 0) return { type: "failure", message: `Could not load recent local branches: ${result.stderr.trim() || result.stdout.trim() || `git for-each-ref exited ${result.code}`}` };
 	return { type: "success", branches: result.stdout.split("\n").map((line) => line.trim()).filter((line) => line.length > 0) };
-}
-
-async function runRealCommand(command: string, args: readonly string[], options: StackMapCommandOptions): Promise<StackMapCommandOutput> {
-	try {
-		const result = await execFileAsync(command, [...args], {
-			cwd: options.cwd,
-			timeout: options.timeoutMs,
-		});
-		return { code: 0, stdout: result.stdout, stderr: result.stderr };
-	} catch (error) {
-		return commandFailureOutput(error);
-	}
-}
-
-function commandFailureOutput(error: unknown): StackMapCommandOutput {
-	if (!isRecord(error)) return { code: 1, stdout: "", stderr: String(error) };
-	const code = typeof error.code === "number" ? error.code : 1;
-	return {
-		code,
-		stdout: typeof error.stdout === "string" ? error.stdout : "",
-		stderr: typeof error.stderr === "string" ? error.stderr : String(error),
-	};
 }
 
 function parseMachineEnvelopeData(stdout: string, label: string): { type: "success"; data: unknown } | { type: "failure"; message: string } {
