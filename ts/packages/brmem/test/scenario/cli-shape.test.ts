@@ -30,8 +30,8 @@ describe("brmem CLI shape", () => {
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "not_implemented" });
 	});
 
-	it("returns explicit not_implemented for commands outside the put slice", async () => {
-		for (const args of [["delete", "key"], ["copy"], ["export", "out"]]) {
+	it("returns explicit not_implemented for commands outside the implemented operation slices", async () => {
+		for (const args of [["copy"], ["export", "out"]]) {
 			const run = runScenario([...args, "--format", "json"]);
 			expect(await run.exit).toBe(2);
 			expect(JSON.parse(run.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "not_implemented" });

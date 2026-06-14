@@ -8,11 +8,11 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
+import { deleteRequestSchema, deleteResultSchema, renderDelete, runDelete } from "./operations/delete.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import {
 	copyRequestSchema,
-	deleteRequestSchema,
 	exportRequestSchema,
 	notImplementedHandler,
 	notImplementedResultSchema,
@@ -63,8 +63,9 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		description: "Delete a Branch Memory Entry.",
 		schema: deleteRequestSchema,
 		positionals: { key: { position: 0 } },
-		resultSchema: notImplementedResultSchema,
-		handler: notImplementedHandler("delete"),
+		resultSchema: deleteResultSchema,
+		handler: runDelete,
+		renderHuman: renderDelete,
 	});
 	root.command({
 		name: "list",

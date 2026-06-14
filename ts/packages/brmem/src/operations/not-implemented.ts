@@ -16,12 +16,6 @@ export function notImplementedHandler(commandName: string) {
 	};
 }
 
-export const deleteRequestSchema = z.object({
-	key: z.string().optional().describe("Entry Key."),
-	namespace: z.string().optional().describe("Namespace."),
-	branch: z.string().optional().describe("Branch."),
-});
-
 export const copyRequestSchema = z.object({
 	namespace: z.string().optional().describe("Namespace."),
 	base: z.boolean().default(false).describe("Copy Base Namespace."),
