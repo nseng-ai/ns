@@ -1,6 +1,6 @@
 # TypeScript Capability Porting Playbook
 
-Reusable guidance extracted from the completed `pr-address` TypeScript cutover. This is evidence from one production migration, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
+Reusable guidance extracted from the completed `pr-address` and `brmem` TypeScript cutovers. This is evidence from production migrations, not a framework-first template: later capability subobjectives should apply the shape deliberately and record any divergence.
 
 ## 1. Inventory public contracts before porting internals
 
@@ -14,6 +14,8 @@ Classify at least:
 - External-system behaviors such as git/GitHub reads, live mutations, publishing, or no-push guarantees.
 
 `pr-address` showed why this matters: durable contracts included its skill/CLI/JSON/payload/mutation-safety behavior, while several click/parser details and Python module boundaries were incidental or intentionally replaced. `brmem put` reinforced the same rule: Python runtime/parser constraints, such as stdin being reserved for JSON request input, must be classified separately from durable storage and output contracts before TypeScript preserves them.
+
+For git-backed state capabilities, storage contracts outrank Python module shapes. `brmem` treated `refs/brmem/base|ns/...` Snapshot Refs, branch `/` to `---` encoding, Entry Locator shape, Entry Key and Namespace rules, content limits, exit codes, and JSON envelopes as durable contracts even while replacing the implementation language and package layout.
 
 ## 2. Port in vertical slices
 
@@ -32,13 +34,13 @@ A useful sequence from `pr-address` was:
 9. Python fallback retirement and package deletion.
 10. Playbook feedback into the umbrella Objective.
 
-Future ports do not need the exact operation order, but they should keep each slice reviewable and contract-backed.
+Future ports do not need the exact operation order, but they should keep each slice reviewable and contract-backed. When storage interoperability is the central risk, as it was for `brmem`, prove storage/gateway parity before broad operation work, then expand operations on that seam.
 
 ## 3. Keep seams local until a second consumer proves reuse
 
 Do not framework-first a capability port. Add package-local runtime, payload/reference, and adapter seams when only one capability needs them. Move only repeated, stable gaps into shared TS foundations such as `@asdl/clinkr` or `@asdl/core`.
 
-`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing. Do not add shared framework concepts solely to emulate a Python-only precondition; if TypeScript's runtime does not share the precondition, prefer an explicit compatibility reclassification with tests and an Objective update.
+`pr-address` kept `loadOperationPayload` and the payload/reference policy package-local after cutover. Framework work moved only when the shell migration exposed reusable clinkr gaps such as strict integer parsing, `--format` choices, and schema-document routing. `brmem` likewise kept ref/blob/tree plumbing package-local; shared shell-out helpers and machine-envelope parsing moved only after repeated CLI-backed consumers proved the need. Do not add shared framework concepts solely to emulate a Python-only precondition; if TypeScript's runtime does not share the precondition, prefer an explicit compatibility reclassification with tests and an Objective update.
 
 ## 4. Use fake-driven gateways and parity evidence
 
@@ -52,7 +54,7 @@ Prefer:
 - Structured parity where formatting or key order is not contractually meaningful.
 - Limited safe real-adapter smoke checks only when they de-risk local environment or API assumptions.
 
-`pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces.
+`pr-address` preserved byte parity for payload artifacts and stable machine envelopes, but accepted structured parity or deliberate divergence for some schema/help/usage surfaces. `brmem` combined fake tests, real-git tests, and temporary cross-language parity probes; those probes were valid migration evidence and were deleted once TypeScript became default and the Python reference was deleted.
 
 ## 5. Retire fallback intentionally
 
@@ -62,16 +64,18 @@ Before deletion:
 
 - Audit every command and user-facing invocation path.
 - Remove active callers, plugin entry points, docs, config, tests, and fallback routers in the same retirement window.
-- Decide and document rollback outside the repo when the in-repo Python source is deleted.
+- Decide and document rollback/reference evidence when the in-repo Python source is deleted; this may be external or an explicit in-repo pre-deletion commit for private packages.
 - Broaden validation when package deletion touches workspace config or shared tests.
 
-`pr-address` retired the `asdl pr-address` plugin instead of porting it, removed the TypeScript unknown-operation Python router, deleted `packages/asdl-pr-address`, moved the golden corpus under the TS package, and kept rollback as the frozen external PyPI artifact `asdl-pr-address==0.1.1`.
+`pr-address` retired the `asdl pr-address` plugin instead of porting it, removed the TypeScript unknown-operation Python router, deleted `packages/asdl-pr-address`, moved the golden corpus under the TS package, and kept rollback as the frozen external PyPI artifact `asdl-pr-address==0.1.1`. `brmem` had no plugin to retire; its post-deletion reference is the recorded in-repo commit `44c3e9992b424c4b174ccaeb9f4567bb8f611dc1`, the last pre-deletion Python package source.
 
 ## 6. Treat distribution as a product decision
 
 Do not inherit either the old Python `uvx` distribution model or `pr-address`'s run-from-source shim by default. Decide distribution from actual consumers.
 
-For `pr-address`, checkout-free bundling and npm publishing were explicitly dropped. The accepted installed CLI model is the run-from-source shim installed by `just install-pr-address`, which runs the checkout's TypeScript CLI and may require `ts/node_modules`. That is acceptable evidence for `pr-address`; it is not a blanket requirement for `brmem`, `handoff`, `objective`, or later ports.
+For `pr-address`, checkout-free bundling and npm publishing were explicitly dropped. The accepted installed CLI model is the run-from-source shim installed by `just install-pr-address`, which runs the checkout's TypeScript CLI and may require `ts/node_modules`.
+
+For `brmem`, actual consumers likewise did not require npm publishing or checkout-free bundling. The accepted installed model is the run-from-source TypeScript shim installed by `just install-brmem` and `install-tools`. This is capability-specific evidence for `pr-address` and `brmem`, not a blanket requirement for `handoff`, `objective`, or later ports; later ports still need their own consumer-backed distribution decision.
 
 ## 7. Record Semantic Updates at decision points
 
