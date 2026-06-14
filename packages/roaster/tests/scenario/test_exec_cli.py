@@ -187,24 +187,17 @@ def test_format_findings_comment_renders_error_payload(cli_group: ClinkrGroup) -
     assert "Post-only steelthread" not in result.output
 
 
-def test_format_findings_comment_renders_budget_failure_for_review_marker(
+def test_format_findings_comment_renders_structured_error_payload_for_review_marker(
     cli_group: ClinkrGroup,
 ) -> None:
     payload = {
-        "exit_code": 1,
-        "message": "Review was not run.",
+        "exit_code": 2,
+        "message": "Claude Code failed.",
         "data": {
-            "review_name": "dignified-python",
+            "review_name": "typescript-style",
             "base_ref": "master",
-            "error_type": "review_budget_exceeded",
-            "message": "Budget exceeded.",
-            "budget": {
-                "changed_path_count": 301,
-                "diff_token_estimate": 151_000,
-                "max_changed_paths": 300,
-                "max_diff_tokens": 150_000,
-                "max_file_diff_tokens": 40_000,
-            },
+            "error_type": "harness_execution_failed",
+            "message": "prompt too long",
         },
     }
 
@@ -216,13 +209,11 @@ def test_format_findings_comment_renders_budget_failure_for_review_marker(
     )
 
     assert result.exit_code == 0, result.output
-    assert result.output.startswith("<!-- roaster:dignified-python -->\n")
-    assert "## roaster · `dignified-python`" in result.output
-    assert "**Review not run** against base `master`" in result.output
-    assert "- **Error type:** `review_budget_exceeded`" in result.output
-    assert "- **Changed paths:** 301 (limit: 300)" in result.output
-    assert "- **Estimated full diff tokens:** 151000 (limit: 150000)" in result.output
-    assert "Split or shrink the PR" in result.output
+    assert result.output.startswith("<!-- roaster:typescript-style -->\n")
+    assert "## roaster · `typescript-style`" in result.output
+    assert "**Roaster failed** against base `master`. ⚠️" in result.output
+    assert "- **Error type:** `harness_execution_failed`" in result.output
+    assert "- **Message:** prompt too long" in result.output
 
 
 def test_format_findings_comment_fails_on_malformed_stdin(
@@ -461,25 +452,18 @@ def test_post_inline_findings_handles_empty_findings_as_noop(
     assert fake.created_reviews == ()
 
 
-def test_post_inline_findings_handles_budget_failure_as_noop(
+def test_post_inline_findings_handles_error_payload_as_noop(
     cli_group: ClinkrGroup,
 ) -> None:
     fake = _UnexpectedInlineQueryGateway()
     payload = {
-        "exit_code": 1,
-        "message": "Review was not run.",
+        "exit_code": 2,
+        "message": "Claude Code failed.",
         "data": {
-            "review_name": "dignified-python",
+            "review_name": "typescript-style",
             "base_ref": "master",
-            "error_type": "review_budget_exceeded",
-            "message": "Budget exceeded.",
-            "budget": {
-                "changed_path_count": 301,
-                "diff_token_estimate": 151_000,
-                "max_changed_paths": 300,
-                "max_diff_tokens": 150_000,
-                "max_file_diff_tokens": 40_000,
-            },
+            "error_type": "harness_execution_failed",
+            "message": "prompt too long",
         },
     }
 

@@ -210,13 +210,6 @@ def test_prompt_fences_are_collision_safe_for_nested_diff_fences(
     assert "````diff\ndiff --git" in process.stdin.buffer
 
 
-def test_harness_prompt_caps_match_default_review_budget() -> None:
-    budget = harness_invocation.DEFAULT_REVIEW_BUDGET
-
-    assert budget.max_diff_tokens <= harness_invocation._MAX_PROMPT_DIFF_TOKENS
-    assert budget.max_file_diff_tokens <= harness_invocation._MAX_PROMPT_DIFF_FILE_TOKENS
-
-
 def test_prompt_is_written_to_stdin_not_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     large_diff = "x" * (200 * 1024)
     request = HarnessReviewRequest(

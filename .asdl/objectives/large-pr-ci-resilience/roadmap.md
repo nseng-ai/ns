@@ -6,24 +6,25 @@
   - Capture a unit/scenario fixture that simulates PR #1419's failure shape: more than 300 changed files, hundreds of changed paths, and a prompt estimate over the model limit. Include assertions for the observed failure classes: GitHub diff API `too_large`, roaster `prompt_too_long`, and failure metadata loss to `unknown`.
   - Evidence: marked complete from explicit maintainer report; local checkout had no uncommitted or branch-diff evidence to inspect for this update.
 
-- [x] Decide and document the oversized-review policy.
-  - Chosen policy: hard-fail oversized roaster reviews before Claude Code. The red check explains that the review was not run, reports the review key, base ref, changed-path count, full-diff token estimate, thresholds, and tells authors to split/shrink the PR or follow a documented maintainer bypass process if one exists.
+- [~] Decide and document the oversized-review policy.
+  - A hard-fail budget preflight was explored first, but code-quality review found it overfit and semantically awkward for Clinkr failure handling. That implementation has been removed from this branch.
+  - Current branch state preserves only generic publication-side handling for structured nonzero roaster envelopes when such metadata is already present. The broader oversized-review product policy remains unresolved/deferred.
 
-- [x] Add roaster preflight budgeting before Claude Code invocation.
-  - `roaster.review_budget` now assesses local checkout diffs before harness invocation with `max_changed_paths=300`, `max_diff_tokens=150_000`, and `max_file_diff_tokens=40_000`. Oversized diffs return a typed `LocalReviewFailureResult`, tests assert the fake harness receives no execution request, and harness assembly caps are pinned to the default review budget.
+- [ ] Add roaster preflight budgeting before Claude Code invocation.
+  - Deferred. The temporary `roaster.review_budget` implementation, `ReviewBudgetFacts`, and `LocalReviewFailureResult` path were removed after review. Harness prompt assembly still owns defensive prompt caps directly, but roaster does not currently hard-fail before harness invocation.
 
 - [x] Make GitHub diff/file discovery large-PR aware.
-  - Audit found no remaining roaster path that depends on GitHub's 300-file PR diff endpoint. Discovery and review execution use local checkout `git diff`; workflow base-ref lookup uses `gh pr view` metadata only; inline posting uses the paginated Pull Request Files API only when findings exist; budget-failure inline posting no-ops before querying changed files.
+  - Audit found no remaining roaster path that depends on GitHub's 300-file PR diff endpoint. Discovery and review execution use local checkout `git diff`; workflow base-ref lookup uses `gh pr view` metadata only; inline posting uses the paginated Pull Request Files API only when findings exist.
 
-- [x] Preserve review identity and base identity through failures and skips.
-  - Budget preflight failures and post-metadata harness/runtime failures now use structured negative Clinkr envelopes that carry `review_name`, `model`, `base_ref`, and relevant failure facts into publication instead of collapsing to `roaster:unknown`.
+- [~] Preserve review identity and base identity through failures and skips.
+  - Publication parsing now preserves `review_name`, `base_ref`, `error_type`, and `message` for generic nonzero Clinkr envelopes that already contain structured `data`. Roaster review execution no longer produces custom negative result payloads for harness/runtime failures.
 
 - [~] Harden summary comment publication for matrix-job failures.
-  - Budget-failure comments now use review-key-specific markers and hard-fail wording, structured non-budget post-metadata failures preserve review-key-specific markers, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Broader live PR race behavior remains to be verified.
+  - Structured nonzero envelopes can render review-key-specific summary markers, and inline posting no-ops without GitHub file/comment reads when there are no findings or the payload is an error. Broader live PR race behavior remains to be verified.
 
 ## Parked
 
-- [ ] Re-check workflow status semantics on an oversized case after merge.
-  - Deferred to manual post-merge verification; this is not a pre-merge implementation blocker for the hard-fail budget slice. Confirm ordinary deterministic workflows remain useful, roaster's selected degradation status is reflected accurately in GitHub checks, and duplicate/canceled runs do not obscure the latest actionable status in the PR rollup.
-- [ ] Explore semantic sharding for large reviews if the first fix chooses skip/hard-fail rather than bounded review chunks.
+- [ ] Re-check workflow status semantics on an oversized case after a future oversized-review policy lands.
+  - Deferred to manual verification once there is an active oversized-review behavior to validate. Confirm ordinary deterministic workflows remain useful, roaster's selected degradation status is reflected accurately in GitHub checks, and duplicate/canceled runs do not obscure the latest actionable status in the PR rollup.
+- [ ] Explore semantic sharding for large reviews if the first durable fix chooses skip/hard-fail rather than bounded review chunks.
 - [ ] Consider a separate repo policy for maximum PR size once tooling emits clear data about file count, diff size, and skipped review coverage.

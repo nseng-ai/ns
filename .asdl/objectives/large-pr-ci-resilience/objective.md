@@ -63,16 +63,15 @@ Assumptions:
 
 Risks:
 
-- The too-permissive degradation risk is de-risked for the first implementation slice: oversized roaster reviews are intentionally red checks, not soft-pass or neutral skips.
-- The too-strict policy risk is accepted for now. Valid mechanical migrations that exceed the budget must split/shrink or follow a documented maintainer bypass process if one is later established.
+- The hard-fail budget preflight implementation was removed/deferred after code-quality review. Current branch work does not by itself prevent a future oversized PR from reaching harness prompt caps or provider-side limits.
 - Sharding reviews by path or diff size remains parked. It may reduce context quality and could create duplicate/noisy findings unless finding identity and summary publication are redesigned carefully.
-- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover budget-failure marker/comment shape, structured non-budget post-metadata failure metadata, and no-inline noop paths, but broader live PR race behavior remains to be verified manually after merge.
+- Failure publication changes touch GitHub comments and matrix concurrency; current tests cover generic structured nonzero envelope parsing/rendering and no-inline noop paths, but broader live PR race behavior remains to be verified after a durable oversized-review policy lands.
 - GitHub diff/file discovery risk is de-risked for the observed oversized case: roaster avoids `gh pr diff`/`PullRequest.diff` and uses local checkout diff or paginated PR file metadata. Extremely huge PRs could still expose separate GitHub REST pagination or review-thread volume limits, but that is distinct from the 300-file diff endpoint failure.
 - Duplicate/canceled workflow runs may be normal GitHub event behavior; chasing them as the primary bug could distract from the prompt-size and publication failures unless post-merge evidence shows they affect mergeability.
 
 ## Open Questions
 
-- Resolved for the first implementation slice: oversized roaster reviews are hard failures. The red check should say the review was not run, include review key/base/size facts, and tell authors to split/shrink the PR or use a documented maintainer bypass process if one exists.
+- Reopened after review: the hard-fail budget preflight was removed/deferred, so the durable oversized-review policy is not currently implemented on this branch.
 - If sharding is revisited later, what is the first sharding unit: file-count chunks, package/path groups, reviewer applicability groups, or token-budgeted diff slices?
-- Resolved for the first implementation slice: roaster enforces GitHub's 300 changed-path boundary, a conservative 150,000 estimated full-diff token budget below Claude Code's observed 200,000-token limit, and a 40,000-token per-file budget matching the harness assembly guard.
-- Resolved for the first implementation slice: post-metadata failures remain review-key-specific, not aggregate, so budget failures and harness/runtime failures after review resolution use distinct `<!-- roaster:<review_name> -->` summary markers.
+- Reopened after review: roaster does not currently enforce a changed-path or full-diff budget before harness invocation. Harness assembly keeps direct defensive caps, but these are not a product-level preflight policy.
+- Partially resolved: publication preserves review-key-specific markers for generic nonzero envelopes that already include structured `data`; roaster no longer creates custom negative failure envelopes for harness/runtime failures.
