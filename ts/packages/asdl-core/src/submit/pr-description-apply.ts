@@ -3,8 +3,6 @@ import type { GitGateway } from "../git/index.ts";
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "./github-pr-gateway.ts";
 import {
 	appendGeneratedMarker,
-	hasGeneratedMarker,
-	isCommitMessagePrefillBody,
 	preparePrDescription,
 	resolvePrDescriptionGeneration,
 	type PrDescriptionGenerationResolution,
@@ -27,12 +25,10 @@ export type GeneratedPrDescriptionResult =
 
 export type PrBodyOverwriteDecision =
 	| { kind: "generate"; commits: PrCommitMessage[] }
-	| { kind: "skip_hand_edited"; commits: PrCommitMessage[] }
 	| { kind: "failed"; error: string };
 
 export async function decidePrBodyOverwrite(params: {
 	pr: GithubPrDetails;
-	shouldForce: boolean;
 	cwd: string;
 	githubPr: GithubPrGateway;
 }): Promise<PrBodyOverwriteDecision> {
@@ -41,12 +37,6 @@ export async function decidePrBodyOverwrite(params: {
 		return { kind: "failed", error: commits.error.message };
 	}
 
-	const body = params.pr.body;
-	const isOverwritable =
-		params.shouldForce || body.trim() === "" || hasGeneratedMarker(body) || isCommitMessagePrefillBody(body, commits.value);
-	if (!isOverwritable) {
-		return { kind: "skip_hand_edited", commits: commits.value };
-	}
 	return { kind: "generate", commits: commits.value };
 }
 

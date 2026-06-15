@@ -116,14 +116,13 @@ Environment:
 			schema: z.object({
 				force: z.boolean().default(false).describe("Compatibility flag from older guarded pr-regen workflows; pr-regen now always replaces the PR body."),
 			}),
-			run: async (ctx, request) => {
+			run: async (ctx) => {
 				const result = await runPrRegenCommand({
 					cwd: ctx.cwd,
 					env: ctx.env,
 					githubPr: ctx.context.githubPr,
 					textGeneration: ctx.context.textGeneration,
 					git: ctx.context.git,
-					shouldForce: request.force,
 				});
 				writeCommandResultOutput(result, ctx);
 				return result.exitCode;

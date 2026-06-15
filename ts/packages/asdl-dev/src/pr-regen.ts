@@ -9,7 +9,6 @@ export interface RunPrRegenCommandOptions {
 	githubPr: GithubPrGateway;
 	textGeneration: TextGenerationGateway;
 	git: GitGateway;
-	shouldForce: boolean;
 }
 
 export interface PrRegenCommandResult {
@@ -26,7 +25,6 @@ export async function runPrRegenCommand(options: RunPrRegenCommandOptions): Prom
 
 	const decision = await decidePrBodyOverwrite({
 		pr: pr.value,
-		shouldForce: options.shouldForce,
 		cwd: options.cwd,
 		githubPr: options.githubPr,
 	});

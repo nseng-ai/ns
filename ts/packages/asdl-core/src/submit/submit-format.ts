@@ -20,7 +20,6 @@ export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
 	descriptions: {
 		generated: readonly SubmitPrLink[];
-		skipped: readonly SubmitPrLink[];
 		prewritten: readonly SubmitPrLink[];
 		prewriteFallbacks: readonly SubmitPrLink[];
 	},
@@ -32,15 +31,6 @@ export function formatSubmitSuccessText(
 	const updated = [...descriptions.generated, ...descriptions.prewriteFallbacks];
 	if (updated.length > 0) {
 		lines.push("", "Updated PR descriptions after submit:", ...updated.map(formatPrLinkTextRow));
-	}
-	if (descriptions.skipped.length > 0) {
-		lines.push(
-			"",
-			"Skipped PR descriptions (body looks hand-edited):",
-			...descriptions.skipped.map(formatPrLinkTextRow),
-			"",
-			"Checkout the branch and run `asdl-dev pr-regen` to regenerate a hand-edited body.",
-		);
 	}
 	return lines.join("\n");
 }
