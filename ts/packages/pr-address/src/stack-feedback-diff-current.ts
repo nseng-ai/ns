@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import {
-	openPayloadStoreFromContext,
 	rejectNonEmptyStdin,
 	resolveStackFeedbackDiffCurrentSessionInput,
 	type OperationResult,

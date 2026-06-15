@@ -4,6 +4,7 @@ import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { buildGetFeedbackPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 
@@ -55,11 +56,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
-		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-			explicitHarnessSessionId: request.harness_session_id ?? null,
-			env: ctx.env,
-			clock: ctx.context.payloadClock,
-		});
+		const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 		if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 		store = storeResult.value;
 	}

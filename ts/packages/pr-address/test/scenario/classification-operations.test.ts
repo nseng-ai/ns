@@ -210,6 +210,27 @@ describe("managed classification/planning CLI operations", () => {
 		expect(envelope.message).toContain("--classification-json");
 	});
 
+	test("validate-feedback-classification reports worktree-root failures before reading classification files", async () => {
+		const run = runScenario(
+			[
+				"exec",
+				"validate-feedback-classification",
+				"--pr-number",
+				"42",
+				"--classification-file",
+				"classification.json",
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, git: new InMemoryPrAddressGitGateway({ workTreeRootFailure: { stderr: "boom", stdout: "", returncode: 2 } }) },
+		);
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("pr_gateway_failure");
+		expect(envelope.message).toContain("Failed to resolve current git worktree root for validate-feedback-classification --classification-file safety guard");
+		expect(envelope.message).toContain("boom");
+	});
+
 	test("validate-feedback-classification session mode rejects missing classification input", async () => {
 		const missingRun = runScenario(["exec", "validate-feedback-classification", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT });
 		expect(await missingRun.exit).toBe(2);
