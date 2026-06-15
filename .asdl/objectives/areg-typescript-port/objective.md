@@ -6,7 +6,7 @@ Port the standalone `areg` package and CLI from Python to idiomatic TypeScript s
 
 This Objective intentionally overrides the default capability order in the parent Synthesis Objective, `port-asdl-toolkit-to-typescript`, where `areg` was parked pending evidence. The override is justified by current interest in making `areg` TS-default now, but it should still follow the established capability-porting playbook: inventory contracts first, port vertical slices, keep seams local until reuse is proven, make distribution a product decision, and retire Python intentionally.
 
-The port should cover all current `areg` surfaces: `areg init`, `areg check`, `areg update-skills`, `areg command convert|revert|list`, and hidden `areg exec skillx parse|list|fetch|cleanup`. The package should remain a standalone `areg` CLI unless a separate explicit decision changes the product surface.
+The port should cover the active `areg` surfaces: `areg init`, `areg check`, `areg update-skills`, the skill invocation profiles system specified by the Objective-local reference doc `skill-invocation-profiles.md`, and hidden `areg exec skillx parse|list|fetch|cleanup`. PR #1510 remains prototype/provenance evidence for the profiles work. Legacy `areg command convert|revert|list` behavior should no longer be tracked as a standalone porting row; if compatibility aliases remain, they belong inside the profile-model slice. The package should remain a standalone `areg` CLI unless a separate explicit decision changes the product surface.
 
 ## Scope
 
@@ -15,7 +15,8 @@ The port should cover all current `areg` surfaces: `areg init`, `areg check`, `a
   - `areg init`
   - `areg check`
   - `areg update-skills`
-  - `areg command convert`, `areg command revert`, and `areg command list`
+  - `areg skill profile set`, `areg skill profile list`, and `areg skill profile show` as specified by Objective-local `skill-invocation-profiles.md`
+  - compatibility handling for legacy `areg command convert`, `areg command revert`, and `areg command list` only insofar as the profiles specification requires it
   - hidden `areg exec skillx parse`, `list`, `fetch`, and `cleanup`
 - Preserve the current agent-facing JSON contracts for hidden `exec skillx` helpers unless the contract inventory classifies a field or shape as incidental and records an accepted divergence.
 - Preserve current skill-management behavior around `.agents/skills`, `.claude/skills`, `skills-lock.json`, `asdl.toml` `[areg].agents`, legacy `areg.json` fallback where still supported, managed instruction blocks, and local skill validation.
@@ -43,7 +44,7 @@ The port should cover all current `areg` surfaces: `areg init`, `areg check`, `a
 - `areg check` enforces the accepted skill-layout, lockfile, invoke-only, pairing, orphan, and source-structure conventions through TypeScript code.
 - `areg init` preserves the accepted project-bootstrap behavior, including Git-root checks, managed instruction blocks, bootstrap skills, agent resolution, non-destructive config handling, and fake-backed external `npx skills` installation.
 - `areg update-skills` preserves the curated-lockfile workaround for upstream `npx skills update` behavior until that workaround is explicitly retired.
-- `areg command convert|revert|list` preserve current local-skill command conversion behavior, safety checks, and Pi replacement verification semantics.
+- The Objective-local `skill-invocation-profiles.md` system is reimplemented in TypeScript, including artifact-inferred `normal`, `invoke-only`, `command-backed`, `ambient-only`, `mixed`, and `inconsistent` profiles, Pi replacement verification for command-backed skills, status/list/show reporting, `areg check` diagnostics, docs/tests, and required legacy `areg command` compatibility aliases.
 - Public docs, skills, just recipes, package metadata, and install instructions point at the TypeScript-backed `areg` path.
 - Python `packages/areg` is deleted, archived, or otherwise removed from active paths after rollback/reference evidence is recorded.
 - The parent migration ledger and porting playbook capture any reusable `areg` lessons or sequencing rationale needed by later capability ports.
@@ -64,7 +65,7 @@ Risks:
 - Overriding the parent migration order could create ledger drift if the umbrella Objective is not updated early and again at cutover.
 - `areg init` mutates multiple project files and invokes `npx skills`; a direct port could regress the previous review-remediation safety work if planning/mutation and fake-driven gateway seams are not preserved.
 - The hidden `exec skillx` JSON shapes may already be consumed by skills or Pi flows; accidental schema changes could break agent workflows.
-- `areg command` surfaces edit local skills and Pi replacement settings, so a shallow CLI parity pass could miss destructive path, symlink, or replacement-verification edge cases.
+- The profile system edits local skills, Codex sidecars, and Pi replacement settings, so a shallow CLI parity pass could miss destructive path, symlink, artifact-inference, or replacement-verification edge cases.
 - Distribution is less obvious than prior ports: `areg` documentation still references `uvx areg`, while prior TS ports accepted run-from-source shims only after consumer evidence. Choosing the wrong model could surprise downstream project bootstrap users.
 - Current tests may encode both durable contracts and incidental Click/Python formatting behavior; the inventory must classify parser/help/output differences deliberately.
 
