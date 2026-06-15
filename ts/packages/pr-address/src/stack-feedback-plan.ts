@@ -23,7 +23,7 @@ import {
 import type { StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
-import { resolveExplicitStdinOrDefaultSessionInput, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
+import { resolveExplicitStdinOrDefaultSessionInput, resolveSessionOnlyInput, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
@@ -61,7 +61,11 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
-	const sessionPayload = await loadStackFeedbackPlanInput(ctx, request, store);
+	const sessionPayload = await resolveSessionOnlyInput({
+		commandName: "stack-feedback-plan",
+		stdin: ctx.stdin,
+		load: async () => await loadStackFeedbackPlanInput(ctx, request, store),
+	});
 	if (sessionPayload.type === "error") return failure(sessionPayload.errorType, sessionPayload.message);
 	const { payload, resolvedInputs } = sessionPayload.value;
 
