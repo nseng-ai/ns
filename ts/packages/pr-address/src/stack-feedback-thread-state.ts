@@ -1,13 +1,14 @@
 import { failure, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 import { z } from "zod";
 
+import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadArtifactReference, type JsonInputResult } from "./json-input.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import {
 	stackFeedbackPrepInputSchema,
 	type StackFeedbackPrInput,
@@ -22,7 +23,6 @@ import type {
 const stackFeedbackThreadStateParseSchema = z.object({
 	stack_reference: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 export const stackFeedbackThreadStateOperation = defineExecOperation({
@@ -32,6 +32,26 @@ export const stackFeedbackThreadStateOperation = defineExecOperation({
 		description: "Fetch current stack review-thread state without reviews or discussion comments.",
 		schema: stackFeedbackThreadStateParseSchema,
 		handler: runStackFeedbackThreadStateOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			const result = data as StackFeedbackThreadStateResult;
+			const stackThreadStateReference = result.stack_thread_state_reference;
+			if (stackThreadStateReference === null) {
+				return { type: "error", errorType: "payload_lookup_failed", message: "stack-feedback-thread-state compact output requires a stack thread-state reference." };
+			}
+			const threadStateReference = stackThreadStateReference as PayloadReference;
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "stack-feedback-thread-state",
+					counts: { ...result.summary },
+					artifacts: { full_output: fullOutput, produced: [{ kind: "stack-thread-state", reference: threadStateReference }] },
+					details: compactThreadStateResult(result),
+				}),
+			};
+		},
 	},
 });
 
@@ -52,18 +72,7 @@ async function runStackFeedbackThreadStateOperation(
 	const threadState = await prepareStackThreadState({ ctx, store, stack: payloadResult.value.stack, github: ctx.context.github });
 	if (threadState.type === "error") return threadState.exit;
 
-	const { result, stackThreadStateReference } = threadState.value;
-	if (request.stdout_mode === "compact") {
-		return ok(
-			compactOperationResult({
-				operation: "stack-feedback-thread-state",
-				counts: { ...result.summary },
-				artifacts: { produced: [{ kind: "stack-thread-state", reference: stackThreadStateReference }] },
-				details: compactThreadStateResult(result),
-			}),
-		);
-	}
-	return ok(result);
+	return ok(threadState.value.result);
 }
 
 async function loadThreadStateStackInput(options: {
@@ -192,20 +201,6 @@ function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): st
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
 	if (duplicateBranches.length > 0) return `stack-feedback-thread-state stack contains duplicate branches: ${pythonTupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-function duplicateValues<T>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
 }
 
 function pythonRepr(value: string): string {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import {
@@ -389,21 +390,6 @@ interface ErrorItemOptions {
 
 function errorItem(code: string, message: string, options: ErrorItemOptions = {}): DiffCurrentError {
 	return { code, message, pr_number: options.prNumber ?? null, thread_id: options.threadId ?? null };
-}
-
-
-function duplicateValues<T>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
 }
 
 function trimOptional(value: string | null | undefined): string | null {
