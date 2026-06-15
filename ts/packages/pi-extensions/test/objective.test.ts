@@ -16,25 +16,22 @@ import type { AgentEndContext, ExecOptions, SessionStartContext } from "../src/c
 const ROOT = "/repo";
 const TRUNK = "master";
 
-const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:current", "objective:update"] as const;
+const OBJECTIVE_COMMAND_NAMES = ["objective:next", "objective:update"] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
-type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
+type ObjectiveSkillName = "objective-next" | "objective-update";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
 	"objective:next": "objective-next",
-	"objective:current": "objective-current",
 	"objective:update": "objective-update",
 };
 
 const SELECTION_TITLES: Record<ObjectiveCommandName, string> = {
 	"objective:next": "Select an active Objective for next work or execution preview",
-	"objective:current": "Select an active Objective to summarize",
 	"objective:update": "Select an active Objective to update",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
-	"objective:current": "Run objective-current for this explicitly selected Objective slug or path:",
 	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
 };
 
@@ -498,13 +495,14 @@ describe("objective:list command", () => {
 	});
 });
 
-test("does not register removed Objective Graphite stack wrapper", () => {
+test("does not register removed Objective commands", () => {
 	const pi = new FakePi();
-	const removedCommand = ["objective", ["gt", "stacks"].join("-")].join(":");
+	const removedStackCommand = ["objective", ["gt", "stacks"].join("-")].join(":");
 
 	objectiveExtension(pi);
 
-	expect(pi.commands.has(removedCommand)).toBe(false);
+	expect(pi.commands.has(removedStackCommand)).toBe(false);
+	expect(pi.commands.has("objective:current")).toBe(false);
 });
 
 describe("objective:stack-impl command", () => {
@@ -1201,12 +1199,10 @@ Use the selected Objective.
 		);
 	});
 
-	test("non-update prompts do not include the objective-update evidence workflow reminder", async () => {
-		for (const commandName of ["objective:next", "objective:current"] as const) {
-			const result = await runObjectiveCommand(commandName, "bravo");
+	test("objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
+		const result = await runObjectiveCommand("objective:next", "bravo");
 
-			result.pi.assertDone();
-			expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
-		}
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
 	});
 });

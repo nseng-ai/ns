@@ -67,9 +67,9 @@ Roadmap item quality:
 - Require an explicit slug, or propose a normalized slug and get explicit confirmation before writing files.
 - Use only `.asdl/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
 - Treat the slug directory as durable identity. Command/product/prose renames should update an existing Objective's title and body, not create a new slug.
-- Before creating a slug that appears to be a rename or replacement of existing work, run `objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-current`, `objective-update`, or an explicit slug migration.
+- Before creating a slug that appears to be a rename or replacement of existing work, run `objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-update`, a direct read with `objective exec read-objective <slug> --format md`, or an explicit slug migration.
 - Do not add registries, YAML/frontmatter, UUIDs, hidden attachment metadata, or state-machine behavior.
-- If `.asdl/objectives/<slug>/` exists, stop and ask whether the user meant `objective-current` or `objective-update`; never overwrite. Use `objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
+- If `.asdl/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read with `objective exec read-objective <slug> --format md`; never overwrite. Use `objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
 - If `.asdl/objective-archive/<slug>/` exists, stop and ask whether the user wants to unarchive instead of creating a duplicate slug. Use `objective archive <slug> --unarchive` when unarchive is the right intent.
 - Objective records are Markdown; read and edit Markdown directly. Use `objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
 

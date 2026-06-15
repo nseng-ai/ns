@@ -28,8 +28,8 @@ Shows \`objective list\` output in chat. Output format is controlled by the Pi e
 const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--minimal", "--status", "--help", "-h"] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 
-type ObjectiveCommandName = "objective:next" | "objective:current" | "objective:update";
-type ObjectiveSkillName = "objective-next" | "objective-current" | "objective-update";
+type ObjectiveCommandName = "objective:next" | "objective:update";
+type ObjectiveSkillName = "objective-next" | "objective-update";
 
 interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 	commandName: ObjectiveCommandName;
@@ -145,16 +145,6 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway for the explicit Objective below: apply the Tracking Gate, recommend the next useful work, and only offer execution when the Objective contains explicit Runner Policy / Definition of Progress prose allowing it. If execution is offered, present an upfront preview and wait for explicit confirmation before material action. Do not use hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores. Do not submit PRs or perform external side effects unless included in the confirmed preview scope.",
 		actionPrompt: "Run objective-next for this explicitly selected Objective slug or path:",
 		compactDiffSuggestion: true,
-	},
-	{
-		commandName: "objective:current",
-		skillName: "objective-current",
-		description: "Pick an active Objective, then invoke objective-current for the selected slug.",
-		statusKey: "objective:current",
-		selectionTitle: "Select an active Objective to summarize",
-		fallbackPrompt:
-			"The objective-current skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: summarize the current state of the explicit Objective below without mutating files.",
-		actionPrompt: "Run objective-current for this explicitly selected Objective slug or path:",
 	},
 	{
 		commandName: "objective:update",
