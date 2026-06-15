@@ -12,14 +12,14 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	prStateSchema,
-	stdoutModeRequestMixin,
+	stdoutModeRequestSchema,
 } from "./shared.ts";
 
 // --- map-branch-prs ---------------------------------------------------------------
 // TypeScript-only operation: no Python contract exists; the schema document is
 // TypeScript-owned and its fixture is captured from `--json-schema` output.
 
-export const mapBranchPrsRequestSchema = stdoutModeRequestMixin.extend({
+export const mapBranchPrsRequestSchema = stdoutModeRequestSchema.extend({
 	branches_json: z.string().optional(),
 	harness_session_id: nullableStringSchema.optional(),
 });
@@ -47,7 +47,7 @@ export const mapBranchPrsResultSchema = z.object({
 
 // --- read-only collection operations -------------------------------------------
 
-export const getFeedbackRequestSchema = stdoutModeRequestMixin.extend({
+export const getFeedbackRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
@@ -57,7 +57,7 @@ export const getFeedbackRequestSchema = stdoutModeRequestMixin.extend({
 
 export const getFeedbackResultSchema = z.union([getFeedbackInlineResultSchema, getFeedbackPayloadManifestSchema]);
 
-export const prepareRunRequestSchema = stdoutModeRequestMixin.extend({
+export const prepareRunRequestSchema = stdoutModeRequestSchema.extend({
 	include_all_threads: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
@@ -68,7 +68,7 @@ export const prepareRunResultSchema = z.union([prepareRunInlineResultSchema, pre
 
 // --- summarize-feedback ----------------------------------------------------------
 
-export const summarizeFeedbackRequestSchema = stdoutModeRequestMixin.extend({
+export const summarizeFeedbackRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
@@ -147,7 +147,7 @@ export const summarizeFeedbackResultSchema = z.object({
 
 // --- read-feedback-detail ----------------------------------------------------------
 
-export const readFeedbackDetailRequestSchema = stdoutModeRequestMixin.extend({
+export const readFeedbackDetailRequestSchema = stdoutModeRequestSchema.extend({
 	payload_path: nullableStringSchema.optional(),
 	pr_number: nullableIntSchema.optional(),
 	json_pointer: z.string(),
@@ -162,7 +162,7 @@ export const readFeedbackDetailResultSchema = z.object({
 	resolved_inputs: z.object({ feedback: payloadReferenceSchema }).optional(),
 });
 
-export const readFeedbackDetailsRequestSchema = stdoutModeRequestMixin.extend({
+export const readFeedbackDetailsRequestSchema = stdoutModeRequestSchema.extend({
 	selection_json: nullableStringSchema.optional(),
 	pr_number: nullableIntSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),

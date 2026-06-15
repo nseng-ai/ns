@@ -170,10 +170,10 @@ describe("managed classification/planning CLI operations", () => {
 		});
 		expect(await validateRun.exit).toBe(0);
 		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as {
-			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number } }; classification_reference: { descriptor: string; sequence: number } };
+			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number } }; details: { classification_reference: { descriptor: string; sequence: number } } };
 		};
 		expect(validateEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
-		expect(validateEnvelope.data.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", role: "summary", sequence: 2 });
+		expect(validateEnvelope.data.details.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", role: "summary", sequence: 2 });
 
 		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
 			cwd: REPO_ROOT,
