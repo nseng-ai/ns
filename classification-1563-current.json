@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "reviews": [],
+  "review_threads": [
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Jm02Z",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/3",
+      "covered_comments": [
+        {
+          "comment_id": 3414225906,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/3/comments/0/body",
+            "item_pointer": "/data/review_threads/3/comments/0"
+          }
+        }
+      ],
+      "summary": "Roaster warning: Duplicate abstraction",
+      "action_summary": "Refactor loadCheckpointEvidenceFile",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "discussion_comments": []
+}

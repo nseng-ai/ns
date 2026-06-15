@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "reviews": [],
+  "review_threads": [
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Jmzw5",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/2",
+      "covered_comments": [
+        {
+          "comment_id": 3414220148,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/2/comments/0/body",
+            "item_pointer": "/data/review_threads/2/comments/0"
+          }
+        }
+      ],
+      "summary": "Roaster warning: Boolean variable missing predicate prefix.",
+      "action_summary": "Rename `stdinWasRead` to `wasStdinRead`.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Jm7c8",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/3",
+      "covered_comments": [
+        {
+          "comment_id": 3414262120,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/3/comments/0/body",
+            "item_pointer": "/data/review_threads/3/comments/0"
+          }
+        }
+      ],
+      "summary": "Roaster warning: Boolean variable does not start with predicate prefix.",
+      "action_summary": "Rename `stdinWasRead` to use a predicate prefix like `isStdinRead`.",
+      "complexity": "local",
+      "pre_existing": false,
+      "informational_reason": null
+    },
+    {
+      "thread_id": "PRRT_kwDOR4YhMs6Jm96Y",
+      "disposition": "actionable",
+      "thread_item_pointer": "/data/review_threads/4",
+      "covered_comments": [
+        {
+          "comment_id": 3414275647,
+          "body_locator": {
+            "json_pointer": "/data/review_threads/4/comments/0/body",
+            "item_pointer": "/data/review_threads/4/comments/0"
+          }
+        }
+      ],
+      "summary": "Roaster info: validate-feedback-classification operation hand-rolls input-validation error message generation instead of using shared resolveOperationInput pattern.",
+      "action_summary": "Refactor validate operation to use `resolveOperationInput` to eliminate custom `validateSessionMixMessage` helper.",
+      "complexity": "single_file",
+      "pre_existing": false,
+      "informational_reason": null
+    }
+  ],
+  "discussion_comments": []
+}
