@@ -14,6 +14,7 @@ import type {
 	AregSkillKindTextWritePlan,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
+import { parseSkillFrontmatterBlock, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
@@ -22,7 +23,6 @@ const MODEL_INVOCATION_STATUSES = ["enabled", "disabled", "mixed"] as const;
 const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "mixed"] as const;
 const PI_EXTENSION_STATUSES = ["n/a", "enabled", "missing"] as const;
 const APPLY_OPERATION_TYPES = ["write", "skip", "delete", "remove_empty_dir"] as const;
-const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 const USER_INVOCABLE_KEY = "user-invocable";
 const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";
@@ -62,10 +62,7 @@ export interface SkillKindRecord {
 	notes: readonly string[];
 }
 
-interface FrontmatterInspection {
-	fields: Readonly<Record<string, string>>;
-	keys: ReadonlySet<string>;
-}
+type FrontmatterInspection = SkillFrontmatterData;
 
 interface ResolvedProjectInspection {
 	projectDir: string;
@@ -331,41 +328,9 @@ export function renderSkillKindApply(result: SkillKindApplyResult): string {
 }
 
 export function inspectSkillFrontmatter(text: string, pathLabel: string): { type: "ok"; value: FrontmatterInspection } | { type: "error"; message: string } {
-	const lines = text.split(/\r?\n/u);
-	if (lines.at(-1) === "") lines.pop();
-	if (lines.length === 0 || lines[0] !== "---") return { type: "error", message: `${pathLabel} missing opening frontmatter delimiter '---'` };
-	const endIndex = lines.indexOf("---", 1);
-	if (endIndex === -1) return { type: "error", message: `${pathLabel} missing closing frontmatter delimiter '---'` };
-	const fields: Record<string, string> = {};
-	const keys = new Set<string>();
-	let currentKey: string | undefined;
-	let currentValues: string[] = [];
-	function flushCurrent(): void {
-		if (currentKey === undefined) return;
-		let rawValue = currentValues.filter((value) => value.length > 0).join(" ").trim();
-		if (rawValue.length >= 2 && rawValue[0] === rawValue.at(-1) && (rawValue[0] === "\"" || rawValue[0] === "'")) rawValue = rawValue.slice(1, -1);
-		fields[currentKey] = rawValue;
-	}
-	for (const line of lines.slice(1, endIndex)) {
-		const stripped = line.trim();
-		if (stripped.length === 0) continue;
-		if (stripped.startsWith("#")) continue;
-		if (!line.startsWith(" ") && !line.startsWith("\t")) {
-			flushCurrent();
-			const match = FRONTMATTER_KEY_RE.exec(line);
-			if (match?.groups === undefined) return { type: "error", message: `${pathLabel} invalid frontmatter line: ${JSON.stringify(line)}` };
-			currentKey = match.groups.key ?? "";
-			keys.add(currentKey);
-			currentValues = [];
-			const inlineValue = (match.groups.value ?? "").trim();
-			if (inlineValue.length > 0) currentValues.push(inlineValue);
-			continue;
-		}
-		if (currentKey === undefined) return { type: "error", message: `${pathLabel} invalid frontmatter line: ${JSON.stringify(line)}` };
-		currentValues.push(line.trim());
-	}
-	flushCurrent();
-	return { type: "ok", value: { fields, keys } };
+	const parsed = parseSkillFrontmatterBlock(text);
+	if (parsed.type === "error") return { type: "error", message: `${pathLabel} ${parsed.message}` };
+	return parsed;
 }
 
 export function inferSkillKindRecord(options: {
