@@ -1,6 +1,7 @@
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
+import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/github.ts";
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
 
@@ -9,6 +10,7 @@ export interface RoasterContext {
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
+	readonly github: RoasterGitHubGateway;
 }
 
 export interface CreateRealRoasterContextOptions {
@@ -24,5 +26,6 @@ export function createRealRoasterContext(options: CreateRealRoasterContextOption
 		gitGateway,
 		localDiff: new RealLocalDiffGateway({ execApi, gitGateway }),
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),
+		github: new RealRoasterGitHubGateway(execApi),
 	};
 }
