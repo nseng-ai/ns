@@ -24,13 +24,15 @@ import {
 	replyToDiscussionResultSchema,
 	replyToReviewRequestSchema,
 	replyToReviewResultSchema,
+	resolveThreadBatchRequestSchema,
 	resolveThreadBatchResultSchema,
 	resolveThreadWithReplyRequestSchema,
 	resolveThreadWithReplyResultSchema,
 } from "./mutation.ts";
-import { buildResolveThreadBatchPayloadResultSchema, finalizeRunResultSchema, recordBatchCheckpointResultSchema } from "./payload.ts";
-import { buildStackResolveThreadPayloadsRequestSchema, payloadJsonOrFileRequestSchema, schemaDocument, stackFeedbackDiffCurrentRequestSchema } from "./shared.ts";
+import { buildResolveThreadBatchPayloadRequestSchema, buildResolveThreadBatchPayloadResultSchema, finalizeRunResultSchema, recordBatchCheckpointResultSchema } from "./payload.ts";
+import { payloadJsonOrFileRequestSchema, schemaDocument, stackFeedbackDiffCurrentRequestSchema } from "./shared.ts";
 import {
+	buildStackResolveThreadPayloadsRequestSchema,
 	buildStackResolveThreadPayloadsResultSchema,
 	stackFeedbackDiffCurrentResultSchema,
 	stackFeedbackPlanRequestSchema,
@@ -62,7 +64,7 @@ import {
 // --- document registry --------------------------------------------------------------
 
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
-	["build-resolve-thread-batch-payload", () => schemaDocument(payloadJsonOrFileRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
+	["build-resolve-thread-batch-payload", () => schemaDocument(buildResolveThreadBatchPayloadRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
 	["build-stack-resolve-thread-payloads", () => schemaDocument(buildStackResolveThreadPayloadsRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
 	["classification-template", buildClassificationTemplateSchemaDocument],
 	["finalize-run", () => schemaDocument(payloadJsonOrFileRequestSchema, finalizeRunResultSchema)],
@@ -75,7 +77,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["record-batch-checkpoint", () => schemaDocument(payloadJsonOrFileRequestSchema, recordBatchCheckpointResultSchema)],
 	["reply-to-discussion", () => schemaDocument(replyToDiscussionRequestSchema, replyToDiscussionResultSchema)],
 	["reply-to-review", () => schemaDocument(replyToReviewRequestSchema, replyToReviewResultSchema)],
-	["resolve-thread-batch", () => schemaDocument(payloadJsonOrFileRequestSchema, resolveThreadBatchResultSchema)],
+	["resolve-thread-batch", () => schemaDocument(resolveThreadBatchRequestSchema, resolveThreadBatchResultSchema)],
 	["resolve-thread-with-reply", () => schemaDocument(resolveThreadWithReplyRequestSchema, resolveThreadWithReplyResultSchema)],
 	["stack-feedback-diff-current", () => schemaDocument(stackFeedbackDiffCurrentRequestSchema, stackFeedbackDiffCurrentResultSchema)],
 	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],

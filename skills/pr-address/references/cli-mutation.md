@@ -88,31 +88,37 @@ On invalid input: `{"exit_code": 2, "error_type": "...", "message": "..."}`.
 
 ### `build-resolve-thread-batch-payload`
 
-Build and validate the JSON payload for `resolve-thread-batch` from a
-single-PR `plan-feedback` result, one selected batch, the batch commit SHA, and
-explicit post-edit decisions. This helper does not mutate GitHub.
+Build and validate a mutation-ready thread-resolution artifact from the latest
+single-PR `plan-feedback` summary artifact in the current payload session. This
+helper does not mutate GitHub.
 
-Use this after making and committing an approved batch, before calling the
-mutating `resolve-thread-batch` helper.
+Use this after making and committing an approved batch. The command resolves the
+latest `pr-address-pr-<n>-plan.summary.json` artifact by `--pr-number`, reads an
+agent-authored decisions JSON array from `--decisions-file`, and writes a
+managed `thread_resolution_build` artifact when a payload is ready.
 
-**Invocation:** reads JSON from stdin by default. `--payload-json` and
-`--payload-file` are also available for direct/manual invocation; pass only one
-explicit payload source.
+**Invocation:** no stdin, `--payload-json`, or `--payload-file` input is
+accepted for this command.
 
 ```bash
-printf '%s' '{"plan":{...},"batch_id":"single_file","commit_sha":"abc1234","decisions":[{"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Updated the guard."}]}' \
-  | pr-address exec build-resolve-thread-batch-payload --format json
+pr-address exec build-resolve-thread-batch-payload \
+  --pr-number 1009 \
+  --batch-id single_file \
+  --commit-sha abc1234 \
+  --decisions-file decisions.json \
+  --format json
 ```
 
-**Input fields:**
+**Options:**
 
-| Field               | Required | Description                                                                                   |
-| ------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `plan`              | yes      | `data` object returned by single-PR `plan-feedback`; do not pass merged `stack-feedback-plan` |
-| `batch_id`          | yes      | Exact `data.batches[].batch_id` to build from                                                 |
-| `commit_sha`        | mode     | Batch commit SHA; required when any `fixed` decision lacks an item-level SHA                  |
-| `continue_on_error` | no       | Copied into the generated `resolve-thread-batch` payload                                      |
-| `decisions`         | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch  |
+| Option                 | Required | Description                                                                |
+| ---------------------- | -------- | -------------------------------------------------------------------------- |
+| `--pr-number`          | yes      | PR whose latest session `plan` summary artifact should be used             |
+| `--batch-id`           | yes      | Exact `data.batches[].batch_id`; must be a safe payload descriptor segment |
+| `--commit-sha`         | mode     | Batch commit SHA; required when any `fixed` decision lacks item-level SHA  |
+| `--continue-on-error`  | no       | Copied into the generated `resolve-thread-batch` payload                   |
+| `--decisions-file`     | yes      | JSON array of decisions, not a wrapper object and not a plan payload       |
+| `--harness-session-id` | no       | Manual/debug override for payload-session lookup                           |
 
 Resolve decision:
 
@@ -137,60 +143,15 @@ Skip decision:
 }
 ```
 
-`plan` must be the `data` object from single-PR `plan-feedback`; do not pass
-merged `stack-feedback-plan` output. Stack plans include PR/branch provenance
-and stack-level validation summaries that this per-PR builder intentionally does
-not consume. Stack-plan-shaped input is rejected with a concise
-`stack_feedback_plan_not_supported` or `invalid_request` diagnostic.
+**Output fields (under `data`):** existing validation fields remain, plus:
 
-`mode` is `fixed`, `pre_existing`, `explained`, or `planned`. `fixed` requires
-a non-empty `message` and a batch or item-level `commit_sha`; `explained`
-requires a non-empty `message`; `pre_existing` ignores `message` and
-`commit_sha` and they should be omitted. `planned` requires a non-empty
-`message` and syntactically valid provenance, and rejects item-level
-`commit_sha`. A top-level batch `commit_sha` may be present for fixed decisions
-in the same payload and is ignored by planned items. Provenance is only valid
-for planned decisions. The builder checks provenance shape only; the mutating
-`resolve-thread-batch` helper validates that the branch or PR exists before any
-GitHub mutation.
+| Field             | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------ |
+| `resolved_inputs` | Exact session plan artifact used, as `{plan: PayloadReference}`          |
+| `build_reference` | Managed build artifact reference when `payload_ready == true`, else null |
 
-**Output fields (under `data`):**
-
-| Field                      | Description                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| `valid`                    | Whether the selected batch and decisions are semantically valid                             |
-| `payload_ready`            | Whether `data.payload` should be piped to `resolve-thread-batch`                            |
-| `batch_id`                 | Selected batch ID                                                                           |
-| `review_thread_count`      | Review-thread items in the selected batch                                                   |
-| `resolved_thread_count`    | Items included in the generated payload                                                     |
-| `skipped_thread_count`     | Explicitly skipped review-thread items                                                      |
-| `ignored_non_thread_items` | Selected-batch PR-level reviews or discussion comments that require other helpers           |
-| `skipped_items`            | Explicit skip reasons with thread summaries                                                 |
-| `payload`                  | Ready `resolve-thread-batch` payload, or `null` when no inline-thread payload should be run |
-| `errors`                   | Structured semantic decision errors                                                         |
-| `warnings`                 | No-payload explanations, such as no review-thread items or all threads skipped              |
-
-Validation rejects missing decisions, duplicate thread IDs, decisions for other
-batches, informational thread decisions, unknown threads, invalid modes, missing
-messages/commit SHAs, missing planned provenance, planned item-level commit SHA
-misuse, invalid provenance shape, provenance on non-planned decisions, and
-non-empty resolution fields on skip/pre-existing items. It validates any
-generated payload through the same pre-mutation rules as
-`resolve-thread-batch`, except that live branch/PR existence checks happen in
-the mutating helper.
-
-**Output behavior:**
-
-- Valid decisions with at least one resolved thread: `exit_code: 0`,
-  `data.payload_ready == true`, and `data.payload` can be piped to
-  `resolve-thread-batch`.
-- Valid decisions with no payload needed: `exit_code: 0`,
-  `data.payload_ready == false`, `data.payload == null`, and `data.warnings`
-  explains why.
-- Well-formed but invalid decisions: `exit_code: 1`, `data.valid == false`,
-  `data.payload == null`, and `data.errors` describes all known issues.
-- Malformed/empty input: `exit_code: 2` with an error type such as
-  `invalid_json` or `invalid_request`.
+The build artifact contains audit metadata and exactly one canonical nested
+`payload` for `resolve-thread-batch --from-build`.
 
 ### `stack-feedback-diff-current`
 
@@ -292,171 +253,81 @@ threads exist outside the plan's actionable or informational review-thread set.
 
 ### `build-stack-resolve-thread-payloads`
 
-Build and validate per-PR JSON payloads for `resolve-thread-batch` from a
-validated `stack-feedback-plan` result, one selected stack batch, the batch
-commit SHA, and explicit post-edit decisions. This helper does not mutate
-GitHub.
+Build and validate per-PR mutation-ready thread-resolution artifacts from the
+latest `stack-feedback-plan` summary artifact in the current payload session.
+This helper does not mutate GitHub.
 
 Use this in stack-address workflows after making and committing an approved
-stack batch. The merged stack plan remains the provenance source; callers do not
-reconstruct per-PR `plan-feedback` wrappers.
+stack batch. The command resolves the latest `pr-address-stack-plan.summary.json`,
+reads an agent-authored decisions JSON array from `--decisions-file`, and writes
+one managed `thread_resolution_build` artifact for each PR entry where
+`payload_ready == true`.
 
-**Invocation:** reads JSON from stdin by default. `--payload-json` and
-`--payload-file` are also available for direct/manual invocation; pass only one
-explicit payload source. `--stack-plan-reference <path>` reads `stack_plan`
-directly from a saved stack plan artifact
-(`data.stack_plan_reference.payload_path` from the plan run), so the payload
-only needs the batch fields and decisions:
+**Invocation:** no stdin, `--payload-json`, `--payload-file`, or
+`--stack-plan-reference` input is accepted for this command.
 
 ```bash
-printf '%s' '{"batch_id":"local","commit_sha":"abc1234","continue_on_error":true,"decisions":[{"pr_number":1009,"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Fixed in the stack-tip omnibus commit."}]}' \
-  | pr-address exec build-stack-resolve-thread-payloads \
-      --stack-plan-reference /path/to/.../stack-feedback-plan.summary.json \
-      --format json
+pr-address exec build-stack-resolve-thread-payloads \
+  --batch-id local \
+  --commit-sha abc1234 \
+  --decisions-file decisions.json \
+  --format json
 ```
 
-The embedded form remains available:
+**Options:**
 
-```bash
-printf '%s' '{"stack_plan":{...},"batch_id":"local","commit_sha":"abc1234","continue_on_error":true,"decisions":[{"pr_number":1009,"thread_id":"PRRT_kw...","action":"resolve","mode":"fixed","message":"Fixed in the stack-tip omnibus commit."}]}' \
-  | pr-address exec build-stack-resolve-thread-payloads --format json
-```
+| Option                 | Required | Description                                                               |
+| ---------------------- | -------- | ------------------------------------------------------------------------- |
+| `--batch-id`           | yes      | Exact merged `data.batches[].batch_id`; must be a safe descriptor segment |
+| `--commit-sha`         | mode     | Batch/omnibus commit SHA; required when any fixed decision lacks an SHA   |
+| `--continue-on-error`  | no       | Copied into every generated `resolve-thread-batch` payload                |
+| `--decisions-file`     | yes      | JSON array of decisions, each with `pr_number` and `thread_id`            |
+| `--harness-session-id` | no       | Manual/debug override for payload-session lookup                          |
 
-**Input fields:**
+Each decision uses the same fields as the single-PR builder, with required
+`pr_number`. The helper diagnoses wrong-PR references, other-batch decisions,
+informational thread decisions, unknown threads, and mode/action/provenance
+errors before any mutation artifact is used.
 
-| Field                  | Required | Description                                                                                         |
-| ---------------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `stack_plan`           | source   | `data` object returned by `stack-feedback-plan`; must have `valid == true`; omit with its reference |
-| `stack_plan_reference` | source   | `--stack-plan-reference <path>`: read `stack_plan` from a saved stack plan artifact file            |
-| `batch_id`             | yes      | Exact merged `data.batches[].batch_id` to build from                                                |
-| `commit_sha`           | mode     | Batch/omnibus commit SHA; required when any `fixed` decision lacks an item-level SHA                |
-| `continue_on_error`    | no       | Copied into every generated `resolve-thread-batch` payload                                          |
-| `decisions`            | yes      | One explicit `resolve` or `skip` decision for every review-thread item in the selected batch        |
+**Output fields (under `data`):** existing validation fields remain, plus:
 
-Exactly one stack plan source is required: the embedded `stack_plan` payload
-key or `--stack-plan-reference`. Passing both fails with `exit_code: 2`, as
-does a missing, unreadable, or non-JSON reference file or a referenced file
-that is not a `stack-feedback-plan` data artifact. References are validated by
-shape, not provenance.
+| Field                        | Description                                                   |
+| ---------------------------- | ------------------------------------------------------------- |
+| `resolved_inputs`            | Exact stack plan artifact used, as `{plan: PayloadReference}` |
+| `payloads[].build_reference` | Managed per-PR build artifact reference for ready entries     |
 
-Each decision requires `pr_number` and `thread_id`, plus the same resolution
-fields used by the single-PR builder. The `pr_number` requirement lets the
-helper diagnose wrong-PR references deterministically.
-
-Resolve decision:
-
-```json
-{
-  "pr_number": 1009,
-  "thread_id": "PRRT_kw...",
-  "action": "resolve",
-  "mode": "fixed",
-  "message": "Fixed in the stack-tip omnibus commit.",
-  "commit_sha": "optional item-level override",
-  "provenance": {"kind": "local_branch", "branch": "follow-up-branch"}
-}
-```
-
-Skip decision:
-
-```json
-{
-  "pr_number": 1009,
-  "thread_id": "PRRT_kw...",
-  "action": "skip",
-  "skip_reason": "User deferred this thread to a follow-up."
-}
-```
-
-`mode` is `fixed`, `pre_existing`, `explained`, or `planned`, with the same
-mode-specific field rules as `build-resolve-thread-batch-payload`. The helper
-builds inline review-thread payloads only; PR-level reviews and discussion
-comments are reported as ignored non-thread items for other helpers.
-
-**Output fields (under `data`):**
-
-| Field                      | Description                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `valid`                    | Whether the selected stack batch and decisions are semantically valid                            |
-| `payloads_ready`           | Whether at least one per-PR entry has a ready `resolve-thread-batch` payload                     |
-| `batch_id`                 | Selected stack batch ID                                                                          |
-| `review_thread_count`      | Review-thread items in the selected stack batch                                                  |
-| `resolved_thread_count`    | Items included across generated per-PR payloads                                                  |
-| `skipped_thread_count`     | Explicitly skipped review-thread items                                                           |
-| `ignored_non_thread_items` | Selected-batch PR-level reviews or discussion comments that require other helpers                |
-| `skipped_items`            | Explicit skip reasons with PR/thread summaries                                                   |
-| `payloads[]`               | Per-PR entries with `pr_number`, `branch`, counts, `payload_ready`, and optional ready `payload` |
-| `errors`                   | Structured semantic decision errors                                                              |
-| `warnings`                 | No-payload explanations, such as no review-thread items or all threads skipped                   |
-
-For each `data.payloads[]` entry where `payload_ready == true`, pipe that
-entry's `payload` to `resolve-thread-batch`. If `payload_ready == false`, do not
-call the mutating helper for that PR; report warnings/skipped/non-thread items
-instead.
-
-Validation rejects invalid stack plan shape/state, unknown stack batches,
-missing decisions, duplicate `(pr_number, thread_id)` decisions, wrong-PR
-references, decisions for other stack batches, informational thread decisions,
-unknown threads, and the same mode/action/provenance field errors as the
-single-PR builder.
-
-**Output behavior:**
-
-- Valid decisions with at least one resolved thread: `exit_code: 0`,
-  `data.payloads_ready == true`, and ready per-PR payloads can be piped to
-  `resolve-thread-batch`.
-- Valid decisions with no payload needed: `exit_code: 0`,
-  `data.payloads_ready == false`, and `data.warnings` explains why.
-- Well-formed but invalid decisions: `exit_code: 1`, `data.valid == false`, no
-  ready payloads, and `data.errors` describes all known issues.
-- Malformed/empty input: `exit_code: 2` with an error type such as
-  `invalid_json` or `invalid_request`.
+Do not call `resolve-thread-batch` for entries with `payload_ready == false`.
+Call it with `--from-build <payloads[].build_reference.payload_path>` for ready
+entries.
 
 ### `resolve-thread-batch`
 
-Reply to and resolve multiple PR review threads with canonical formatting. After
-a batch commit, prefer `build-resolve-thread-batch-payload` for single-PR runs or
-`build-stack-resolve-thread-payloads` for stack runs, then call this mutating
-helper only for ready payloads.
+Reply to and resolve multiple PR review threads with canonical formatting from
+an explicit managed build artifact. This command never reads stdin, never accepts
+agent-composed payload JSON, and never resolves the latest artifact implicitly.
 
-**Invocation:** reads JSON from stdin by default. `--payload-json` is also
-available for direct/manual invocation.
+Build the artifact first with `build-resolve-thread-batch-payload` or
+`build-stack-resolve-thread-payloads`, then pass the exact managed payload path:
 
 ```bash
-printf '%s' '{"commit_sha":"abc1234","items":[{"thread_id":"PRRT_kw...","mode":"fixed","message":"Updated the guard."}]}' \
-  | pr-address exec resolve-thread-batch --format json
-
-printf '%s' '{"items":[{"thread_id":"PRRT_kw...","mode":"planned","message":"The follow-up PR carries the fix.","provenance":{"kind":"pr","pr_number":1073}}]}' \
-  | pr-address exec resolve-thread-batch --format json
+pr-address exec resolve-thread-batch \
+  --from-build /tmp/asdl/sessions/<session>/payloads/...resolve-build.summary.json \
+  --format json
 ```
 
-**Payload fields:**
+**Options:**
 
-| Field               | Required | Description                                                      |
-| ------------------- | -------- | ---------------------------------------------------------------- |
-| `commit_sha`        | no       | Batch commit SHA used by `fixed` items; ignored by planned items |
-| `continue_on_error` | no       | Attempt later items after a mutation failure                     |
-| `items`             | yes      | Non-empty ordered array of thread jobs                           |
+| Option         | Required | Description                                                   |
+| -------------- | -------- | ------------------------------------------------------------- |
+| `--from-build` | yes      | Absolute path to a managed `thread_resolution_build` artifact |
 
-Each `items[]` entry:
+Omitting `--from-build` returns `error_type: explicit_artifact_required` and no
+GitHub calls. The path must be a managed payload artifact under the payload-store
+layout; arbitrary JSON files are rejected by the payload-store boundary.
 
-| Field        | Required | Description                                                                                        |
-| ------------ | -------- | -------------------------------------------------------------------------------------------------- |
-| `thread_id`  | yes      | GraphQL review-thread node ID                                                                      |
-| `mode`       | yes      | `fixed`, `pre_existing`, `explained`, or `planned`                                                 |
-| `message`    | mode     | Required for `fixed`, `explained`, and `planned`; ignored by `pre_existing`                        |
-| `commit_sha` | no       | Item-level override for the top-level commit SHA; rejected by `planned`                            |
-| `provenance` | planned  | `{kind:"local_branch",branch:"..."}` or `{kind:"pr",pr_number:1073}`; rejected for all other modes |
-
-Validation happens for the whole payload before any GitHub mutation. Duplicate
-`thread_id` values, empty `items`, malformed JSON, missing required `message` /
-`commit_sha`, planned item-level `commit_sha`, non-planned provenance, missing
-planned provenance, missing local branches, or missing PRs produce
-`exit_code: 2` with no mutation. Planned provenance is captured during
-that pre-mutation validation step, so branch HEAD OIDs and PR states in replies
-are explicitly labelled as batch-start snapshots, not live references. Existing
-PR provenance may be OPEN, CLOSED, or MERGED; the canonical reply includes the
-observed PR state snapshot.
+The command validates the build artifact shape, confirms it is a ready
+thread-resolution build, validates every nested payload item and planned
+provenance before the first GitHub write, then applies replies/resolutions.
 
 **Output fields (under `data`):**
 
@@ -469,14 +340,10 @@ observed PR state snapshot.
 | `all_succeeded` | Whether every item succeeded                   |
 | `results`       | Ordered per-item results                       |
 
-Per-item `status` is `resolved`, `failed`, or `skipped`. Successful items carry
-`body`, `comment`, `is_resolved`, and enriched `provenance` for planned items.
-Failed/skipped items carry `error_type`/`error_message`.
-
 Gateway/API mutation failures after validation return `exit_code: 1` with the
 partial result data. By default the command stops at the first failed item and
-marks later items skipped; with `continue_on_error: true`, it attempts later
-items and still returns `exit_code: 1` if any item failed.
+marks later items skipped; with artifact payload `continue_on_error: true`, it
+attempts later items and still returns `exit_code: 1` if any item failed.
 
 ### `reply-to-review`
 

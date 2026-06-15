@@ -4,31 +4,12 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { formatErrorMessage } from "@asdl/core";
 import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { resolutionProvenanceInputSchema, threadResolutionBuildArtifactSchema, resolveThreadBatchPayloadSchema } from "./thread-resolution-build-artifact.ts";
 
 export const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
 type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
 
-const provenanceInputSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("local_branch"), branch: z.string() }).strict(),
-	z.object({ kind: z.literal("pr"), pr_number: z.number().int() }).strict(),
-]);
-
-const resolveThreadBatchItemSchema = z.object({
-	thread_id: z.string(),
-	mode: z.enum(VALID_RESOLUTION_MODES),
-	message: z.string().nullable().default(null),
-	commit_sha: z.string().nullable().default(null),
-	provenance: provenanceInputSchema.nullable().default(null),
-});
-
-const resolveThreadBatchPayloadSchema = z.object({
-	commit_sha: z.string().nullable().default(null),
-	continue_on_error: z.boolean().default(false),
-	items: z.array(resolveThreadBatchItemSchema),
-});
-
-type ProvenanceInput = z.infer<typeof provenanceInputSchema>;
+type ProvenanceInput = NonNullable<z.infer<typeof resolveThreadBatchPayloadSchema>["items"][number]["provenance"]>;
 type ResolveThreadBatchPayload = z.infer<typeof resolveThreadBatchPayloadSchema>;
 
 const replyToReviewParseSchema = z.object({
@@ -54,8 +35,7 @@ const resolveThreadWithReplyParseSchema = z.object({
 });
 
 const resolveThreadBatchParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
+	from_build: z.string().optional(),
 });
 
 interface NormalizedResolutionRequest {
@@ -116,7 +96,7 @@ export const resolveThreadBatchOperation = defineExecOperation({
 	isRepoContextRequired: true,
 	spec: {
 		name: "resolve-thread-batch",
-		description: "Reply to and resolve multiple PR review threads from a JSON payload.",
+		description: "Reply to and resolve multiple PR review threads from an explicit build artifact.",
 		schema: resolveThreadBatchParseSchema,
 		handler: runResolveThreadBatchOperation,
 	},
@@ -156,18 +136,13 @@ async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, req
 }
 
 async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadBatchParseSchema>): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadJsonInput({
-		optionValue: request.payload_json,
-		filePath: request.payload_file,
-		commandName: "resolve-thread-batch",
-		inputDescription: "JSON payload",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: resolveThreadBatchPayloadSchema,
-		stdin: ctx.stdin,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const normalized = await normalizeResolveThreadBatchPayload(payloadResult.value, ctx);
+	const fromBuild = trimOptional(request.from_build);
+	if (fromBuild === null) {
+		return failure("explicit_artifact_required", "resolve-thread-batch requires --from-build <build artifact path>; mutations do not resolve latest artifacts implicitly.");
+	}
+	const buildArtifact = await loadThreadResolutionBuildArtifact(ctx, fromBuild);
+	if (buildArtifact.type === "error") return failure(buildArtifact.errorType, buildArtifact.message);
+	const normalized = await normalizeResolveThreadBatchPayload(buildArtifact.value.payload, ctx);
 	if (normalized.type === "error") return failure(normalized.errorType, normalized.message);
 	const gateway = ctx.context.github;
 	const results: ResolveThreadBatchItemResult[] = [];
@@ -177,7 +152,7 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 		const result = await applyResolution(gateway, item, gatewayOptions(ctx));
 		if (result.type === "failure") {
 			results.push({ index, thread_id: item.threadId, mode: item.mode, status: "failed", error_type: "gateway_error", error_message: gatewayFailureDetail(result.failure) });
-			if (!payloadResult.value.continue_on_error) {
+			if (!buildArtifact.value.payload.continue_on_error) {
 				results.push(...skippedResults(normalized.value.slice(index + 1), index + 1));
 				break;
 			}
@@ -188,6 +163,19 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	const batchResult = batchResultFrom(results, normalized.value.length);
 	if (batchResult.all_succeeded) return ok(batchResult);
 	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, batchResult);
+}
+
+async function loadThreadResolutionBuildArtifact(
+	ctx: PrAddressExecContext,
+	payloadPath: string,
+): Promise<{ type: "ok"; value: z.infer<typeof threadResolutionBuildArtifactSchema> } | { type: "error"; errorType: string; message: string }> {
+	const store = await ctx.context.payloadStoreFactory.openContainingArtifact(payloadPath, { clock: ctx.context.payloadClock });
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const artifact = await store.value.readJsonArtifact({ payloadPath, allowedRoles: new Set(["summary"]) });
+	if (artifact.type === "error") return { type: "error", errorType: artifact.errorType, message: artifact.message };
+	const parsed = threadResolutionBuildArtifactSchema.safeParse(artifact.value);
+	if (!parsed.success) return { type: "error", errorType: "invalid_request", message: `Invalid resolve-thread-batch --from-build artifact: ${z.prettifyError(parsed.error)}` };
+	return { type: "ok", value: parsed.data };
 }
 
 async function normalizeResolutionFromRequest(
@@ -345,7 +333,7 @@ function parseProvenanceJson(value: string | undefined, commandName: string): { 
 	} catch (error) {
 		return { type: "error", errorType: "invalid_json", message: `${commandName} received invalid JSON for --provenance-json: ${formatErrorMessage(error)}` };
 	}
-	const result = provenanceInputSchema.safeParse(parsed);
+	const result = resolutionProvenanceInputSchema.safeParse(parsed);
 	if (!result.success) return { type: "error", errorType: "invalid_request", message: z.prettifyError(result.error) };
 	return { type: "ok", value: result.data };
 }

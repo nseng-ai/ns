@@ -18,6 +18,14 @@ import {
 
 // --- build-stack-resolve-thread-payloads ----------------------------------------------
 
+export const buildStackResolveThreadPayloadsRequestSchema = z.object({
+	batch_id: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	continue_on_error: z.boolean().optional(),
+	decisions_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 const buildStackResolveThreadPayloadsErrorSchema = z.object({
 	code: z.string(),
 	message: z.string(),
@@ -60,6 +68,7 @@ const stackResolveThreadPayloadEntrySchema = z.object({
 	skipped_items: z.array(stackSkippedResolveThreadItemSchema).optional(),
 	payload: resolveThreadBatchPayloadSchema.nullable().optional(),
 	warnings: z.array(z.string()).optional(),
+	build_reference: payloadReferenceSchema.nullable().optional(),
 });
 
 export const buildStackResolveThreadPayloadsResultSchema = z.object({
@@ -76,6 +85,7 @@ export const buildStackResolveThreadPayloadsResultSchema = z.object({
 	payloads: z.array(stackResolveThreadPayloadEntrySchema).optional(),
 	errors: z.array(buildStackResolveThreadPayloadsErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.object({ plan: payloadReferenceSchema }).optional(),
 });
 
 // --- stack-feedback-diff-current ---------------------------------------------------

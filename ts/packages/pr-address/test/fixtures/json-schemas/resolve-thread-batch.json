@@ -1,321 +1,258 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
-      "payload_json": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload Json"
-      },
-      "payload_file": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload File"
+      "from_build": {
+        "type": "string"
       }
     },
-    "title": "ResolveThreadBatchRequest",
-    "type": "object"
+    "required": [
+      "from_build"
+    ],
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "LocalBranchResolutionProvenance": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "local_branch",
-            "title": "Kind",
-            "type": "string"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "branch_head_oid": {
-            "title": "Branch Head Oid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "branch",
-          "branch_head_oid"
-        ],
-        "title": "LocalBranchResolutionProvenance",
-        "type": "object"
-      },
-      "PRReviewComment": {
-        "description": "A single comment within a PR review thread.\n\nAttributes:\n    id: Numeric database ID of the comment.\n    body: Markdown body of the comment.\n    author: Author's GitHub login, or empty string if the account was\n        deleted.\n    path: File path the comment is on.\n    line: Line number (None for file-level or outdated comments). When\n        the parent thread covers a multi-line range, this is the *end*\n        of that range; `start_line` is the start. Equals `start_line`\n        for single-line threads (in which case `start_line` is None).\n    start_line: Start of the multi-line range the comment covers, or\n        None for single-line comments. GitHub renders multi-line\n        threads as \"lines +<start_line> to +<line>\".\n    created_at: ISO-8601 timestamp of the comment's creation.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "body": {
-            "title": "Body",
-            "type": "string"
-          },
-          "author": {
-            "title": "Author",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Line"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          }
-        },
-        "required": [
-          "id",
-          "body",
-          "author",
-          "path",
-          "line",
-          "created_at"
-        ],
-        "title": "PRReviewComment",
-        "type": "object"
-      },
-      "PrResolutionProvenance": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "pr",
-            "title": "Kind",
-            "type": "string"
-          },
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          },
-          "pr_url": {
-            "title": "Pr Url",
-            "type": "string"
-          },
-          "pr_state": {
-            "title": "Pr State",
-            "type": "string"
-          },
-          "pr_head_ref_name": {
-            "title": "Pr Head Ref Name",
-            "type": "string"
-          },
-          "pr_head_ref_oid": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Pr Head Ref Oid"
-          }
-        },
-        "required": [
-          "kind",
-          "pr_number",
-          "pr_url",
-          "pr_state",
-          "pr_head_ref_name"
-        ],
-        "title": "PrResolutionProvenance",
-        "type": "object"
-      },
-      "ResolveThreadBatchItemResult": {
-        "additionalProperties": false,
-        "properties": {
-          "index": {
-            "title": "Index",
-            "type": "integer"
-          },
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "mode": {
-            "enum": [
-              "fixed",
-              "pre_existing",
-              "explained",
-              "planned"
-            ],
-            "title": "Mode",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "resolved",
-              "failed",
-              "skipped"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "body": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Body"
-          },
-          "comment": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/PRReviewComment"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "is_resolved": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Is Resolved"
-          },
-          "error_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Error Type"
-          },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Error Message"
-          },
-          "provenance": {
-            "anyOf": [
-              {
-                "discriminator": {
-                  "mapping": {
-                    "local_branch": "#/$defs/LocalBranchResolutionProvenance",
-                    "pr": "#/$defs/PrResolutionProvenance"
-                  },
-                  "propertyName": "kind"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/$defs/LocalBranchResolutionProvenance"
-                  },
-                  {
-                    "$ref": "#/$defs/PrResolutionProvenance"
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Provenance"
-          }
-        },
-        "required": [
-          "index",
-          "thread_id",
-          "mode",
-          "status"
-        ],
-        "title": "ResolveThreadBatchItemResult",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "total": {
-        "title": "Total",
-        "type": "integer"
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "resolved": {
-        "title": "Resolved",
-        "type": "integer"
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "failed": {
-        "title": "Failed",
-        "type": "integer"
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "skipped": {
-        "title": "Skipped",
-        "type": "integer"
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "all_succeeded": {
-        "title": "All Succeeded",
         "type": "boolean"
       },
       "results": {
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/ResolveThreadBatchItemResult"
-        },
-        "title": "Results",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "index": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "thread_id": {
+              "type": "string"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "fixed",
+                "pre_existing",
+                "explained",
+                "planned"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "resolved",
+                "failed",
+                "skipped"
+              ]
+            },
+            "body": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "comment": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "author": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "start_line": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "body",
+                    "author",
+                    "path",
+                    "line",
+                    "created_at"
+                  ],
+                  "additionalProperties": {}
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_resolved": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error_message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provenance": {
+              "anyOf": [
+                {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "local_branch"
+                        },
+                        "branch": {
+                          "type": "string"
+                        },
+                        "branch_head_oid": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "branch",
+                        "branch_head_oid"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "pr"
+                        },
+                        "pr_number": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "pr_url": {
+                          "type": "string"
+                        },
+                        "pr_state": {
+                          "type": "string"
+                        },
+                        "pr_head_ref_name": {
+                          "type": "string"
+                        },
+                        "pr_head_ref_oid": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "pr_number",
+                        "pr_url",
+                        "pr_state",
+                        "pr_head_ref_name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "thread_id",
+            "mode",
+            "status"
+          ],
+          "additionalProperties": false
+        }
       }
     },
     "required": [
@@ -326,7 +263,6 @@
       "all_succeeded",
       "results"
     ],
-    "title": "ResolveThreadBatchResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

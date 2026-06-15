@@ -1,309 +1,14 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
-      "payload_json": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload Json"
-      },
-      "payload_file": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload File"
-      }
-    },
-    "title": "BuildResolveThreadBatchPayloadRequest",
-    "type": "object"
-  },
-  "output_json_schema": {
-    "$defs": {
-      "BuildResolveThreadBatchPayloadError": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "batch_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Batch Id"
-          },
-          "thread_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Thread Id"
-          }
-        },
-        "required": [
-          "code",
-          "message"
-        ],
-        "title": "BuildResolveThreadBatchPayloadError",
-        "type": "object"
-      },
-      "IgnoredNonThreadItem": {
-        "additionalProperties": false,
-        "properties": {
-          "source_kind": {
-            "title": "Source Kind",
-            "type": "string"
-          },
-          "review_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Review Id"
-          },
-          "discussion_comment_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Discussion Comment Id"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source_kind",
-          "summary"
-        ],
-        "title": "IgnoredNonThreadItem",
-        "type": "object"
-      },
-      "LocalBranchResolutionProvenanceInput": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "local_branch",
-            "title": "Kind",
-            "type": "string"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "branch"
-        ],
-        "title": "LocalBranchResolutionProvenanceInput",
-        "type": "object"
-      },
-      "PrResolutionProvenanceInput": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "pr",
-            "title": "Kind",
-            "type": "string"
-          },
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "kind",
-          "pr_number"
-        ],
-        "title": "PrResolutionProvenanceInput",
-        "type": "object"
-      },
-      "ResolveThreadBatchItem": {
-        "additionalProperties": false,
-        "properties": {
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "mode": {
-            "enum": [
-              "fixed",
-              "pre_existing",
-              "explained",
-              "planned"
-            ],
-            "title": "Mode",
-            "type": "string"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Message"
-          },
-          "commit_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Commit Sha"
-          },
-          "provenance": {
-            "anyOf": [
-              {
-                "discriminator": {
-                  "mapping": {
-                    "local_branch": "#/$defs/LocalBranchResolutionProvenanceInput",
-                    "pr": "#/$defs/PrResolutionProvenanceInput"
-                  },
-                  "propertyName": "kind"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/$defs/LocalBranchResolutionProvenanceInput"
-                  },
-                  {
-                    "$ref": "#/$defs/PrResolutionProvenanceInput"
-                  }
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Provenance"
-          }
-        },
-        "required": [
-          "thread_id",
-          "mode"
-        ],
-        "title": "ResolveThreadBatchItem",
-        "type": "object"
-      },
-      "ResolveThreadBatchPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "commit_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Commit Sha"
-          },
-          "continue_on_error": {
-            "default": false,
-            "title": "Continue On Error",
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/$defs/ResolveThreadBatchItem"
-            },
-            "title": "Items",
-            "type": "array"
-          }
-        },
-        "required": [
-          "items"
-        ],
-        "title": "ResolveThreadBatchPayload",
-        "type": "object"
-      },
-      "SkippedResolveThreadItem": {
-        "additionalProperties": false,
-        "properties": {
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "skip_reason": {
-            "title": "Skip Reason",
-            "type": "string"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          }
-        },
-        "required": [
-          "thread_id",
-          "skip_reason",
-          "summary"
-        ],
-        "title": "SkippedResolveThreadItem",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "valid": {
-        "title": "Valid",
-        "type": "boolean"
-      },
-      "payload_ready": {
-        "title": "Payload Ready",
-        "type": "boolean"
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "batch_id": {
-        "title": "Batch Id",
         "type": "string"
       },
       "commit_sha": {
@@ -314,69 +19,432 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Commit Sha"
+        ]
       },
       "continue_on_error": {
-        "default": false,
-        "title": "Continue On Error",
         "type": "boolean"
       },
-      "review_thread_count": {
-        "title": "Review Thread Count",
-        "type": "integer"
+      "decisions_file": {
+        "type": "string"
       },
-      "resolved_thread_count": {
-        "title": "Resolved Thread Count",
-        "type": "integer"
-      },
-      "skipped_thread_count": {
-        "title": "Skipped Thread Count",
-        "type": "integer"
-      },
-      "ignored_non_thread_items": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/IgnoredNonThreadItem"
-        },
-        "title": "Ignored Non Thread Items",
-        "type": "array"
-      },
-      "skipped_items": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/SkippedResolveThreadItem"
-        },
-        "title": "Skipped Items",
-        "type": "array"
-      },
-      "payload": {
+      "harness_session_id": {
         "anyOf": [
           {
-            "$ref": "#/$defs/ResolveThreadBatchPayload"
+            "type": "string"
           },
           {
             "type": "null"
           }
-        ],
-        "default": null
+        ]
+      }
+    },
+    "required": [
+      "pr_number",
+      "batch_id",
+      "decisions_file"
+    ],
+    "additionalProperties": false
+  },
+  "output_json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "payload_ready": {
+        "type": "boolean"
+      },
+      "batch_id": {
+        "type": "string"
+      },
+      "commit_sha": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "continue_on_error": {
+        "type": "boolean"
+      },
+      "review_thread_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "resolved_thread_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "skipped_thread_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "ignored_non_thread_items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "source_kind": {
+              "type": "string"
+            },
+            "review_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "discussion_comment_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_kind",
+            "summary"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "skipped_items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "thread_id": {
+              "type": "string"
+            },
+            "skip_reason": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "thread_id",
+            "skip_reason",
+            "summary"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "payload": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "commit_sha": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "thread_id": {
+                      "type": "string"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "fixed",
+                        "pre_existing",
+                        "explained",
+                        "planned"
+                      ]
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "commit_sha": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provenance": {
+                      "anyOf": [
+                        {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "local_branch"
+                                },
+                                "branch": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "branch"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "const": "pr"
+                                },
+                                "pr_number": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "pr_number"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "thread_id",
+                    "mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "errors": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/BuildResolveThreadBatchPayloadError"
-        },
-        "title": "Errors",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
       },
       "warnings": {
-        "default": [],
+        "type": "array",
         "items": {
           "type": "string"
+        }
+      },
+      "resolved_inputs": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          }
         },
-        "title": "Warnings",
-        "type": "array"
+        "required": [
+          "plan"
+        ],
+        "additionalProperties": false
+      },
+      "build_reference": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": [
@@ -387,7 +455,6 @@
       "resolved_thread_count",
       "skipped_thread_count"
     ],
-    "title": "BuildResolveThreadBatchPayloadResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

@@ -11,6 +11,15 @@ import {
 
 // --- build-resolve-thread-batch-payload ----------------------------------------------
 
+export const buildResolveThreadBatchPayloadRequestSchema = z.object({
+	pr_number: z.int(),
+	batch_id: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	continue_on_error: z.boolean().optional(),
+	decisions_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 const buildResolveThreadBatchPayloadErrorSchema = z.object({
 	code: z.string(),
 	message: z.string(),
@@ -59,6 +68,8 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 	payload: resolveThreadBatchPayloadSchema.nullable().optional(),
 	errors: z.array(buildResolveThreadBatchPayloadErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.object({ plan: payloadReferenceSchema }).optional(),
+	build_reference: payloadReferenceSchema.nullable().optional(),
 });
 
 // --- record-batch-checkpoint ------------------------------------------------------

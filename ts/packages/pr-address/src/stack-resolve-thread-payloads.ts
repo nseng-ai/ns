@@ -2,8 +2,18 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
-import { buildThreadResolutionDecision, firstDuplicatePayloadThreadId, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
+import { isSafeSegment, type PayloadReference } from "./payload-store.ts";
+import {
+	buildThreadResolutionDecision,
+	firstDuplicatePayloadThreadId,
+	loadDecisionsFile,
+	resolveThreadBatchDecisionSchema,
+	threadResolutionBuildArtifact,
+	type BuildResolveThreadBatchPayloadResult,
+	type ResolveThreadBatchItem,
+} from "./resolve-thread-batch-payload.ts";
+import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
+import { resolveStackResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
 import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
@@ -21,20 +31,6 @@ const buildStackResolveThreadPayloadsInputSchema = z.looseObject({
 	continue_on_error: z.boolean().default(false),
 	decisions: z.array(stackResolveThreadDecisionSchema),
 });
-
-/** Wire payload: `stack_plan` may be omitted when `--stack-plan-reference` supplies it. */
-const buildStackResolveThreadPayloadsWirePayloadSchema = buildStackResolveThreadPayloadsInputSchema.extend({
-	stack_plan: z.unknown().optional(),
-});
-type BuildStackResolveThreadPayloadsWirePayload = z.infer<typeof buildStackResolveThreadPayloadsWirePayloadSchema>;
-const buildStackResolveThreadPayloadsFields = [
-	{
-		key: "stack_plan",
-		artifactDescription: "a stack-feedback-plan data artifact",
-		referenceSchema: z.unknown(),
-		inputName: "stack plan",
-	},
-] as const satisfies readonly OperationPayloadField<BuildStackResolveThreadPayloadsWirePayload, keyof BuildStackResolveThreadPayloadsWirePayload & string>[];
 
 const stackPlanItemSchema = z.looseObject({
 	pr_number: z.number().int(),
@@ -112,6 +108,7 @@ interface StackResolveThreadPayloadEntry {
 	skipped_items: StackSkippedResolveThreadItem[];
 	payload: { commit_sha: string | null; continue_on_error: boolean; items: ResolveThreadBatchItem[] } | null;
 	warnings: string[];
+	build_reference?: PayloadReference | null | undefined;
 }
 
 interface BuildStackResolveThreadPayloadsResult {
@@ -131,9 +128,11 @@ interface BuildStackResolveThreadPayloadsResult {
 }
 
 const buildStackResolveThreadPayloadsParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
-	stack_plan_reference: z.string().optional(),
+	batch_id: z.string(),
+	commit_sha: z.string().optional(),
+	continue_on_error: z.boolean().default(false),
+	decisions_file: z.string(),
+	harness_session_id: z.string().optional(),
 });
 
 export const buildStackResolveThreadPayloadsOperation = defineExecOperation({
@@ -149,19 +148,53 @@ async function runBuildStackResolveThreadPayloadsOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof buildStackResolveThreadPayloadsParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadOperationPayload({
-		commandName: "build-stack-resolve-thread-payloads",
-		inputDescription: "JSON payload",
-		payloadSchema: buildStackResolveThreadPayloadsWirePayloadSchema,
-		request,
-		stdin: ctx.stdin,
-		fields: buildStackResolveThreadPayloadsFields,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
+	const batchId = request.batch_id.trim();
+	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
+	const planInput = await resolveStackResolveThreadBuildPlanSessionInput({ ctx, harnessSessionId: request.harness_session_id });
+	if (planInput.type === "error") return failure(planInput.errorType, planInput.message);
+	const decisions = await loadDecisionsFile(request.decisions_file, stackResolveThreadDecisionSchema.array(), "build-stack-resolve-thread-payloads");
+	if (decisions.type === "error") return failure(decisions.errorType, decisions.message);
 
-	const result = buildStackResolveThreadPayloads(payloadResult.value);
-	if (result.valid) return ok(result);
-	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result);
+	const result = buildStackResolveThreadPayloads({
+		stack_plan: planInput.value.plan,
+		batch_id: batchId,
+		commit_sha: request.commit_sha ?? null,
+		continue_on_error: request.continue_on_error,
+		decisions: decisions.value,
+	});
+	const resultWithInputs = { ...result, payloads: result.payloads.map((entry) => ({ ...entry, build_reference: null as PayloadReference | null })), resolved_inputs: { plan: planInput.value.resolvedInput } };
+	if (result.valid) {
+		for (const entry of resultWithInputs.payloads) {
+			if (!entry.payload_ready || entry.payload === null) continue;
+			const artifactResult = await planInput.value.store.writeJsonArtifact({
+				descriptor: prBatchArtifactDescriptor({ prNumber: entry.pr_number, batchId: entry.batch_id, kind: "resolve-build" }),
+				role: "summary",
+				payload: threadResolutionBuildArtifact({ source: "stack", prNumber: entry.pr_number, result: entryToSingleBuildResult(result, entry), planReference: planInput.value.resolvedInput }),
+			});
+			if (artifactResult.type === "error") return failure(artifactResult.errorType, artifactResult.message);
+			entry.build_reference = artifactResult.value;
+		}
+		return ok(resultWithInputs);
+	}
+	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", resultWithInputs);
+}
+
+function entryToSingleBuildResult(result: BuildStackResolveThreadPayloadsResult, entry: StackResolveThreadPayloadEntry): BuildResolveThreadBatchPayloadResult {
+	return {
+		valid: true,
+		payload_ready: true,
+		batch_id: entry.batch_id,
+		commit_sha: result.commit_sha,
+		continue_on_error: result.continue_on_error,
+		review_thread_count: entry.review_thread_count,
+		resolved_thread_count: entry.resolved_thread_count,
+		skipped_thread_count: entry.skipped_thread_count,
+		ignored_non_thread_items: entry.ignored_non_thread_items,
+		skipped_items: entry.skipped_items.map((item) => ({ thread_id: item.thread_id, skip_reason: item.skip_reason, summary: item.summary })),
+		payload: entry.payload,
+		errors: [],
+		warnings: entry.warnings,
+	};
 }
 
 export function buildStackResolveThreadPayloads(input: unknown): BuildStackResolveThreadPayloadsResult {

@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
+
 import { z } from "zod";
 
-import { isRecord } from "@asdl/core";
+import { formatErrorMessage, isRecord } from "@asdl/core";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import {
@@ -9,7 +11,11 @@ import {
 	type FeedbackPlanBatch,
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { parseJsonWithSchema } from "./json-input.ts";
+import { isSafeSegment, type PayloadReference } from "./payload-store.ts";
+import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
+import { resolveResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
+import { type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
 
 const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
 type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
@@ -73,7 +79,7 @@ interface SkippedResolveThreadItem {
 	summary: string;
 }
 
-interface BuildResolveThreadBatchPayloadResult {
+export interface BuildResolveThreadBatchPayloadResult {
 	valid: boolean;
 	payload_ready: boolean;
 	batch_id: string;
@@ -96,8 +102,12 @@ export interface BuiltThreadResolutionDecision {
 }
 
 const buildResolveThreadBatchPayloadParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
+	pr_number: z.number().int(),
+	batch_id: z.string(),
+	commit_sha: z.string().optional(),
+	continue_on_error: z.boolean().default(false),
+	decisions_file: z.string(),
+	harness_session_id: z.string().optional(),
 });
 
 export const buildResolveThreadBatchPayloadOperation = defineExecOperation({
@@ -113,21 +123,77 @@ async function runBuildResolveThreadBatchPayloadOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof buildResolveThreadBatchPayloadParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadJsonInput({
-		optionValue: request.payload_json,
-		filePath: request.payload_file,
-		commandName: "build-resolve-thread-batch-payload",
-		inputDescription: "JSON payload",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: buildResolveThreadBatchPayloadInputSchema,
-		stdin: ctx.stdin,
+	const batchId = request.batch_id.trim();
+	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
+	const planInput = await resolveResolveThreadBuildPlanSessionInput({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
+	if (planInput.type === "error") return failure(planInput.errorType, planInput.message);
+	const decisions = await loadDecisionsFile(request.decisions_file, resolveThreadBatchDecisionSchema.array(), "build-resolve-thread-batch-payload");
+	if (decisions.type === "error") return failure(decisions.errorType, decisions.message);
+	const result = buildResolveThreadBatchPayload({
+		plan: planInput.value.plan,
+		batch_id: batchId,
+		commit_sha: request.commit_sha ?? null,
+		continue_on_error: request.continue_on_error,
+		decisions: decisions.value,
 	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const result = buildResolveThreadBatchPayload(payloadResult.value);
-	if (result.valid) return ok(result);
-	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, result);
-	return negative("Resolve-thread batch payload decisions failed validation; no payload produced.", result);
+	const resultWithInputs = { ...result, resolved_inputs: { plan: planInput.value.resolvedInput }, build_reference: null as PayloadReference | null };
+	if (result.valid && result.payload_ready && result.payload !== null) {
+		const writeResult = await planInput.value.store.writeJsonArtifact({
+			descriptor: prBatchArtifactDescriptor({ prNumber: request.pr_number, batchId, kind: "resolve-build" }),
+			role: "summary",
+			payload: threadResolutionBuildArtifact({ source: "single_pr", prNumber: request.pr_number, result, planReference: planInput.value.resolvedInput }),
+		});
+		if (writeResult.type === "error") return failure(writeResult.errorType, writeResult.message);
+		resultWithInputs.build_reference = writeResult.value;
+	}
+	if (result.valid) return ok(resultWithInputs);
+	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, resultWithInputs);
+	return negative("Resolve-thread batch payload decisions failed validation; no payload produced.", resultWithInputs);
+}
+
+export async function loadDecisionsFile<T>(filePath: string, schema: z.ZodType<T>, commandName: string): Promise<{ type: "ok"; value: T } | { type: "error"; errorType: string; message: string }> {
+	let text: string;
+	try {
+		text = await readFile(filePath, "utf8");
+	} catch (error) {
+		return { type: "error", errorType: "invalid_request", message: `${commandName} --decisions-file must point to an existing JSON file: ${filePath} (${formatErrorMessage(error)})` };
+	}
+	const parsed = parseJsonWithSchema({
+		text,
+		schema,
+		jsonDescription: `${commandName} --decisions-file`,
+		schemaDescription: `${commandName} --decisions-file`,
+	});
+	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
+	return { type: "ok", value: parsed.value };
+}
+
+export function threadResolutionBuildArtifact(options: {
+	source: ThreadResolutionBuildArtifact["source"];
+	prNumber: number;
+	result: BuildResolveThreadBatchPayloadResult;
+	planReference: PayloadReference;
+}): ThreadResolutionBuildArtifact {
+	if (options.result.payload === null || !options.result.payload_ready) throw new Error("Cannot create thread-resolution build artifact without a ready payload.");
+	return {
+		artifact_kind: "thread_resolution_build",
+		source: options.source,
+		pr_number: options.prNumber,
+		batch_id: options.result.batch_id,
+		commit_sha: options.result.commit_sha,
+		continue_on_error: options.result.continue_on_error,
+		payload_ready: true,
+		payload: options.result.payload,
+		resolved_inputs: { plan: options.planReference },
+		build: {
+			review_thread_count: options.result.review_thread_count,
+			resolved_thread_count: options.result.resolved_thread_count,
+			skipped_thread_count: options.result.skipped_thread_count,
+			skipped_items: options.result.skipped_items,
+			ignored_non_thread_items: options.result.ignored_non_thread_items,
+			warnings: options.result.warnings,
+		},
+	};
 }
 
 export function buildResolveThreadBatchPayload(request: BuildResolveThreadBatchPayloadInput): BuildResolveThreadBatchPayloadResult {
