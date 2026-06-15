@@ -2,12 +2,10 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import { isRecord, stringField } from "../cmux/primitives.ts";
 import {
 	buildHandoffLaunchPrompt,
-	buildHandoffLaunchRequest,
+	buildHandoffLaunchTool,
 	handoffLaunchToolFailure,
 	parseHandoffLaunchParams,
-	prepareHandoffLaunchCommand,
-	verifyHandoffLaunchTarget,
-	type HandoffLaunchCommandSpec,
+	prepareHandoffCreateLaunch,
 	type HandoffLaunchParams,
 	type HandoffLaunchPromptCopy,
 	type HandoffLaunchRequest,
@@ -79,14 +77,6 @@ const HANDOFF_SELF_START_MESSAGES = {
 	fallbackLabel: "handoff:self workflow prompt for a content-derived slug",
 } satisfies HandoffStartMessages;
 
-const HANDOFF_SELF_LAUNCH_COMMAND_SPEC = {
-	statusKey: HANDOFF_SELF_STATUS_KEY,
-	promptCopy: HANDOFF_SELF_PROMPT_COPY,
-	startMessages: HANDOFF_SELF_START_MESSAGES,
-} satisfies HandoffLaunchCommandSpec;
-
-export const buildHandoffSelfRequest = buildHandoffLaunchRequest;
-
 export function createHandoffSelfWorkflow(
 	pi: ExtensionAPI,
 	options: { timeoutMs?: number } = {},
@@ -150,13 +140,15 @@ export function createHandoffSelfWorkflow(
 		const workflowId = createWorkflowId();
 		state = { type: "starting", workflowId };
 		try {
+			await ctx.waitForIdle();
+
 			const newSession = ctx.newSession;
 			if (newSession === undefined) {
 				ctx.ui.notify(`/${HANDOFF_SELF_COMMAND_NAME} requires Pi session replacement support.`, "error");
 				return;
 			}
 
-			const prepared = await prepareHandoffLaunchCommand(pi, args, ctx, HANDOFF_SELF_LAUNCH_COMMAND_SPEC);
+			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx);
 			if (prepared === undefined) {
 				return;
 			}
@@ -193,7 +185,7 @@ export function createHandoffSelfWorkflow(
 	}
 
 	function buildTool(): ToolDefinition {
-		return {
+		return buildHandoffLaunchTool<HandoffSelfLaunchParams>(pi, {
 			name: HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 			label: "Verify Handoff Self Completion",
 			description: "Verify a saved handoff exists, then rendezvous with /handoff:self so the command can replace the session and send the pickup prompt.",
@@ -202,81 +194,61 @@ export function createHandoffSelfWorkflow(
 				`Use ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} only after a /${HANDOFF_SELF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
 				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before brmem put succeeds.`,
 			],
-			parameters: {
-				type: "object",
-				additionalProperties: false,
+			statusKey: HANDOFF_SELF_STATUS_KEY,
+			extraParameters: {
 				properties: {
-					branch: {
-						type: "string",
-						description: "Git branch where the handoff was saved.",
-					},
-					slug: {
-						type: "string",
-						description: "Flat semantic handoff slug without .md.",
-					},
 					workflow_id: {
 						type: "string",
 						description: "Opaque /handoff:self rendezvous id from the active command prompt.",
 					},
 				},
-				required: ["branch", "slug", "workflow_id"],
+				required: ["workflow_id"],
 			},
-			async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			parseParams: parseHandoffSelfLaunchParams,
+			verifyStatus: () => "verifying saved handoff…",
+			verifyUpdate: "Verifying saved handoff…",
+			missingMessage: (params) => `No handoff ${params.slug} found on branch ${params.branch}; context was not cleared.`,
+			gate(_ctx, params, signal) {
 				if (signal?.aborted) {
-					return handoffLaunchToolFailure("handoff:self verification was cancelled; context was not cleared.");
+					return "handoff:self verification was cancelled; context was not cleared.";
 				}
-
-				const parsed = parseHandoffSelfLaunchParams(params);
-				if (parsed.type === "invalid") {
-					return handoffLaunchToolFailure(parsed.message);
-				}
-
 				const waiting = state.type === "waiting" ? state : undefined;
 				if (waiting === undefined) {
-					return handoffLaunchToolFailure(`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} was called with no active /${HANDOFF_SELF_COMMAND_NAME} workflow; context was not cleared.`);
+					return `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} was called with no active /${HANDOFF_SELF_COMMAND_NAME} workflow; context was not cleared.`;
 				}
-				if (parsed.params.workflowId !== waiting.workflowId) {
-					return handoffLaunchToolFailure(`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} received the wrong workflow_id; context was not cleared.`);
+				if (params.workflowId !== waiting.workflowId) {
+					return `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} received the wrong workflow_id; context was not cleared.`;
 				}
-				if (parsed.params.branch !== waiting.branch) {
-					return handoffLaunchToolFailure(`Saved handoff branch ${parsed.params.branch} does not match active /${HANDOFF_SELF_COMMAND_NAME} branch ${waiting.branch}; context was not cleared.`);
+				if (params.branch !== waiting.branch) {
+					return `Saved handoff branch ${params.branch} does not match active /${HANDOFF_SELF_COMMAND_NAME} branch ${waiting.branch}; context was not cleared.`;
 				}
-
-				const verified = await verifyHandoffLaunchTarget(pi, ctx, {
-					params: parsed.params,
-					statusKey: HANDOFF_SELF_STATUS_KEY,
-					verifyStatus: "verifying saved handoff…",
-					verifyUpdate: "Verifying saved handoff…",
-					missingMessage: (params) => `No handoff ${params.slug} found on branch ${params.branch}; context was not cleared.`,
-					onUpdate,
-				});
-				if (verified.type === "failed") {
-					return verified.result;
-				}
-
+				return undefined;
+			},
+			launch({ params, signal }) {
 				if (signal?.aborted) {
 					return handoffLaunchToolFailure("handoff:self verification was cancelled; context was not cleared.");
 				}
-				if (!resolveWaitingWorkflow(waiting, { type: "completed", branch: parsed.params.branch, slug: parsed.params.slug })) {
+				const waiting = state.type === "waiting" ? state : undefined;
+				if (waiting === undefined || !resolveWaitingWorkflow(waiting, { type: "completed", branch: params.branch, slug: params.slug })) {
 					return handoffLaunchToolFailure(`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verified the handoff after the active workflow changed or timed out; context was not cleared.`);
 				}
 				return {
 					content: [
 						{
 							type: "text",
-							text: `Verified handoff:self artifact ${parsed.params.slug} on branch ${parsed.params.branch}. The current command will replace this session and send the pickup prompt in the fresh session.`,
+							text: `Verified handoff:self artifact ${params.slug} on branch ${params.branch}. The current command will replace this session and send the pickup prompt in the fresh session.`,
 						},
 					],
 					details: {
 						type: "self-handoff-ready",
-						branch: parsed.params.branch,
-						slug: parsed.params.slug,
-						workflowId: parsed.params.workflowId,
+						branch: params.branch,
+						slug: params.slug,
+						workflowId: params.workflowId,
 					} satisfies HandoffSelfReadyResult,
 					terminate: true,
 				};
 			},
-		};
+		});
 	}
 
 	return { buildTool, handleCommand };
