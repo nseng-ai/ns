@@ -80,7 +80,7 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 	});
 
 	test("an unflagged pure-local operation is unaffected outside a work tree", async () => {
-		const repoRun = run(["exec", "validate-feedback-classification", "--format", "json"], { git: outsideGit() });
+		const repoRun = run(["exec", "plan-feedback", "--format", "json"], { git: outsideGit() });
 		expect(await repoRun.exit).toBe(2);
 		const envelope = JSON.parse(repoRun.stdout.join("")) as MachineEnvelope;
 		expect(envelope.error_type).not.toBe("repo_context_required");

@@ -3,57 +3,15 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "payload_json": {
-        "default": null,
-        "description": "Inline wrapper payload JSON.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "payload_file": {
-        "default": null,
-        "description": "Path to a wrapper payload JSON file.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "manifest_json": {
-        "default": null,
-        "description": "Inline split manifest JSON.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "manifest_file": {
-        "default": null,
-        "description": "Path to a split manifest JSON file.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "PR number for payload-session manifest resolution and classification persistence."
       },
       "classification_json": {
         "default": null,
-        "description": "Inline split or session classification JSON.",
+        "description": "Inline PR feedback classification packet JSON.",
         "anyOf": [
           {
             "type": "string"
@@ -65,7 +23,7 @@
       },
       "classification_file": {
         "default": null,
-        "description": "Path to a split or session classification JSON file.",
+        "description": "Path to a PR feedback classification packet JSON file.",
         "anyOf": [
           {
             "type": "string"
@@ -74,23 +32,10 @@
             "type": "null"
           }
         ]
-      },
-      "pr_number": {
-        "anyOf": [
-          {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "description": "PR number for implicit manifest session resolution."
       },
       "harness_session_id": {
         "default": null,
-        "description": "Harness session id for implicit session resolution or explicit persistence.",
+        "description": "Payload session id override for manifest resolution and classification persistence.",
         "anyOf": [
           {
             "type": "string"
@@ -99,23 +44,13 @@
             "type": "null"
           }
         ]
-      },
-      "persist_session": {
-        "default": false,
-        "description": "Persist the validated classification artifact into the configured payload session for legacy explicit input modes.",
-        "type": "boolean"
       }
     },
     "required": [
-      "payload_json",
-      "payload_file",
-      "manifest_json",
-      "manifest_file",
+      "pr_number",
       "classification_json",
       "classification_file",
-      "pr_number",
-      "harness_session_id",
-      "persist_session"
+      "harness_session_id"
     ],
     "additionalProperties": false
   },
@@ -271,68 +206,61 @@
         }
       },
       "classification_reference": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "payload_path": {
-                "type": "string"
-              },
-              "session_id": {
-                "type": "string"
-              },
-              "descriptor": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "raw",
-                  "summary",
-                  "log"
-                ]
-              },
-              "created_at_utc": {
-                "type": "string"
-              },
-              "sequence": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "payload_bytes": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "content_type": {
-                "type": "string"
-              },
-              "extension": {
-                "type": "string",
-                "enum": [
-                  "json",
-                  "txt"
-                ]
-              }
-            },
-            "required": [
-              "payload_path",
-              "session_id",
-              "descriptor",
-              "role",
-              "created_at_utc",
-              "sequence",
-              "payload_bytes",
-              "content_type",
-              "extension"
-            ],
-            "additionalProperties": false
+        "type": "object",
+        "properties": {
+          "payload_path": {
+            "type": "string"
           },
-          {
-            "type": "null"
+          "session_id": {
+            "type": "string"
+          },
+          "descriptor": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "summary",
+              "log"
+            ]
+          },
+          "created_at_utc": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "payload_bytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string",
+            "enum": [
+              "json",
+              "txt"
+            ]
           }
-        ]
+        },
+        "required": [
+          "payload_path",
+          "session_id",
+          "descriptor",
+          "role",
+          "created_at_utc",
+          "sequence",
+          "payload_bytes",
+          "content_type",
+          "extension"
+        ],
+        "additionalProperties": false
       },
       "resolved_inputs": {
         "type": "object",
@@ -407,7 +335,8 @@
       "pr_number",
       "payload_path",
       "counts",
-      "errors"
+      "errors",
+      "resolved_inputs"
     ],
     "additionalProperties": false
   }

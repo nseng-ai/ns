@@ -81,49 +81,9 @@ Session mode resolves the latest `pr-address-pr-<n>-manifest` summary artifact
 from `HARNESS_SESSION_ID` (or `--harness-session-id`). On successful validation it
 automatically writes the PR-scoped classification summary artifact and returns
 `data.classification_reference`, which `plan-feedback --pr-number` can resolve.
-
-**Manual/debug split invocation:** pass the compact manifest and classification
-packet separately, avoiding wrapper JSON assembly.
-
-```bash
-pr-address exec validate-feedback-classification \
-  --manifest-file manifest.json \
-  --classification-file classification.json \
-  --format json
-
-pr-address exec validate-feedback-classification \
-  --manifest-json '<manifest-json>' \
-  --classification-json '<classification-json>' \
-  --format json
-```
-
-Split mode requires exactly one manifest source (`--manifest-json` or
-`--manifest-file`) and exactly one classification source
-(`--classification-json` or `--classification-file`). It rejects explicit wrapper
-sources (`--payload-json` or `--payload-file`) mixed with split inputs. Session
-mode rejects wrapper payloads and explicit manifest inputs; stdin is only
-consumed in legacy wrapper mode when no split or session source is provided.
-
-`--persist-session` remains available for legacy wrapper/split modes that should
-seed the payload session. Plain wrapper/split validation returns
-`classification_reference: null` without it.
-
-**Legacy wrapper invocation:** reads wrapper JSON from stdin by default.
-`--payload-json` and `--payload-file` are also available for compatibility.
-
-```bash
-printf '%s' '{"manifest":{...},"classification":{...}}' \
-  | pr-address exec validate-feedback-classification --format json
-```
-
-**Wrapper shape:**
-
-```json
-{
-  "manifest": "<prepare-run or get-feedback data object>",
-  "classification": "<schema_version: 1 classification packet>"
-}
-```
+Removed legacy flags such as `--payload-json`, `--payload-file`,
+`--manifest-json`, `--manifest-file`, and `--persist-session` are usage errors
+(`unknown option`).
 
 **Classification packet shape:**
 
@@ -215,18 +175,18 @@ Semantic validation rules:
 
 **Output behavior:**
 
-- Valid packet: `exit_code: 0`, `data.valid == true`.
-- Valid packet in `--pr-number` session mode: writes the PR-scoped
+- Valid packet: `exit_code: 0`, `data.valid == true`, writes the PR-scoped
   classification artifact, returns `data.classification_reference`, and includes
   `data.resolved_inputs.manifest`.
-- Valid packet with legacy wrapper/split input and `--persist-session`:
-  additionally writes the PR-scoped classification artifact and returns
-  `data.classification_reference`.
 - Well-formed but invalid packet: `exit_code: 1`, message
-  `PR feedback classification failed validation.`, `data.valid == false`, plus
-  structured `data.counts` and `data.errors` diagnostics.
-- Malformed/empty input: `exit_code: 2` with an error type such as
-  `invalid_json` or `invalid_request`.
+  `PR feedback classification failed validation.`, `data.valid == false`,
+  includes `data.resolved_inputs.manifest`, plus structured `data.counts` and
+  `data.errors` diagnostics.
+- Malformed or missing classification input, missing payload session, bad PR
+  number, or missing manifest artifact: `exit_code: 2` with `invalid_json`,
+  `invalid_request`, or a payload lookup error.
+- Removed legacy flags such as `--payload-json`, `--manifest-json`, or
+  `--persist-session` produce usage errors (`unknown option`).
 
 ### `plan-feedback`
 
@@ -255,7 +215,7 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
   | pr-address exec plan-feedback --format json
 ```
 
-**Wrapper shape:** same as `validate-feedback-classification`:
+**Wrapper shape** for plan-feedback manual/debug compatibility input:
 
 ```json
 {

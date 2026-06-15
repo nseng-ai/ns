@@ -102,15 +102,10 @@ const nullableCliStringSchema = z.string().nullable().default(null);
 
 const validateFeedbackClassificationRequestSchema = z
 	.object({
-		payload_json: nullableCliStringSchema.describe("Inline wrapper payload JSON."),
-		payload_file: nullableCliStringSchema.describe("Path to a wrapper payload JSON file."),
-		manifest_json: nullableCliStringSchema.describe("Inline split manifest JSON."),
-		manifest_file: nullableCliStringSchema.describe("Path to a split manifest JSON file."),
-		classification_json: nullableCliStringSchema.describe("Inline split or session classification JSON."),
-		classification_file: nullableCliStringSchema.describe("Path to a split or session classification JSON file."),
-		pr_number: nullableIntSchema.describe("PR number for implicit manifest session resolution."),
-		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution or explicit persistence."),
-		persist_session: z.boolean().default(false).describe("Persist the validated classification artifact into the configured payload session for legacy explicit input modes."),
+		pr_number: z.int().describe("PR number for payload-session manifest resolution and classification persistence."),
+		classification_json: nullableCliStringSchema.describe("Inline PR feedback classification packet JSON."),
+		classification_file: nullableCliStringSchema.describe("Path to a PR feedback classification packet JSON file."),
+		harness_session_id: nullableCliStringSchema.describe("Payload session id override for manifest resolution and classification persistence."),
 	})
 	.strict();
 
@@ -200,8 +195,8 @@ export function buildClassificationTemplateSchemaDocument(): JsonSchemaDocument 
 }
 
 const validateFeedbackClassificationResultSchema = feedbackPlanningValidationResultSchema.extend({
-	classification_reference: payloadReferenceSchema.nullable().optional(),
-	resolved_inputs: manifestResolvedInputsSchema.optional(),
+	classification_reference: payloadReferenceSchema.optional(),
+	resolved_inputs: manifestResolvedInputsSchema,
 });
 
 const planFeedbackResolvedInputsSchema = z.object({

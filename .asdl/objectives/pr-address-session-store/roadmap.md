@@ -13,18 +13,21 @@ Dependency gate lifted (2026-06-13): the predecessor `pr-address-typescript-port
   - Evidence: descriptor builders, `PayloadArtifactStore.findLatestJsonArtifact`, node and in-memory lookup tests, and PR/stack planning scenario tests. Full TS test and check passed for the payload-store lookup boundary branch.
 - [x] Gate artifacts into the store through validation and bootstrap the session.
   - `validate-feedback-classification` persists the validated classification as a session artifact on success when a harness session is configured. Bootstrap is now the harness-owned `HARNESS_SESSION_ID` / `--harness-session-id` contract, not `ASDL_PAYLOAD_SESSION_ID` or caller-side auto-minting.
+  - Session-only validation is now the canonical gate: validate resolves the manifest by `--pr-number`, requires exactly one agent-authored classification source, includes `resolved_inputs.manifest`, writes the PR-scoped classification artifact on success, and rejects removed wrapper/manifest/persist flags as unknown options. Evidence: local branch diff against Graphite parent `update-duplicate-abstraction-review-guidance`; full TypeScript check and test passed.
 - [~] Migrate planning and read helpers to implicit session resolution.
-  - `plan-feedback --pr-number` and empty-stdin `stack-feedback-plan` resolve manifest/classification inputs from the session and echo `resolved_inputs`. Composed payload compatibility intentionally remains until the later input-style removal row, and non-planning read/lifecycle helpers still need migration.
+  - `validate-feedback-classification --pr-number` resolves its manifest from the session and echoes `resolved_inputs.manifest`; `plan-feedback --pr-number` and empty-stdin `stack-feedback-plan` resolve manifest/classification inputs from the session and echo `resolved_inputs`. Composed payload compatibility intentionally remains for `plan-feedback` until the later input-style removal row, and non-planning read/lifecycle helpers still need migration.
 - [ ] Migrate the mutation flow to explicit artifact references.
   - `build-resolve-thread-batch-payload` (and `build-stack-resolve-thread-payloads`) take batch id, commit SHA, and decisions file, resolve the plan implicitly, and write the validated build payload as a session artifact. `resolve-thread-batch` requires `--from-build` and fails with `explicit_artifact_required` otherwise; no implicit mode for mutations.
 - [ ] Shrink lifecycle helpers to agent-owned inputs.
   - `record-batch-checkpoint` takes batch id, commit SHA, and validation results; derives `changed_files` from the commit; pulls plan, build payload, and resolution result from the session (today it takes an eight-field composed payload). `finalize-run` discovers checkpoints and final feedback from the session.
 - [ ] Make compact stdout the default across all exec helpers.
   - Digest on stdout (counts, errors, warnings, `resolved_inputs`, produced artifact reference); full envelope in the session artifact; `--stdout-mode full` escape hatch; process exit code already mirrors envelope `exit_code`. Today `--stdout-mode` exists only on three stack helpers, defaults to `full`, and shapes result data rather than emitting the digest — extend it everywhere and flip the default to compact.
-- [ ] Remove composed-payload input styles for pipeline-produced artifacts.
+- [~] Remove composed-payload input styles for pipeline-produced artifacts.
   - `--payload-file`/`--payload-json`/stdin composition deleted wherever the input is something the pipeline produced; file input remains only for agent-authored content (decisions, classification answers, validation results).
-- [ ] Rewrite the pr-address skill and CLI references for the session-store flow.
+  - First cutover landed for `validate-feedback-classification`: wrapper payload, explicit manifest, and `--persist-session` modes are gone; the only accepted classification inputs are agent-authored `--classification-json` or `--classification-file` paired with session-resolved `--pr-number`. Remaining helpers still need their composed pipeline-produced inputs removed.
+- [~] Rewrite the pr-address skill and CLI references for the session-store flow.
   - `skills/pr-address/SKILL.md` and `references/cli-*.md` describe only the new flow for single-PR and stack runs; payload-composition guidance removed; the hybrid state (env-var session id alongside `--payload-file` composition) is resolved.
+  - First doc cutover landed in `skills/pr-address/references/cli-planning.md` for `validate-feedback-classification`, which now documents only session-mode validation and removed-flag usage errors. The broader skill and remaining CLI references still need the final session-store rewrite.
   - Evidence: a real single-PR run and a real stack run driven by the rewritten skill complete with zero ad hoc glue between helpers.
 
 ## Parked
