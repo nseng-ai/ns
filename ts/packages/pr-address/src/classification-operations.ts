@@ -69,10 +69,10 @@ export const planFeedbackOperation = defineExecOperation({
 	},
 });
 
-type ClassificationTemplateInput = {
+interface ClassificationTemplateInput {
 	manifest: unknown;
 	resolvedInputs?: { manifest: PayloadReference } | undefined;
-};
+}
 
 async function runClassificationTemplateOperation(
 	ctx: PrAddressExecContext,
