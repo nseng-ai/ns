@@ -29,18 +29,23 @@
   - `areg skill apply` now plans and applies the managed artifact matrix for `normal`, `invoke-only`, `command-backed`, and `ambient-only`, including frontmatter edits, Codex sidecar writes/deletes, Pi settings reconciliation, replacement verification, dry-runs, and deletion confirmation/`--yes` behavior.
   - Added package-local fake and real gateway apply-plan seams with path/symlink safety, plus a minimal Clinkr final-variadic positional extension so `apply <kind> <skill...>` is represented directly.
   - Evidence: branch diff against `skill-invocation-kind/read-only-foundation`; PR #1564 corroborates the same file set; focused `@asdl/areg` and `@asdl/clinkr` checks/tests passed; full TypeScript workspace check/test passed; `just dprint-check` passed.
-- [ ] Resolve post-kind review consolidation before distribution/cutover.
-  - Collapse duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams where review evidence shows repeated safety policy or repeated on-disk skill layout knowledge.
-  - Keep the completed `areg skill apply|list|show` user surface intact unless a focused follow-up deliberately revises it; this row is about reducing drift risk before TS `areg` becomes default, not reopening the accepted product contract.
+- [ ] Triage post-kind review consolidation for Python-removal blockers only.
+  - Inspect the duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams identified by review.
+  - Fix only issues that directly threaten safe TS-default cutover or Python deletion. Park broader architecture cleanup so it does not block removing `packages/areg`.
+  - Keep the completed `areg skill apply|list|show` user surface intact unless a focused follow-up deliberately revises it.
   - Evidence: local branch review artifacts under `temp-reviews/` identify duplicated inspection gateways, duplicate invocation-convention rules, duplicate Pi/settings parsing, frontmatter/read-write drift, and installed-skill layout deepening opportunities.
-- [ ] Decide and implement the TypeScript distribution/install model.
-  - Choose consumer-backed invocation for local checkout development and installed use, update `justfile`/workspace metadata/docs accordingly, and avoid assuming either Python `uvx` or prior run-from-source shims without evidence.
-  - Evidence: installation recipe and docs invoke TypeScript-backed `areg` consistently.
-- [ ] Cut over public callers and retire the Python package.
-  - Remove active references to Python `packages/areg`, delete or archive the package after rollback/reference evidence is recorded, and ensure tests/docs/skills no longer direct users to Python-backed invocation.
-  - Evidence: repo searches and relevant workspace checks show `areg` is TS-default and Python is no longer an active path.
+- [ ] Cut over repo-local callers to TypeScript `areg`.
+  - Use the TypeScript workspace/source path as the immediate repo-local invocation model; do not wait on npm-style external distribution.
+  - Update `justfile` `areg-check` and `refresh-skills`, CI setup for the areg-check job, skill/docs caller instructions, and hidden `exec skillx` JSON-envelope guidance so normal repo workflows invoke TS-backed `areg`.
+  - Evidence: `node ts/packages/areg/src/cli.ts --runtime` or equivalent repo-local invocation reports TypeScript; `just areg-check` and docs/skills no longer depend on `uv run areg`.
+- [ ] Remove the Python `areg` implementation and workspace wiring.
+  - Delete `packages/areg`, remove it from the uv workspace/dev dependency/source configuration, remove Python lint/type/test paths and first-party import metadata for `areg`, update lockfiles as needed, and ensure no active docs/tests/skills point at Python-backed `areg`.
+  - Evidence: repo searches show no active `packages/areg` or Python `areg.cli:main` path; Python validation no longer includes `packages/areg/tests`; TypeScript `@asdl/areg` focused and workspace checks pass.
+- [ ] Decide external distribution follow-up after repo-local cutover.
+  - Record whether external installed use should be npm package execution, generated shims, both, or another model. This is no longer a blocker for deleting the Python implementation from the repo.
+  - Evidence: follow-up Objective, parked item, or docs issue captures the external distribution decision without keeping Python alive.
 - [ ] Feed reusable lessons back into the parent migration Objective.
-  - Record any reusable findings about skill-lock parsing, managed project-file mutation, external skill tooling, or distribution that should affect later capability ports.
+  - Record any reusable findings about skill-lock parsing, managed project-file mutation, external skill tooling, repo-local TS cutover, or distribution that should affect later capability ports.
   - Evidence: parent Semantic Update and, if warranted, `porting-playbook.md` changes capture lessons without moving unproven package-local seams into shared foundations.
 
 ## Parked
@@ -49,4 +54,6 @@
 - Redesigning the upstream `npx skills` install/update model instead of preserving the current workaround.
 - Broad skill-content audits unrelated to behavior needed by the `areg` port.
 - Browser-compatible execution for `areg` workflows that depend on local filesystem, Git, `gh`, or `npx` state.
+- Broad post-kind architecture consolidation that is not required for safe TS-default cutover or Python deletion.
+- External installed `areg` distribution beyond repo-local TypeScript invocation, unless it is deliberately pulled forward after Python removal.
 - Shared TypeScript extraction for skill-lock/project-config/managed-block helpers before a second consumer proves the seam.
