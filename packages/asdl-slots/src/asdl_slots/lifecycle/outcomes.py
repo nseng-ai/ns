@@ -34,6 +34,8 @@ class SlotClaimOutcome:
     source_slot_name: str | None
     source_worktree_path: Path | None
     already_current: bool
+    main_worktree_path: Path | None = None
+    main_checkout_branch: str | None = None
 
 
 @dataclass(frozen=True)

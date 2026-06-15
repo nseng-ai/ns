@@ -80,8 +80,14 @@ local branch into the lowest available clean detached slot without touching
 the main worktree. If `BRANCH` is the non-trunk branch currently checked out
 in the main worktree, it moves that branch into the lowest available clean
 detached slot and leaves the main worktree detached or redirected to a safe
-branch. If `BRANCH` is already assigned to a managed slot, the command
-succeeds as a no-op for that slot.
+branch.
+
+If `BRANCH` is trunk and the main worktree is currently on a different
+non-trunk branch, `slot claim BRANCH` returns the main worktree to trunk and
+moves the previous main branch into a managed slot. If trunk is already held
+by a managed slot, that slot is reused after the trunk hold is released.
+Claiming any other branch that is already assigned to a managed slot succeeds
+as a no-op for that slot.
 
 `slot claim` refuses when asked to move the trunk branch out of the main
 worktree, when the current slot, source slot, or moving main worktree is

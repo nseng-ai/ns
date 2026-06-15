@@ -43,6 +43,8 @@ class SlotClaimResult(ClinkrModel):
     source_slot_name: str | None
     source_worktree_path: str | None
     already_current: bool
+    main_worktree_path: str | None
+    main_checkout_branch: str | None
 
 
 def render_slot_claim(result: SlotClaimResult) -> None:
@@ -55,14 +57,19 @@ def render_slot_claim(result: SlotClaimResult) -> None:
         return
 
     source = ""
-    if result.source_slot_name is not None:
+    if result.source_slot_name is not None and result.main_checkout_branch is None:
         source = f" from [bold cyan]{result.source_slot_name}[/bold cyan]"
     replaced = ""
-    if result.replaced_branch_name is not None:
+    if result.replaced_branch_name is not None and result.main_checkout_branch is None:
         replaced = f" (replaced [yellow]{result.replaced_branch_name}[/yellow])"
+    main_checkout = ""
+    if result.main_checkout_branch is not None:
+        main_checkout = (
+            f"; checked out [green]{result.main_checkout_branch}[/green] in main worktree"
+        )
     console.print(
         f"Claimed [bold cyan]{result.slot_name}[/bold cyan] -> "
-        f"[green]{result.branch_name}[/green]{source}{replaced}"
+        f"[green]{result.branch_name}[/green]{source}{replaced}{main_checkout}"
     )
 
 
@@ -77,6 +84,10 @@ def _claim_to_result(outcome: SlotClaimOutcome) -> SlotClaimResult:
             str(outcome.source_worktree_path) if outcome.source_worktree_path is not None else None
         ),
         already_current=outcome.already_current,
+        main_worktree_path=(
+            str(outcome.main_worktree_path) if outcome.main_worktree_path is not None else None
+        ),
+        main_checkout_branch=outcome.main_checkout_branch,
     )
 
 
@@ -84,9 +95,9 @@ def _claim_to_result(outcome: SlotClaimOutcome) -> SlotClaimResult:
     name="claim",
     help=(
         "Move a local branch from another managed slot into the current slot worktree. "
-        "From the main worktree, move its current non-trunk branch into the lowest "
-        "available slot, or check out an unassigned local branch into the lowest "
-        "available slot without touching main."
+        "From the main worktree, claiming trunk from the main worktree checks trunk out in main "
+        "and moves the current non-trunk branch into a slot; claiming another unassigned "
+        "local branch checks it out into the lowest available slot without touching main."
     ),
     human_renderer=render_slot_claim,
 )

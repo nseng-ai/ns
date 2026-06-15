@@ -376,7 +376,7 @@ def test_claim_branch_from_main_worktree_moves_current_branch_into_available_slo
     ]
 
 
-def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_into_available_slot(
+def test_claim_trunk_from_main_worktree_moves_current_branch_to_slot_and_checks_out_trunk(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
@@ -395,18 +395,23 @@ def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_into_avail
 
     assert isinstance(outcome, SlotClaimOutcome)
     assert outcome.slot_name == "slot-01"
-    assert outcome.branch_name == "master"
+    assert outcome.branch_name == "feat/current"
     assert outcome.worktree_path == slot_path(slots_root, 1)
     assert outcome.replaced_branch_name is None
     assert outcome.source_slot_name is None
     assert outcome.already_current is False
-    assert git.get_current_branch(repo_root) == "feat/current"
-    assert git.get_current_branch(slot_path(slots_root, 1)) == "master"
+    assert outcome.main_checkout_branch == "master"
+    assert outcome.main_worktree_path == repo_root
+    assert git.get_current_branch(repo_root) == "master"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/current"
     assert git._detach_head_calls == []
-    assert git._checkout_calls == [(slot_path(slots_root, 1), "master")]
+    assert git._checkout_calls == [
+        (repo_root, "master"),
+        (slot_path(slots_root, 1), "feat/current"),
+    ]
 
 
-def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_when_main_dirty(
+def test_claim_trunk_from_main_worktree_refuses_dirty_main_before_mutating(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
@@ -426,13 +431,73 @@ def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_when_main_
 
     outcome = claim_branch(ctx, "master")
 
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "dirty_current_worktree"
+    assert git.get_current_branch(repo_root) == "feat/current"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == DetachedHead()
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == []
+
+
+def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_into_available_slot(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master", "feat/current", "feat/target"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="feat/current", is_bare=False),
+            slot_worktree(slots_root, 1, None),
+        ),
+        trunk_branch="master",
+    )
+
+    outcome = claim_branch(ctx, "feat/target")
+
     assert isinstance(outcome, SlotClaimOutcome)
     assert outcome.slot_name == "slot-01"
-    assert outcome.branch_name == "master"
+    assert outcome.branch_name == "feat/target"
+    assert outcome.worktree_path == slot_path(slots_root, 1)
+    assert outcome.replaced_branch_name is None
+    assert outcome.source_slot_name is None
+    assert outcome.already_current is False
+    assert outcome.main_checkout_branch is None
+    assert outcome.main_worktree_path is None
     assert git.get_current_branch(repo_root) == "feat/current"
-    assert git.get_current_branch(slot_path(slots_root, 1)) == "master"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/target"
     assert git._detach_head_calls == []
-    assert git._checkout_calls == [(slot_path(slots_root, 1), "master")]
+    assert git._checkout_calls == [(slot_path(slots_root, 1), "feat/target")]
+
+
+def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_when_main_dirty(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master", "feat/current", "feat/target"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="feat/current", is_bare=False),
+            slot_worktree(slots_root, 1, None),
+        ),
+        trunk_branch="master",
+        file_status_by_path={
+            repo_root: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+
+    outcome = claim_branch(ctx, "feat/target")
+
+    assert isinstance(outcome, SlotClaimOutcome)
+    assert outcome.slot_name == "slot-01"
+    assert outcome.branch_name == "feat/target"
+    assert git.get_current_branch(repo_root) == "feat/current"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/target"
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == [(slot_path(slots_root, 1), "feat/target")]
 
 
 def test_claim_branch_from_main_worktree_refuses_current_trunk_branch(
@@ -579,13 +644,17 @@ def test_claim_branch_from_main_worktree_reuses_branch_already_assigned_to_slot(
 
     assert isinstance(outcome, SlotClaimOutcome)
     assert outcome.slot_name == "slot-01"
-    assert outcome.branch_name == "master"
+    assert outcome.branch_name == "feat/current"
     assert outcome.worktree_path == assigned_path
-    assert outcome.already_current is True
-    assert git.get_current_branch(repo_root) == "feat/current"
-    assert git.get_current_branch(assigned_path) == "master"
-    assert git._detach_head_calls == []
-    assert git._checkout_calls == []
+    assert outcome.source_slot_name == "slot-01"
+    assert outcome.source_worktree_path == assigned_path
+    assert outcome.already_current is False
+    assert outcome.main_checkout_branch == "master"
+    assert outcome.main_worktree_path == repo_root
+    assert git.get_current_branch(repo_root) == "master"
+    assert git.get_current_branch(assigned_path) == "feat/current"
+    assert git._detach_head_calls == [(assigned_path, "master")]
+    assert git._checkout_calls == [(repo_root, "master"), (assigned_path, "feat/current")]
 
 
 def test_claim_branch_from_main_worktree_reports_operation_for_branch_already_assigned_to_slot(
