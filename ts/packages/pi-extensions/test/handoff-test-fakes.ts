@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import handoffExtension, { type CommandContext, type ExecResult, type ExtensionAPI } from "../src/handoff.ts";
-import type { RenderComponent, TuiHandle } from "../src/handoff/runtime-types.ts";
+import type { RenderComponent, SendUserMessageOptions, TuiHandle } from "../src/handoff/runtime-types.ts";
 
 export const ROOT = "/repo";
 export const BRANCH = "feature/handoff";
@@ -50,6 +50,7 @@ export class FakePi implements ExtensionAPI {
 	readonly renderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly sentUserMessageCalls: Array<{ content: string; options: SendUserMessageOptions | undefined }> = [];
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 	private readonly script: ScriptedExec[];
@@ -106,8 +107,9 @@ export class FakePi implements ExtensionAPI {
 		return "medium";
 	}
 
-	sendUserMessage(content: string): void {
+	sendUserMessage(content: string, options?: SendUserMessageOptions): void {
 		this.sentUserMessages.push(content);
+		this.sentUserMessageCalls.push({ content, options });
 	}
 
 	assertDone(): void {

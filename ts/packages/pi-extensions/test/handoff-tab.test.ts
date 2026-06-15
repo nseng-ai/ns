@@ -70,6 +70,7 @@ describe("handoff-tab extension", () => {
 			]);
 			expect(result.statuses).toEqual(["checking cmux context…", undefined]);
 			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessageCalls[0]?.options).toEqual({ deliverAs: "followUp" });
 			const prompt = result.pi.sentUserMessages[0] ?? "";
 			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
 			expect(prompt).toContain("finish handoff tab implementation");

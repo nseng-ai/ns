@@ -104,6 +104,10 @@ export interface CommandContext extends BaseRuntimeContext {
 
 export interface ToolContext extends BaseRuntimeContext {}
 
+export interface SendUserMessageOptions {
+	deliverAs?: "steer" | "followUp";
+}
+
 export interface ExtensionAPI {
 	registerCommand(
 		name: string,
@@ -119,5 +123,5 @@ export interface ExtensionAPI {
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
-	sendUserMessage(content: string): void;
+	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }
