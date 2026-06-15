@@ -56,8 +56,8 @@ describe("objective list", () => {
 			directories: [".asdl/objective-archive/archived"],
 		};
 		const open = runScenario(["list", "--minimal", "--format", "json", "--status", "open"], { fake });
-		const closed = runScenario(["list", "--minimal", "--format", "json", "--status", "closed"], { fake });
-		const all = runScenario(["list", "--minimal", "--format", "json", "--status", "all"], { fake });
+		const closed = runScenario(["list", "--format", "json", "--status", "closed"], { fake });
+		const all = runScenario(["list", "--format", "json", "--status", "all"], { fake });
 
 		expect(await open.exit).toBe(0);
 		expect(await closed.exit).toBe(0);
@@ -65,6 +65,8 @@ describe("objective list", () => {
 		expect(recordSlugs(parseJsonOutput(open))).toEqual(["alpha"]);
 		expect(recordSlugs(parseJsonOutput(closed))).toEqual(["done"]);
 		expect(recordSlugs(parseJsonOutput(all))).toEqual(["alpha", "done"]);
+		expect((parseJsonOutput(closed) as { data: { updated_branches_included: boolean } }).data.updated_branches_included).toBe(true);
+		expect((parseJsonOutput(all) as { data: { updated_branches_included: boolean } }).data.updated_branches_included).toBe(true);
 	});
 
 	test("includes incomplete direct child directories as active records", async () => {
@@ -118,11 +120,13 @@ describe("objective list", () => {
 	test("dirty markers stay out of JSON but appear in human and Markdown renderers", async () => {
 		const fake = { records: [{ slug: "alpha" }] };
 		const git = { dirtyPaths: [".asdl/objectives/alpha"] };
-		const json = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
-		const human = runScenario(["list", "--minimal"], { fake, git });
-		const markdown = runScenario(["list", "--minimal", "--format", "markdown"], { fake, git });
+		const json = runScenario(["list", "--format", "json"], { fake, git });
+		const minimalJson = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
+		const human = runScenario(["list"], { fake, git });
+		const markdown = runScenario(["list", "--format", "markdown"], { fake, git });
 
 		expect(await json.exit).toBe(0);
+		expect(await minimalJson.exit).toBe(0);
 		expect(await human.exit).toBe(0);
 		expect(await markdown.exit).toBe(0);
 		expect(parseJsonOutput(json)).toEqual({
@@ -132,11 +136,132 @@ describe("objective list", () => {
 				root_path: ".asdl/objectives",
 				status_filter: "active",
 				names_only: false,
+				updated_branches_included: true,
+				records: [{ slug: "alpha", status: "open", latest_update_iso: null, updated_branches: [] }],
+			},
+		});
+		expect(parseJsonOutput(minimalJson)).toEqual({
+			exit_code: 0,
+			data: {
+				trunk_branch: "master",
+				root_path: ".asdl/objectives",
+				status_filter: "active",
+				names_only: false,
 				records: [{ slug: "alpha", status: "open", latest_update_iso: null }],
 			},
 		});
-		expect(human.stdout.join("")).toContain("alpha | ○ open | (x) —");
-		expect(markdown.stdout.join("")).toContain("| alpha | ○ open | (x) — |");
+		expect(human.stdout.join("")).toContain("alpha | ○ open | (x) — | —");
+		expect(markdown.stdout.join("")).toContain("| alpha | ○ open | (x) — | — |");
+	});
+
+	test("default JSON human and Markdown include branch attribution rows", async () => {
+		const fake = {
+			records: [{ slug: "alpha" }, { slug: "beta" }, { slug: "closed-one", closed: true }],
+		};
+		const git = {
+			branches: [
+				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
+				{ name: "feat/beta", headIso: "2026-05-03T00:00:00Z" },
+				{ name: "feat/alpha", headIso: "2026-05-02T00:00:00Z" },
+				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
+			],
+			treeOids: {
+				"master|.asdl/objectives": "trunk-tree",
+				"feat/beta|.asdl/objectives": "beta-tree",
+				"feat/alpha|.asdl/objectives": "alpha-tree",
+				"feat/same-tree|.asdl/objectives": "trunk-tree",
+			},
+			pathTouches: {
+				"master..feat/beta|.asdl/objectives": [
+					{ paths: [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"] },
+				],
+				"master..feat/alpha|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }],
+			},
+		};
+		const json = runScenario(["list", "--format", "json", "--status", "all"], { fake, git });
+		const human = runScenario(["list", "--status", "all"], { fake, git });
+		const markdown = runScenario(["list", "--format", "markdown", "--status", "all"], { fake, git });
+
+		expect(await json.exit).toBe(0);
+		expect(await human.exit).toBe(0);
+		expect(await markdown.exit).toBe(0);
+		expect(parseJsonOutput(json)).toEqual({
+			exit_code: 0,
+			data: {
+				trunk_branch: "master",
+				root_path: ".asdl/objectives",
+				status_filter: "all",
+				names_only: false,
+				updated_branches_included: true,
+				records: [
+					{ slug: "alpha", status: "open", latest_update_iso: null, updated_branches: ["feat/alpha"] },
+					{ slug: "beta", status: "open", latest_update_iso: null, updated_branches: ["feat/beta"] },
+					{ slug: "closed-one", status: "closed", latest_update_iso: null, updated_branches: ["feat/beta"] },
+				],
+			},
+		});
+		expect(human.stdout.join("")).toContain("Updated branches");
+		expect(human.stdout.join("")).toContain("alpha | ○ open | — | └ feat/alpha");
+		expect(markdown.stdout.join("")).toContain("| objective | status | latest update | updated branches |");
+		expect(markdown.stdout.join("")).toContain("| beta | ○ open | — | feat/beta |");
+	});
+
+	test("updated branches are ordered by latest branch tip and truncate after newest changed branches", async () => {
+		const branchCount = 51;
+		const branches = Array.from({ length: branchCount }, (_value, index) => ({
+			name: `feat/${index.toString().padStart(2, "0")}`,
+			headIso: `2026-05-01T00:${(branchCount - index).toString().padStart(2, "0")}:00Z`,
+		}));
+		const git = {
+			branches: [{ name: "master", headIso: "2026-04-01T00:00:00Z" }, ...branches],
+			treeOids: Object.fromEntries([
+				["master|.asdl/objectives", "trunk-tree"],
+				...branches.map((branch) => [`${branch.name}|.asdl/objectives`, `${branch.name}-tree`]),
+			]),
+			pathTouches: Object.fromEntries(
+				branches.map((branch) => [`master..${branch.name}|.asdl/objectives`, [{ paths: [".asdl/objectives/alpha/objective.md"] }]]),
+			),
+		};
+		const run = runScenario(["list", "--format", "json"], { fake: { records: [{ slug: "alpha" }] }, git });
+		const human = runScenario(["list"], { fake: { records: [{ slug: "alpha" }] }, git });
+
+		expect(await run.exit).toBe(0);
+		expect(await human.exit).toBe(0);
+		const output = parseJsonOutput(run) as { data: { updated_branches_truncated: boolean; records: [{ updated_branches: string[] }] } };
+		expect(output.data.updated_branches_truncated).toBe(true);
+		expect(output.data.records[0].updated_branches).toHaveLength(50);
+		expect(output.data.records[0].updated_branches.slice(0, 2)).toEqual(["feat/00", "feat/01"]);
+		expect(output.data.records[0].updated_branches).not.toContain("feat/50");
+		expect(human.stdout.join("")).toContain("limited to newest 50 changed local branches");
+	});
+
+	test("names and minimal modes omit branch attribution fields", async () => {
+		const fake = { records: [{ slug: "alpha" }] };
+		const git = {
+			branches: ["master", "feat/alpha"],
+			treeOids: { "master|.asdl/objectives": "trunk-tree", "feat/alpha|.asdl/objectives": "alpha-tree" },
+			pathTouches: { "master..feat/alpha|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }] },
+		};
+		const minimal = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
+		const namesJson = runScenario(["list", "--names", "--format", "json"], { fake, git });
+		const namesHuman = runScenario(["list", "--names"], { fake, git });
+
+		expect(await minimal.exit).toBe(0);
+		expect(await namesJson.exit).toBe(0);
+		expect(await namesHuman.exit).toBe(0);
+		expect(JSON.stringify(parseJsonOutput(minimal))).not.toContain("updated_branches");
+		expect(JSON.stringify(parseJsonOutput(namesJson))).not.toContain("updated_branches");
+		expect(namesHuman.stdout.join("")).toBe("alpha\n");
+	});
+
+	test("branch attribution git failures return structured failure envelopes", async () => {
+		const run = runScenario(["list", "--format", "json"], {
+			fake: { records: [{ slug: "alpha" }] },
+			git: { failures: { "branch-tips": { code: "git_failed", message: "branch tips failed" } } },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toEqual({ exit_code: 2, error_type: "git_failed", message: "branch tips failed" });
 	});
 });
 

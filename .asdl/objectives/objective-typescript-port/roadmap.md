@@ -15,10 +15,10 @@
   - Preserve active-root discovery, open/closed filtering, archive-root omission, latest update facts, JSON envelope fields parsed by Pi/CCC, names-only output, and dirty-marker boundaries.
   - Policy: execution may proceed after preview when the slice is limited to minimal/list contracts needed by Pi/CCC selection. Ask before freezing broad help/parser behavior or changing consumer JSON shapes.
   - Evidence: TypeScript `objective list` now supports selection-critical minimal JSON/Markdown rendering, `--names`, active/open/closed/all filtering, active-root direct-child discovery, archive-root omission, incomplete active directory inclusion, filename-derived latest update facts, and dirty markers stripped from JSON but rendered for human/Markdown output. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
-- [ ] Port full `objective list` branch attribution and human/Markdown rendering.
+- [x] Port full `objective list` branch attribution and human/Markdown rendering.
   - Preserve default branch attribution, truncation notes, dirty marker display, local branch ordering, unavailable repo/trunk failure surfaces, and `--status` behavior.
   - Policy: execution may proceed after preview if branch attribution stays package-local. Ask before extracting shared git attribution helpers into `@asdl/core`.
-  - Evidence: fake git gateway tests, scenario coverage for human/Markdown/JSON branch rows, and parity notes for any rendering divergence.
+  - Evidence: TypeScript default `objective list` now includes package-local branch attribution, full JSON `updated_branches_included` / `updated_branches_truncated` fields, per-record `updated_branches`, human/Markdown updated-branch rendering, dirty marker display without JSON pollution, and fake-backed git failure coverage. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, `pnpm --dir ts run check`, and `git diff --check`.
 - [x] Port `objective exec list-candidates`.
   - Preserve active open candidate filtering, tab-separated human output, JSON `records: [{slug, status}]`, and archive/closed exclusion.
   - Policy: this can be bundled with a nearby list slice only if the confirmed preview keeps one reviewable thesis: deterministic candidate inventory for skill/Pi callers.

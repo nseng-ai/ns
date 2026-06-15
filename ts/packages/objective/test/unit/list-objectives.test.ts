@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { FakeObjectiveGitFactsGateway } from "../../src/fake-git-facts.ts";
+import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
 import { latestUpdateIsoFromUpdateNames, matchesStatusFilter } from "../../src/operations/list-objectives.ts";
 
 describe("objective list helpers", () => {
@@ -24,5 +26,37 @@ describe("objective list helpers", () => {
 
 	test("returns null when no update name has an accepted timestamp prefix", () => {
 		expect(latestUpdateIsoFromUpdateNames(["alpha.md", "zeta.md"])).toBeNull();
+	});
+
+	test("fake-backed branch attribution prefilters branches and attributes active objective slugs", async () => {
+		const git = new FakeObjectiveGitFactsGateway({
+			branches: [
+				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
+				{ name: "feat/older", headIso: "2026-05-02T00:00:00Z" },
+				{ name: "feat/newer", headIso: "2026-05-03T00:00:00Z" },
+				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
+			],
+			treeOids: {
+				"master|.asdl/objectives": "trunk-tree",
+				"feat/newer|.asdl/objectives": "newer-tree",
+				"feat/older|.asdl/objectives": "older-tree",
+				"feat/same-tree|.asdl/objectives": "trunk-tree",
+			},
+			pathTouches: {
+				"master..feat/newer|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }],
+				"master..feat/older|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"] }],
+			},
+		});
+
+		const result = await buildObjectiveBranchAttribution(git, {
+			repoRoot: "/repo",
+			trunkBranch: "master",
+			slugs: new Set(["alpha"]),
+		});
+
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") return;
+		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual(["feat/newer", "feat/older"]);
+		expect(git.pathTouchesUnderCalls.map((call) => call.revisionRange)).toEqual(["master..feat/newer", "master..feat/older"]);
 	});
 });
