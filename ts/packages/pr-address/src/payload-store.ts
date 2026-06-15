@@ -43,6 +43,7 @@ export interface PayloadArtifactStore {
 	writeJsonArtifact(options: { descriptor: string; role: JsonPayloadRole; payload: unknown }): Promise<PayloadResult<PayloadReference>>;
 	writeTextArtifact(options: { descriptor: string; role: LogPayloadRole; text: string }): Promise<PayloadResult<PayloadReference>>;
 	readJsonArtifact(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
+	readJsonArtifactWithReference(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>>;
 	readJsonArtifactValue(options: { payloadPath: string; pointer: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
 	findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>>;
 }
@@ -258,6 +259,11 @@ export class PayloadStore implements PayloadArtifactStore {
 	/** Validate and load a JSON payload artifact from an explicit absolute path. */
 	async readJsonArtifact(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>> {
 		return await readJsonPayloadArtifact(options.payloadPath, { allowedRoles: options.allowedRoles });
+	}
+
+	/** Validate and load a JSON payload artifact with its store-owned reference. */
+	async readJsonArtifactWithReference(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		return await readJsonPayloadArtifactWithReference(options.payloadPath, { allowedRoles: options.allowedRoles });
 	}
 
 	/** Read one JSON Pointer value from a validated payload artifact. */
@@ -499,6 +505,32 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 		return resolveJsonPointer(document.value, options.pointer);
 	}
 
+	async readJsonArtifactWithReference(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		const validated = validateInMemoryArtifactPath(options.payloadPath, this.artifacts);
+		if (validated.type === "error") return validated;
+		const parsed = await this.readJsonArtifact({ payloadPath: options.payloadPath, allowedRoles: options.allowedRoles });
+		if (parsed.type === "error") return parsed;
+		const artifactText = this.artifacts.get(options.payloadPath);
+		if (artifactText === undefined) return payloadError("payload_lookup_failed", `Payload artifact path does not exist: ${options.payloadPath}`);
+		return {
+			type: "ok",
+			value: {
+				reference: buildPayloadReference({
+					payloadPath: options.payloadPath,
+					sessionId: validated.value.sessionId,
+					descriptor: validated.value.descriptor,
+					role: validated.value.role,
+					createdAtUtc: validated.value.createdAtUtc,
+					sequence: validated.value.sequence,
+					payloadBytes: Buffer.byteLength(artifactText, "utf8"),
+					contentType: "application/json",
+					extension: validated.value.extension,
+				}),
+				value: parsed.value,
+			},
+		};
+	}
+
 	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
 		const candidates: Array<{ payloadPath: string; parsed: ParsedPayloadFilename; text: string }> = [];
 		for (const [payloadPath, text] of this.artifacts.entries()) {
@@ -575,6 +607,7 @@ export interface ValidatedPayloadArtifactName {
 	descriptor: string;
 	role: PayloadRole;
 	extension: PayloadExtension;
+	createdAtUtc: string;
 }
 
 /**
@@ -610,6 +643,7 @@ export async function validateContainedArtifactPath(payloadPath: string): Promis
 			descriptor: parsed.descriptor,
 			role: parsed.role,
 			extension: parsed.extension,
+			createdAtUtc: parsed.createdAtUtc,
 		},
 	};
 }
@@ -641,6 +675,40 @@ export async function readJsonPayloadArtifact(
 	} catch (error) {
 		return payloadError("payload_lookup_failed", `Failed to parse JSON payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
 	}
+}
+
+/** Validate and load a JSON payload artifact with its store-owned reference using the node filesystem adapter. */
+export async function readJsonPayloadArtifactWithReference(
+	payloadPath: string,
+	options: { allowedRoles?: ReadonlySet<string> | undefined } = {},
+): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+	const validated = await validateContainedArtifactPath(payloadPath);
+	if (validated.type === "error") return validated;
+	const value = await readJsonPayloadArtifact(payloadPath, options);
+	if (value.type === "error") return value;
+	let payloadStats;
+	try {
+		payloadStats = await stat(payloadPath);
+	} catch (error) {
+		return payloadError("payload_lookup_failed", `Failed to stat payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
+	}
+	return {
+		type: "ok",
+		value: {
+			reference: buildPayloadReference({
+				payloadPath,
+				sessionId: basename(dirname(dirname(payloadPath))),
+				descriptor: validated.value.descriptor,
+				role: validated.value.role,
+				createdAtUtc: validated.value.createdAtUtc,
+				sequence: validated.value.sequence,
+				payloadBytes: payloadStats.size,
+				contentType: "application/json",
+				extension: validated.value.extension,
+			}),
+			value: value.value,
+		},
+	};
 }
 
 /** Read one JSON Pointer value from a validated payload artifact using the node filesystem adapter. */
@@ -1007,6 +1075,7 @@ function validateContainedArtifactPathShape(payloadPath: string): PayloadResult<
 			descriptor: parsed.descriptor,
 			role: parsed.role,
 			extension: parsed.extension,
+			createdAtUtc: parsed.createdAtUtc,
 		},
 	};
 }

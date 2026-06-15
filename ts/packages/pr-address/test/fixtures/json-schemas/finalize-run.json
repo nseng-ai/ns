@@ -1,20 +1,14 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
-      "payload_json": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload Json"
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
-      "payload_file": {
+      "harness_session_id": {
         "anyOf": [
           {
             "type": "string"
@@ -22,297 +16,287 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload File"
+        ]
       }
     },
-    "title": "FinalizeRunRequest",
-    "type": "object"
+    "required": [
+      "pr_number"
+    ],
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "BatchNonThreadOutcomeSummary": {
-        "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "ready_to_stop": {
+        "type": "boolean"
+      },
+      "all_feedback_addressed": {
+        "type": "boolean"
+      },
+      "pr_number": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "payload_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolved_inputs": {
+        "type": "object",
         "properties": {
-          "source_kind": {
-            "enum": [
-              "review",
-              "discussion_comment"
-            ],
-            "title": "Source Kind",
-            "type": "string"
-          },
-          "review_id": {
-            "anyOf": [
-              {
+          "plan": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Review Id"
-          },
-          "discussion_comment_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Discussion Comment Id"
-          },
-          "action": {
-            "enum": [
-              "replied",
-              "skipped",
-              "no_reply_needed"
-            ],
-            "title": "Action",
-            "type": "string"
-          },
-          "result_comment_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Result Comment Id"
-          },
-          "reaction_added": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Reaction Added"
-          },
-          "skip_reason": {
-            "anyOf": [
-              {
+              "session_id": {
                 "type": "string"
               },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Skip Reason"
-          },
-          "summary": {
-            "anyOf": [
-              {
+              "descriptor": {
                 "type": "string"
               },
-              {
-                "type": "null"
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
               }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
             ],
-            "default": null,
-            "title": "Summary"
+            "additionalProperties": false
+          },
+          "feedback": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          },
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "batch_id": {
+                  "type": "string"
+                },
+                "reference": {
+                  "type": "object",
+                  "properties": {
+                    "payload_path": {
+                      "type": "string"
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "descriptor": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "raw",
+                        "summary",
+                        "log"
+                      ]
+                    },
+                    "created_at_utc": {
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "payload_bytes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "extension": {
+                      "type": "string",
+                      "enum": [
+                        "json",
+                        "txt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "payload_path",
+                    "session_id",
+                    "descriptor",
+                    "role",
+                    "created_at_utc",
+                    "sequence",
+                    "payload_bytes",
+                    "content_type",
+                    "extension"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "batch_id",
+                "reference"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
-          "source_kind",
-          "action"
+          "plan",
+          "feedback",
+          "checkpoints"
         ],
-        "title": "BatchNonThreadOutcomeSummary",
-        "type": "object"
+        "additionalProperties": false
       },
-      "BatchValidationCommandEvidence": {
-        "additionalProperties": false,
-        "properties": {
-          "command": {
-            "title": "Command",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "passed",
-              "failed",
-              "skipped"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "exit_code": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Exit Code"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Summary"
-          }
-        },
-        "required": [
-          "command",
-          "status"
-        ],
-        "title": "BatchValidationCommandEvidence",
-        "type": "object"
-      },
-      "FinalizeRunCheckpointSummary": {
-        "additionalProperties": false,
-        "properties": {
-          "batch_id": {
-            "title": "Batch Id",
-            "type": "string"
-          },
-          "valid": {
-            "title": "Valid",
-            "type": "boolean"
-          },
-          "batch_complete": {
-            "title": "Batch Complete",
-            "type": "boolean"
-          },
-          "commit_sha": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Commit Sha"
-          },
-          "changed_files": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Changed Files",
-            "type": "array"
-          },
-          "checkpoint_reference": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/PayloadReference"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "resolved_thread_ids": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Resolved Thread Ids",
-            "type": "array"
-          },
-          "failed_thread_ids": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Failed Thread Ids",
-            "type": "array"
-          },
-          "skipped_thread_ids": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "title": "Skipped Thread Ids",
-            "type": "array"
-          },
-          "non_thread_outcomes": {
-            "default": [],
-            "items": {
-              "$ref": "#/$defs/BatchNonThreadOutcomeSummary"
-            },
-            "title": "Non Thread Outcomes",
-            "type": "array"
-          },
-          "failed_validation_commands": {
-            "default": [],
-            "items": {
-              "$ref": "#/$defs/BatchValidationCommandEvidence"
-            },
-            "title": "Failed Validation Commands",
-            "type": "array"
-          }
-        },
-        "required": [
-          "batch_id",
-          "valid",
-          "batch_complete"
-        ],
-        "title": "FinalizeRunCheckpointSummary",
-        "type": "object"
-      },
-      "FinalizeRunCounts": {
-        "additionalProperties": false,
+      "counts": {
+        "type": "object",
         "properties": {
           "checkpoint_batches": {
-            "title": "Checkpoint Batches",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "complete_batches": {
-            "title": "Complete Batches",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "incomplete_batches": {
-            "title": "Incomplete Batches",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "unresolved_threads": {
-            "title": "Unresolved Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "unresolved_unskipped_threads": {
-            "title": "Unresolved Unskipped Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "resolved_threads_from_checkpoints": {
-            "title": "Resolved Threads From Checkpoints",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "failed_threads_from_checkpoints": {
-            "title": "Failed Threads From Checkpoints",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "skipped_threads": {
-            "title": "Skipped Threads",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "skipped_non_thread_items": {
-            "title": "Skipped Non Thread Items",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -326,382 +310,549 @@
           "skipped_threads",
           "skipped_non_thread_items"
         ],
-        "title": "FinalizeRunCounts",
-        "type": "object"
-      },
-      "FinalizeRunError": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "batch_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Batch Id"
-          },
-          "thread_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Thread Id"
-          },
-          "review_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Review Id"
-          },
-          "discussion_comment_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Discussion Comment Id"
-          }
-        },
-        "required": [
-          "code",
-          "message"
-        ],
-        "title": "FinalizeRunError",
-        "type": "object"
-      },
-      "FinalizeRunSkippedItem": {
-        "additionalProperties": false,
-        "properties": {
-          "source_kind": {
-            "enum": [
-              "review_thread",
-              "review",
-              "discussion_comment"
-            ],
-            "title": "Source Kind",
-            "type": "string"
-          },
-          "thread_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Thread Id"
-          },
-          "review_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Review Id"
-          },
-          "discussion_comment_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Discussion Comment Id"
-          },
-          "batch_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Batch Id"
-          },
-          "skip_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Skip Reason"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Summary"
-          }
-        },
-        "required": [
-          "source_kind"
-        ],
-        "title": "FinalizeRunSkippedItem",
-        "type": "object"
-      },
-      "FinalizeRunThreadSummary": {
-        "additionalProperties": false,
-        "properties": {
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Line"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          },
-          "is_outdated": {
-            "title": "Is Outdated",
-            "type": "boolean"
-          },
-          "is_resolved": {
-            "title": "Is Resolved",
-            "type": "boolean"
-          },
-          "comment_count": {
-            "title": "Comment Count",
-            "type": "integer"
-          },
-          "item_pointer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Item Pointer"
-          }
-        },
-        "required": [
-          "thread_id",
-          "path",
-          "is_outdated",
-          "is_resolved",
-          "comment_count"
-        ],
-        "title": "FinalizeRunThreadSummary",
-        "type": "object"
-      },
-      "PayloadReference": {
-        "additionalProperties": false,
-        "description": "Store-owned facts for a written payload artifact.",
-        "properties": {
-          "payload_path": {
-            "title": "Payload Path",
-            "type": "string"
-          },
-          "session_id": {
-            "title": "Session Id",
-            "type": "string"
-          },
-          "descriptor": {
-            "title": "Descriptor",
-            "type": "string"
-          },
-          "role": {
-            "enum": [
-              "raw",
-              "summary",
-              "log"
-            ],
-            "title": "Role",
-            "type": "string"
-          },
-          "created_at_utc": {
-            "title": "Created At Utc",
-            "type": "string"
-          },
-          "sequence": {
-            "title": "Sequence",
-            "type": "integer"
-          },
-          "payload_bytes": {
-            "title": "Payload Bytes",
-            "type": "integer"
-          },
-          "content_type": {
-            "title": "Content Type",
-            "type": "string"
-          },
-          "extension": {
-            "enum": [
-              "json",
-              "txt"
-            ],
-            "title": "Extension",
-            "type": "string"
-          }
-        },
-        "required": [
-          "payload_path",
-          "session_id",
-          "descriptor",
-          "role",
-          "created_at_utc",
-          "sequence",
-          "payload_bytes",
-          "content_type",
-          "extension"
-        ],
-        "title": "PayloadReference",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "valid": {
-        "title": "Valid",
-        "type": "boolean"
-      },
-      "ready_to_stop": {
-        "title": "Ready To Stop",
-        "type": "boolean"
-      },
-      "all_feedback_addressed": {
-        "title": "All Feedback Addressed",
-        "type": "boolean"
-      },
-      "pr_number": {
-        "title": "Pr Number",
-        "type": "integer"
-      },
-      "payload_path": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload Path"
-      },
-      "counts": {
-        "$ref": "#/$defs/FinalizeRunCounts"
+        "additionalProperties": false
       },
       "unresolved_threads": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/FinalizeRunThreadSummary"
-        },
-        "title": "Unresolved Threads",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "thread_id": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "type": "boolean"
+            },
+            "is_resolved": {
+              "type": "boolean"
+            },
+            "comment_count": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "item_pointer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "thread_id",
+            "path",
+            "is_outdated",
+            "is_resolved",
+            "comment_count"
+          ],
+          "additionalProperties": false
+        }
       },
       "unresolved_unskipped_threads": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/FinalizeRunThreadSummary"
-        },
-        "title": "Unresolved Unskipped Threads",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "thread_id": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start_line": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "is_outdated": {
+              "type": "boolean"
+            },
+            "is_resolved": {
+              "type": "boolean"
+            },
+            "comment_count": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "item_pointer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "thread_id",
+            "path",
+            "is_outdated",
+            "is_resolved",
+            "comment_count"
+          ],
+          "additionalProperties": false
+        }
       },
       "skipped_items": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/FinalizeRunSkippedItem"
-        },
-        "title": "Skipped Items",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "source_kind": {
+              "type": "string",
+              "enum": [
+                "review_thread",
+                "review",
+                "discussion_comment"
+              ]
+            },
+            "thread_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "review_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "discussion_comment_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "skip_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "summary": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "source_kind"
+          ],
+          "additionalProperties": false
+        }
       },
       "checkpoint_summaries": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/FinalizeRunCheckpointSummary"
-        },
-        "title": "Checkpoint Summaries",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "batch_id": {
+              "type": "string"
+            },
+            "valid": {
+              "type": "boolean"
+            },
+            "batch_complete": {
+              "type": "boolean"
+            },
+            "commit_sha": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "changed_files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "checkpoint_reference": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "payload_path": {
+                      "type": "string"
+                    },
+                    "session_id": {
+                      "type": "string"
+                    },
+                    "descriptor": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "raw",
+                        "summary",
+                        "log"
+                      ]
+                    },
+                    "created_at_utc": {
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "payload_bytes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "content_type": {
+                      "type": "string"
+                    },
+                    "extension": {
+                      "type": "string",
+                      "enum": [
+                        "json",
+                        "txt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "payload_path",
+                    "session_id",
+                    "descriptor",
+                    "role",
+                    "created_at_utc",
+                    "sequence",
+                    "payload_bytes",
+                    "content_type",
+                    "extension"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "resolved_thread_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "failed_thread_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "skipped_thread_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "non_thread_outcomes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source_kind": {
+                    "type": "string",
+                    "enum": [
+                      "review",
+                      "discussion_comment"
+                    ]
+                  },
+                  "review_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discussion_comment_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "replied",
+                      "skipped",
+                      "no_reply_needed"
+                    ]
+                  },
+                  "result_comment_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reaction_added": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "skip_reason": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "source_kind",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "failed_validation_commands": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "skipped"
+                    ]
+                  },
+                  "exit_code": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "command",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "batch_id",
+            "valid",
+            "batch_complete"
+          ],
+          "additionalProperties": false
+        }
       },
       "errors": {
-        "default": [],
+        "type": "array",
         "items": {
-          "$ref": "#/$defs/FinalizeRunError"
-        },
-        "title": "Errors",
-        "type": "array"
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "batch_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "review_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "discussion_comment_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
       },
       "warnings": {
-        "default": [],
+        "type": "array",
         "items": {
           "type": "string"
-        },
-        "title": "Warnings",
-        "type": "array"
+        }
       }
     },
     "required": [
@@ -711,7 +862,6 @@
       "pr_number",
       "counts"
     ],
-    "title": "FinalizeRunResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }

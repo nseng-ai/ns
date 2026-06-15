@@ -50,25 +50,9 @@ interface ReadFeedbackDetailsFixture {
 	}>;
 }
 
-interface RecordBatchCheckpointFixture {
-	raw_clock_iso: string;
-	summary_clock_iso: string;
-	cases: Array<{
-		name: string;
-		session_id: string;
-		raw_artifact: PayloadArtifactSpec | null;
-		input_json_template: string;
-		expected_exit_code: number;
-		expected_envelope_text: string;
-		expected_summary_relative_path: string | null;
-		expected_summary_text: string | null;
-	}>;
-}
-
 const FIXTURE_DIR = new URL("../fixtures/payload-operations/", import.meta.url);
 const getFeedbackFixture = (await readJsonFixture("get-feedback-payload.json")) as GetFeedbackPayloadFixture;
 const readFeedbackDetailsFixture = (await readJsonFixture("read-feedback-details.json")) as ReadFeedbackDetailsFixture;
-const recordBatchCheckpointFixture = (await readJsonFixture("record-batch-checkpoint.json")) as RecordBatchCheckpointFixture;
 
 const makeTempDir = useTempDirs();
 
@@ -303,27 +287,12 @@ describe("read-feedback detail session resolution", () => {
 	});
 });
 
-describe("record-batch-checkpoint parity with the Python CLI", () => {
-	for (const checkpointCase of recordBatchCheckpointFixture.cases) {
-		test(`matches Python envelope and artifact for ${checkpointCase.name}`, async () => {
-			const root = await makePayloadRoot();
-			if (checkpointCase.raw_artifact !== null) {
-				await writeRawArtifact(root, checkpointCase.raw_artifact, recordBatchCheckpointFixture.raw_clock_iso);
-			}
+describe("record-batch-checkpoint session-only cutover", () => {
+	test("rejects removed composed payload options as usage errors", async () => {
+		const run = runScenario(["exec", "record-batch-checkpoint", "--payload-json", "{}", "--format", "json"]);
 
-			const run = runScenario(
-				["exec", "record-batch-checkpoint", "--payload-json", checkpointCase.input_json_template.replaceAll("{ROOT}", root), "--format", "json"],
-				{ payloadClock: fixedClock(recordBatchCheckpointFixture.summary_clock_iso) },
-			);
-
-			expect(await run.exit).toBe(checkpointCase.expected_exit_code);
-			const envelopeText = run.stdout.join("");
-			expect(normalizePayloadBytes(envelopeText)).toBe(normalizePayloadBytes(checkpointCase.expected_envelope_text.replaceAll("{ROOT}", root)));
-			if (checkpointCase.expected_summary_relative_path !== null && checkpointCase.expected_summary_text !== null) {
-				const summaryText = await readFile(join(root, checkpointCase.expected_summary_relative_path), "utf8");
-				expect(summaryText).toBe(checkpointCase.expected_summary_text.replaceAll("{ROOT}", root));
-				expect(payloadBytesOfReference(envelopeText, "checkpoint_reference")).toBe(Buffer.byteLength(summaryText, "utf8"));
-			}
-		});
-	}
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("unknown option '--payload-json'");
+	});
 });

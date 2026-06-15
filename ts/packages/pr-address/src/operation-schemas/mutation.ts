@@ -4,6 +4,7 @@ import { prDiscussionCommentSchema, prReviewCommentSchema, reactionSchema } from
 import {
 	nullableBooleanSchema,
 	nullableStringSchema,
+	payloadReferenceSchema,
 	resolutionProvenanceSchema,
 	resolutionReplyModeSchema,
 } from "./shared.ts";
@@ -77,4 +78,6 @@ export const resolveThreadBatchResultSchema = z.object({
 	skipped: z.int(),
 	all_succeeded: z.boolean(),
 	results: z.array(resolveThreadBatchItemResultSchema),
+	resolved_inputs: z.object({ build: payloadReferenceSchema }),
+	resolution_reference: payloadReferenceSchema,
 });

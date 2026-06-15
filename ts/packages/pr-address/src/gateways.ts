@@ -81,6 +81,7 @@ export type GatewayResult<T> = { type: "ok"; value: T } | { type: "failure"; fai
 export type PRLookupResult = { type: "found"; pr: PRSummary } | PRLookupMiss | { type: "failure"; failure: GatewayFailure };
 export type CurrentBranchResult = { type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GatewayFailure };
 export type BranchHeadOidResult = { type: "found"; oid: string } | { type: "missing"; stderr: string; returncode: number } | { type: "failure"; failure: GatewayFailure };
+export type CommitChangedFilesResult = { type: "ok"; files: readonly string[] } | { type: "failure"; failure: GatewayFailure };
 export type RepoContextResult = { type: "inside" } | { type: "outside" } | { type: "failure"; failure: GatewayFailure };
 
 export interface GatewayOptions {
@@ -106,6 +107,7 @@ export interface PrAddressGitGateway {
 	getCurrentBranch(options: GatewayOptions): Promise<CurrentBranchResult>;
 	isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult>;
 	getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult>;
+	getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<CommitChangedFilesResult>;
 	getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>>;
 }
 
@@ -379,6 +381,14 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 		if (result.exitCode === 0) return { type: "found", oid: result.stdout.trim() };
 		if (result.exitCode === 128) return { type: "missing", stderr: result.stderr ?? result.stdout ?? "branch not found", returncode: result.exitCode };
 		return { type: "failure", failure: failureFromProcess(result) };
+	}
+
+	async getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<CommitChangedFilesResult> {
+		const trimmed = commitSha.trim();
+		if (trimmed === "") return { type: "failure", failure: { stdout: "", stderr: "commit sha must be non-empty", returncode: 2 } };
+		const result = await this.runProcess({ command: "git", args: ["diff-tree", "--no-commit-id", "--name-only", "-r", trimmed], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
+		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		return { type: "ok", files: result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "") };
 	}
 
 	async getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {

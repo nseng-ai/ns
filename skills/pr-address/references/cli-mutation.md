@@ -145,13 +145,16 @@ Skip decision:
 
 **Output fields (under `data`):** existing validation fields remain, plus:
 
-| Field             | Description                                                              |
-| ----------------- | ------------------------------------------------------------------------ |
-| `resolved_inputs` | Exact session plan artifact used, as `{plan: PayloadReference}`          |
-| `build_reference` | Managed build artifact reference when `payload_ready == true`, else null |
+| Field             | Description                                                                                               |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `resolved_inputs` | Exact session plan artifact used, as `{plan: PayloadReference}`                                           |
+| `build_reference` | Managed build artifact reference for every valid build result; null only when the build result is invalid |
 
-The build artifact contains audit metadata and exactly one canonical nested
-`payload` for `resolve-thread-batch --from-build`.
+The build artifact contains audit metadata. When `payload_ready == true`, it
+also contains the canonical nested `payload` for
+`resolve-thread-batch --from-build`. When `payload_ready == false`, it persists
+skip/no-payload evidence for `record-batch-checkpoint`; do not pass that
+artifact to `resolve-thread-batch`.
 
 ### `stack-feedback-diff-current`
 
@@ -331,14 +334,23 @@ provenance before the first GitHub write, then applies replies/resolutions.
 
 **Output fields (under `data`):**
 
-| Field           | Description                                    |
-| --------------- | ---------------------------------------------- |
-| `total`         | Number of input items                          |
-| `resolved`      | Number successfully replied-to and resolved    |
-| `failed`        | Number that hit a gateway/API mutation failure |
-| `skipped`       | Number skipped after a failure                 |
-| `all_succeeded` | Whether every item succeeded                   |
-| `results`       | Ordered per-item results                       |
+| Field                  | Description                                                        |
+| ---------------------- | ------------------------------------------------------------------ |
+| `total`                | Number of input items                                              |
+| `resolved`             | Number successfully replied-to and resolved                        |
+| `failed`               | Number that hit a gateway/API mutation failure                     |
+| `skipped`              | Number skipped after a failure                                     |
+| `all_succeeded`        | Whether every item succeeded                                       |
+| `results`              | Ordered per-item results                                           |
+| `resolved_inputs`      | Exact build artifact consumed, as `{build: PayloadReference}`      |
+| `resolution_reference` | Managed `thread_resolution_result` artifact written after mutation |
+
+The resolution artifact is written for successful and partial-negative mutation
+attempts, and `record-batch-checkpoint` consumes it from the session. It is not
+written for pre-mutation validation errors such as invalid build artifacts,
+non-ready build artifacts, malformed payload items, or invalid planned
+provenance. A non-ready build artifact fails before mutation with
+`invalid_request`; it exists only as checkpoint evidence.
 
 Gateway/API mutation failures after validation return `exit_code: 1` with the
 partial result data. By default the command stops at the first failed item and

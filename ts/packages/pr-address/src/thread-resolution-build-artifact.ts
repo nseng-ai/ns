@@ -28,8 +28,8 @@ export const threadResolutionBuildArtifactSchema = z.object({
 	batch_id: z.string(),
 	commit_sha: z.string().nullable(),
 	continue_on_error: z.boolean(),
-	payload_ready: z.literal(true),
-	payload: resolveThreadBatchPayloadSchema,
+	payload_ready: z.boolean(),
+	payload: resolveThreadBatchPayloadSchema.nullable(),
 	resolved_inputs: z.object({ plan: payloadReferenceSchema }),
 	build: z.object({
 		review_thread_count: z.number().int(),
@@ -41,5 +41,30 @@ export const threadResolutionBuildArtifactSchema = z.object({
 	}),
 });
 
+export const threadResolutionResultArtifactSchema = z.object({
+	artifact_kind: z.literal("thread_resolution_result"),
+	source: z.enum(["single_pr", "stack"]),
+	pr_number: z.number().int(),
+	batch_id: z.string(),
+	build_reference: payloadReferenceSchema,
+	payload: resolveThreadBatchPayloadSchema,
+	result: z.object({
+		total: z.number().int(),
+		resolved: z.number().int(),
+		failed: z.number().int(),
+		skipped: z.number().int(),
+		all_succeeded: z.boolean(),
+		results: z.array(
+			z.looseObject({
+				index: z.number().int(),
+				thread_id: z.string(),
+				mode: z.enum(["fixed", "pre_existing", "explained", "planned"]),
+				status: z.enum(["resolved", "failed", "skipped"]),
+			}),
+		),
+	}),
+});
+
 export type ResolveThreadBatchPayload = z.infer<typeof resolveThreadBatchPayloadSchema>;
 export type ThreadResolutionBuildArtifact = z.infer<typeof threadResolutionBuildArtifactSchema>;
+export type ThreadResolutionResultArtifact = z.infer<typeof threadResolutionResultArtifactSchema>;

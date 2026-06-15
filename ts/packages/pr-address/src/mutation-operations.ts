@@ -4,13 +4,15 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { formatErrorMessage } from "@asdl/core";
 import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
-import { resolutionProvenanceInputSchema, threadResolutionBuildArtifactSchema, resolveThreadBatchPayloadSchema } from "./thread-resolution-build-artifact.ts";
+import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
+import { resolutionProvenanceInputSchema, resolveThreadBatchPayloadSchema, threadResolutionBuildArtifactSchema, type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
 
 export const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
 type ResolutionReplyMode = (typeof VALID_RESOLUTION_MODES)[number];
 
 type ProvenanceInput = NonNullable<z.infer<typeof resolveThreadBatchPayloadSchema>["items"][number]["provenance"]>;
 type ResolveThreadBatchPayload = z.infer<typeof resolveThreadBatchPayloadSchema>;
+type ResolveThreadBatchResult = ReturnType<typeof batchResultFrom>;
 
 const replyToReviewParseSchema = z.object({
 	pr_number: z.int(),
@@ -142,7 +144,11 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	}
 	const buildArtifact = await loadThreadResolutionBuildArtifact(ctx, fromBuild);
 	if (buildArtifact.type === "error") return failure(buildArtifact.errorType, buildArtifact.message);
-	const normalized = await normalizeResolveThreadBatchPayload(buildArtifact.value.payload, ctx);
+	const buildPayload = buildArtifact.value.artifact.payload;
+	if (buildArtifact.value.artifact.payload_ready !== true || buildPayload === null) {
+		return failure("invalid_request", "resolve-thread-batch --from-build artifact has no ready payload; do not call resolve-thread-batch for this batch.");
+	}
+	const normalized = await normalizeResolveThreadBatchPayload(buildPayload, ctx);
 	if (normalized.type === "error") return failure(normalized.errorType, normalized.message);
 	const gateway = ctx.context.github;
 	const results: ResolveThreadBatchItemResult[] = [];
@@ -152,7 +158,7 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 		const result = await applyResolution(gateway, item, gatewayOptions(ctx));
 		if (result.type === "failure") {
 			results.push({ index, thread_id: item.threadId, mode: item.mode, status: "failed", error_type: "gateway_error", error_message: gatewayFailureDetail(result.failure) });
-			if (!buildArtifact.value.payload.continue_on_error) {
+			if (!buildPayload.continue_on_error) {
 				results.push(...skippedResults(normalized.value.slice(index + 1), index + 1));
 				break;
 			}
@@ -161,21 +167,48 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 		results.push({ index, thread_id: result.value.thread_id, mode: item.mode, status: "resolved", body: result.value.body, comment: result.value.comment, is_resolved: result.value.is_resolved, provenance: result.value.provenance });
 	}
 	const batchResult = batchResultFrom(results, normalized.value.length);
-	if (batchResult.all_succeeded) return ok(batchResult);
-	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, batchResult);
+	const writeResult = await writeThreadResolutionResultArtifact({ ctx, buildArtifact: buildArtifact.value.artifact, buildReference: buildArtifact.value.reference, batchResult });
+	if (writeResult.type === "error") return failure(writeResult.errorType, `GitHub mutations were attempted, but writing the resolution artifact failed: ${writeResult.message}`);
+	const data = { ...batchResult, resolved_inputs: { build: buildArtifact.value.reference }, resolution_reference: writeResult.value };
+	if (batchResult.all_succeeded) return ok(data);
+	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, data);
 }
 
 async function loadThreadResolutionBuildArtifact(
 	ctx: PrAddressExecContext,
 	payloadPath: string,
-): Promise<{ type: "ok"; value: z.infer<typeof threadResolutionBuildArtifactSchema> } | { type: "error"; errorType: string; message: string }> {
+): Promise<{ type: "ok"; value: { artifact: z.infer<typeof threadResolutionBuildArtifactSchema>; reference: z.infer<typeof threadResolutionBuildArtifactSchema>["resolved_inputs"]["plan"] } } | { type: "error"; errorType: string; message: string }> {
 	const store = await ctx.context.payloadStoreFactory.openContainingArtifact(payloadPath, { clock: ctx.context.payloadClock });
 	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
-	const artifact = await store.value.readJsonArtifact({ payloadPath, allowedRoles: new Set(["summary"]) });
+	const artifact = await store.value.readJsonArtifactWithReference({ payloadPath, allowedRoles: new Set(["summary"]) });
 	if (artifact.type === "error") return { type: "error", errorType: artifact.errorType, message: artifact.message };
-	const parsed = threadResolutionBuildArtifactSchema.safeParse(artifact.value);
+	const parsed = threadResolutionBuildArtifactSchema.safeParse(artifact.value.value);
 	if (!parsed.success) return { type: "error", errorType: "invalid_request", message: `Invalid resolve-thread-batch --from-build artifact: ${z.prettifyError(parsed.error)}` };
-	return { type: "ok", value: parsed.data };
+	return { type: "ok", value: { artifact: parsed.data, reference: artifact.value.reference } };
+}
+
+async function writeThreadResolutionResultArtifact(options: {
+	ctx: PrAddressExecContext;
+	buildArtifact: ThreadResolutionBuildArtifact;
+	buildReference: z.infer<typeof threadResolutionBuildArtifactSchema>["resolved_inputs"]["plan"];
+	batchResult: ResolveThreadBatchResult;
+}) {
+	if (options.buildArtifact.payload === null) throw new Error("Cannot write a resolution result artifact without a ready build payload.");
+	const store = await options.ctx.context.payloadStoreFactory.openContainingArtifact(options.buildReference.payload_path, { clock: options.ctx.context.payloadClock });
+	if (store.type === "error") return store;
+	return await store.value.writeJsonArtifact({
+		descriptor: prBatchArtifactDescriptor({ prNumber: options.buildArtifact.pr_number, batchId: options.buildArtifact.batch_id, kind: "resolution" }),
+		role: "summary",
+		payload: {
+			artifact_kind: "thread_resolution_result",
+			source: options.buildArtifact.source,
+			pr_number: options.buildArtifact.pr_number,
+			batch_id: options.buildArtifact.batch_id,
+			build_reference: options.buildReference,
+			payload: options.buildArtifact.payload,
+			result: options.batchResult,
+		},
+	});
 }
 
 async function normalizeResolutionFromRequest(

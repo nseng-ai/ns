@@ -1,5 +1,6 @@
 import type {
 	BranchHeadOidResult,
+	CommitChangedFilesResult,
 	CurrentBranchResult,
 	GatewayFailure,
 	GatewayOptions,
@@ -77,6 +78,8 @@ export interface InMemoryGitState {
 	isInsideWorkTree?: boolean | undefined;
 	repoContextFailure?: GatewayFailure | undefined;
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
+	commitChangedFiles?: ReadonlyMap<string, readonly string[]> | Record<string, readonly string[]> | undefined;
+	commitChangedFilesFailure?: GatewayFailure | undefined;
 	restructuredFiles?: readonly RestructuredFile[] | undefined;
 	restructuredFilesFailure?: GatewayFailure | undefined;
 }
@@ -228,6 +231,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly isConfiguredInsideWorkTree: boolean;
 	private readonly repoContextFailure: GatewayFailure | undefined;
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
+	private readonly commitChangedFiles: ReadonlyMap<string, readonly string[]>;
+	private readonly commitChangedFilesFailure: GatewayFailure | undefined;
 	private readonly restructuredFiles: readonly RestructuredFile[];
 	private readonly restructuredFilesFailure: GatewayFailure | undefined;
 
@@ -237,6 +242,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 		this.isConfiguredInsideWorkTree = state.isInsideWorkTree ?? true;
 		this.repoContextFailure = state.repoContextFailure;
 		this.branchHeadOids = stringMap(state.branchHeadOids);
+		this.commitChangedFiles = stringMap(state.commitChangedFiles);
+		this.commitChangedFilesFailure = state.commitChangedFilesFailure;
 		this.restructuredFiles = clone(state.restructuredFiles ?? []);
 		this.restructuredFilesFailure = state.restructuredFilesFailure;
 	}
@@ -256,6 +263,11 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 		const oid = this.branchHeadOids.get(branch);
 		if (oid === undefined) return { type: "missing", stderr: `unknown revision or path not in the working tree: ${branch}`, returncode: 128 };
 		return { type: "found", oid };
+	}
+
+	async getCommitChangedFiles(commitSha: string, _options: GatewayOptions): Promise<CommitChangedFilesResult> {
+		if (this.commitChangedFilesFailure !== undefined) return { type: "failure", failure: clone(this.commitChangedFilesFailure) };
+		return { type: "ok", files: clone(this.commitChangedFiles.get(commitSha) ?? []) };
 	}
 
 	async getRestructuredFiles(_baseRefName: string, _options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {

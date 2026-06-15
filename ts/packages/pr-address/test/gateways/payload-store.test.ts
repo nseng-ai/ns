@@ -12,6 +12,7 @@ import {
 	PayloadStore,
 	readJsonPayloadArtifact,
 	readJsonPayloadArtifactValue,
+	readJsonPayloadArtifactWithReference,
 	resolveHarnessSessionId,
 	resolveJsonPointer,
 	resolvePayloadRoot,
@@ -162,6 +163,20 @@ describe("payload store write parity with Python asdl_core.payloads", () => {
 		expect(containing.sessionId).toBe("sess-1");
 		expect(containing.payloadDir).toBe(store.payloadDir);
 	});
+
+	test("explicit artifact reads can return the parsed value with its canonical reference", async () => {
+		const tempDir = await makeTempDir();
+		const root = join(tempDir, "payload-root");
+		const store = expectOk(await PayloadStore.open({ root, sessionId: "sess-1", clock: sequenceClock(["2026-06-03T12:00:00Z"]) }));
+		const reference = expectOk(await store.writeJsonArtifact({ descriptor: "feedback", role: "raw", payload: { value: 1 } }));
+
+		const nodeResolved = expectOk(await readJsonPayloadArtifactWithReference(reference.payload_path, { allowedRoles: new Set(["raw"]) }));
+		const storeResolved = expectOk(await store.readJsonArtifactWithReference({ payloadPath: reference.payload_path, allowedRoles: new Set(["raw"]) }));
+
+		expect(nodeResolved.value).toEqual({ value: 1 });
+		expect(nodeResolved.reference).toEqual(reference);
+		expect(storeResolved).toEqual(nodeResolved);
+	});
 });
 
 describe("payload store latest JSON artifact lookup", () => {
@@ -231,6 +246,9 @@ describe("payload store latest JSON artifact lookup", () => {
 			extension: "json",
 		});
 		expect(resolved.reference.payload_bytes).toBe(Buffer.byteLength(JSON.stringify({ value: 2 }, null, 2) + "\n", "utf8"));
+
+		const explicit = expectOk(await store.readJsonArtifactWithReference({ payloadPath: resolved.reference.payload_path, allowedRoles: new Set(["summary"]) }));
+		expect(explicit).toEqual(resolved);
 	});
 
 	test("missing latest JSON lookup reports descriptor role and session", async () => {
