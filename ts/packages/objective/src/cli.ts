@@ -7,6 +7,11 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 import {
+	archiveObjectiveRequestSchema,
+	renderArchiveObjective,
+	runArchiveObjective,
+} from "./operations/archive-objective.ts";
+import {
 	legacyListCandidatesMachine,
 	listCandidatesRequestSchema,
 	renderListCandidates,
@@ -42,6 +47,14 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		description: "Work with checked-in Objective records.",
 		version: VERSION,
 		runtimeInfo,
+	});
+	root.command({
+		name: "archive",
+		description: "Archive or unarchive an Objective record by moving its directory.",
+		schema: archiveObjectiveRequestSchema,
+		positionals: { slug: { position: 0 } },
+		handler: runArchiveObjective,
+		renderHuman: renderArchiveObjective,
 	});
 	root.command({
 		name: "list",
