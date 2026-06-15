@@ -62,7 +62,6 @@ interface RunGtOptions {
 	onOutput?: SubmitOutputListener;
 }
 
-
 export type SubmitSemanticFailureCause = { kind: "empty_branch_skipped"; branchName?: string | undefined };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
@@ -278,11 +277,13 @@ export class RealSubmitGateway implements SubmitGateway {
 
 export async function runSubmitCommand(options: RunSubmitCommandOptions): Promise<SubmitCommandResult> {
 	const commandParams = submitCommandParams(options);
+	emitSubmitProgress(options, "checking Graphite submit readiness");
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output));
 	}
 	if (readiness.kind === "restack_required") {
+		emitSubmitProgress(options, "Graphite requires a restack before submit");
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
 			return failure(1, formatRestackRequiredOutput(readiness.output));
@@ -302,6 +303,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		}
 	}
 
+	emitSubmitProgress(options, "preparing PR metadata before submit");
 	const prewrite = await prepareSubmitPrMetadata({
 		cwd: options.cwd,
 		env: options.prDescription.env,
@@ -313,11 +315,13 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		return failure(prewrite.exitCode ?? 1, formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches));
 	}
 
+	emitSubmitProgress(options, "running gt submit");
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
 		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output, prewrite.prepared));
 	}
 
+	emitSubmitProgress(options, "verifying submitted PRs");
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	if (submitted.semanticFailureCause !== undefined || shouldFailPostSubmitVerification(submitted, currentPr)) {
 		return failure(
@@ -330,6 +334,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const prLinks = currentPr.kind === "present" ? mergePrLinks(submitted.prLinks, currentPr.prLinks) : mergePrLinks(submitted.prLinks, []);
+	emitSubmitProgress(options, "generating or validating PR descriptions");
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
@@ -365,6 +370,7 @@ async function shouldRunRestack(
 }
 
 async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: SubmitCommandParams): Promise<SubmitCommandResult | undefined> {
+	commandParams.onOutput?.("stderr", "sdl submit: running gt restack...\n");
 	const restack = await gateway.restackCurrentStack(commandParams);
 	if (restack.kind === "conflict") {
 		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
@@ -380,6 +386,10 @@ function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onO
 		cwd: options.cwd,
 		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
 	};
+}
+
+function emitSubmitProgress(options: Pick<RunSubmitCommandOptions, "onOutput">, message: string): void {
+	options.onOutput?.("stderr", `sdl submit: ${message}...\n`);
 }
 
 function shouldFailPostSubmitVerification(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {

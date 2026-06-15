@@ -198,11 +198,39 @@ describe("sdl submit CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
+				{ stream: "stderr", text: "sdl submit: checking worktree and checkpointing pending changes if needed...\n" },
+				{ stream: "stderr", text: "sdl submit: checking Graphite submit readiness...\n" },
 				{ stream: "stdout", text: "ready\n" },
+				{ stream: "stderr", text: "sdl submit: preparing PR metadata before submit...\n" },
+				{ stream: "stderr", text: "sdl submit: running gt submit...\n" },
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
+				{ stream: "stderr", text: "sdl submit: verifying submitted PRs...\n" },
+				{ stream: "stderr", text: "sdl submit: generating or validating PR descriptions...\n" },
 			]),
 		);
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+	});
+
+	test("direct CLI output gets live submit progress without an injected live-output hook", async () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const context = new ScriptedSubmitContext();
+
+		expect(await runCli(["submit"], {
+			context,
+			stdout: (text) => {
+				stdout.push(text);
+			},
+			stderr: (text) => {
+				stderr.push(text);
+			},
+		})).toBe(0);
+
+		expect(stderr.join("")).toContain("sdl submit: checking worktree and checkpointing pending changes if needed...");
+		expect(stderr.join("")).toContain("sdl submit: running gt submit...");
+		expect(stdout.join("")).toContain("ready\n");
+		expect(stdout.join("")).toContain(`Submitted ${PR_URL}\n`);
+		expect(stdout.join("")).toContain("gt submit succeeded");
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
