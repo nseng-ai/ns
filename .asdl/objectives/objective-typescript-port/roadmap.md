@@ -23,10 +23,10 @@
   - Preserve active open candidate filtering, tab-separated human output, JSON `records: [{slug, status}]`, and archive/closed exclusion.
   - Policy: this can be bundled with a nearby list slice only if the confirmed preview keeps one reviewable thesis: deterministic candidate inventory for skill/Pi callers.
   - Evidence: TypeScript `objective exec list-candidates` now reuses active checkout inventory to emit open active-root candidates only, renders tab-separated human rows, preserves JSON `records: [{slug, status}]`, excludes closed/archive records, and remains under the hidden `exec` group. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
-- [ ] Port `objective archive` / `--unarchive`.
+- [x] Port `objective archive` / `--unarchive`.
   - Preserve slug validation, LBYL missing-source and destination-collision refusal, directory rename behavior, JSON result fields, and human moved-path output.
   - Policy: execution may proceed after preview when limited to filesystem-backed active/archive movement. Ask before changing archive semantics, merging records, or adding metadata.
-  - Evidence: tests for archive, unarchive, collision, missing source, invalid slug/path, and archive-root exclusion from active list/read commands.
+  - Evidence: TypeScript `objective archive <slug>` and `objective archive <slug> --unarchive` now move Objective directories through package-local real/fake storage seams with LBYL missing-source, non-directory source, destination-collision, missing-slug, and invalid-slug refusal. JSON output preserves durable result fields, human output renders moved source/destination paths, and tests cover archive-root exclusion from active list after a fake move. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, `pnpm --dir ts run check`, and `git diff --check`.
 - [ ] Port `objective exec runner-subagent-usage`.
   - Preserve JSONL telemetry parsing for Pi runner subagent session files, per-session statuses, aggregate token/cost/peak-context fields, Markdown table output, and negative/missing argument behavior.
   - Policy: execution may proceed after preview as a focused parser/rendering slice. Ask before changing stack digest semantics or inferring correctness from telemetry.

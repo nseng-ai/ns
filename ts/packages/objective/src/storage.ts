@@ -4,6 +4,7 @@ export const ACTIVE_OBJECTIVE_ROOT = ".asdl/objectives";
 export const OBJECTIVE_ARCHIVE_ROOT = ".asdl/objective-archive";
 
 export type ObjectiveRecordStatus = "open" | "closed";
+export type ObjectiveArchiveDirection = "archive" | "unarchive";
 
 export interface ObjectiveFiles {
 	objective_md: boolean;
@@ -24,6 +25,11 @@ export interface ObjectiveCheckoutRecord {
 
 export interface ObjectiveCheckoutInventory {
 	records: readonly ObjectiveCheckoutRecord[];
+}
+
+export interface ObjectiveRecordMovePaths {
+	relativeSource: string;
+	relativeDestination: string;
 }
 
 export type ObjectivePathKind = "missing" | "file" | "directory" | "other";
@@ -49,6 +55,7 @@ export interface ObjectiveStorageGateway {
 	pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>>;
 	listDirectory(relativePath: string): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>>;
 	readTextFile(relativePath: string): Promise<ObjectiveMarkdownReadResult>;
+	moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>>;
 }
 
 export class ObjectiveStorage {
@@ -56,6 +63,10 @@ export class ObjectiveStorage {
 
 	constructor(gateway: ObjectiveStorageGateway) {
 		this.gateway = gateway;
+	}
+
+	async pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>> {
+		return await this.gateway.pathKind(relativePath);
 	}
 
 	async activeRootExists(): Promise<ObjectiveStorageResult<boolean>> {
@@ -148,6 +159,17 @@ export class ObjectiveStorage {
 	async readMarkdownFile(relativePath: string): Promise<ObjectiveMarkdownReadResult> {
 		return await this.gateway.readTextFile(relativePath);
 	}
+
+	movePaths(slug: string, direction: ObjectiveArchiveDirection): ObjectiveRecordMovePaths {
+		return {
+			relativeSource: archiveSourceRelativePath(slug, direction),
+			relativeDestination: archiveDestinationRelativePath(slug, direction),
+		};
+	}
+
+	async moveRecord(movePaths: ObjectiveRecordMovePaths): Promise<ObjectiveStorageResult<void>> {
+		return await this.gateway.moveDirectory(movePaths.relativeSource, movePaths.relativeDestination);
+	}
 }
 
 export function isValidObjectiveSlug(slug: string): boolean {
@@ -168,6 +190,26 @@ export function activeRecordRelativePath(slug: string): string {
 
 export function archivedRecordRelativePath(slug: string): string {
 	return posixJoin(archiveRootRelativePath(), slug);
+}
+
+export function archiveSourceRelativePath(slug: string, direction: ObjectiveArchiveDirection): string {
+	if (direction === "unarchive") return archivedRecordRelativePath(slug);
+	return activeRecordRelativePath(slug);
+}
+
+export function archiveDestinationRelativePath(slug: string, direction: ObjectiveArchiveDirection): string {
+	if (direction === "unarchive") return activeRecordRelativePath(slug);
+	return archivedRecordRelativePath(slug);
+}
+
+export function archiveEmptySourceRelativePath(direction: ObjectiveArchiveDirection): string {
+	if (direction === "unarchive") return archiveRootRelativePath();
+	return activeRootRelativePath();
+}
+
+export function archiveEmptyDestinationRelativePath(direction: ObjectiveArchiveDirection): string {
+	if (direction === "unarchive") return activeRootRelativePath();
+	return archiveRootRelativePath();
 }
 
 export function emptyObjectiveFiles(): ObjectiveFiles {
