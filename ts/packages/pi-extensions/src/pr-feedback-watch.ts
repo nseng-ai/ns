@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+import type { SendMessageOptions, SendUserMessageOptions } from "./message-delivery.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import { formatElapsedMs } from "./time-format.ts";
 
@@ -245,8 +246,8 @@ export interface ExtensionAPI {
 	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-	sendUserMessage?(content: string, options?: { deliverAs?: "followUp" | "steer" }): void;
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "followUp" | "steer" | "nextTurn" }): void;
+	sendUserMessage?(content: string, options?: SendUserMessageOptions): void;
+	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
 	appendEntry?(customType: string, data?: unknown): void;
 }
 

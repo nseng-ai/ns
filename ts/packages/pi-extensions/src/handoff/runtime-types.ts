@@ -1,7 +1,9 @@
 import type { ExecResult } from "@asdl/core/exec";
+import type { SendUserMessageOptions } from "../message-delivery.ts";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type { ExecResult } from "@asdl/core/exec";
+export type { SendUserMessageOptions } from "../message-delivery.ts";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
@@ -103,10 +105,6 @@ export interface CommandContext extends BaseRuntimeContext {
 }
 
 export interface ToolContext extends BaseRuntimeContext {}
-
-export interface SendUserMessageOptions {
-	deliverAs?: "steer" | "followUp";
-}
 
 export interface ExtensionAPI {
 	registerCommand(
