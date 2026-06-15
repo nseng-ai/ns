@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { parseModelRef } from "@asdl/plans";
 
 import type { ModelInfo } from "../cmux/types.ts";
 import type {
@@ -342,7 +343,7 @@ function inheritedProviderModelForRequestedModel(requestedModel: string, inherit
 }
 
 function hasExplicitProviderInModelPattern(model: string): boolean {
-	return model.includes("/");
+	return parseModelRef(model) !== undefined;
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {
