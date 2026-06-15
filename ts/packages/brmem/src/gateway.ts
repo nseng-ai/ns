@@ -31,6 +31,11 @@ export interface CopyEntriesResult {
 	entries: readonly EntryRef[];
 }
 
+export interface GitRemoteConfig {
+	push: readonly string[];
+	fetch: readonly string[];
+}
+
 export interface BrmemGateway {
 	currentBranch(): Promise<BrmemResult<string>>;
 
@@ -72,4 +77,8 @@ export interface BrmemGateway {
 		shouldOverwrite: boolean;
 		keyGlob?: string | undefined;
 	}): Promise<BrmemResult<CopyEntriesResult>>;
+
+	getRemoteConfig(remote: string): Promise<BrmemOptionalResult<GitRemoteConfig>>;
+
+	addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<BrmemResult<void>>;
 }

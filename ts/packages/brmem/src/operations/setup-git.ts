@@ -53,23 +53,22 @@ export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest
 	const remote = normalizeRemoteName(request.remote);
 	if (remote === undefined) return failure("invalid_remote", "Git remote name must not be empty or contain control characters.");
 
-	const remoteExists = await ctx.gitSetupGateway.remoteExists(remote);
-	if (remoteExists.type === "error") return gatewayFailure<SetupGitResult>(remoteExists.error);
-	if (!remoteExists.value) return failure("remote_not_found", `Git remote ${JSON.stringify(remote)} was not found.`);
+	const configOpt = await ctx.gateway.getRemoteConfig(remote);
+	if (configOpt.type === "error") return gatewayFailure<SetupGitResult>(configOpt.error);
+	if (configOpt.type === "missing") return failure("remote_not_found", `Git remote ${JSON.stringify(remote)} was not found.`);
 
-	const pushKey = pushConfigKey(remote);
-	const fetchKey = fetchConfigKey(remote);
-	const pushValues = await ctx.gitSetupGateway.getConfigValues(pushKey);
-	if (pushValues.type === "error") return gatewayFailure<SetupGitResult>(pushValues.error);
-	const fetchValues = await ctx.gitSetupGateway.getConfigValues(fetchKey);
-	if (fetchValues.type === "error") return gatewayFailure<SetupGitResult>(fetchValues.error);
+	const pushValues = configOpt.value.push;
+	const fetchValues = configOpt.value.fetch;
 
-	const plan = buildGitSetupPlan({ remote, existing: { push: pushValues.value, fetch: fetchValues.value } });
+	const plan = buildGitSetupPlan({ remote, existing: { push: pushValues, fetch: fetchValues } });
 	const result = setupGitResultFromPlan(plan, request.dry_run);
 	if (request.dry_run) return ok(result);
 
-	for (const addition of plan.additions) {
-		const added = await ctx.gitSetupGateway.addConfigValue(addition.key, addition.value);
+	const pushAdditions = plan.additions.filter((a) => a.key === pushConfigKey(remote)).map((a) => a.value);
+	const fetchAdditions = plan.additions.filter((a) => a.key === fetchConfigKey(remote)).map((a) => a.value);
+
+	if (pushAdditions.length > 0 || fetchAdditions.length > 0) {
+		const added = await ctx.gateway.addRemoteRefspecs(remote, pushAdditions, fetchAdditions);
 		if (added.type === "error") return gatewayFailure<SetupGitResult>(added.error);
 	}
 	return ok(result);

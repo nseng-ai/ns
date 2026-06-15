@@ -23,10 +23,16 @@ export interface FakeEntrySeed {
 	updatedAt?: string | undefined;
 }
 
+export interface FakeGitRemoteConfig {
+	push: readonly string[];
+	fetch: readonly string[];
+}
+
 export interface FakeBrmemGatewayOptions {
 	currentBranch?: string | { type: "detached" } | { type: "error"; code: string; message: string } | undefined;
 	entries?: readonly FakeEntrySeed[] | undefined;
-	operationErrors?: Partial<Record<"list" | "get" | "check" | "put" | "delete" | "copy", { code: string; message: string }>> | undefined;
+	remotes?: Record<string, FakeGitRemoteConfig> | undefined;
+	operationErrors?: Partial<Record<"list" | "get" | "check" | "put" | "delete" | "copy" | "remoteConfig" | "addRefspecs", { code: string; message: string }>> | undefined;
 }
 
 interface StoredEntry {
@@ -49,6 +55,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private readonly operationErrors: NonNullable<FakeBrmemGatewayOptions["operationErrors"]>;
 	private readonly snapshots: Map<string, SnapshotState>;
 	private readonly snapshotsByCommit: Map<string, SnapshotState>;
+	private readonly remotes: Map<string, import("./gateway.ts").GitRemoteConfig>;
 	private sequence: number;
 	private timestampSequence: number;
 
@@ -57,6 +64,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		this.operationErrors = { ...(options.operationErrors ?? {}) };
 		this.snapshots = new Map();
 		this.snapshotsByCommit = new Map();
+		this.remotes = new Map(Object.entries(options.remotes ?? { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } }).map(([k, v]) => [k, { push: [...v.push], fetch: [...v.fetch] }]));
 		this.sequence = 1;
 		this.timestampSequence = 1;
 		for (const entry of options.entries ?? []) this.seedEntry(entry);
@@ -236,6 +244,24 @@ export class FakeBrmemGateway implements BrmemGateway {
 		const value = normalizeBrmemTimestamp(new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString());
 		this.timestampSequence += 1;
 		return value;
+	}
+
+	async getRemoteConfig(remote: string): Promise<import("./contracts.ts").BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
+		const error = this.operationErrors.remoteConfig;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		const cfg = this.remotes.get(remote);
+		if (cfg === undefined) return brmemMissing();
+		return brmemFound({ push: [...cfg.push], fetch: [...cfg.fetch] });
+	}
+
+	async addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<import("./contracts.ts").BrmemResult<void>> {
+		const error = this.operationErrors.addRefspecs;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		const cfg = this.remotes.get(remote);
+		if (cfg === undefined) return brmemOk(undefined);
+		cfg.push = [...cfg.push, ...push];
+		cfg.fetch = [...cfg.fetch, ...fetch];
+		return brmemOk(undefined);
 	}
 }
 
