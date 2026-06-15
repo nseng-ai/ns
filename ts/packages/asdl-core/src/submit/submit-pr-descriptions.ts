@@ -5,7 +5,7 @@ import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts"
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
+	| { ok: true; generated: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -21,7 +21,6 @@ export async function generateSubmitPrDescriptions(input: {
 	prewrittenMetadata?: readonly PreparedSubmitPrMetadata[];
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];
-	const skipped: SubmitPrLink[] = [];
 	const prewritten: SubmitPrLink[] = [];
 	const prewriteFallbacks: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
@@ -62,16 +61,11 @@ export async function generateSubmitPrDescriptions(input: {
 
 		const decision = await decidePrBodyOverwrite({
 			pr: viewed.value,
-			shouldForce: false,
 			cwd: input.cwd,
 			githubPr: input.prDescription.githubPr,
 		});
 		if (decision.kind === "failed") {
 			failures.push({ link, number, reason: decision.error });
-			continue;
-		}
-		if (decision.kind === "skip_hand_edited") {
-			skipped.push(link);
 			continue;
 		}
 
@@ -104,7 +98,7 @@ export async function generateSubmitPrDescriptions(input: {
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
-	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
+	return { ok: true, generated, prewritten, prewriteFallbacks };
 }
 
 export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {

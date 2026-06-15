@@ -348,7 +348,6 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	const successText = prLinks.length > 0
 		? formatSubmitSuccessText(prLinks, {
 				generated: descriptionResult.generated,
-				skipped: descriptionResult.skipped,
 				prewritten: descriptionResult.prewritten,
 				prewriteFallbacks: descriptionResult.prewriteFallbacks,
 			})

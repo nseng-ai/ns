@@ -39,7 +39,7 @@ class ScriptedSubmitContext implements SdlContext {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
 		this.execResponses = [...(state.exec ?? successfulSubmitResponses())];
-		this.modelResults = [...(state.textGeneration ?? [])];
+		this.modelResults = [...(state.textGeneration ?? [{ ok: true, text: defaultPrDescriptionText() }])];
 		this.confirm = state.confirm;
 	}
 
@@ -63,7 +63,7 @@ class ScriptedSubmitContext implements SdlContext {
 	readonly model = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.modelCalls.push({ ...request });
-			return this.modelResults.shift() ?? { ok: false, error: "missing scripted text result" };
+			return this.modelResults.shift() ?? { ok: true, text: defaultPrDescriptionText() };
 		},
 	};
 }
@@ -127,6 +127,9 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
 		{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "Hand edited body" }) } },
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+		{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
 	];
 }
 
@@ -143,6 +146,10 @@ function prJson(options: { body: string; title?: string } = { body: "" }): strin
 
 function commitsJson(): string {
 	return JSON.stringify({ commits: [{ messageHeadline: "Add submit", messageBody: "Body from commit" }] });
+}
+
+function defaultPrDescriptionText(): string {
+	return "Generated PR\n\nGenerated body";
 }
 
 function execResult(result: Partial<ExecResult> = {}): ExecResult {
@@ -187,14 +194,15 @@ describe("sdl submit CLI", () => {
 		expect(schemaRun.context.execCalls).toEqual([]);
 	});
 
-	test("clean success submits, verifies current PR, preserves live output, and skips hand-edited PR bodies", async () => {
+	test("clean success submits, verifies current PR, preserves live output, and rewrites PR bodies", async () => {
 		const run = runWithFakes(["submit"]);
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("gt submit succeeded");
 		expect(output).toContain(`#123 ${PR_URL}`);
-		expect(output).toContain("Skipped PR descriptions (body looks hand-edited)");
+		expect(output).toContain("Updated PR descriptions after submit");
+		expect(output).not.toContain("Skipped PR descriptions");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
@@ -209,6 +217,8 @@ describe("sdl submit CLI", () => {
 			]),
 		);
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
+		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
 	});
 
 	test("direct CLI output gets live submit progress without an injected live-output hook", async () => {
@@ -259,6 +269,9 @@ describe("sdl submit CLI", () => {
 					},
 				},
 				{ match: "gh pr view 1517 --json commits", result: { stdout: commitsJson() } },
+				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+				{ match: "gh pr diff 1517", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+				{ match: /^gh pr edit 1517 --title Generated PR --body-file /, result: {} },
 			],
 		});
 

@@ -113,7 +113,7 @@ describe("PR description helpers", () => {
 		expect(truncated.length).toBeLessThanOrEqual(100);
 	});
 
-	test("builds context, commit messages, and diff into the user prompt", () => {
+	test("builds context, commit headlines, and diff into the user prompt", () => {
 		const prompt = buildPrDescriptionUserPrompt({
 			kind: "github",
 			number: 12,
@@ -128,9 +128,32 @@ describe("PR description helpers", () => {
 		expect(prompt).toContain("## Context");
 		expect(prompt).toContain("- PR: #12");
 		expect(prompt).toContain("## Commit Messages");
-		expect(prompt).toContain("Add feature\n\nBody");
+		expect(prompt).toContain("Add feature");
+		expect(prompt).not.toContain("Body");
 		expect(prompt).toContain("## Diff");
 		expect(prompt).toContain("Generate a PR title and body for this diff:");
+	});
+
+	test("omits commit bodies from the generation prompt so stale PR descriptions are not echoed", () => {
+		const prompt = buildPrDescriptionUserPrompt({
+			kind: "github",
+			number: 1587,
+			url: "https://github.com/acme/project/pull/1587",
+			title: "Current title",
+			headRefName: "feature/demo",
+			baseRefName: "main",
+			commitMessages: [
+				{
+					headline: "Address PR stack feedback",
+					body: "Prior generated PR description.\n\n## Key Changes\n\n- Old generated detail\n\nCo-Authored-By: Example <noreply@example.com>",
+				},
+			],
+			diff: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+		});
+
+		expect(prompt).toContain("Address PR stack feedback");
+		expect(prompt).not.toContain("Prior generated PR description");
+		expect(prompt).not.toContain("Co-Authored-By");
 	});
 
 	test("resolves prompts env path before repo override before builtin", async () => {

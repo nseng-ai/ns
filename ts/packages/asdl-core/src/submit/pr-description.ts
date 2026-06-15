@@ -302,7 +302,7 @@ function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
 
 function formatCommitMessages(messages: readonly PrCommitMessage[]): string {
 	return messages
-		.map((message) => [message.headline.trim(), message.body?.trim()].filter((part): part is string => part !== undefined && part !== "").join("\n\n"))
+		.map((message) => message.headline.trim())
 		.filter((message) => message !== "")
 		.join("\n\n---\n\n");
 }
