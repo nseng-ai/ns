@@ -1,6 +1,5 @@
 [tool.uv.workspace]
 members = [
-  "packages/areg",
   "packages/asdl-core",
   "packages/asdl-dispatcher",
   "packages/asdl-objectives",
@@ -12,7 +11,6 @@ members = [
 ]
 
 [tool.uv.sources]
-areg = { workspace = true }
 asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
 asdl-objectives = { workspace = true }
@@ -48,7 +46,6 @@ plugins = [
 
 [dependency-groups]
 dev = [
-  "areg",
   "ruff>=0.5.0",
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
@@ -75,7 +72,6 @@ target-version = "py311"
 line-length = 100
 src = [
   "src",
-  "packages/areg/src",
   "packages/asdl-core/src",
   "packages/asdl-dispatcher/src",
   "packages/asdl-objectives/src",
@@ -99,7 +95,6 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = [
-  "areg",
   "asdl_tools",
   "asdl_core",
   "asdl_dispatcher",
@@ -127,7 +122,6 @@ markers = [
 ]
 testpaths = [
   "tests",
-  "packages/areg/tests",
   "packages/asdl-core/tests",
   "packages/asdl-dispatcher/tests",
   "packages/asdl-objectives/tests",

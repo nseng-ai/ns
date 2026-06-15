@@ -79,6 +79,13 @@ install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/scripts/handof
     rm -f "{{justfile_directory()}}/.venv/bin/handoff"
     @echo "removed stale project venv handoff script if present"
 
+# Install the areg shim to ~/.local/bin so `areg` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-areg: (_install-ts-shim "areg" "ts/packages/areg/scripts/areg-shim")
+    rm -f "{{justfile_directory()}}/.venv/bin/areg"
+    @echo "removed stale project venv areg script if present"
+
 _install-ts-shim tool script: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
@@ -101,18 +108,18 @@ live-github-readonly repo:
 test-all:
     uv run pytest -n auto
 
-areg-check:
-    uv run areg check
+areg-check: ts-install
+    node {{justfile_directory()}}/ts/packages/areg/src/cli.ts check --path {{justfile_directory()}}
 
-refresh-skills:
-    uv run areg update-skills
+refresh-skills: ts-install
+    node {{justfile_directory()}}/ts/packages/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
 # Install public tools: slot and objective as editable uv tools;
-# brmem and handoff via TypeScript source shims.
-install-tools: install-brmem install-handoff
+# brmem, handoff, and areg via TypeScript source shims.
+install-tools: install-brmem install-handoff install-areg
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), objective"
+    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

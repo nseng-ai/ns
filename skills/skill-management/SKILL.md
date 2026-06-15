@@ -4,7 +4,7 @@ description: "Manage skills with `npx skills`: add, edit, remove, rename, update
 allowed-tools:
   - "Bash(npx skills *)"
   - "Bash(areg update-skills *)"
-  - "Bash(uv run areg update-skills *)"
+  - "Bash(node ts/packages/areg/src/cli.ts update-skills *)"
   - "Bash(ln *)"
   - "Bash(rm -rf .agents/skills/*)"
   - "Bash(rm -rf skills/*)"
@@ -230,7 +230,8 @@ areg update-skills --skill <name>
 areg update-skills --source <owner>/<repo>
 ```
 
-If `areg` is only available from the checkout, use `uv run areg update-skills ...`.
+If `areg` is only available from the checkout, use the TypeScript source CLI:
+`node ts/packages/areg/src/cli.ts update-skills --path . ...`.
 
 The updater walks `skills-lock.json` and calls `npx skills add <source> --skill
 <name>` once per GitHub-sourced entry. Local skills (`sourceType: "local"`) are
