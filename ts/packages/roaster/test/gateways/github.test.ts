@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
+import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+
 import { FakeRoasterGitHubGateway, RealRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import type { PRChangedFile, PRInlineCommentInput, PRReviewComment } from "../../src/models.ts";
 import { ScriptedCommandExecApi } from "../support/fake-roaster-context.ts";
@@ -48,8 +50,8 @@ describe("RealRoasterGitHubGateway", () => {
 		expect(execApi.calls()[0]?.args).toEqual(["api", "--paginate", "repos/{owner}/{repo}/pulls/12/comments"]);
 	});
 
-	test("creates one batched PR review with JSON input", async () => {
-		const execApi = new ScriptedCommandExecApi([{ stdout: "{}" }]);
+	test("creates one batched PR review with JSON input and removes the temporary file", async () => {
+		const execApi = new CapturingInputExecApi();
 		const gateway = new RealRoasterGitHubGateway(execApi);
 
 		const result = await gateway.createPrReview(12, [{ path: "src/app.ts", line: 4, body: "inline" }], { cwd: "/repo" });
@@ -57,11 +59,10 @@ describe("RealRoasterGitHubGateway", () => {
 		expect(result.type).toBe("ok");
 		const call = execApi.calls()[0];
 		expect(call?.args.slice(0, 5)).toEqual(["api", "--method", "POST", "repos/{owner}/{repo}/pulls/12/reviews", "--input"]);
+		expect(execApi.capturedInput()).toEqual({ event: "COMMENT", comments: [{ path: "src/app.ts", line: 4, body: "inline" }] });
 		const inputPath = call?.args[5];
 		expect(inputPath).toBeDefined();
-		if (inputPath !== undefined) {
-			expect(JSON.parse(await readFile(inputPath, "utf8"))).toEqual({ event: "COMMENT", comments: [{ path: "src/app.ts", line: 4, body: "inline" }] });
-		}
+		if (inputPath !== undefined) await expect(readFile(inputPath, "utf8")).rejects.toThrow();
 	});
 
 	test("finds discussion comments by marker and author", async () => {
@@ -99,3 +100,23 @@ describe("RealRoasterGitHubGateway", () => {
 		if (jsonFailure.type === "error") expect(jsonFailure.error.type).toBe("github_json_invalid");
 	});
 });
+
+class CapturingInputExecApi implements CommandExecApi {
+	private readonly callsInternal: Array<{ readonly command: string; readonly args: readonly string[]; readonly options?: ExecOptions | undefined }> = [];
+	private capturedInputInternal: unknown;
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.callsInternal.push({ command, args: [...args], options });
+		const inputPath = args[5];
+		if (typeof inputPath === "string") this.capturedInputInternal = JSON.parse(await readFile(inputPath, "utf8"));
+		return { stdout: "{}", stderr: "", code: 0, killed: false };
+	}
+
+	calls(): ReadonlyArray<{ readonly command: string; readonly args: readonly string[]; readonly options?: ExecOptions | undefined }> {
+		return this.callsInternal.map((call) => ({ ...call, args: [...call.args] }));
+	}
+
+	capturedInput(): unknown {
+		return this.capturedInputInternal;
+	}
+}

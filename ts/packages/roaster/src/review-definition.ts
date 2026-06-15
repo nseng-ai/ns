@@ -1,3 +1,4 @@
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { parse as parseYaml } from "yaml";
 
 import type { ReviewApplicability } from "./review-applicability.ts";
@@ -53,7 +54,7 @@ export function parseReviewDefinition(source: string, options: ParseReviewDefini
 	try {
 		parsedFrontmatter = parseYaml(split.frontmatterText);
 	} catch (error) {
-		return failure("invalid_yaml", `Review definition frontmatter is not valid YAML: ${formatError(error)}`);
+		return failure("invalid_yaml", `Review definition frontmatter is not valid YAML: ${formatErrorMessage(error)}`);
 	}
 
 	if (parsedFrontmatter === null || parsedFrontmatter === undefined) {
@@ -174,16 +175,16 @@ function parseApplicability(frontmatter: Readonly<Record<string, unknown>>): App
 		return failure("invalid_applicability", `Review definition field \`applies_to\` contains unknown field(s): ${unknownList}.`);
 	}
 
-	const include = requirePatternList(value, { field: "include", allowEmpty: false });
+	const include = requirePatternList(value, { field: "include", shouldAllowEmpty: false });
 	if (include.type === "error") return include;
-	const exclude = "exclude" in value ? requirePatternList(value, { field: "exclude", allowEmpty: true }) : { type: "ok" as const, value: [] };
+	const exclude = "exclude" in value ? requirePatternList(value, { field: "exclude", shouldAllowEmpty: true }) : { type: "ok" as const, value: [] };
 	if (exclude.type === "error") return exclude;
 	return { type: "ok", value: { include: include.value, exclude: exclude.value } };
 }
 
 interface RequirePatternListOptions {
 	readonly field: "include" | "exclude";
-	readonly allowEmpty: boolean;
+	readonly shouldAllowEmpty: boolean;
 }
 
 type PatternListResult =
@@ -199,7 +200,7 @@ function requirePatternList(appliesTo: Readonly<Record<string, unknown>>, option
 	if (!Array.isArray(value)) {
 		return failure("invalid_applicability", `Review definition field \`applies_to.${options.field}\` must be a list of strings.`);
 	}
-	if (value.length === 0 && !options.allowEmpty) {
+	if (value.length === 0 && !options.shouldAllowEmpty) {
 		return failure("invalid_applicability", `Review definition field \`applies_to.${options.field}\` must not be empty.`);
 	}
 
@@ -240,10 +241,3 @@ function sortedUnknownKeys(record: Readonly<Record<string, unknown>>, allowedKey
 		.sort();
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
