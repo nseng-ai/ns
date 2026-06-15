@@ -39,7 +39,7 @@ interface PayloadReference {
 	role: string;
 }
 
-interface CompactPreflightData {
+interface CompactPreflightDetails {
 	harness_session_id: string;
 	mapping_summary: { requested: number; matched: number; missing: number };
 	stack_reference: PayloadReference;
@@ -47,6 +47,12 @@ interface CompactPreflightData {
 	summary: { prs: number; reviews: number; unresolved_review_threads: number; discussion_comments: number };
 	stack: Array<{ pr_number: number; branch: string; counts: { reviews: number; review_threads: number; unresolved_review_threads: number; discussion_comments: number } }>;
 	zero_feedback_prs: Array<{ pr_number: number; branch: string }>;
+}
+
+interface CompactPreflightData {
+	counts: { requested?: number; matched?: number; missing?: number };
+	artifacts: { full_output: PayloadReference };
+	details: CompactPreflightDetails & MissingMappingData;
 }
 
 interface FullPreflightData {
@@ -134,16 +140,16 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.exit_code).toBe(0);
-		expect(envelope.data?.harness_session_id).toBe(SESSION_ID);
-		expect(envelope.data?.mapping_summary).toEqual({ requested: 3, matched: 3, missing: 0 });
-		expect(envelope.data?.summary).toMatchObject({ prs: 3, reviews: 1, unresolved_review_threads: 1, discussion_comments: 1 });
-		expect(envelope.data?.stack.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch }))).toEqual([
+		expect(envelope.data?.details.harness_session_id).toBe(SESSION_ID);
+		expect(envelope.data?.details.mapping_summary).toEqual({ requested: 3, matched: 3, missing: 0 });
+		expect(envelope.data?.details.summary).toMatchObject({ prs: 3, reviews: 1, unresolved_review_threads: 1, discussion_comments: 1 });
+		expect(envelope.data?.details.stack.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch }))).toEqual([
 			{ pr_number: 20, branch: "feature-a" },
 			{ pr_number: 21, branch: "feature-b" },
 		]);
-		expect(envelope.data?.zero_feedback_prs).toEqual([{ pr_number: 22, branch: "feature-empty" }]);
+		expect(envelope.data?.details.zero_feedback_prs).toEqual([{ pr_number: 22, branch: "feature-empty" }]);
 
-		const stackReference = envelope.data?.stack_reference;
+		const stackReference = envelope.data?.details.stack_reference;
 		expect(stackReference?.descriptor).toBe("pr-address-stack-feedback-preflight");
 		const frozenStack = JSON.parse(await readFile(stackReference?.payload_path ?? "", "utf8")) as unknown;
 		expect(frozenStack).toEqual({
@@ -181,11 +187,11 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		const envelope = parseEnvelope<MissingMappingData>(run);
+		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.message).toBe("No open PR found for branches: missing-branch");
-		expect(envelope.data?.missing_branches).toEqual(["missing-branch"]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 1, missing: 1 });
-		expect(await payloadFiles(root)).toEqual([]);
+		expect(envelope.data?.details.missing_branches).toEqual(["missing-branch"]);
+		expect(envelope.data?.counts).toEqual({ requested: 2, matched: 1, missing: 1 });
+		expect(envelope.data?.artifacts.full_output.descriptor).toBe("pr-address-command-stack-feedback-preflight-output");
 	});
 
 	test("zero-feedback stacks still exit 0 with every PR in zero_feedback_prs", async () => {
@@ -199,9 +205,9 @@ describe("pr-address exec stack-feedback-preflight", () => {
 
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
-		expect(envelope.data?.summary).toMatchObject({ prs: 1, reviews: 0, unresolved_review_threads: 0, discussion_comments: 0 });
-		expect(envelope.data?.stack).toEqual([]);
-		expect(envelope.data?.zero_feedback_prs).toEqual([{ pr_number: 30, branch: "feature-empty" }]);
+		expect(envelope.data?.details.summary).toMatchObject({ prs: 1, reviews: 0, unresolved_review_threads: 0, discussion_comments: 0 });
+		expect(envelope.data?.details.stack).toEqual([]);
+		expect(envelope.data?.details.zero_feedback_prs).toEqual([{ pr_number: 30, branch: "feature-empty" }]);
 	});
 
 	// PINNED CLINKR SEMANTICS: bogus --stdout-mode values are strict-enum
@@ -256,7 +262,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
-		expect(envelope.data?.zero_feedback_prs).toEqual([{ pr_number: 40, branch: "shared" }]);
+		expect(envelope.data?.details.zero_feedback_prs).toEqual([{ pr_number: 40, branch: "shared" }]);
 	});
 
 	test("accepts branch input via --branches-json", async () => {
@@ -267,6 +273,6 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseEnvelope<CompactPreflightData>(run).data?.mapping_summary).toEqual({ requested: 1, matched: 1, missing: 0 });
+		expect(parseEnvelope<CompactPreflightData>(run).data?.details.mapping_summary).toEqual({ requested: 1, matched: 1, missing: 0 });
 	});
 });

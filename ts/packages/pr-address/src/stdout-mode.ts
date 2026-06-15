@@ -47,12 +47,7 @@ export function compactOperationResult(options: CompactOperationResultOptions): 
 		if (options.artifacts.produced !== undefined && options.artifacts.produced.length > 0) artifacts.produced = options.artifacts.produced.map((artifact) => ({ ...artifact }));
 		if (Object.keys(artifacts).length > 0) result.artifacts = artifacts;
 	}
-	if (options.details !== undefined) {
-		for (const [key, value] of Object.entries(options.details)) {
-			if (!(key in result)) result[key] = value;
-		}
-		result.details = options.details;
-	}
+	if (options.details !== undefined) result.details = options.details;
 	return result;
 }
 

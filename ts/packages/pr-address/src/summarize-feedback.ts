@@ -5,7 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
 import { gatewayFailureMessage, gatewayOptions } from "./exec-operation.ts";
-import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
 
@@ -98,7 +98,6 @@ const summarizeFeedbackParseSchema = z.object({
 	include_empty_reviews: z.boolean().default(false),
 	body_chars: z.int().default(DEFAULT_BODY_CHARS),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 type SummarizeFeedbackRequest = z.output<typeof summarizeFeedbackParseSchema>;
@@ -111,6 +110,21 @@ export const summarizeFeedbackOperation = defineExecOperation({
 		schema: summarizeFeedbackParseSchema,
 		positionals: { pr_number: { position: 0 } },
 		handler: runSummarizeFeedbackOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			const result = data as Record<string, unknown>;
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "summarize-feedback",
+					counts: asRecord(result.counts),
+					artifacts: { full_output: fullOutput },
+					details: compactSummarizeDetails(result),
+				}),
+			};
+		},
 	},
 });
 
@@ -134,10 +148,7 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 			error: lookupResult.stderr,
 			returncode: lookupResult.returncode,
 		};
-		if (request.stdout_mode === "full") return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, data);
-		const compact = await compactSummarizeFeedbackResult(ctx, request.harness_session_id, data);
-		if (compact.type === "error") return failure(compact.errorType, compact.message);
-		return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, compact.value);
+		return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, data);
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
@@ -151,30 +162,7 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 	if (snapshotResult.type === "error") return snapshotResult.exit;
 
 	const result = buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars);
-	if (request.stdout_mode === "full") return ok(result);
-	const compact = await compactSummarizeFeedbackResult(ctx, request.harness_session_id, { ...result });
-	if (compact.type === "error") return failure(compact.errorType, compact.message);
-	return ok(compact.value);
-}
-
-async function compactSummarizeFeedbackResult(
-	ctx: PrAddressExecContext,
-	harnessSessionId: string | undefined,
-	data: Record<string, unknown>,
-): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
-	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId });
-	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
-	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "summarize-feedback", data });
-	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
-	return {
-		type: "ok",
-		value: compactOperationResult({
-			operation: "summarize-feedback",
-			counts: asRecord(data.counts),
-			artifacts: { full_output: fullOutput.value },
-			details: compactSummarizeDetails(data),
-		}),
-	};
+	return ok(result);
 }
 
 function compactSummarizeDetails(data: Record<string, unknown>): Record<string, unknown> {

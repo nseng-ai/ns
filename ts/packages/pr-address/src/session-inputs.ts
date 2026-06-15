@@ -41,107 +41,83 @@ export type OperationResult<T, TErrorType extends string = JsonInputError["error
 
 export type OperationInputSourceKind = "explicit" | "stdin" | "session";
 
-export interface ResolvedOperationInput<T> {
+export interface ResolvedSourceInput<T> {
 	source: OperationInputSourceKind;
 	value: T;
 }
 
-/**
- * Central policy for exec operations that accept explicit payload inputs, payload-session inputs, and/or stdin.
- * Non-empty stdin is deliberately configurable: most commands treat it as the payload channel, while
- * stack-feedback-plan preserves its legacy inline-JSON compatibility path as a named policy choice.
- */
-export interface ResolveOperationInputOptions<T> {
+export type StdinInputPolicy<T> =
+	| { type: "payload"; read: () => Promise<string> }
+	| { type: "inline_json"; read: () => Promise<string>; resolveInlineJson: (stdinText: string) => OperationResult<T, string> | Promise<OperationResult<T, string>> };
+
+export async function resolveExplicitOrSelectedSessionInput<T>(options: {
 	commandName: string;
-	explicitSource: {
-		hasExplicitSource: boolean;
-		description: string;
-		resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>>;
-	};
-	sessionSource?:
-		| {
-				/** True when a user selected session mode explicitly, e.g. with --pr-number. */
-				isSelected: boolean;
-				description: string;
-				resolve: () => Promise<OperationResult<T, string>>;
-			}
-		| undefined;
-	stdin?:
-		| {
-				read: () => Promise<string>;
-				nonEmptyMode: "payload" | "inline-json";
-				resolveInlineJson?: (stdinText: string) => OperationResult<T, string> | Promise<OperationResult<T, string>>;
-			}
-		| undefined;
-	/** Source to use after no explicit source, no selected session source, and empty stdin. */
-	defaultSource: "explicit" | "session" | "error";
+	explicitSource: { hasExplicitSource: boolean; description: string; resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> };
+	sessionSource: { isSelected: boolean; description: string; resolve: () => Promise<OperationResult<T, string>> };
+	stdin?: { read: () => Promise<string> } | undefined;
+	defaultSource: "explicit" | "error";
 	mixInputMessage?: string | undefined;
 	missingInputMessage?: string | undefined;
-}
-
-export async function resolveOperationInput<T>(options: ResolveOperationInputOptions<T>): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	const hasSelectedSessionSource = options.sessionSource?.isSelected ?? false;
-	if (options.explicitSource.hasExplicitSource && hasSelectedSessionSource) {
+}): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
+	if (options.explicitSource.hasExplicitSource && options.sessionSource.isSelected) {
 		return { type: "error", errorType: "invalid_request", message: options.mixInputMessage ?? defaultMixInputMessage(options) };
 	}
-	if (options.explicitSource.hasExplicitSource) return await resolveExplicitOperationInput(options, options.stdin?.read ?? emptyStdin);
-	if (hasSelectedSessionSource) return await resolveSessionOperationInput(options);
-
+	if (options.explicitSource.hasExplicitSource) return await resolveExplicitSource(options.explicitSource, options.stdin?.read ?? emptyStdin);
+	if (options.sessionSource.isSelected) return await resolveSessionSource(options.sessionSource);
 	if (options.stdin !== undefined) {
 		const stdinText = await options.stdin.read();
-		if (stdinText.trim() !== "") return await resolveStdinOperationInput(options, stdinText);
-		return await resolveDefaultOperationInput(options, async () => stdinText);
+		if (stdinText.trim() !== "") return await resolveExplicitSource(options.explicitSource, async () => stdinText, "stdin");
+		if (options.defaultSource === "explicit") return await resolveExplicitSource(options.explicitSource, async () => stdinText);
 	}
-
-	return await resolveDefaultOperationInput(options, emptyStdin);
+	if (options.defaultSource === "explicit") return await resolveExplicitSource(options.explicitSource, emptyStdin);
+	return { type: "error", errorType: "invalid_request", message: options.missingInputMessage ?? defaultMissingInputMessage(options) };
 }
 
-async function resolveExplicitOperationInput<T>(
-	options: ResolveOperationInputOptions<T>,
+export async function resolveExplicitStdinOrDefaultSessionInput<T>(options: {
+	explicitSource: { hasExplicitSource: boolean; resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> };
+	stdin: StdinInputPolicy<T>;
+	defaultSessionSource: { resolve: () => Promise<OperationResult<T, string>> };
+}): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
+	if (options.explicitSource.hasExplicitSource) return await resolveExplicitSource(options.explicitSource, options.stdin.read);
+	const stdinText = await options.stdin.read();
+	if (stdinText.trim() !== "") {
+		if (options.stdin.type === "payload") return await resolveExplicitSource(options.explicitSource, async () => stdinText, "stdin");
+		const result = await options.stdin.resolveInlineJson(stdinText);
+		if (result.type === "error") return result;
+		return { type: "ok", value: { source: "stdin", value: result.value } };
+	}
+	return await resolveSessionSource(options.defaultSessionSource);
+}
+
+async function resolveExplicitSource<T>(
+	explicitSource: { resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> },
 	stdin: () => Promise<string>,
-): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	const result = await options.explicitSource.resolve(stdin);
+	source: "explicit" | "stdin" = "explicit",
+): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
+	const result = await explicitSource.resolve(stdin);
 	if (result.type === "error") return result;
-	return { type: "ok", value: { source: "explicit", value: result.value } };
+	return { type: "ok", value: { source, value: result.value } };
 }
 
-async function resolveSessionOperationInput<T>(options: ResolveOperationInputOptions<T>): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	if (options.sessionSource === undefined) throw new Error(`${options.commandName} session source was selected without a resolver.`);
-	const result = await options.sessionSource.resolve();
+async function resolveSessionSource<T>(sessionSource: { resolve: () => Promise<OperationResult<T, string>> }): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
+	const result = await sessionSource.resolve();
 	if (result.type === "error") return result;
 	return { type: "ok", value: { source: "session", value: result.value } };
 }
 
-async function resolveStdinOperationInput<T>(
-	options: ResolveOperationInputOptions<T>,
-	stdinText: string,
-): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	if (options.stdin === undefined) throw new Error(`${options.commandName} stdin source was selected without a policy.`);
-	if (options.stdin.nonEmptyMode === "payload") {
-		const result = await options.explicitSource.resolve(async () => stdinText);
-		if (result.type === "error") return result;
-		return { type: "ok", value: { source: "stdin", value: result.value } };
-	}
-	if (options.stdin.resolveInlineJson === undefined) throw new Error(`${options.commandName} inline-JSON stdin mode requires an inline resolver.`);
-	const result = await options.stdin.resolveInlineJson(stdinText);
-	if (result.type === "error") return result;
-	return { type: "ok", value: { source: "stdin", value: result.value } };
+function defaultMixInputMessage<T>(options: {
+	commandName: string;
+	explicitSource: { description: string };
+	sessionSource: { description: string };
+}): string {
+	return `${options.commandName} cannot mix ${options.explicitSource.description} with ${options.sessionSource.description}; pass exactly one input source.`;
 }
 
-async function resolveDefaultOperationInput<T>(
-	options: ResolveOperationInputOptions<T>,
-	stdin: () => Promise<string>,
-): Promise<OperationResult<ResolvedOperationInput<T>, string>> {
-	if (options.defaultSource === "explicit") return await resolveExplicitOperationInput(options, stdin);
-	if (options.defaultSource === "session") return await resolveSessionOperationInput(options);
-	return { type: "error", errorType: "invalid_request", message: options.missingInputMessage ?? defaultMissingInputMessage(options) };
-}
-
-function defaultMixInputMessage<T>(options: ResolveOperationInputOptions<T>): string {
-	return `${options.commandName} cannot mix ${options.explicitSource.description} with ${options.sessionSource?.description ?? "session input"}; pass exactly one input source.`;
-}
-
-function defaultMissingInputMessage<T>(options: ResolveOperationInputOptions<T>): string {
+function defaultMissingInputMessage<T>(options: {
+	commandName: string;
+	explicitSource: { description: string };
+	sessionSource?: { description: string } | undefined;
+}): string {
 	const sessionDescription = options.sessionSource?.description;
 	const sources = sessionDescription === undefined ? options.explicitSource.description : `${options.explicitSource.description} or ${sessionDescription}`;
 	return `${options.commandName} requires an input source via ${sources}.`;
@@ -246,6 +222,52 @@ export async function resolveLatestPrBatchSessionArtifact<T = unknown>(options: 
 	});
 }
 
+async function resolvePrScopedArtifact<T extends { pr_number: number | null }>(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	kind: PrArtifactKind;
+	role: JsonPayloadRole;
+	schema: z.ZodType<T>;
+	mismatchMessage: (actualPrNumber: number | null) => string;
+}): Promise<OperationResult<ResolvedSessionArtifact<T>, PayloadErrorType | "invalid_request">> {
+	const artifact = await resolveLatestPrSessionArtifact({
+		store: options.store,
+		prNumber: options.prNumber,
+		kind: options.kind,
+		role: options.role,
+		schema: options.schema,
+	});
+	if (artifact.type === "error") return artifact;
+	if (artifact.value.value.pr_number !== options.prNumber) {
+		return { type: "error", errorType: "invalid_request", message: options.mismatchMessage(artifact.value.value.pr_number) };
+	}
+	return artifact;
+}
+
+async function resolvePrBatchScopedArtifact<T extends { pr_number: number | null; batch_id: string }>(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	batchId: string;
+	kind: "resolve-build" | "resolution" | "checkpoint";
+	role: JsonPayloadRole;
+	schema: z.ZodType<T>;
+	mismatchMessage: () => string;
+}): Promise<OperationResult<ResolvedSessionArtifact<T>, PayloadErrorType | "invalid_request">> {
+	const artifact = await resolveLatestPrBatchSessionArtifact({
+		store: options.store,
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+		kind: options.kind,
+		role: options.role,
+		schema: options.schema,
+	});
+	if (artifact.type === "error") return artifact;
+	if (artifact.value.value.pr_number !== options.prNumber || artifact.value.value.batch_id !== options.batchId) {
+		return { type: "error", errorType: "invalid_request", message: options.mismatchMessage() };
+	}
+	return artifact;
+}
+
 const rawFeedbackReviewSchema = z.looseObject({
 	id: z.string(),
 	author: z.string().default(""),
@@ -332,21 +354,15 @@ export async function resolvePrManifestSessionInput(options: {
 	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
 	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
 	if (storeResult.type === "error") return storeResult;
-	const artifact = await resolveLatestPrSessionArtifact({
+	const artifact = await resolvePrScopedArtifact({
 		store: storeResult.value,
 		prNumber: options.prNumber,
 		kind: "manifest",
 		role: "summary",
 		schema: getFeedbackManifestSchema,
+		mismatchMessage: (actualPrNumber) => `Resolved manifest artifact PR number ${actualPrNumber} does not match requested PR ${options.prNumber}.`,
 	});
 	if (artifact.type === "error") return artifact;
-	if (artifact.value.value.pr_number !== options.prNumber) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: `Resolved manifest artifact PR number ${artifact.value.value.pr_number} does not match requested PR ${options.prNumber}.`,
-		};
-	}
 	return { type: "ok", value: { store: storeResult.value, manifest: artifact.value.value, resolvedInput: artifact.value.reference } };
 }
 
@@ -358,21 +374,15 @@ export async function resolveResolveThreadBuildPlanSessionInput(options: {
 	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
 	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
 	if (storeResult.type === "error") return storeResult;
-	const artifact = await resolveLatestPrSessionArtifact({
+	const artifact = await resolvePrScopedArtifact({
 		store: storeResult.value,
 		prNumber: options.prNumber,
 		kind: "plan",
 		role: "summary",
 		schema: feedbackPlanConsumerSchema,
+		mismatchMessage: (actualPrNumber) => `Resolved plan artifact PR number ${actualPrNumber} does not match requested PR ${options.prNumber}.`,
 	});
 	if (artifact.type === "error") return artifact;
-	if (artifact.value.value.pr_number !== options.prNumber) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: `Resolved plan artifact PR number ${artifact.value.value.pr_number} does not match requested PR ${options.prNumber}.`,
-		};
-	}
 	return { type: "ok", value: { store: storeResult.value, plan: artifact.value.value, resolvedInput: artifact.value.reference } };
 }
 
@@ -427,18 +437,16 @@ export async function resolveBatchCheckpointSessionInputs(options: {
 			},
 		};
 	}
-	const build = await resolveLatestPrBatchSessionArtifact({
+	const build = await resolvePrBatchScopedArtifact({
 		store: planInput.value.store,
 		prNumber: options.prNumber,
 		batchId: options.batchId,
 		kind: "resolve-build",
 		role: "summary",
 		schema: threadResolutionBuildArtifactSchema,
+		mismatchMessage: () => `Resolved build artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.`,
 	});
 	if (build.type === "error") return build;
-	if (build.value.value.pr_number !== options.prNumber || build.value.value.batch_id !== options.batchId) {
-		return { type: "error", errorType: "invalid_request", message: `Resolved build artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.` };
-	}
 	if (build.value.value.payload_ready !== true) {
 		return {
 			type: "ok",
@@ -452,18 +460,16 @@ export async function resolveBatchCheckpointSessionInputs(options: {
 			},
 		};
 	}
-	const resolution = await resolveLatestPrBatchSessionArtifact({
+	const resolution = await resolvePrBatchScopedArtifact({
 		store: planInput.value.store,
 		prNumber: options.prNumber,
 		batchId: options.batchId,
 		kind: "resolution",
 		role: "summary",
 		schema: threadResolutionResultArtifactSchema,
+		mismatchMessage: () => `Resolved resolution artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.`,
 	});
 	if (resolution.type === "error") return resolution;
-	if (resolution.value.value.pr_number !== options.prNumber || resolution.value.value.batch_id !== options.batchId) {
-		return { type: "error", errorType: "invalid_request", message: `Resolved resolution artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.` };
-	}
 	if (resolution.value.value.build_reference.payload_path !== build.value.reference.payload_path) {
 		return { type: "error", errorType: "invalid_request", message: `Resolved resolution artifact does not reference the latest build artifact for batch ${options.batchId}.` };
 	}
@@ -533,21 +539,15 @@ export async function resolvePlanFeedbackSessionInputs(options: {
 }): Promise<OperationResult<PlanFeedbackSessionInputs>> {
 	const manifest = await resolvePrManifestSessionInput(options);
 	if (manifest.type === "error") return manifest;
-	const classification = await resolveLatestPrSessionArtifact({
+	const classification = await resolvePrScopedArtifact({
 		store: manifest.value.store,
 		prNumber: options.prNumber,
 		kind: "classification",
 		role: "summary",
 		schema: classificationArtifactSchema,
+		mismatchMessage: (actualPrNumber) => `Resolved classification artifact PR number ${actualPrNumber} does not match requested PR ${options.prNumber}.`,
 	});
 	if (classification.type === "error") return classification;
-	if (classification.value.value.pr_number !== options.prNumber) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: `Resolved classification artifact PR number ${classification.value.value.pr_number} does not match requested PR ${options.prNumber}.`,
-		};
-	}
 	return {
 		type: "ok",
 		value: {
@@ -600,21 +600,15 @@ export async function resolveStackFeedbackPlanSessionInput(store: PayloadArtifac
 	const classifications: StackFeedbackPlanInput["classifications"] = [];
 	const resolvedClassifications: StackFeedbackPlanResolvedInputs["classifications"] = [];
 	for (const prResult of prep.value.value.stack) {
-		const classification = await resolveLatestPrSessionArtifact({
+		const classification = await resolvePrScopedArtifact({
 			store,
 			prNumber: prResult.pr_number,
 			kind: "classification",
 			role: "summary",
 			schema: classificationArtifactSchema,
+			mismatchMessage: (actualPrNumber) => `Resolved classification artifact PR number ${actualPrNumber} does not match stack prep PR ${prResult.pr_number}.`,
 		});
 		if (classification.type === "error") return classification;
-		if (classification.value.value.pr_number !== prResult.pr_number) {
-			return {
-				type: "error",
-				errorType: "invalid_request",
-				message: `Resolved classification artifact PR number ${classification.value.value.pr_number} does not match stack prep PR ${prResult.pr_number}.`,
-			};
-		}
 		classifications.push({ pr_number: prResult.pr_number, classification: classification.value.value.classification });
 		resolvedClassifications.push({ pr_number: prResult.pr_number, reference: classification.value.reference });
 	}

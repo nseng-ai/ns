@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPayloadStoreFactory, PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
@@ -62,15 +63,14 @@ describe("managed classification/planning CLI operations", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as {
 			data: {
 				counts: { reviews: number; review_threads: number; discussion_comments: number };
-				classification_template: { schema_version: number };
 				resolved_inputs: { manifest: { descriptor: string; role: string; sequence: number } };
-				classification_template_reference?: unknown;
+				details: { classification_template: { schema_version: number }; classification_template_reference?: unknown };
 			};
 		};
 		expect(envelope.data.counts).toMatchObject({ reviews: 1, review_threads: 1, discussion_comments: 1 });
-		expect(envelope.data.classification_template.schema_version).toBe(1);
+		expect(envelope.data.details.classification_template.schema_version).toBe(1);
 		expect(envelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", role: "summary", sequence: 1 });
-		expect(envelope.data.classification_template_reference).toBeUndefined();
+		expect(envelope.data.details.classification_template_reference).toBeUndefined();
 	});
 
 	test("classification-template rejects mixed session and manifest input", async () => {
@@ -152,14 +152,13 @@ describe("managed classification/planning CLI operations", () => {
 		expect(await validateRun.exit).toBe(0);
 		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as {
 			data: {
-				valid: boolean;
 				resolved_inputs: { manifest: { descriptor: string; sequence: number } };
-				classification_reference: { descriptor: string; role: string; sequence: number };
+				details: { valid: boolean; classification_reference: { descriptor: string; role: string; sequence: number } };
 			};
 		};
-		expect(validateEnvelope.data.valid).toBe(true);
+		expect(validateEnvelope.data.details.valid).toBe(true);
 		expect(validateEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
-		expect(validateEnvelope.data.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", role: "summary", sequence: 2 });
+		expect(validateEnvelope.data.details.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", role: "summary", sequence: 2 });
 
 		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
 			cwd: REPO_ROOT,
@@ -169,15 +168,14 @@ describe("managed classification/planning CLI operations", () => {
 		expect(await planRun.exit).toBe(0);
 		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
 			data: {
-				valid: boolean;
 				resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } };
-				plan_reference: { descriptor: string; sequence: number };
+				details: { valid: boolean; plan_reference: { descriptor: string; sequence: number } };
 			};
 		};
-		expect(planEnvelope.data.valid).toBe(true);
+		expect(planEnvelope.data.details.valid).toBe(true);
 		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
 		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
-		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 4 });
+		expect(planEnvelope.data.details.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 4 });
 	});
 
 	test("validate-feedback-classification session mode rejects missing classification source", async () => {
@@ -215,10 +213,10 @@ describe("managed classification/planning CLI operations", () => {
 		);
 		expect(await validateRun.exit).toBe(0);
 		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as {
-			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number } }; classification_reference: { descriptor: string; sequence: number } };
+			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number } }; details: { classification_reference: { descriptor: string; sequence: number } } };
 		};
 		expect(validateEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
-		expect(validateEnvelope.data.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
+		expect(validateEnvelope.data.details.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
 
 		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
 			cwd: REPO_ROOT,
@@ -230,12 +228,12 @@ describe("managed classification/planning CLI operations", () => {
 		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
 			data: {
 				resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } };
-				plan_reference: { descriptor: string; sequence: number };
+				details: { plan_reference: { descriptor: string; sequence: number } };
 			};
 		};
 		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
 		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
-		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 4 });
+		expect(planEnvelope.data.details.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 4 });
 	});
 
 	test("validate-feedback-classification exposes only session input options at the command boundary", async () => {

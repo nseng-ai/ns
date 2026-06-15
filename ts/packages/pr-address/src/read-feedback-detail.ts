@@ -16,8 +16,8 @@ import {
 	type PayloadReference,
 	type PayloadStoreFactory,
 } from "./payload-store.ts";
-import { resolveOperationInput, resolvePrFeedbackSourceFromSession, type PrFeedbackSourceResolution } from "./session-inputs.ts";
-import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { resolvePrFeedbackSourceFromSession, type PrFeedbackSourceResolution } from "./session-inputs.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -38,7 +38,6 @@ const readFeedbackDetailParseSchema = z.object({
 	pr_number: z.int().optional(),
 	json_pointer: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 interface ReadFeedbackDetailResult {
@@ -68,6 +67,10 @@ export const readFeedbackDetailOperation = defineExecOperation({
 		schema: readFeedbackDetailParseSchema,
 		handler: runReadFeedbackDetailOperation,
 	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => compactReadFeedbackDetailResult(data, fullOutput),
+	},
 });
 
 async function runReadFeedbackDetailOperation(ctx: PrAddressExecContext, request: z.output<typeof readFeedbackDetailParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -90,29 +93,22 @@ async function runReadFeedbackDetailOperation(ctx: PrAddressExecContext, request
 	});
 	if (result.type === "error") return failure(result.errorType, result.message);
 	const data = source.value.kind === "raw_path" ? result.value : { ...result.value, resolved_inputs: { feedback: source.value.resolvedInput } };
-	if (request.stdout_mode === "full") return ok(data);
-	const compact = await compactReadFeedbackDetailResult(ctx, source.value, data);
-	if (compact.type === "error") return failure(compact.errorType, compact.message);
-	return ok(compact.value);
+	return ok(data);
 }
 
-async function compactReadFeedbackDetailResult(
-	ctx: PrAddressExecContext,
-	source: PrFeedbackSourceResolution,
-	data: ReadFeedbackDetailResult & { resolved_inputs?: unknown },
-): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
-	const storeResult = source.kind === "session" ? { type: "ok" as const, value: source.store } : await openStoreForPayload(ctx.context.payloadStoreFactory, source.payloadPath, ctx.context.payloadClock);
-	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-	const fullOutput = await writeGenericFullOutputArtifact({ store: storeResult.value, operation: "read-feedback-detail", data });
-	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+function compactReadFeedbackDetailResult(
+	data: unknown,
+	fullOutput: PayloadReference,
+): { type: "ok"; value: Record<string, unknown> } {
+	const result = data as ReadFeedbackDetailResult & { resolved_inputs?: unknown };
 	return {
 		type: "ok",
 		value: compactOperationResult({
 			operation: "read-feedback-detail",
-			counts: { value_chars: typeof data.value === "string" ? data.value.length : null, object_keys: isRecord(data.value) ? Object.keys(data.value).length : null },
-			resolvedInputs: data.resolved_inputs,
-			artifacts: { full_output: fullOutput.value },
-			details: { payload_path: data.payload_path, json_pointer: data.json_pointer, detail_kind: data.detail_kind },
+			counts: { value_chars: typeof result.value === "string" ? result.value.length : null, object_keys: isRecord(result.value) ? Object.keys(result.value).length : null },
+			resolvedInputs: result.resolved_inputs,
+			artifacts: { full_output: fullOutput },
+			details: { payload_path: result.payload_path, json_pointer: result.json_pointer, detail_kind: result.detail_kind },
 		}),
 	};
 }
@@ -202,7 +198,6 @@ const readFeedbackDetailsParseSchema = z.object({
 	selection_json: z.string().optional(),
 	pr_number: z.int().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 export const readFeedbackDetailsOperation = defineExecOperation({
@@ -211,6 +206,22 @@ export const readFeedbackDetailsOperation = defineExecOperation({
 		description: "Read selected PR feedback bodies or items into a summary payload artifact.",
 		schema: readFeedbackDetailsParseSchema,
 		handler: runReadFeedbackDetailsOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			const result = data as ReadFeedbackDetailsResult;
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "read-feedback-details",
+					counts: result.counts,
+					resolvedInputs: result.resolved_inputs,
+					artifacts: { full_output: fullOutput, produced: [{ kind: "selected-feedback-details", reference: result.selected_payload_reference }] },
+					details: { payload_path: result.payload_path, details: result.details },
+				}),
+			};
+		},
 	},
 });
 
@@ -233,16 +244,7 @@ async function runReadFeedbackDetailsOperation(ctx: PrAddressExecContext, reques
 		clock: ctx.context.payloadClock,
 	});
 	if (result.type === "error") return failure(result.errorType, result.message);
-	if (request.stdout_mode === "full") return ok(result.value);
-	return ok(
-		compactOperationResult({
-			operation: "read-feedback-details",
-			counts: result.value.counts,
-			resolvedInputs: result.value.resolved_inputs,
-			artifacts: { produced: [{ kind: "selected-feedback-details", reference: result.value.selected_payload_reference }] },
-			details: { payload_path: result.value.payload_path, details: result.value.details },
-		}),
-	);
+	return ok(result.value);
 }
 
 export async function readFeedbackDetails(options: {
@@ -336,30 +338,12 @@ async function resolveFeedbackSourceChoice(
 		| { commandName: "read-feedback-details"; selection: ReadFeedbackDetailsSelection; cliPrNumber: number | undefined },
 ): Promise<{ type: "ok"; value: FeedbackSourceChoice } | ({ type: "error" } & PayloadOperationError)> {
 	if (options.commandName === "read-feedback-detail") {
-		const resolved = await resolveOperationInput<FeedbackSourceChoice>({
-			commandName: "read-feedback-detail",
-			explicitSource: {
-				hasExplicitSource: options.payloadPath !== undefined,
-				description: "--payload-path",
-				resolve: async () => {
-					if (options.payloadPath === undefined) throw new Error("read-feedback-detail payload-path source was selected without payload_path");
-					return { type: "ok", value: { type: "payload_path", payloadPath: options.payloadPath } };
-				},
-			},
-			sessionSource: {
-				isSelected: options.prNumber !== undefined,
-				description: "--pr-number",
-				resolve: async () => {
-					if (options.prNumber === undefined) throw new Error("read-feedback-detail PR-number source was selected without pr_number");
-					return { type: "ok", value: { type: "pr_number", prNumber: options.prNumber } };
-				},
-			},
-			defaultSource: "error",
-			mixInputMessage: "read-feedback-detail cannot mix --payload-path with --pr-number; pass exactly one feedback source.",
-			missingInputMessage: "read-feedback-detail requires a feedback source via --payload-path or --pr-number.",
+		return feedbackSourceChoiceFromPair({
+			payloadPath: options.payloadPath,
+			prNumber: options.prNumber,
+			mixMessage: "read-feedback-detail cannot mix --payload-path with --pr-number; pass exactly one feedback source.",
+			missingMessage: "read-feedback-detail requires a feedback source via --payload-path or --pr-number.",
 		});
-		if (resolved.type === "error") return resolved;
-		return { type: "ok", value: resolved.value.value };
 	}
 
 	const selection = options.selection;
@@ -378,29 +362,24 @@ async function resolveFeedbackSourceChoice(
 		};
 	}
 	const prNumber = options.cliPrNumber ?? selection.pr_number;
-	const resolved = await resolveOperationInput<FeedbackSourceChoice>({
-		commandName: "read-feedback-details",
-		explicitSource: {
-			hasExplicitSource: selection.payload_path !== undefined,
-			description: "selection payload_path",
-			resolve: async () => {
-				if (selection.payload_path === undefined) throw new Error("read-feedback-details payload-path source was selected without payload_path");
-				return { type: "ok", value: { type: "payload_path", payloadPath: selection.payload_path } };
-			},
-		},
-		sessionSource: {
-			isSelected: prNumber !== undefined,
-			description: "selection pr_number or --pr-number",
-			resolve: async () => {
-				if (prNumber === undefined) throw new Error("read-feedback-details PR-number source resolution lost pr_number");
-				return { type: "ok", value: { type: "pr_number", prNumber } };
-			},
-		},
-		defaultSource: "error",
-		missingInputMessage: "read-feedback-details requires a feedback source via selection payload_path, selection pr_number, or --pr-number.",
+	return feedbackSourceChoiceFromPair({
+		payloadPath: selection.payload_path,
+		prNumber,
+		mixMessage: "read-feedback-details selection cannot mix payload_path with pr_number; pass exactly one feedback source.",
+		missingMessage: "read-feedback-details requires a feedback source via selection payload_path, selection pr_number, or --pr-number.",
 	});
-	if (resolved.type === "error") return resolved;
-	return { type: "ok", value: resolved.value.value };
+}
+
+function feedbackSourceChoiceFromPair(options: {
+	payloadPath: string | undefined;
+	prNumber: number | undefined;
+	mixMessage: string;
+	missingMessage: string;
+}): { type: "ok"; value: FeedbackSourceChoice } | ({ type: "error" } & PayloadOperationError) {
+	if (options.payloadPath !== undefined && options.prNumber !== undefined) return { type: "error", errorType: "invalid_request", message: options.mixMessage };
+	if (options.payloadPath !== undefined) return { type: "ok", value: { type: "payload_path", payloadPath: options.payloadPath } };
+	if (options.prNumber !== undefined) return { type: "ok", value: { type: "pr_number", prNumber: options.prNumber } };
+	return { type: "error", errorType: "invalid_request", message: options.missingMessage };
 }
 
 async function openStoreForPayload(

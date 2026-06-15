@@ -94,6 +94,30 @@ async function expectArtifacts(root: string, artifacts: readonly FixtureArtifact
 	}
 }
 
+function expectNestedCompactEnvelope(actualText: string, expectedLegacyText: string): void {
+	const actual = JSON.parse(actualText) as { data: Record<string, unknown> };
+	const expected = JSON.parse(expectedLegacyText) as { data: Record<string, unknown> };
+	const { operation, counts, artifacts, details: _legacyDuplicateDetails, ...expectedDetails } = expected.data;
+	const actualArtifacts = actual.data.artifacts as { full_output?: { descriptor?: string }; produced?: unknown };
+	const expectedArtifacts = artifacts as { produced?: unknown } | undefined;
+	expect(actual.data.operation).toBe(operation);
+	expect(actual.data.counts).toEqual(counts);
+	expect(actualArtifacts.full_output?.descriptor).toMatch(/^pr-address-command-.*-output$/);
+	expect(stripPayloadBytes(actualArtifacts.produced ?? [])).toEqual(stripPayloadBytes(expectedArtifacts?.produced ?? []));
+	expect(stripPayloadBytes(actual.data.details)).toEqual(stripPayloadBytes(expectedDetails));
+}
+
+function stripPayloadBytes(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(stripPayloadBytes);
+	if (typeof value !== "object" || value === null) return value;
+	const result: Record<string, unknown> = {};
+	for (const [key, item] of Object.entries(value)) {
+		if (key === "payload_bytes") result[key] = 0;
+		else result[key] = stripPayloadBytes(item);
+	}
+	return result;
+}
+
 describe("stack-feedback-prep parity with the Python CLI", () => {
 	for (const prepCase of prepFixture.cases) {
 		test(`matches the Python envelope for ${prepCase.name}`, async () => {
@@ -106,7 +130,8 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 
 			expect(await run.exit).toBe(prepCase.expected_exit_code);
 			const expectedEnvelope = root === null ? prepCase.expected_envelope_text : prepCase.expected_envelope_text.replaceAll("{ROOT}", root);
-			expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
+			if (prepCase.name.includes("compact") && prepCase.expected_exit_code === 0) expectNestedCompactEnvelope(run.stdout.join(""), expectedEnvelope);
+			else expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
 			if (prepCase.artifacts !== undefined && root !== null) await expectArtifacts(root, prepCase.artifacts);
 		});
 	}
@@ -182,7 +207,7 @@ describe("stack-feedback-prep stack-reference input", () => {
 		const rootFromStdin = await makePayloadRoot();
 		const stdinRun = runPrep(["--stdout-mode", "compact"], rootFromStdin, stackInputJson());
 		expect(await stdinRun.exit).toBe(0);
-		const stdinEnvelope = JSON.parse(stdinRun.stdout.join("")) as { data: { summary: unknown; stack: unknown } };
+		const stdinEnvelope = JSON.parse(stdinRun.stdout.join("")) as { data: { details: { summary: unknown; stack: unknown } } };
 
 		const scratch = await makeScratchDir();
 		const stackPath = join(scratch, "stack.json");
@@ -191,10 +216,10 @@ describe("stack-feedback-prep stack-reference input", () => {
 		const referenceRun = runPrep(["--stack-reference", stackPath, "--stdout-mode", "compact"], rootFromReference, "this is not json and must not be read");
 
 		expect(await referenceRun.exit).toBe(0);
-		const referenceEnvelope = JSON.parse(referenceRun.stdout.join("")) as { data: { summary: unknown; stack: Array<{ pr_number: number; branch: string; counts: unknown }> } };
-		expect(referenceEnvelope.data.summary).toEqual(stdinEnvelope.data.summary);
-		expect(referenceEnvelope.data.stack.map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts }))).toEqual(
-			(stdinEnvelope.data.stack as Array<{ pr_number: number; branch: string; counts: unknown }>).map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts })),
+		const referenceEnvelope = JSON.parse(referenceRun.stdout.join("")) as { data: { details: { summary: unknown; stack: Array<{ pr_number: number; branch: string; counts: unknown }> } } };
+		expect(referenceEnvelope.data.details.summary).toEqual(stdinEnvelope.data.details.summary);
+		expect(referenceEnvelope.data.details.stack.map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts }))).toEqual(
+			(stdinEnvelope.data.details.stack as Array<{ pr_number: number; branch: string; counts: unknown }>).map((item) => ({ pr_number: item.pr_number, branch: item.branch, counts: item.counts })),
 		);
 	});
 
@@ -250,8 +275,8 @@ describe("stack-feedback-prep stack-reference input", () => {
 		const run = runPrep(["--stack-reference", stackPath, "--include-resolved", "--stdout-mode", "compact"], root);
 
 		expect(await run.exit).toBe(0);
-		const envelope = JSON.parse(run.stdout.join("")) as { data: { include_resolved: boolean } };
-		expect(envelope.data.include_resolved).toBe(true);
+		const envelope = JSON.parse(run.stdout.join("")) as { data: { details: { include_resolved: boolean } } };
+		expect(envelope.data.details.include_resolved).toBe(true);
 	});
 });
 
@@ -266,7 +291,8 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 
 			expect(await run.exit).toBe(planCase.expected_exit_code);
 			const expectedEnvelope = root === null ? planCase.expected_envelope_text : planCase.expected_envelope_text.replaceAll("{ROOT}", root);
-			expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
+			if (planCase.name.includes("compact") && planCase.expected_exit_code === 0) expectNestedCompactEnvelope(run.stdout.join(""), expectedEnvelope);
+			else expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
 			if (planCase.artifacts !== undefined && root !== null) await expectArtifacts(root, planCase.artifacts);
 		});
 	}

@@ -2,17 +2,16 @@ import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
 import type { PayloadArtifactStore } from "./payload-store.ts";
-import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput } from "./stack-feedback-prep-contracts.ts";
+import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput, type StackFeedbackPrepResult } from "./stack-feedback-prep-contracts.ts";
 import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-prep-core.ts";
 
 const stackFeedbackPrepParseSchema = z.object({
 	stack_json: z.string().optional(),
 	stack_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 	include_resolved: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 });
@@ -24,6 +23,24 @@ export const stackFeedbackPrepOperation = defineExecOperation({
 		description: "Fetch stack PR feedback, write payload artifacts, and build classification templates.",
 		schema: stackFeedbackPrepParseSchema,
 		handler: runStackFeedbackPrepOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			const result = data as StackFeedbackPrepResult;
+			const stackSummaryReference = result.stack_summary_reference;
+			if (stackSummaryReference === null) return { type: "error", errorType: "payload_lookup_failed", message: "stack-feedback-prep compact output requires a stack summary reference." };
+			const compact = compactPrepResult(result, stackSummaryReference);
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "stack-feedback-prep",
+					counts: { ...compact.summary },
+					artifacts: { full_output: fullOutput, produced: [{ kind: "stack-prep", reference: stackSummaryReference }] },
+					details: { ...compact },
+				}),
+			};
+		},
 	},
 });
 
@@ -59,18 +76,7 @@ async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request:
 	if (prepared.type === "error") return prepared.exit;
 
 	const { result, stackSummaryReference } = prepared.value;
-	if (request.stdout_mode === "compact") {
-		const compact = compactPrepResult(result, stackSummaryReference);
-		return ok(
-			compactOperationResult({
-				operation: "stack-feedback-prep",
-				counts: { ...compact.summary },
-				artifacts: { produced: [{ kind: "stack-prep", reference: stackSummaryReference }] },
-				details: { ...compact },
-			}),
-		);
-	}
-	return ok(result);
+	return ok({ ...result, stack_summary_reference: stackSummaryReference });
 }
 
 async function resolvePrepStackInput(options: {

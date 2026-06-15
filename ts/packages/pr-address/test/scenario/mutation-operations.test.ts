@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPayloadStoreFactory, type PayloadResult } from "../../src/payload-store.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import type { PayloadResult } from "../../src/payload-store.ts";
 import { prBatchArtifactDescriptor } from "../../src/session-artifacts.ts";
 import type { ThreadResolutionBuildArtifact } from "../../src/thread-resolution-build-artifact.ts";
 import { REPO_ROOT } from "../support/golden.ts";
