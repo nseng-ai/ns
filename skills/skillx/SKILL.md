@@ -5,6 +5,7 @@ name: skillx
 description: "Command: skillx"
 allowed-tools:
   - "Bash(areg exec skillx *)"
+  - "Bash(node ts/packages/areg/src/cli.ts exec skillx *)"
 ---
 
 # skillx
@@ -27,24 +28,34 @@ Do NOT use skillx when the user wants to permanently install a skill -- use
 
 ## CLI prefix
 
-All commands use this prefix:
+Prefer the installed/shimmed command:
 
 ```bash
 areg exec skillx
 ```
 
-If `areg` is only available from a checkout, run the same command through that
-checkout's environment (for example, `uv run areg exec skillx ...`).
+If `areg` is only available from a checkout, run the same command through the
+TypeScript source CLI:
+
+```bash
+node ts/packages/areg/src/cli.ts exec skillx
+```
+
+All hidden skillx commands must use `--format json`. The TypeScript CLI returns
+a Clinkr JSON envelope: on success, read fields from `data`; if `exit_code` is
+nonzero, read the top-level `message` and any `data.error` details.
 
 ## Step 1: Parse the request
 
 Run the parse command with the user's raw input:
 
 ```bash
-areg exec skillx parse "<user-input>"
+areg exec skillx parse "<user-input>" --format json
 ```
 
-Returns JSON: `{"success": true, "repo": "owner/repo", "skill": "name-or-null", "format": "..."}`.
+Returns a Clinkr envelope such as
+`{"exit_code": 0, "data": {"success": true, "repo": "owner/repo", "skill": "name-or-null", "format": "..."}}`.
+Use `data.repo`, `data.skill`, and `data.format`.
 
 If parsing fails, extract `repo` and `skill` from context using your judgment.
 The CLI handles URLs, `-s`/`--skill` flags, and plain `owner/repo [skill]` --
@@ -58,23 +69,25 @@ Also extract the **task**: whatever the user actually wants done with the skill
 **If no skill name**, list available skills and stop:
 
 ```bash
-areg exec skillx list --repo <owner/repo>
+areg exec skillx list --repo <owner/repo> --format json
 ```
 
-Returns JSON: `{"success": true, "repo": "...", "skills": [...]}`. Report the
-list to the user and stop.
+Returns a Clinkr envelope with `data.success`, `data.repo`, and `data.skills`.
+Report the list to the user and stop.
 
 **If skill name is known**, proceed to Step 3.
 
 ## Step 3: Fetch the skill
 
 ```bash
-areg exec skillx fetch --repo <owner/repo> --skill <skill-name>
+areg exec skillx fetch --repo <owner/repo> --skill <skill-name> --format json
 ```
 
-Returns JSON with `tmp_dir`, `skill_dir`, `skill_md`, and `files`. If
-`needs_selection` is true, show `available_skills` and ask which to use. If the
-command fails (`success: false`), report the error and stop.
+Returns a Clinkr envelope whose `data` object includes `tmp_dir`, `skill_dir`,
+`skill_md`, and `files`. If `data.needs_selection` is true, show
+`data.available_skills` and ask which to use. If the command fails
+(`exit_code != 0` or `data.success === false`), report the top-level message or
+`data.error` and stop.
 
 ## Step 4: Read and follow the SKILL.md
 
@@ -97,7 +110,7 @@ granted. The user will see normal permission prompts.
 After the skill's work is complete (or if any step fails):
 
 ```bash
-areg exec skillx cleanup --dir <tmp_dir>
+areg exec skillx cleanup --dir <tmp_dir> --format json
 ```
 
 ## What skillx does NOT do

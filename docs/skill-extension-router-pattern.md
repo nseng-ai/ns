@@ -71,7 +71,7 @@ For a skill migration, also verify the installed router and repository consisten
 
 ```bash
 INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<router-name>"
-uv run areg check
+just areg-check
 ```
 
 For selector code changes, load the TypeScript style skill before editing and run the relevant package checks/tests, normally through the repo `just` targets or the changed package's `pnpm --dir ts/packages/pi-extensions ...` scripts.

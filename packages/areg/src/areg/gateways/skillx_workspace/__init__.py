@@ -1,1 +1,0 @@
-"""Transient skillx workspace gateway."""
