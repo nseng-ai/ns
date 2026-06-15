@@ -336,6 +336,30 @@ describe("sdl submit CLI", () => {
 		expect(formattedExecCalls(run.context).filter((call) => call === "gt submit -nps --no-ai --no-interactive --no-view --no-web")).toEqual([]);
 	});
 
+	test("failed submit output gets an optional model interpretation", async () => {
+		const run = runWithFakes(["submit", "--restack"], {
+			exec: [
+				...cleanCheckpointResponses(),
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack required before submit\n" } },
+				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+				{
+					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+					result: { code: 1, stderr: "WARNING: You must restack before submitting this stack.\nERROR: Aborting dry run.\n" },
+				},
+			],
+			textGeneration: [{ ok: true, text: "## What happened\nGraphite still thinks the stack is stale.\n\n## Recommended next steps\nRun `gt submit -nps --no-ai --no-interactive --dry-run` and inspect the stack state." }],
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Graphite readiness changed after restack. Submission was not attempted");
+		expect(error).toContain("AI interpretation:");
+		expect(error).toContain("Graphite still thinks the stack is stale.");
+		expect(run.context.modelCalls).toHaveLength(1);
+		expect(run.context.modelCalls[0]?.operation).toBe("submit-failure");
+		expect(run.context.modelCalls[0]?.prompt).toContain("WARNING: You must restack before submitting this stack.");
+	});
+
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes(["submit"], {
 			exec: [

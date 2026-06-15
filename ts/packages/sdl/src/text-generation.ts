@@ -6,7 +6,7 @@ export interface TextGenerationRequest {
 	prompt: string;
 	maxTokens?: number;
 	reasoning?: "minimal" | "low";
-	operation?: "checkpoint-message" | "changes-summary" | "pr-description";
+	operation?: "checkpoint-message" | "changes-summary" | "pr-description" | "submit-failure";
 }
 
 export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };

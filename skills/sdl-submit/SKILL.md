@@ -31,7 +31,8 @@ The CLI owns the orchestration:
 - verifies that the current branch has a PR after submit;
 - generates title/body descriptions for submitted PRs whose bodies are empty, carry the asdl generated-body marker, or exactly match a commit message body;
 - lists PRs whose bodies look hand-edited as skipped, with a pointer to `asdl-dev pr-regen`;
-- reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures.
+- reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures;
+- when model access is available, appends an `AI interpretation` section with a concise explanation and next steps for failed submit output.
 
 If the CLI says a restack is required:
 
@@ -53,6 +54,8 @@ PR description generation uses:
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
 - `.asdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
+Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.
+
 To regenerate the current branch PR explicitly, run:
 
 ```bash
@@ -63,7 +66,7 @@ asdl-dev pr-regen
 
 ## Failure handling
 
-Surface CLI output directly. Do not bypass the checkpoint failure, restack guidance, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
+Surface CLI output directly, including any `AI interpretation` section. Do not bypass the checkpoint failure, restack guidance, Graphite submit failure, or post-submit PR verification failure. Do not fall back to raw `gt submit` unless the user explicitly asks for a manual fallback after seeing the CLI failure.
 
 ## Boundaries
 

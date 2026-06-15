@@ -10,6 +10,7 @@ import {
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
 import { defineCommand, failed, ok, z, type ExecOptions as SdlExecOptions, type SdlContext } from "../sdk.ts";
+import { maybeAppendSubmitFailureInterpretation } from "../submit-failure-interpretation.ts";
 
 const submitSchema = z.object({
 	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
@@ -23,6 +24,8 @@ Environment:
   ASDL_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
   ASDL_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
+  SDL_SUBMIT_FAILURE_MODEL     Model reference for interpreting failed submit output.
+
 The command owns its output and exit code. It does not support --format.`,
 	schema: submitSchema,
 	async run(ctx: SdlContext, request: z.output<typeof submitSchema>) {
@@ -34,7 +37,11 @@ The command owns its output and exit code. It does not support --format.`,
 			textGeneration: ctx.model,
 		});
 		if (checkpoint.kind === "failed") {
-			ctx.stderr?.(formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr));
+			const checkpointFailure = await maybeAppendSubmitFailureInterpretation(
+				{ stdout: "", stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr), exitCode: checkpoint.output.exitCode },
+				ctx,
+			);
+			ctx.stderr?.(checkpointFailure.stderr);
 			return failed("", checkpoint.output.exitCode);
 		}
 		if (checkpoint.kind === "checkpointed") {
@@ -59,8 +66,9 @@ The command owns its output and exit code. It does not support --format.`,
 						confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => ctx.confirm?.(prompt.title, prompt.message) ?? false,
 					}),
 		});
-		writeCommandResultOutput(result, ctx);
-		return result.exitCode === 0 ? ok("") : failed("", result.exitCode);
+		const interpretedResult = await maybeAppendSubmitFailureInterpretation(result, ctx);
+		writeCommandResultOutput(interpretedResult, ctx);
+		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 	},
 });
 

@@ -122,12 +122,14 @@ Behavior:
 - uses `@asdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
 - streams live Graphite output through SDL runtime hooks while preserving command-owned final stdout/stderr;
 - prompts through `ctx.confirm` when Graphite reports a required restack, or runs restack directly with `--restack`;
+- asks the configured model to append a concise interpretation and recommended next steps to failed submit output when model access is available;
 - exposes the Pi mirror as `/sdl:submit` from SDL command metadata.
 
 Environment:
 
 - `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+- `SDL_SUBMIT_FAILURE_MODEL`: model reference for failed submit output interpretation.
 
 `submit` is a built-in SDL command, not a repo-local `.asdl/commands/submit.ts` module. `asdl-dev submit`, `/code:submit`, and project-local fake Pi metadata are not retained as compatibility surfaces.
 
