@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { feedbackPlanningValidationResultSchema } from "./feedback-plan-contracts.ts";
-import { isSafeSegment, payloadError, type JsonPayloadRole, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
+import { isSafeSegment, payloadError, requireSafeSegment, type JsonPayloadRole, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
 export type PrBatchArtifactKind = "resolve-build" | "resolution" | "checkpoint";
@@ -30,6 +30,10 @@ export function prBatchArtifactDescriptor(options: { prNumber: number; batchId: 
 
 export function stackArtifactDescriptor(kind: StackArtifactKind): string {
 	return `pr-address-stack-${kind}`;
+}
+
+export function operationOutputArtifactDescriptor(operation: string): string {
+	return requireSafeSegment(`pr-address-command-${operation}-output`, { label: "operation output descriptor" });
 }
 
 export async function resolveLatestJsonSessionArtifact<T = unknown>(options: {

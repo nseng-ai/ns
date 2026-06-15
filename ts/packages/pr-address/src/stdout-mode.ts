@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import type { PrAddressExecContext } from "./exec-operation.ts";
-import { requireSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult, type PayloadErrorType } from "./payload-store.ts";
+import type { PayloadArtifactStore, PayloadReference, PayloadResult, PayloadErrorType } from "./payload-store.ts";
+import { operationOutputArtifactDescriptor } from "./session-artifacts.ts";
 
 export const stdoutModeSchema = z.enum(["full", "compact"]).default("compact");
 export type StdoutMode = z.infer<typeof stdoutModeSchema>;
@@ -80,8 +81,4 @@ export async function writeGenericFullOutputArtifact(options: {
 			data: options.data,
 		} satisfies GenericFullOutputArtifact,
 	});
-}
-
-export function operationOutputArtifactDescriptor(operation: string): string {
-	return requireSafeSegment(`pr-address-command-${operation}-output`, { label: "operation output descriptor" });
 }
