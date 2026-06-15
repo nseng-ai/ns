@@ -44,6 +44,14 @@ const validateFeedbackClassificationParseSchema = z.object({
 	persist_session: z.boolean().default(false),
 });
 
+const VALIDATE_FEEDBACK_CLASSIFICATION_COMMAND = "validate-feedback-classification";
+const VALIDATE_WRAPPER_INPUT_DESCRIPTION = "wrapper input (--payload-json/--payload-file)";
+const VALIDATE_MANIFEST_INPUT_DESCRIPTION = "manifest input (--manifest-json/--manifest-file)";
+
+function validateSessionMixMessage(inputDescription: string): string {
+	return `${VALIDATE_FEEDBACK_CLASSIFICATION_COMMAND} cannot mix session resolution (--pr-number) with ${inputDescription}.`;
+}
+
 export const validateFeedbackClassificationOperation = defineExecOperation({
 	spec: {
 		name: "validate-feedback-classification",
@@ -79,20 +87,6 @@ async function runClassificationTemplateOperation(
 	request: z.output<typeof classificationTemplateParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
 	const hasManifestInput = request.manifest_json !== undefined || request.manifest_file !== undefined;
-	if (request.pr_number !== undefined && hasManifestInput) {
-		return failure(
-			"invalid_request",
-			"classification-template cannot mix session resolution (--pr-number) with manifest input (--manifest-json/--manifest-file).",
-		);
-	}
-	const stdinText = request.pr_number === undefined ? undefined : await ctx.stdin();
-	if (request.pr_number !== undefined && stdinText !== undefined && stdinText.trim() !== "") {
-		return failure(
-			"invalid_request",
-			"classification-template cannot mix session resolution (--pr-number) with manifest input (--manifest-json/--manifest-file).",
-		);
-	}
-
 	const inputResult = await resolveOperationInput<ClassificationTemplateInput>({
 		commandName: "classification-template",
 		explicitSource: {
@@ -100,7 +94,7 @@ async function runClassificationTemplateOperation(
 			description: "manifest input (--manifest-json/--manifest-file)",
 			resolve: async (stdin) => await loadClassificationTemplateManifestInput(request, stdin),
 		},
-		stdin: { read: stdinText === undefined ? ctx.stdin : async () => stdinText, nonEmptyMode: "payload" },
+		stdin: { read: ctx.stdin, nonEmptyMode: "payload" },
 		sessionSource: {
 			isSelected: request.pr_number !== undefined,
 			description: "session resolution (--pr-number)",
@@ -213,8 +207,7 @@ async function loadPlanFeedbackWrapperInput(
 }
 
 type ValidateFeedbackClassificationInput =
-	| { source: "wrapper"; manifest: unknown; classification: unknown }
-	| { source: "split"; manifest: unknown; classification: unknown }
+	| { source: "explicit"; manifest: unknown; classification: unknown }
 	| {
 			source: "session";
 			manifest: unknown;
@@ -232,13 +225,6 @@ async function persistValidatedClassification(options: {
 	input: ValidateFeedbackClassificationInput;
 	result: FeedbackClassificationValidationResult;
 }): Promise<OperationResult<PayloadReference | null>> {
-	if (options.input.source === "session" && options.result.pr_number !== options.input.session.prNumber) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: `Validated classification PR number ${options.result.pr_number} does not match requested PR ${options.input.session.prNumber}.`,
-		};
-	}
 	const shouldPersist = options.input.source === "session" || options.request.persist_session;
 	if (!shouldPersist) return { type: "ok", value: null };
 	if (options.result.pr_number === null) {
@@ -295,6 +281,7 @@ async function loadValidatePayload(
 	const classificationSourceCount = Number(request.classification_json !== undefined) + Number(request.classification_file !== undefined);
 	const hasWrapperOptions = request.payload_json !== undefined || request.payload_file !== undefined;
 	const hasSessionSource = request.pr_number !== undefined;
+	// validate has a wrapper/split/session source matrix that does not fit resolveOperationInput's explicit/session shape.
 	if (hasSessionSource) return await loadValidatePayloadFromSession(ctx, request, manifestSourceCount, classificationSourceCount, hasWrapperOptions, stdin);
 
 	const hasSplitOptions = manifestSourceCount > 0 || classificationSourceCount > 0;
@@ -330,14 +317,14 @@ async function loadValidatePayloadFromSession(
 		return {
 			type: "error",
 			errorType: "invalid_request",
-			message: "validate-feedback-classification cannot mix session resolution (--pr-number) with wrapper input (--payload-json/--payload-file).",
+			message: validateSessionMixMessage(VALIDATE_WRAPPER_INPUT_DESCRIPTION),
 		};
 	}
 	if (manifestSourceCount > 0) {
 		return {
 			type: "error",
 			errorType: "invalid_request",
-			message: "validate-feedback-classification cannot mix session resolution (--pr-number) with manifest input (--manifest-json/--manifest-file).",
+			message: validateSessionMixMessage(VALIDATE_MANIFEST_INPUT_DESCRIPTION),
 		};
 	}
 	if (classificationSourceCount !== 1) {
@@ -386,7 +373,7 @@ async function loadValidateWrapperPayload(
 		stdin,
 	});
 	if (result.type === "error") return { type: "error", errorType: result.error.errorType, message: result.error.message };
-	return { type: "ok", value: { source: "wrapper", manifest: result.value.manifest, classification: result.value.classification } };
+	return { type: "ok", value: { source: "explicit", manifest: result.value.manifest, classification: result.value.classification } };
 }
 
 async function loadValidateSplitPayload(
@@ -415,5 +402,5 @@ async function loadValidateSplitPayload(
 		stdin,
 	});
 	if (classification.type === "error") return { type: "error", errorType: classification.error.errorType, message: classification.error.message };
-	return { type: "ok", value: { source: "split", manifest: manifest.value, classification: classification.value } };
+	return { type: "ok", value: { source: "explicit", manifest: manifest.value, classification: classification.value } };
 }
