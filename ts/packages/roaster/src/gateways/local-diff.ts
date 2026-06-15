@@ -8,6 +8,7 @@ import { parseUnifiedDiff } from "../diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../failures.ts";
 import { createLocalDiff, type LocalDiff } from "../models.ts";
 import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../project-config.ts";
+import { isMissingFileError } from "./filesystem-errors.ts";
 
 export interface LoadDiffOptions {
 	readonly cwd: string;
@@ -133,10 +134,6 @@ function localDiffCopy(value: LocalDiff): LocalDiff {
 
 function error(errorValue: LocalDiffFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
-}
-
-function isMissingFileError(caught: unknown): boolean {
-	return typeof caught === "object" && caught !== null && "code" in caught && caught.code === "ENOENT";
 }
 
 function execOptions(cwd: string, options: LoadDiffOptions): { cwd: string; env?: NodeJS.ProcessEnv; signal?: AbortSignal } {
