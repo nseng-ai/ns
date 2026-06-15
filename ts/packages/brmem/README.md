@@ -23,7 +23,7 @@ just install-brmem
 just install-tools
 ```
 
-The recipe renders `scripts/brmem-shim` to `$HOME/.local/bin/brmem`.
+The recipe renders the shared TypeScript source CLI shim template to `$HOME/.local/bin/brmem`.
 
 - Inside an asdl checkout, the shim runs that checkout's `ts/packages/brmem/src/cli.ts`.
 - Outside an asdl checkout, it runs the checkout path baked in when the shim was installed.

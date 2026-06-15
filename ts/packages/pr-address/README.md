@@ -26,7 +26,7 @@ Argv usage errors (unknown/missing options, excess arguments, non-integer values
 
 `pr-address` is distributed as a machine-level PATH shim that runs this package's sources directly; nothing is bundled or published:
 
-- **Install**: `just install-pr-address` renders `scripts/pr-address-shim` to `~/.local/bin/pr-address`, baking in the installing checkout's path as the canonical fallback.
+- **Install**: `just install-pr-address` renders the shared TypeScript source CLI shim template to `~/.local/bin/pr-address`, baking in the installing checkout's path as the canonical fallback.
 - **Dispatch**: inside an asdl checkout (any worktree), the shim runs that checkout's `ts/packages/pr-address/src/cli.ts`, so each worktree exercises its own code. Everywhere else it runs the baked canonical checkout's sources.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`). The shim fails with a clear message when either checkout is unusable.
 - **Rollback**: run the independently published `asdl-pr-address` package manually via `uvx --from asdl-pr-address==0.1.1 pr-address`. That release lives on PyPI and is unrelated to the in-repo TypeScript sources.

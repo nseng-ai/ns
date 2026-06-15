@@ -7,8 +7,21 @@ import { createTempDirTracker } from "@asdl/core/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../../..", import.meta.url)));
-const SHIM_TEMPLATE = join(REPO_ROOT, "ts/packages/handoff/scripts/handoff-shim");
-const CANONICAL_TOKEN = "@@ASDL_CANONICAL_CHECKOUT@@";
+const SHIM_TEMPLATE = join(REPO_ROOT, "ts/scripts/source-cli-shim-template");
+const TOKEN_PREFIX = "@@ASDL_";
+const SHELL_SAFE_VALUE_PATTERN = /^[A-Za-z0-9_@%+=:,./-]+$/u;
+
+interface ShimConfig {
+	tool: string;
+	cliRelPath: string;
+	installHint: string;
+}
+
+const SHIM_CONFIG = {
+	tool: "handoff",
+	cliRelPath: "ts/packages/handoff/src/cli.ts",
+	installHint: "just install-handoff or just install-tools",
+} as const satisfies ShimConfig;
 
 const tempDirs = createTempDirTracker();
 
@@ -20,16 +33,34 @@ async function installShim(canonicalCheckout: string): Promise<string> {
 	const dir = await tempDirs.makeTempDir("handoff-shim-");
 	const template = await readFile(SHIM_TEMPLATE, "utf8");
 	const shimPath = join(dir, "handoff");
-	await writeFile(shimPath, template.replaceAll(CANONICAL_TOKEN, canonicalCheckout), "utf8");
+	await writeFile(shimPath, renderShimTemplate(template, canonicalCheckout), "utf8");
 	await chmod(shimPath, 0o755);
 	return shimPath;
+}
+
+function renderShimTemplate(template: string, canonicalCheckout: string): string {
+	const rendered = template
+		.replaceAll("@@ASDL_TOOL@@", shellQuote(SHIM_CONFIG.tool))
+		.replaceAll("@@ASDL_CANONICAL_CHECKOUT@@", shellQuote(canonicalCheckout))
+		.replaceAll("@@ASDL_CLI_REL_PATH@@", shellQuote(SHIM_CONFIG.cliRelPath))
+		.replaceAll("@@ASDL_INSTALL_HINT@@", shellQuote(SHIM_CONFIG.installHint));
+	if (rendered.includes(TOKEN_PREFIX)) {
+		throw new Error("unrendered shim token remains");
+	}
+	return rendered;
+}
+
+function shellQuote(value: string): string {
+	if (value.length > 0 && SHELL_SAFE_VALUE_PATTERN.test(value)) return value;
+	return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
 async function makeFakeCheckout(options: { shouldIncludeNodeModules: boolean }): Promise<string> {
 	const dir = await tempDirs.makeTempDir("handoff-shim-");
 	spawnSync("git", ["init", "--quiet", dir], { encoding: "utf8" });
 	await mkdir(join(dir, "ts/packages/handoff/src"), { recursive: true });
-	await writeFile(join(dir, "ts/packages/handoff/src/cli.ts"), `console.log("fake-cli: " + process.argv.slice(2).join(" "));\n`, "utf8");
+	await writeFile(join(dir, "ts/packages/handoff/src/cli.ts"), `console.log("fake-cli: " + process.argv.slice(2).join(" "));
+`, "utf8");
 	if (options.shouldIncludeNodeModules) await mkdir(join(dir, "ts/node_modules"), { recursive: true });
 	return dir;
 }
@@ -47,11 +78,14 @@ function runShim(shimPath: string, args: readonly string[], options: { cwd: stri
 }
 
 describe("handoff shim", () => {
-	test("renders the canonical checkout path into the installed shim", async () => {
+	test("renders the tool-specific values into the installed shim", async () => {
 		const shimPath = await installShim("/canonical/asdl");
 		const rendered = await readFile(shimPath, "utf8");
-		expect(rendered).not.toContain(CANONICAL_TOKEN);
-		expect(rendered).toContain('canonical_checkout="/canonical/asdl"');
+		expect(rendered).not.toContain(TOKEN_PREFIX);
+		expect(rendered).toContain("tool=handoff");
+		expect(rendered).toContain("canonical_checkout=/canonical/asdl");
+		expect(rendered).toContain("cli_rel_path=ts/packages/handoff/src/cli.ts");
+		expect(rendered).toContain("install_hint='just install-handoff or just install-tools'");
 	});
 
 	test("runs the enclosing checkout's TypeScript CLI inside an asdl checkout", async () => {
