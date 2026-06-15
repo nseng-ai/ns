@@ -2,6 +2,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
@@ -86,11 +87,7 @@ async function runStackFeedbackPreflightOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackPreflightParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: request.harness_session_id ?? null,
-		env: ctx.env,
-		clock: ctx.context.payloadClock,
-	});
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 

@@ -5,6 +5,7 @@ import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./feedback-
 import type { FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import type { JsonInputError } from "./json-input.ts";
 import { buildGetFeedbackPayloadManifest, type JsonPayloadRole, type PayloadArtifactStore, type PayloadErrorType, type PayloadReference } from "./payload-store.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import {
 	classificationArtifactSchema,
 	prArtifactDescriptor,
@@ -137,11 +138,6 @@ async function emptyStdin(): Promise<string> {
 	return "";
 }
 
-export interface OpenPayloadStoreFromContextOptions {
-	ctx: PrAddressExecContext;
-	harnessSessionId?: string | undefined;
-}
-
 export type PrFeedbackSourceResolution =
 	| { kind: "raw_path"; payloadPath: string }
 	| { kind: "session"; payloadPath: string; store: PayloadArtifactStore; resolvedInput: PayloadReference };
@@ -189,16 +185,6 @@ export interface StackResolveThreadBuildPlanSessionInput {
 	store: PayloadArtifactStore;
 	plan: StackFeedbackPlanConsumerResult;
 	resolvedInput: PayloadReference;
-}
-
-export async function openPayloadStoreFromContext(options: OpenPayloadStoreFromContextOptions): Promise<OperationResult<PayloadArtifactStore, PayloadErrorType>> {
-	const storeResult = await options.ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: options.harnessSessionId ?? null,
-		env: options.ctx.env,
-		clock: options.ctx.context.payloadClock,
-	});
-	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
-	return { type: "ok", value: storeResult.value };
 }
 
 export async function resolveLatestPrSessionArtifact<T>(options: {

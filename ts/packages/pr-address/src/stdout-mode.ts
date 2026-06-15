@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import type { PrAddressExecContext } from "./exec-operation.ts";
-import { requireSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult, type PayloadErrorType } from "./payload-store.ts";
+import { requireSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 
 export const stdoutModeSchema = z.enum(["full", "compact"]).default("compact");
 export type StdoutMode = z.infer<typeof stdoutModeSchema>;
@@ -49,19 +48,6 @@ export function compactOperationResult(options: CompactOperationResultOptions): 
 	}
 	if (options.details !== undefined) result.details = options.details;
 	return result;
-}
-
-export async function openPayloadStoreForStdoutMode(options: {
-	ctx: PrAddressExecContext;
-	harnessSessionId?: string | undefined;
-}): Promise<{ type: "ok"; value: PayloadArtifactStore } | { type: "error"; errorType: PayloadErrorType; message: string }> {
-	const store = await options.ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: options.harnessSessionId ?? null,
-		env: options.ctx.env,
-		clock: options.ctx.context.payloadClock,
-	});
-	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
-	return { type: "ok", value: store.value };
 }
 
 export async function writeGenericFullOutputArtifact(options: {

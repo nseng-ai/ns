@@ -383,7 +383,8 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 
 	async getWorkTreeRoot(options: GatewayOptions): Promise<WorkTreeRootResult> {
 		// Keep this pr-address gateway local instead of delegating to @asdl/core/git.optionalRepoRoot:
-		// the classification-file safety guard must distinguish "outside a worktree" from unexpected git failures.
+		// optionalRepoRoot collapses git failures into missing, but the classification-file safety guard
+		// must preserve inside | outside | failure to avoid treating unexpected git failures as safe.
 		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--show-toplevel"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode === 0) return { type: "inside", root: result.stdout.trim() };
 		// git exits 128 with "not a git repository" outside any work tree.

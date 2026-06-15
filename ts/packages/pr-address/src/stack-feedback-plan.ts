@@ -19,9 +19,10 @@ import {
 } from "./stack-feedback-plan-contracts.ts";
 import type { StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
 import { rejectNonEmptyStdin, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
-import { compactOperationResult, openPayloadStoreForStdoutMode } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	harness_session_id: z.string().optional(),
@@ -48,7 +49,7 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPlanParseSchema>): Promise<ClinkrExit<unknown>> {
 	const stdinResult = await rejectNonEmptyStdin({ commandName: "stack-feedback-plan", stdin: ctx.stdin });
 	if (stdinResult.type === "error") return failure(stdinResult.errorType, stdinResult.message);
-	const storeResult = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId: request.harness_session_id });
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 

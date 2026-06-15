@@ -6,7 +6,8 @@ import type { PrAddressContext } from "./context.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { buildOperationSchemaDocument } from "./operation-schemas/index.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
-import { openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
+import { stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 /** Handler-facing runtime for one exec operation; clinkr's io seam owns all output. */
 export interface PrAddressExecContext {
@@ -99,7 +100,7 @@ function withCompactOutput<S extends z.ZodObject, T>(
 		if (exit.type === "failure" || stdoutMode === "full") return exit;
 		if (exit.type === "negative" && exit.data === undefined) return exit;
 		const data = exit.type === "ok" ? exit.data : exit.data;
-		const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId: options.harnessSessionId?.(domainRequest as z.output<S>) });
+		const store = await openPayloadStoreFromContext({ ctx, harnessSessionId: options.harnessSessionId?.(domainRequest as z.output<S>) });
 		if (store.type === "error") return failure(store.errorType, store.message);
 		const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation, data });
 		if (fullOutput.type === "error") return failure(fullOutput.errorType, fullOutput.message);

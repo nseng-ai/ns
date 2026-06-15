@@ -5,6 +5,7 @@ import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatew
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference, type PrepareRunPayloadManifest } from "./payload-store.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 
@@ -81,11 +82,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 	// Python opens the payload store before any gateway work; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
-		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-			explicitHarnessSessionId: request.harness_session_id ?? null,
-			env: ctx.env,
-			clock: ctx.context.payloadClock,
-		});
+		const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 		if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 		store = storeResult.value;
 	}

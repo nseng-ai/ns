@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
 import type { PayloadArtifactStore } from "./payload-store.ts";
@@ -46,11 +47,7 @@ export const stackFeedbackPrepOperation = defineExecOperation({
 
 async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before reading the stack JSON; preserve that ordering.
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: request.harness_session_id ?? null,
-		env: ctx.env,
-		clock: ctx.context.payloadClock,
-	});
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 

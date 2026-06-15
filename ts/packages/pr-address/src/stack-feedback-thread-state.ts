@@ -5,6 +5,7 @@ import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddress
 import type { PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadArtifactReference, type JsonInputResult } from "./json-input.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 import {
@@ -38,11 +39,7 @@ async function runStackFeedbackThreadStateOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackThreadStateParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
-		explicitHarnessSessionId: request.harness_session_id ?? null,
-		env: ctx.env,
-		clock: ctx.context.payloadClock,
-	});
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
 
