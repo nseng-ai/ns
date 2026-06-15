@@ -50,6 +50,14 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
    - If the plan waives a canonical helper or pattern, write the waiver as
      positive routing for the adjacent case (e.g. "if X is later routed through
      the CLI, use helper Y like its siblings"), never as a bare prohibition.
+   <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
+   - If implementation includes same-shape edits across multiple files, choose
+     the execution mode explicitly: `ts-morph-refactor`/`ts-morph-analyze` for
+     fitting TypeScript AST work, precise edits for 1-4 files or semantic
+     docs/spec changes, and `refactor-swarm` for 5+ file-local prose-aware or
+     mixed code/docs/tests edits. Require final grep/equivalent stale-term
+     checks for name or concept changes.
+   <!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 2. Apply the freshness/staleness gate before dispatching any review.
    - Skip cold-read review for fresh same-session plans when the planner just
      read the relevant files and the plan has clear validation gates.
