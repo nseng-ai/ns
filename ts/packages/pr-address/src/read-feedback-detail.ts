@@ -17,6 +17,7 @@ import {
 	type PayloadStoreFactory,
 } from "./payload-store.ts";
 import { resolveOperationInput, resolvePrFeedbackSourceFromSession, type PrFeedbackSourceResolution } from "./session-inputs.ts";
+import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 type DetailKind = "review" | "review_body" | "review_thread" | "thread_comment" | "thread_comment_body" | "discussion_comment" | "discussion_comment_body";
 
@@ -37,6 +38,7 @@ const readFeedbackDetailParseSchema = z.object({
 	pr_number: z.int().optional(),
 	json_pointer: z.string().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 interface ReadFeedbackDetailResult {
@@ -87,8 +89,32 @@ async function runReadFeedbackDetailOperation(ctx: PrAddressExecContext, request
 		store: source.value.kind === "session" ? source.value.store : undefined,
 	});
 	if (result.type === "error") return failure(result.errorType, result.message);
-	if (source.value.kind === "raw_path") return ok(result.value);
-	return ok({ ...result.value, resolved_inputs: { feedback: source.value.resolvedInput } });
+	const data = source.value.kind === "raw_path" ? result.value : { ...result.value, resolved_inputs: { feedback: source.value.resolvedInput } };
+	if (request.stdout_mode === "full") return ok(data);
+	const compact = await compactReadFeedbackDetailResult(ctx, source.value, data);
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	return ok(compact.value);
+}
+
+async function compactReadFeedbackDetailResult(
+	ctx: PrAddressExecContext,
+	source: PrFeedbackSourceResolution,
+	data: ReadFeedbackDetailResult & { resolved_inputs?: unknown },
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const storeResult = source.kind === "session" ? { type: "ok" as const, value: source.store } : await openStoreForPayload(ctx.context.payloadStoreFactory, source.payloadPath, ctx.context.payloadClock);
+	if (storeResult.type === "error") return { type: "error", errorType: storeResult.errorType, message: storeResult.message };
+	const fullOutput = await writeGenericFullOutputArtifact({ store: storeResult.value, operation: "read-feedback-detail", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "read-feedback-detail",
+			counts: { value_chars: typeof data.value === "string" ? data.value.length : null, object_keys: isRecord(data.value) ? Object.keys(data.value).length : null },
+			resolvedInputs: data.resolved_inputs,
+			artifacts: { full_output: fullOutput.value },
+			details: { payload_path: data.payload_path, json_pointer: data.json_pointer, detail_kind: data.detail_kind },
+		}),
+	};
 }
 
 export async function readFeedbackDetail(options: {
@@ -176,6 +202,7 @@ const readFeedbackDetailsParseSchema = z.object({
 	selection_json: z.string().optional(),
 	pr_number: z.int().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 export const readFeedbackDetailsOperation = defineExecOperation({
@@ -206,7 +233,16 @@ async function runReadFeedbackDetailsOperation(ctx: PrAddressExecContext, reques
 		clock: ctx.context.payloadClock,
 	});
 	if (result.type === "error") return failure(result.errorType, result.message);
-	return ok(result.value);
+	if (request.stdout_mode === "full") return ok(result.value);
+	return ok(
+		compactOperationResult({
+			operation: "read-feedback-details",
+			counts: result.value.counts,
+			resolvedInputs: result.value.resolved_inputs,
+			artifacts: { produced: [{ kind: "selected-feedback-details", reference: result.value.selected_payload_reference }] },
+			details: { payload_path: result.value.payload_path, details: result.value.details },
+		}),
+	);
 }
 
 export async function readFeedbackDetails(options: {

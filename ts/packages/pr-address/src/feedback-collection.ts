@@ -5,6 +5,7 @@ import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddress
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { buildGetFeedbackPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
+import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 
 const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
@@ -15,6 +16,7 @@ const getFeedbackParseSchema = z.object({
 	include_empty_reviews: z.boolean().default(false),
 	payload_mode: z.enum(["inline", "payload"]).default("payload"),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 type GetFeedbackRequest = z.output<typeof getFeedbackParseSchema>;
@@ -41,7 +43,7 @@ export const getFeedbackOperation = defineExecOperation({
 async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFeedbackRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
-	if (request.payload_mode === "payload") {
+	if (request.payload_mode === "payload" || request.stdout_mode === "compact") {
 		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitHarnessSessionId: request.harness_session_id ?? null,
 			env: ctx.env,
@@ -68,6 +70,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 		review_threads: snapshot.review_threads,
 		discussion_comments: snapshot.discussion_comments,
 	};
+	if (request.stdout_mode === "full") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const rawReference = await store.writeJsonArtifact({
@@ -83,7 +86,29 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 		payload: manifest,
 	});
 	if (manifestReference.type === "error") return failure(manifestReference.errorType, manifestReference.message);
-	return ok(manifest);
+	return ok(
+		compactOperationResult({
+			operation: "get-feedback",
+			counts: feedbackCounts(snapshot),
+			artifacts: {
+				full_output: rawReference.value,
+				produced: [{ kind: "manifest", reference: manifestReference.value }],
+			},
+			details: { pr_number: snapshot.pr_number, manifest },
+		}),
+	);
+}
+
+function feedbackCounts(snapshot: FeedbackSnapshot): Record<string, number> {
+	const resolvedThreads = snapshot.review_threads.filter((thread) => thread.is_resolved).length;
+	return {
+		reviews: snapshot.reviews.length,
+		review_threads: snapshot.review_threads.length,
+		unresolved_review_threads: snapshot.review_threads.length - resolvedThreads,
+		resolved_review_threads: resolvedThreads,
+		thread_comments: snapshot.review_threads.reduce((total, thread) => total + thread.comments.length, 0),
+		discussion_comments: snapshot.discussion_comments.length,
+	};
 }
 
 export function buildGetFeedbackManifestFromSnapshot(snapshot: FeedbackSnapshot, payloadReference: PayloadReference): unknown {

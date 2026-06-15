@@ -14,6 +14,7 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	planSourceKindDocSchema,
+	stdoutModeDocSchema,
 } from "./shared.ts";
 
 // --- build-stack-resolve-thread-payloads ----------------------------------------------
@@ -24,6 +25,7 @@ export const buildStackResolveThreadPayloadsRequestSchema = z.object({
 	continue_on_error: z.boolean().optional(),
 	decisions_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const buildStackResolveThreadPayloadsErrorSchema = z.object({

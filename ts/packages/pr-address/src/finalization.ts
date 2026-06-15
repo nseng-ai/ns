@@ -5,6 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { resolveFinalizeRunSessionInput } from "./session-inputs.ts";
+import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const payloadReferenceSchema = z.looseObject({ payload_path: nullableStringSchema });
@@ -149,6 +150,7 @@ export interface FinalizeRunResult {
 const finalizeRunParseSchema = z.object({
 	pr_number: z.number().int(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 export const finalizeRunOperation = defineExecOperation({
@@ -167,8 +169,37 @@ async function runFinalizeRunOperation(ctx: PrAddressExecContext, request: z.out
 	const parsed = finalizeRunInputSchema.safeParse(input.value.payload);
 	if (!parsed.success) return failure("invalid_request", `Resolved finalization session inputs are invalid: ${z.prettifyError(parsed.error)}`);
 	const result = { ...finalizeRun(parsed.data), resolved_inputs: input.value.resolvedInputs };
-	if (result.valid && result.ready_to_stop) return ok(result);
-	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result);
+	if (request.stdout_mode === "full") {
+		if (result.valid && result.ready_to_stop) return ok(result);
+		return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result);
+	}
+	const compact = await compactFinalizeRunResult(input.value.resolvedInputs.plan, ctx, result);
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	if (result.valid && result.ready_to_stop) return ok(compact.value);
+	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", compact.value);
+}
+
+async function compactFinalizeRunResult(
+	planReference: PayloadReference,
+	ctx: PrAddressExecContext,
+	data: FinalizeRunResult,
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const store = await ctx.context.payloadStoreFactory.openContainingArtifact(planReference.payload_path, { clock: ctx.context.payloadClock });
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "finalize-run", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "finalize-run",
+			counts: { ...data.counts },
+			errors: data.errors,
+			warnings: data.warnings,
+			resolvedInputs: data.resolved_inputs,
+			artifacts: { full_output: fullOutput.value },
+			details: { ready_to_stop: data.ready_to_stop, all_feedback_addressed: data.all_feedback_addressed, pr_number: data.pr_number },
+		}),
+	};
 }
 
 export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {

@@ -59,6 +59,10 @@ envelope.
 
 All `pr-address exec <command> --format json` helpers:
 
+- Accept `--stdout-mode compact|full`; `compact` is the default.
+- In compact mode, require `HARNESS_SESSION_ID` or `--harness-session-id` whenever the helper must preserve a full result that is not already in a domain artifact. Missing sessions fail closed with the payload-store `harness_session_required` error.
+- Compact `data` uses a stable digest shape: `operation`, optional `counts`, optional `summary`, optional `errors`/`warnings`, optional `resolved_inputs`, `artifacts.full_output` for generic preserved full output, `artifacts.produced[]` for domain artifacts, and `details` for small command-specific routing facts.
+- Use `--stdout-mode full` for manual/debug invocations that need the previous full inline shape or need to run without a payload session for helpers that otherwise do not require one.
 - Accept input as CLI options/arguments and produce the machine envelope
   `{"exit_code": 0|1|2, "data": ..., "error_type": ..., "message": ...}`
   on stdout.
@@ -90,16 +94,11 @@ git work tree they fail fast with `error_type: "repo_context_required"`
 
 ### Payload artifact commands
 
-`prepare-run` and `get-feedback` default to `payload_mode: "payload"`. In
-payload mode, the command prints a compact manifest under `data` and writes the
-full feedback envelope to a store-owned `.raw.json` payload. The manifest carries
-`payload_reference.payload_path` plus item-level body locators; it does not paste
-full review bodies into the main transcript.
+`prepare-run` and `get-feedback` still accept `--payload-mode inline|payload`, but stdout mode controls what is printed. Default compact stdout writes the full feedback envelope to a store-owned `.raw.json` payload and prints only a digest plus artifact references. The manifest carries `payload_reference.payload_path` plus item-level body locators; it does not paste full review bodies into the main transcript.
 
-Payload mode requires a raw harness session id from `HARNESS_SESSION_ID` or a manual `--harness-session-id <id>` override. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
+Payload/compact artifact mode requires `HARNESS_SESSION_ID` or `--harness-session-id <id>`. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
 
-Use `--payload-mode inline` only as an explicit debugging or migration escape
-hatch. Inline mode prints the full raw payload and does not require a harness session id.
+Use `--stdout-mode full` and, for feedback fetches, `--payload-mode inline` only as explicit debugging or migration escapes. Full inline output can avoid a payload session for helpers that otherwise do not need one.
 
 ## ID scoping
 

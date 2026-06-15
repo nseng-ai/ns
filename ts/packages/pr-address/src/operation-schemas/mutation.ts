@@ -7,6 +7,7 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceSchema,
 	resolutionReplyModeSchema,
+	stdoutModeDocSchema,
 } from "./shared.ts";
 
 // --- mutation operations --------------------------------------------------------
@@ -17,6 +18,8 @@ export const replyToDiscussionRequestSchema = z.object({
 	comment_author: z.string(),
 	original_body: z.string(),
 	response: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const replyToDiscussionResultSchema = z.object({
@@ -31,6 +34,8 @@ export const replyToReviewRequestSchema = z.object({
 	pr_number: z.int(),
 	review_author: z.string(),
 	summary_markdown: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const replyToReviewResultSchema = z.object({
@@ -44,6 +49,8 @@ export const resolveThreadWithReplyRequestSchema = z.object({
 	message: nullableStringSchema,
 	commit_sha: nullableStringSchema,
 	provenance_json: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const resolveThreadWithReplyResultSchema = z.object({
@@ -56,6 +63,7 @@ export const resolveThreadWithReplyResultSchema = z.object({
 
 export const resolveThreadBatchRequestSchema = z.object({
 	from_build: z.string(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const resolveThreadBatchItemResultSchema = z.object({

@@ -10,6 +10,7 @@ import { parseJsonWithSchema } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveBatchCheckpointSessionInputs, type BatchCheckpointSessionInputs } from "./session-inputs.ts";
+import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -153,6 +154,7 @@ const recordBatchCheckpointParseSchema = z.object({
 	commit_sha: z.string(),
 	evidence_file: z.string(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 const recordBatchCheckpointEvidenceSchema = z.looseObject({
@@ -199,8 +201,38 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
 	}
 
-	if (checkpointResult.valid && checkpointResult.batch_complete) return ok(checkpointResult);
-	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult);
+	const output = request.stdout_mode === "compact" ? await compactRecordBatchCheckpointResult(sessionInput.value.store, checkpointResult) : { type: "ok" as const, value: checkpointResult };
+	if (output.type === "error") return failure(output.errorType, output.message);
+	if (checkpointResult.valid && checkpointResult.batch_complete) return ok(output.value);
+	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", output.value);
+}
+
+async function compactRecordBatchCheckpointResult(
+	store: PayloadArtifactStore,
+	data: RecordBatchCheckpointResult,
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const fullOutput = data.checkpoint_reference === null ? await writeGenericFullOutputArtifact({ store, operation: "record-batch-checkpoint", data }) : null;
+	if (fullOutput?.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "record-batch-checkpoint",
+			counts: {
+				selected_items: data.selected_items.length,
+				changed_files: data.changed_files.length,
+				validation_commands: data.validation_commands.length,
+				non_thread_outcomes: data.non_thread_outcomes.length,
+			},
+			errors: data.errors,
+			warnings: data.warnings,
+			resolvedInputs: data.resolved_inputs,
+			artifacts: {
+				full_output: fullOutput?.value,
+				produced: data.checkpoint_reference === null ? [] : [{ kind: "checkpoint", reference: data.checkpoint_reference }],
+			},
+			details: { valid: data.valid, batch_complete: data.batch_complete, batch_id: data.batch_id, checkpoint_reference: data.checkpoint_reference },
+		}),
+	};
 }
 
 async function loadCheckpointEvidenceFile(filePath: string): Promise<{ type: "ok"; value: z.infer<typeof recordBatchCheckpointEvidenceSchema> } | { type: "error"; errorType: string; message: string }> {

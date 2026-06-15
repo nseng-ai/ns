@@ -4,6 +4,7 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
+import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -11,6 +12,8 @@ export const mapBranchPrsInputSchema = z.looseObject({
 
 const mapBranchPrsParseSchema = z.object({
 	branches_json: z.string().optional(),
+	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
@@ -58,8 +61,34 @@ async function runMapBranchPrsOperation(ctx: PrAddressExecContext, request: MapB
 	const mapping = await mapBranchesToOpenPrs({ branches, github: ctx.context.github, ctx });
 	if (mapping.type === "error") return mapping.exit;
 	const result = mapping.value;
-	if (result.missing_branches.length === 0) return ok(result);
-	return negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, result);
+	const data = request.stdout_mode === "compact" ? await compactMapBranchPrsResult(ctx, request, result) : { type: "ok" as const, value: result };
+	if (data.type === "error") return failure(data.errorType, data.message);
+	if (result.missing_branches.length === 0) return ok(data.value);
+	return negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, data.value);
+}
+
+async function compactMapBranchPrsResult(
+	ctx: PrAddressExecContext,
+	request: MapBranchPrsRequest,
+	result: MapBranchPrsResult,
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const store = await ctx.context.payloadStoreFactory.fromEnvironment({
+		explicitHarnessSessionId: request.harness_session_id ?? null,
+		env: ctx.env,
+		clock: ctx.context.payloadClock,
+	});
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "map-branch-prs", data: result });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "map-branch-prs",
+			counts: result.summary,
+			artifacts: { full_output: fullOutput.value },
+			details: { branch_prs: result.branch_prs, missing_branches: result.missing_branches },
+		}),
+	};
 }
 
 export async function mapBranchesToOpenPrs(options: {

@@ -11,6 +11,7 @@ import {
 	type StackFeedbackDiffCurrentResolvedInputs,
 } from "./session-inputs.ts";
 import { stackFeedbackPlanConsumerResultSchema, type StackFeedbackPlanConsumerItem, type StackFeedbackPlanConsumerResult } from "./stack-feedback-plan-contracts.ts";
+import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 import {
 	stackFeedbackPrepResultWithManifestSchema,
 	type StackFeedbackPrepPrWithManifest,
@@ -70,6 +71,7 @@ const stackFeedbackDiffCurrentParseSchema = z.object({
 	stack_plan_reference: z.string().optional(),
 	current_prep_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 interface StackFeedbackDiffCurrentInputResult {
@@ -96,8 +98,33 @@ async function runStackFeedbackDiffCurrentOperation(
 
 	const result = diffStackFeedbackCurrent(payload);
 	const data = resolvedInputs === undefined ? result : { ...result, resolved_inputs: resolvedInputs };
-	if (result.valid && result.safe_to_resolve_planned) return ok(data);
-	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", data);
+	const output = request.stdout_mode === "compact" ? await compactStackFeedbackDiffCurrentResult(ctx, request.harness_session_id, data) : { type: "ok" as const, value: data };
+	if (output.type === "error") return failure(output.errorType, output.message);
+	if (result.valid && result.safe_to_resolve_planned) return ok(output.value);
+	return negative("Current stack feedback differs from the validated stack plan; do not resolve planned threads without reviewing the drift.", output.value);
+}
+
+async function compactStackFeedbackDiffCurrentResult(
+	ctx: PrAddressExecContext,
+	harnessSessionId: string | undefined,
+	data: DiffCurrentResult & { resolved_inputs?: unknown },
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId });
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "stack-feedback-diff-current", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "stack-feedback-diff-current",
+			counts: data.summary,
+			errors: data.errors,
+			warnings: data.warnings,
+			resolvedInputs: data.resolved_inputs,
+			artifacts: { full_output: fullOutput.value },
+			details: { valid: data.valid, safe_to_resolve_planned: data.safe_to_resolve_planned },
+		}),
+	};
 }
 
 async function loadStackFeedbackDiffCurrentInput(

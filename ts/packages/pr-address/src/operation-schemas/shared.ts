@@ -6,6 +6,7 @@ import { ACTION_COMPLEXITIES, INFORMATIONAL_REASONS } from "../feedback-plan-con
 export const nullableStringSchema = z.string().nullable();
 export const nullableIntSchema = z.int().nullable();
 export const nullableBooleanSchema = z.boolean().nullable();
+export const stdoutModeDocSchema = z.enum(["compact", "full"]);
 
 // --- shared enums -----------------------------------------------------------
 
@@ -104,6 +105,27 @@ export const resolutionProvenanceInputSchema = z.discriminatedUnion("kind", [
 	prResolutionProvenanceInputSchema,
 ]);
 
+export const producedArtifactReferenceSchema = z.object({
+	kind: z.string(),
+	reference: payloadReferenceSchema,
+});
+
+export const compactOperationResultSchema = z.looseObject({
+	operation: z.string(),
+	counts: z.record(z.string(), z.unknown()).optional(),
+	summary: z.record(z.string(), z.unknown()).optional(),
+	errors: z.array(z.unknown()).optional(),
+	warnings: z.array(z.unknown()).optional(),
+	resolved_inputs: z.unknown().optional(),
+	artifacts: z
+		.looseObject({
+			full_output: payloadReferenceSchema.optional(),
+			produced: z.array(producedArtifactReferenceSchema).optional(),
+		})
+		.optional(),
+	details: z.record(z.string(), z.unknown()).optional(),
+});
+
 // --- shared request shapes ----------------------------------------------------
 
 export const payloadJsonOrFileRequestSchema = z.object({
@@ -115,6 +137,7 @@ export const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSch
 	stack_plan_reference: nullableStringSchema.optional(),
 	current_prep_reference: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({
@@ -124,6 +147,6 @@ export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileReq
 export function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): JsonSchemaDocument {
 	return {
 		input_json_schema: z.toJSONSchema(requestSchema),
-		output_json_schema: z.toJSONSchema(resultSchema),
+		output_json_schema: z.toJSONSchema(z.union([resultSchema, compactOperationResultSchema])),
 	};
 }

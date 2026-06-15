@@ -8,6 +8,7 @@ import { loadJsonInput, loadJsonRecord } from "./json-input.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveOperationInput, resolvePlanFeedbackSessionInputs, resolvePrManifestSessionInput, type OperationResult } from "./session-inputs.ts";
+import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 const wrapperPayloadSchema = z.looseObject({
 	manifest: z.unknown(),
@@ -21,6 +22,7 @@ const classificationTemplateParseSchema = z.object({
 	manifest_file: z.string().optional(),
 	pr_number: z.number().int().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 export const classificationTemplateOperation = defineExecOperation({
@@ -37,6 +39,7 @@ const validateFeedbackClassificationParseSchema = z.object({
 	classification_json: z.string().optional(),
 	classification_file: z.string().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 export const validateFeedbackClassificationOperation = defineExecOperation({
@@ -53,6 +56,7 @@ const planFeedbackParseSchema = z.object({
 	payload_file: z.string().optional(),
 	pr_number: z.number().int().optional(),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 export const planFeedbackOperation = defineExecOperation({
@@ -95,8 +99,21 @@ async function runClassificationTemplateOperation(
 	const input = inputResult.value.value;
 	const result = buildFeedbackClassificationTemplate(input.manifest);
 	if (result.type === "error") return failure("invalid_request", result.message);
-	if (input.resolvedInputs === undefined) return ok(result.value);
-	return ok({ ...result.value, resolved_inputs: input.resolvedInputs });
+	const data = input.resolvedInputs === undefined ? result.value : { ...result.value, resolved_inputs: input.resolvedInputs };
+	if (request.stdout_mode === "full") return ok(data);
+	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId: request.harness_session_id });
+	if (store.type === "error") return failure(store.errorType, store.message);
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "classification-template", data });
+	if (fullOutput.type === "error") return failure(fullOutput.errorType, fullOutput.message);
+	return ok(
+		compactOperationResult({
+			operation: "classification-template",
+			counts: result.value.counts,
+			resolvedInputs: input.resolvedInputs,
+			artifacts: { full_output: fullOutput.value },
+			details: { pr_number: result.value.pr_number, classification_template: result.value.classification_template },
+		}),
+	);
 }
 
 async function loadClassificationTemplateManifestInput(
@@ -137,11 +154,19 @@ async function runValidateFeedbackClassificationOperation(
 	const input = inputResult.value;
 	const result = validateFeedbackClassification({ manifest: input.manifest, classification: input.classification });
 	const resultWithResolvedInputs = { ...result, resolved_inputs: input.resolvedInputs };
-	if (!result.valid) return negative("PR feedback classification failed validation.", resultWithResolvedInputs);
+	if (!result.valid) {
+		const data = request.stdout_mode === "compact" ? await compactValidateFeedbackClassificationResult(input.store, resultWithResolvedInputs, null) : { type: "ok" as const, value: resultWithResolvedInputs };
+		if (data.type === "error") return failure(data.errorType, data.message);
+		return negative("PR feedback classification failed validation.", data.value);
+	}
 
 	const classificationReference = await persistValidatedClassification({ input, result });
 	if (classificationReference.type === "error") return failure(classificationReference.errorType, classificationReference.message);
-	return ok({ ...resultWithResolvedInputs, classification_reference: classificationReference.value });
+	const data = { ...resultWithResolvedInputs, classification_reference: classificationReference.value };
+	if (request.stdout_mode === "full") return ok(data);
+	const compact = await compactValidateFeedbackClassificationResult(input.store, data, classificationReference.value);
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	return ok(compact.value);
 }
 
 type PlanFeedbackResolvedInput = { type: "wrapper"; payload: WrapperPayload } | { type: "session"; prNumber: number };
@@ -171,8 +196,16 @@ async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.ou
 	if (input.type === "session") return await runPlanFeedbackFromSession(ctx, request, input.prNumber);
 
 	const result = planFeedback({ manifest: input.payload.manifest, classification: input.payload.classification });
-	if (result.valid) return ok(result);
-	return negative("PR feedback classification failed validation; no plan produced.", result);
+	if (request.stdout_mode === "full") {
+		if (result.valid) return ok(result);
+		return negative("PR feedback classification failed validation; no plan produced.", result);
+	}
+	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId: request.harness_session_id });
+	if (store.type === "error") return failure(store.errorType, store.message);
+	const compact = await compactPlanFeedbackResult(store.value, result, undefined, null);
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	if (result.valid) return ok(compact.value);
+	return negative("PR feedback classification failed validation; no plan produced.", compact.value);
 }
 
 async function loadPlanFeedbackWrapperInput(
@@ -201,6 +234,52 @@ interface ValidateFeedbackClassificationInput {
 	resolvedInputs: { manifest: PayloadReference };
 }
 
+async function compactValidateFeedbackClassificationResult(
+	store: PayloadArtifactStore,
+	data: Record<string, unknown> & { valid: boolean; counts?: unknown; errors?: readonly unknown[]; resolved_inputs?: unknown },
+	classificationReference: PayloadReference | null,
+): Promise<OperationResult<Record<string, unknown>>> {
+	const fullOutput = await writeGenericFullOutputArtifact({ store, operation: "validate-feedback-classification", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "validate-feedback-classification",
+			counts: asRecord(data.counts),
+			errors: data.errors,
+			resolvedInputs: data.resolved_inputs,
+			artifacts: { full_output: fullOutput.value, produced: classificationReference === null ? [] : [{ kind: "classification", reference: classificationReference }] },
+			details: { valid: data.valid, classification_reference: classificationReference },
+		}),
+	};
+}
+
+async function compactPlanFeedbackResult(
+	store: PayloadArtifactStore,
+	data: Record<string, unknown> & { valid: boolean; counts?: unknown; errors?: readonly unknown[]; resolved_inputs?: unknown; summary?: unknown },
+	resolvedInputs: unknown,
+	planReference: PayloadReference | null,
+): Promise<OperationResult<Record<string, unknown>>> {
+	const fullOutput = await writeGenericFullOutputArtifact({ store, operation: "plan-feedback", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "plan-feedback",
+			counts: asRecord(data.counts),
+			summary: asRecord(data.summary),
+			errors: data.errors,
+			resolvedInputs,
+			artifacts: { full_output: fullOutput.value, produced: planReference === null ? [] : [{ kind: "plan", reference: planReference }] },
+			details: { valid: data.valid, plan_reference: planReference },
+		}),
+	};
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
+
 async function persistValidatedClassification(options: {
 	input: ValidateFeedbackClassificationInput;
 	result: FeedbackClassificationValidationResult;
@@ -223,14 +302,23 @@ async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.
 	if (sessionInputs.type === "error") return failure(sessionInputs.errorType, sessionInputs.message);
 	const result = planFeedback({ manifest: sessionInputs.value.manifest, classification: sessionInputs.value.classification.classification });
 	const resultWithResolvedInputs = { ...result, resolved_inputs: sessionInputs.value.resolvedInputs };
-	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
+	if (!result.valid) {
+		if (request.stdout_mode === "full") return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
+		const compact = await compactPlanFeedbackResult(sessionInputs.value.store, resultWithResolvedInputs, sessionInputs.value.resolvedInputs, null);
+		if (compact.type === "error") return failure(compact.errorType, compact.message);
+		return negative("PR feedback classification failed validation; no plan produced.", compact.value);
+	}
 	const planReference = await sessionInputs.value.store.writeJsonArtifact({
 		descriptor: prArtifactDescriptor({ prNumber, kind: "plan" }),
 		role: "summary",
 		payload: resultWithResolvedInputs,
 	});
 	if (planReference.type === "error") return failure(planReference.errorType, planReference.message);
-	return ok({ ...resultWithResolvedInputs, plan_reference: planReference.value });
+	const data = { ...resultWithResolvedInputs, plan_reference: planReference.value };
+	if (request.stdout_mode === "full") return ok(data);
+	const compact = await compactPlanFeedbackResult(sessionInputs.value.store, data, sessionInputs.value.resolvedInputs, planReference.value);
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	return ok(compact.value);
 }
 
 async function loadValidateSessionInput(

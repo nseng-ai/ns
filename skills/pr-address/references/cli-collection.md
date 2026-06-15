@@ -131,7 +131,6 @@ also available.
 ```bash
 slot gt exec stack-branches \
   | pr-address exec stack-feedback-preflight \
-      --stdout-mode compact \
       --format json
 ```
 
@@ -140,23 +139,12 @@ slot gt exec stack-branches \
 | Field                | Required | Description                                                                                   |
 | -------------------- | -------- | --------------------------------------------------------------------------------------------- |
 | `branches`           | yes      | Non-empty array of branch names; no blanks and no duplicates                                  |
-| `stdout_mode`        | no       | `full` by default for compatibility; use `--stdout-mode compact` for stack-address workflows  |
+| `stdout_mode`        | no       | `compact` by default; use `--stdout-mode full` for manual/debug full inline output            |
 | `harness_session_id` | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
-**Compact output fields (under `data`):**
+**Compact output fields (under `data`):** uses the shared digest from `cli-reference.md`. `counts` carries the prep summary, `summary` carries branch mapping counts, `artifacts.produced[]` includes the frozen stack and stack-prep references, and `details.stack[]` / `details.zero_feedback_prs[]` carry only routing essentials.
 
-| Field                     | Description                                                                                          |
-| ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `harness_session_id`      | Harness session id used as the payload-store session for the stack run                               |
-| `mapping_summary`         | Branch coverage counts: `requested`, `matched`, `missing`                                            |
-| `stack_reference`         | Payload artifact containing the frozen `{"stack":[...]}` JSON for later exact refetches              |
-| `stack_summary_reference` | Whole-stack full prep artifact from `stack-feedback-prep`                                            |
-| `summary`                 | Whole-stack PR, feedback, automation, and needs-agent-review counts                                  |
-| `stack[]`                 | Feedback-bearing compact prep rows only                                                              |
-| `zero_feedback_prs[]`     | Identity-only `{pr_number, branch}` rows for PRs with no reviews, unresolved threads, or discussions |
-
-Full mode returns the unfiltered full prep result plus `mapping_summary` and
-`stack_reference`.
+Full mode returns the unfiltered full prep result plus `mapping_summary` and `stack_reference`.
 
 **Exit codes:** `0` — every branch matched and prep ran, including a
 zero-feedback stack; `1` — one or more branches lack open PRs (`data` has the
@@ -185,7 +173,6 @@ not create untracked repository files.
 ```bash
 printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
   | pr-address exec stack-feedback-prep \
-      --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PREP_COMPACT"
 ```
@@ -203,14 +190,14 @@ printf '%s' '{"stack":[{"pr_number":1009,"branch":"feature"}]}' \
 | `stack_reference`       | no       | Payload artifact path containing `{"stack":[...]}`; mutually exclusive with `stack_json`      |
 | `include_resolved`      | no       | Include resolved review threads in manifests (default false)                                  |
 | `include_empty_reviews` | no       | Include empty-body `COMMENTED` / `APPROVED` reviews (default false — filtered as noise)       |
-| `stdout_mode`           | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows          |
+| `stdout_mode`           | no       | `compact` by default; use `--stdout-mode full` for manual/debug full inline output            |
 | `harness_session_id`    | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
 The stack must be non-empty and have unique PR numbers and branch names. Use
 `--stack-reference` for drift/final refetches that must reuse the exact frozen
 stack from `stack-feedback-preflight`.
 
-**Full output fields (under `data`, default `--stdout-mode full`):**
+**Full output fields (under `data` with `--stdout-mode full`):**
 
 | Field                                       | Description                                                             |
 | ------------------------------------------- | ----------------------------------------------------------------------- |
@@ -226,13 +213,7 @@ stack from `stack-feedback-preflight`.
 | `stack_summary_reference`                   | Whole-stack prep summary artifact (`role: summary`)                     |
 | `summary`                                   | Stack-level PR, feedback, automation, and needs-agent-review counts     |
 
-`--stdout-mode compact` keeps the machine-readable full prep in
-`data.stack_summary_reference.payload_path` and omits inline `manifest`,
-`classification_template`, and `discussion_triage.items` from stdout. Compact
-`data.stack[]` entries include PR metadata, `counts`, `raw_feedback_reference`,
-`manifest_summary_reference`, `classification_template_reference`, and
-`discussion_triage_summary` counts/by-reason. Use the referenced full prep
-artifact as the `prep` input to `stack-feedback-plan`.
+Default compact stdout keeps the machine-readable full prep in `data.artifacts.produced[]` (`kind: "stack-prep"`) and omits inline `manifest`, `classification_template`, and `discussion_triage.items` from stdout. Compact routing rows live under `data.details.stack[]` with PR metadata, `counts`, and artifact references. Use the referenced full prep artifact as the `prep` input to `stack-feedback-plan`.
 
 `discussion_triage` is conservative and advisory. Obvious Vercel, Graphite,
 roaster summary, GitHub Actions, and bot status comments are summarized as
