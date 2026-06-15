@@ -7,10 +7,10 @@
 - [x] Decide the standalone/plugin/distribution cutover plan from inventory evidence.
   - Decision: target the standalone TypeScript `objective` CLI as the active surface, use a repo-local run-from-source shim by default, and retire `asdl objective` after a final consumer/test review instead of preserving plugin compatibility by default.
   - Evidence: `contract-inventory.md` found skill/Pi/CCC consumers invoking standalone `objective`, not `asdl objective`; the remaining plugin path is a smoke-test compatibility surface to deliberately retire or replace during cutover. `pr-address` provides the closest accepted precedent: standalone TS CLI only, Python plugin retired, in-repo Python deleted after parity/caller migration, and rollback/reference evidence preserved.
-- [ ] Build the minimal TypeScript package and first deterministic operation slice.
+- [x] Build the minimal TypeScript package and first deterministic operation slice.
   - Start with `ts/packages/objective`, a standalone `objective` CLI shell, package-local storage/fake seams, and `objective exec read-objective` JSON/Markdown parity.
   - Policy: execution may proceed after preview as a single focused branch/PR. Keep the slice read-only and contract-heavy; do not add list/archive/runner usage in the same branch unless the preview is revised.
-  - Evidence: runnable CLI command, fake-backed unit tests for storage/read behavior, scenario or CLI tests for JSON and Markdown output, and a Semantic Update describing parity and accepted divergences.
+  - Evidence: `ts/packages/objective` now provides a standalone CLI shell with hidden `exec` group and `objective exec read-objective` JSON/Markdown output, backed by package-local storage/fake seams and focused Vitest scenario/unit coverage. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
 - [ ] Port `objective list --minimal --format json` and minimal list-mode rendering.
   - Preserve active-root discovery, open/closed filtering, archive-root omission, latest update facts, JSON envelope fields parsed by Pi/CCC, names-only output, and dirty-marker boundaries.
   - Policy: execution may proceed after preview when the slice is limited to minimal/list contracts needed by Pi/CCC selection. Ask before freezing broad help/parser behavior or changing consumer JSON shapes.
