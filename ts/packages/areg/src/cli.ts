@@ -8,6 +8,7 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
+import { buildSkillGroup } from "./operations/skill-kind.ts";
 import { buildSkillxGroup } from "./operations/skillx.ts";
 import { renderUpdateSkills, runUpdateSkills, updateSkillsRequestSchema, updateSkillsResultSchema } from "./operations/update-skills.ts";
 
@@ -53,6 +54,7 @@ export function buildCli(): ClinkrGroup<AregCliContext> {
 		handler: runUpdateSkills,
 		renderHuman: renderUpdateSkills,
 	});
+	root.group(buildSkillGroup());
 	const execGroup = new ClinkrGroup<AregCliContext>({
 		name: "exec",
 		description: "Commands for use by skills (not interactive users).",

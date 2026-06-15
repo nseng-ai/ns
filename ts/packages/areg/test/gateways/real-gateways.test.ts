@@ -13,6 +13,7 @@ import {
 	RealAregHostGateway,
 	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
+	RealAregSkillKindProjectGateway,
 	RealAregSkillxWorkspaceGateway,
 	RealAregUpdateProjectGateway,
 } from "../../src/real-gateways.ts";
@@ -52,6 +53,40 @@ describe("real areg gateways", () => {
 				openaiPolicy: { type: "file", text: "policy:\n" },
 			});
 			expect(result.pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("skill-kind project gateway inspects local skills and resolves harness symlink specs", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-kind."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(path.join(project, "skills", "demo", "agents"), { recursive: true });
+			await mkdir(path.join(project, ".agents", "skills"), { recursive: true });
+			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
+			await mkdir(path.join(project, "ts", "packages", "pi-extensions", "src"), { recursive: true });
+			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
+			await writeFile(path.join(project, "skills", "demo", "README.md"), "nested docs\n");
+			await writeFile(path.join(project, "skills", "demo", "agents", "openai.yaml"), "policy:\n  allow_implicit_invocation: false\n");
+			await writeFile(path.join(project, ".pi", "settings.json"), JSON.stringify({ skills: ["-skills/demo"] }));
+			await writeFile(path.join(project, ".pi", "extensions", "backing-skill-commands.ts"), "export {};\n");
+			await writeFile(path.join(project, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"), "export {};\n");
+			await symlink(path.join("..", "..", "skills", "demo"), path.join(project, ".agents", "skills", "demo"));
+
+			const gateway = new RealAregSkillKindProjectGateway();
+			const result = await gateway.inspectProjectForSkillKinds({ cwd: root, projectPath: "project", env: {} });
+
+			expect(result).toMatchObject({
+				projectDir: project,
+				projectPathState: { type: "directory" },
+				piDir: { type: "directory" },
+				piSettings: { type: "file", text: JSON.stringify({ skills: ["-skills/demo"] }) },
+				genericReplacement: { hasAdapter: true, hasPackageModule: true },
+				skills: [{ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" }, openaiPolicy: { type: "file" } }],
+			});
+			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, ".agents", "skills", "demo"), cwd: project, env: {} })).toEqual({ type: "ok", skillName: "demo" });
+			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, "skills", "demo", "README.md"), cwd: project, env: {} })).toMatchObject({ type: "error", error: { code: "skill-kind-nested-spec" } });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

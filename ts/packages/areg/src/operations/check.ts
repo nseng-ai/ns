@@ -6,6 +6,7 @@ import type { AregCliContext } from "../context.ts";
 import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
+import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
 
 const CHECK_ISSUE_CODES = [
 	"invalid_lock_hash",
@@ -32,50 +33,6 @@ const CHECK_ISSUE_CODES = [
 	"agents_md_missing_peer",
 	"claude_md_missing_agents_ref",
 ] as const;
-
-const KNOWN_PI_COMMAND_NAMESPACES = [
-	"branch-context",
-	"enriched-plan",
-	"objective",
-	"handoff",
-	"context",
-	"changelog",
-	"typescript",
-	"python",
-	"refactor",
-	"setup",
-	"create",
-	"skill",
-	"code",
-	"ccc",
-	"claude",
-	"dev",
-	"cli",
-	"pr",
-	"sdl",
-	"pi",
-	"stack",
-] as const;
-
-const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
-	"branch-context-from-plan": "branch-context:from-plan",
-	"branch-context-impl": "branch-context:impl",
-	"enriched-plan-save": "enriched-plan:save",
-	"handoff-create": "handoff:create",
-	"handoff-pickup": "handoff:pickup",
-	"objective-create": "objective:create",
-	"objective-current": "objective:current",
-	"objective-next": "objective:next",
-	"objective-stack-impl": "objective:stack-impl",
-	"objective-update": "objective:update",
-	"pi-grill-ui": "pi:grill-me",
-	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "code:autobranch",
-	"code-checkpoint": "code:checkpoint",
-	"code-just-fix": "code:just-fix",
-	"code-submit": "code:submit",
-	"ccc-sidebar": "ccc:sidebar:pr-summary",
-};
 
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
 const PLACEHOLDER_HASH = "PENDING_REGEN";
@@ -193,15 +150,7 @@ export function parseSkillFrontmatterText(text: string): { type: "ok"; fields: R
 	return { type: "ok", fields };
 }
 
-export function derivePiReplacementCommand(skillName: string): string | undefined {
-	for (const namespace of [...KNOWN_PI_COMMAND_NAMESPACES].sort((left, right) => right.length - left.length)) {
-		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
-	}
-	const firstHyphen = skillName.indexOf("-");
-	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
-	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
-}
+export { derivePiReplacementCommand };
 
 export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 	const grouped = new Map<string, CheckIssue[]>();
@@ -368,11 +317,7 @@ function parsePiExclusions(settings: AregCheckTextFileState): { type: "ok"; excl
 }
 
 function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInspectionResult): { verified: boolean; surface?: string | undefined } {
-	const specialized = SPECIALIZED_SKILL_REPLACEMENTS[skillName];
-	if (specialized !== undefined) return { verified: true, surface: specialized };
-	const derived = derivePiReplacementCommand(skillName);
-	if (derived === undefined) return { verified: false };
-	return { verified: inspection.genericReplacement.hasAdapter && inspection.genericReplacement.hasPackageModule, surface: derived };
+	return verifyPiReplacementFromFacts(skillName, inspection.genericReplacement);
 }
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {

@@ -9,6 +9,7 @@ import {
 	FakeAregInitProjectGateway,
 	FakeAregNpxSkillsGateway,
 	FakeAregPromptGateway,
+	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
 	FakeAregUpdateProjectGateway,
 	type FakeAregUpdateProjectGatewayOptions,
@@ -49,6 +50,7 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		prompt: new FakeAregPromptGateway(),
 		initProject: new FakeAregInitProjectGateway(),
 		updateProject,
+		skillKindProject: new FakeAregSkillKindProjectGateway(),
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};

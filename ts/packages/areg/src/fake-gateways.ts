@@ -26,6 +26,13 @@ import type {
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
+	AregSkillKindProjectGateway,
+	AregSkillKindProjectInspectionRequest,
+	AregSkillKindProjectInspectionResult,
+	AregSkillKindResolveRequest,
+	AregSkillKindResolveResult,
+	AregSkillKindSkillInspection,
+	AregSkillKindTextFileState,
 	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
@@ -213,6 +220,81 @@ export class FakeAregUpdateProjectGateway implements AregUpdateProjectGateway {
 	}
 
 	operations(): readonly FakeAregUpdateOperation[] {
+		return this.log.map((operation) => ({ ...operation }));
+	}
+}
+
+export type FakeAregSkillKindOperation =
+	| ({ type: "inspect-project-for-skill-kinds" } & Omit<AregSkillKindProjectInspectionRequest, "env">)
+	| ({ type: "resolve-local-skill-spec" } & Omit<AregSkillKindResolveRequest, "env">);
+
+export interface FakeAregSkillKindSkillOptions {
+	name: string;
+	skillDir?: AregCheckPathState | undefined;
+	skillMd?: AregSkillKindTextFileState | string | undefined;
+	openaiPolicy?: AregSkillKindTextFileState | string | undefined;
+}
+
+export interface FakeAregSkillKindProjectGatewayOptions {
+	projectDir?: string | undefined;
+	projectPathState?: AregCheckPathState | undefined;
+	piDir?: AregCheckPathState | undefined;
+	piSettings?: AregSkillKindTextFileState | object | string | undefined;
+	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
+	skills?: readonly FakeAregSkillKindSkillOptions[] | undefined;
+	resolveFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
+}
+
+export class FakeAregSkillKindProjectGateway implements AregSkillKindProjectGateway {
+	private readonly projectDir: string;
+	private readonly projectPathState: AregCheckPathState;
+	private readonly piDir: AregCheckPathState;
+	private readonly piSettings: AregSkillKindTextFileState;
+	private readonly genericReplacement: { hasAdapter: boolean; hasPackageModule: boolean };
+	private readonly skills: readonly AregSkillKindSkillInspection[];
+	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
+	private readonly log: FakeAregSkillKindOperation[] = [];
+
+	constructor(options: FakeAregSkillKindProjectGatewayOptions = {}) {
+		this.projectDir = options.projectDir ?? "/repo";
+		this.projectPathState = copyPathState(options.projectPathState ?? { type: "directory" });
+		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
+		this.piSettings = normalizeTextFileState(options.piSettings ?? { type: "missing" });
+		this.genericReplacement = {
+			hasAdapter: options.genericReplacement?.hasAdapter ?? false,
+			hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
+		};
+		this.skills = (options.skills ?? []).map(copyFakeSkillKindSkill);
+		this.resolveFailures = new Map(Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+	}
+
+	async inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult> {
+		this.log.push({ type: "inspect-project-for-skill-kinds", cwd: request.cwd, projectPath: request.projectPath });
+		return {
+			projectDir: this.projectDir,
+			projectPathState: copyPathState(this.projectPathState),
+			piDir: copyPathState(this.piDir),
+			piSettings: copyTextFileState(this.piSettings),
+			genericReplacement: { ...this.genericReplacement },
+			skills: this.skills.map(copySkillKindSkill),
+		};
+	}
+
+	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
+		this.log.push({ type: "resolve-local-skill-spec", projectDir: request.projectDir, spec: request.spec, cwd: request.cwd });
+		const failure = this.resolveFailures.get(request.spec);
+		if (failure !== undefined) return { type: "error", error: copyErrorInfo(failure) };
+		const skillName = fakeResolveSkillName(request.spec);
+		const skill = this.skills.find((candidate) => candidate.name === skillName);
+		if (skill === undefined) return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
+		if (skill.skillDir.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-dir", message: `skills/${skillName} is a symlink but should be a real directory (canonical source)` } };
+		if (skill.skillDir.type !== "directory") return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
+		if (skill.skillMd.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-md", message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)` } };
+		if (skill.skillMd.type !== "file") return { type: "error", error: { code: "skill-kind-missing-skill-md", message: `skills/${skillName}/SKILL.md does not exist` } };
+		return { type: "ok", skillName };
+	}
+
+	operations(): readonly FakeAregSkillKindOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
 	}
 }
@@ -417,6 +499,34 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 		remoteSkillMd: copyTextFileState(skill.remoteSkillMd ?? { type: "missing" }),
 		openaiPolicy: copyTextFileState(skill.openaiPolicy ?? { type: "missing" }),
 	};
+}
+
+function copyFakeSkillKindSkill(skill: FakeAregSkillKindSkillOptions): AregSkillKindSkillInspection {
+	return {
+		name: skill.name,
+		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
+		skillMd: normalizeTextFileState(skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`),
+		openaiPolicy: normalizeTextFileState(skill.openaiPolicy ?? { type: "missing" }),
+	};
+}
+
+function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindSkillInspection {
+	return {
+		name: skill.name,
+		skillDir: copyPathState(skill.skillDir),
+		skillMd: copyTextFileState(skill.skillMd),
+		openaiPolicy: copyTextFileState(skill.openaiPolicy),
+	};
+}
+
+function fakeResolveSkillName(spec: string): string {
+	const normalized = spec.replaceAll("\\", "/");
+	const withoutSkillMd = normalized.endsWith("/SKILL.md") ? normalized.slice(0, -"/SKILL.md".length) : normalized;
+	const parts = withoutSkillMd.split("/").filter((part) => part.length > 0);
+	const skillsIndex = parts.lastIndexOf("skills");
+	const skillPart = skillsIndex === -1 ? undefined : parts[skillsIndex + 1];
+	if (skillPart !== undefined) return skillPart;
+	return parts.at(-1) ?? spec;
 }
 
 function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspection {

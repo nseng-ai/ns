@@ -5,6 +5,7 @@ import {
 	FakeAregGithubGateway,
 	FakeAregHostGateway,
 	FakeAregNpxSkillsGateway,
+	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
 	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
@@ -14,6 +15,7 @@ import type {
 	AregHostGateway,
 	AregNpxSkillsGateway,
 	AregSkillxInstalledSkill,
+	AregSkillKindProjectGateway,
 	AregUpdateProjectGateway,
 	AregSkillxWorkspaceGateway,
 } from "../../src/gateways.ts";
@@ -52,6 +54,34 @@ describe("areg gateway fakes", () => {
 		expect((update as FakeAregUpdateProjectGateway).operations()).toEqual([
 			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "project" },
 			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "." },
+		]);
+	});
+
+	test("skill-kind fake copies inspection results and resolves local skill specs", async () => {
+		const skillKind: AregSkillKindProjectGateway = new FakeAregSkillKindProjectGateway({
+			piSettings: { skills: ["-skills/demo"] },
+			genericReplacement: { hasAdapter: true, hasPackageModule: false },
+			skills: [{ name: "demo", skillMd: "---\nname: demo\n---\n" }],
+		});
+
+		const first = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: ".", env: {} });
+		expect(first).toMatchObject({
+			projectDir: "/repo",
+			projectPathState: { type: "directory" },
+			piSettings: { type: "file", text: expect.stringContaining("-skills/demo") },
+			genericReplacement: { hasAdapter: true, hasPackageModule: false },
+			skills: [{ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" } }],
+		});
+		if (first.skills[0]?.skillMd.type === "file") first.skills[0].skillMd.text = "mutated";
+		const second = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: "subdir", env: {} });
+		expect(second.skills[0]?.skillMd).toMatchObject({ type: "file", text: "---\nname: demo\n---\n" });
+		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo", env: {} })).toEqual({ type: "ok", skillName: "demo" });
+		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "missing", cwd: "/repo", env: {} })).toMatchObject({ type: "error" });
+		expect((skillKind as FakeAregSkillKindProjectGateway).operations()).toEqual([
+			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "." },
+			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "subdir" },
+			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo" },
+			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "missing", cwd: "/repo" },
 		]);
 	});
 
