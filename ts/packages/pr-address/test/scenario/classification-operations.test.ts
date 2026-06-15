@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -18,25 +18,23 @@ function expectPayloadOk<T>(result: PayloadResult<T>): T {
 }
 
 describe("managed classification/planning CLI operations", () => {
-	test("classification-template accepts stdin, inline JSON, and file JSON without legacy fallback", async () => {
-		const input = await readJson(join(GOLDEN_V1_ROOT, "classification-template/classification-template-rich-manifest/input.json"));
-		if (typeof input !== "object" || input === null || !("manifest" in input)) throw new TypeError("classification-template input must include manifest");
-		const manifest = JSON.stringify((input as { manifest: unknown }).manifest);
+	for (const removedOptionArgs of [["--manifest-json", "{}"], ["--manifest-file", "manifest.json"]]) {
+		test(`classification-template rejects removed option ${removedOptionArgs[0]}`, async () => {
+			const run = runScenario(["exec", "classification-template", "--pr-number", "42", ...removedOptionArgs, "--format", "json"], { cwd: REPO_ROOT });
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toContain(`unknown option '${removedOptionArgs[0]}'`);
+		});
+	}
 
-		const stdinRun = runScenario(["exec", "classification-template", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, stdin: async () => manifest });
-		expect(await stdinRun.exit).toBe(0);
-		expect(JSON.parse(stdinRun.stdout.join("")).data.manifest_kind).toBe("prepare_run");
-
-		const inlineRun = runScenario(["exec", "classification-template", "--manifest-json", manifest, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
-		expect(await inlineRun.exit).toBe(0);
-		expect(JSON.parse(inlineRun.stdout.join("")).data.counts.review_threads).toBe(1);
-
-		const tempDir = await makeTempDir("pr-address-classification-");
-		const manifestPath = join(tempDir, "manifest.json");
-		await writeFile(manifestPath, manifest, "utf8");
-		const fileRun = runScenario(["exec", "classification-template", "--manifest-file", manifestPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
-		expect(await fileRun.exit).toBe(0);
-		expect(JSON.parse(fileRun.stdout.join("")).data.counts.resolved_review_threads_omitted).toBe(1);
+	test("classification-template rejects non-empty stdin", async () => {
+		const run = runScenario(["exec", "classification-template", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, stdin: '{"manifest":{}}' });
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("classification-template");
+		expect(envelope.message).toContain("no longer accepts JSON payloads on stdin");
+		expect(envelope.message).toContain("payload-session artifacts");
 	});
 
 	test("classification-template resolves latest manifest by PR number", async () => {
@@ -49,17 +47,11 @@ describe("managed classification/planning CLI operations", () => {
 			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
 		);
 
-		let stdinWasRead = false;
 		const run = runScenario(["exec", "classification-template", "--pr-number", String(prNumber), "--format", "json"], {
 			cwd: REPO_ROOT,
 			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId },
-			stdin: async () => {
-				stdinWasRead = true;
-				return JSON.stringify({ should_not: "be read" });
-			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(stdinWasRead).toBe(false);
 		const envelope = JSON.parse(run.stdout.join("")) as {
 			data: {
 				counts: { reviews: number; review_threads: number; discussion_comments: number };
@@ -73,18 +65,6 @@ describe("managed classification/planning CLI operations", () => {
 		expect(envelope.data.details.classification_template_reference).toBeUndefined();
 	});
 
-	test("classification-template rejects mixed session and manifest input", async () => {
-		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
-		const run = runScenario(
-			["exec", "classification-template", "--pr-number", "42", "--manifest-json", JSON.stringify(input.manifest), "--format", "json"],
-			{ cwd: REPO_ROOT },
-		);
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join(""));
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("cannot mix session resolution");
-	});
-
 	test("managed operations serve JSON schema documents", async () => {
 		for (const operation of ["classification-template", "validate-feedback-classification", "plan-feedback"]) {
 			const run = runScenario(["exec", operation, "--json-schema"], { cwd: REPO_ROOT });
@@ -95,31 +75,23 @@ describe("managed classification/planning CLI operations", () => {
 		}
 	});
 
-	test("plan-feedback returns managed JSON envelopes for wrapper input", async () => {
-		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
-		const payload = await readFile(inputPath, "utf8");
+	for (const removedOptionArgs of [["--payload-json", "{}"], ["--payload-file", "payload.json"]]) {
+		test(`plan-feedback rejects removed option ${removedOptionArgs[0]}`, async () => {
+			const run = runScenario(["exec", "plan-feedback", "--pr-number", "42", ...removedOptionArgs, "--format", "json"], { cwd: REPO_ROOT });
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toContain(`unknown option '${removedOptionArgs[0]}'`);
+		});
+	}
 
-		const planRun = runScenario(["exec", "plan-feedback", "--payload-json", payload, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
-		expect(await planRun.exit).toBe(0);
-		expect(JSON.parse(planRun.stdout.join("")).data.valid).toBe(true);
-	});
-
-	test("plan-feedback accepts --payload-file and rejects mixed payload sources", async () => {
-		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
-		const payload = await readFile(inputPath, "utf8");
-		const tempDir = await makeTempDir("pr-address-classification-");
-		const payloadPath = join(tempDir, "wrapper-payload.json");
-		await writeFile(payloadPath, payload, "utf8");
-
-		const fileRun = runScenario(["exec", "plan-feedback", "--payload-file", payloadPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
-		expect(await fileRun.exit).toBe(0);
-		expect(JSON.parse(fileRun.stdout.join("")).data.valid).toBe(true);
-
-		const conflictRun = runScenario(["exec", "plan-feedback", "--payload-json", payload, "--payload-file", payloadPath, "--format", "json"], { cwd: REPO_ROOT });
-		expect(await conflictRun.exit).toBe(2);
-		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
-		expect(conflictEnvelope.error_type).toBe("invalid_request");
-		expect(conflictEnvelope.message).toContain("--payload-file");
+	test("plan-feedback rejects non-empty stdin", async () => {
+		const run = runScenario(["exec", "plan-feedback", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, stdin: '{"manifest":{},"classification":{}}' });
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("plan-feedback");
+		expect(envelope.message).toContain("no longer accepts JSON payloads on stdin");
+		expect(envelope.message).toContain("payload-session artifacts");
 	});
 
 	test("validate-feedback-classification resolves manifest by PR number and auto-persists classification", async () => {
@@ -271,19 +243,14 @@ describe("managed classification/planning CLI operations", () => {
 		});
 	}
 
-	test("plan-feedback session mode rejects mixed or missing sources and reports missing artifacts", async () => {
-		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
-		const payload = await readFile(inputPath, "utf8");
+	test("plan-feedback session mode reports missing required PR number and missing artifacts", async () => {
 		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
 		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "session-plan" };
 
-		const mixedRun = runScenario(["exec", "plan-feedback", "--pr-number", "42", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT, env });
-		expect(await mixedRun.exit).toBe(2);
-		expect(JSON.parse(mixedRun.stdout.join("")).message).toContain("cannot mix session resolution");
-
-		const missingSourceRun = runScenario(["exec", "plan-feedback", "--format", "json"], { cwd: REPO_ROOT, env });
-		expect(await missingSourceRun.exit).toBe(2);
-		expect(JSON.parse(missingSourceRun.stdout.join("")).message).toContain("requires a non-empty JSON payload");
+		const missingPrRun = runScenario(["exec", "plan-feedback", "--format", "json"], { cwd: REPO_ROOT, env });
+		expect(await missingPrRun.exit).toBe(2);
+		expect(missingPrRun.stdout.join("")).toBe("");
+		expect(missingPrRun.stderr.join("")).toContain("--pr-number");
 
 		const missingArtifactRun = runScenario(["exec", "plan-feedback", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, env });
 		expect(await missingArtifactRun.exit).toBe(2);

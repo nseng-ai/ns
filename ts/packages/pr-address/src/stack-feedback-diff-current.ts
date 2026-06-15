@@ -2,10 +2,9 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
 import {
 	openPayloadStoreFromContext,
-	resolveExplicitStdinOrDefaultSessionInput,
+	rejectNonEmptyStdin,
 	resolveStackFeedbackDiffCurrentSessionInput,
 	type OperationResult,
 	type StackFeedbackDiffCurrentResolvedInputs,
@@ -23,25 +22,6 @@ import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
 const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
-// Either wire payload key may be omitted when its reference option supplies it.
-const stackFeedbackDiffCurrentInputSchema = z.looseObject({
-	stack_plan: z.unknown().optional(),
-	current_prep: z.unknown().optional(),
-});
-type StackFeedbackDiffCurrentInput = z.infer<typeof stackFeedbackDiffCurrentInputSchema>;
-const stackFeedbackDiffCurrentPayloadFields = [
-	{
-		key: "stack_plan",
-		artifactDescription: "a stack-feedback-plan data artifact",
-		referenceSchema: z.unknown(),
-	},
-	{
-		key: "current_prep",
-		artifactDescription: "a stack-feedback-prep data artifact",
-		referenceSchema: z.unknown(),
-	},
-] as const satisfies readonly OperationPayloadField<StackFeedbackDiffCurrentInput, keyof StackFeedbackDiffCurrentInput & string>[];
-
 type StackFeedbackPlanItem = StackFeedbackPlanConsumerItem;
 type StackFeedbackPlanResult = StackFeedbackPlanConsumerResult;
 type StackFeedbackPrepResult = StackFeedbackPrepResultWithManifest;
@@ -67,10 +47,6 @@ interface DiffCurrentResult {
 }
 
 const stackFeedbackDiffCurrentParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
-	stack_plan_reference: z.string().optional(),
-	current_prep_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
 });
 
@@ -96,6 +72,8 @@ async function runStackFeedbackDiffCurrentOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
+	const stdinResult = await rejectNonEmptyStdin({ commandName: "stack-feedback-diff-current", stdin: ctx.stdin });
+	if (stdinResult.type === "error") return failure(stdinResult.errorType, stdinResult.message);
 	const inputResult = await loadStackFeedbackDiffCurrentInput(ctx, request);
 	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
 	const { payload, resolvedInputs } = inputResult.value;
@@ -129,41 +107,7 @@ async function loadStackFeedbackDiffCurrentInput(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
 ): Promise<OperationResult<StackFeedbackDiffCurrentInputResult, string>> {
-	const resolved = await resolveExplicitStdinOrDefaultSessionInput({
-		explicitSource: {
-			hasExplicitSource:
-				request.payload_json !== undefined ||
-				request.payload_file !== undefined ||
-				request.stack_plan_reference !== undefined ||
-				request.current_prep_reference !== undefined,
-			resolve: async (stdin) => await loadStackFeedbackDiffCurrentInputFromPayloadSources(request, stdin),
-		},
-		stdin: { type: "payload", read: ctx.stdin },
-		defaultSessionSource: { resolve: async () => await loadStackFeedbackDiffCurrentInputFromSession(ctx, request) },
-	});
-	if (resolved.type === "error") return resolved;
-	return { type: "ok", value: resolved.value.value };
-}
-
-async function loadStackFeedbackDiffCurrentInputFromPayloadSources(
-	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
-	stdin: () => Promise<string>,
-): Promise<OperationResult<StackFeedbackDiffCurrentInputResult, string>> {
-	const payloadResult = await loadOperationPayload({
-		commandName: "stack-feedback-diff-current",
-		inputDescription: "stack feedback diff JSON payload",
-		payloadSchema: stackFeedbackDiffCurrentInputSchema,
-		request,
-		stdin,
-		canOmitPayloadWhenAllFieldsReferenced: true,
-		fields: stackFeedbackDiffCurrentPayloadFields,
-	});
-	if (payloadResult.type === "error") return { type: "error", errorType: payloadResult.error.errorType, message: payloadResult.error.message };
-	const payloadValue = payloadResult.value;
-	if (payloadValue.stack_plan === undefined || payloadValue.current_prep === undefined) {
-		throw new Error("stack-feedback-diff-current payload fields missing despite field resolution");
-	}
-	return { type: "ok", value: { payload: { stack_plan: payloadValue.stack_plan, current_prep: payloadValue.current_prep }, resolvedInputs: undefined } };
+	return await loadStackFeedbackDiffCurrentInputFromSession(ctx, request);
 }
 
 async function loadStackFeedbackDiffCurrentInputFromSession(

@@ -1,3 +1,7 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
@@ -6,8 +10,10 @@ import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
 import { defineExecOperation, type ExecOperation } from "../../src/exec-operation.ts";
 import { loadJsonInput } from "../../src/json-input.ts";
 import { operationSchemaDocumentNames } from "../../src/operation-schemas/index.ts";
+import { PayloadStore } from "../../src/payload-store.ts";
+import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
-import { runScenario } from "../support/run-scenario.ts";
+import { fixedClock, runScenario } from "../support/run-scenario.ts";
 
 function envelopeOperation(onArgs?: (kind: string | undefined) => void): ExecOperation {
 	return defineExecOperation({
@@ -100,7 +106,8 @@ describe("pr-address CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 		const payload = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(payload).sort()).toEqual(["input_json_schema", "output_json_schema"]);
-		expect(JSON.stringify(payload.input_json_schema)).toContain("manifest_json");
+		expect(JSON.stringify(payload.input_json_schema)).toContain("pr_number");
+		expect(JSON.stringify(payload.input_json_schema)).not.toContain("manifest_json");
 		expect(JSON.stringify(payload.output_json_schema)).toContain("classification_template");
 	});
 
@@ -112,7 +119,15 @@ describe("pr-address CLI", () => {
 			review_threads: [],
 			discussion_comments: [],
 		};
-		const run = runScenario(["exec", "classification-template", "--format", "json", "--stdout-mode", "full"], { stdin: async () => JSON.stringify(manifest) });
+		const root = join(await mkdtemp(join(tmpdir(), "pr-address-cli-")), "payload-root");
+		const sessionId = "classification-template-cli";
+		const store = await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-06-09T08:30:00Z") });
+		if (store.type !== "ok") throw new Error(store.message);
+		const artifact = await store.value.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "manifest" }), role: "summary", payload: manifest });
+		if (artifact.type !== "ok") throw new Error(artifact.message);
+		const run = runScenario(["exec", "classification-template", "--pr-number", "42", "--format", "json", "--stdout-mode", "full"], {
+			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toMatchObject({ manifest_kind: "get_feedback", pr_number: 42 });

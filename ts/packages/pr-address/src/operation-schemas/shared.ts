@@ -133,9 +133,7 @@ export const payloadJsonOrFileRequestSchema = z.object({
 	payload_file: nullableStringSchema.optional(),
 });
 
-export const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSchema.extend({
-	stack_plan_reference: nullableStringSchema.optional(),
-	current_prep_reference: nullableStringSchema.optional(),
+export const stackFeedbackDiffCurrentRequestSchema = z.object({
 	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: stdoutModeDocSchema.optional(),
 });

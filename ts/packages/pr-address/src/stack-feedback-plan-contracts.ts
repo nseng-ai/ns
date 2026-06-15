@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import type { FeedbackClassificationValidationError, FeedbackClassificationValidationResult } from "./classification.ts";
 import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
-import type { OperationPayloadField } from "./json-input.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { nullableStringSchema, stackFeedbackPrepResultInputSchema, type StackFeedbackPrepResultInput } from "./stack-feedback-prep-contracts.ts";
 
@@ -10,19 +9,6 @@ export const stackFeedbackPlanInputSchema = z.looseObject({
 	prep: stackFeedbackPrepResultInputSchema,
 	classifications: z.array(z.looseObject({ pr_number: z.number().int(), classification: z.record(z.string(), z.unknown()) })),
 });
-
-/** Wire payload for stack-feedback-plan: `prep` may be omitted when `--prep-reference` supplies it. */
-export const stackFeedbackPlanPayloadSchema = stackFeedbackPlanInputSchema.extend({
-	prep: stackFeedbackPrepResultInputSchema.optional(),
-});
-export type StackFeedbackPlanPayload = z.infer<typeof stackFeedbackPlanPayloadSchema>;
-export const stackFeedbackPlanPayloadFields = [
-	{
-		key: "prep",
-		artifactDescription: "the stack-feedback-prep data object",
-		referenceSchema: stackFeedbackPrepResultInputSchema,
-	},
-] as const satisfies readonly OperationPayloadField<StackFeedbackPlanPayload, keyof StackFeedbackPlanPayload & string>[];
 
 const stackFeedbackPlanItemMetadataSchema = z.looseObject({
 	pr_number: z.number().int(),

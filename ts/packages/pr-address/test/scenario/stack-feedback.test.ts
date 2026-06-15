@@ -280,37 +280,7 @@ describe("stack-feedback-prep stack-reference input", () => {
 	});
 });
 
-describe("stack-feedback-plan parity with the Python CLI", () => {
-	for (const planCase of planFixture.cases) {
-		test(`matches the Python envelope for ${planCase.name}`, async () => {
-			const root = planCase.payload_env === null ? null : await makePayloadRoot();
-			const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", planCase.payload_json_template, ...withFullStdout(planCase.extra_args), "--format", "json"], {
-				env: payloadEnv(planCase.payload_env, root, planFixture.session_id),
-				payloadClock: fixedClock(planFixture.clock_iso),
-			});
-
-			expect(await run.exit).toBe(planCase.expected_exit_code);
-			const expectedEnvelope = root === null ? planCase.expected_envelope_text : planCase.expected_envelope_text.replaceAll("{ROOT}", root);
-			if (planCase.name.includes("compact") && planCase.expected_exit_code === 0) expectNestedCompactEnvelope(run.stdout.join(""), expectedEnvelope);
-			else expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(expectedEnvelope));
-			if (planCase.artifacts !== undefined && root !== null) await expectArtifacts(root, planCase.artifacts);
-		});
-	}
-
-	test("reports invalid_json for malformed plan payloads", async () => {
-		const root = await makePayloadRoot();
-		const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", "{", "--format", "json"], {
-			env: payloadEnv("session", root, planFixture.session_id),
-			payloadClock: fixedClock(planFixture.clock_iso),
-		});
-
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string };
-		expect(envelope.error_type).toBe("invalid_json");
-	});
-});
-
-describe("stack-feedback-plan reference and file inputs", () => {
+describe("stack-feedback-plan session-only inputs", () => {
 	const validPlanCase = requiredPlanCase("valid-full");
 
 	function runPlan(args: readonly string[], root: string): ScenarioRun {
@@ -328,32 +298,18 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		return JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 	}
 
-	test("builds the plan from --prep-reference plus a classifications-only payload", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const template = planTemplate();
-		const prepPath = join(scratch, "stack-prep.json");
-		await writeFile(prepPath, JSON.stringify(template.prep), "utf8");
+	for (const removedOptionArgs of [["--payload-json", "{}"], ["--payload-file", "payload.json"], ["--prep-reference", "prep.json"]]) {
+		test(`rejects removed option ${removedOptionArgs[0]}`, async () => {
+			const root = await makePayloadRoot();
+			const run = runPlan(removedOptionArgs, root);
 
-		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: template.classifications })], root);
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toContain(`unknown option '${removedOptionArgs[0]}'`);
+		});
+	}
 
-		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
-		expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root)));
-	});
-
-	test("accepts --payload-file for the full plan payload", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const payloadPath = join(scratch, "plan-payload.json");
-		await writeFile(payloadPath, validPlanCase.payload_json_template, "utf8");
-
-		const run = runPlan(["--payload-file", payloadPath], root);
-
-		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
-		expect(normalizePayloadBytes(run.stdout.join(""))).toBe(normalizePayloadBytes(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root)));
-	});
-
-	test("accepts stdin for the full plan payload", async () => {
+	test("rejects non-empty stdin", async () => {
 		const root = await makePayloadRoot();
 		const run = runScenario(["exec", "stack-feedback-plan", "--format", "json", "--stdout-mode", "full"], {
 			env: payloadEnv("session", root, planFixture.session_id),
@@ -361,86 +317,12 @@ describe("stack-feedback-plan reference and file inputs", () => {
 			stdin: validPlanCase.payload_json_template,
 		});
 
-		expect(await run.exit).toBe(validPlanCase.expected_exit_code);
-		expect(run.stdout.join("")).toBe(validPlanCase.expected_envelope_text.replaceAll("{ROOT}", root));
-	});
-
-	test("rejects --prep-reference combined with an embedded prep key", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const prepPath = join(scratch, "stack-prep.json");
-		await writeFile(prepPath, JSON.stringify(planTemplate().prep), "utf8");
-
-		const run = runPlan(["--prep-reference", prepPath, "--payload-json", validPlanCase.payload_json_template], root);
-
 		expect(await run.exit).toBe(2);
 		const envelope = errorEnvelope(run);
 		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("cannot mix an embedded prep payload key with --prep-reference");
-	});
-
-	test("rejects --payload-json combined with --payload-file", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const payloadPath = join(scratch, "plan-payload.json");
-		await writeFile(payloadPath, validPlanCase.payload_json_template, "utf8");
-
-		const run = runPlan(["--payload-json", validPlanCase.payload_json_template, "--payload-file", payloadPath], root);
-
-		expect(await run.exit).toBe(2);
-		const envelope = errorEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("only one");
-	});
-
-	test("requires a prep source when neither the payload key nor --prep-reference is given", async () => {
-		const root = await makePayloadRoot();
-
-		const run = runPlan(["--payload-json", JSON.stringify({ classifications: planTemplate().classifications })], root);
-
-		expect(await run.exit).toBe(2);
-		const envelope = errorEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("requires a prep input");
-	});
-
-	test("rejects a missing --prep-reference file", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-
-		const run = runPlan(["--prep-reference", join(scratch, "missing.json"), "--payload-json", JSON.stringify({ classifications: [] })], root);
-
-		expect(await run.exit).toBe(2);
-		const envelope = errorEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("must point to an existing file");
-	});
-
-	test("rejects malformed --prep-reference JSON", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const prepPath = join(scratch, "broken.json");
-		await writeFile(prepPath, "{", "utf8");
-
-		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: [] })], root);
-
-		expect(await run.exit).toBe(2);
-		expect(errorEnvelope(run).error_type).toBe("invalid_json");
-	});
-
-	test("rejects a --prep-reference artifact with the wrong shape", async () => {
-		const root = await makePayloadRoot();
-		const scratch = await makeScratchDir();
-		const prepPath = join(scratch, "stack-plan.json");
-		await writeFile(prepPath, JSON.stringify({ valid: true, batches: [], validation: { all_valid: true, per_pr: [] } }), "utf8");
-
-		const run = runPlan(["--prep-reference", prepPath, "--payload-json", JSON.stringify({ classifications: [] })], root);
-
-		expect(await run.exit).toBe(2);
-		const envelope = errorEnvelope(run);
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("Invalid stack-feedback-plan --prep-reference");
-		expect(envelope.message).toContain("harness_session_id");
+		expect(envelope.message).toContain("stack-feedback-plan");
+		expect(envelope.message).toContain("no longer accepts JSON payloads on stdin");
+		expect(envelope.message).toContain("payload-session artifacts");
 	});
 
 	async function seedStackSession(root: string, classificationsToValidate: "all" | "first-only" = "all"): Promise<void> {
