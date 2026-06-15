@@ -11,10 +11,18 @@ import type {
 	AregGithubSkillListResult,
 	AregHostGateway,
 	AregHostToolName,
+	AregInitApplyResult,
+	AregInitPathState,
+	AregInitProjectGateway,
+	AregInitProjectInspectionRequest,
+	AregInitProjectInspectionResult,
+	AregInitTextFileState,
+	AregInitTextWritePlanRequest,
 	AregNpxSkillsAddRequest,
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
+	AregPromptGateway,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
@@ -162,6 +170,119 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 
 	operations(): readonly FakeAregNpxSkillsOperation[] {
 		return this.log.map((operation) => ({ ...operation, skillNames: [...operation.skillNames], targetAgents: [...operation.targetAgents] }));
+	}
+}
+
+export type FakeAregPromptOperation = { type: "confirm"; message: string; defaultValue: boolean; response: boolean };
+
+export interface FakeAregPromptGatewayOptions {
+	responses?: readonly boolean[] | undefined;
+	defaultResponse?: boolean | undefined;
+}
+
+export class FakeAregPromptGateway implements AregPromptGateway {
+	private readonly responses: boolean[];
+	private readonly defaultResponse: boolean;
+	private readonly log: FakeAregPromptOperation[] = [];
+
+	constructor(options: FakeAregPromptGatewayOptions = {}) {
+		this.responses = [...(options.responses ?? [])];
+		this.defaultResponse = options.defaultResponse ?? false;
+	}
+
+	async confirm(request: { message: string; defaultValue: boolean }): Promise<boolean> {
+		const response = this.responses.shift() ?? this.defaultResponse;
+		this.log.push({ type: "confirm", message: request.message, defaultValue: request.defaultValue, response });
+		return response;
+	}
+
+	operations(): readonly FakeAregPromptOperation[] {
+		return this.log.map((operation) => ({ ...operation }));
+	}
+}
+
+export type FakeAregInitOperation =
+	| ({ type: "inspect-project-for-init" } & Omit<AregInitProjectInspectionRequest, "env">)
+	| ({ type: "apply-text-write-plan" } & Omit<AregInitTextWritePlanRequest, "env">);
+
+export interface FakeAregInitProjectGatewayOptions {
+	projectDir?: string | undefined;
+	targetPathState?: AregInitPathState | undefined;
+	agentsMd?: AregInitTextFileState | string | undefined;
+	claudeMd?: AregInitTextFileState | string | undefined;
+	asdlToml?: AregInitTextFileState | string | undefined;
+	aregJson?: AregInitTextFileState | object | string | undefined;
+	claudeDir?: AregInitPathState | undefined;
+	claudeSettings?: AregInitTextFileState | string | undefined;
+	applyFailure?: AregErrorInfo | undefined;
+}
+
+export class FakeAregInitProjectGateway implements AregInitProjectGateway {
+	private readonly projectDir: string;
+	private readonly targetPathState: AregInitPathState;
+	private readonly files: Map<string, AregInitTextFileState>;
+	private readonly claudeDir: AregInitPathState;
+	private readonly applyFailure: AregErrorInfo | undefined;
+	private readonly log: FakeAregInitOperation[] = [];
+
+	constructor(options: FakeAregInitProjectGatewayOptions = {}) {
+		this.projectDir = options.projectDir ?? "/repo";
+		this.targetPathState = copyPathState(options.targetPathState ?? { type: "directory" });
+		this.files = new Map([
+			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
+			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
+			["asdl.toml", normalizeTextFileState(options.asdlToml ?? { type: "missing" })],
+			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
+			[".claude/settings.local.json", normalizeTextFileState(options.claudeSettings ?? { type: "missing" })],
+		]);
+		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
+		this.applyFailure = options.applyFailure === undefined ? undefined : copyErrorInfo(options.applyFailure);
+	}
+
+	async inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult> {
+		this.log.push({ type: "inspect-project-for-init", cwd: request.cwd, target: request.target });
+		return {
+			projectDir: this.projectDir,
+			targetPathState: copyPathState(this.targetPathState),
+			agentsMd: this.fileState("AGENTS.md"),
+			claudeMd: this.fileState("CLAUDE.md"),
+			asdlToml: this.fileState("asdl.toml"),
+			aregJson: this.fileState("areg.json"),
+			claudeDir: copyPathState(this.claudeDir),
+			claudeSettings: this.fileState(".claude/settings.local.json"),
+		};
+	}
+
+	async applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult> {
+		this.log.push({
+			type: "apply-text-write-plan",
+			projectDir: request.projectDir,
+			writes: request.writes.map((write) => ({ ...write })),
+		});
+		if (this.applyFailure !== undefined) return { ok: false, error: copyErrorInfo(this.applyFailure) };
+		const writtenRelativePaths: string[] = [];
+		for (const write of request.writes) {
+			this.files.set(write.relativePath, { type: "file", text: write.content });
+			writtenRelativePaths.push(write.relativePath);
+		}
+		return { ok: true, writtenRelativePaths };
+	}
+
+	text(relativePath: "asdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json" | "areg.json"): string | undefined {
+		const state = this.files.get(relativePath);
+		return state?.type === "file" ? state.text : undefined;
+	}
+
+	operations(): readonly FakeAregInitOperation[] {
+		return this.log.map((operation) =>
+			operation.type === "apply-text-write-plan"
+				? { ...operation, writes: operation.writes.map((write) => ({ ...write })) }
+				: { ...operation },
+		);
+	}
+
+	private fileState(relativePath: string): AregInitTextFileState {
+		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
 	}
 }
 

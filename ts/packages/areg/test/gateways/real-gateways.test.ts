@@ -11,6 +11,7 @@ import {
 	RealAregCheckProjectInspectionGateway,
 	RealAregGithubGateway,
 	RealAregHostGateway,
+	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
 	RealAregSkillxWorkspaceGateway,
 } from "../../src/real-gateways.ts";
@@ -174,6 +175,87 @@ describe("real areg gateways", () => {
 		const removable = await mkdtemp(path.join(os.tmpdir(), "skillx.cleanup."));
 		expect(await gateway.cleanupWorkspace({ workspaceRoot: removable, cwd: "/repo", env: {} })).toEqual({ ok: true });
 		await expect(lstat(removable)).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
+	test("init project inspection and apply preserve path safety", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-init."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(project);
+			await writeFile(path.join(project, "AGENTS.md"), "# Agents\n");
+			await symlink("outside.md", path.join(project, "CLAUDE.md"));
+			await mkdir(path.join(project, ".claude"));
+			await writeFile(path.join(project, ".claude", "settings.local.json"), "custom\n");
+			const gateway = new RealAregInitProjectGateway();
+
+			const inspection = await gateway.inspectProjectForInit({ cwd: root, target: "project", env: {} });
+
+			expect(inspection).toMatchObject({
+				projectDir: project,
+				targetPathState: { type: "directory" },
+				agentsMd: { type: "file", text: "# Agents\n" },
+				claudeMd: { type: "symlink", target: "outside.md" },
+				claudeSettings: { type: "file", text: "custom\n" },
+			});
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("init apply refuses traversal targets and symlinked parents after external mutation", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-init-apply."));
+		try {
+			const project = path.join(root, "project");
+			const outside = path.join(root, "outside");
+			await mkdir(project);
+			await mkdir(outside);
+			const gateway = new RealAregInitProjectGateway();
+
+			const refused = await gateway.applyTextWritePlan({
+				projectDir: project,
+				env: {},
+				writes: [
+					{
+						relativePath: "../escape" as "AGENTS.md",
+						content: "bad",
+						description: "bad",
+						createParent: false,
+					},
+				],
+			});
+			expect(refused).toMatchObject({ ok: false, error: { code: "init-write-target-refused" } });
+
+			await symlink(outside, path.join(project, ".claude"), "dir");
+			const symlinkedParent = await gateway.applyTextWritePlan({
+				projectDir: project,
+				env: {},
+				writes: [{ relativePath: ".claude/settings.local.json", content: "{}\n", description: "settings.local.json", createParent: true }],
+			});
+			expect(symlinkedParent).toMatchObject({ ok: false, error: { code: "init-parent-symlink" } });
+			await expect(lstat(path.join(outside, "settings.local.json"))).rejects.toMatchObject({ code: "ENOENT" });
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("init apply creates settings parent under the project root", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-init-create."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(project);
+			const gateway = new RealAregInitProjectGateway();
+
+			const result = await gateway.applyTextWritePlan({
+				projectDir: project,
+				env: {},
+				writes: [{ relativePath: ".claude/settings.local.json", content: "{}\n", description: "settings.local.json", createParent: true }],
+			});
+
+			expect(result).toEqual({ ok: true, writtenRelativePaths: [".claude/settings.local.json"] });
+			expect(await lstat(path.join(project, ".claude", "settings.local.json"))).toMatchObject({});
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 });
 

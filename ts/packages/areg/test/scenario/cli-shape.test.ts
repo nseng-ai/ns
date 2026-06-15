@@ -24,9 +24,24 @@ describe("areg CLI shape", () => {
 		expect(help).toContain("Usage: areg");
 		expect(help).toContain("Manage ASDL agent registry projects.");
 		expect(help).toContain("--runtime");
+		expect(help).toContain("init");
 		expect(help).toContain("check");
 		expect(help).not.toContain("exec");
 		expect(help).not.toContain("skillx");
+	});
+
+	test("init help exposes repeatable agent flag and no accidental agents flag", async () => {
+		const run = runScenario(["init", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: areg init");
+		expect(help).toContain("[target]");
+		expect(help).toContain("--agent <value>");
+		expect(help).toContain("--yes");
+		expect(help).toContain("--no-append");
+		expect(help).not.toContain("--agents");
 	});
 
 	test("keeps the hidden exec and skillx shell explicitly reachable", async () => {
