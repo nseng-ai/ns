@@ -48,11 +48,17 @@ describe("managed classification/planning CLI operations", () => {
 			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
 		);
 
+		let stdinWasRead = false;
 		const run = runScenario(["exec", "classification-template", "--pr-number", String(prNumber), "--format", "json"], {
 			cwd: REPO_ROOT,
 			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId },
+			stdin: async () => {
+				stdinWasRead = true;
+				return JSON.stringify({ should_not: "be read" });
+			},
 		});
 		expect(await run.exit).toBe(0);
+		expect(stdinWasRead).toBe(false);
 		const envelope = JSON.parse(run.stdout.join("")) as {
 			data: {
 				counts: { reviews: number; review_threads: number; discussion_comments: number };
