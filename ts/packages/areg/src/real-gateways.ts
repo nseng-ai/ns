@@ -89,6 +89,8 @@ interface ValidateTextWriteTargetOptions {
 	parentMissingCode: string;
 }
 
+type WriteTargetValidationResult = { ok: true } | { ok: false; error: AregErrorInfo };
+
 export class RealAregHostGateway implements AregHostGateway {
 	private readonly runner: CommandRunner;
 
@@ -441,33 +443,33 @@ async function listRelativeFiles(root: string): Promise<string[]> {
 
 async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperationResult> {
 	if (!path.basename(workspaceRoot).startsWith("skillx.")) {
-		return { ok: false, error: errorInfo("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`) };
+		return { type: "error", error: errorInfo("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`) };
 	}
 	let info;
 	try {
 		info = await lstat(workspaceRoot);
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { ok: false, error: errorInfo("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`) };
-		return { ok: false, error: errorInfo("skillx-cleanup-stat-failed", `Could not inspect workspace: ${formatErrorMessage(error)}`) };
+		if (isNodeErrorCode(error, "ENOENT")) return { type: "error", error: errorInfo("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`) };
+		return { type: "error", error: errorInfo("skillx-cleanup-stat-failed", `Could not inspect workspace: ${formatErrorMessage(error)}`) };
 	}
-	if (info.isSymbolicLink()) return { ok: false, error: errorInfo("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`) };
-	if (!info.isDirectory()) return { ok: false, error: errorInfo("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`) };
+	if (info.isSymbolicLink()) return { type: "error", error: errorInfo("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`) };
+	if (!info.isDirectory()) return { type: "error", error: errorInfo("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`) };
 	let resolvedWorkspace: string;
 	let resolvedTemp: string;
 	try {
 		resolvedWorkspace = await realpath(workspaceRoot);
 		resolvedTemp = await realpath(os.tmpdir());
 	} catch (error) {
-		return { ok: false, error: errorInfo("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${formatErrorMessage(error)}`) };
+		return { type: "error", error: errorInfo("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${formatErrorMessage(error)}`) };
 	}
 	if (!isPathAtOrBelow(resolvedWorkspace, resolvedTemp)) {
-		return { ok: false, error: errorInfo("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`) };
+		return { type: "error", error: errorInfo("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`) };
 	}
 	try {
 		await rm(resolvedWorkspace, { recursive: true });
-		return { ok: true };
+		return { type: "ok" };
 	} catch (error) {
-		return { ok: false, error: errorInfo("skillx-cleanup-remove-failed", `Could not remove workspace: ${formatErrorMessage(error)}`) };
+		return { type: "error", error: errorInfo("skillx-cleanup-remove-failed", `Could not remove workspace: ${formatErrorMessage(error)}`) };
 	}
 }
 
@@ -736,7 +738,7 @@ function isAllowedSkillKindRelativePath(relativePath: string): boolean {
 		|| parts.length === 3 && parts[0] === "skills" && parts[2] === "agents";
 }
 
-async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<AregOperationResult> {
+async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<WriteTargetValidationResult> {
 	return await validateTextWriteTarget({
 		target,
 		projectRoot,
@@ -750,7 +752,7 @@ async function validateInitWriteTarget(target: string, projectRoot: string, writ
 	});
 }
 
-async function validateSkillKindWriteTarget(options: SkillKindWriteTargetValidationOptions): Promise<AregOperationResult> {
+async function validateSkillKindWriteTarget(options: SkillKindWriteTargetValidationOptions): Promise<WriteTargetValidationResult> {
 	return await validateTextWriteTarget({
 		...options,
 		symlinkCode: "skill-kind-symlink",
@@ -761,7 +763,7 @@ async function validateSkillKindWriteTarget(options: SkillKindWriteTargetValidat
 	});
 }
 
-async function validateTextWriteTarget(options: ValidateTextWriteTargetOptions): Promise<AregOperationResult> {
+async function validateTextWriteTarget(options: ValidateTextWriteTargetOptions): Promise<WriteTargetValidationResult> {
 	const targetState = await inspectPath(options.target);
 	if (targetState.type === "symlink") return { ok: false, error: errorInfo(options.symlinkCode, `${options.description} at ${options.target} is a symlink; refusing to manage it.`) };
 	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo(options.notFileCode, `${options.target} exists but is not a file.`) };
@@ -779,7 +781,7 @@ async function validateTextWriteTarget(options: ValidateTextWriteTargetOptions):
 	return { ok: true };
 }
 
-async function validateSkillKindDeleteTarget(target: string, projectRoot: string, description: string): Promise<AregOperationResult> {
+async function validateSkillKindDeleteTarget(target: string, projectRoot: string, description: string): Promise<WriteTargetValidationResult> {
 	const targetState = await inspectPath(target);
 	if (targetState.type === "missing") return { ok: false, error: errorInfo("skill-kind-delete-missing", `${description} at ${target} does not exist.`) };
 	if (targetState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-symlink", `${description} at ${target} is a symlink; refusing to delete it.`) };
@@ -809,7 +811,7 @@ async function nearestExistingParent(target: string, projectRoot: string, parent
 	return { type: "ok", value: projectRoot };
 }
 
-async function requirePathAtOrBelow(candidate: string, projectRoot: string, description: string): Promise<AregOperationResult> {
+async function requirePathAtOrBelow(candidate: string, projectRoot: string, description: string): Promise<WriteTargetValidationResult> {
 	try {
 		const resolved = await realpath(candidate);
 		if (isPathAtOrBelow(resolved, projectRoot)) return { ok: true };

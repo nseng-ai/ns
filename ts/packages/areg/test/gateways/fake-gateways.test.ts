@@ -177,7 +177,7 @@ describe("areg gateway fakes", () => {
 			type: "ok",
 			workspace: { installedSkills: [{ relativeFiles: ["SKILL.md"] }] },
 		});
-		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ ok: true });
+		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ type: "ok" });
 		expect((skillx as FakeAregSkillxWorkspaceGateway).operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", cwd: "/repo" },
@@ -186,7 +186,7 @@ describe("areg gateway fakes", () => {
 
 		const failing = new FakeAregSkillxWorkspaceGateway({ cleanupFailure: { code: "refused", message: "cleanup refused" } });
 		expect(await failing.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({
-			ok: false,
+			type: "error",
 			error: { code: "refused", message: "cleanup refused", displayCommand: undefined },
 		});
 	});
