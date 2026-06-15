@@ -5,8 +5,8 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
+import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 
-const SOURCE_TYPES = ["local", "github", "git", "gitlab"] as const;
 const CHECK_ISSUE_CODES = [
 	"invalid_lock_hash",
 	"missing_skills_dir",
@@ -83,29 +83,7 @@ const SHA256_HEX_RE = /^[0-9a-f]{64}$/u;
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 
-type SourceType = (typeof SOURCE_TYPES)[number];
 type CheckIssueCode = (typeof CHECK_ISSUE_CODES)[number];
-
-interface LockfileSkillData {
-	source: string;
-	sourceType: SourceType;
-	computedHash: string;
-	skillPath?: string | undefined;
-}
-
-interface LockfileSkill extends LockfileSkillData {
-	name: string;
-}
-
-interface SkillsLockfileData {
-	version: 1;
-	skills: Record<string, LockfileSkillData>;
-}
-
-interface SkillsLockfile {
-	version: 1;
-	skills: readonly LockfileSkill[];
-}
 
 interface CheckIssue {
 	skill: string;
@@ -113,17 +91,7 @@ interface CheckIssue {
 	message: string;
 }
 
-const lockfileSkillSchema: z.ZodType<LockfileSkillData> = z.object({
-	source: z.string(),
-	sourceType: z.enum(SOURCE_TYPES),
-	computedHash: z.string(),
-	skillPath: z.string().optional(),
-});
-
-const skillsLockfileSchema: z.ZodType<SkillsLockfileData> = z.object({
-	version: z.literal(1),
-	skills: z.record(z.string(), lockfileSkillSchema),
-});
+export { parseLockfileData };
 
 const checkIssueSchema = z.object({
 	skill: z.string(),
@@ -189,19 +157,6 @@ export function buildCheckReport(inspection: AregCheckProjectInspectionResult, l
 	};
 }
 
-export function parseLockfileData(data: unknown): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
-	const result = skillsLockfileSchema.safeParse(data);
-	if (!result.success) return invalidLockfile(formatZodIssue(result.error.issues[0]));
-	const lockfileData = result.data as SkillsLockfileData;
-	const skills: LockfileSkill[] = [];
-	for (const name of sortStrings(Object.keys(lockfileData.skills))) {
-		const skill = lockfileData.skills[name];
-		if (skill === undefined) continue;
-		skills.push({ name, source: skill.source, sourceType: skill.sourceType, computedHash: skill.computedHash, skillPath: skill.skillPath });
-	}
-	return { type: "ok", lockfile: { version: 1, skills } };
-}
-
 export function parseSkillFrontmatterText(text: string): { type: "ok"; fields: Readonly<Record<string, string>> } | { type: "error"; message: string } {
 	const lines = text.split(/\r?\n/u);
 	if (lines.at(-1) === "") lines.pop();
@@ -262,17 +217,6 @@ export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 	}
 	lines.push("", `${report.issues.length} error(s)`);
 	return lines.join("\n");
-}
-
-function parseInspectedLockfile(inspection: AregCheckProjectInspectionResult): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
-	if (inspection.lockfile.type !== "file") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this an areg project?` };
-	let data: unknown;
-	try {
-		data = JSON.parse(inspection.lockfile.text);
-	} catch (error) {
-		return { type: "error", message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}` };
-	}
-	return parseLockfileData(data);
 }
 
 function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
@@ -429,16 +373,6 @@ function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInsp
 	const derived = derivePiReplacementCommand(skillName);
 	if (derived === undefined) return { verified: false };
 	return { verified: inspection.genericReplacement.hasAdapter && inspection.genericReplacement.hasPackageModule, surface: derived };
-}
-
-function invalidLockfile(reason: string): { type: "error"; message: string } {
-	return { type: "error", message: `Invalid skills-lock.json: ${reason}.` };
-}
-
-function formatZodIssue(issue: z.core.$ZodIssue | undefined): string {
-	if (issue === undefined) return "invalid lockfile";
-	const path = issue.path.length === 0 ? "$" : `$.${issue.path.join(".")}`;
-	return `${path}: ${issue.message}`;
 }
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {

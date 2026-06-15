@@ -9,6 +9,7 @@ import { createRealAregContext, type AregCliContext } from "./context.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { buildSkillxGroup } from "./operations/skillx.ts";
+import { renderUpdateSkills, runUpdateSkills, updateSkillsRequestSchema, updateSkillsResultSchema } from "./operations/update-skills.ts";
 
 export const VERSION = "0.1.0";
 
@@ -43,6 +44,14 @@ export function buildCli(): ClinkrGroup<AregCliContext> {
 		resultSchema: checkResultSchema,
 		handler: runCheck,
 		renderHuman: renderCheck,
+	});
+	root.command({
+		name: "update-skills",
+		description: "Refresh GitHub-sourced skills recorded in skills-lock.json.",
+		schema: updateSkillsRequestSchema,
+		resultSchema: updateSkillsResultSchema,
+		handler: runUpdateSkills,
+		renderHuman: renderUpdateSkills,
 	});
 	const execGroup = new ClinkrGroup<AregCliContext>({
 		name: "exec",

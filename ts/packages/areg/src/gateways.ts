@@ -177,3 +177,24 @@ export interface AregInitProjectGateway {
 	inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult>;
 	applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult>;
 }
+
+export type AregUpdatePathState = AregCheckPathState;
+export type AregUpdateTextFileState = AregCheckTextFileState;
+
+export interface AregUpdateProjectInspectionRequest {
+	cwd: string;
+	projectPath: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregUpdateProjectInspectionResult {
+	projectDir: string;
+	projectPathState: AregUpdatePathState;
+	lockfile: AregUpdateTextFileState;
+	asdlToml: AregUpdateTextFileState;
+	aregJson: AregUpdateTextFileState;
+}
+
+export interface AregUpdateProjectGateway {
+	inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult>;
+}

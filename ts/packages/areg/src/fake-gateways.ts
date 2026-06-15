@@ -29,6 +29,11 @@ import type {
 	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
+	AregUpdatePathState,
+	AregUpdateProjectGateway,
+	AregUpdateProjectInspectionRequest,
+	AregUpdateProjectInspectionResult,
+	AregUpdateTextFileState,
 } from "./gateways.ts";
 
 export type FakeAregCheckProjectInspectionOperation = { type: "inspect-project-for-check"; cwd: string; projectPath: string };
@@ -146,14 +151,17 @@ export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<AregNpxSk
 
 export interface FakeAregNpxSkillsGatewayOptions {
 	failure?: AregErrorInfo | undefined;
+	failures?: Readonly<Record<string, AregErrorInfo>> | undefined;
 }
 
 export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 	private readonly failure: AregErrorInfo | undefined;
+	private readonly failures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly log: FakeAregNpxSkillsOperation[] = [];
 
 	constructor(options: FakeAregNpxSkillsGatewayOptions = {}) {
 		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
+		this.failures = new Map(Object.entries(options.failures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
 	}
 
 	async addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult> {
@@ -165,11 +173,47 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 			cwd: request.cwd,
 		});
 		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
+		const keyedFailure = this.failures.get(failureKey(request.sourceRepo, request.skillNames));
+		if (keyedFailure !== undefined) return { type: "error", error: copyErrorInfo(keyedFailure) };
 		return { type: "ok" };
 	}
 
 	operations(): readonly FakeAregNpxSkillsOperation[] {
 		return this.log.map((operation) => ({ ...operation, skillNames: [...operation.skillNames], targetAgents: [...operation.targetAgents] }));
+	}
+}
+
+export type FakeAregUpdateOperation = { type: "inspect-project-for-update"; cwd: string; projectPath: string };
+
+export interface FakeAregUpdateProjectGatewayOptions {
+	projectDir?: string | undefined;
+	projectPathState?: AregUpdatePathState | undefined;
+	lockfile?: AregUpdateTextFileState | object | string | undefined;
+	asdlToml?: AregUpdateTextFileState | string | undefined;
+	aregJson?: AregUpdateTextFileState | object | string | undefined;
+}
+
+export class FakeAregUpdateProjectGateway implements AregUpdateProjectGateway {
+	private readonly result: AregUpdateProjectInspectionResult;
+	private readonly log: FakeAregUpdateOperation[] = [];
+
+	constructor(options: FakeAregUpdateProjectGatewayOptions = {}) {
+		this.result = {
+			projectDir: options.projectDir ?? "/repo",
+			projectPathState: copyPathState(options.projectPathState ?? { type: "directory" }),
+			lockfile: normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} }),
+			asdlToml: normalizeTextFileState(options.asdlToml ?? { type: "missing" }),
+			aregJson: normalizeTextFileState(options.aregJson ?? { type: "missing" }),
+		};
+	}
+
+	async inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult> {
+		this.log.push({ type: "inspect-project-for-update", cwd: request.cwd, projectPath: request.projectPath });
+		return copyUpdateProjectInspectionResult(this.result);
+	}
+
+	operations(): readonly FakeAregUpdateOperation[] {
+		return this.log.map((operation) => ({ ...operation }));
 	}
 }
 
@@ -334,6 +378,10 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 	}
 }
 
+function failureKey(sourceRepo: string, skillNames: readonly string[]): string {
+	return `${sourceRepo}:${skillNames.join(",")}`;
+}
+
 function copyCheckProjectInspectionResult(result: AregCheckProjectInspectionResult): AregCheckProjectInspectionResult {
 	return {
 		projectDir: result.projectDir,
@@ -346,6 +394,16 @@ function copyCheckProjectInspectionResult(result: AregCheckProjectInspectionResu
 		genericReplacement: { ...result.genericReplacement },
 		skills: result.skills.map(copyCheckSkill),
 		pairingDirectories: result.pairingDirectories.map(copyPairingDirectory),
+	};
+}
+
+function copyUpdateProjectInspectionResult(result: AregUpdateProjectInspectionResult): AregUpdateProjectInspectionResult {
+	return {
+		projectDir: result.projectDir,
+		projectPathState: copyPathState(result.projectPathState),
+		lockfile: copyTextFileState(result.lockfile),
+		asdlToml: copyTextFileState(result.asdlToml),
+		aregJson: copyTextFileState(result.aregJson),
 	};
 }
 

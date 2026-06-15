@@ -43,6 +43,9 @@ import type {
 	AregSkillxInstalledSkill,
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
+	AregUpdateProjectGateway,
+	AregUpdateProjectInspectionRequest,
+	AregUpdateProjectInspectionResult,
 } from "./gateways.ts";
 import { sortStrings, uniqueSortedStrings } from "./sort.ts";
 
@@ -202,6 +205,19 @@ export class RealAregInitProjectGateway implements AregInitProjectGateway {
 			}
 		}
 		return { ok: true, writtenRelativePaths };
+	}
+}
+
+export class RealAregUpdateProjectGateway implements AregUpdateProjectGateway {
+	async inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult> {
+		const projectDir = path.resolve(request.cwd, request.projectPath);
+		return {
+			projectDir,
+			projectPathState: await inspectPath(projectDir),
+			lockfile: await inspectTextFile(path.join(projectDir, "skills-lock.json")),
+			asdlToml: await inspectTextFile(path.join(projectDir, "asdl.toml")),
+			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
+		};
 	}
 }
 

@@ -21,9 +21,9 @@
 - [x] Port `areg init` project bootstrap behavior.
   - Implemented visible TypeScript `areg init [target] [--agent AGENT ...] [--yes] [--no-append]` with Git-root requirements, bootstrap skill install, agent resolution, managed `AGENTS.md`/`CLAUDE.md` blocks, `asdl.toml` `[areg].agents`, legacy config fallback, symlink/path safety, and non-destructive planning before `npx` install.
   - Evidence: focused `@asdl/areg` type-check and Vitest suite passed with scenario/unit/gateway coverage for command shape, default and explicit agents, TOML preservation, legacy migration, prompts, `--yes`, `--no-append`, malformed markers, invalid config, Git-root rejection, npx non-destructiveness, JSON output, and real init gateway symlink/path revalidation.
-- [ ] Port `areg update-skills` as the curated lockfile workaround.
-  - Preserve filtering by skill/source, dry-run behavior, agent resolution, one-by-one `npx skills add` calls, and aggregate failure reporting while the upstream `npx skills update` bug remains relevant.
-  - Evidence: scenario tests verify curated lockfile behavior and documented workaround semantics.
+- [x] Port `areg update-skills` as the curated lockfile workaround.
+  - Implemented visible TypeScript `areg update-skills` with GitHub-sourced lockfile selection, `--skill`/`--source` filtering, `--dry-run`, shared agent resolution, a dedicated read-only update inspection gateway, one `npx skills add` call per selected skill, and aggregate failure reporting with structured Clinkr data.
+  - Evidence: Semantic Update `updates/2026-06-15T012054Z-areg-update-skills-typescript-port.md`; focused `@asdl/areg` type-check and Vitest suite passed with scenario/gateway coverage for sorted one-by-one updates, local-skill skipping, filters, no-match/early-error paths, dry-run, agent precedence, missing/malformed lockfiles, missing `npx`, partial failures, JSON envelopes, fake copy behavior, and real update inspection.
 - [ ] Reimplement the skill invocation profiles system in TypeScript.
   - Use Objective-local `skill-invocation-profiles.md` as the canonical TypeScript implementation contract, with PR #1510 as prototype/provenance evidence.
   - Replace the old standalone `areg command convert|revert|list` porting row with the profile model: inferred `normal`, `invoke-only`, `command-backed`, `ambient-only`, concrete artifact planning, status inference, Pi replacement verification for command-backed skills, and profile list/show reporting.

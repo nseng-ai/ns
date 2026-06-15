@@ -14,6 +14,7 @@ import {
 	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
 	RealAregSkillxWorkspaceGateway,
+	RealAregUpdateProjectGateway,
 } from "../../src/real-gateways.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
@@ -51,6 +52,28 @@ describe("real areg gateways", () => {
 				openaiPolicy: { type: "file", text: "policy:\n" },
 			});
 			expect(result.pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("update project inspection reads only update inputs", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-update."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(project);
+			await writeFile(path.join(project, "skills-lock.json"), JSON.stringify({ version: 1, skills: {} }));
+			await writeFile(path.join(project, "asdl.toml"), '[areg]\nagents = ["codex"]\n');
+
+			const result = await new RealAregUpdateProjectGateway().inspectProjectForUpdate({ cwd: root, projectPath: "project", env: {} });
+
+			expect(result).toMatchObject({
+				projectDir: project,
+				projectPathState: { type: "directory" },
+				lockfile: { type: "file", text: JSON.stringify({ version: 1, skills: {} }) },
+				asdlToml: { type: "file", text: '[areg]\nagents = ["codex"]\n' },
+				aregJson: { type: "missing" },
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

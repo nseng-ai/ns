@@ -26,6 +26,7 @@ describe("areg CLI shape", () => {
 		expect(help).toContain("--runtime");
 		expect(help).toContain("init");
 		expect(help).toContain("check");
+		expect(help).toContain("update-skills");
 		expect(help).not.toContain("exec");
 		expect(help).not.toContain("skillx");
 	});
