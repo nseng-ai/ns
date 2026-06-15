@@ -4,7 +4,7 @@ import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit
 import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
-import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference, type PrepareRunPayloadManifest } from "./payload-store.ts";
+import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 
@@ -56,9 +56,9 @@ export const prepareRunOperation = defineExecOperation({
 	compactOutput: {
 		harnessSessionId: (request) => request.harness_session_id,
 		buildCompact: async ({ data, store, fullOutput }) => {
-			const manifest = isPrepareRunInlineResult(data) ? buildManifest(data, fullOutput) : (data as PrepareRunPayloadManifest);
-			const manifestReference =
-				manifest.found && manifest.number !== null ? await writePrManifestArtifact({ store, prNumber: manifest.number, manifest }) : null;
+			const manifest = isPrepareRunInlineResult(data) ? buildManifest(data, fullOutput) : (data as ReturnType<typeof buildPrepareRunPayloadManifest>);
+			const prNumber = prepareRunManifestPrNumber(manifest);
+			const manifestReference = prNumber === null ? null : await writePrManifestArtifact({ store, prNumber, manifest });
 			if (manifestReference?.type === "error") return { type: "error", errorType: manifestReference.errorType, message: manifestReference.message };
 			return {
 				type: "ok",
@@ -223,6 +223,10 @@ function prepareRunCompactCounts(manifest: ReturnType<typeof buildPrepareRunPayl
 		reopened_threads: manifest.reopened_thread_ids.length,
 		restructured_files: manifest.restructured_files.length,
 	};
+}
+
+function prepareRunManifestPrNumber(manifest: ReturnType<typeof buildPrepareRunPayloadManifest>): number | null {
+	return manifest.found ? manifest.pr_number : null;
 }
 
 function isPrepareRunInlineResult(value: unknown): value is PrepareRunInlineResult {

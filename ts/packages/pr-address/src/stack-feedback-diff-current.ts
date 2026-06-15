@@ -6,7 +6,6 @@ import { loadOperationPayload, type OperationPayloadField } from "./json-input.t
 import {
 	openPayloadStoreFromContext,
 	resolveExplicitStdinOrDefaultSessionInput,
-	resolveSessionOnlyInput,
 	resolveStackFeedbackDiffCurrentSessionInput,
 	type OperationResult,
 	type StackFeedbackDiffCurrentResolvedInputs,
@@ -97,11 +96,7 @@ async function runStackFeedbackDiffCurrentOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof stackFeedbackDiffCurrentParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const inputResult = await resolveSessionOnlyInput({
-		commandName: "stack-feedback-diff-current",
-		stdin: ctx.stdin,
-		load: async () => await loadStackFeedbackDiffCurrentInput(ctx, request),
-	});
+	const inputResult = await loadStackFeedbackDiffCurrentInput(ctx, request);
 	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
 	const { payload, resolvedInputs } = inputResult.value;
 

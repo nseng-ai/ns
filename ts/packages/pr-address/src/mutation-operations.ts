@@ -4,7 +4,7 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { formatErrorMessage } from "@asdl/core";
 import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
-import { readJsonPayloadArtifactWithReference, type PayloadReference } from "./payload-store.ts";
+import type { PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import { resolutionProvenanceInputSchema, resolveThreadBatchPayloadSchema, threadResolutionBuildArtifactSchema, type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
@@ -182,7 +182,7 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	if (fromBuild === null) {
 		return failure("explicit_artifact_required", "resolve-thread-batch requires --from-build <build artifact path>; mutations do not resolve latest artifacts implicitly.");
 	}
-	const buildArtifact = await loadThreadResolutionBuildArtifact(fromBuild);
+	const buildArtifact = await loadThreadResolutionBuildArtifact(ctx, fromBuild);
 	if (buildArtifact.type === "error") return failure(buildArtifact.errorType, buildArtifact.message);
 	const buildPayload = buildArtifact.value.artifact.payload;
 	if (buildArtifact.value.artifact.payload_ready !== true || buildPayload === null) {
@@ -245,9 +245,12 @@ function compactResolveThreadBatchResult(data: unknown, fullOutput: PayloadRefer
 }
 
 async function loadThreadResolutionBuildArtifact(
+	ctx: PrAddressExecContext,
 	payloadPath: string,
 ): Promise<{ type: "ok"; value: { artifact: z.infer<typeof threadResolutionBuildArtifactSchema>; reference: PayloadReference } } | { type: "error"; errorType: string; message: string }> {
-	const artifact = await readJsonPayloadArtifactWithReference(payloadPath, { allowedRoles: new Set(["summary"]) });
+	const store = await ctx.context.payloadStoreFactory.openContainingArtifact(payloadPath, { clock: ctx.context.payloadClock });
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const artifact = await store.value.readJsonArtifactWithReference({ payloadPath, allowedRoles: new Set(["summary"]) });
 	if (artifact.type === "error") return { type: "error", errorType: artifact.errorType, message: artifact.message };
 	const parsed = threadResolutionBuildArtifactSchema.safeParse(artifact.value.value);
 	if (!parsed.success) return { type: "error", errorType: "invalid_request", message: `Invalid resolve-thread-batch --from-build artifact: ${z.prettifyError(parsed.error)}` };

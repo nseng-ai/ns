@@ -4,12 +4,13 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { loadJsonRecord } from "./json-input.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
 import {
+	resolveExplicitOrSelectedSessionInput,
 	resolvePlanFeedbackSessionInputs,
 	resolvePrManifestSessionInput,
-	resolveSessionOnlyInput,
 	resolveValidateFeedbackClassificationSessionInput,
 	type OperationResult,
 	type PlanFeedbackSessionInputs,
@@ -18,7 +19,9 @@ import {
 import { compactOperationResult } from "./stdout-mode.ts";
 
 const classificationTemplateParseSchema = z.object({
-	pr_number: z.number().int(),
+	manifest_json: z.string().optional(),
+	manifest_file: z.string().optional(),
+	pr_number: z.number().int().optional(),
 	harness_session_id: z.string().optional(),
 });
 
@@ -68,7 +71,9 @@ export const validateFeedbackClassificationOperation = defineExecOperation({
 });
 
 const planFeedbackParseSchema = z.object({
-	pr_number: z.number().int(),
+	payload_json: z.string().optional(),
+	payload_file: z.string().optional(),
+	pr_number: z.number().int().optional(),
 	harness_session_id: z.string().optional(),
 });
 
@@ -90,24 +95,59 @@ interface ClassificationTemplateInput {
 	resolvedInputs?: { manifest: PayloadReference } | undefined;
 }
 
+interface PlanFeedbackInput {
+	manifest: unknown;
+	classification: unknown;
+	storeInputs?: { sessionInputs: PlanFeedbackSessionInputs; prNumber: number } | undefined;
+}
+
 async function runClassificationTemplateOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof classificationTemplateParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const inputResult = await resolveSessionOnlyInput({
+	const inputResult = await resolveExplicitOrSelectedSessionInput({
 		commandName: "classification-template",
-		stdin: ctx.stdin,
-		load: async () => await loadClassificationTemplateSessionInput(ctx, request),
+		explicitSource: {
+			hasExplicitSource: request.manifest_json !== undefined || request.manifest_file !== undefined,
+			description: "manifest input (--manifest-json, --manifest-file, or stdin)",
+			resolve: async (stdin) => await loadClassificationTemplateExplicitInput(ctx, request, stdin),
+		},
+		sessionSource: {
+			isSelected: request.pr_number !== undefined,
+			description: "session resolution (--pr-number)",
+			resolve: async () => await loadClassificationTemplateSessionInput(ctx, request),
+		},
+		stdin: { read: ctx.stdin },
+		defaultSource: "explicit",
+		mixInputMessage: "classification-template cannot mix session resolution (--pr-number) with manifest input (--manifest-json, --manifest-file, or stdin); pass exactly one input source.",
 	});
 	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
 
-	const input = inputResult.value;
+	const input = inputResult.value.value;
 	const result = buildFeedbackClassificationTemplate(input.manifest);
 	if (result.type === "error") return failure("invalid_request", result.message);
 	const data = input.resolvedInputs === undefined ? result.value : { ...result.value, resolved_inputs: input.resolvedInputs };
 	return ok(data);
 }
 
+
+async function loadClassificationTemplateExplicitInput(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof classificationTemplateParseSchema>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<ClassificationTemplateInput, string>> {
+	const manifest = await loadJsonRecord({
+		optionValue: request.manifest_json,
+		filePath: request.manifest_file,
+		commandName: "classification-template",
+		inputDescription: "manifest JSON",
+		optionName: "--manifest-json",
+		fileOptionName: "--manifest-file",
+		stdin,
+	});
+	if (manifest.type === "error") return { type: "error", errorType: manifest.error.errorType, message: manifest.error.message };
+	return { type: "ok", value: { manifest: manifest.value } };
+}
 
 async function loadClassificationTemplateSessionInput(
 	ctx: PrAddressExecContext,
@@ -144,13 +184,28 @@ async function runValidateFeedbackClassificationOperation(
 }
 
 async function runPlanFeedbackOperation(ctx: PrAddressExecContext, request: z.output<typeof planFeedbackParseSchema>): Promise<ClinkrExit<unknown>> {
-	const inputResult = await resolveSessionOnlyInput({
+	const inputResult = await resolveExplicitOrSelectedSessionInput({
 		commandName: "plan-feedback",
-		stdin: ctx.stdin,
-		load: async () => await resolvePlanFeedbackSessionInputs({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id }),
+		explicitSource: {
+			hasExplicitSource: request.payload_json !== undefined || request.payload_file !== undefined,
+			description: "JSON payload (--payload-json, --payload-file, or stdin)",
+			resolve: async (stdin) => await loadPlanFeedbackExplicitInput(request, stdin),
+		},
+		sessionSource: {
+			isSelected: request.pr_number !== undefined,
+			description: "session resolution (--pr-number)",
+			resolve: async () => await loadPlanFeedbackSessionInput(ctx, request),
+		},
+		stdin: { read: ctx.stdin },
+		defaultSource: "explicit",
+		mixInputMessage: "plan-feedback cannot mix session resolution (--pr-number) with JSON payload input (--payload-json, --payload-file, or stdin); pass exactly one input source.",
 	});
 	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
-	return await runPlanFeedbackFromSession(inputResult.value, request, request.pr_number);
+	const input = inputResult.value.value;
+	if (input.storeInputs !== undefined) return await runPlanFeedbackFromSession(input.storeInputs.sessionInputs, input.storeInputs.prNumber);
+	const result = planFeedback({ manifest: input.manifest, classification: input.classification });
+	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", result);
+	return ok(result);
 }
 
 function compactValidateFeedbackClassificationResult(data: unknown, fullOutput: PayloadReference): OperationResult<Record<string, unknown>> {
@@ -207,7 +262,34 @@ async function persistValidatedClassification(options: {
 	return { type: "ok", value: reference.value };
 }
 
-async function runPlanFeedbackFromSession(sessionInputs: PlanFeedbackSessionInputs, request: z.output<typeof planFeedbackParseSchema>, prNumber: number): Promise<ClinkrExit<unknown>> {
+async function loadPlanFeedbackExplicitInput(
+	request: z.output<typeof planFeedbackParseSchema>,
+	stdin: () => Promise<string>,
+): Promise<OperationResult<PlanFeedbackInput, string>> {
+	const payload = await loadJsonRecord({
+		optionValue: request.payload_json,
+		filePath: request.payload_file,
+		commandName: "plan-feedback",
+		inputDescription: "JSON payload",
+		optionName: "--payload-json",
+		fileOptionName: "--payload-file",
+		stdin,
+	});
+	if (payload.type === "error") return { type: "error", errorType: payload.error.errorType, message: payload.error.message };
+	return { type: "ok", value: { manifest: payload.value.manifest, classification: payload.value.classification } };
+}
+
+async function loadPlanFeedbackSessionInput(
+	ctx: PrAddressExecContext,
+	request: z.output<typeof planFeedbackParseSchema>,
+): Promise<OperationResult<PlanFeedbackInput, string>> {
+	if (request.pr_number === undefined) throw new Error("plan-feedback session source was selected without pr_number");
+	const sessionInputs = await resolvePlanFeedbackSessionInputs({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
+	if (sessionInputs.type === "error") return sessionInputs;
+	return { type: "ok", value: { manifest: sessionInputs.value.manifest, classification: sessionInputs.value.classification.classification, storeInputs: { sessionInputs: sessionInputs.value, prNumber: request.pr_number } } };
+}
+
+async function runPlanFeedbackFromSession(sessionInputs: PlanFeedbackSessionInputs, prNumber: number): Promise<ClinkrExit<unknown>> {
 	const result = planFeedback({ manifest: sessionInputs.manifest, classification: sessionInputs.classification.classification });
 	const resultWithResolvedInputs = { ...result, resolved_inputs: sessionInputs.resolvedInputs };
 	if (!result.valid) return negative("PR feedback classification failed validation; no plan produced.", resultWithResolvedInputs);
