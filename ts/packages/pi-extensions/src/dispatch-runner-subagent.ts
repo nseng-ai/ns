@@ -113,7 +113,8 @@ export const DISPATCH_RUNNER_SUBAGENT_PARAMETERS = {
 		},
 		model: {
 			type: "string",
-			description: "Optional Pi --model pattern for the child runner subagent. Use only when the delegated task is safe for that model.",
+			description:
+				"Optional Pi --model pattern for the child runner subagent. Unqualified patterns inherit the current session provider. Use only when the delegated task is safe for that model.",
 		},
 	},
 	required: ["title", "prompt"],
