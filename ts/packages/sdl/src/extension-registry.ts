@@ -237,15 +237,7 @@ function validateLevelCandidates(
 		validated.push({ name: candidate.name, candidate, source: candidate.source });
 	}
 
-	const counts = new Map<string, LoadedLevelCandidate[]>();
-	for (const candidate of validated) {
-		let matches = counts.get(candidate.name);
-		if (matches === undefined) {
-			matches = [];
-			counts.set(candidate.name, matches);
-		}
-		matches.push(candidate);
-	}
+	const counts = groupCandidatesByName(validated);
 	const duplicateNames = new Set([...counts.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
 	for (const name of duplicateNames) {
 		const matches = counts.get(name) ?? [];
@@ -258,6 +250,23 @@ function validateLevelCandidates(
 		});
 	}
 	return { candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)), diagnostics };
+}
+
+function groupCandidatesByName(candidates: readonly LoadedLevelCandidate[]): ReadonlyMap<string, readonly LoadedLevelCandidate[]> {
+	const counts = new Map<string, LoadedLevelCandidate[]>();
+	for (const candidate of candidates) {
+		appendToMapArray(counts, candidate.name, candidate);
+	}
+	return counts;
+}
+
+function appendToMapArray<TKey, TValue>(map: Map<TKey, TValue[]>, key: TKey, value: TValue): void {
+	const existing = map.get(key);
+	if (existing !== undefined) {
+		existing.push(value);
+		return;
+	}
+	map.set(key, [value]);
 }
 
 function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {
