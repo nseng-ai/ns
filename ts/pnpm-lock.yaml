@@ -159,6 +159,9 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
+      '@asdl/handoff':
+        specifier: workspace:*
+        version: link:../handoff
       '@asdl/pi-extension-runtime':
         specifier: workspace:*
         version: link:../pi-extension-runtime

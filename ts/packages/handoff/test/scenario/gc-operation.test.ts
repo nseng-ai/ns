@@ -8,6 +8,7 @@ describe("handoff gc", () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "live.md", branch: "feat/live", content: "live" });
 		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
+		await putHandoffEntry(gateway, { key: "alpha_beta.md", branch: "feat/deleted", content: "underscore" });
 
 		const run = runScenario(["gc", "--dry-run", "--format", "json"], {
 			brmem: gateway,
@@ -19,12 +20,14 @@ describe("handoff gc", () => {
 		expect(data).toMatchObject({ would_delete_count: 1, deleted_count: 0, kept_count: 1, error_count: 0, dry_run: true, cancelled: false });
 		expect(Object.fromEntries(data.entries.map((entry) => [entry.slug, entry.action]))).toEqual({ live: "kept_active", stale: "would_delete" });
 		expect(await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" })).toBe("stale");
+		expect(await getEntryContent(gateway, { key: "alpha_beta.md", branch: "feat/deleted" })).toBe("underscore");
 	});
 
 	test("force deletes deleted branch handoffs", async () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "live.md", branch: "feat/live", content: "live" });
 		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
+		await putHandoffEntry(gateway, { key: "alpha_beta.md", branch: "feat/deleted", content: "underscore" });
 
 		const run = runScenario(["gc", "--force", "--format", "json"], {
 			brmem: gateway,
@@ -37,6 +40,7 @@ describe("handoff gc", () => {
 		expect(data.kept_count).toBe(1);
 		expect(Object.fromEntries(data.entries.map((entry) => [entry.slug, entry.action]))).toEqual({ live: "kept_active", stale: "deleted" });
 		expect(await getEntryContent(gateway, { key: "stale.md", branch: "feat/deleted" })).toBeUndefined();
+		expect(await getEntryContent(gateway, { key: "alpha_beta.md", branch: "feat/deleted" })).toBe("underscore");
 		expect(await getEntryContent(gateway, { key: "live.md", branch: "feat/live" })).toBe("live");
 	});
 

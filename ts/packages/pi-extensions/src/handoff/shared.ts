@@ -1,9 +1,9 @@
 import { runAvailableBrmemCommand } from "@asdl/core/brmem-cli";
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "./identity.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
 export const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";

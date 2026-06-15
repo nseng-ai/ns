@@ -1,8 +1,7 @@
-import { mustEntryLocator, validateBranchName, type BrmemErrorInfo } from "@asdl/brmem";
+import { validateBranchName, type BrmemErrorInfo } from "@asdl/brmem";
 import { failure, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
 
 import type { HandoffCliContext } from "../context.ts";
-import { HANDOFF_NAMESPACE } from "../identity.ts";
 
 export type Resolved<T> = { type: "resolved"; value: T } | ClinkrExit<never>;
 export function resolved<T>(value: T): Resolved<T> {
@@ -34,10 +33,6 @@ export async function resolveBranch(
 
 export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFailureExit {
 	return failure(error.code, `${prefix}: ${error.message}`);
-}
-
-export function mustHandoffEntryLocator(key: string, branch: string): string {
-	return mustEntryLocator(HANDOFF_NAMESPACE, key, branch);
 }
 
 export async function confirmFromStdin(options: {
