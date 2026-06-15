@@ -300,6 +300,43 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n");
 	});
 
+	test("emits configured start feedback before waiting for idle", async () => {
+		const pi = new FakePi();
+		let releaseWait: (() => void) | undefined;
+		const waitStarted = new Promise<void>((resolve) => {
+			releaseWait = resolve;
+		});
+		registerFakeCli(pi, {
+			commands: [{ name: "preview-url", description: "Print a preview URL.", startMessage: "Starting preview lookup." }],
+			runCli: (_args, deps) => {
+				deps.stdout("done\n");
+				return 0;
+			},
+		});
+		const notifications: Notification[] = [];
+		const ctx: CommandContext = {
+			cwd: "/repo",
+			hasUI: true,
+			ui: {
+				notify(message, level) {
+					notifications.push({ message, level });
+				},
+			},
+			async waitForIdle() {
+				await waitStarted;
+			},
+		};
+
+		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+
+		expect(notifications).toEqual([{ message: "Starting preview lookup.", level: "info" }]);
+
+		if (releaseWait === undefined) throw new Error("Expected wait resolver to be initialized.");
+		releaseWait();
+		await commandPromise;
+		expectSingleCliOutputMessage(pi, "done\n");
+	});
+
 	test("passes UI confirmation capability to the CLI runner", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
