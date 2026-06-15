@@ -365,8 +365,8 @@ function buildGtLsTopologyRows(model: StackMapModel, state: StackMapState): read
 		}
 	});
 
-	const trunkMatches = branchMatchesFilters(model.trunk, state);
-	if (!trunkMatches && laneResults.length === 0) return rows;
+	const isTrunkMatchingFilters = branchMatchesFilters(model.trunk, state);
+	if (!isTrunkMatchingFilters && laneResults.length === 0) return rows;
 	rows.push({ branch: model.trunk, topo: trunkTopo(model.trunk, model.currentBranch, laneResults.length), laneIndex: laneResults.length, isTrunkJoin: laneResults.length > 0 });
 	return rows;
 }
