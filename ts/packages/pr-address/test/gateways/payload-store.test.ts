@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import { useTempDirs } from "../support/temp.ts";
 
-import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store.ts";
 import {
 	defaultPayloadRoot,
 	hasConfiguredPayloadSession,

@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store.ts";
 import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";

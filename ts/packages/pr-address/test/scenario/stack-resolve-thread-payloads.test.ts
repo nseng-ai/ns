@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store.ts";
 import type { PayloadResult } from "../../src/payload-store.ts";
 import { stackArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
