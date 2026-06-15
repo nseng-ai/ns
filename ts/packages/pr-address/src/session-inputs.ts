@@ -261,19 +261,10 @@ export async function resolvePlanFeedbackSessionInputs(options: {
 	prNumber: number;
 	harnessSessionId?: string | undefined;
 }): Promise<OperationResult<PlanFeedbackSessionInputs>> {
-	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
-	if (storeResult.type === "error") return storeResult;
-	const store = storeResult.value;
-	const manifest = await resolveLatestPrSessionArtifact({
-		store,
-		prNumber: options.prNumber,
-		kind: "manifest",
-		role: "summary",
-		schema: getFeedbackManifestSchema,
-	});
+	const manifest = await resolvePrManifestSessionInput(options);
 	if (manifest.type === "error") return manifest;
 	const classification = await resolveLatestPrSessionArtifact({
-		store,
+		store: manifest.value.store,
 		prNumber: options.prNumber,
 		kind: "classification",
 		role: "summary",
@@ -290,10 +281,10 @@ export async function resolvePlanFeedbackSessionInputs(options: {
 	return {
 		type: "ok",
 		value: {
-			store,
-			manifest: manifest.value.value,
+			store: manifest.value.store,
+			manifest: manifest.value.manifest,
 			classification: classification.value.value,
-			resolvedInputs: { manifest: manifest.value.reference, classification: classification.value.reference },
+			resolvedInputs: { manifest: manifest.value.resolvedInput, classification: classification.value.reference },
 		},
 	};
 }
