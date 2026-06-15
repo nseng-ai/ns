@@ -63,7 +63,7 @@ interface RunGtOptions {
 }
 
 
-export type SubmitSemanticFailureCause = "empty_branch_skipped";
+export type SubmitSemanticFailureCause = { kind: "empty_branch_skipped"; branchName?: string | undefined };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
 
@@ -505,8 +505,20 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 		/will not be submitted/i.test(strippedOutput) || /GitHub does not allow empty PRs/i.test(strippedOutput);
 
 	if (emptyBranchWarning && skippedSubmissionWarning) {
-		return "empty_branch_skipped";
+		return { kind: "empty_branch_skipped", branchName: parseSubmitValidationBranchName(strippedOutput) };
 	}
 
+	return undefined;
+}
+
+function parseSubmitValidationBranchName(output: string): string | undefined {
+	const validationBlock = output.match(/Validating that this Graphite stack is ready to submit\.\.\.(?<block>[\s\S]*?)(?:\n\s*📝|\n\s*WARNING:|$)/u)?.groups?.block;
+	if (validationBlock === undefined) return undefined;
+
+	for (const line of validationBlock.split("\n")) {
+		const match = line.match(/^\s*▸\s*(?<branch>\S+)\s*$/u);
+		const branch = match?.groups?.branch;
+		if (branch !== undefined) return branch;
+	}
 	return undefined;
 }

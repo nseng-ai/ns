@@ -260,11 +260,13 @@ function formatPostSubmitFailureReason(
 }
 
 function formatSubmitSemanticFailureCause(cause: SubmitSemanticFailureCause): string {
-	switch (cause) {
+	switch (cause.kind) {
 		case "empty_branch_skipped":
-			return "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty.";
+			return cause.branchName === undefined
+				? "gt submit exited 0, but Graphite skipped submitting part of the stack because a branch is empty."
+				: `gt submit exited 0, but Graphite skipped submitting part of the stack because branch ${cause.branchName} is empty.`;
 	}
-	return assertNever(cause);
+	return assertNever(cause.kind);
 }
 
 function formatCurrentPrVerificationFailureReason(currentPr: CurrentPrVerificationResult): string | undefined {

@@ -94,7 +94,35 @@ describe("RealSubmitGateway", () => {
 
 		expect(result).toMatchObject({
 			kind: "success",
-			semanticFailureCause: "empty_branch_skipped",
+			semanticFailureCause: { kind: "empty_branch_skipped" },
+		});
+		runner.assertDone();
+	});
+
+	test("submitCurrentStack extracts the empty branch from Graphite validation output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"],
+				`🥞 Validating that this Graphite stack is ready to submit...
+▸ sdl-extension-api-followup-stack
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-sdl-extension-api (No-op)
+`,
+				0,
+				`WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.submitCurrentStack({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "success",
+			semanticFailureCause: { kind: "empty_branch_skipped", branchName: "sdl-extension-api-followup-stack" },
 		});
 		runner.assertDone();
 	});
