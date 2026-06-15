@@ -26,28 +26,28 @@ review keys; `review` runs the per-key pipeline above). See `05-…§CI`.
 `P` = Python module under `packages/roaster/src/roaster/`. `T` = proposed TS file under
 `ts/packages/roaster/src/`. Spec = which prework doc details it.
 
-| P (Python) | T (TypeScript) | Nature | Spec | Slice |
-|---|---|---|---|---|
-| `diff_parsing.py` | `diff-parsing.ts` | pure | 02 | 1 |
-| `review_definition.py` | `review-definition.ts` | pure (+ `yaml`) | 02 | 1 |
-| `review_applicability.py` | `review-applicability.ts` | pure | 02 | 1 |
-| `asdl_core.project_config` `[roaster.diff]` parsing | `project-config.ts` (or reuse via asdl-core TS if ported) | pure (+ `smol-toml`) | 02 | 1 |
-| `models.py` (Pydantic) | `models.ts` (Zod schemas + discriminated unions) | domain | 02/03/04 | 2 |
-| `models.py` `RoasterFailure` union | `failures.ts` (discriminated-union error values) | domain | all | 2 |
-| `gateways/local_diff/{gateway,real,fake}.py` | `gateways/local-diff.ts` (iface + real + fake) | gateway | 02/05 | 3 |
-| `gateways/review_catalog/{gateway,real,fake}.py` | `gateways/review-catalog.ts` | gateway | 05 | 3 |
-| `git_toplevel.py` | (use asdl-core `GitGateway` / local-diff gateway) | I/O glue | 05 | 3 |
-| `harness/invocation.py` | `harness/invocation.ts` (real adapter, injected runner) + pure parse/prompt/cap fns | gateway + pure | 03 | 4 |
-| `harness/fake.py` | `harness/fake.ts` | gateway fake | 03 | 4 |
-| `prompts/review_prompt.md`, `prompts/review_system_findings.md` | copy verbatim into `src/prompts/` | asset | 03 | 4 |
-| `asdl_core.gh` PR ops (5 used) | `gateways/github.ts` (roaster-local, 5 methods, iface + real + fake) | gateway | 04 | 5 |
-| `inline_commentability.py` | `inline-commentability.ts` | pure | 04 | 6 |
-| `findings_publication.py` | `findings-publication.ts` | pure | 04 | 6 |
-| `cli/main.py`, `cli/roaster/group.py`, `cli/roaster/context.py` | `cli.ts`, `context.ts` | CLI/DI | 05 | 7 |
-| `cli/plugin.py` (`asdl.plugins`) | — (no TS analog; standalone only) | — | 05 | — (parked) |
-| `cli/roaster/review/{group,list_reviews,run}.py` | `review-list.ts`, `review-run.ts` (+ clinkr group) | CLI ops | 05 | 7 |
-| `workflow.py` (`run_review_by_key`) | `workflow.ts` (pure orchestration over gateways) | orchestration | 05 | 7 |
-| `cli/roaster/exec/{group,post_inline_findings,format_findings_comment,post_findings_comment}.py` | `exec-*.ts` under hidden `exec` group | CLI ops | 04/05 | 7 |
+| P (Python)                                                                                       | T (TypeScript)                                                                      | Nature               | Spec     | Slice      |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | -------------------- | -------- | ---------- |
+| `diff_parsing.py`                                                                                | `diff-parsing.ts`                                                                   | pure                 | 02       | 1          |
+| `review_definition.py`                                                                           | `review-definition.ts`                                                              | pure (+ `yaml`)      | 02       | 1          |
+| `review_applicability.py`                                                                        | `review-applicability.ts`                                                           | pure                 | 02       | 1          |
+| `asdl_core.project_config` `[roaster.diff]` parsing                                              | `project-config.ts` (or reuse via asdl-core TS if ported)                           | pure (+ `smol-toml`) | 02       | 1          |
+| `models.py` (Pydantic)                                                                           | `models.ts` (Zod schemas + discriminated unions)                                    | domain               | 02/03/04 | 2          |
+| `models.py` `RoasterFailure` union                                                               | `failures.ts` (discriminated-union error values)                                    | domain               | all      | 2          |
+| `gateways/local_diff/{gateway,real,fake}.py`                                                     | `gateways/local-diff.ts` (iface + real + fake)                                      | gateway              | 02/05    | 3          |
+| `gateways/review_catalog/{gateway,real,fake}.py`                                                 | `gateways/review-catalog.ts`                                                        | gateway              | 05       | 3          |
+| `git_toplevel.py`                                                                                | (use asdl-core `GitGateway` / local-diff gateway)                                   | I/O glue             | 05       | 3          |
+| `harness/invocation.py`                                                                          | `harness/invocation.ts` (real adapter, injected runner) + pure parse/prompt/cap fns | gateway + pure       | 03       | 4          |
+| `harness/fake.py`                                                                                | `harness/fake.ts`                                                                   | gateway fake         | 03       | 4          |
+| `prompts/review_prompt.md`, `prompts/review_system_findings.md`                                  | copy verbatim into `src/prompts/`                                                   | asset                | 03       | 4          |
+| `asdl_core.gh` PR ops (5 used)                                                                   | `gateways/github.ts` (roaster-local, 5 methods, iface + real + fake)                | gateway              | 04       | 5          |
+| `inline_commentability.py`                                                                       | `inline-commentability.ts`                                                          | pure                 | 04       | 6          |
+| `findings_publication.py`                                                                        | `findings-publication.ts`                                                           | pure                 | 04       | 6          |
+| `cli/main.py`, `cli/roaster/group.py`, `cli/roaster/context.py`                                  | `cli.ts`, `context.ts`                                                              | CLI/DI               | 05       | 7          |
+| `cli/plugin.py` (`asdl.plugins`)                                                                 | — (no TS analog; standalone only)                                                   | —                    | 05       | — (parked) |
+| `cli/roaster/review/{group,list_reviews,run}.py`                                                 | `review-list.ts`, `review-run.ts` (+ clinkr group)                                  | CLI ops              | 05       | 7          |
+| `workflow.py` (`run_review_by_key`)                                                              | `workflow.ts` (pure orchestration over gateways)                                    | orchestration        | 05       | 7          |
+| `cli/roaster/exec/{group,post_inline_findings,format_findings_comment,post_findings_comment}.py` | `exec-*.ts` under hidden `exec` group                                               | CLI ops              | 04/05    | 7          |
 
 ## Proposed target file tree
 
@@ -154,4 +154,4 @@ Slices 3/4/5/6 are mutually independent after Slices 1–2 land — parallelizab
 - **GitHub via `gh` CLI + REST** through injected exec runner; roaster-local 5-method gateway (not
   asdl-core's 17-method `PRGateway`). Endpoints in `04-github-and-publication-spec.md`.
 - **Zod `^4.4.3`** uniform across `ts/`; clinkr relies on Zod-4 APIs.
-</content>
+  </content>

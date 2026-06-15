@@ -11,14 +11,14 @@ Backing `gh` plumbing: `asdl-core/.../gh/real_gateway_helpers.py`. REST via `gh 
 create-review POSTs JSON via `--input -`. The "discussion comment" ops are GitHub **issue comments**
 (`issues/{n}/comments`), not review-thread comments.
 
-| # | Method | Used by | gh / REST | Inputs | Output (only fields roaster reads) |
-|---|---|---|---|---|---|
-| 1 | `getPrChangedFiles(pr)` | post-inline-findings | `GET pulls/{n}/files --paginate` | `pr:int` | `PRChangedFile[] { path, status, patch: string \| null }` |
-| 2 | `getPrReviewComments(pr)` | post-inline-findings | `GET pulls/{n}/comments --paginate` | `pr:int` | `PRReviewComment[]` — reads only `author`, `body` |
-| 3 | `createPrReview(pr, comments)` | post-inline-findings | `POST pulls/{n}/reviews` body `{event:"COMMENT", comments:[{path,line,body}]}` | `pr:int`, `PRInlineCommentInput[] {path:string, line:int, body:string}` | return ignored (success/throw only) → can be `void` |
-| 4 | `findPrDiscussionCommentByMarker(pr, marker, authorLogin)` | post-findings-comment | client-side filter over `GET issues/{n}/comments --paginate` | `pr:int`, `marker:string`, `authorLogin:string` | first comment where `author == authorLogin AND marker in body` → `PRDiscussionComment {id:int, body} \| null` |
-| 5a | `addPrDiscussionComment(pr, body)` | post-findings-comment | `POST issues/{n}/comments -f body=…` | `pr:int`, `body:string` | `PRDiscussionComment` |
-| 5b | `updatePrDiscussionComment(commentId, body)` | post-findings-comment | `PATCH issues/comments/{id} -f body=…` | `commentId:int`, `body:string` | `PRDiscussionComment` |
+| #  | Method                                                     | Used by               | gh / REST                                                                      | Inputs                                                                  | Output (only fields roaster reads)                                                                            |
+| -- | ---------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1  | `getPrChangedFiles(pr)`                                    | post-inline-findings  | `GET pulls/{n}/files --paginate`                                               | `pr:int`                                                                | `PRChangedFile[] { path, status, patch: string \| null }`                                                     |
+| 2  | `getPrReviewComments(pr)`                                  | post-inline-findings  | `GET pulls/{n}/comments --paginate`                                            | `pr:int`                                                                | `PRReviewComment[]` — reads only `author`, `body`                                                             |
+| 3  | `createPrReview(pr, comments)`                             | post-inline-findings  | `POST pulls/{n}/reviews` body `{event:"COMMENT", comments:[{path,line,body}]}` | `pr:int`, `PRInlineCommentInput[] {path:string, line:int, body:string}` | return ignored (success/throw only) → can be `void`                                                           |
+| 4  | `findPrDiscussionCommentByMarker(pr, marker, authorLogin)` | post-findings-comment | client-side filter over `GET issues/{n}/comments --paginate`                   | `pr:int`, `marker:string`, `authorLogin:string`                         | first comment where `author == authorLogin AND marker in body` → `PRDiscussionComment {id:int, body} \| null` |
+| 5a | `addPrDiscussionComment(pr, body)`                         | post-findings-comment | `POST issues/{n}/comments -f body=…`                                           | `pr:int`, `body:string`                                                 | `PRDiscussionComment`                                                                                         |
+| 5b | `updatePrDiscussionComment(commentId, body)`               | post-findings-comment | `PATCH issues/comments/{id} -f body=…`                                         | `commentId:int`, `body:string`                                          | `PRDiscussionComment`                                                                                         |
 
 `PRChangedFile.patch` MUST stay `string | null` — GitHub omits `patch` for binary/too-large files
 and the null is meaningful (→ `patch_unavailable`). `create_pr_review` is **one batched review**, not
@@ -27,6 +27,7 @@ N comment POSTs. Bot author login `"github-actions[bot]"` (consolidate; Python d
 ## 2. Inline-commentability — `inline_commentability.py` → `inline-commentability.ts`
 
 ### `commentableRightSideLines(patch: string | null) -> Set<int>` (`:56-86`)
+
 ```
 patch === null → ∅
 rightLine = null
@@ -38,15 +39,18 @@ for each line in patch.split(/\r?\n/):
   if line.startsWith("-"): continue        # left-side-only: skip WITHOUT advancing
   if line.startsWith("+") || line.startsWith(" "): add(rightLine); rightLine += 1
 ```
-Load-bearing subtleties: `-` skips **without advancing**; pre-hunk gating; `+`/` ` advance. Hunk
+
+Load-bearing subtleties: `-` skips **without advancing**; pre-hunk gating; `+`/`` advance. Hunk
 regex keeps optional counts on both sides (supports `@@ -7 +8 @@`).
 
 ### `classifyInlineFindings(findings, changedFiles) -> …` (`:89-134`)
+
 Per finding, first match wins: `path == null` → `missing_path`; `line == null` → `missing_line`;
 path not in changed files → `file_not_changed`; that file's `patch == null` → `patch_unavailable`;
 `line` not in commentable set → `line_not_in_diff`; else inlineable with `{path, line}`.
 
 ### TS test checklist (`test_inline_commentability.py`)
+
 added+context included / deleted excluded; new-file `@@ -0,0 +1,3 @@`→{1,2,3}; deleted-file
 `@@ -1,3 +0,0 @@`→∅; single-line `@@ -7 +8 @@`→{8}; multi-hunk union; `\ No newline` ignored;
 pre-hunk `+`-text ignored; null patch→∅; all four fallback reasons.
@@ -59,25 +63,25 @@ during migration, markers must stay compatible. The objective accepts orphaning 
 comments at cutover, so a fresh marker scheme is fine.
 
 Python reference (for parity of *structure*, not bytes):
+
 - **Summary marker**: `<!-- roaster:{review_name} -->` (must be the comment's first line; parse-back
   regex `^<!-- (roaster:[^ ]+) -->$`).
 - **Inline marker**: `<!-- roaster-inline:{review_name}:{digest} -->`, `digest` = first 16 hex of
   SHA-256 over **NUL-joined** `(review_name, path, str(line) or "", severity, summary, details)`.
   This is the dedup key — internal run-to-run stability is all that matters.
 - **Aggregate comment** (`render_findings_comment`, `:187-212`): marker line; `## roaster ·
-  \`{review_name}\``; optional `### Inline posting` block (posted / skipped-duplicate /
-  summary-only / API-error bullets); optional `### Review input coverage` block; body =
-  error | no-findings | findings table (`| Severity | File | Line | Summary |`) + `<details>` with
-  `### \`{location}\` — {severity}` per finding + footer. Severity icons `⛔/⚠️/ℹ️`; null line → `—`
-  and location omits `:line`.
+  \`{review_name}\``; optional`### Inline posting`block (posted / skipped-duplicate /
+  summary-only / API-error bullets); optional`### Review input coverage`block; body =
+  error | no-findings | findings table (`| Severity | File | Line | Summary |`) +`<details>`with`### \`{location}\` — {severity}`per finding + footer. Severity icons`⛔/⚠️/ℹ️`; null line →`—`and location omits`:line`.
 - **Inline comment body** (`render_inline_body`, `:269-280`): marker; `**{severity}: {summary}**`;
-  `_Review: \`{review_name}\`._`; details; "_Posted by roaster…_".
-- **Activity log** (`preserve_activity_log`, `:233-242`): extract prior `- `-entries under
+  `_Review: \`{review_name}\`._`; details; "*Posted by roaster…*".
+- **Activity log** (`preserve_activity_log`, `:233-242`): extract prior `-`-entries under
   `### Activity Log` in existing body; strip from heading onward in the new body; append the new
   `run_summary` (ISO-8601-Z timestamp + run URL); keep **last 10**; re-emit under a fresh heading;
   trailing newline.
 
 ### TS test checklist (`test_findings_publication.py`)
+
 Marker round-trip (first-line requirement); inline digest stability + dedup; aggregate rendering for
 error / no-findings / findings(+coverage) / inline-status; null-line rendering; activity-log
 extract/strip/merge/cap-10.
@@ -111,6 +115,7 @@ pr-address's stdin ops), not the standard envelope ops.
 The CI pipeline wiring (exact commands/order/piping) is in `05-…§CI`.
 
 ## Must-match vs free
+
 **Must match:** the 5 gateway ops' GitHub semantics (batched review; nullable patch; bot-author
 filter & guard; find-by-marker is client-side); `commentableRightSideLines` algorithm exactly; the
 exec commands' stdin/stdout/exit contract that CI depends on; first-line-marker requirement.
