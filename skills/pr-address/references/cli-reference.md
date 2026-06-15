@@ -14,16 +14,16 @@ These helpers reject non-empty stdin with a machine `invalid_request` and treat 
 - `classification-template --pr-number <pr>` resolves the PR manifest from the session.
 - `plan-feedback --pr-number <pr>` resolves the PR manifest and validated classification from the session.
 - `stack-feedback-plan` resolves latest stack prep plus per-PR classifications from the session.
-- `stack-feedback-diff-current` resolves latest stack plan plus current prep from the session.
+- `stack-feedback-diff-current` resolves latest stack plan plus current thread-state from the session. Run `stack-feedback-thread-state --stack-reference <frozen-stack-reference>` first.
 
 ## Helpers that still read explicit agent-authored input
 
 - `validate-feedback-classification --pr-number <pr>` reads the agent-authored classification packet from stdin when no classification option is supplied.
 - `validate-feedback-classification --pr-number <pr> --classification-json <json>` remains available for compact inline classification packets.
 - `validate-feedback-classification --pr-number <pr> --classification-file <path>` reads an agent-authored classification packet only when `<path>` is outside the current git worktree; worktree-local paths hard-fail with no override.
-- `build-resolve-thread-batch-payload --decisions-file <path>` and `build-stack-resolve-thread-payloads --decisions-file <path>` read agent-authored decisions.
+- `verify-stack-batch-current --decisions-file <path>`, `build-resolve-thread-batch-payload --decisions-file <path>`, and `build-stack-resolve-thread-payloads --decisions-file <path>` read agent-authored decisions.
 - `record-batch-checkpoint --evidence-file <path>` reads agent-authored evidence.
-- Collection helpers such as `map-branch-prs`, `stack-feedback-preflight`, and `stack-feedback-prep` may still read their documented collection inputs from stdin or explicit collection flags.
+- Collection/inspection helpers such as `map-branch-prs`, `stack-feedback-preflight`, `stack-feedback-prep`, `read-feedback-details`, and `read-thread-bodies` may still read their documented collection inputs from options, stdin, or explicit collection flags.
 
 Every `exec` operation and every operation `--json-schema` route is
 TypeScript-managed. The `pr-address` shim on `PATH` runs the TypeScript sources

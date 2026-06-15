@@ -127,6 +127,8 @@ describe("stack-feedback-diff-current session inputs", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 		expect(envelope.error_type).toBe("payload_lookup_failed");
 		expect(envelope.message).toContain("pr-address-stack-thread-state");
+		expect(envelope.message).toContain("pr-address exec stack-feedback-thread-state --stack-reference <stack-reference> --format json");
+		expect(envelope.message).toContain("stack-feedback-diff-current is session-only");
 	});
 
 	test("requires a harness session when empty stdin has no explicit source", async () => {

@@ -16,6 +16,8 @@ import {
 	readFeedbackDetailResultSchema,
 	readFeedbackDetailsRequestSchema,
 	readFeedbackDetailsResultSchema,
+	readThreadBodiesRequestSchema,
+	readThreadBodiesResultSchema,
 	summarizeFeedbackRequestSchema,
 	summarizeFeedbackResultSchema,
 } from "./collection.ts";
@@ -50,6 +52,8 @@ import {
 	stackFeedbackPrepResultUnionSchema,
 	stackFeedbackThreadStateRequestSchema,
 	stackFeedbackThreadStateResultUnionSchema,
+	verifyStackBatchCurrentRequestSchema,
+	verifyStackBatchCurrentResultSchema,
 } from "./stack.ts";
 
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
@@ -83,6 +87,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["prepare-run", () => schemaDocument(prepareRunRequestSchema, prepareRunResultSchema)],
 	["read-feedback-detail", () => schemaDocument(readFeedbackDetailRequestSchema, readFeedbackDetailResultSchema)],
 	["read-feedback-details", () => schemaDocument(readFeedbackDetailsRequestSchema, readFeedbackDetailsResultSchema)],
+	["read-thread-bodies", () => schemaDocument(readThreadBodiesRequestSchema, readThreadBodiesResultSchema)],
 	["record-batch-checkpoint", () => schemaDocument(recordBatchCheckpointRequestSchema, recordBatchCheckpointResultSchema)],
 	["reply-to-discussion", () => schemaDocument(replyToDiscussionRequestSchema, replyToDiscussionResultSchema)],
 	["reply-to-review", () => schemaDocument(replyToReviewRequestSchema, replyToReviewResultSchema)],
@@ -95,6 +100,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["stack-feedback-thread-state", () => schemaDocument(stackFeedbackThreadStateRequestSchema, stackFeedbackThreadStateResultUnionSchema)],
 	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],
 	["validate-feedback-classification", buildValidateFeedbackClassificationSchemaDocument],
+	["verify-stack-batch-current", () => schemaDocument(verifyStackBatchCurrentRequestSchema, verifyStackBatchCurrentResultSchema)],
 ]);
 
 export function buildOperationSchemaDocument(operation: string): JsonSchemaDocument | undefined {

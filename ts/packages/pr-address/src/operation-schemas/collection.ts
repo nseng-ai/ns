@@ -199,3 +199,33 @@ export const readFeedbackDetailsResultSchema = z.object({
 	counts: selectedFeedbackDetailCountsSchema,
 	resolved_inputs: z.object({ feedback: payloadReferenceSchema }).optional(),
 });
+
+export const readThreadBodiesRequestSchema = stdoutModeRequestSchema.extend({
+	pr_number: z.int(),
+	thread_id: z.array(z.string()),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
+const readThreadBodiesMappingSchema = z.object({
+	thread_id: z.string(),
+	comment_count: z.int(),
+	body_pointers: z.array(z.string()),
+	artifact_json_pointers: z.array(z.string()),
+});
+
+export const readThreadBodiesResultSchema = z.object({
+	pr_number: z.int(),
+	thread_ids: z.array(z.string()),
+	payload_path: z.string(),
+	selected_payload_reference: payloadReferenceSchema,
+	threads: z.array(readThreadBodiesMappingSchema),
+	counts: z.object({
+		requested_threads: z.int(),
+		matched_threads: z.int(),
+		selected_comment_bodies: z.int(),
+		selected_details: z.int(),
+		body_values: z.int(),
+		item_values: z.int(),
+	}),
+	resolved_inputs: z.object({ manifest: payloadReferenceSchema, feedback: payloadReferenceSchema }),
+});

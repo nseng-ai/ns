@@ -221,11 +221,13 @@ Use them directly only when the workflow requires it. Run
 | `get-feedback`                        | Fetch all PR feedback in payload mode by default; run with `--include-resolved` before `finalize-run`. Empty-body reviews are filtered out by default. |
 | `read-feedback-detail`                | Read one allowed body/item pointer from a raw payload artifact and return the selected value inline.                                                   |
 | `read-feedback-details`               | Read multiple allowed body/item pointers into a managed summary artifact with compact stdout metadata.                                                 |
+| `read-thread-bodies`                  | Select all comment body values for known review-thread IDs into a managed selected-details artifact.                                                   |
 | `classification-template`             | Build a deterministic fill-in classification scaffold from a compact manifest.                                                                         |
 | `validate-feedback-classification`    | Validate a strict classification packet against a compact payload manifest.                                                                            |
 | `plan-feedback`                       | Build deterministic execution batches and informational decisions from a validated classification packet.                                              |
 | `build-resolve-thread-batch-payload`  | Build and validate the non-mutating payload for `resolve-thread-batch` from a selected single-PR plan batch and explicit decisions.                    |
-| `stack-feedback-diff-current`         | Compare a validated stack plan with fresh current stack feedback before review-thread resolution mutation.                                             |
+| `stack-feedback-diff-current`         | Compare a validated stack plan with fresh current thread-state before review-thread resolution mutation.                                               |
+| `verify-stack-batch-current`          | Advisory selected-batch currentness check before stack mutation; unrelated drift is reported without blocking a current selected batch.                |
 | `build-stack-resolve-thread-payloads` | Build and validate non-mutating per-PR payloads for `resolve-thread-batch` from a selected stack plan batch and explicit decisions.                    |
 | `finalize-run`                        | Summarize final unresolved, skipped, and checkpoint evidence from session artifacts without mutating GitHub or printing raw feedback bodies.           |
 | `summarize-feedback`                  | Fetch compact feedback evidence for a known PR number without semantic classification.                                                                 |

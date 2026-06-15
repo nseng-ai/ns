@@ -7,6 +7,7 @@ Mutation helpers apply only explicit, validated build artifacts. Do not call raw
 - [`resolve-thread-with-reply`](#resolve-thread-with-reply)
 - [`build-resolve-thread-batch-payload`](#build-resolve-thread-batch-payload)
 - [`stack-feedback-diff-current`](#stack-feedback-diff-current)
+- [`verify-stack-batch-current`](#verify-stack-batch-current)
 - [`build-stack-resolve-thread-payloads`](#build-stack-resolve-thread-payloads)
 - [`resolve-thread-batch`](#resolve-thread-batch)
 - [`reply-to-review`](#reply-to-review)
@@ -129,18 +130,35 @@ pr-address exec record-batch-checkpoint \
 
 ## Stack diff before stack mutation
 
-Before resolving stack feedback, refresh current prep in the same harness session and diff it against the latest stack plan:
+Before resolving stack feedback, refresh current review-thread state in the same harness session and diff it against the latest stack plan. Use the frozen stack artifact produced by `stack-feedback-preflight` / `stack-feedback-prep` as the stack reference:
 
 ```bash
-pr-address exec stack-feedback-prep --stack-json <stack-json> --include-resolved --format json
+pr-address exec stack-feedback-thread-state \
+  --stack-reference <frozen-stack-reference> \
+  --format json
 pr-address exec stack-feedback-diff-current --format json
 ```
 
-`stack-feedback-diff-current` is session-only: it resolves the latest stack plan and latest current prep artifacts from the payload session. It no longer accepts stdin payloads, payload files, stack plan references, or current prep references. Non-empty stdin is a machine `invalid_request`; removed explicit source flags are raw usage errors.
+`stack-feedback-diff-current` is session-only: it resolves the latest stack plan and latest current thread-state artifacts from the payload session. It no longer accepts stdin payloads, payload files, stack plan references, or current prep references. Non-empty stdin is a machine `invalid_request`; removed explicit source flags are raw usage errors.
+
+### `verify-stack-batch-current`
+
+Before stack mutation, verify the selected batch against the latest current thread-state artifact and the agent-authored decisions file:
+
+```bash
+pr-address exec verify-stack-batch-current \
+  --batch-id <batch-id> \
+  --decisions-file decisions.json \
+  --format json
+```
+
+The verifier is selected-batch strict: missing, resolved, or metadata-changed selected review threads return `exit_code: 1` and `selected_batch_current: false`. Decisions for missing, duplicate, informational, or other-batch threads are invalid and also return `exit_code: 1`. Unrelated stack drift is reported in warnings/detail fields without blocking a current selected batch.
+
+The verifier writes a managed `pr-address-stack-batch-<batch>-current` summary artifact for both passing and negative structured results. It is advisory evidence and a docs-required workflow step; `build-stack-resolve-thread-payloads` does not yet require a passing verifier artifact.
 
 ## Stack mutation flow
 
-When the diff is valid and safe, build explicit stack mutation artifacts from the session plan plus an agent-authored decisions file:
+When the selected batch verifies current, build explicit stack mutation artifacts from the session plan plus the same agent-authored decisions file:
 
 ```bash
 pr-address exec build-stack-resolve-thread-payloads \

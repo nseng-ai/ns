@@ -222,6 +222,7 @@ describe("pr-address exec operation table", () => {
 			"prepare-run",
 			"read-feedback-detail",
 			"read-feedback-details",
+			"read-thread-bodies",
 			"record-batch-checkpoint",
 			"reply-to-discussion",
 			"reply-to-review",
@@ -234,6 +235,7 @@ describe("pr-address exec operation table", () => {
 			"stack-feedback-thread-state",
 			"summarize-feedback",
 			"validate-feedback-classification",
+			"verify-stack-batch-current",
 		]);
 	});
 

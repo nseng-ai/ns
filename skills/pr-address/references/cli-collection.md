@@ -13,6 +13,7 @@ Helpers in this file:
 - [`map-branch-prs`](#map-branch-prs)
 - [`read-feedback-detail`](#read-feedback-detail)
 - [`read-feedback-details`](#read-feedback-details)
+- [`read-thread-bodies`](#read-thread-bodies)
 - [`summarize-feedback`](#summarize-feedback)
 
 ### `prepare-run`
@@ -414,6 +415,39 @@ Malformed JSON, empty selections, duplicate pointers, invalid broad pointers,
 missing/non-raw payloads, failed raw envelopes, and value type mismatches return
 `exit_code: 2` with an error type/message. The command validates the whole
 selection before writing any summary artifact.
+
+### `read-thread-bodies`
+
+Select all comment bodies for one or more review thread IDs from the latest PR manifest in the payload session. Use this when you already know the review-thread IDs and want to avoid hand-building JSON Pointer selections.
+
+```bash
+pr-address exec read-thread-bodies \
+  --pr-number 630 \
+  --thread-id PRRT_kw... \
+  --thread-id PRRT_kw... \
+  --format json
+```
+
+**Input fields:**
+
+| Field                | Required | Description                                                                                   |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `pr_number`          | yes      | PR number whose latest manifest summary artifact is used                                      |
+| `thread_id`          | yes      | Repeatable review-thread GraphQL ID; each selected thread contributes all comment body values |
+| `harness_session_id` | payload  | Optional manual/debug override for session lookup                                             |
+
+The helper resolves `pr-address-pr-<n>-manifest`, uses that manifest's `payload_reference.payload_path` as the raw feedback source, validates unknown/blank/duplicate thread IDs before writing, then delegates to `read-feedback-details` storage. Compact stdout does not include body text. Open the produced `kind: "selected-feedback-details"` artifact and resolve each returned `artifact_json_pointer` for exact selected body text.
+
+Full output adds per-thread mapping rows:
+
+```json
+{
+  "thread_id": "PRRT_kw...",
+  "comment_count": 2,
+  "body_pointers": ["/data/review_threads/0/comments/0/body"],
+  "artifact_json_pointers": ["/details/0/value"]
+}
+```
 
 ### `summarize-feedback`
 

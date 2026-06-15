@@ -8,6 +8,7 @@ import { mapBranchPrsOperation } from "./map-branch-prs.ts";
 import { replyToDiscussionOperation, replyToReviewOperation, resolveThreadBatchOperation, resolveThreadWithReplyOperation } from "./mutation-operations.ts";
 import { prepareRunOperation } from "./prepare-run.ts";
 import { readFeedbackDetailOperation, readFeedbackDetailsOperation } from "./read-feedback-detail.ts";
+import { readThreadBodiesOperation } from "./read-thread-bodies.ts";
 import { buildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
 import { stackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
 import { stackFeedbackPlanOperation } from "./stack-feedback-plan.ts";
@@ -16,6 +17,7 @@ import { stackFeedbackPrepOperation } from "./stack-feedback-prep.ts";
 import { stackFeedbackThreadStateOperation } from "./stack-feedback-thread-state.ts";
 import { buildStackResolveThreadPayloadsOperation } from "./stack-resolve-thread-payloads.ts";
 import { summarizeFeedbackOperation } from "./summarize-feedback.ts";
+import { verifyStackBatchCurrentOperation } from "./verify-stack-batch-current.ts";
 
 /**
  * The single exec operation table, alphabetical so commander help matches
@@ -33,6 +35,7 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	prepareRunOperation,
 	readFeedbackDetailOperation,
 	readFeedbackDetailsOperation,
+	readThreadBodiesOperation,
 	recordBatchCheckpointOperation,
 	replyToDiscussionOperation,
 	replyToReviewOperation,
@@ -45,6 +48,7 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	stackFeedbackThreadStateOperation,
 	summarizeFeedbackOperation,
 	validateFeedbackClassificationOperation,
+	verifyStackBatchCurrentOperation,
 ];
 
 

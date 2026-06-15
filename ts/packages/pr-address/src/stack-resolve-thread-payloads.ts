@@ -21,7 +21,7 @@ const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object ret
 
 const nullableStringSchema = z.string().nullable().default(null);
 
-const stackResolveThreadDecisionSchema = resolveThreadBatchDecisionSchema.extend({
+export const stackResolveThreadDecisionSchema = resolveThreadBatchDecisionSchema.extend({
 	pr_number: z.number().int(),
 });
 
@@ -62,7 +62,7 @@ const stackPlanConsumerSchema = z.looseObject({
 	informational: z.array(stackPlanItemSchema).default([]),
 });
 
-type StackResolveThreadDecision = z.infer<typeof stackResolveThreadDecisionSchema>;
+export type StackResolveThreadDecision = z.infer<typeof stackResolveThreadDecisionSchema>;
 type StackPlanItem = z.infer<typeof stackPlanItemSchema>;
 /** Serialized `(pr_number, thread_id)` identity used for Map/Set keys. */
 type SerializedThreadKey = string;

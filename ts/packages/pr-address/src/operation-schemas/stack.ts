@@ -154,6 +154,52 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 	resolved_inputs: z.object({ stack_plan: payloadReferenceSchema, current_thread_state: payloadReferenceSchema }).optional(),
 });
 
+// --- verify-stack-batch-current ----------------------------------------------------
+
+export const verifyStackBatchCurrentRequestSchema = stdoutModeRequestSchema.extend({
+	batch_id: z.string(),
+	decisions_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
+const verifyStackBatchCurrentErrorSchema = z.object({
+	code: z.string(),
+	message: z.string(),
+	batch_id: nullableStringSchema.optional(),
+	pr_number: nullableIntSchema.optional(),
+	thread_id: nullableStringSchema.optional(),
+	actual_pr_number: nullableIntSchema.optional(),
+	actual_batch_id: nullableStringSchema.optional(),
+});
+
+const verifyStackBatchCurrentSummarySchema = z.object({
+	selected_review_threads: z.int(),
+	selected_still_unresolved: z.int(),
+	selected_already_resolved: z.int(),
+	selected_missing_or_outdated_threads: z.int(),
+	unrelated_new_unresolved_threads: z.int(),
+	unrelated_planned_already_resolved: z.int(),
+	unrelated_missing_or_outdated_planned_threads: z.int(),
+});
+
+export const verifyStackBatchCurrentResultSchema = z.object({
+	valid: z.boolean(),
+	selected_batch_current: z.boolean(),
+	safe_to_build_stack_resolve_payloads: z.boolean(),
+	batch_id: z.string(),
+	selected_still_unresolved: z.array(stackFeedbackDiffPlannedThreadSchema).optional(),
+	selected_already_resolved: z.array(stackFeedbackDiffPlannedThreadSchema).optional(),
+	selected_missing_or_outdated_threads: z.array(stackFeedbackDiffMissingOrOutdatedThreadSchema).optional(),
+	unrelated_new_unresolved_threads: z.array(stackFeedbackDiffCurrentThreadSchema).optional(),
+	unrelated_planned_already_resolved: z.array(stackFeedbackDiffPlannedThreadSchema).optional(),
+	unrelated_missing_or_outdated_planned_threads: z.array(stackFeedbackDiffMissingOrOutdatedThreadSchema).optional(),
+	warnings: z.array(z.string()).optional(),
+	errors: z.array(verifyStackBatchCurrentErrorSchema).optional(),
+	summary: verifyStackBatchCurrentSummarySchema,
+	resolved_inputs: z.object({ plan: payloadReferenceSchema, current_thread_state: payloadReferenceSchema }).optional(),
+	verification_reference: payloadReferenceSchema.nullable().optional(),
+});
+
 // --- stack-feedback-thread-state --------------------------------------------------
 
 export const stackFeedbackThreadStateRequestSchema = stdoutModeRequestSchema.extend({

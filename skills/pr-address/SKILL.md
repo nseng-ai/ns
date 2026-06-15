@@ -86,7 +86,7 @@ export HARNESS_SESSION_ID="pr-address-$(date -u +%Y%m%dT%H%M%SZ)"
 
 ## Stack flow
 
-1. Map/prepare the stack so prep and per-PR manifests/templates are in the session.
+1. Map/prepare the stack so prep and per-PR manifests/templates are in the session. Keep the frozen stack reference from `stack-feedback-preflight` / `stack-feedback-prep`.
 2. For each PR, run `classification-template --pr-number <pr>`, produce strict classification JSON, and pipe it to `validate-feedback-classification --pr-number <pr>`; do not create repo-root classification files.
 3. Plan the stack from session artifacts:
 
@@ -94,14 +94,25 @@ export HARNESS_SESSION_ID="pr-address-$(date -u +%Y%m%dT%H%M%SZ)"
    pr-address exec stack-feedback-plan --format json
    ```
 
-4. Refresh current feedback in the same session with resolved threads included, then diff against the session plan:
+4. Refresh current review-thread state from the frozen stack reference, then diff against the session plan:
 
    ```bash
-   pr-address exec stack-feedback-prep --include-resolved --format json
+   pr-address exec stack-feedback-thread-state \
+     --stack-reference <frozen-stack-reference> \
+     --format json
    pr-address exec stack-feedback-diff-current --format json
    ```
 
-5. If safe, build stack mutation artifacts from an agent-authored decisions file and apply only ready artifacts:
+5. Before stack mutation, verify the selected batch against current thread state. This is advisory evidence and a docs-required workflow step; `build-stack-resolve-thread-payloads` does not enforce it yet.
+
+   ```bash
+   pr-address exec verify-stack-batch-current \
+     --batch-id <batch-id> \
+     --decisions-file decisions.json \
+     --format json
+   ```
+
+6. If the selected batch is current, build stack mutation artifacts from the same agent-authored decisions file and apply only ready artifacts:
 
    ```bash
    pr-address exec build-stack-resolve-thread-payloads \
@@ -166,8 +177,17 @@ Preferred classification path:
 
 Fallback path when no subagent/separate subagent or helper is available:
 
-- When multiple bodies/items are needed, batch their compact-manifest pointers
-  into artifact-backed detail lookup:
+- When review-thread IDs are known and body text is needed, prefer the thread-ID helper; it selects all comment bodies for each requested thread and stores the text in a managed selected-details artifact:
+
+  ```bash
+  pr-address exec read-thread-bodies \
+    --pr-number <pr> \
+    --thread-id <thread-id> \
+    --thread-id <thread-id> \
+    --format json
+  ```
+
+- When arbitrary review, thread, or discussion pointers are needed, batch their compact-manifest pointers into artifact-backed detail lookup:
 
   ```bash
   printf '%s' '<selection-json>' \

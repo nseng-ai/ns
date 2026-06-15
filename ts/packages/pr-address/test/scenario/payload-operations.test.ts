@@ -189,7 +189,19 @@ describe("read-feedback detail session resolution", () => {
 						start_line: null,
 						is_resolved: false,
 						is_outdated: false,
-						comments: [{ id: 11, author: "bob", body: "thread body" }],
+						comments: [
+							{ id: 11, author: "bob", body: "thread body" },
+							{ id: 12, author: "dana", body: "thread followup" },
+						],
+					},
+					{
+						thread_id: "PRRT_2",
+						path: "src/other.ts",
+						line: 20,
+						start_line: 18,
+						is_resolved: false,
+						is_outdated: false,
+						comments: [{ id: 21, author: "erin", body: "second thread body" }],
 					},
 				],
 				discussion_comments: [{ comment_id: 99, author: "carol", body: "discussion body" }],
@@ -203,6 +215,50 @@ describe("read-feedback detail session resolution", () => {
 			{ session_id: sessionId, descriptor: prArtifactDescriptor({ prNumber, kind: "feedback" }), payload: rawFeedbackEnvelope() },
 			"2026-01-02T03:04:05.000Z",
 		);
+	}
+
+	async function seedFeedbackManifest(root: string, sessionId: string, prNumber: number): Promise<PayloadReference> {
+		const rawReference = await seedRawFeedback(root, sessionId, prNumber);
+		const store = expectOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-01-02T03:04:06.000Z") }));
+		return expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: manifestForRawReference(rawReference, prNumber) }));
+	}
+
+	function manifestForRawReference(rawReference: PayloadReference, prNumber: number): Record<string, unknown> {
+		return {
+			payload_reference: rawReference,
+			pr_number: prNumber,
+			reviews: [],
+			review_threads: [
+				{
+					thread_id: "PRRT_1",
+					path: "src/file.ts",
+					line: 10,
+					start_line: null,
+					is_resolved: false,
+					is_outdated: false,
+					comment_count: 2,
+					item_pointer: "/data/review_threads/0",
+					comments: [
+						{ id: 11, author: "bob", path: "src/file.ts", line: 10, start_line: null, created_at: "2026-01-01T00:00:00Z", body_locator: { body_chars: 11, json_pointer: "/data/review_threads/0/comments/0/body", item_pointer: "/data/review_threads/0/comments/0", domain: { kind: "thread_comment_body", thread_id: "PRRT_1", comment_id: 11 } } },
+						{ id: 12, author: "dana", path: "src/file.ts", line: 10, start_line: null, created_at: "2026-01-01T00:00:01Z", body_locator: { body_chars: 15, json_pointer: "/data/review_threads/0/comments/1/body", item_pointer: "/data/review_threads/0/comments/1", domain: { kind: "thread_comment_body", thread_id: "PRRT_1", comment_id: 12 } } },
+					],
+				},
+				{
+					thread_id: "PRRT_2",
+					path: "src/other.ts",
+					line: 20,
+					start_line: 18,
+					is_resolved: false,
+					is_outdated: false,
+					comment_count: 1,
+					item_pointer: "/data/review_threads/1",
+					comments: [
+						{ id: 21, author: "erin", path: "src/other.ts", line: 20, start_line: 18, created_at: "2026-01-01T00:00:02Z", body_locator: { body_chars: 18, json_pointer: "/data/review_threads/1/comments/0/body", item_pointer: "/data/review_threads/1/comments/0", domain: { kind: "thread_comment_body", thread_id: "PRRT_2", comment_id: 21 } } },
+					],
+				},
+			],
+			discussion_comments: [],
+		};
 	}
 
 	test("read-feedback-detail resolves latest raw feedback by PR number", async () => {
@@ -268,6 +324,100 @@ describe("read-feedback detail session resolution", () => {
 		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
 		expect(envelope.error_type).toBe("invalid_request");
 		expect(envelope.message).toContain("cannot mix --payload-path with --pr-number");
+	});
+
+	test("read-thread-bodies selects all comment bodies for requested thread IDs", async () => {
+		const root = await makePayloadRoot();
+		await seedFeedbackManifest(root, "thread-body-session", 789);
+
+		const run = runScenario(
+			[
+				"exec",
+				"read-thread-bodies",
+				"--pr-number",
+				"789",
+				"--thread-id",
+				"PRRT_1",
+				"--thread-id",
+				"PRRT_2",
+				"--format",
+				"json",
+				"--stdout-mode",
+				"full",
+			],
+			{ env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "thread-body-session" }, payloadClock: fixedClock("2026-01-02T03:04:07.000Z") },
+		);
+
+		expect(await run.exit).toBe(0);
+		const envelope = JSON.parse(run.stdout.join("")) as {
+			data: {
+				selected_payload_reference: PayloadReference;
+				threads: Array<{ thread_id: string; comment_count: number; body_pointers: string[]; artifact_json_pointers: string[] }>;
+				counts: { requested_threads: number; matched_threads: number; selected_comment_bodies: number };
+				resolved_inputs: { manifest: { descriptor: string; role: string }; feedback: { descriptor: string; role: string } };
+			};
+		};
+		expect(envelope.data.selected_payload_reference).toMatchObject({ descriptor: "pr-address-selected-feedback-details", role: "summary" });
+		expect(envelope.data.counts).toMatchObject({ requested_threads: 2, matched_threads: 2, selected_comment_bodies: 3 });
+		expect(envelope.data.threads).toEqual([
+			{
+				thread_id: "PRRT_1",
+				comment_count: 2,
+				body_pointers: ["/data/review_threads/0/comments/0/body", "/data/review_threads/0/comments/1/body"],
+				artifact_json_pointers: ["/details/0/value", "/details/1/value"],
+			},
+			{
+				thread_id: "PRRT_2",
+				comment_count: 1,
+				body_pointers: ["/data/review_threads/1/comments/0/body"],
+				artifact_json_pointers: ["/details/2/value"],
+			},
+		]);
+		expect(envelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-789-manifest", role: "summary" });
+		expect(envelope.data.resolved_inputs.feedback).toMatchObject({ descriptor: "pr-address-pr-789-feedback", role: "raw" });
+		const selectedArtifact = JSON.parse(await readFile(envelope.data.selected_payload_reference.payload_path, "utf8")) as { details: Array<{ value: string }> };
+		expect(selectedArtifact.details.map((detail) => detail.value)).toEqual(["thread body", "thread followup", "second thread body"]);
+	});
+
+	test("read-thread-bodies compact output omits selected body text", async () => {
+		const root = await makePayloadRoot();
+		await seedFeedbackManifest(root, "thread-body-session", 789);
+
+		const run = runScenario(["exec", "read-thread-bodies", "--pr-number", "789", "--thread-id", "PRRT_1", "--format", "json"], {
+			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "thread-body-session" },
+			payloadClock: fixedClock("2026-01-02T03:04:07.000Z"),
+		});
+
+		expect(await run.exit).toBe(0);
+		const stdout = run.stdout.join("");
+		expect(stdout).toContain("selected-feedback-details");
+		expect(stdout).not.toContain("thread body");
+		expect(stdout).not.toContain("thread followup");
+	});
+
+	test.each([
+		{ name: "unknown", args: ["--thread-id", "missing"], message: "Unknown review thread ID" },
+		{ name: "duplicate", args: ["--thread-id", "PRRT_1", "--thread-id", "PRRT_1"], message: "Duplicate --thread-id" },
+		{ name: "blank", args: ["--thread-id", "   "], message: "must be non-empty" },
+	])("read-thread-bodies rejects $name thread IDs", async ({ args, message }) => {
+		const root = await makePayloadRoot();
+		await seedFeedbackManifest(root, "thread-body-session", 789);
+		const run = runScenario(["exec", "read-thread-bodies", "--pr-number", "789", ...args, "--format", "json"], {
+			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "thread-body-session" },
+		});
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain(message);
+	});
+
+	test("read-thread-bodies requires a manifest session", async () => {
+		const run = runScenario(["exec", "read-thread-bodies", "--pr-number", "789", "--thread-id", "PRRT_1", "--format", "json"], { env: { PATH: "/fake/bin" } });
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("harness_session_required");
 	});
 
 	test("rejects mixed read-feedback-details sources", async () => {

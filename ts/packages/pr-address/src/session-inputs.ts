@@ -631,12 +631,21 @@ export async function resolveStackFeedbackDiffCurrentSessionInput(store: Payload
 		role: "summary",
 		schema: stackFeedbackThreadStateResultSchema,
 	});
-	if (currentThreadState.type === "error") return currentThreadState;
+	if (currentThreadState.type === "error") return stackThreadStateMissingGuidance(currentThreadState);
 	return {
 		type: "ok",
 		value: {
 			payload: { stack_plan: stackPlan.value.value, current_thread_state: currentThreadState.value.value },
 			resolvedInputs: { stack_plan: stackPlan.value.reference, current_thread_state: currentThreadState.value.reference },
 		},
+	};
+}
+
+function stackThreadStateMissingGuidance<T extends OperationInputError<PayloadErrorType>>(result: { type: "error" } & T): { type: "error" } & T {
+	const descriptor = stackArtifactDescriptor("thread-state");
+	if (result.errorType !== "payload_lookup_failed" || !result.message.includes(descriptor)) return result;
+	return {
+		...result,
+		message: `${result.message} Run pr-address exec stack-feedback-thread-state --stack-reference <stack-reference> --format json before stack-feedback-diff-current. Use the frozen stack artifact from stack-feedback-preflight / stack-feedback-prep as <stack-reference>; stack-feedback-diff-current is session-only.`,
 	};
 }
