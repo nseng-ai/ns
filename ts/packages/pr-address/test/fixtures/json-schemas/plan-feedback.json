@@ -3,46 +3,15 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "payload_json": {
-        "default": null,
-        "description": "Inline wrapper payload JSON.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "payload_file": {
-        "default": null,
-        "description": "Path to a wrapper payload JSON file.",
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
       "pr_number": {
-        "anyOf": [
-          {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "description": "PR number for implicit session resolution."
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991,
+        "description": "PR number for payload-session manifest and classification resolution."
       },
       "harness_session_id": {
         "default": null,
-        "description": "Harness session id for implicit session resolution.",
+        "description": "Payload session id override for session resolution and plan persistence.",
         "anyOf": [
           {
             "type": "string"
@@ -62,8 +31,6 @@
       }
     },
     "required": [
-      "payload_json",
-      "payload_file",
       "pr_number",
       "harness_session_id"
     ],

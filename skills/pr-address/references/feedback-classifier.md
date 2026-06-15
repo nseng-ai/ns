@@ -1,172 +1,41 @@
-# Feedback classifier — LLM guidance
+# Feedback classifier guidance
 
-This file is the heart of `pr-address`. After `prepare-run` or `get-feedback`
-returns a compact feedback manifest, the LLM applies the rules below to classify
-each item and group actionable work into an ordered execution plan.
-
-Classification is **LLM-driven, not rule-based**, but the classifier's output is
-validated deterministically before the parent skill acts on it. Tools change and
-users have patterns of their own — the LLM judges free-form review content
-better than brittle string-matching rules keyed off specific bot names. If this
-file ever starts listing more than a handful of specific bot accounts or magic
-strings, that's a smell: the judgment should be stated as principles, not
-enumerations.
+The classifier's job is semantic judgment only. The parent/session pipeline owns manifests, raw feedback, validation, and planning artifacts.
 
 ## Inputs
 
-The classifier receives payload artifact evidence, not pasted raw review JSON:
+Use the scaffold from:
 
-- **Manifest:** the compact `data` object from `pr-address exec prepare-run` or
-  `pr-address exec get-feedback` in default payload mode.
-- **Raw payload path:** `manifest.payload_reference.payload_path`, pointing to
-  the full `.raw.json` payload envelope.
-- **Locators:** `body_locator` and `item_pointer` values from manifest reviews,
-  review-thread comments, and discussion comments.
-- **Restructured files:** optional `restructured_files` from `prepare-run`, used
-  when judging moved/copied-path bot comments as pre-existing.
-- **Classification template:** the deterministic scaffold from
-  `pr-address exec classification-template`, when available. It pre-fills IDs,
-  locators, item pointers, and review-thread comment coverage.
-- **Selected body text:** obtained either by a payload-aware summarizer/subagent
-  that can read the raw payload file, or by targeted calls to
-  `pr-address exec read-feedback-detail`.
-
-Do not paste the full raw payload artifact into the main transcript. Pass paths,
-locators, the generated template, expected output shape, and completeness
-requirements to the side channel. If no separate subagent or helper is available,
-inspect only the required bodies with `read-feedback-detail`.
-
-## Delegated classifier report
-
-When acting as a delegated classifier subagent, return a concise prose/Markdown
-classification report keyed by stable review, thread, discussion-comment, and
-covered thread-comment IDs. Do not emit the final validation JSON packet unless
-the parent prompt explicitly requests a special machine packet for a structured
-terminal-capture mode.
-
-Recommended report shape:
-
-```md
-## Coverage
-
-- Reviews: accounted for 1/1
-- Review threads: accounted for 1/1
-- Thread comments: covered 2/2
-- Discussion comments: accounted for 1/1
-
-## Review threads
-
-### PRRT_kw...
-
-Disposition: actionable
-Summary: Reviewer is asking for a clearer error message.
-Recommended action: Update the raised error text and nearby assertion.
-Complexity: single_file
-Pre-existing: no
-Covered comments: 123456, 123457
-Confidence: high
-Evidence: /data/review_threads/0/comments/0/body, /data/review_threads/0/comments/1/body
-
-## Discussion comments
-
-### 987654
-
-Disposition: informational
-Summary: CI status bot posted a passing workflow summary.
-Informational reason: automation
-Needs reply: no
-Confidence: high
-Evidence: /data/discussion_comments/0/body
+```bash
+pr-address exec classification-template --pr-number <pr-number> --format json
 ```
 
-For each required item, include the disposition, summary, evidence inspected,
-and confidence or blockers. For actionable items, include recommended action,
-complexity, and whether the item is pre-existing. For informational items,
-include the informational reason. For actionable discussion comments, include
-whether a reply is needed.
+Inspect referenced payload artifacts as needed. Do not ask the classifier to combine manifests with classifications or to build planning wrappers.
 
-The report should be easy for the parent to inspect and translate into the
-classification scaffold. It is intentionally not a strict schema.
+## Output
 
-## Canonical validation packet
+Write a PR feedback classification packet as an agent-authored JSON file. Then validate and persist it with:
 
-The parent skill builds the canonical JSON classification packet and passes it to
-`pr-address exec validate-feedback-classification`. That packet has
-`schema_version: 1`:
-
-```jsonc
-{
-  "schema_version": 1,
-  "reviews": [
-    {
-      "review_id": "PRR_...",
-      "disposition": "actionable", // or "informational"
-      "body_locator": {
-        "json_pointer": "/data/reviews/0/body",
-        "item_pointer": "/data/reviews/0"
-      },
-      "summary": "Human-readable classification summary.",
-      "action_summary": "Required for actionable items.",
-      "complexity": "local",
-      "pre_existing": false,
-      "informational_reason": null
-    }
-  ],
-  "review_threads": [
-    {
-      "thread_id": "PRRT_...",
-      "disposition": "actionable",
-      "thread_item_pointer": "/data/review_threads/0",
-      "covered_comments": [
-        {
-          "comment_id": 123456,
-          "body_locator": {
-            "json_pointer": "/data/review_threads/0/comments/0/body",
-            "item_pointer": "/data/review_threads/0/comments/0"
-          }
-        }
-      ],
-      "summary": "Thread summary.",
-      "action_summary": "Required for actionable threads.",
-      "complexity": "single_file",
-      "pre_existing": false,
-      "informational_reason": null
-    }
-  ],
-  "discussion_comments": [
-    {
-      "comment_id": 987654,
-      "disposition": "informational",
-      "body_locator": {
-        "json_pointer": "/data/discussion_comments/0/body",
-        "item_pointer": "/data/discussion_comments/0"
-      },
-      "summary": "Comment summary.",
-      "action_summary": null,
-      "complexity": null,
-      "needs_reply": false,
-      "informational_reason": "automation"
-    }
-  ]
-}
+```bash
+pr-address exec validate-feedback-classification \
+  --pr-number <pr-number> \
+  --classification-file classification.json \
+  --format json
 ```
 
-When a `classification-template` scaffold is available, the parent fills that
-scaffold instead of writing the packet from scratch. Preserve all prefilled IDs,
-locator references, item pointers, thread item pointers, and
-`covered_comments`; fill only semantic judgment fields. Use locator references
-copied from the manifest. Do not invent IDs, pointers, or item paths.
+Validation resolves the manifest from the payload session and stores the classification artifact used by `plan-feedback` and `stack-feedback-plan`.
 
-Enum values:
+## Classification responsibilities
 
-- `disposition`: `actionable`, `informational`
-- `complexity`: `pre_existing`, `local`, `single_file`, `cross_cutting`,
-  `complex`
-- `informational_reason`: `resolved_reference`, `automation`,
-  `acknowledgement`, `approval`, `question_only`, `fyi`, `noise`,
-  `already_addressed`, `other`
+For each review, review thread, and discussion comment in the scaffold:
 
-Field rules:
+- choose a disposition;
+- provide concise summaries/action summaries for actionable items;
+- assign complexity and approval requirement where the schema asks for them;
+- mark informational or pre-existing items accurately;
+- avoid dropping unresolved review threads.
+
+Do not call raw GitHub write endpoints, do not resolve threads directly, and do not invent payload-session artifacts. Mutation happens later from validated build artifacts.
 
 - Every item has a non-empty `summary`.
 - `actionable` items have non-empty `action_summary`, non-null `complexity`, and

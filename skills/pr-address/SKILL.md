@@ -1,181 +1,130 @@
 ---
 name: pr-address
-description: "Command: pr-address"
-allowed-tools:
-  - "Bash(pr-address *)"
-  - "Bash(pr-address)"
-  - "Bash(gh pr view *)"
-  - "Bash(gh pr list *)"
-  - "Bash(gh auth status)"
-  - "Bash(gh repo view *)"
-  - "Bash(git status*)"
-  - "Bash(git log*)"
-  - "Bash(git diff*)"
-  - "Bash(git add*)"
-  - "Bash(git commit*)"
-  - "Bash(git rev-parse*)"
-  - "Bash(git remote*)"
-  - "Bash(git branch*)"
-  - "Bash(just *)"
-  - "Bash(command -v*)"
-  - "Read"
-  - "Edit"
-  - "Write"
-  - "Grep"
-  - "Glob"
+description: Address GitHub PR review feedback with the pr-address session-store workflow.
 ---
-
-<!-- PUBLIC SKILL: Do not reference asdl-internal module paths or class names in this file. Describe CLI operations, not implementation. See docs/skill-conventions.md section "Public Skill Authoring". -->
 
 # pr-address
 
-Address review comments on the current branch's PR, end-to-end. The skill
-prepares one normalized feedback snapshot, classifies it with LLM judgment,
-validates that classification, executes approved batches, commits locally, and
-resolves or replies to the matching GitHub feedback. It never pushes.
+Use `pr-address exec ...` helpers to collect, classify, plan, build, and optionally apply PR feedback resolutions. The durable rule is: **files carry what the agent authored; the session carries what the pipeline produced.**
 
-## When to use
+## Safety rules
 
-Run this skill only when the user explicitly invokes `pr-address` by name in
-their current harness. Do not trigger it from natural-language requests like
-"fix review feedback".
+- Do not use raw GitHub write endpoints.
+- Do not push, submit, publish, merge, or deploy unless the user explicitly asks.
+- Do not hand-roll reply bodies or resolve review threads outside ready `pr-address` build artifacts.
+- Do not drop unresolved review threads from classification or finalization.
+- Agent-authored files are allowed and expected: classification packets, decisions files, and checkpoint evidence files.
+- Pipeline-produced artifacts are resolved from the payload session, not pasted into wrapper JSON.
 
-If the user wants a read-only pass, stop after the execution plan. Do not edit
-code, commit, or mutate GitHub.
+## Session setup
 
-## Guarantees
-
-- Works only on the current branch's PR.
-- Never pushes. The user pushes manually after reviewing local commits.
-- Default feedback fetching uses payload artifacts so raw review bodies stay out
-  of the main transcript.
-- Classification must validate before execution planning proceeds.
-- Every PR-level review, unresolved inline review thread, covered thread
-  comment, and PR discussion comment must be accounted for in the validated
-  classification packet.
-- `cross_cutting`, `complex`, and informational items require user input before
-  execution.
-- GitHub mutations go through `pr-address exec` operations, not raw `gh api`
-  calls.
-
-## How `pr-address` is invoked
-
-This skill invokes the `pr-address` CLI on `PATH`. It is installed once from an
-asdl checkout with `just install-pr-address`, which places a small shim at
-`~/.local/bin/pr-address`. The shim runs the TypeScript implementation from the
-enclosing checkout's sources when invoked inside an asdl checkout, and from the
-installing checkout's sources everywhere else. It requires `node` (Node 24 or
-newer) on `PATH`.
-
-Every `exec` operation and every `--json-schema` route runs the same
-implementation either way.
-
-All commands in this skill and in the `references/cli-*.md` reference files are
-written as literal `pr-address ...` invocations and can be run as shown. For
-example:
+Use the harness-provided payload session when available. For manual evidence runs:
 
 ```bash
-pr-address exec prepare-run \
-  --format json
+export ASDL_PAYLOAD_ROOT="${TMPDIR:-/tmp}/asdl-pr-address-session-store-evidence"
+export HARNESS_SESSION_ID="pr-address-$(date -u +%Y%m%dT%H%M%SZ)"
 ```
 
-## Prerequisites
+## Single-PR flow
 
-1. `command -v pr-address` succeeds. If it does not, report that `pr-address`
-   is not installed and that `just install-pr-address` from an asdl checkout
-   installs it.
-2. `gh auth status` is healthy.
-3. The current branch has an open PR.
+1. Collect feedback; this writes manifest/raw artifacts into the session:
 
-Stop on the first failed prerequisite and report the problem clearly.
+   ```bash
+   pr-address exec get-feedback <pr-number> --format json
+   ```
 
-The working tree does not need to be clean. `pr-address` is allowed to run with
-uncommitted edits in the tree. The operator is responsible for staging only the
-files belonging to each batch (see step 4).
+2. Build a classification scaffold from the session manifest:
 
-## Workflow
+   ```bash
+   pr-address exec classification-template --pr-number <pr-number> --format json
+   ```
 
-### 1. Preflight
+3. Write an agent-authored `classification.json` from the scaffold and inspected payload details.
 
-Run the prerequisite checks above before fetching any feedback.
+4. Validate and persist the classification:
 
-Compliant harnesses provide `HARNESS_SESSION_ID` for payload feedback commands. Pi injects it for Bash tool calls through `.pi/extensions/harness-session.ts`. For manual or non-Pi debugging, pass `--harness-session-id <raw-harness-id>` or set `HARNESS_SESSION_ID=<raw-harness-id>` in the command environment. Do not rely on commands to invent a session id.
+   ```bash
+   pr-address exec validate-feedback-classification \
+     --pr-number <pr-number> \
+     --classification-file classification.json \
+     --format json
+   ```
 
-If the surrounding harness is in a planning-only mode, stop after printing the
-execution plan. Do not edit files, commit, or call GitHub mutation commands.
+5. Plan feedback from session artifacts:
 
-### 2. Prepare the run
+   ```bash
+   pr-address exec plan-feedback --pr-number <pr-number> --format json
+   ```
 
-Use the composite helper in default payload mode:
+6. If mutation is appropriate, implement the selected batch locally, write `decisions.json`, build a ready payload, and apply only that artifact:
 
-```bash
-pr-address exec prepare-run \
-  --format json
-```
+   ```bash
+   pr-address exec build-resolve-thread-batch-payload \
+     --pr-number <pr-number> \
+     --batch-id <batch-id> \
+     --commit-sha <sha> \
+     --decisions-file decisions.json \
+     --format json
 
-Pass `{"include_all_threads": true}` only when the user explicitly wants
-resolved threads included for reference. Otherwise let it default to `false`.
+   pr-address exec resolve-thread-batch --from-build <payload-path> --format json
+   ```
 
-Pass `{"include_empty_reviews": true}` only when the user explicitly wants to
-see raw empty-body `COMMENTED` / `APPROVED` reviews (they are filtered out as
-noise by default).
+7. Record evidence and finalize:
 
-`prepare-run` is the source of truth for the mechanical setup. It:
+   ```bash
+   pr-address exec record-batch-checkpoint \
+     --pr-number <pr-number> \
+     --batch-id <batch-id> \
+     --commit-sha <sha> \
+     --evidence-file evidence.json \
+     --format json
 
-- resolves the current branch and its PR
-- fetches one feedback snapshot with resolved threads included as needed
-- reopens contested threads previously resolved by `pr-address`
-- drops empty-body `COMMENTED` / `APPROVED` reviews unless
-  `include_empty_reviews=true`
-- returns `data.payload_mode: "payload"` in the default workflow
-- returns `data.payload_reference.payload_path`, pointing to the full raw
-  payload envelope
-- returns compact `reviews`, `review_threads`, and `discussion_comments` with
-  body locators rather than full bodies
-- returns `restructured_files` for moved/copied paths
-- returns counts and any warnings that should be shown to the user before
-  continuing
+   pr-address exec get-feedback <pr-number> --include-resolved --format json
+   pr-address exec finalize-run --pr-number <pr-number> --format json
+   ```
 
-For read-only stack triage where PR numbers are already known, use
-`pr-address exec summarize-feedback <pr_number> --format json` to
-reduce token volume. Do not use it as a replacement for `prepare-run` in the
-current-branch workflow; it does not reopen contested threads or return
-restructured-file evidence.
+## Stack flow
 
-If the result has `data.found: false`, stop and report that there is no PR for
-the current branch.
+1. Map/prepare the stack so prep and per-PR manifests/templates are in the session.
+2. For each PR, run `classification-template --pr-number <pr>`, write a classification file, and validate it with `validate-feedback-classification --pr-number <pr> --classification-file <file>`.
+3. Plan the stack from session artifacts:
 
-If the payload counts show no reviews, unresolved review threads, or discussion
-comments, report that there is no outstanding feedback and stop.
+   ```bash
+   pr-address exec stack-feedback-plan --format json
+   ```
 
-### 3. Classify, validate, and plan
+4. Refresh current feedback in the same session with resolved threads included, then diff against the session plan:
 
-Open `references/feedback-classifier.md` and follow its classification rules.
-The parent ultimately builds the validated classification artifact: a JSON
-packet with `schema_version: 1` and explicit `reviews`, `review_threads`, and
-`discussion_comments` entries. That packet is the deterministic CLI boundary,
-not the default agent-to-agent subagent report.
+   ```bash
+   pr-address exec stack-feedback-prep --include-resolved --format json
+   pr-address exec stack-feedback-diff-current --format json
+   ```
 
-Generate a deterministic scaffold from the session-resolved compact manifest
-before asking for semantic classification:
+5. If safe, build stack mutation artifacts from an agent-authored decisions file and apply only ready artifacts:
 
-```bash
-pr-address exec classification-template \
-  --pr-number <pr> \
-  --format json
-```
+   ```bash
+   pr-address exec build-stack-resolve-thread-payloads \
+     --batch-id <batch-id> \
+     --commit-sha <sha> \
+     --decisions-file decisions.json \
+     --format json
+   ```
 
-For manual/debug compatibility, `classification-template` can still read a bare
-compact manifest from stdin, `--manifest-json`, or `--manifest-file`.
+## Removed composed-input surfaces
 
-The scaffold pre-fills IDs, locators, item pointers, and coverage skeletons.
-The raw scaffold is intentionally invalid until the parent fills semantic fields
-such as `disposition`, `summary`, `action_summary`, `complexity`, and
-`informational_reason`, potentially from a delegated classifier report.
+These helpers are session-only for pipeline-produced artifacts:
 
-When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
-before launching a payload-aware summarizer/subagent. That policy describes how
-to pass payload paths and locators without pasting raw payload JSON.
+- `classification-template --pr-number <pr>`
+- `plan-feedback --pr-number <pr>`
+- `stack-feedback-plan`
+- `stack-feedback-diff-current`
+
+Non-empty stdin to those helpers returns a machine `invalid_request`; removed explicit source flags are raw usage errors. Use the references for details:
+
+- `references/cli-planning.md`
+- `references/cli-mutation.md`
+- `references/cli-reference.md`
+- `references/feedback-classifier.md`
 
 Tiny-feedback fast path: when the manifest has at most five required feedback
 items total and they are short bot/outdated/mechanical comments with no
@@ -257,9 +206,8 @@ pr-address exec validate-feedback-classification \
 
 Successful `--pr-number` validation automatically persists the classification
 artifact for `plan-feedback --pr-number`. `validate-feedback-classification` is
-session-only at the manifest boundary; removed legacy inputs such as
-`--manifest-json`, `--manifest-file`, `--payload-json`, and `--persist-session`
-are usage errors.
+session-only at the manifest boundary; non-empty stdin returns a machine
+`invalid_request` and removed explicit source flags are raw usage errors.
 
 Validation outcomes:
 
@@ -286,8 +234,7 @@ pr-address exec plan-feedback \
   --format json
 ```
 
-For legacy/manual paths, `plan-feedback` can still read the same wrapper shape as
-validation. If `plan-feedback` exits `1`, inspect
+If `plan-feedback` exits `1`, inspect
 `data.validation.counts` and `data.validation.errors` and handle them like
 classification validation failures: fix parent translation/schema mistakes
 locally, retry/escalate only for incomplete or ambiguous semantic judgments, then
@@ -475,8 +422,8 @@ pr-address exec finalize-run \
   --format json
 ```
 
-Use the `data` object from final `get-feedback`, not the Clinkr envelope, only
-when debugging older composed payload flows; normal finalization is session-only.
+Finalization is session-only: it reads the latest feedback, plan, and checkpoint
+artifacts from the payload session rather than a hand-composed payload.
 
 If `finalize-run` exits 1 or returns `data.ready_to_stop == false`, do not claim
 the PR-address run is complete. Report the helper's unresolved unskipped
@@ -502,8 +449,6 @@ Do not run `git push`. Do not run `gt submit`.
 - Retry invalid classification once with structured diagnostics, then fail
   closed.
 - Do not paste full raw payload JSON into the main transcript by default.
-- Do not use `--payload-mode inline` unless debugging/migrating or when
-  payload artifact and selected-detail paths cannot provide enough evidence.
 - Do not commit a broken batch.
 - Record skipped items in the final summary.
 

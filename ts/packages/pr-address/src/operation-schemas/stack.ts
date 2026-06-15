@@ -281,9 +281,6 @@ export const stackFeedbackPreflightResultUnionSchema = z.union([stackFeedbackPre
 // --- stack-feedback-plan -----------------------------------------------------------
 
 export const stackFeedbackPlanRequestSchema = z.object({
-	payload_json: nullableStringSchema.optional(),
-	payload_file: nullableStringSchema.optional(),
-	prep_reference: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: z.enum(["full", "compact"]).optional(),
 });

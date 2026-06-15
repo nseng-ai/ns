@@ -1,49 +1,26 @@
-# pr-address CLI reference
+# pr-address exec CLI reference notes
 
-Routing index for `pr-address exec` helpers. Shared conventions live in this
-file; per-helper input/output tables live in the category files mapped in
-[Helper routing](#helper-routing). Read this index first, then read **only the
-mapped category file's section for the helper you are about to call**.
+## Artifact boundary
 
-All commands are literal `pr-address ...` invocations of the `pr-address` CLI
-on `PATH` (installed from an asdl checkout with `just install-pr-address`).
+- Pipeline-produced artifacts live in the payload session and are resolved by PR number or by latest stack artifact lookup.
+- Agent-authored files remain explicit inputs: classification packets, decisions files, checkpoint evidence files, and collection inputs where documented.
+- Do not compose pipeline-produced wrapper JSON by hand.
 
-The per-helper reference is authoritative — if it disagrees with memory, the
-reference wins. If unsure about a field's exact shape, also run
-`pr-address exec <helper> --json-schema` to print the JSON schemas for that
-helper's input/output/error shapes.
+## Session-only helpers
 
-## Helper routing
+These helpers reject non-empty stdin with a machine `invalid_request` and treat removed explicit source flags as raw usage errors:
 
-| Helper                                | File                                   |
-| ------------------------------------- | -------------------------------------- |
-| `prepare-run`                         | [cli-collection.md](cli-collection.md) |
-| `get-feedback`                        | [cli-collection.md](cli-collection.md) |
-| `stack-feedback-preflight`            | [cli-collection.md](cli-collection.md) |
-| `stack-feedback-prep`                 | [cli-collection.md](cli-collection.md) |
-| `map-branch-prs`                      | [cli-collection.md](cli-collection.md) |
-| `read-feedback-detail`                | [cli-collection.md](cli-collection.md) |
-| `read-feedback-details`               | [cli-collection.md](cli-collection.md) |
-| `summarize-feedback`                  | [cli-collection.md](cli-collection.md) |
-| `classification-template`             | [cli-planning.md](cli-planning.md)     |
-| `validate-feedback-classification`    | [cli-planning.md](cli-planning.md)     |
-| `plan-feedback`                       | [cli-planning.md](cli-planning.md)     |
-| `stack-feedback-plan`                 | [cli-planning.md](cli-planning.md)     |
-| `resolve-thread-with-reply`           | [cli-mutation.md](cli-mutation.md)     |
-| `build-resolve-thread-batch-payload`  | [cli-mutation.md](cli-mutation.md)     |
-| `stack-feedback-diff-current`         | [cli-mutation.md](cli-mutation.md)     |
-| `build-stack-resolve-thread-payloads` | [cli-mutation.md](cli-mutation.md)     |
-| `resolve-thread-batch`                | [cli-mutation.md](cli-mutation.md)     |
-| `reply-to-review`                     | [cli-mutation.md](cli-mutation.md)     |
-| `reply-to-discussion`                 | [cli-mutation.md](cli-mutation.md)     |
-| `record-batch-checkpoint`             | [cli-lifecycle.md](cli-lifecycle.md)   |
-| `finalize-run`                        | [cli-lifecycle.md](cli-lifecycle.md)   |
-| Other commands                        | [cli-lifecycle.md](cli-lifecycle.md)   |
+- `classification-template --pr-number <pr>` resolves the PR manifest from the session.
+- `plan-feedback --pr-number <pr>` resolves the PR manifest and validated classification from the session.
+- `stack-feedback-plan` resolves latest stack prep plus per-PR classifications from the session.
+- `stack-feedback-diff-current` resolves latest stack plan plus current prep from the session.
 
-Do not read all category files up front; load each file's relevant section
-lazily, when a run actually needs that helper.
+## Helpers that still read explicit agent-authored input
 
-## Implementation
+- `validate-feedback-classification --pr-number <pr> --classification-file <path>` reads the agent-authored classification packet.
+- `build-resolve-thread-batch-payload --decisions-file <path>` and `build-stack-resolve-thread-payloads --decisions-file <path>` read agent-authored decisions.
+- `record-batch-checkpoint --evidence-file <path>` reads agent-authored evidence.
+- Collection helpers such as `map-branch-prs`, `stack-feedback-preflight`, and `stack-feedback-prep` may still read their documented collection inputs from stdin or explicit collection flags.
 
 Every `exec` operation and every operation `--json-schema` route is
 TypeScript-managed. The `pr-address` shim on `PATH` runs the TypeScript sources
@@ -51,7 +28,7 @@ from the enclosing asdl checkout when invoked inside one, and from the
 installing checkout everywhere else. It requires `node` (Node 24 or newer).
 
 Malformed argv (unknown/missing options, excess arguments, non-integer values,
-invalid `--payload-mode`/`--stdout-mode`/`--format` choices) is rejected in
+invalid `--stdout-mode`/`--format` choices) is rejected in
 TypeScript as a raw stderr usage error with exit code 2 — never a JSON
 envelope.
 
@@ -73,12 +50,6 @@ All `pr-address exec <command> --format json` helpers:
 - Support `--json-schema` to print JSON schemas for input/output/error shapes
   and exit without running the operation.
 
-For helpers that accept payload fields by reference, e.g.
-`stack-feedback-diff-current --stack-plan-reference ... --current-prep-reference ...`,
-stdin is ignored only when every payload field is supplied by reference and no
-explicit `--payload-json`/`--payload-file` is passed. In all other cases, keep
-using exactly one payload source.
-
 ```bash
 pr-address exec resolve-thread-with-reply \
   PRRT_kw... fixed "Updated the guard." abc1234 --format json
@@ -94,11 +65,11 @@ git work tree they fail fast with `error_type: "repo_context_required"`
 
 ### Payload artifact commands
 
-`prepare-run` and `get-feedback` still accept `--payload-mode inline|payload`, but stdout mode controls what is printed. Default compact stdout writes the full feedback envelope to a store-owned `.raw.json` payload and prints only a digest plus artifact references. `prepare-run` also writes a PR-scoped manifest summary artifact when a PR is found so `classification-template --pr-number` can use the same session. The manifest carries `payload_reference.payload_path` plus item-level body locators; it does not paste full review bodies into the main transcript.
+`prepare-run` and `get-feedback` write the full feedback envelope to a store-owned `.raw.json` payload and, in default compact stdout, print only a digest plus artifact references. `prepare-run` also writes a PR-scoped manifest summary artifact when a PR is found so `classification-template --pr-number` can use the same session. The manifest carries `payload_reference.payload_path` plus item-level body locators; it does not paste full review bodies into the main transcript.
 
-Payload/compact artifact mode requires `HARNESS_SESSION_ID` or `--harness-session-id <id>`. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
+Compact artifact mode requires `HARNESS_SESSION_ID` or `--harness-session-id <id>`. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
 
-Use `--stdout-mode full` and, for feedback fetches, `--payload-mode inline` only as explicit debugging or migration escapes. Full inline output can avoid a payload session for helpers that otherwise do not need one.
+Use `--stdout-mode full` only as an explicit debugging escape. Full inline output can avoid a payload session for helpers that otherwise do not need one.
 
 ## ID scoping
 
@@ -107,3 +78,5 @@ Use `--stdout-mode full` and, for feedback fetches, `--payload-mode inline` only
 - **`comment_id`** — REST numeric IDs. Require `pr_number` alongside them.
 - **`pr_number`** — required for operations scoped to a PR (reviews,
   discussion comments, feedback fetches).
+
+When in doubt, keep authored judgment in files and let `pr-address` locate pipeline artifacts through the current payload session.

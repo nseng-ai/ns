@@ -89,6 +89,16 @@ export async function resolveExplicitStdinOrDefaultSessionInput<T>(options: {
 	return await resolveSessionSource(options.defaultSessionSource);
 }
 
+export async function rejectNonEmptyStdin(options: { commandName: string; stdin: () => Promise<string> }): Promise<OperationResult<null, string>> {
+	const stdinText = await options.stdin();
+	if (stdinText.trim() === "") return { type: "ok", value: null };
+	return {
+		type: "error",
+		errorType: "invalid_request",
+		message: `${options.commandName} no longer accepts JSON payloads on stdin; use payload-session artifacts instead.`,
+	};
+}
+
 async function resolveExplicitSource<T>(
 	explicitSource: { resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> },
 	stdin: () => Promise<string>,
