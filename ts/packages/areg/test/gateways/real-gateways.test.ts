@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, lstat, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -87,6 +87,49 @@ describe("real areg gateways", () => {
 			});
 			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, ".agents", "skills", "demo"), cwd: project, env: {} })).toEqual({ type: "ok", skillName: "demo" });
 			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, "skills", "demo", "README.md"), cwd: project, env: {} })).toMatchObject({ type: "error", error: { code: "skill-kind-nested-spec" } });
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("skill-kind apply writes and removes only planned managed paths", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-kind-apply."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(path.join(project, "skills", "demo"), { recursive: true });
+			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
+			const gateway = new RealAregSkillKindProjectGateway();
+
+			const applied = await gateway.applySkillKindPlan({
+				projectDir: project,
+				env: {},
+				writes: [
+					{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false },
+					{ relativePath: "skills/demo/agents/openai.yaml", content: "policy:\n  allow_implicit_invocation: false\n", description: "Codex openai.yaml", createParent: true },
+					{ relativePath: ".pi/settings.json", content: "{\n  \"skills\": [\n    \"-skills/demo\"\n  ]\n}\n", description: "Pi settings", createParent: true },
+				],
+				deletes: [],
+				removeEmptyDirs: [],
+			});
+
+			expect(applied).toEqual({
+				ok: true,
+				writtenRelativePaths: ["skills/demo/SKILL.md", "skills/demo/agents/openai.yaml", ".pi/settings.json"],
+				deletedRelativePaths: [],
+				removedEmptyDirRelativePaths: [],
+			});
+			expect(await readFile(path.join(project, "skills", "demo", "SKILL.md"), "utf8")).toContain("disable-model-invocation: true");
+			expect(await readFile(path.join(project, ".pi", "settings.json"), "utf8")).toContain("-skills/demo");
+
+			const removed = await gateway.applySkillKindPlan({
+				projectDir: project,
+				env: {},
+				writes: [],
+				deletes: [{ relativePath: "skills/demo/agents/openai.yaml", description: "Codex openai.yaml" }],
+				removeEmptyDirs: [{ relativePath: "skills/demo/agents", description: "empty skill agents directory" }],
+			});
+			expect(removed).toEqual({ ok: true, writtenRelativePaths: [], deletedRelativePaths: ["skills/demo/agents/openai.yaml"], removedEmptyDirRelativePaths: ["skills/demo/agents"] });
+			await expect(lstat(path.join(project, "skills", "demo", "agents"))).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

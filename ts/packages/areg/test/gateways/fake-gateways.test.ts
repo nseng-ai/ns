@@ -77,11 +77,28 @@ describe("areg gateway fakes", () => {
 		expect(second.skills[0]?.skillMd).toMatchObject({ type: "file", text: "---\nname: demo\n---\n" });
 		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo", env: {} })).toEqual({ type: "ok", skillName: "demo" });
 		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "missing", cwd: "/repo", env: {} })).toMatchObject({ type: "error" });
+		expect(await skillKind.applySkillKindPlan({
+			projectDir: "/repo",
+			env: {},
+			writes: [{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false }],
+			deletes: [],
+			removeEmptyDirs: [],
+		})).toMatchObject({ ok: true, writtenRelativePaths: ["skills/demo/SKILL.md"] });
+		const afterApply = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: ".", env: {} });
+		expect(afterApply.skills[0]?.skillMd).toMatchObject({ type: "file", text: expect.stringContaining("disable-model-invocation: true") });
 		expect((skillKind as FakeAregSkillKindProjectGateway).operations()).toEqual([
 			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "." },
 			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "subdir" },
 			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo" },
 			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "missing", cwd: "/repo" },
+			{
+				type: "apply-skill-kind-plan",
+				projectDir: "/repo",
+				writes: [{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false }],
+				deletes: [],
+				removeEmptyDirs: [],
+			},
+			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "." },
 		]);
 	});
 

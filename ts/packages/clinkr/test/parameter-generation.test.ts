@@ -118,6 +118,24 @@ describe("positionals end to end", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toContain("<source> <target>");
 	});
+
+	test("final string-array positionals collect repeated arguments", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "apply",
+			schema: z.object({ kind: z.string(), skills: z.array(z.string()).min(1) }),
+			positionals: { kind: { position: 0 }, skills: { position: 1 } },
+			handler: async (_ctx, request) => ok(request),
+		});
+
+		const run = await runForTest(group, ["apply", "invoke-only", "a", "b", "--format", "json"], {
+			context: null,
+		});
+		expect(run.exitCode).toBe(0);
+		expect(parseEnvelope(run.stdout).data).toEqual({ kind: "invoke-only", skills: ["a", "b"] });
+		const help = await runForTest(group, ["apply", "--help"], { context: null });
+		expect(help.stdout).toContain("<kind> <skills...>");
+	});
 });
 
 describe("generated help", () => {

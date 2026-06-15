@@ -27,8 +27,22 @@ describe("areg CLI shape", () => {
 		expect(help).toContain("init");
 		expect(help).toContain("check");
 		expect(help).toContain("update-skills");
+		expect(help).toContain("skill");
 		expect(help).not.toContain("exec");
 		expect(help).not.toContain("skillx");
+	});
+
+	test("skill help exposes flattened list show and apply commands", async () => {
+		const run = runScenario(["skill", "--help"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		const help = run.stdout.join("");
+		expect(help).toContain("Usage: areg skill");
+		expect(help).toContain("list");
+		expect(help).toContain("show");
+		expect(help).toContain("apply");
+		expect(help).toContain("apply [options] [kind] [skills...]");
 	});
 
 	test("init help exposes repeatable agent flag and no accidental agents flag", async () => {

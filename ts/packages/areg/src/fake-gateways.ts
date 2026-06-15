@@ -26,6 +26,8 @@ import type {
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
+	AregSkillKindApplyPlanRequest,
+	AregSkillKindApplyPlanResult,
 	AregSkillKindProjectGateway,
 	AregSkillKindProjectInspectionRequest,
 	AregSkillKindProjectInspectionResult,
@@ -226,7 +228,8 @@ export class FakeAregUpdateProjectGateway implements AregUpdateProjectGateway {
 
 export type FakeAregSkillKindOperation =
 	| ({ type: "inspect-project-for-skill-kinds" } & Omit<AregSkillKindProjectInspectionRequest, "env">)
-	| ({ type: "resolve-local-skill-spec" } & Omit<AregSkillKindResolveRequest, "env">);
+	| ({ type: "resolve-local-skill-spec" } & Omit<AregSkillKindResolveRequest, "env">)
+	| ({ type: "apply-skill-kind-plan" } & Omit<AregSkillKindApplyPlanRequest, "env">);
 
 export interface FakeAregSkillKindSkillOptions {
 	name: string;
@@ -249,9 +252,9 @@ export class FakeAregSkillKindProjectGateway implements AregSkillKindProjectGate
 	private readonly projectDir: string;
 	private readonly projectPathState: AregCheckPathState;
 	private readonly piDir: AregCheckPathState;
-	private readonly piSettings: AregSkillKindTextFileState;
+	private piSettings: AregSkillKindTextFileState;
 	private readonly genericReplacement: { hasAdapter: boolean; hasPackageModule: boolean };
-	private readonly skills: readonly AregSkillKindSkillInspection[];
+	private readonly skills: AregSkillKindSkillInspection[];
 	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly log: FakeAregSkillKindOperation[] = [];
 
@@ -292,6 +295,43 @@ export class FakeAregSkillKindProjectGateway implements AregSkillKindProjectGate
 		if (skill.skillMd.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-md", message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)` } };
 		if (skill.skillMd.type !== "file") return { type: "error", error: { code: "skill-kind-missing-skill-md", message: `skills/${skillName}/SKILL.md does not exist` } };
 		return { type: "ok", skillName };
+	}
+
+	async applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult> {
+		this.log.push({
+			type: "apply-skill-kind-plan",
+			projectDir: request.projectDir,
+			writes: request.writes.map((write) => ({ ...write })),
+			deletes: request.deletes.map((deletePlan) => ({ ...deletePlan })),
+			removeEmptyDirs: request.removeEmptyDirs.map((removePlan) => ({ ...removePlan })),
+		});
+		const writtenRelativePaths: string[] = [];
+		const deletedRelativePaths: string[] = [];
+		const removedEmptyDirRelativePaths: string[] = [];
+		for (const write of request.writes) {
+			if (write.relativePath === ".pi/settings.json") {
+				this.piSettings = { type: "file", text: write.content };
+				writtenRelativePaths.push(write.relativePath);
+				continue;
+			}
+			const skill = skillForRelativePath(this.skills, write.relativePath);
+			if (skill === undefined) return { ok: false, error: { code: "skill-kind-fake-missing-skill", message: `No fake skill owns ${write.relativePath}` } };
+			if (write.relativePath.endsWith("/SKILL.md")) skill.skillMd = { type: "file", text: write.content };
+			else if (write.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "file", text: write.content };
+			else return { ok: false, error: { code: "skill-kind-fake-unsupported-write", message: `Unsupported fake write: ${write.relativePath}` } };
+			writtenRelativePaths.push(write.relativePath);
+		}
+		for (const deletePlan of request.deletes) {
+			const skill = skillForRelativePath(this.skills, deletePlan.relativePath);
+			if (skill === undefined) return { ok: false, error: { code: "skill-kind-fake-missing-skill", message: `No fake skill owns ${deletePlan.relativePath}` } };
+			if (!deletePlan.relativePath.endsWith("/agents/openai.yaml")) return { ok: false, error: { code: "skill-kind-fake-unsupported-delete", message: `Unsupported fake delete: ${deletePlan.relativePath}` } };
+			skill.openaiPolicy = { type: "missing" };
+			deletedRelativePaths.push(deletePlan.relativePath);
+		}
+		for (const removePlan of request.removeEmptyDirs) {
+			removedEmptyDirRelativePaths.push(removePlan.relativePath);
+		}
+		return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths };
 	}
 
 	operations(): readonly FakeAregSkillKindOperation[] {
@@ -527,6 +567,14 @@ function fakeResolveSkillName(spec: string): string {
 	const skillPart = skillsIndex === -1 ? undefined : parts[skillsIndex + 1];
 	if (skillPart !== undefined) return skillPart;
 	return parts.at(-1) ?? spec;
+}
+
+function skillForRelativePath(skills: readonly AregSkillKindSkillInspection[], relativePath: string): AregSkillKindSkillInspection | undefined {
+	const parts = relativePath.split("/");
+	if (parts[0] !== "skills") return undefined;
+	const skillName = parts[1];
+	if (skillName === undefined) return undefined;
+	return skills.find((skill) => skill.name === skillName);
 }
 
 function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspection {
