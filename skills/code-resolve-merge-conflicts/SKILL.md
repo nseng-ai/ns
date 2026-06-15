@@ -167,9 +167,7 @@ preserve/break runtime behavior.
 
 If the claim cannot be observed because the repository cannot run far enough,
 label it `unverified` and explain what blocked observation. Do not present a
-source-reading inference as proven behavior. If this rule proves too
-constraining, relax it later by allowing best-effort evidence, but keep the
-`unverified` label for claims without observed output.
+source-reading inference as proven behavior.
 
 #### Channel: `user` (default/bare mode)
 
