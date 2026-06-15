@@ -173,8 +173,17 @@ function envelope(data: object): string {
 
 function prepareStep(data: object, harnessSessionId: string): ScriptedExec {
 	return step("pr-address", ["exec", "prepare-run", "--harness-session-id", harnessSessionId, "--format", "json"], {
-		result: { stdout: envelope(data) },
+		result: { stdout: envelope(compactPrepareRunData(data)) },
 	});
+}
+
+function compactPrepareRunData(manifest: object): object {
+	return {
+		operation: "prepare-run",
+		counts: {},
+		artifacts: {},
+		manifest,
+	};
 }
 
 function currentUserStep(login = "schrockn"): ScriptedExec {
@@ -347,6 +356,16 @@ describe("pr feedback watch command parsing", () => {
 });
 
 describe("pr feedback watch manifest helpers", () => {
+	test("accepts direct and compact prepare-run manifest shapes", () => {
+		const direct = parsePrepareRunData(compactManifest());
+		const compact = parsePrepareRunData(compactPrepareRunData(compactManifest()));
+
+		expect(direct.type).toBe("valid");
+		expect(compact.type).toBe("valid");
+		if (direct.type !== "valid" || compact.type !== "valid") return;
+		expect(compact.data).toEqual(direct.data);
+	});
+
 	test("extracts deterministic keys and ignores only selected authors", () => {
 		const parsed = parsePrepareRunData(compactManifest());
 		expect(parsed.type).toBe("valid");

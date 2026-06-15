@@ -150,7 +150,12 @@ interface PrepareRunDiscussionComment {
 	itemPointer: string | undefined;
 }
 
-type PrepareRunDataParseResult = { type: "valid"; data: PrepareRunData } | { type: "invalid"; message: string };
+interface PrepareRunDataParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
+type PrepareRunDataParseResult = { type: "valid"; data: PrepareRunData } | PrepareRunDataParseInvalid;
 
 export interface ExecResult {
 	stdout: string;
@@ -435,27 +440,36 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 }
 
 export function parsePrepareRunData(value: unknown): PrepareRunDataParseResult {
-	if (!isRecord(value)) return { type: "invalid", message: "prepare-run data was not an object." };
-	const found = booleanField(value, "found");
+	const manifestResult = prepareRunManifestRecord(value);
+	if (manifestResult.type === "invalid") return manifestResult;
+	const manifest = manifestResult.manifest;
+	const found = booleanField(manifest, "found");
 	if (found === undefined) return { type: "invalid", message: "prepare-run data missing boolean found." };
 
 	return {
 		type: "valid",
 		data: {
 			found,
-			currentBranch: stringField(value, "current_branch"),
-			number: numberField(value, "number"),
-			title: stringField(value, "title"),
-			url: stringField(value, "url"),
-			headRefName: stringField(value, "head_ref_name"),
-			baseRefName: stringField(value, "base_ref_name"),
-			state: stringField(value, "state"),
-			payloadPath: payloadPathFromValue(value.payload_reference),
-			reviews: parseReviews(value.reviews),
-			reviewThreads: parseReviewThreads(value.review_threads),
-			discussionComments: parseDiscussionComments(value.discussion_comments),
+			currentBranch: stringField(manifest, "current_branch"),
+			number: numberField(manifest, "number"),
+			title: stringField(manifest, "title"),
+			url: stringField(manifest, "url"),
+			headRefName: stringField(manifest, "head_ref_name"),
+			baseRefName: stringField(manifest, "base_ref_name"),
+			state: stringField(manifest, "state"),
+			payloadPath: payloadPathFromValue(manifest.payload_reference),
+			reviews: parseReviews(manifest.reviews),
+			reviewThreads: parseReviewThreads(manifest.review_threads),
+			discussionComments: parseDiscussionComments(manifest.discussion_comments),
 		},
 	};
+}
+
+function prepareRunManifestRecord(value: unknown): { type: "valid"; manifest: Record<string, unknown> } | PrepareRunDataParseInvalid {
+	if (!isRecord(value)) return { type: "invalid", message: "prepare-run data was not an object." };
+	if (booleanField(value, "found") !== undefined) return { type: "valid", manifest: value };
+	if (isRecord(value.manifest)) return { type: "valid", manifest: value.manifest };
+	return { type: "invalid", message: "prepare-run data missing boolean found." };
 }
 
 export function feedbackItemKeysFromPrepareRun(data: PrepareRunData): FeedbackItemKey[] {
