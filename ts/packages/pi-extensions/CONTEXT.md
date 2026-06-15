@@ -124,6 +124,10 @@ The Pi-only embedded prompt consumed by `/enriched-plan:grill-and-save`; it requ
 A directed, durable work-context artifact for a specific future continuation.
 *Avoid*: Branch Memory entry as the user model, save/load operation language, generic session summary, compaction.
 
+**Self handoff session replacement**:
+The Pi-specific `/handoff:self` behavior that creates and verifies a durable Handoff artifact, replaces the current Pi session, and sends the pickup prompt in the fresh session. If replacement cancels or fails after verification, the Handoff artifact remains durable and the user recovers by picking it up manually in a fresh session.
+*Avoid*: deleting the handoff on replacement failure, stale-session pickup fallback, hidden resume alias, Branch Memory entry as the user model.
+
 **Continuation focus**:
 The future work a handoff prepares: what the next session should continue, decide, verify, or implement.
 *Avoid*: vague title, undirected summary, branch name as sufficient context.

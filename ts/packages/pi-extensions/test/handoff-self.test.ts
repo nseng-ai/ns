@@ -121,6 +121,63 @@ describe("handoff:self extension", () => {
 		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…"]);
 	});
 
+	test("cancelled replacement keeps verified handoff and reports manual recovery", async () => {
+		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		handoffExtension(pi);
+		const command = getRegisteredCommand(pi, "handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({ isNewSessionCancelled: true });
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		await commandPromise;
+
+		expect(result.isError).toBeUndefined();
+		expect(result.terminate).toBe(true);
+		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
+		expect(context.replacementUserMessages).toEqual([]);
+		expect(pi.sentUserMessageCalls).toHaveLength(1);
+		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…", undefined]);
+		const recoveryNotification = context.notifications.at(-1);
+		expect(recoveryNotification?.level).toBe("warning");
+		expect(recoveryNotification?.message).toContain("handoff:self saved and verified handoff finish-widget");
+		expect(recoveryNotification?.message).toContain("session replacement was cancelled");
+		expect(recoveryNotification?.message).toContain("Context was not cleared");
+		expect(recoveryNotification?.message).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"));
+		pi.assertDone();
+	});
+
+	test("failed replacement keeps verified handoff and reports manual recovery", async () => {
+		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		handoffExtension(pi);
+		const command = getRegisteredCommand(pi, "handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const context = createContext({ newSessionError: new Error("new session boom") });
+
+		const commandPromise = Promise.resolve(command.handler("finish widget", context.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		const result = await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, context.ctx);
+		await commandPromise;
+
+		expect(result.isError).toBeUndefined();
+		expect(result.terminate).toBe(true);
+		expect(context.newSessionCalls).toEqual([{ parentSession: undefined }]);
+		expect(context.replacementUserMessages).toEqual([]);
+		expect(pi.sentUserMessageCalls).toHaveLength(1);
+		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…", undefined]);
+		const recoveryNotification = context.notifications.at(-1);
+		expect(recoveryNotification?.level).toBe("error");
+		expect(recoveryNotification?.message).toContain("handoff:self saved and verified handoff finish-widget");
+		expect(recoveryNotification?.message).toContain("session replacement failed");
+		expect(recoveryNotification?.message).toContain("new session boom");
+		expect(recoveryNotification?.message).toContain("Context was not cleared");
+		expect(recoveryNotification?.message).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"));
+		pi.assertDone();
+	});
+
 	test("starting lock is released when session replacement support is unavailable", async () => {
 		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
