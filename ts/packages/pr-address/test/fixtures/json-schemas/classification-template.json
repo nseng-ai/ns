@@ -51,6 +51,14 @@
             "type": "null"
           }
         ]
+      },
+      "stdout_mode": {
+        "description": "Stdout contract: compact stores full data in payload artifacts; full prints the full result inline.",
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
       }
     },
     "required": [
@@ -63,311 +71,493 @@
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "manifest_kind": {
-        "type": "string"
-      },
-      "pr_number": {
-        "anyOf": [
-          {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "payload_path": {
-        "anyOf": [
-          {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "manifest_kind": {
             "type": "string"
           },
-          {
-            "type": "null"
-          }
-        ]
-      },
-      "counts": {
-        "type": "object",
-        "properties": {
-          "reviews": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "review_threads": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "thread_comments": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "discussion_comments": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "resolved_review_threads_omitted": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "reviews",
-          "review_threads",
-          "thread_comments",
-          "discussion_comments",
-          "resolved_review_threads_omitted"
-        ],
-        "additionalProperties": {}
-      },
-      "classification_template": {
-        "type": "object",
-        "properties": {
-          "schema_version": {
-            "type": "number",
-            "const": 1
-          },
-          "reviews": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "review_id": {
-                  "type": "string"
-                },
-                "disposition": {
-                  "type": "string"
-                },
-                "body_locator": {
-                  "type": "object",
-                  "properties": {
-                    "json_pointer": {
-                      "type": "string"
-                    },
-                    "item_pointer": {
-                      "default": null,
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "json_pointer",
-                    "item_pointer"
-                  ],
-                  "additionalProperties": {}
-                }
+          "pr_number": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
-              "required": [
-                "review_id",
-                "disposition"
-              ],
-              "additionalProperties": {}
-            }
+              {
+                "type": "null"
+              }
+            ]
           },
-          "review_threads": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "thread_id": {
-                  "type": "string"
-                },
-                "disposition": {
-                  "type": "string"
-                },
-                "covered_comments": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "comment_id": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
-                      },
-                      "body_locator": {
-                        "type": "object",
-                        "properties": {
-                          "json_pointer": {
-                            "type": "string"
-                          },
-                          "item_pointer": {
-                            "default": null,
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "json_pointer",
-                          "item_pointer"
-                        ],
-                        "additionalProperties": {}
-                      }
-                    },
-                    "required": [
-                      "comment_id",
-                      "body_locator"
-                    ],
-                    "additionalProperties": {}
-                  }
-                }
+          "payload_path": {
+            "anyOf": [
+              {
+                "type": "string"
               },
-              "required": [
-                "thread_id",
-                "disposition",
-                "covered_comments"
-              ],
-              "additionalProperties": {}
-            }
+              {
+                "type": "null"
+              }
+            ]
           },
-          "discussion_comments": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "comment_id": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                "disposition": {
-                  "type": "string"
-                },
-                "body_locator": {
-                  "type": "object",
-                  "properties": {
-                    "json_pointer": {
-                      "type": "string"
-                    },
-                    "item_pointer": {
-                      "default": null,
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "required": [
-                    "json_pointer",
-                    "item_pointer"
-                  ],
-                  "additionalProperties": {}
-                }
-              },
-              "required": [
-                "comment_id",
-                "disposition"
-              ],
-              "additionalProperties": {}
-            }
-          }
-        },
-        "required": [
-          "schema_version",
-          "reviews",
-          "review_threads",
-          "discussion_comments"
-        ],
-        "additionalProperties": {}
-      },
-      "resolved_inputs": {
-        "type": "object",
-        "properties": {
-          "manifest": {
+          "counts": {
             "type": "object",
             "properties": {
-              "payload_path": {
-                "type": "string"
-              },
-              "session_id": {
-                "type": "string"
-              },
-              "descriptor": {
-                "type": "string"
-              },
-              "role": {
-                "type": "string",
-                "enum": [
-                  "raw",
-                  "summary",
-                  "log"
-                ]
-              },
-              "created_at_utc": {
-                "type": "string"
-              },
-              "sequence": {
+              "reviews": {
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "payload_bytes": {
+              "review_threads": {
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
-              "content_type": {
-                "type": "string"
+              "thread_comments": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
-              "extension": {
-                "type": "string",
-                "enum": [
-                  "json",
-                  "txt"
-                ]
+              "discussion_comments": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "resolved_review_threads_omitted": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
-              "payload_path",
-              "session_id",
-              "descriptor",
-              "role",
-              "created_at_utc",
-              "sequence",
-              "payload_bytes",
-              "content_type",
-              "extension"
+              "reviews",
+              "review_threads",
+              "thread_comments",
+              "discussion_comments",
+              "resolved_review_threads_omitted"
+            ],
+            "additionalProperties": {}
+          },
+          "classification_template": {
+            "type": "object",
+            "properties": {
+              "schema_version": {
+                "type": "number",
+                "const": 1
+              },
+              "reviews": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "review_id": {
+                      "type": "string"
+                    },
+                    "disposition": {
+                      "type": "string"
+                    },
+                    "body_locator": {
+                      "type": "object",
+                      "properties": {
+                        "json_pointer": {
+                          "type": "string"
+                        },
+                        "item_pointer": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "json_pointer",
+                        "item_pointer"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "review_id",
+                    "disposition"
+                  ],
+                  "additionalProperties": {}
+                }
+              },
+              "review_threads": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "thread_id": {
+                      "type": "string"
+                    },
+                    "disposition": {
+                      "type": "string"
+                    },
+                    "covered_comments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "comment_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "body_locator": {
+                            "type": "object",
+                            "properties": {
+                              "json_pointer": {
+                                "type": "string"
+                              },
+                              "item_pointer": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "json_pointer",
+                              "item_pointer"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "comment_id",
+                          "body_locator"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "thread_id",
+                    "disposition",
+                    "covered_comments"
+                  ],
+                  "additionalProperties": {}
+                }
+              },
+              "discussion_comments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "comment_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "disposition": {
+                      "type": "string"
+                    },
+                    "body_locator": {
+                      "type": "object",
+                      "properties": {
+                        "json_pointer": {
+                          "type": "string"
+                        },
+                        "item_pointer": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "json_pointer",
+                        "item_pointer"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "comment_id",
+                    "disposition"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "schema_version",
+              "reviews",
+              "review_threads",
+              "discussion_comments"
+            ],
+            "additionalProperties": {}
+          },
+          "resolved_inputs": {
+            "type": "object",
+            "properties": {
+              "manifest": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "manifest"
             ],
             "additionalProperties": false
           }
         },
         "required": [
-          "manifest"
+          "manifest_kind",
+          "pr_number",
+          "payload_path",
+          "counts",
+          "classification_template"
         ],
-        "additionalProperties": false
+        "additionalProperties": {}
+      },
+      {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "summary": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "errors": {
+            "type": "array",
+            "items": {}
+          },
+          "warnings": {
+            "type": "array",
+            "items": {}
+          },
+          "resolved_inputs": {},
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "full_output": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              },
+              "produced": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "payload_path": {
+                          "type": "string"
+                        },
+                        "session_id": {
+                          "type": "string"
+                        },
+                        "descriptor": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "summary",
+                            "log"
+                          ]
+                        },
+                        "created_at_utc": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "payload_bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "content_type": {
+                          "type": "string"
+                        },
+                        "extension": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "txt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "payload_path",
+                        "session_id",
+                        "descriptor",
+                        "role",
+                        "created_at_utc",
+                        "sequence",
+                        "payload_bytes",
+                        "content_type",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": {}
+          },
+          "details": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": {}
       }
-    },
-    "required": [
-      "manifest_kind",
-      "pr_number",
-      "payload_path",
-      "counts",
-      "classification_template"
-    ],
-    "additionalProperties": {}
+    ]
   }
 }

@@ -1,18 +1,35 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "pr_number": {
-        "title": "Pr Number",
-        "type": "integer"
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       },
       "review_author": {
-        "title": "Review Author",
         "type": "string"
       },
       "summary_markdown": {
-        "title": "Summary Markdown",
         "type": "string"
+      },
+      "harness_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
       }
     },
     "required": [
@@ -20,56 +37,228 @@
       "review_author",
       "summary_markdown"
     ],
-    "title": "ReplyToReviewRequest",
-    "type": "object"
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "PRDiscussionComment": {
-        "description": "A top-level PR discussion comment.",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "anyOf": [
+      {
+        "type": "object",
         "properties": {
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
           "body": {
-            "title": "Body",
             "type": "string"
           },
-          "author": {
-            "title": "Author",
-            "type": "string"
-          },
-          "url": {
-            "title": "Url",
-            "type": "string"
+          "comment": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "body": {
+                "type": "string"
+              },
+              "author": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "body",
+              "author",
+              "url"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
-          "id",
           "body",
-          "author",
-          "url"
+          "comment"
         ],
-        "title": "PRDiscussionComment",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "body": {
-        "title": "Body",
-        "type": "string"
+        "additionalProperties": false
       },
-      "comment": {
-        "$ref": "#/$defs/PRDiscussionComment"
+      {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "summary": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "errors": {
+            "type": "array",
+            "items": {}
+          },
+          "warnings": {
+            "type": "array",
+            "items": {}
+          },
+          "resolved_inputs": {},
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "full_output": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              },
+              "produced": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "payload_path": {
+                          "type": "string"
+                        },
+                        "session_id": {
+                          "type": "string"
+                        },
+                        "descriptor": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "summary",
+                            "log"
+                          ]
+                        },
+                        "created_at_utc": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "payload_bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "content_type": {
+                          "type": "string"
+                        },
+                        "extension": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "txt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "payload_path",
+                        "session_id",
+                        "descriptor",
+                        "role",
+                        "created_at_utc",
+                        "sequence",
+                        "payload_bytes",
+                        "content_type",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": {}
+          },
+          "details": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": {}
       }
-    },
-    "required": [
-      "body",
-      "comment"
-    ],
-    "title": "ReplyToReviewResult",
-    "type": "object"
+    ]
   }
 }
