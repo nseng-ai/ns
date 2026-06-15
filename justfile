@@ -95,7 +95,7 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
     ASDL_INSTALL_HINT="{{install_hint}}" \
     ASDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
     ASDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
-      python -c 'import os, shlex, sys; from functools import reduce; from pathlib import Path; template_path = Path(os.environ["ASDL_TEMPLATE"]); output_path = Path(os.environ["ASDL_OUTPUT"]); replacements = {"@@ASDL_TOOL@@": shlex.quote(os.environ["ASDL_TOOL"]), "@@ASDL_CANONICAL_CHECKOUT@@": shlex.quote(os.environ["ASDL_CANONICAL_CHECKOUT"]), "@@ASDL_CLI_REL_PATH@@": shlex.quote(os.environ["ASDL_CLI_REL_PATH"]), "@@ASDL_INSTALL_HINT@@": shlex.quote(os.environ["ASDL_INSTALL_HINT"])}; rendered = reduce(lambda text, item: text.replace(item[0], item[1]), replacements.items(), template_path.read_text()); sys.exit(f"unrendered shim token remains in {template_path}") if "@@ASDL_" in rendered else output_path.write_text(rendered)'
+      python "{{justfile_directory()}}/ts/scripts/render-cli-shim.py"
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
