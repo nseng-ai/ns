@@ -11,7 +11,7 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	schemaDocument,
-	stdoutModeDocSchema,
+	stdoutModeRequestMixin,
 	validationErrorCodeSchema,
 	validationItemKindSchema,
 } from "./shared.ts";
@@ -101,29 +101,26 @@ export const classificationTemplateResultDocSchema = z.object({
 
 const nullableCliStringSchema = z.string().nullable().default(null);
 
-const validateFeedbackClassificationRequestSchema = z
-	.object({
+const validateFeedbackClassificationRequestSchema = stdoutModeRequestMixin
+	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest resolution and classification persistence."),
 		classification_json: nullableCliStringSchema.describe("Inline PR feedback classification packet JSON."),
 		classification_file: nullableCliStringSchema.describe("Path to a PR feedback classification packet JSON file."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for manifest resolution and classification persistence."),
-		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 
-const planFeedbackRequestSchema = z
-	.object({
+const planFeedbackRequestSchema = stdoutModeRequestMixin
+	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest and classification resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for session resolution and plan persistence."),
-		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 
-export const classificationTemplateRequestSchema = z
-	.object({
+export const classificationTemplateRequestSchema = stdoutModeRequestMixin
+	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for manifest resolution."),
-		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 

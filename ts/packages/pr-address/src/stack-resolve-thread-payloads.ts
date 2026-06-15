@@ -6,12 +6,12 @@ import { isSafeSegment, type PayloadArtifactStore, type PayloadReference } from 
 import {
 	buildThreadResolutionDecision,
 	firstDuplicatePayloadThreadId,
-	loadDecisionsFile,
 	resolveThreadBatchDecisionSchema,
 	threadResolutionBuildArtifact,
 	type BuildResolveThreadBatchPayloadResult,
 	type ResolveThreadBatchItem,
 } from "./resolve-thread-batch-payload.ts";
+import { loadJsonInputFile } from "./json-input.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveStackResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
@@ -157,7 +157,12 @@ async function runBuildStackResolveThreadPayloadsOperation(
 	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
 	const planInput = await resolveStackResolveThreadBuildPlanSessionInput({ ctx, harnessSessionId: request.harness_session_id });
 	if (planInput.type === "error") return failure(planInput.errorType, planInput.message);
-	const decisions = await loadDecisionsFile(request.decisions_file, stackResolveThreadDecisionSchema.array(), "build-stack-resolve-thread-payloads");
+	const decisions = await loadJsonInputFile({
+		filePath: request.decisions_file,
+		schema: stackResolveThreadDecisionSchema.array(),
+		commandName: "build-stack-resolve-thread-payloads",
+		optionName: "--decisions-file",
+	});
 	if (decisions.type === "error") return failure(decisions.errorType, decisions.message);
 
 	const result = buildStackResolveThreadPayloads({

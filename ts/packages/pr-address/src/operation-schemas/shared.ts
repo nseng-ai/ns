@@ -8,6 +8,13 @@ export const nullableIntSchema = z.int().nullable();
 export const nullableBooleanSchema = z.boolean().nullable();
 export const stdoutModeDocSchema = z.enum(["full", "compact"]);
 
+export const stdoutModeRequestMixin = z.object({
+	stdout_mode: stdoutModeDocSchema.optional(),
+});
+export const stdoutModeRequestShape = {
+	stdout_mode: stdoutModeDocSchema.optional(),
+};
+
 // --- shared enums -----------------------------------------------------------
 
 export const prReviewStateSchema = z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);

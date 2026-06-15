@@ -14,18 +14,17 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	planSourceKindDocSchema,
-	stdoutModeDocSchema,
+	stdoutModeRequestMixin,
 } from "./shared.ts";
 
 // --- build-stack-resolve-thread-payloads ----------------------------------------------
 
-export const buildStackResolveThreadPayloadsRequestSchema = z.object({
+export const buildStackResolveThreadPayloadsRequestSchema = stdoutModeRequestMixin.extend({
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
 	continue_on_error: z.boolean().optional(),
 	decisions_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const buildStackResolveThreadPayloadsErrorSchema = z.object({
@@ -157,11 +156,10 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 
 // --- stack-feedback-prep -----------------------------------------------------------
 
-export const stackFeedbackPrepRequestSchema = z.object({
+export const stackFeedbackPrepRequestSchema = stdoutModeRequestMixin.extend({
 	stack_json: nullableStringSchema.optional(),
 	stack_reference: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: z.enum(["full", "compact"]).optional(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 });
@@ -250,10 +248,9 @@ export const stackFeedbackPrepResultUnionSchema = z.union([stackFeedbackPrepResu
 
 // --- stack-feedback-preflight ------------------------------------------------------
 
-export const stackFeedbackPreflightRequestSchema = z.object({
+export const stackFeedbackPreflightRequestSchema = stdoutModeRequestMixin.extend({
 	branches_json: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: z.enum(["full", "compact"]).optional(),
 });
 
 const stackFeedbackPreflightFullResultSchema = stackFeedbackPrepResultSchema.extend({
@@ -280,9 +277,8 @@ export const stackFeedbackPreflightResultUnionSchema = z.union([stackFeedbackPre
 
 // --- stack-feedback-plan -----------------------------------------------------------
 
-export const stackFeedbackPlanRequestSchema = z.object({
+export const stackFeedbackPlanRequestSchema = stdoutModeRequestMixin.extend({
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: z.enum(["full", "compact"]).optional(),
 });
 
 const stackFeedbackPlanValidationPrResultSchema = z.object({

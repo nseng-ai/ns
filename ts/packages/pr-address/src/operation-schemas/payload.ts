@@ -7,19 +7,18 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceInputSchema,
 	resolutionReplyModeSchema,
-	stdoutModeDocSchema,
+	stdoutModeRequestMixin,
 } from "./shared.ts";
 
 // --- build-resolve-thread-batch-payload ----------------------------------------------
 
-export const buildResolveThreadBatchPayloadRequestSchema = z.object({
+export const buildResolveThreadBatchPayloadRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
 	continue_on_error: z.boolean().optional(),
 	decisions_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const buildResolveThreadBatchPayloadErrorSchema = z.object({
@@ -42,7 +41,7 @@ const skippedResolveThreadItemSchema = z.object({
 	summary: z.string(),
 });
 
-const resolveThreadBatchPayloadItemSchema = z.object({
+export const resolveThreadBatchPayloadItemSchema = z.object({
 	thread_id: z.string(),
 	mode: resolutionReplyModeSchema,
 	message: nullableStringSchema.optional(),
@@ -76,14 +75,13 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 
 // --- record-batch-checkpoint ------------------------------------------------------
 
-export const recordBatchCheckpointRequestSchema = z.object({
+export const recordBatchCheckpointRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
 	no_code_change: z.boolean().optional(),
 	evidence_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const batchValidationCommandEvidenceSchema = z.object({
@@ -176,10 +174,9 @@ export const recordBatchCheckpointResultSchema = z.object({
 
 // --- finalize-run -----------------------------------------------------------------
 
-export const finalizeRunRequestSchema = z.object({
+export const finalizeRunRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const finalizeRunThreadSummarySchema = z.object({
