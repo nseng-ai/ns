@@ -39,7 +39,6 @@ describe("handoff-tab extension", () => {
 			"handoff:list",
 			"handoff:pickup",
 			"handoff:self",
-			"handoff:self-pickup",
 		]);
 		expect([...pi.tools.keys()]).toEqual(["derive_handoff_slug_from_content", "handoff_tab_launch", "handoff_self_queue_pickup"]);
 		expect(pi.commands.get("ccc:handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");

@@ -425,7 +425,7 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 }
 
 export async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "ccc:handoff-tab" | "handoff:self" | "handoff:self-pickup",
+	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "ccc:handoff-tab" | "handoff:self",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},

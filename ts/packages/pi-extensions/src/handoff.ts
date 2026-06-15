@@ -5,13 +5,7 @@ import { definePiSurfaceParity } from "./parity.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "@asdl/handoff/identity";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
-import {
-	buildHandoffSelfLaunchTool,
-	buildHandoffSelfPrompt,
-	formatHandoffSelfKickoffPrompt,
-	handleHandoffSelfCommand,
-	handleHandoffSelfPickupCommand,
-} from "./handoff/self.ts";
+import { buildHandoffSelfPrompt, createHandoffSelfWorkflow, formatHandoffSelfKickoffPrompt } from "./handoff/self.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	CREATE_HANDOFF_COMMAND_NAME,
@@ -20,7 +14,6 @@ import {
 	HANDOFF_TIMEOUT_MS,
 	HANDOFF_TAB_COMMAND_NAME,
 	HANDOFF_SELF_COMMAND_NAME,
-	HANDOFF_SELF_PICKUP_COMMAND_NAME,
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
 	CREATE_HANDOFF_FALLBACK,
@@ -100,18 +93,7 @@ export const handoffParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "handoff",
-		notes: "Self handoff depends on Pi's session replacement primitive; storage and pickup remain portable handoff workflows.",
-	},
-	{
-		kind: "command",
-		surface: HANDOFF_SELF_PICKUP_COMMAND_NAME,
-		workflow: "Replace the current Pi session and run handoff pickup for a saved artifact",
-		parity: "WAIVED",
-		fallback: "Start a new Pi session manually, then run handoff-pickup for the saved artifact.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "handoff",
-		notes: "This follow-up command is the session-replacement half of /handoff:self.",
+		notes: "Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
 	},
 ] as const);
 
@@ -919,20 +901,17 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
 
 	if (pi.registerTool !== undefined) {
+		const selfWorkflow = createHandoffSelfWorkflow(pi);
 		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
-		pi.registerTool(buildHandoffSelfLaunchTool(pi));
+		pi.registerTool(selfWorkflow.buildTool());
 		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
 			description: "Create a handoff and open a focused cmux tab to pick it up.",
 			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
 		});
 		pi.registerCommand(HANDOFF_SELF_COMMAND_NAME, {
 			description: "Create a handoff, clear context, and pick it up in this Pi session.",
-			handler: async (args, ctx) => handleHandoffSelfCommand(pi, args, ctx),
-		});
-		pi.registerCommand(HANDOFF_SELF_PICKUP_COMMAND_NAME, {
-			description: "Clear context and pick up a saved handoff in this Pi session.",
-			handler: async (args, ctx) => handleHandoffSelfPickupCommand(pi, args, ctx),
+			handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
 		});
 	}
 

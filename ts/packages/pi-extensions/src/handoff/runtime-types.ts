@@ -54,6 +54,7 @@ export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
 	isError?: boolean;
+	terminate?: boolean;
 }
 
 export interface SessionReplacementResult {
