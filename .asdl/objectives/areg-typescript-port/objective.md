@@ -65,6 +65,7 @@ Risks:
 - `areg init` mutates multiple project files and invokes `npx skills`; a direct port could regress the previous review-remediation safety work if planning/mutation and fake-driven gateway seams are not preserved.
 - The hidden `exec skillx` JSON shapes may already be consumed by skills or Pi flows; accidental schema changes could break agent workflows.
 - The kind system edits local skills, Codex sidecars, and Pi replacement settings, so destructive path, symlink, artifact-inference, and replacement-verification edge cases remain important; the completed apply slice materially de-risks them with package-local planning, real/fake gateway safety tests, dry-run behavior, and deletion confirmation gates.
+- Post-kind review evidence identified drift risk from duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams. This does not invalidate the completed command surface, but it should be addressed before distribution/cutover so TS `areg` does not become the default with avoidable duplicated safety policy.
 - Distribution is less obvious than prior ports: `areg` documentation still references `uvx areg`, while prior TS ports accepted run-from-source shims only after consumer evidence. Choosing the wrong model could surprise downstream project bootstrap users.
 - Current tests may encode both durable contracts and incidental Click/Python formatting behavior; the inventory must classify parser/help/output differences deliberately.
 

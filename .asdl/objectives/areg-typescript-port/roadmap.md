@@ -29,6 +29,10 @@
   - `areg skill apply` now plans and applies the managed artifact matrix for `normal`, `invoke-only`, `command-backed`, and `ambient-only`, including frontmatter edits, Codex sidecar writes/deletes, Pi settings reconciliation, replacement verification, dry-runs, and deletion confirmation/`--yes` behavior.
   - Added package-local fake and real gateway apply-plan seams with path/symlink safety, plus a minimal Clinkr final-variadic positional extension so `apply <kind> <skill...>` is represented directly.
   - Evidence: branch diff against `skill-invocation-kind/read-only-foundation`; PR #1564 corroborates the same file set; focused `@asdl/areg` and `@asdl/clinkr` checks/tests passed; full TypeScript workspace check/test passed; `just dprint-check` passed.
+- [ ] Resolve post-kind review consolidation before distribution/cutover.
+  - Collapse duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams where review evidence shows repeated safety policy or repeated on-disk skill layout knowledge.
+  - Keep the completed `areg skill apply|list|show` user surface intact unless a focused follow-up deliberately revises it; this row is about reducing drift risk before TS `areg` becomes default, not reopening the accepted product contract.
+  - Evidence: local branch review artifacts under `temp-reviews/` identify duplicated inspection gateways, duplicate invocation-convention rules, duplicate Pi/settings parsing, frontmatter/read-write drift, and installed-skill layout deepening opportunities.
 - [ ] Decide and implement the TypeScript distribution/install model.
   - Choose consumer-backed invocation for local checkout development and installed use, update `justfile`/workspace metadata/docs accordingly, and avoid assuming either Python `uvx` or prior run-from-source shims without evidence.
   - Evidence: installation recipe and docs invoke TypeScript-backed `areg` consistently.

@@ -5,6 +5,7 @@ Review result:
 Review complete. No edits made.
 
 Validation run:
+
 - `uv run ruff check packages/areg` ✅
 - `uv run ty check packages/areg` ✅
 - `uv run pytest packages/areg` ✅ — 287 passed
