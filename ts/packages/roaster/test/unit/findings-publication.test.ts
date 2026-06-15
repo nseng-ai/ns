@@ -1,0 +1,143 @@
+import { describe, expect, test } from "vitest";
+
+import {
+	extractInlineMarkers,
+	inlineMarkerForFinding,
+	parseFindingsCommentBody,
+	parseFindingsPayloadResult,
+	parseInlinePostingStatusResult,
+	preserveActivityLog,
+	renderFindingsComment,
+	renderInlineBody,
+	summaryMarkerForReview,
+	type FindingsPayload,
+} from "../../src/findings-publication.ts";
+import type { ReviewFinding, ReviewInputCoverage } from "../../src/models.ts";
+
+const WARNING_FINDING: ReviewFinding = {
+	path: "src/app.ts",
+	line: 12,
+	severity: "warning",
+	summary: "Avoid broad casts",
+	details: "Validate the payload before casting it.",
+};
+
+describe("findings comment markers", () => {
+	test("summary marker is first-line parseable", () => {
+		const body = `${summaryMarkerForReview("typescript-style")}\n## roaster`;
+
+		const parsed = parseFindingsCommentBody(body);
+
+		expect(parsed).toEqual({ type: "ok", parsed: { marker: "<!-- roaster:typescript-style -->", body } });
+		expect(parseFindingsCommentBody("intro\n<!-- roaster:typescript-style -->").type).toBe("error");
+	});
+
+	test("inline marker is stable and extractable", () => {
+		const marker = inlineMarkerForFinding("typescript-style", WARNING_FINDING);
+
+		expect(marker).toBe(inlineMarkerForFinding("typescript-style", WARNING_FINDING));
+		expect(extractInlineMarkers(`text\n${marker}\nother`)).toEqual([marker]);
+	});
+});
+
+describe("renderInlineBody", () => {
+	test("renders marker, finding content, review name, details, and attribution", () => {
+		const marker = inlineMarkerForFinding("typescript-style", WARNING_FINDING);
+
+		const body = renderInlineBody(marker, WARNING_FINDING, { reviewName: "typescript-style" });
+
+		expect(body).toContain(marker);
+		expect(body).toContain("**warning: Avoid broad casts**");
+		expect(body).toContain("_Review: `typescript-style`._");
+		expect(body).toContain("Validate the payload");
+		expect(body).toContain("Posted by roaster");
+	});
+});
+
+describe("renderFindingsComment", () => {
+	test("renders error payloads", () => {
+		const body = renderFindingsComment({ reviewName: "typescript-style", baseRef: "main", count: 0, findings: [], inputCoverage: null, errorType: "harness_failed", errorMessage: "boom" });
+
+		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
+		expect(body).toContain("**Roaster failed**");
+		expect(body).toContain("harness_failed");
+	});
+
+	test("renders no findings", () => {
+		const body = renderFindingsComment(payload({ count: 0, findings: [] }));
+
+		expect(body).toContain("**No findings** against base `main`. ✅");
+	});
+
+	test("renders findings, null line display, inline status, and input coverage", () => {
+		const coverage: ReviewInputCoverage = {
+			fullDiffEstimatedTokens: 100,
+			promptDiffTokenCap: 80,
+			promptDiffFileTokenCap: 50,
+			changedPathCount: 2,
+			includedFileCount: 1,
+			omittedFileCount: 1,
+			omittedFiles: [
+				{ path: "large.ts", changeKind: "modified", byteSize: 1200, estimatedTokens: 300, addedLines: 4, removedLines: 1, reason: "file_exceeds_cap" },
+			],
+		};
+		const noLineFinding: ReviewFinding = { ...WARNING_FINDING, line: null };
+
+		const body = renderFindingsComment(payload({ count: 1, findings: [noLineFinding], inputCoverage: coverage }), {
+			inlineStatus: { postedCount: 1, skippedDuplicateCount: 2, fallbackOnlyCount: 3, apiError: "rate limited" },
+		});
+
+		expect(body).toContain("### Inline posting");
+		expect(body).toContain("rate limited");
+		expect(body).toContain("### Review input coverage");
+		expect(body).toContain("| ⚠️ warning | `src/app.ts` | — | Avoid broad casts |");
+		expect(body).toContain("### `src/app.ts` — warning");
+	});
+});
+
+describe("payload parsers", () => {
+	test("parses ok findings envelopes and inline status envelopes", () => {
+		const payloadResult = parseFindingsPayloadResult(JSON.stringify({ exit_code: 0, data: { reviewName: "typescript-style", baseRef: "main", findings: [WARNING_FINDING] } }));
+		const statusResult = parseInlinePostingStatusResult(JSON.stringify({ data: { postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 0, apiError: null } }));
+
+		expect(payloadResult.type).toBe("ok");
+		if (payloadResult.type === "ok") expect(payloadResult.payload.count).toBe(1);
+		expect(statusResult.type).toBe("ok");
+	});
+
+	test("parses error envelopes as renderable payloads", () => {
+		const result = parseFindingsPayloadResult(JSON.stringify({ exit_code: 2, error_type: "failure", message: "boom" }), { fallbackReviewName: "review", fallbackBaseRef: "base" });
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.payload.errorType).toBe("failure");
+			expect(result.payload.reviewName).toBe("review");
+		}
+	});
+});
+
+describe("preserveActivityLog", () => {
+	test("extracts, strips, appends, caps at ten, and terminates with newline", () => {
+		const existing = `${summaryMarkerForReview("review")}\nbody\n\n### Activity Log\n\n${Array.from({ length: 10 }, (_value, index) => `- old ${index}`).join("\n")}\n`;
+		const merged = preserveActivityLog(existing, `${summaryMarkerForReview("review")}\nnew body\n\n### Activity Log\n\n- stale`, "new run");
+
+		expect(merged).not.toContain("stale");
+		expect(merged).not.toContain("old 0");
+		expect(merged).toContain("old 9");
+		expect(merged).toContain("- new run");
+		expect(merged.endsWith("\n")).toBe(true);
+	});
+});
+
+function payload(overrides: Partial<FindingsPayload>): FindingsPayload {
+	return {
+		reviewName: "typescript-style",
+		baseRef: "main",
+		count: 1,
+		findings: [WARNING_FINDING],
+		inputCoverage: null,
+		errorType: null,
+		errorMessage: null,
+		...overrides,
+	};
+}
