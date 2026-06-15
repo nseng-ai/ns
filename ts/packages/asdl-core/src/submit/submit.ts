@@ -319,7 +319,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	}
 
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
-	if (submitted.semanticFailureCause !== undefined || currentPr.kind !== "present") {
+	if (submitted.semanticFailureCause !== undefined || shouldFailPostSubmitVerification(submitted, currentPr)) {
 		return failure(
 			1,
 			formatPostSubmitFailureOutput({
@@ -329,7 +329,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		);
 	}
 
-	const prLinks = mergePrLinks(submitted.prLinks, currentPr.prLinks);
+	const prLinks = currentPr.kind === "present" ? mergePrLinks(submitted.prLinks, currentPr.prLinks) : mergePrLinks(submitted.prLinks, []);
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
 		prDescription: options.prDescription,
@@ -380,6 +380,12 @@ function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onO
 		cwd: options.cwd,
 		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
 	};
+}
+
+function shouldFailPostSubmitVerification(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {
+	if (currentPr.kind === "present") return false;
+	if (currentPr.kind === "no_current_pr" && submitted.prLinks.length > 0) return false;
+	return true;
 }
 
 function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
