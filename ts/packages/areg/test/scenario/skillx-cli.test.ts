@@ -9,6 +9,7 @@ import {
 	FakeAregInitProjectGateway,
 	FakeAregNpxSkillsGateway,
 	FakeAregPromptGateway,
+	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
 	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
@@ -177,6 +178,7 @@ function skillxContext(workspace: FakeAregSkillxWorkspaceGateway): AregCliContex
 		prompt: new FakeAregPromptGateway(),
 		initProject: new FakeAregInitProjectGateway(),
 		updateProject: new FakeAregUpdateProjectGateway(),
+		skillKindProject: new FakeAregSkillKindProjectGateway(),
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};

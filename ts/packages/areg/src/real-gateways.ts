@@ -41,6 +41,12 @@ import type {
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
+	AregSkillKindProjectGateway,
+	AregSkillKindProjectInspectionRequest,
+	AregSkillKindProjectInspectionResult,
+	AregSkillKindResolveRequest,
+	AregSkillKindSkillInspection,
+	AregSkillKindResolveResult,
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
 	AregUpdateProjectGateway,
@@ -221,6 +227,38 @@ export class RealAregUpdateProjectGateway implements AregUpdateProjectGateway {
 	}
 }
 
+export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGateway {
+	async inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult> {
+		const projectDir = path.resolve(request.cwd, request.projectPath);
+		const skillNames = await listLocalSkillKindNames(projectDir);
+		return {
+			projectDir,
+			projectPathState: await inspectPath(projectDir),
+			piDir: await inspectPath(path.join(projectDir, ".pi")),
+			piSettings: await inspectTextFile(path.join(projectDir, ".pi", "settings.json")),
+			genericReplacement: {
+				hasAdapter: (await inspectTextFile(path.join(projectDir, ".pi", "extensions", "backing-skill-commands.ts"))).type === "file",
+				hasPackageModule: (await inspectTextFile(path.join(projectDir, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"))).type === "file",
+			},
+			skills: await inspectSkillKindSkills(projectDir, skillNames),
+		};
+	}
+
+	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
+		const resolved = await resolveSkillKindSpec(request);
+		if (resolved.type === "error") return resolved;
+		const skillDir = path.join(request.projectDir, "skills", resolved.skillName);
+		const skillMd = path.join(skillDir, "SKILL.md");
+		const dirState = await inspectPath(skillDir);
+		if (dirState.type === "symlink") return { type: "error", error: errorInfo("skill-kind-symlink-skill-dir", `skills/${resolved.skillName} is a symlink but should be a real directory (canonical source)`) };
+		if (dirState.type !== "directory") return { type: "error", error: errorInfo("skill-kind-missing-skill", `Local skill not found: ${request.spec}`) };
+		const mdState = await inspectPath(skillMd);
+		if (mdState.type === "symlink") return { type: "error", error: errorInfo("skill-kind-symlink-skill-md", `skills/${resolved.skillName}/SKILL.md is a symlink but should be a real file (canonical source)`) };
+		if (mdState.type !== "file") return { type: "error", error: errorInfo("skill-kind-missing-skill-md", `skills/${resolved.skillName}/SKILL.md does not exist`) };
+		return { type: "ok", skillName: resolved.skillName };
+	}
+}
+
 export class RealAregCheckProjectInspectionGateway implements AregCheckProjectInspectionGateway {
 	async inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult> {
 		const projectDir = path.resolve(request.cwd, request.projectPath);
@@ -357,6 +395,81 @@ async function inspectSkills(projectDir: string, skillNames: readonly string[]):
 		});
 	}
 	return inspected;
+}
+
+async function listLocalSkillKindNames(projectDir: string): Promise<string[]> {
+	const skillsRoot = path.join(projectDir, "skills");
+	try {
+		const rootInfo = await lstat(skillsRoot);
+		if (!rootInfo.isDirectory()) return [];
+		const entries = await readdir(skillsRoot, { withFileTypes: true });
+		const names: string[] = [];
+		for (const entry of entries) {
+			if (entry.name === ".DS_Store") continue;
+			const skillMd = await inspectPath(path.join(skillsRoot, entry.name, "SKILL.md"));
+			if (entry.isDirectory() || entry.isSymbolicLink() || skillMd.type !== "missing") names.push(entry.name);
+		}
+		return sortStrings(names);
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return [];
+		return [];
+	}
+}
+
+async function inspectSkillKindSkills(projectDir: string, skillNames: readonly string[]): Promise<readonly AregSkillKindSkillInspection[]> {
+	const inspected: AregSkillKindSkillInspection[] = [];
+	for (const name of skillNames) {
+		inspected.push({
+			name,
+			skillDir: await inspectPath(path.join(projectDir, "skills", name)),
+			skillMd: await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md")),
+			openaiPolicy: await inspectTextFile(path.join(projectDir, "skills", name, "agents", "openai.yaml")),
+		});
+	}
+	return inspected;
+}
+
+async function resolveSkillKindSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
+	if (!isPathLikeSkillSpec(request.spec)) return { type: "ok", skillName: request.spec };
+	const candidate = path.resolve(request.cwd, request.spec);
+	const projectDir = await realpath(request.projectDir);
+	const canonical = await canonicalSkillKindPath(projectDir, candidate);
+	if (canonical.type === "ok") return canonical;
+	if (canonical.error.code === "skill-kind-outside-skills") {
+		return { type: "error", error: errorInfo("skill-kind-non-local-skill", `Skill spec does not resolve to a local skill: ${request.spec}`) };
+	}
+	return canonical;
+}
+
+async function canonicalSkillKindPath(projectDir: string, candidate: string): Promise<AregSkillKindResolveResult> {
+	const direct = classifyCanonicalSkillPath(projectDir, candidate);
+	if (direct.type === "ok") return direct;
+	if (direct.error.code === "skill-kind-nested-spec") return direct;
+	try {
+		const resolved = await realpath(candidate);
+		return classifyCanonicalSkillPath(projectDir, resolved);
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return { type: "error", error: errorInfo("skill-kind-missing-spec", `Skill path does not exist: ${candidate}`) };
+		return { type: "error", error: errorInfo("skill-kind-resolve-failed", `Could not resolve skill path ${candidate}: ${formatErrorMessage(error)}`) };
+	}
+}
+
+function classifyCanonicalSkillPath(projectDir: string, candidate: string): AregSkillKindResolveResult {
+	const skillsRoot = path.join(projectDir, "skills");
+	const relative = path.relative(skillsRoot, candidate);
+	if (relative.length === 0 || relative.startsWith("..") || path.isAbsolute(relative)) {
+		return { type: "error", error: errorInfo("skill-kind-outside-skills", `Skill path is outside ${skillsRoot}: ${candidate}`) };
+	}
+	const parts = relative.split(path.sep).filter((part) => part.length > 0);
+	const skillName = parts[0];
+	if (skillName === undefined) return { type: "error", error: errorInfo("skill-kind-invalid-spec", `Invalid skill path: ${candidate}`) };
+	if (parts.length === 1) return { type: "ok", skillName };
+	if (parts.length === 2 && parts[1] === "SKILL.md") return { type: "ok", skillName };
+	return { type: "error", error: errorInfo("skill-kind-nested-spec", `Skill path must be skills/<name> or skills/<name>/SKILL.md: ${candidate}`) };
+}
+
+function isPathLikeSkillSpec(spec: string): boolean {
+	return path.isAbsolute(spec) || spec.includes("/") || spec.includes("\\") || spec.endsWith("SKILL.md");
 }
 
 async function inspectPath(candidate: string): Promise<AregCheckPathState> {

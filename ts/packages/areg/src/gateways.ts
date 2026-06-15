@@ -198,3 +198,45 @@ export interface AregUpdateProjectInspectionResult {
 export interface AregUpdateProjectGateway {
 	inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult>;
 }
+
+export type AregSkillKindPathState = AregCheckPathState;
+export type AregSkillKindTextFileState = AregCheckTextFileState;
+
+export interface AregSkillKindSkillInspection {
+	name: string;
+	skillDir: AregSkillKindPathState;
+	skillMd: AregSkillKindTextFileState;
+	openaiPolicy: AregSkillKindTextFileState;
+}
+
+export interface AregSkillKindProjectInspectionRequest {
+	cwd: string;
+	projectPath: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregSkillKindProjectInspectionResult {
+	projectDir: string;
+	projectPathState: AregSkillKindPathState;
+	piDir: AregSkillKindPathState;
+	piSettings: AregSkillKindTextFileState;
+	genericReplacement: {
+		hasAdapter: boolean;
+		hasPackageModule: boolean;
+	};
+	skills: readonly AregSkillKindSkillInspection[];
+}
+
+export interface AregSkillKindResolveRequest {
+	projectDir: string;
+	spec: string;
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export type AregSkillKindResolveResult = { type: "ok"; skillName: string } | { type: "error"; error: AregErrorInfo };
+
+export interface AregSkillKindProjectGateway {
+	inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult>;
+	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
+}

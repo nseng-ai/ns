@@ -7,9 +7,10 @@ import type {
 	AregHostGateway,
 	AregInitProjectGateway,
 	AregNpxSkillsGateway,
-	AregUpdateProjectGateway,
 	AregPromptGateway,
+	AregSkillKindProjectGateway,
 	AregSkillxWorkspaceGateway,
+	AregUpdateProjectGateway,
 } from "./gateways.ts";
 import {
 	RealAregCheckProjectInspectionGateway,
@@ -17,9 +18,10 @@ import {
 	RealAregHostGateway,
 	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
-	RealAregUpdateProjectGateway,
 	RealAregPromptGateway,
+	RealAregSkillKindProjectGateway,
 	RealAregSkillxWorkspaceGateway,
+	RealAregUpdateProjectGateway,
 } from "./real-gateways.ts";
 
 export interface AregCliContext {
@@ -32,6 +34,7 @@ export interface AregCliContext {
 	prompt: AregPromptGateway;
 	initProject: AregInitProjectGateway;
 	updateProject: AregUpdateProjectGateway;
+	skillKindProject: AregSkillKindProjectGateway;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 }
@@ -50,6 +53,7 @@ export function createRealAregContext(options: { cwd?: string | undefined; env?:
 		prompt: new RealAregPromptGateway(),
 		initProject: new RealAregInitProjectGateway(),
 		updateProject: new RealAregUpdateProjectGateway(),
+		skillKindProject: new RealAregSkillKindProjectGateway(),
 		cwd,
 		env,
 	};

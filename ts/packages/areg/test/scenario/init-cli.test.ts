@@ -12,6 +12,7 @@ import {
 	type FakeAregNpxSkillsGatewayOptions,
 	FakeAregPromptGateway,
 	type FakeAregPromptGatewayOptions,
+	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
 	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
@@ -51,6 +52,7 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 			prompt,
 			initProject,
 			updateProject: new FakeAregUpdateProjectGateway(),
+			skillKindProject: new FakeAregSkillKindProjectGateway(),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 		},
