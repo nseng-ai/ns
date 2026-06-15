@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from asdl_core.git.types import DetachedHead, GitCommandFailure, WorktreeOccupancy
-from asdl_slots.checkout_planning import CurrentWorktreeRedirect, plan_current_wt_redirect
+from asdl_slots.checkout_planning import (
+    CheckoutCurrentWorktreeBranch,
+    CurrentWorktreeRedirect,
+    plan_current_wt_redirect,
+)
 from asdl_slots.context import SlotsCliContext
 from asdl_slots.inventory import (
     MainWorktreeMatch,
@@ -24,19 +28,13 @@ from asdl_slots.repo_context import ensure_slots_metadata_dir
 
 
 @dataclass(frozen=True)
-class MainWorktreeCheckout:
-    worktree_path: Path
-    branch_name: str
-
-
-@dataclass(frozen=True)
 class ClaimPlan:
     target: SlotRecord
     slot_checkout_branch: str
     source: SlotRecord | None
     already_current: bool
     caller_redirect: CurrentWorktreeRedirect | None = None
-    main_checkout: MainWorktreeCheckout | None = None
+    main_redirect: CurrentWorktreeRedirect | None = None
 
 
 def claim_branch(
@@ -56,7 +54,7 @@ def claim_branch(
     if isinstance(plan, SlotLifecycleFailure):
         return plan
     if plan.already_current:
-        return _outcome_from_plan(plan)
+        return _outcome_from_plan(slots_ctx, plan)
 
     trunk_branch = slots_ctx.git.get_trunk_branch()
     if plan.source is not None:
@@ -69,23 +67,10 @@ def claim_branch(
         )
         if source_failure is not None:
             return source_failure
-    if plan.main_checkout is not None:
-        main_checkout_failure = slots_ctx.git.checkout_branch(
-            plan.main_checkout.worktree_path,
-            plan.main_checkout.branch_name,
-        )
-        if main_checkout_failure is not None:
-            return SlotLifecycleFailure(
-                error_type="main_checkout_failed",
-                message=(
-                    f"Failed to check out '{plan.main_checkout.branch_name}' in the main "
-                    f"worktree at {plan.main_checkout.worktree_path}: "
-                    f"{main_checkout_failure.message}"
-                ),
-            )
-    elif plan.caller_redirect is not None:
+    current_worktree_redirect = plan.main_redirect or plan.caller_redirect
+    if current_worktree_redirect is not None:
         redirect_failure = execute_current_worktree_redirect(
-            plan.caller_redirect,
+            current_worktree_redirect,
             slots_ctx=slots_ctx,
         )
         if redirect_failure is not None:
@@ -101,7 +86,7 @@ def claim_branch(
             ),
         )
 
-    return _outcome_from_plan(plan)
+    return _outcome_from_plan(slots_ctx, plan)
 
 
 def plan_claim(
@@ -361,9 +346,12 @@ def _plan_trunk_claim_from_main_worktree(
         slot_checkout_branch=current_branch,
         source=source,
         already_current=False,
-        main_checkout=MainWorktreeCheckout(
-            worktree_path=slots_ctx.repo.root,
-            branch_name=trunk_branch,
+        main_redirect=CurrentWorktreeRedirect(
+            action=CheckoutCurrentWorktreeBranch(
+                branch=trunk_branch,
+                role="trunk",
+            ),
+            note=None,
         ),
     )
 
@@ -434,10 +422,11 @@ def _detach_source_slot(
     return None
 
 
-def _outcome_from_plan(plan: ClaimPlan) -> SlotClaimOutcome:
+def _outcome_from_plan(slots_ctx: SlotsCliContext, plan: ClaimPlan) -> SlotClaimOutcome:
     replaced_branch_name = plan.target.branch
     if replaced_branch_name == plan.slot_checkout_branch:
         replaced_branch_name = None
+    main_checkout_branch = _main_checkout_branch(plan)
     return SlotClaimOutcome(
         slot_name=plan.target.slot_name,
         branch_name=plan.slot_checkout_branch,
@@ -446,13 +435,18 @@ def _outcome_from_plan(plan: ClaimPlan) -> SlotClaimOutcome:
         source_slot_name=plan.source.slot_name if plan.source is not None else None,
         source_worktree_path=plan.source.path if plan.source is not None else None,
         already_current=plan.already_current,
-        main_worktree_path=(
-            plan.main_checkout.worktree_path if plan.main_checkout is not None else None
-        ),
-        main_checkout_branch=(
-            plan.main_checkout.branch_name if plan.main_checkout is not None else None
-        ),
+        main_worktree_path=slots_ctx.repo.root if main_checkout_branch is not None else None,
+        main_checkout_branch=main_checkout_branch,
     )
+
+
+def _main_checkout_branch(plan: ClaimPlan) -> str | None:
+    if plan.main_redirect is None:
+        return None
+    action = plan.main_redirect.action
+    if isinstance(action, CheckoutCurrentWorktreeBranch):
+        return action.branch
+    return None
 
 
 def slot_operation_message(record: SlotRecord, *, action: str) -> str:
