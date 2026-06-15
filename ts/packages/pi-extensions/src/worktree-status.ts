@@ -628,13 +628,22 @@ function totalAssistantUsage(entries: readonly StatusSessionEntry[]): StatusUsag
 }
 
 function formatContextUsage(ctx: ExtensionContext, theme: StatusTheme): string {
-	const contextUsage = ctx.getContextUsage?.();
+	const contextUsage = readContextUsage(ctx);
 	const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 	const percent = contextUsage?.percent;
 	const display = percent == null ? `?/${formatFooterTokens(contextWindow)} (auto)` : `${percent.toFixed(1)}%/${formatFooterTokens(contextWindow)} (auto)`;
 	if ((percent ?? 0) > 90) return theme.fg("error", display);
 	if ((percent ?? 0) > 70) return theme.fg("warning", display);
 	return display;
+}
+
+function readContextUsage(ctx: ExtensionContext): StatusContextUsage | undefined {
+	try {
+		return ctx.getContextUsage?.();
+	} catch {
+		// Context usage is footer telemetry. Malformed legacy/session entries must not crash Pi's TUI render loop.
+		return undefined;
+	}
 }
 
 function formatFooterTokens(count: number): string {
