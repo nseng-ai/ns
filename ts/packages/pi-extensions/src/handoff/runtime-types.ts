@@ -1,7 +1,9 @@
 import type { ExecResult } from "@asdl/core/exec";
+import type { SendUserMessageOptions } from "../message-delivery.ts";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type { ExecResult } from "@asdl/core/exec";
+export type { SendUserMessageOptions } from "../message-delivery.ts";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
@@ -119,5 +121,5 @@ export interface ExtensionAPI {
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	sendMessage?(message: CustomMessage): void;
-	sendUserMessage(content: string): void;
+	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }

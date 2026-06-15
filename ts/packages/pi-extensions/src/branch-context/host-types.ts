@@ -9,6 +9,7 @@ import type {
 	resolveSelectedSavedPlanFile,
 	writeSavedPlanFile,
 } from "@asdl/plans";
+import type { SendMessageOptions } from "../message-delivery.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
 
@@ -46,7 +47,7 @@ export interface NewSessionResult {
 }
 
 export interface ReplacedSessionContext extends CommandContext {
-	sendMessage(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): Promise<void> | void;
+	sendMessage(message: CustomMessage, options?: SendMessageOptions): Promise<void> | void;
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -123,6 +124,6 @@ export interface ExtensionAPI {
 	): void;
 	registerTool(definition: ToolDefinition): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-	sendMessage?(message: CustomMessage, options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" }): void;
+	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
 	sendUserMessage(content: string): void;
 }

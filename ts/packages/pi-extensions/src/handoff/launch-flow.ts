@@ -146,7 +146,7 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 	}
 
 	ctx.ui.notify(createHandoffStartMessage(spec.startMessages, skill, skillReadError), skill ? "info" : "warning");
-	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: skill?.block, request }));
+	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: skill?.block, request }), { deliverAs: "followUp" });
 }
 
 export function buildHandoffLaunchTool(pi: ExtensionAPI, spec: HandoffLaunchToolSpec): ToolDefinition {
