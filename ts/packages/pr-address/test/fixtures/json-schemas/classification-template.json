@@ -1,8 +1,11 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "manifest_json": {
+        "default": null,
+        "description": "Inline compact payload manifest JSON.",
         "anyOf": [
           {
             "type": "string"
@@ -10,11 +13,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Manifest Json"
+        ]
       },
       "manifest_file": {
+        "default": null,
+        "description": "Path to a compact payload manifest JSON file.",
         "anyOf": [
           {
             "type": "string"
@@ -22,423 +25,60 @@
           {
             "type": "null"
           }
+        ]
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
         ],
+        "description": "PR number for implicit manifest session resolution."
+      },
+      "harness_session_id": {
         "default": null,
-        "title": "Manifest File"
+        "description": "Harness session id for implicit session resolution.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
-    "title": "ClassificationTemplateRequest",
-    "type": "object"
+    "required": [
+      "manifest_json",
+      "manifest_file",
+      "pr_number",
+      "harness_session_id"
+    ],
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "ClassificationBodyLocatorRef": {
-        "additionalProperties": false,
-        "properties": {
-          "json_pointer": {
-            "title": "Json Pointer",
-            "type": "string"
-          },
-          "item_pointer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Item Pointer"
-          }
-        },
-        "required": [
-          "json_pointer"
-        ],
-        "title": "ClassificationBodyLocatorRef",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplateCounts": {
-        "additionalProperties": false,
-        "properties": {
-          "reviews": {
-            "title": "Reviews",
-            "type": "integer"
-          },
-          "review_threads": {
-            "title": "Review Threads",
-            "type": "integer"
-          },
-          "thread_comments": {
-            "title": "Thread Comments",
-            "type": "integer"
-          },
-          "discussion_comments": {
-            "title": "Discussion Comments",
-            "type": "integer"
-          },
-          "resolved_review_threads_omitted": {
-            "title": "Resolved Review Threads Omitted",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "reviews",
-          "review_threads",
-          "thread_comments",
-          "discussion_comments",
-          "resolved_review_threads_omitted"
-        ],
-        "title": "FeedbackClassificationTemplateCounts",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplateDiscussionCommentItem": {
-        "additionalProperties": false,
-        "properties": {
-          "comment_id": {
-            "title": "Comment Id",
-            "type": "integer"
-          },
-          "disposition": {
-            "default": "<fill: actionable|informational>",
-            "title": "Disposition",
-            "type": "string"
-          },
-          "body_locator": {
-            "$ref": "#/$defs/ClassificationBodyLocatorRef"
-          },
-          "summary": {
-            "default": "",
-            "title": "Summary",
-            "type": "string"
-          },
-          "action_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Action Summary"
-          },
-          "complexity": {
-            "anyOf": [
-              {
-                "enum": [
-                  "pre_existing",
-                  "local",
-                  "single_file",
-                  "cross_cutting",
-                  "complex"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Complexity"
-          },
-          "needs_reply": {
-            "default": false,
-            "title": "Needs Reply",
-            "type": "boolean"
-          },
-          "informational_reason": {
-            "anyOf": [
-              {
-                "enum": [
-                  "resolved_reference",
-                  "automation",
-                  "acknowledgement",
-                  "approval",
-                  "question_only",
-                  "fyi",
-                  "noise",
-                  "already_addressed",
-                  "other"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Informational Reason"
-          }
-        },
-        "required": [
-          "comment_id",
-          "body_locator"
-        ],
-        "title": "FeedbackClassificationTemplateDiscussionCommentItem",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplatePacket": {
-        "additionalProperties": false,
-        "properties": {
-          "schema_version": {
-            "const": 1,
-            "default": 1,
-            "title": "Schema Version",
-            "type": "integer"
-          },
-          "reviews": {
-            "default": [],
-            "items": {
-              "$ref": "#/$defs/FeedbackClassificationTemplateReviewItem"
-            },
-            "title": "Reviews",
-            "type": "array"
-          },
-          "review_threads": {
-            "default": [],
-            "items": {
-              "$ref": "#/$defs/FeedbackClassificationTemplateThreadItem"
-            },
-            "title": "Review Threads",
-            "type": "array"
-          },
-          "discussion_comments": {
-            "default": [],
-            "items": {
-              "$ref": "#/$defs/FeedbackClassificationTemplateDiscussionCommentItem"
-            },
-            "title": "Discussion Comments",
-            "type": "array"
-          }
-        },
-        "title": "FeedbackClassificationTemplatePacket",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplateReviewItem": {
-        "additionalProperties": false,
-        "properties": {
-          "review_id": {
-            "title": "Review Id",
-            "type": "string"
-          },
-          "disposition": {
-            "default": "<fill: actionable|informational>",
-            "title": "Disposition",
-            "type": "string"
-          },
-          "body_locator": {
-            "$ref": "#/$defs/ClassificationBodyLocatorRef"
-          },
-          "summary": {
-            "default": "",
-            "title": "Summary",
-            "type": "string"
-          },
-          "action_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Action Summary"
-          },
-          "complexity": {
-            "anyOf": [
-              {
-                "enum": [
-                  "pre_existing",
-                  "local",
-                  "single_file",
-                  "cross_cutting",
-                  "complex"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Complexity"
-          },
-          "pre_existing": {
-            "default": false,
-            "title": "Pre Existing",
-            "type": "boolean"
-          },
-          "informational_reason": {
-            "anyOf": [
-              {
-                "enum": [
-                  "resolved_reference",
-                  "automation",
-                  "acknowledgement",
-                  "approval",
-                  "question_only",
-                  "fyi",
-                  "noise",
-                  "already_addressed",
-                  "other"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Informational Reason"
-          }
-        },
-        "required": [
-          "review_id",
-          "body_locator"
-        ],
-        "title": "FeedbackClassificationTemplateReviewItem",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplateThreadCommentRef": {
-        "additionalProperties": false,
-        "properties": {
-          "comment_id": {
-            "title": "Comment Id",
-            "type": "integer"
-          },
-          "body_locator": {
-            "$ref": "#/$defs/ClassificationBodyLocatorRef"
-          }
-        },
-        "required": [
-          "comment_id",
-          "body_locator"
-        ],
-        "title": "FeedbackClassificationTemplateThreadCommentRef",
-        "type": "object"
-      },
-      "FeedbackClassificationTemplateThreadItem": {
-        "additionalProperties": false,
-        "properties": {
-          "thread_id": {
-            "title": "Thread Id",
-            "type": "string"
-          },
-          "disposition": {
-            "default": "<fill: actionable|informational>",
-            "title": "Disposition",
-            "type": "string"
-          },
-          "thread_item_pointer": {
-            "title": "Thread Item Pointer",
-            "type": "string"
-          },
-          "covered_comments": {
-            "items": {
-              "$ref": "#/$defs/FeedbackClassificationTemplateThreadCommentRef"
-            },
-            "title": "Covered Comments",
-            "type": "array"
-          },
-          "summary": {
-            "default": "",
-            "title": "Summary",
-            "type": "string"
-          },
-          "action_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Action Summary"
-          },
-          "complexity": {
-            "anyOf": [
-              {
-                "enum": [
-                  "pre_existing",
-                  "local",
-                  "single_file",
-                  "cross_cutting",
-                  "complex"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Complexity"
-          },
-          "pre_existing": {
-            "default": false,
-            "title": "Pre Existing",
-            "type": "boolean"
-          },
-          "informational_reason": {
-            "anyOf": [
-              {
-                "enum": [
-                  "resolved_reference",
-                  "automation",
-                  "acknowledgement",
-                  "approval",
-                  "question_only",
-                  "fyi",
-                  "noise",
-                  "already_addressed",
-                  "other"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Informational Reason"
-          }
-        },
-        "required": [
-          "thread_id",
-          "thread_item_pointer",
-          "covered_comments"
-        ],
-        "title": "FeedbackClassificationTemplateThreadItem",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "manifest_kind": {
-        "enum": [
-          "get_feedback",
-          "prepare_run"
-        ],
-        "title": "Manifest Kind",
         "type": "string"
       },
       "pr_number": {
         "anyOf": [
           {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Pr Number"
+        ]
       },
       "payload_path": {
         "anyOf": [
@@ -448,23 +88,286 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload Path"
+        ]
       },
       "counts": {
-        "$ref": "#/$defs/FeedbackClassificationTemplateCounts"
+        "type": "object",
+        "properties": {
+          "reviews": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "review_threads": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "thread_comments": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "discussion_comments": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "resolved_review_threads_omitted": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "reviews",
+          "review_threads",
+          "thread_comments",
+          "discussion_comments",
+          "resolved_review_threads_omitted"
+        ],
+        "additionalProperties": {}
       },
       "classification_template": {
-        "$ref": "#/$defs/FeedbackClassificationTemplatePacket"
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "number",
+            "const": 1
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "review_id": {
+                  "type": "string"
+                },
+                "disposition": {
+                  "type": "string"
+                },
+                "body_locator": {
+                  "type": "object",
+                  "properties": {
+                    "json_pointer": {
+                      "type": "string"
+                    },
+                    "item_pointer": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "json_pointer",
+                    "item_pointer"
+                  ],
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "review_id",
+                "disposition"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "review_threads": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "thread_id": {
+                  "type": "string"
+                },
+                "disposition": {
+                  "type": "string"
+                },
+                "covered_comments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment_id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "body_locator": {
+                        "type": "object",
+                        "properties": {
+                          "json_pointer": {
+                            "type": "string"
+                          },
+                          "item_pointer": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "json_pointer",
+                          "item_pointer"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "comment_id",
+                      "body_locator"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "thread_id",
+                "disposition",
+                "covered_comments"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "discussion_comments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "comment_id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "disposition": {
+                  "type": "string"
+                },
+                "body_locator": {
+                  "type": "object",
+                  "properties": {
+                    "json_pointer": {
+                      "type": "string"
+                    },
+                    "item_pointer": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "json_pointer",
+                    "item_pointer"
+                  ],
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "comment_id",
+                "disposition"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "schema_version",
+          "reviews",
+          "review_threads",
+          "discussion_comments"
+        ],
+        "additionalProperties": {}
+      },
+      "resolved_inputs": {
+        "type": "object",
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [
       "manifest_kind",
+      "pr_number",
+      "payload_path",
       "counts",
       "classification_template"
     ],
-    "title": "FeedbackClassificationTemplateResult",
-    "type": "object"
+    "additionalProperties": {}
   }
 }
