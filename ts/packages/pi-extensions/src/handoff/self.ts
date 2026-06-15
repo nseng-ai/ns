@@ -1,7 +1,6 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { handoffSlugToKey, parseFlatHandoffSlug } from "@asdl/handoff/identity";
 
-import { formatPickupHandoffCommand } from "./identity.ts";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchRequest,
@@ -44,9 +43,9 @@ export const HANDOFF_SELF_PROMPT_COPY = {
 	toolName: HANDOFF_SELF_LAUNCH_TOOL_NAME,
 	intentSentence: "Create a directed handoff artifact for the current session, then clear this session's context and pick up that handoff here in a fresh session.",
 	abortClause: "do not clear context or pick up the handoff",
-	previewHeading: "After saving, the current session will queue this follow-up; that command replaces the session and runs pickup:",
+	previewHeading: "After saving, the current session will queue this follow-up; that command replaces the session and starts the replacement session with this prompt:",
 	previewBody(branch: string): string {
-		return `${formatHandoffSelfPickupCommand("<returned-slug>")}\n/${PICKUP_HANDOFF_COMMAND_NAME} --branch ${branch} <returned-slug>`;
+		return `${formatHandoffSelfPickupCommand("<returned-slug>")}\n${formatHandoffSelfKickoffPrompt(branch, "<returned-slug>")}`;
 	},
 } satisfies HandoffLaunchPromptCopy;
 
@@ -57,7 +56,7 @@ const HANDOFF_SELF_START_MESSAGES = {
 
 const HANDOFF_SELF_PICKUP_USAGE = `Usage: /${HANDOFF_SELF_PICKUP_COMMAND_NAME} [--branch <branch>] <semantic-slug>
 
-Verify a saved handoff, replace the current session with a fresh one, and run /${PICKUP_HANDOFF_COMMAND_NAME} for that handoff.
+Verify a saved handoff, replace the current session with a fresh one, and send an initial handoff pickup prompt for that handoff.
 
 Options:
   --branch <branch>  Pick up a handoff from an explicit branch instead of the current branch.
@@ -71,6 +70,10 @@ export function buildHandoffSelfPrompt(options: Parameters<typeof buildHandoffLa
 
 export function formatHandoffSelfPickupCommand(slug: string, branch?: string): string {
 	return branch === undefined ? `/${HANDOFF_SELF_PICKUP_COMMAND_NAME} ${slug}` : `/${HANDOFF_SELF_PICKUP_COMMAND_NAME} --branch ${branch} ${slug}`;
+}
+
+export function formatHandoffSelfKickoffPrompt(branch: string, slug: string): string {
+	return `Pick up handoff ${slug} on branch ${branch}. Summarize it and wait for my direction before continuing.`;
 }
 
 export async function handleHandoffSelfCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
@@ -140,12 +143,12 @@ export async function handleHandoffSelfPickupCommand(pi: ExtensionAPI, rawArgs: 
 		setStatus(ctx, HANDOFF_SELF_STATUS_KEY, undefined);
 	}
 
-	const pickupCommand = formatPickupHandoffCommand(branch, parsedSlug.slug);
+	const kickoffPrompt = formatHandoffSelfKickoffPrompt(branch, parsedSlug.slug);
 	const parentSession = ctx.sessionManager?.getSessionFile?.();
 
 	const withSession = async (replacementCtx: ReplacedSessionContext): Promise<void> => {
 		replacementCtx.ui.notify(`Picking up handoff ${parsedSlug.slug} from branch ${branch}…`, "info");
-		await replacementCtx.sendUserMessage(pickupCommand);
+		await replacementCtx.sendUserMessage(kickoffPrompt);
 	};
 
 	setStatus(ctx, HANDOFF_SELF_STATUS_KEY, "clearing context…");

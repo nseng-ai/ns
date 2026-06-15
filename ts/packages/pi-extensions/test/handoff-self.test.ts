@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import handoffExtension, { buildHandoffSelfPrompt } from "../src/handoff.ts";
+import handoffExtension, { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/handoff.ts";
 import {
 	BRANCH,
 	FakePi,
@@ -39,7 +39,8 @@ describe("handoff:self extension", () => {
 			expect(prompt).toContain("do not clear context or pick up the handoff");
 			expect(prompt).toContain("/handoff:self-pickup <returned-slug>");
 			expect(prompt).not.toContain(`/handoff:self-pickup --branch ${BRANCH} <returned-slug>`);
-			expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
+			expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
+			expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		});
 	});
 
@@ -94,7 +95,7 @@ describe("handoff:self extension", () => {
 		]);
 	});
 
-	test("handoff:self-pickup clears context and runs handoff pickup in the replacement session", async () => {
+	test("handoff:self-pickup clears context and sends natural pickup prompt in the replacement session", async () => {
 		const result = await runCommand(
 			"handoff:self-pickup",
 			"finish-widget",
@@ -109,7 +110,7 @@ describe("handoff:self extension", () => {
 			{ message: `Picking up handoff finish-widget from branch ${BRANCH}…`, level: "info" },
 		]);
 		expect(result.replacementUserMessages).toEqual([
-			{ content: `/handoff:pickup --branch ${BRANCH} finish-widget`, options: undefined },
+			{ content: formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"), options: undefined },
 		]);
 		expect(result.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…", undefined]);
 	});
@@ -140,6 +141,7 @@ describe("handoff:self pure helpers", () => {
 		expect(prompt).toContain("After `brmem put` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain("/handoff:self-pickup <returned-slug>");
 		expect(prompt).not.toContain(`/handoff:self-pickup --branch ${BRANCH} <returned-slug>`);
-		expect(prompt).toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
+		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
+		expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
 	});
 });

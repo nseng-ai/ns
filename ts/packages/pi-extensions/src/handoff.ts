@@ -5,7 +5,13 @@ import { definePiSurfaceParity } from "./parity.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "@asdl/handoff/identity";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
-import { buildHandoffSelfLaunchTool, buildHandoffSelfPrompt, handleHandoffSelfCommand, handleHandoffSelfPickupCommand } from "./handoff/self.ts";
+import {
+	buildHandoffSelfLaunchTool,
+	buildHandoffSelfPrompt,
+	formatHandoffSelfKickoffPrompt,
+	handleHandoffSelfCommand,
+	handleHandoffSelfPickupCommand,
+} from "./handoff/self.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	CREATE_HANDOFF_COMMAND_NAME,
@@ -111,7 +117,7 @@ export const handoffParity = definePiSurfaceParity([
 
 export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
 export type { HandoffTabLaunchResult } from "./handoff/tab.ts";
-export { buildHandoffSelfPrompt, buildHandoffTabPrompt, deriveSemanticHandoffSlug };
+export { formatHandoffSelfKickoffPrompt, buildHandoffSelfPrompt, buildHandoffTabPrompt, deriveSemanticHandoffSlug };
 
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
 const MAX_PREVIEW_CHARS = 240;
