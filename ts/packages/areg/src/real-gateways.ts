@@ -59,6 +59,36 @@ import { sortStrings, uniqueSortedStrings } from "./sort.ts";
 
 const COMMAND_TIMEOUT_MS = 60_000;
 
+interface ResolveAllowedTargetOptions {
+	projectRoot: string;
+	relativePath: string;
+	isAllowedRelativePath: (relativePath: string) => boolean;
+	errorCode: string;
+	checkUnsupportedFirst: boolean;
+	unsupportedMessage: (relativePath: string) => string;
+	unsafeMessage: (relativePath: string) => string;
+	outsideMessage: (relativePath: string) => string;
+}
+
+interface SkillKindWriteTargetValidationOptions {
+	target: string;
+	projectRoot: string;
+	createParent: boolean;
+	description: string;
+}
+
+interface ValidateTextWriteTargetOptions {
+	target: string;
+	projectRoot: string;
+	description: string;
+	createParent: boolean;
+	symlinkCode: string;
+	notFileCode: string;
+	parentSymlinkCode: string;
+	parentNotDirectoryCode: string;
+	parentMissingCode: string;
+}
+
 export class RealAregHostGateway implements AregHostGateway {
 	private readonly runner: CommandRunner;
 
@@ -269,7 +299,7 @@ export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGate
 		for (const write of request.writes) {
 			const target = resolveAllowedSkillKindTarget(projectRoot.value, write.relativePath, write.description);
 			if (target.type === "error") return { ok: false, error: target.error };
-			const validation = await validateSkillKindWriteTarget(target.value, projectRoot.value, write.createParent, write.description);
+			const validation = await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, createParent: write.createParent, description: write.description });
 			if (!validation.ok) return validation;
 			if (write.createParent) {
 				try {
@@ -277,7 +307,7 @@ export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGate
 				} catch (error) {
 					return { ok: false, error: errorInfo("skill-kind-parent-create-failed", `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
 				}
-				const revalidation = await validateSkillKindWriteTarget(target.value, projectRoot.value, write.createParent, write.description);
+				const revalidation = await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, createParent: write.createParent, description: write.description });
 				if (!revalidation.ok) return revalidation;
 			}
 			try {
@@ -651,33 +681,51 @@ async function resolveExistingDirectory(candidate: string, description: string):
 }
 
 function resolveAllowedInitTarget(projectRoot: string, write: AregInitTextWritePlan): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
-	if (!["asdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(write.relativePath)) {
-		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write unsupported init target: ${write.relativePath}`) };
+	return resolveAllowedProjectTarget({
+		projectRoot,
+		relativePath: write.relativePath,
+		isAllowedRelativePath: isAllowedInitRelativePath,
+		errorCode: "init-write-target-refused",
+		checkUnsupportedFirst: true,
+		unsupportedMessage: (relativePath) => `Refusing to write unsupported init target: ${relativePath}`,
+		unsafeMessage: (relativePath) => `Refusing to write unsafe init target: ${relativePath}`,
+		outsideMessage: (relativePath) => `Refusing to write outside project root: ${relativePath}`,
+	});
+}
+
+function resolveAllowedSkillKindTarget(projectRoot: string, relativePath: string, description: string): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
+	return resolveAllowedProjectTarget({
+		projectRoot,
+		relativePath,
+		isAllowedRelativePath: isAllowedSkillKindRelativePath,
+		errorCode: "skill-kind-target-refused",
+		checkUnsupportedFirst: false,
+		unsupportedMessage: (candidate) => `Refusing to manage unsupported ${description} target: ${candidate}`,
+		unsafeMessage: (candidate) => `Refusing to manage unsafe ${description} target: ${candidate}`,
+		outsideMessage: (candidate) => `Refusing to manage ${description} outside project root: ${candidate}`,
+	});
+}
+
+function resolveAllowedProjectTarget(options: ResolveAllowedTargetOptions): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
+	if (options.checkUnsupportedFirst && !options.isAllowedRelativePath(options.relativePath)) {
+		return { type: "error", error: errorInfo(options.errorCode, options.unsupportedMessage(options.relativePath)) };
 	}
-	if (path.isAbsolute(write.relativePath) || write.relativePath.split("/").includes("..")) {
-		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write unsafe init target: ${write.relativePath}`) };
+	if (path.isAbsolute(options.relativePath) || options.relativePath.split("/").includes("..")) {
+		return { type: "error", error: errorInfo(options.errorCode, options.unsafeMessage(options.relativePath)) };
 	}
-	const target = path.join(projectRoot, ...write.relativePath.split("/"));
-	const relative = path.relative(projectRoot, target);
+	if (!options.checkUnsupportedFirst && !options.isAllowedRelativePath(options.relativePath)) {
+		return { type: "error", error: errorInfo(options.errorCode, options.unsupportedMessage(options.relativePath)) };
+	}
+	const target = path.join(options.projectRoot, ...options.relativePath.split("/"));
+	const relative = path.relative(options.projectRoot, target);
 	if (relative.startsWith("..") || path.isAbsolute(relative)) {
-		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write outside project root: ${write.relativePath}`) };
+		return { type: "error", error: errorInfo(options.errorCode, options.outsideMessage(options.relativePath)) };
 	}
 	return { type: "ok", value: target };
 }
 
-function resolveAllowedSkillKindTarget(projectRoot: string, relativePath: string, description: string): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
-	if (path.isAbsolute(relativePath) || relativePath.split("/").includes("..")) {
-		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage unsafe ${description} target: ${relativePath}`) };
-	}
-	if (!isAllowedSkillKindRelativePath(relativePath)) {
-		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage unsupported ${description} target: ${relativePath}`) };
-	}
-	const target = path.join(projectRoot, ...relativePath.split("/"));
-	const relative = path.relative(projectRoot, target);
-	if (relative.startsWith("..") || path.isAbsolute(relative)) {
-		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage ${description} outside project root: ${relativePath}`) };
-	}
-	return { type: "ok", value: target };
+function isAllowedInitRelativePath(relativePath: string): boolean {
+	return ["asdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(relativePath);
 }
 
 function isAllowedSkillKindRelativePath(relativePath: string): boolean {
@@ -689,37 +737,44 @@ function isAllowedSkillKindRelativePath(relativePath: string): boolean {
 }
 
 async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<AregOperationResult> {
-	const targetState = await inspectPath(target);
-	if (targetState.type === "symlink") return { ok: false, error: errorInfo("init-symlink", `${write.description} at ${target} is a symlink; refusing to manage it.`) };
-	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo("init-not-file", `${target} exists but is not a file.`) };
-	if (targetState.type === "file") return await requirePathAtOrBelow(target, projectRoot, write.description);
-	const parent = await nearestExistingParent(target, projectRoot);
-	if (parent.type === "error") return { ok: false, error: parent.error };
-	const parentState = await inspectPath(parent.value);
-	if (parentState.type === "symlink") return { ok: false, error: errorInfo("init-parent-symlink", `Parent directory at ${parent.value} is a symlink; refusing to manage it.`) };
-	if (parentState.type !== "directory") return { ok: false, error: errorInfo("init-parent-not-directory", `${parent.value} exists but is not a directory.`) };
-	const parentCheck = await requirePathAtOrBelow(parent.value, projectRoot, "Parent directory");
-	if (!parentCheck.ok) return parentCheck;
-	if (!write.createParent && path.dirname(target) !== parent.value) {
-		return { ok: false, error: errorInfo("init-parent-missing", `Parent directory at ${path.dirname(target)} does not exist.`) };
-	}
-	return { ok: true };
+	return await validateTextWriteTarget({
+		target,
+		projectRoot,
+		description: write.description,
+		createParent: write.createParent,
+		symlinkCode: "init-symlink",
+		notFileCode: "init-not-file",
+		parentSymlinkCode: "init-parent-symlink",
+		parentNotDirectoryCode: "init-parent-not-directory",
+		parentMissingCode: "init-parent-missing",
+	});
 }
 
-async function validateSkillKindWriteTarget(target: string, projectRoot: string, createParent: boolean, description: string): Promise<AregOperationResult> {
-	const targetState = await inspectPath(target);
-	if (targetState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-symlink", `${description} at ${target} is a symlink; refusing to manage it.`) };
-	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo("skill-kind-not-file", `${target} exists but is not a file.`) };
-	if (targetState.type === "file") return await requirePathAtOrBelow(target, projectRoot, description);
-	const parent = await nearestExistingParent(target, projectRoot);
+async function validateSkillKindWriteTarget(options: SkillKindWriteTargetValidationOptions): Promise<AregOperationResult> {
+	return await validateTextWriteTarget({
+		...options,
+		symlinkCode: "skill-kind-symlink",
+		notFileCode: "skill-kind-not-file",
+		parentSymlinkCode: "skill-kind-parent-symlink",
+		parentNotDirectoryCode: "skill-kind-parent-not-directory",
+		parentMissingCode: "skill-kind-parent-missing",
+	});
+}
+
+async function validateTextWriteTarget(options: ValidateTextWriteTargetOptions): Promise<AregOperationResult> {
+	const targetState = await inspectPath(options.target);
+	if (targetState.type === "symlink") return { ok: false, error: errorInfo(options.symlinkCode, `${options.description} at ${options.target} is a symlink; refusing to manage it.`) };
+	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo(options.notFileCode, `${options.target} exists but is not a file.`) };
+	if (targetState.type === "file") return await requirePathAtOrBelow(options.target, options.projectRoot, options.description);
+	const parent = await nearestExistingParent(options.target, options.projectRoot, options.parentMissingCode);
 	if (parent.type === "error") return { ok: false, error: parent.error };
 	const parentState = await inspectPath(parent.value);
-	if (parentState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-parent-symlink", `Parent directory at ${parent.value} is a symlink; refusing to manage it.`) };
-	if (parentState.type !== "directory") return { ok: false, error: errorInfo("skill-kind-parent-not-directory", `${parent.value} exists but is not a directory.`) };
-	const parentCheck = await requirePathAtOrBelow(parent.value, projectRoot, "Parent directory");
+	if (parentState.type === "symlink") return { ok: false, error: errorInfo(options.parentSymlinkCode, `Parent directory at ${parent.value} is a symlink; refusing to manage it.`) };
+	if (parentState.type !== "directory") return { ok: false, error: errorInfo(options.parentNotDirectoryCode, `${parent.value} exists but is not a directory.`) };
+	const parentCheck = await requirePathAtOrBelow(parent.value, options.projectRoot, "Parent directory");
 	if (!parentCheck.ok) return parentCheck;
-	if (!createParent && path.dirname(target) !== parent.value) {
-		return { ok: false, error: errorInfo("skill-kind-parent-missing", `Parent directory at ${path.dirname(target)} does not exist.`) };
+	if (!options.createParent && path.dirname(options.target) !== parent.value) {
+		return { ok: false, error: errorInfo(options.parentMissingCode, `Parent directory at ${path.dirname(options.target)} does not exist.`) };
 	}
 	return { ok: true };
 }
@@ -742,13 +797,13 @@ async function validateSkillKindRemoveDirTarget(target: string, projectRoot: str
 	return { ok: true, exists: true };
 }
 
-async function nearestExistingParent(target: string, projectRoot: string): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
+async function nearestExistingParent(target: string, projectRoot: string, parentMissingCode: string): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
 	let current = path.dirname(target);
 	while (current !== projectRoot) {
 		const state = await inspectPath(current);
 		if (state.type !== "missing") return { type: "ok", value: current };
 		const parent = path.dirname(current);
-		if (parent === current) return { type: "error", error: errorInfo("init-parent-missing", `Parent directory at ${current} does not exist.`) };
+		if (parent === current) return { type: "error", error: errorInfo(parentMissingCode, `Parent directory at ${current} does not exist.`) };
 		current = parent;
 	}
 	return { type: "ok", value: projectRoot };
