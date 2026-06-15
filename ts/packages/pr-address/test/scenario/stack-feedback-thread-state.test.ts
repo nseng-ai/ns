@@ -46,11 +46,20 @@ async function seedStack(root: string, stack: unknown): Promise<PayloadReference
 	return expectOk(await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-preflight", role: "summary", payload: stack }));
 }
 
-function runThreadState(root: string, stackReference: PayloadReference, args: readonly string[] = [], github: InMemoryPrAddressGitHubGateway = threadStateGithub()): ScenarioRun {
-	return runScenario(["exec", "stack-feedback-thread-state", "--stack-reference", stackReference.payload_path, ...args, "--format", "json"], {
+interface RunThreadStateOptions {
+	root: string;
+	stackReference: PayloadReference;
+	args?: readonly string[] | undefined;
+	github?: InMemoryPrAddressGitHubGateway | undefined;
+}
+
+function runThreadState(options: RunThreadStateOptions): ScenarioRun {
+	const args = options.args ?? [];
+	const github = options.github ?? threadStateGithub();
+	return runScenario(["exec", "stack-feedback-thread-state", "--stack-reference", options.stackReference.payload_path, ...args, "--format", "json"], {
 		github,
 		payloadClock: fixedClock("2026-06-12T12:00:00.000Z"),
-		env: { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: SESSION_ID },
+		env: { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: options.root, HARNESS_SESSION_ID: SESSION_ID },
 	});
 }
 
@@ -97,7 +106,7 @@ describe("pr-address exec stack-feedback-thread-state", () => {
 	test("full mode writes a stack thread-state artifact with resolved and unresolved threads", async () => {
 		const root = await makePayloadRoot();
 		const stackReference = await seedStack(root, stackInput());
-		const run = runThreadState(root, stackReference, ["--stdout-mode", "full"]);
+		const run = runThreadState({ root, stackReference, args: ["--stdout-mode", "full"] });
 
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<ThreadStateData>(run);
@@ -116,7 +125,7 @@ describe("pr-address exec stack-feedback-thread-state", () => {
 	test("compact mode returns summary and produced artifact reference", async () => {
 		const root = await makePayloadRoot();
 		const stackReference = await seedStack(root, stackInput());
-		const run = runThreadState(root, stackReference, ["--stdout-mode", "compact"]);
+		const run = runThreadState({ root, stackReference, args: ["--stdout-mode", "compact"] });
 
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<Record<string, unknown>>(run);
@@ -129,7 +138,7 @@ describe("pr-address exec stack-feedback-thread-state", () => {
 		const root = await makePayloadRoot();
 		const stackReference = await seedStack(root, stackInput());
 		const github = new InMemoryPrAddressGitHubGateway({ reviewThreadsFailurePrNumbers: new Set([20]) });
-		const run = runThreadState(root, stackReference, ["--stdout-mode", "full"], github);
+		const run = runThreadState({ root, stackReference, args: ["--stdout-mode", "full"], github });
 
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
@@ -149,7 +158,7 @@ describe("pr-address exec stack-feedback-thread-state", () => {
 		for (const item of cases) {
 			const root = await makePayloadRoot();
 			const stackReference = await seedStack(root, item.stack);
-			const run = runThreadState(root, stackReference, ["--stdout-mode", "full"]);
+			const run = runThreadState({ root, stackReference, args: ["--stdout-mode", "full"] });
 			expect(await run.exit).toBe(2);
 			expect(parseEnvelope(run).message).toBe(item.message);
 		}
