@@ -19,10 +19,10 @@
   - Preserve default branch attribution, truncation notes, dirty marker display, local branch ordering, unavailable repo/trunk failure surfaces, and `--status` behavior.
   - Policy: execution may proceed after preview if branch attribution stays package-local. Ask before extracting shared git attribution helpers into `@asdl/core`.
   - Evidence: fake git gateway tests, scenario coverage for human/Markdown/JSON branch rows, and parity notes for any rendering divergence.
-- [ ] Port `objective exec list-candidates`.
+- [x] Port `objective exec list-candidates`.
   - Preserve active open candidate filtering, tab-separated human output, JSON `records: [{slug, status}]`, and archive/closed exclusion.
   - Policy: this can be bundled with a nearby list slice only if the confirmed preview keeps one reviewable thesis: deterministic candidate inventory for skill/Pi callers.
-  - Evidence: CLI tests and a grep/consumer note confirming `/objective:*` and skills still receive the expected shape.
+  - Evidence: TypeScript `objective exec list-candidates` now reuses active checkout inventory to emit open active-root candidates only, renders tab-separated human rows, preserves JSON `records: [{slug, status}]`, excludes closed/archive records, and remains under the hidden `exec` group. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
 - [ ] Port `objective archive` / `--unarchive`.
   - Preserve slug validation, LBYL missing-source and destination-collision refusal, directory rename behavior, JSON result fields, and human moved-path output.
   - Policy: execution may proceed after preview when limited to filesystem-backed active/archive movement. Ask before changing archive semantics, merging records, or adding metadata.
