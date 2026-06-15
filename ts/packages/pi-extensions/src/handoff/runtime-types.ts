@@ -56,6 +56,21 @@ export interface ToolResult<Details = unknown> {
 	isError?: boolean;
 }
 
+export interface SessionReplacementResult {
+	cancelled: boolean;
+}
+
+export interface ReplacedSessionContext extends BaseRuntimeContext {
+	sendUserMessage(content: string, options?: SendUserMessageOptions): Promise<void>;
+	sendMessage?(message: CustomMessage): Promise<void>;
+}
+
+export interface NewSessionOptions {
+	parentSession?: string;
+	setup?(sessionManager: unknown): Promise<void> | void;
+	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
+}
+
 export interface ToolDefinition {
 	name: string;
 	label: string;
@@ -102,6 +117,7 @@ export interface CommandContext extends BaseRuntimeContext {
 		input?(title: string, placeholder?: string): Promise<string | undefined>;
 	};
 	waitForIdle(): Promise<void>;
+	newSession?(options?: NewSessionOptions): Promise<SessionReplacementResult>;
 }
 
 export interface ToolContext extends BaseRuntimeContext {}

@@ -10,8 +10,11 @@ export const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
 export const PICKUP_HANDOFF_COMMAND_NAME = "handoff:pickup";
 export const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_TAB_COMMAND_NAME = "ccc:handoff-tab";
+export const HANDOFF_SELF_COMMAND_NAME = "handoff:self";
+export const HANDOFF_SELF_PICKUP_COMMAND_NAME = "handoff:self-pickup";
 export const DERIVE_HANDOFF_SLUG_TOOL_NAME = "derive_handoff_slug_from_content";
 export const HANDOFF_TAB_LAUNCH_TOOL_NAME = "handoff_tab_launch";
+export const HANDOFF_SELF_LAUNCH_TOOL_NAME = "handoff_self_queue_pickup";
 export const CREATE_HANDOFF_SKILL_NAME = "handoff-create";
 export const HANDOFF_TIMEOUT_MS = 30_000;
 export const BRMEM_TIMEOUT_MS = 30_000;
@@ -20,6 +23,7 @@ export const CMUX_TIMEOUT_MS = 10_000;
 export const MAX_ERROR_CHARS = 4_000;
 export const CREATE_FOCUS_QUESTION = "What should the future session continue from this handoff?";
 export const HANDOFF_TAB_STATUS_KEY = HANDOFF_TAB_COMMAND_NAME;
+export const HANDOFF_SELF_STATUS_KEY = HANDOFF_SELF_COMMAND_NAME;
 
 export const CREATE_HANDOFF_FALLBACK = `Use the handoff-create workflow to create a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
 
