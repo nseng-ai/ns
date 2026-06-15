@@ -48,6 +48,8 @@ import {
 	stackFeedbackPreflightResultUnionSchema,
 	stackFeedbackPrepRequestSchema,
 	stackFeedbackPrepResultUnionSchema,
+	stackFeedbackThreadStateRequestSchema,
+	stackFeedbackThreadStateResultUnionSchema,
 } from "./stack.ts";
 
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
@@ -90,6 +92,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],
 	["stack-feedback-preflight", () => schemaDocument(stackFeedbackPreflightRequestSchema, stackFeedbackPreflightResultUnionSchema)],
 	["stack-feedback-prep", () => schemaDocument(stackFeedbackPrepRequestSchema, stackFeedbackPrepResultUnionSchema)],
+	["stack-feedback-thread-state", () => schemaDocument(stackFeedbackThreadStateRequestSchema, stackFeedbackThreadStateResultUnionSchema)],
 	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],
 	["validate-feedback-classification", buildValidateFeedbackClassificationSchemaDocument],
 ]);

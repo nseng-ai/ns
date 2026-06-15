@@ -37,11 +37,18 @@ export const mapBranchPrsSummarySchema = z.object({
 	requested: z.int(),
 	matched: z.int(),
 	missing: z.int(),
+	ambiguous: z.int(),
+});
+
+const ambiguousBranchPrsEntrySchema = z.object({
+	branch: z.string(),
+	candidates: z.array(mapBranchPrsEntrySchema),
 });
 
 export const mapBranchPrsResultSchema = z.object({
 	branch_prs: z.array(mapBranchPrsEntrySchema),
 	missing_branches: z.array(z.string()),
+	ambiguous_branches: z.array(ambiguousBranchPrsEntrySchema),
 	summary: mapBranchPrsSummarySchema,
 });
 

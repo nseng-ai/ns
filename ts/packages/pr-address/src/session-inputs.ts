@@ -26,9 +26,9 @@ import {
 } from "./stack-feedback-plan-contracts.ts";
 import {
 	stackFeedbackPrepResultInputSchema,
-	stackFeedbackPrepResultWithManifestSchema,
 	type StackFeedbackPrepResultWithManifest,
 } from "./stack-feedback-prep-contracts.ts";
+import { stackFeedbackThreadStateResultSchema, type StackFeedbackThreadStateResult } from "./stack-feedback-thread-state-contracts.ts";
 
 export interface OperationInputError<TErrorType extends string = JsonInputError["errorType"]> {
 	errorType: TErrorType;
@@ -171,11 +171,11 @@ export interface StackFeedbackPlanSessionInputResult {
 
 export interface StackFeedbackDiffCurrentResolvedInputs {
 	stack_plan: PayloadReference;
-	current_prep: PayloadReference;
+	current_thread_state: PayloadReference;
 }
 
 export interface StackFeedbackDiffCurrentSessionInputResult {
-	payload: { stack_plan: StackFeedbackPlanConsumerResult; current_prep: StackFeedbackPrepResultWithManifest };
+	payload: { stack_plan: StackFeedbackPlanConsumerResult; current_thread_state: StackFeedbackThreadStateResult };
 	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs;
 }
 
@@ -639,18 +639,18 @@ export async function resolveStackFeedbackDiffCurrentSessionInput(store: Payload
 		schema: stackFeedbackPlanConsumerResultSchema,
 	});
 	if (stackPlan.type === "error") return stackPlan;
-	const currentPrep = await resolveLatestStackSessionArtifact({
+	const currentThreadState = await resolveLatestStackSessionArtifact({
 		store,
-		kind: "prep",
+		kind: "thread-state",
 		role: "summary",
-		schema: stackFeedbackPrepResultWithManifestSchema,
+		schema: stackFeedbackThreadStateResultSchema,
 	});
-	if (currentPrep.type === "error") return currentPrep;
+	if (currentThreadState.type === "error") return currentThreadState;
 	return {
 		type: "ok",
 		value: {
-			payload: { stack_plan: stackPlan.value.value, current_prep: currentPrep.value.value },
-			resolvedInputs: { stack_plan: stackPlan.value.reference, current_prep: currentPrep.value.reference },
+			payload: { stack_plan: stackPlan.value.value, current_thread_state: currentThreadState.value.value },
+			resolvedInputs: { stack_plan: stackPlan.value.reference, current_thread_state: currentThreadState.value.reference },
 		},
 	};
 }

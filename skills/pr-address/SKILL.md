@@ -367,8 +367,8 @@ reference.
 
 Inspect the builder result:
 
-- If `data.payload_ready` is true, pipe `data.payload` to
-  `resolve-thread-batch --format json`.
+- If `data.payload_ready` is true, call
+  `resolve-thread-batch --from-build <build_reference.payload_path> --format json`.
 - If `data.payload_ready` is false, do not call `resolve-thread-batch`; report
   the warning/skipped items and handle any PR-level review or discussion-comment
   items with the appropriate helpers.
@@ -392,13 +392,13 @@ Common footguns (the reference is still the source of truth):
 - Missing decisions never mean skip; every review-thread item needs an explicit
   `resolve` or `skip` decision.
 - `build-resolve-thread-batch-payload` is per-PR: pass `plan-feedback` output,
-  not merged `stack-feedback-plan` output. For stack runs, pass the validated
-  `stack-feedback-plan` output plus explicit `(pr_number, thread_id)` decisions
-  to `build-stack-resolve-thread-payloads`, then call `resolve-thread-batch` per
-  ready payload.
-- `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
-  before mutation; gateway failures may return `exit_code: 1` with partial
-  result data.
+  not merged `stack-feedback-plan` output. For stack runs, pass explicit
+  `(pr_number, thread_id)` decisions to `build-stack-resolve-thread-payloads`,
+  then call `resolve-thread-batch --from-build <entry.build_reference.payload_path>`
+  for each ready payload artifact.
+- `resolve-thread-batch` mutates only from an explicit `--from-build` artifact.
+  Invalid build artifacts fail before mutation; gateway failures may return
+  `exit_code: 1` with partial result data.
 - `resolve-thread-with-reply` uses positional fields and `mode` must be one of
   `pre_existing`, `fixed`, `explained`, or `planned`. `planned` also requires
   `--provenance-json` naming an existing local branch or PR; non-planned modes

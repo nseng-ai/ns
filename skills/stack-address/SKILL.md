@@ -70,7 +70,7 @@ Do not trigger this skill for single-PR feedback; use `pr-address` instead.
   `fallen behind` or `Run gt restack` guidance, explicitly ask whether to run
   `gt restack` and resolve conflicts. Do not silently stop without this prompt,
   and do not restack before approval.
-- Use one lowercase safe `ASDL_PAYLOAD_SESSION_ID` for the whole run.
+- Use one lowercase safe `HARNESS_SESSION_ID` for the whole run.
 - Store helper stdout outside the worktree under `git rev-parse --git-path`; in
   linked worktrees `.git` is a pointer file, not a scratch directory.
 - Use `--stdout-mode compact` for `stack-feedback-preflight`,
@@ -80,8 +80,9 @@ Do not trigger this skill for single-PR feedback; use `pr-address` instead.
 - Use payload artifact references and `read-feedback-details` for body lookup.
   Use `read-feedback-detail` only for exact one-off debugging.
 - Stop if any required helper is unavailable: `stack-feedback-preflight`,
-  `stack-feedback-prep`, `stack-feedback-plan`, `stack-feedback-diff-current`,
-  `build-stack-resolve-thread-payloads`, `resolve-thread-batch`.
+  `stack-feedback-prep`, `stack-feedback-plan`, `stack-feedback-thread-state`,
+  `stack-feedback-diff-current`, `build-stack-resolve-thread-payloads`,
+  `resolve-thread-batch`.
 - Do not show or execute a stack plan until `stack-feedback-plan` validates all
   classifications and returns a valid merged plan.
 - Show a compact validated execution plan before editing.
@@ -110,12 +111,12 @@ Run helpers from inside the target repository so `gh` can infer `owner/repo`.
 Use `pr-address` from `PATH`.
 
 ```bash
-export ASDL_PAYLOAD_SESSION_ID="pr-stack-address-$(date -u +%Y%m%dt%H%M%Sz)-a1"
-STACK_ADDRESS_RUN_DIR="$(git rev-parse --path-format=absolute --git-path "asdl/stack-address/${ASDL_PAYLOAD_SESSION_ID}")"
+export HARNESS_SESSION_ID="pr-stack-address-$(date -u +%Y%m%dt%H%M%Sz)-a1"
+STACK_ADDRESS_RUN_DIR="$(git rev-parse --path-format=absolute --git-path "asdl/stack-address/${HARNESS_SESSION_ID}")"
 mkdir -p "$STACK_ADDRESS_RUN_DIR"
 STACK_ADDRESS_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-prep.compact.json"
 STACK_ADDRESS_PLAN_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-plan.compact.json"
-STACK_ADDRESS_CURRENT_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-current-prep.compact.json"
+STACK_ADDRESS_CURRENT_THREAD_STATE_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-current-thread-state.compact.json"
 STACK_ADDRESS_FINAL_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-final-prep.compact.json"
 ```
 
@@ -143,7 +144,7 @@ Stop on `2`.
    ```bash
    slot gt exec stack-branches \
      | pr-address exec stack-feedback-preflight \
-         --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+         --harness-session-id "$HARNESS_SESSION_ID" \
          --stdout-mode compact \
          --format json \
      > "$STACK_ADDRESS_PREP_COMPACT"
@@ -157,8 +158,9 @@ Stop on `2`.
    - Exit `0`: use `data.stack_reference.payload_path` as the frozen stack for
      every later full-stack refetch and `data.stack_summary_reference.payload_path`
      as the full prep artifact for classification/planning.
-   - Exit `1`: at least one branch has no open PR; stop and report
-     `data.missing_branches` unless the user explicitly chooses otherwise. If
+   - Exit `1`: at least one branch is missing or ambiguously maps to multiple
+     open PRs; stop and report `data.missing_branches` and/or
+     `data.ambiguous_branches` unless the user explicitly chooses otherwise. If
      the user chooses to continue with partial coverage, compose the lower-level
      public helpers manually: run `map-branch-prs`, hand-trim the stack, then
      run `stack-feedback-prep` on the explicitly approved subset.
@@ -223,16 +225,14 @@ Classification rules:
 
 ### 3. Validate and display stack plan
 
-Run `stack-feedback-plan` with `--prep-reference`; do not embed the prep
-artifact:
+Run `stack-feedback-plan`; it reads the latest session prep and classification
+artifacts. Do not embed prep or classification JSON:
 
 ```bash
-printf '%s' '{"classifications":[{"pr_number":1009,"classification":{}}]}' \
-  | pr-address exec stack-feedback-plan \
-      --prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
-      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
-      --stdout-mode compact \
-      --format json \
+pr-address exec stack-feedback-plan \
+  --harness-session-id "$HARNESS_SESSION_ID" \
+  --stdout-mode compact \
+  --format json \
   > "$STACK_ADDRESS_PLAN_COMPACT"
 ```
 
@@ -323,21 +323,20 @@ checks already green on the tip; there is no new commit to cite.
 
 ### 6. Required pre-mutation drift gate
 
-Immediately before review-thread mutation, refetch current stack feedback with
-resolved threads included:
+Immediately before review-thread mutation, refetch current stack review-thread
+state with resolved threads included:
 
 ```bash
-pr-address exec stack-feedback-prep \
+pr-address exec stack-feedback-thread-state \
   --stack-reference "$(jq -r '.data.stack_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
-  --include-resolved \
-  --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+  --harness-session-id "$HARNESS_SESSION_ID" \
   --stdout-mode compact \
   --format json \
-  > "$STACK_ADDRESS_CURRENT_PREP_COMPACT"
+  > "$STACK_ADDRESS_CURRENT_THREAD_STATE_COMPACT"
 
 pr-address exec stack-feedback-diff-current \
-  --stack-plan-reference "$(jq -r '.data.stack_plan_reference.payload_path' "$STACK_ADDRESS_PLAN_COMPACT")" \
-  --current-prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_CURRENT_PREP_COMPACT")" \
+  --harness-session-id "$HARNESS_SESSION_ID" \
+  --stdout-mode compact \
   --format json
 ```
 
@@ -351,8 +350,8 @@ Drift routing:
 - `planned_already_resolved`: skip/rebuild decisions; do not resolve again.
 - `new_unresolved_threads`: reclassify/replan or ask before continuing.
 - `missing_or_outdated_planned_threads`: stop and replan or ask.
-- Missing `--include-resolved` provenance or warnings: refetch correctly.
-- `errors`: stop and fix input, stack, or plan mismatch.
+- Missing thread-state artifact or `errors`: stop and fix input, stack, or plan
+  mismatch.
 
 ### 7. Build and run mutation payloads
 
@@ -367,10 +366,10 @@ For each selected batch:
    `batch_id`, `commit_sha`, and `continue_on_error: true`.
 2. Use `action: "resolve"` with mode `fixed`, `explained`, or `pre_existing`,
    or `action: "skip"` with `skip_reason` for deferred threads.
-3. Build per-PR payloads with `build-stack-resolve-thread-payloads` and
-   `--stack-plan-reference`; do not embed stack-plan JSON.
-4. Pipe each `data.payloads[]` entry where `payload_ready == true` to
-   `pr-address exec resolve-thread-batch --format json`.
+3. Build per-PR payloads with `build-stack-resolve-thread-payloads`; it reads
+   the latest stack plan from the payload session.
+4. For each `data.payloads[]` entry where `payload_ready == true`, call
+   `pr-address exec resolve-thread-batch --from-build <build_reference.payload_path> --format json`.
 5. Run independent per-PR mutating calls in parallel when safe; the payload
    store is concurrency-safe.
 6. Do not mutate entries where `payload_ready == false`; report warnings,

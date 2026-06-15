@@ -281,6 +281,9 @@ async function writeThreadResolutionResultArtifact(options: {
 	});
 }
 
+// Known limitation: the one-off fallback path does not enforce every strict
+// empty-field rule that build-artifact mutation paths enforce for
+// pre_existing decisions. Prefer validated build artifacts for normal flows.
 async function normalizeResolutionFromRequest(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof resolveThreadWithReplyParseSchema>,
@@ -397,6 +400,9 @@ async function validateResolutionProvenance(
 	};
 }
 
+// Known limitation: reply-then-resolve is not idempotent. If reply succeeds
+// but resolve or result-artifact writing fails, a retry can post a duplicate
+// marker reply.
 async function applyResolution(
 	gateway: PrAddressGitHubGateway,
 	request: NormalizedResolutionRequest,

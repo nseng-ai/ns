@@ -151,8 +151,77 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 	warnings: z.array(z.string()).optional(),
 	errors: z.array(stackFeedbackDiffCurrentErrorSchema).optional(),
 	summary: stackFeedbackDiffCurrentSummarySchema,
-	resolved_inputs: z.object({ stack_plan: payloadReferenceSchema, current_prep: payloadReferenceSchema }).optional(),
+	resolved_inputs: z.object({ stack_plan: payloadReferenceSchema, current_thread_state: payloadReferenceSchema }).optional(),
 });
+
+// --- stack-feedback-thread-state --------------------------------------------------
+
+export const stackFeedbackThreadStateRequestSchema = stdoutModeRequestSchema.extend({
+	stack_reference: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
+const stackFeedbackThreadStateThreadSchema = z.object({
+	thread_id: z.string(),
+	path: z.string(),
+	line: nullableIntSchema.optional(),
+	start_line: nullableIntSchema.optional(),
+	is_resolved: z.boolean(),
+	is_outdated: z.boolean(),
+	comment_count: z.int(),
+});
+
+const stackFeedbackThreadStateCountsSchema = z.object({
+	review_threads: z.int(),
+	unresolved_review_threads: z.int(),
+	resolved_review_threads: z.int(),
+});
+
+const stackFeedbackThreadStateSummarySchema = z.object({
+	prs: z.int(),
+	review_threads: z.int(),
+	unresolved_review_threads: z.int(),
+	resolved_review_threads: z.int(),
+});
+
+const stackFeedbackThreadStatePrResultSchema = z.object({
+	pr_number: z.int(),
+	branch: z.string(),
+	title: nullableStringSchema.optional(),
+	url: nullableStringSchema.optional(),
+	head_ref_name: nullableStringSchema.optional(),
+	base_ref_name: nullableStringSchema.optional(),
+	review_threads: z.array(stackFeedbackThreadStateThreadSchema),
+	counts: stackFeedbackThreadStateCountsSchema,
+});
+
+const stackFeedbackThreadStateFullResultSchema = z.object({
+	harness_session_id: z.string(),
+	include_resolved: z.literal(true),
+	stack: z.array(stackFeedbackThreadStatePrResultSchema),
+	stack_thread_state_reference: payloadReferenceSchema.nullable(),
+	summary: stackFeedbackThreadStateSummarySchema,
+});
+
+const stackFeedbackThreadStateCompactPrResultSchema = z.object({
+	pr_number: z.int(),
+	branch: z.string(),
+	title: nullableStringSchema.optional(),
+	url: nullableStringSchema.optional(),
+	head_ref_name: nullableStringSchema.optional(),
+	base_ref_name: nullableStringSchema.optional(),
+	counts: stackFeedbackThreadStateCountsSchema,
+});
+
+const stackFeedbackThreadStateCompactResultSchema = z.object({
+	harness_session_id: z.string(),
+	include_resolved: z.literal(true),
+	summary: stackFeedbackThreadStateSummarySchema,
+	stack_thread_state_reference: payloadReferenceSchema.nullable(),
+	stack: z.array(stackFeedbackThreadStateCompactPrResultSchema),
+});
+
+export const stackFeedbackThreadStateResultUnionSchema = z.union([stackFeedbackThreadStateFullResultSchema, stackFeedbackThreadStateCompactResultSchema]);
 
 // --- stack-feedback-prep -----------------------------------------------------------
 

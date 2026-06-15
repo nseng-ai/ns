@@ -13,19 +13,17 @@ import type { PayloadReference } from "./payload-store.ts";
 import { stackFeedbackPlanConsumerResultSchema, type StackFeedbackPlanConsumerItem, type StackFeedbackPlanConsumerResult } from "./stack-feedback-plan-contracts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import {
-	stackFeedbackPrepResultWithManifestSchema,
-	type StackFeedbackPrepPrWithManifest,
-	type StackFeedbackPrepResultWithManifest,
-	type StackFeedbackPrepThreadManifestItem,
-} from "./stack-feedback-prep-contracts.ts";
+	stackFeedbackThreadStateResultSchema,
+	type StackFeedbackThreadStateResult,
+	type StackFeedbackThreadStateThread,
+} from "./stack-feedback-thread-state-contracts.ts";
 import { actionableReviewThreadItems, duplicateThreadKeys, knownReviewThreadKeys, plannedPrNumbers, threadKey, threadKeyString, type ThreadKey } from "./stack-feedback-thread-index.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
-const INVALID_CURRENT_PREP_SHAPE_MESSAGE = "current_prep must be the data object returned by stack-feedback-prep.";
+const INVALID_CURRENT_THREAD_STATE_SHAPE_MESSAGE = "current_thread_state must be the data object returned by stack-feedback-thread-state.";
 type StackFeedbackPlanItem = StackFeedbackPlanConsumerItem;
 type StackFeedbackPlanResult = StackFeedbackPlanConsumerResult;
-type StackFeedbackPrepResult = StackFeedbackPrepResultWithManifest;
-type StackFeedbackPrepPr = StackFeedbackPrepPrWithManifest;
+type StackFeedbackCurrentThreadStateResult = StackFeedbackThreadStateResult;
 
 interface DiffCurrentError {
 	code: string;
@@ -51,7 +49,7 @@ const stackFeedbackDiffCurrentParseSchema = z.object({
 });
 
 interface StackFeedbackDiffCurrentInputResult {
-	payload: { stack_plan: unknown; current_prep: unknown };
+	payload: { stack_plan: unknown; current_thread_state: unknown };
 	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs | undefined;
 }
 
@@ -119,31 +117,29 @@ async function loadStackFeedbackDiffCurrentInputFromSession(
 	return await resolveStackFeedbackDiffCurrentSessionInput(storeResult.value);
 }
 
-export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_prep: unknown }): DiffCurrentResult {
+export function diffStackFeedbackCurrent(request: { stack_plan: unknown; current_thread_state: unknown }): DiffCurrentResult {
 	const stackPlanResult = stackFeedbackPlanConsumerResultSchema.safeParse(request.stack_plan);
 	if (!stackPlanResult.success) return invalidResult([errorItem("invalid_stack_plan_shape", INVALID_STACK_PLAN_SHAPE_MESSAGE)]);
-	const currentPrepResult = stackFeedbackPrepResultWithManifestSchema.safeParse(request.current_prep);
-	if (!currentPrepResult.success) return invalidResult([errorItem("invalid_current_prep_shape", INVALID_CURRENT_PREP_SHAPE_MESSAGE)]);
+	const currentThreadStateResult = stackFeedbackThreadStateResultSchema.safeParse(request.current_thread_state);
+	if (!currentThreadStateResult.success) return invalidResult([errorItem("invalid_current_thread_state_shape", INVALID_CURRENT_THREAD_STATE_SHAPE_MESSAGE)]);
 
 	const stackPlan = stackPlanResult.data;
-	const currentPrep = currentPrepResult.data;
-	const warnings = currentPrepWarnings(currentPrep);
+	const currentThreadState = currentThreadStateResult.data;
 	const plannedActionable = actionableReviewThreadItems(stackPlan);
 	const plannedKnownKeys = knownReviewThreadKeys(stackPlan);
-	const { currentByKey, errors: currentThreadErrors } = currentThreadsByKey(currentPrep);
-	const errors = validationErrors({ stackPlan, currentPrep, plannedActionable, currentThreadErrors });
+	const { currentByKey, errors: currentThreadErrors } = currentThreadsByKey(currentThreadState);
+	const errors = validationErrors({ stackPlan, currentThreadState, plannedActionable, currentThreadErrors });
 	if (errors.length > 0) {
-		return semanticInvalidResult({ currentPrep, plannedActionable, plannedKnownKeys, warnings, errors });
+		return semanticInvalidResult({ currentThreadState, plannedActionable, plannedKnownKeys, errors });
 	}
-	return diffValidStackFeedback({ currentPrep, plannedActionable, plannedKnownKeys, currentByKey, warnings });
+	return diffValidStackFeedback({ currentThreadState, plannedActionable, plannedKnownKeys, currentByKey });
 }
 
 function diffValidStackFeedback(options: {
-	currentPrep: StackFeedbackPrepResult;
+	currentThreadState: StackFeedbackCurrentThreadStateResult;
 	plannedActionable: readonly StackFeedbackPlanItem[];
 	plannedKnownKeys: ReadonlySet<string>;
-	currentByKey: ReadonlyMap<string, StackFeedbackPrepThreadManifestItem>;
-	warnings: readonly string[];
+	currentByKey: ReadonlyMap<string, StackFeedbackThreadStateThread>;
 }): DiffCurrentResult {
 	const plannedStillUnresolved: unknown[] = [];
 	const plannedAlreadyResolved: unknown[] = [];
@@ -167,8 +163,8 @@ function diffValidStackFeedback(options: {
 		}
 		plannedStillUnresolved.push(plannedThread(item));
 	}
-	const newUnresolved = newUnresolvedThreads({ currentPrep: options.currentPrep, plannedKnownKeys: options.plannedKnownKeys });
-	const safeToResolvePlanned = plannedAlreadyResolved.length === 0 && newUnresolved.length === 0 && missingOrOutdated.length === 0 && options.warnings.length === 0;
+	const newUnresolved = newUnresolvedThreads({ currentThreadState: options.currentThreadState, plannedKnownKeys: options.plannedKnownKeys });
+	const safeToResolvePlanned = plannedAlreadyResolved.length === 0 && newUnresolved.length === 0 && missingOrOutdated.length === 0;
 	return {
 		valid: true,
 		safe_to_resolve_planned: safeToResolvePlanned,
@@ -176,10 +172,10 @@ function diffValidStackFeedback(options: {
 		planned_already_resolved: plannedAlreadyResolved,
 		new_unresolved_threads: newUnresolved,
 		missing_or_outdated_planned_threads: missingOrOutdated,
-		warnings: [...options.warnings],
+		warnings: [],
 		errors: [],
 		summary: summary({
-			currentPrep: options.currentPrep,
+			currentThreadState: options.currentThreadState,
 			plannedActionable: options.plannedActionable,
 			plannedKnownKeys: options.plannedKnownKeys,
 			plannedStillUnresolved: plannedStillUnresolved.length,
@@ -191,10 +187,9 @@ function diffValidStackFeedback(options: {
 }
 
 function semanticInvalidResult(options: {
-	currentPrep: StackFeedbackPrepResult;
+	currentThreadState: StackFeedbackCurrentThreadStateResult;
 	plannedActionable: readonly StackFeedbackPlanItem[];
 	plannedKnownKeys: ReadonlySet<string>;
-	warnings: readonly string[];
 	errors: readonly DiffCurrentError[];
 }): DiffCurrentResult {
 	return {
@@ -204,10 +199,10 @@ function semanticInvalidResult(options: {
 		planned_already_resolved: [],
 		new_unresolved_threads: [],
 		missing_or_outdated_planned_threads: [],
-		warnings: [...options.warnings],
+		warnings: [],
 		errors: [...options.errors],
 		summary: summary({
-			currentPrep: options.currentPrep,
+			currentThreadState: options.currentThreadState,
 			plannedActionable: options.plannedActionable,
 			plannedKnownKeys: options.plannedKnownKeys,
 			plannedStillUnresolved: 0,
@@ -219,7 +214,7 @@ function semanticInvalidResult(options: {
 }
 
 function summary(options: {
-	currentPrep: StackFeedbackPrepResult;
+	currentThreadState: StackFeedbackCurrentThreadStateResult;
 	plannedActionable: readonly StackFeedbackPlanItem[];
 	plannedKnownKeys: ReadonlySet<string>;
 	plannedStillUnresolved: number;
@@ -228,10 +223,10 @@ function summary(options: {
 	missingOrOutdatedPlannedThreads: number;
 }): Record<string, number> {
 	return {
-		pr_count: options.currentPrep.stack.length,
+		pr_count: options.currentThreadState.stack.length,
 		planned_actionable_review_threads: options.plannedActionable.length,
 		planned_known_review_threads: options.plannedKnownKeys.size,
-		current_unresolved_review_threads: options.currentPrep.stack.reduce((total, prResult) => total + prResult.manifest.review_threads.filter((thread) => !thread.is_resolved).length, 0),
+		current_unresolved_review_threads: options.currentThreadState.stack.reduce((total, prResult) => total + prResult.review_threads.filter((thread) => !thread.is_resolved).length, 0),
 		planned_still_unresolved: options.plannedStillUnresolved,
 		planned_already_resolved: options.plannedAlreadyResolved,
 		new_unresolved_threads: options.newUnresolvedThreads,
@@ -262,28 +257,23 @@ function invalidResult(errors: readonly DiffCurrentError[]): DiffCurrentResult {
 	};
 }
 
-function currentPrepWarnings(currentPrep: StackFeedbackPrepResult): string[] {
-	if (currentPrep.include_resolved) return [];
-	return ["current_prep was not fetched with include_resolved=true; already-resolved planned threads cannot be distinguished from missing threads."];
-}
-
 function validationErrors(options: {
 	stackPlan: StackFeedbackPlanResult;
-	currentPrep: StackFeedbackPrepResult;
+	currentThreadState: StackFeedbackCurrentThreadStateResult;
 	plannedActionable: readonly StackFeedbackPlanItem[];
 	currentThreadErrors: readonly DiffCurrentError[];
 }): DiffCurrentError[] {
 	const errors: DiffCurrentError[] = [];
 	if (!options.stackPlan.valid) errors.push(errorItem("invalid_stack_plan", "stack_plan.valid must be true before diffing current stack feedback."));
-	errors.push(...currentPrErrors(options.currentPrep));
-	errors.push(...validateStackMembership(options.stackPlan, options.currentPrep.stack.map((prResult) => prResult.pr_number)));
+	errors.push(...currentPrErrors(options.currentThreadState));
+	errors.push(...validateStackMembership(options.stackPlan, options.currentThreadState.stack.map((prResult) => prResult.pr_number)));
 	errors.push(...plannedThreadKeyErrors(options.plannedActionable));
 	errors.push(...options.currentThreadErrors);
 	return errors;
 }
 
-function currentPrErrors(currentPrep: StackFeedbackPrepResult): DiffCurrentError[] {
-	return duplicateValues(currentPrep.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_prep contains duplicate PR number ${prNumber}.`, { prNumber }));
+function currentPrErrors(currentThreadState: StackFeedbackCurrentThreadStateResult): DiffCurrentError[] {
+	return duplicateValues(currentThreadState.stack.map((prResult) => prResult.pr_number)).map((prNumber) => errorItem("duplicate_current_pr", `current_thread_state contains duplicate PR number ${prNumber}.`, { prNumber }));
 }
 
 function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanItem[]): DiffCurrentError[] {
@@ -303,19 +293,19 @@ function plannedThreadKeyErrors(plannedActionable: readonly StackFeedbackPlanIte
 	return errors;
 }
 
-function currentThreadsByKey(currentPrep: StackFeedbackPrepResult): { currentByKey: ReadonlyMap<string, StackFeedbackPrepThreadManifestItem>; errors: readonly DiffCurrentError[] } {
-	const currentByKey = new Map<string, StackFeedbackPrepThreadManifestItem>();
+function currentThreadsByKey(currentThreadState: StackFeedbackCurrentThreadStateResult): { currentByKey: ReadonlyMap<string, StackFeedbackThreadStateThread>; errors: readonly DiffCurrentError[] } {
+	const currentByKey = new Map<string, StackFeedbackThreadStateThread>();
 	const errors: DiffCurrentError[] = [];
-	for (const prResult of currentPrep.stack) {
-		for (const thread of prResult.manifest.review_threads) {
+	for (const prResult of currentThreadState.stack) {
+		for (const thread of prResult.review_threads) {
 			const key = threadKey(prResult.pr_number, thread.thread_id);
 			if (key === null) {
-				errors.push(errorItem("invalid_current_thread", "current_prep review thread must include a non-empty thread_id.", { prNumber: prResult.pr_number }));
+				errors.push(errorItem("invalid_current_thread", "current_thread_state review thread must include a non-empty thread_id.", { prNumber: prResult.pr_number }));
 				continue;
 			}
 			const serializedKey = threadKeyString(key[0], key[1]);
 			if (currentByKey.has(serializedKey)) {
-				errors.push(errorItem("duplicate_current_thread", `current_prep contains duplicate PR #${key[0]} thread ${key[1]}.`, { prNumber: key[0], threadId: key[1] }));
+				errors.push(errorItem("duplicate_current_thread", `current_thread_state contains duplicate PR #${key[0]} thread ${key[1]}.`, { prNumber: key[0], threadId: key[1] }));
 				continue;
 			}
 			currentByKey.set(serializedKey, thread);
@@ -331,16 +321,16 @@ function validateStackMembership(stackPlan: StackFeedbackPlanResult, currentPrNu
 	if (currentPrSet.size !== currentPrNumbers.length) return [];
 	const errors: DiffCurrentError[] = [];
 	for (const prNumber of plannedNumbers) {
-		if (!currentPrSet.has(prNumber)) errors.push(errorItem("missing_current_pr", `current_prep is missing planned PR #${prNumber}.`, { prNumber }));
+		if (!currentPrSet.has(prNumber)) errors.push(errorItem("missing_current_pr", `current_thread_state is missing planned PR #${prNumber}.`, { prNumber }));
 	}
 	const plannedSet = new Set(plannedNumbers);
 	for (const prNumber of currentPrNumbers) {
-		if (!plannedSet.has(prNumber)) errors.push(errorItem("unknown_current_pr", `current_prep contains PR #${prNumber} not present in stack_plan.`, { prNumber }));
+		if (!plannedSet.has(prNumber)) errors.push(errorItem("unknown_current_pr", `current_thread_state contains PR #${prNumber} not present in stack_plan.`, { prNumber }));
 	}
 	return errors;
 }
 
-function materialMetadataMismatch(plannedItem: StackFeedbackPlanItem, currentThread: StackFeedbackPrepThreadManifestItem): string[] {
+function materialMetadataMismatch(plannedItem: StackFeedbackPlanItem, currentThread: StackFeedbackThreadStateThread): string[] {
 	const changed: string[] = [];
 	if (plannedItem.path !== currentThread.path) changed.push("path");
 	if (plannedItem.line !== currentThread.line) changed.push("line");
@@ -369,10 +359,10 @@ function missingOrOutdatedThread(item: StackFeedbackPlanItem, reason: string, ch
 	return { ...plannedThread(item), reason, changed_fields: [...changedFields] };
 }
 
-function newUnresolvedThreads(options: { currentPrep: StackFeedbackPrepResult; plannedKnownKeys: ReadonlySet<string> }): unknown[] {
+function newUnresolvedThreads(options: { currentThreadState: StackFeedbackCurrentThreadStateResult; plannedKnownKeys: ReadonlySet<string> }): unknown[] {
 	const items: unknown[] = [];
-	for (const prResult of options.currentPrep.stack) {
-		for (const thread of prResult.manifest.review_threads) {
+	for (const prResult of options.currentThreadState.stack) {
+		for (const thread of prResult.review_threads) {
 			const key = threadKey(prResult.pr_number, thread.thread_id);
 			if (key === null || thread.is_resolved || options.plannedKnownKeys.has(threadKeyString(key[0], key[1]))) continue;
 			items.push({

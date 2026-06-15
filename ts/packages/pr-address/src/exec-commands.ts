@@ -13,6 +13,7 @@ import { stackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current
 import { stackFeedbackPlanOperation } from "./stack-feedback-plan.ts";
 import { stackFeedbackPreflightOperation } from "./stack-feedback-preflight.ts";
 import { stackFeedbackPrepOperation } from "./stack-feedback-prep.ts";
+import { stackFeedbackThreadStateOperation } from "./stack-feedback-thread-state.ts";
 import { buildStackResolveThreadPayloadsOperation } from "./stack-resolve-thread-payloads.ts";
 import { summarizeFeedbackOperation } from "./summarize-feedback.ts";
 
@@ -41,6 +42,7 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	stackFeedbackPlanOperation,
 	stackFeedbackPreflightOperation,
 	stackFeedbackPrepOperation,
+	stackFeedbackThreadStateOperation,
 	summarizeFeedbackOperation,
 	validateFeedbackClassificationOperation,
 ];

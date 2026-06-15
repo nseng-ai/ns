@@ -13,7 +13,8 @@ interface MachineEnvelope {
 interface MapBranchPrsData {
 	branch_prs: Array<{ branch: string; pr_number: number; title: string; url: string; head_ref_name: string; base_ref_name: string }>;
 	missing_branches: string[];
-	summary: { requested: number; matched: number; missing: number };
+	ambiguous_branches: Array<{ branch: string; candidates: Array<{ pr_number: number }> }>;
+	summary: { requested: number; matched: number; missing: number; ambiguous: number };
 }
 
 function stackedGithub(): InMemoryPrAddressGitHubGateway {
@@ -48,7 +49,8 @@ describe("pr-address exec map-branch-prs", () => {
 			{ branch: "feature-a", pr_number: 11, title: "A", url: "https://github.example/pr/11", head_ref_name: "feature-a", base_ref_name: "master" },
 		]);
 		expect(envelope.data?.missing_branches).toEqual([]);
-		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0 });
+		expect(envelope.data?.ambiguous_branches).toEqual([]);
+		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
 	test("returns exit 1 with full data and a message naming missing branches", async () => {
@@ -62,7 +64,8 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
 		expect(envelope.data?.branch_prs.map((entry) => entry.pr_number)).toEqual([11]);
 		expect(envelope.data?.missing_branches).toEqual(["no-such-branch", "feature-merged"]);
-		expect(envelope.data?.summary).toEqual({ requested: 3, matched: 1, missing: 2 });
+		expect(envelope.data?.ambiguous_branches).toEqual([]);
+		expect(envelope.data?.summary).toEqual({ requested: 3, matched: 1, missing: 2, ambiguous: 0 });
 	});
 
 	test("accepts the payload via --branches-json", async () => {
@@ -73,7 +76,7 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(parseEnvelope(run).data?.branch_prs.map((entry) => entry.branch)).toEqual(["feature-a"]);
 	});
 
-	test("breaks shared-head-branch ties by choosing the lowest PR number", async () => {
+	test("returns exit 1 for ambiguous shared-head-branch mapping", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			prs: [
 				prSummary({ number: 30, head_ref_name: "feature-shared" }),
@@ -84,8 +87,15 @@ describe("pr-address exec map-branch-prs", () => {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
-		expect(await run.exit).toBe(0);
-		expect(parseEnvelope(run).data?.branch_prs.map((entry) => entry.pr_number)).toEqual([21]);
+		expect(await run.exit).toBe(1);
+		const envelope = parseEnvelope(run);
+		expect(envelope.exit_code).toBe(1);
+		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
+		expect(envelope.data?.branch_prs).toEqual([]);
+		expect(envelope.data?.ambiguous_branches).toEqual([
+			{ branch: "feature-shared", candidates: expect.arrayContaining([expect.objectContaining({ pr_number: 30 }), expect.objectContaining({ pr_number: 21 })]) },
+		]);
+		expect(envelope.data?.summary).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
 	});
 
 	test("rejects duplicate branches with invalid_request", async () => {
