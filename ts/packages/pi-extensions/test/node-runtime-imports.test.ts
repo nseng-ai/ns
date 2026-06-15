@@ -18,6 +18,7 @@ const PROJECT_EXTENSION_ADAPTERS = [
 	".pi/extensions/handoff.ts",
 	".pi/extensions/harness-session.ts",
 	".pi/extensions/code-workflows.ts",
+	".pi/extensions/home-directory-guard.ts",
 	".pi/extensions/just-fix.ts",
 	".pi/extensions/objective.ts",
 	".pi/extensions/branch-context.ts",
