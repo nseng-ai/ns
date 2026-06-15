@@ -5,9 +5,16 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonInput, loadJsonRecord } from "./json-input.ts";
-import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import type { PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
-import { resolveExplicitOrSelectedSessionInput, resolvePlanFeedbackSessionInputs, resolvePrManifestSessionInput, type OperationResult } from "./session-inputs.ts";
+import {
+	resolveExplicitOrSelectedSessionInput,
+	resolvePlanFeedbackSessionInputs,
+	resolvePrManifestSessionInput,
+	resolveValidateFeedbackClassificationSessionInput,
+	type OperationResult,
+	type ValidateFeedbackClassificationSessionInput,
+} from "./session-inputs.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 
 const wrapperPayloadSchema = z.looseObject({
@@ -156,7 +163,13 @@ async function runValidateFeedbackClassificationOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof validateFeedbackClassificationParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const inputResult = await loadValidateSessionInput(ctx, request);
+	const inputResult = await resolveValidateFeedbackClassificationSessionInput({
+		ctx,
+		prNumber: request.pr_number,
+		classificationJson: request.classification_json,
+		classificationFile: request.classification_file,
+		harnessSessionId: request.harness_session_id,
+	});
 	if (inputResult.type === "error") return failure(inputResult.errorType, inputResult.message);
 
 	const input = inputResult.value;
@@ -219,14 +232,6 @@ async function loadPlanFeedbackWrapperInput(
 	return { type: "ok", value: { type: "wrapper", payload: payloadResult.value } };
 }
 
-interface ValidateFeedbackClassificationInput {
-	manifest: unknown;
-	classification: unknown;
-	prNumber: number;
-	store: PayloadArtifactStore;
-	resolvedInputs: { manifest: PayloadReference };
-}
-
 function compactValidateFeedbackClassificationResult(data: unknown, fullOutput: PayloadReference): OperationResult<Record<string, unknown>> {
 	const result = data as Record<string, unknown> & { valid: boolean; counts?: unknown; errors?: readonly unknown[]; resolved_inputs?: unknown; classification_reference?: PayloadReference | undefined };
 	const classificationReference = result.classification_reference ?? null;
@@ -265,7 +270,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 async function persistValidatedClassification(options: {
-	input: ValidateFeedbackClassificationInput;
+	input: ValidateFeedbackClassificationSessionInput;
 	result: FeedbackClassificationValidationResult;
 }): Promise<OperationResult<PayloadReference>> {
 	if (options.result.pr_number === null) {
@@ -295,41 +300,4 @@ async function runPlanFeedbackFromSession(ctx: PrAddressExecContext, request: z.
 	if (planReference.type === "error") return failure(planReference.errorType, planReference.message);
 	const data = { ...resultWithResolvedInputs, plan_reference: planReference.value };
 	return ok(data);
-}
-
-async function loadValidateSessionInput(
-	ctx: PrAddressExecContext,
-	request: z.output<typeof validateFeedbackClassificationParseSchema>,
-): Promise<OperationResult<ValidateFeedbackClassificationInput, string>> {
-	const classificationSourceCount = Number(request.classification_json !== undefined) + Number(request.classification_file !== undefined);
-	if (classificationSourceCount !== 1) {
-		return {
-			type: "error",
-			errorType: "invalid_request",
-			message: "validate-feedback-classification session input requires exactly one classification source (--classification-json or --classification-file).",
-		};
-	}
-	const classification = await loadJsonRecord({
-		optionValue: request.classification_json,
-		filePath: request.classification_file,
-		canReadStdin: false,
-		commandName: "validate-feedback-classification",
-		inputDescription: "classification",
-		optionName: "--classification-json",
-		fileOptionName: "--classification-file",
-		stdin: ctx.stdin,
-	});
-	if (classification.type === "error") return { type: "error", errorType: classification.error.errorType, message: classification.error.message };
-	const manifest = await resolvePrManifestSessionInput({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
-	if (manifest.type === "error") return manifest;
-	return {
-		type: "ok",
-		value: {
-			manifest: manifest.value.manifest,
-			classification: classification.value,
-			prNumber: request.pr_number,
-			store: manifest.value.store,
-			resolvedInputs: { manifest: manifest.value.resolvedInput },
-		},
-	};
 }

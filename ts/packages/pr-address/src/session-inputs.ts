@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PrAddressExecContext } from "./exec-operation.ts";
 import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./feedback-manifest-contracts.ts";
 import type { FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
-import type { JsonInputError } from "./json-input.ts";
+import { loadJsonRecord, type JsonInputError } from "./json-input.ts";
 import { buildGetFeedbackPayloadManifest, type JsonPayloadRole, type PayloadArtifactStore, type PayloadErrorType, type PayloadReference } from "./payload-store.ts";
 import {
 	classificationArtifactSchema,
@@ -152,6 +152,14 @@ export interface PlanFeedbackSessionInputs {
 		manifest: PayloadReference;
 		classification: PayloadReference;
 	};
+}
+
+export interface ValidateFeedbackClassificationSessionInput {
+	manifest: unknown;
+	classification: unknown;
+	prNumber: number;
+	store: PayloadArtifactStore;
+	resolvedInputs: { manifest: PayloadReference };
 }
 
 export interface StackFeedbackPlanSessionInputResult {
@@ -528,6 +536,46 @@ export async function resolveFinalizeRunSessionInput(options: {
 				missing_checkpoints: missingCheckpoints,
 			},
 			resolvedInputs: { plan: planInput.value.resolvedInput, feedback: feedback.value.reference, checkpoints: resolvedCheckpoints },
+		},
+	};
+}
+
+export async function resolveValidateFeedbackClassificationSessionInput(options: {
+	ctx: PrAddressExecContext;
+	prNumber: number;
+	classificationJson?: string | undefined;
+	classificationFile?: string | undefined;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<ValidateFeedbackClassificationSessionInput, string>> {
+	const classificationSourceCount = Number(options.classificationJson !== undefined) + Number(options.classificationFile !== undefined);
+	if (classificationSourceCount !== 1) {
+		return {
+			type: "error",
+			errorType: "invalid_request",
+			message: "validate-feedback-classification session input requires exactly one classification source (--classification-json or --classification-file).",
+		};
+	}
+	const classification = await loadJsonRecord({
+		optionValue: options.classificationJson,
+		filePath: options.classificationFile,
+		canReadStdin: false,
+		commandName: "validate-feedback-classification",
+		inputDescription: "classification",
+		optionName: "--classification-json",
+		fileOptionName: "--classification-file",
+		stdin: options.ctx.stdin,
+	});
+	if (classification.type === "error") return { type: "error", errorType: classification.error.errorType, message: classification.error.message };
+	const manifest = await resolvePrManifestSessionInput({ ctx: options.ctx, prNumber: options.prNumber, harnessSessionId: options.harnessSessionId });
+	if (manifest.type === "error") return manifest;
+	return {
+		type: "ok",
+		value: {
+			manifest: manifest.value.manifest,
+			classification: classification.value,
+			prNumber: options.prNumber,
+			store: manifest.value.store,
+			resolvedInputs: { manifest: manifest.value.resolvedInput },
 		},
 	};
 }
