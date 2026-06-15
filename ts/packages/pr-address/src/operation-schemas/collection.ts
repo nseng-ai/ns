@@ -12,6 +12,7 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	prStateSchema,
+	stdoutModeDocSchema,
 } from "./shared.ts";
 
 // --- map-branch-prs ---------------------------------------------------------------
@@ -20,6 +21,8 @@ import {
 
 export const mapBranchPrsRequestSchema = z.object({
 	branches_json: z.string().optional(),
+	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const mapBranchPrsEntrySchema = z.object({
@@ -51,6 +54,7 @@ export const getFeedbackRequestSchema = z.object({
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const getFeedbackResultSchema = z.union([getFeedbackInlineResultSchema, getFeedbackPayloadManifestSchema]);
@@ -60,6 +64,7 @@ export const prepareRunRequestSchema = z.object({
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const prepareRunResultSchema = z.union([prepareRunInlineResultSchema, prepareRunPayloadManifestSchema]);
@@ -71,6 +76,8 @@ export const summarizeFeedbackRequestSchema = z.object({
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	body_chars: z.int().optional(),
+	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const compactPullRequestSummarySchema = z.object({
@@ -149,6 +156,7 @@ export const readFeedbackDetailRequestSchema = z.object({
 	pr_number: nullableIntSchema.optional(),
 	json_pointer: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const readFeedbackDetailResultSchema = z.object({
@@ -163,6 +171,7 @@ export const readFeedbackDetailsRequestSchema = z.object({
 	selection_json: nullableStringSchema.optional(),
 	pr_number: nullableIntSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const selectedFeedbackDetailSummarySchema = z.object({

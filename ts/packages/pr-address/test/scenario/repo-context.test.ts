@@ -41,7 +41,7 @@ function outsideGit(): InMemoryPrAddressGitGateway {
 
 describe("repo-context precondition for GitHub-hitting operations", () => {
 	test("a flagged operation outside a work tree fails fast with repo_context_required", async () => {
-		const repoRun = run(["exec", "get-feedback", "42", "--format", "json"], { github: feedbackGithub(), git: outsideGit() });
+		const repoRun = run(["exec", "get-feedback", "42", "--format", "json", "--stdout-mode", "full"], { github: feedbackGithub(), git: outsideGit() });
 		expect(await repoRun.exit).toBe(2);
 		const envelope = JSON.parse(repoRun.stdout.join("")) as MachineEnvelope;
 		expect(envelope.exit_code).toBe(2);
@@ -57,7 +57,7 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 	});
 
 	test("a flagged operation inside a work tree proceeds normally", async () => {
-		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json"], {
+		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json", "--stdout-mode", "full"], {
 			github: feedbackGithub(),
 			git: new InMemoryPrAddressGitGateway({ isInsideWorkTree: true }),
 		});
@@ -68,7 +68,7 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 
 	test("a mutation operation outside a work tree fails before any GitHub side effect", async () => {
 		const github = feedbackGithub();
-		const repoRun = run(["exec", "resolve-thread-with-reply", "PRRT_1", "explained", "addressed in review", "--format", "json"], {
+		const repoRun = run(["exec", "resolve-thread-with-reply", "PRRT_1", "explained", "addressed in review", "--format", "json", "--stdout-mode", "full"], {
 			github,
 			git: outsideGit(),
 		});
@@ -80,14 +80,14 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 	});
 
 	test("an unflagged pure-local operation is unaffected outside a work tree", async () => {
-		const repoRun = run(["exec", "plan-feedback", "--format", "json"], { git: outsideGit() });
+		const repoRun = run(["exec", "plan-feedback", "--format", "json", "--stdout-mode", "full"], { git: outsideGit() });
 		expect(await repoRun.exit).toBe(2);
 		const envelope = JSON.parse(repoRun.stdout.join("")) as MachineEnvelope;
 		expect(envelope.error_type).not.toBe("repo_context_required");
 	});
 
 	test("a flagged operation proceeds when the repo-context probe itself fails (fail-open)", async () => {
-		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json"], {
+		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json", "--stdout-mode", "full"], {
 			github: feedbackGithub(),
 			git: new InMemoryPrAddressGitGateway({ repoContextFailure: { stderr: "git exploded", stdout: "", returncode: 1 } }),
 		});

@@ -30,9 +30,13 @@ function parseEnvelope(run: Awaited<ReturnType<typeof runScenario>>): MachineEnv
 	return JSON.parse(run.stdout.join("")) as MachineEnvelope;
 }
 
+function mapArgs(args: readonly string[] = []): string[] {
+	return ["exec", "map-branch-prs", ...args, "--format", "json", "--stdout-mode", "full"];
+}
+
 describe("pr-address exec map-branch-prs", () => {
 	test("maps all branches to open PRs in input order with exit 0", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-b", "feature-a"] }),
 		});
@@ -48,7 +52,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("returns exit 1 with full data and a message naming missing branches", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
@@ -62,7 +66,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("accepts the payload via --branches-json", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["feature-a"] }), "--format", "json"], {
+		const run = runScenario(mapArgs(["--branches-json", JSON.stringify({ branches: ["feature-a"] })]), {
 			github: stackedGithub(),
 		});
 		expect(await run.exit).toBe(0);
@@ -76,7 +80,7 @@ describe("pr-address exec map-branch-prs", () => {
 				prSummary({ number: 21, head_ref_name: "feature-shared" }),
 			],
 		});
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
@@ -85,7 +89,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects duplicate branches with invalid_request", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "feature-a"] }),
 		});
@@ -96,7 +100,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects an empty branches array with invalid_request", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: [] }),
 		});
@@ -107,7 +111,7 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects blank branch names with invalid_request", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "  "] }),
 		});
@@ -116,13 +120,13 @@ describe("pr-address exec map-branch-prs", () => {
 	});
 
 	test("rejects empty stdin with invalid_request", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "" });
+		const run = runScenario(mapArgs(), { github: stackedGithub(), stdin: "" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_request");
 	});
 
 	test("rejects malformed JSON with invalid_json", async () => {
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], { github: stackedGithub(), stdin: "{not json" });
+		const run = runScenario(mapArgs(), { github: stackedGithub(), stdin: "{not json" });
 		expect(await run.exit).toBe(2);
 		expect(parseEnvelope(run).error_type).toBe("invalid_json");
 	});
@@ -140,7 +144,7 @@ describe("pr-address exec map-branch-prs", () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			listOpenPrsFailure: { stderr: "gh: network down", stdout: "", returncode: 1 },
 		});
-		const run = runScenario(["exec", "map-branch-prs", "--format", "json"], {
+		const run = runScenario(mapArgs(), {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-a"] }),
 		});

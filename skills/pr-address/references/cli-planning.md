@@ -314,7 +314,7 @@ compact decision docket.
 `--payload-file` are also available; pass only one explicit payload source.
 `--prep-reference <path>` reads the prep input directly from a saved
 `stack-feedback-prep` artifact (for example
-`data.stack_summary_reference.payload_path` from a compact prep run), so the
+the `kind: "stack-prep"` entry under `data.artifacts.produced[]` from a compact prep run), so the
 payload only needs `classifications`:
 
 ```bash
@@ -322,7 +322,6 @@ payload only needs `classifications`:
 printf '%s' '{"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
       --prep-reference /path/to/payload-sessions/.../stack-feedback-prep.summary.json \
-      --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PLAN_COMPACT"
 ```
@@ -332,7 +331,6 @@ The embedded form remains available:
 ```bash
 printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification":{...}}]}' \
   | pr-address exec stack-feedback-plan \
-      --stdout-mode compact \
       --format json \
   > "$PR_ADDRESS_STACK_PLAN_COMPACT"
 ```
@@ -346,7 +344,7 @@ printf '%s' '{"prep":{...},"classifications":[{"pr_number":1009,"classification"
 | `classifications[].classification` | yes      | Complete LLM classification packet for that PR                                                |
 | `prep_reference`                   | source   | `--prep-reference <path>`: read the prep data object from a saved prep artifact file          |
 | `harness_session_id`               | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
-| `stdout_mode`                      | no       | `full` by default for compatibility; use `--stdout-mode compact` for agent workflows          |
+| `stdout_mode`                      | no       | `compact` by default; use `--stdout-mode full` for manual/debug full inline output            |
 
 Exactly one prep source is required: the embedded `prep` payload key or
 `--prep-reference`. Passing both fails with `exit_code: 2`, as does a missing,
@@ -358,7 +356,7 @@ inside the saved artifact).
 Every prep PR must have exactly one classification. Unknown, duplicate, or
 missing PR classifications fail with `exit_code: 2`.
 
-**Full output fields (under `data`, default `--stdout-mode full`):**
+**Full output fields (under `data` with `--stdout-mode full`):**
 
 | Field                           | Description                                                                                           |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -373,16 +371,7 @@ missing PR classifications fail with `exit_code: 2`.
 | `stack_plan_reference`          | Stack plan summary artifact (`role: summary`) when `valid` is true                                    |
 | `summary`                       | Actionable, approval-required, informational, and automation counts                                   |
 
-`--stdout-mode compact` writes the full merged plan to
-`data.stack_plan_reference.payload_path` and omits verbose inline planning data
-such as full `informational[]`, `body_locator`, `thread_item_pointer`, covered
-comment locator metadata, and title/url fields. Compact stdout includes
-`validation`, `summary`, `automation_discussion_summary`, `decision_docket`,
-`informational_summary`, and display-oriented `batches[]` with `item_count` plus
-items carrying PR/branch, source kind, review/thread/comment IDs, path/line,
-summary, action summary, complexity, and approval requirement. Use the referenced
-full plan artifact for `stack-feedback-diff-current` and
-`build-stack-resolve-thread-payloads`.
+Default compact stdout writes the full merged plan to `data.artifacts.produced[]` (`kind: "stack-plan"`) and omits verbose inline planning data from top-level stdout. Compact stdout uses the shared digest: `counts` has plan totals, `artifacts.produced[]` has the stack-plan reference, and `details` carries the validation, decision docket, compact batch display rows, and informational summary needed for routing. Use the referenced full plan artifact for `stack-feedback-diff-current` and `build-stack-resolve-thread-payloads`.
 
 If validation fails, the command returns `exit_code: 1`, includes structured
 `data.validation.per_pr[]` diagnostics, does not write a merged stack plan, and

@@ -90,7 +90,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 			discussionComments: { [getFeedbackFixture.pr_number]: getFeedbackFixture.gateway.discussion_comments },
 		});
 
-		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
+		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json", "--stdout-mode", "full"], {
 			github,
 			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: getFeedbackFixture.session_id },
 			payloadClock: fixedClock(getFeedbackFixture.clock_iso),
@@ -103,7 +103,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 
 	test("fails with the Python harness_session_required envelope when no session id is available", async () => {
 		const root = await makePayloadRoot();
-		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json"], {
+		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json", "--stdout-mode", "full"], {
 			github: new InMemoryPrAddressGitHubGateway(),
 			env: { ASDL_PAYLOAD_ROOT: root },
 		});
@@ -121,7 +121,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		});
 
 		const run = runScenario(
-			["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--harness-session-id", getFeedbackFixture.session_id, "--format", "json"],
+			["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--harness-session-id", getFeedbackFixture.session_id, "--format", "json", "--stdout-mode", "full"],
 			{ github, env: { ASDL_PAYLOAD_ROOT: root }, payloadClock: fixedClock(getFeedbackFixture.clock_iso) },
 		);
 
@@ -141,7 +141,7 @@ describe("read-feedback-details parity with the Python CLI", () => {
 
 	function runSelection(selectionJsonTemplate: string, root: string): ScenarioRun {
 		return runScenario(
-			["exec", "read-feedback-details", "--selection-json", selectionJsonTemplate.replaceAll("{ROOT}", root), "--format", "json"],
+			["exec", "read-feedback-details", "--selection-json", selectionJsonTemplate.replaceAll("{ROOT}", root), "--format", "json", "--stdout-mode", "full"],
 			{ payloadClock: fixedClock(readFeedbackDetailsFixture.summary_clock_iso) },
 		);
 	}
@@ -209,7 +209,7 @@ describe("read-feedback detail session resolution", () => {
 		const root = await makePayloadRoot();
 		await seedRawFeedback(root, "detail-session", 123);
 
-		const run = runScenario(["exec", "read-feedback-detail", "--pr-number", "123", "--json-pointer", "/data/reviews/0/body", "--format", "json"], {
+		const run = runScenario(["exec", "read-feedback-detail", "--pr-number", "123", "--json-pointer", "/data/reviews/0/body", "--format", "json", "--stdout-mode", "full"], {
 			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "detail-session" },
 		});
 
@@ -224,7 +224,7 @@ describe("read-feedback detail session resolution", () => {
 		await seedRawFeedback(root, "details-session", 456);
 		const selection = JSON.stringify({ json_pointers: ["/data/review_threads/0/comments/0/body", "/data/discussion_comments/0"] });
 
-		const run = runScenario(["exec", "read-feedback-details", "--pr-number", "456", "--selection-json", selection, "--format", "json"], {
+		const run = runScenario(["exec", "read-feedback-details", "--pr-number", "456", "--selection-json", selection, "--format", "json", "--stdout-mode", "full"], {
 			env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "details-session" },
 			payloadClock: fixedClock("2026-01-02T03:04:06.000Z"),
 		});
@@ -258,6 +258,8 @@ describe("read-feedback detail session resolution", () => {
 				"/data/reviews/0/body",
 				"--format",
 				"json",
+				"--stdout-mode",
+				"full",
 			],
 			{ env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "detail-session" } },
 		);

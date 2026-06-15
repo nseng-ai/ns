@@ -11,6 +11,7 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	schemaDocument,
+	stdoutModeDocSchema,
 	validationErrorCodeSchema,
 	validationItemKindSchema,
 } from "./shared.ts";
@@ -106,6 +107,7 @@ const validateFeedbackClassificationRequestSchema = z
 		classification_json: nullableCliStringSchema.describe("Inline PR feedback classification packet JSON."),
 		classification_file: nullableCliStringSchema.describe("Path to a PR feedback classification packet JSON file."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for manifest resolution and classification persistence."),
+		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 
@@ -115,6 +117,7 @@ const planFeedbackRequestSchema = z
 		payload_file: nullableCliStringSchema.describe("Path to a wrapper payload JSON file."),
 		pr_number: nullableIntSchema.describe("PR number for implicit session resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution."),
+		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 
@@ -124,6 +127,7 @@ export const classificationTemplateRequestSchema = z
 		manifest_file: nullableCliStringSchema.describe("Path to a compact payload manifest JSON file."),
 		pr_number: nullableIntSchema.describe("PR number for implicit manifest session resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution."),
+		stdout_mode: stdoutModeDocSchema.optional().describe("Stdout contract: compact stores full data in payload artifacts; full prints the full result inline."),
 	})
 	.strict();
 

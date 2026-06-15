@@ -35,7 +35,7 @@ function expectOk<T>(result: PayloadResult<T>): T {
 }
 
 function runDiffWithArgs(args: readonly string[], stdinText = "", options: ScenarioRunOptions = {}): ScenarioRun {
-	return runScenario(["exec", "stack-feedback-diff-current", ...args, "--format", "json"], { ...options, stdin: stdinText });
+	return runScenario(["exec", "stack-feedback-diff-current", ...args, "--format", "json", "--stdout-mode", "full"], { ...options, stdin: stdinText });
 }
 
 function runDiff(payload: unknown): ScenarioRun {

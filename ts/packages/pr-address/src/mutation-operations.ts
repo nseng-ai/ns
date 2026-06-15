@@ -4,7 +4,9 @@ import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "
 import { formatErrorMessage } from "@asdl/core";
 import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
+import type { PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
+import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 import { resolutionProvenanceInputSchema, resolveThreadBatchPayloadSchema, threadResolutionBuildArtifactSchema, type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
 
 export const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
@@ -18,6 +20,8 @@ const replyToReviewParseSchema = z.object({
 	pr_number: z.int(),
 	review_author: z.string(),
 	summary_markdown: z.string(),
+	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 const replyToDiscussionParseSchema = z.object({
@@ -26,6 +30,8 @@ const replyToDiscussionParseSchema = z.object({
 	comment_author: z.string(),
 	original_body: z.string(),
 	response: z.string(),
+	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 const resolveThreadWithReplyParseSchema = z.object({
@@ -34,10 +40,13 @@ const resolveThreadWithReplyParseSchema = z.object({
 	message: z.string().optional(),
 	commit_sha: z.string().optional(),
 	provenance_json: z.string().optional(),
+	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 const resolveThreadBatchParseSchema = z.object({
 	from_build: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 interface NormalizedResolutionRequest {
@@ -111,7 +120,12 @@ async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.o
 	const body = formatReviewReply({ reviewAuthor: request.review_author, summaryMarkdown });
 	const result = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
-	return ok({ body, comment: result.value });
+	const data = { body, comment: result.value };
+	if (request.stdout_mode === "full") return ok(data);
+	return await compactMutationResult(ctx, request.harness_session_id, "reply-to-review", data, {
+		counts: { comments_added: 1 },
+		details: { pr_number: request.pr_number, review_author: request.review_author, comment: result.value },
+	});
 }
 
 async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToDiscussionParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -123,9 +137,20 @@ async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request:
 	if (comment.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", comment.failure);
 	const reaction = await gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
 	if (reaction.type === "failure") {
-		return ok({ body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` });
+		const data = { body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` };
+		if (request.stdout_mode === "full") return ok(data);
+		return await compactMutationResult(ctx, request.harness_session_id, "reply-to-discussion", data, {
+			counts: { comments_added: 1, reactions_added: 0 },
+			warnings: [data.warning],
+			details: { pr_number: request.pr_number, comment_id: request.comment_id, comment: comment.value, reaction_added: false },
+		});
 	}
-	return ok({ body, comment: comment.value, reaction_added: true, reaction: reaction.value });
+	const data = { body, comment: comment.value, reaction_added: true, reaction: reaction.value };
+	if (request.stdout_mode === "full") return ok(data);
+	return await compactMutationResult(ctx, request.harness_session_id, "reply-to-discussion", data, {
+		counts: { comments_added: 1, reactions_added: 1 },
+		details: { pr_number: request.pr_number, comment_id: request.comment_id, comment: comment.value, reaction_added: true },
+	});
 }
 
 async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadWithReplyParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -134,7 +159,11 @@ async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, req
 	const gateway = ctx.context.github;
 	const result = await applyResolution(gateway, requestResult.value, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit(result.prefix, result.failure);
-	return ok(result.value);
+	if (request.stdout_mode === "full") return ok(result.value);
+	return await compactMutationResult(ctx, request.harness_session_id, "resolve-thread-with-reply", result.value, {
+		counts: { resolved_threads: result.value.is_resolved ? 1 : 0, comments_added: 1 },
+		details: { thread_id: result.value.thread_id, mode: requestResult.value.mode, comment: result.value.comment, is_resolved: result.value.is_resolved },
+	});
 }
 
 async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadBatchParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -170,14 +199,50 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	const writeResult = await writeThreadResolutionResultArtifact({ ctx, buildArtifact: buildArtifact.value.artifact, buildReference: buildArtifact.value.reference, batchResult });
 	if (writeResult.type === "error") return failure(writeResult.errorType, `GitHub mutations were attempted, but writing the resolution artifact failed: ${writeResult.message}`);
 	const data = { ...batchResult, resolved_inputs: { build: buildArtifact.value.reference }, resolution_reference: writeResult.value };
-	if (batchResult.all_succeeded) return ok(data);
-	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, data);
+	const output = request.stdout_mode === "compact" ? compactResolveThreadBatchResult(data) : data;
+	if (batchResult.all_succeeded) return ok(output);
+	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, output);
+}
+
+async function compactMutationResult(
+	ctx: PrAddressExecContext,
+	harnessSessionId: string | undefined,
+	operation: string,
+	data: Record<string, unknown>,
+	options: { counts: Record<string, unknown>; warnings?: readonly string[] | undefined; details: Record<string, unknown> },
+): Promise<ClinkrExit<unknown>> {
+	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId });
+	if (store.type === "error") return failure(store.errorType, store.message);
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation, data });
+	if (fullOutput.type === "error") return failure(fullOutput.errorType, fullOutput.message);
+	return ok(
+		compactOperationResult({
+			operation,
+			counts: options.counts,
+			warnings: options.warnings,
+			artifacts: { full_output: fullOutput.value },
+			details: options.details,
+		}),
+	);
+}
+
+function compactResolveThreadBatchResult(
+	data: ResolveThreadBatchResult & { resolved_inputs: { build: PayloadReference }; resolution_reference: PayloadReference },
+): Record<string, unknown> {
+	return compactOperationResult({
+		operation: "resolve-thread-batch",
+		counts: { total: data.total, resolved: data.resolved, failed: data.failed, skipped: data.skipped },
+		errors: data.results.filter((item) => item.status === "failed"),
+		resolvedInputs: data.resolved_inputs,
+		artifacts: { produced: [{ kind: "resolution", reference: data.resolution_reference }] },
+		details: { all_succeeded: data.all_succeeded, results: data.results },
+	});
 }
 
 async function loadThreadResolutionBuildArtifact(
 	ctx: PrAddressExecContext,
 	payloadPath: string,
-): Promise<{ type: "ok"; value: { artifact: z.infer<typeof threadResolutionBuildArtifactSchema>; reference: z.infer<typeof threadResolutionBuildArtifactSchema>["resolved_inputs"]["plan"] } } | { type: "error"; errorType: string; message: string }> {
+): Promise<{ type: "ok"; value: { artifact: z.infer<typeof threadResolutionBuildArtifactSchema>; reference: PayloadReference } } | { type: "error"; errorType: string; message: string }> {
 	const store = await ctx.context.payloadStoreFactory.openContainingArtifact(payloadPath, { clock: ctx.context.payloadClock });
 	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
 	const artifact = await store.value.readJsonArtifactWithReference({ payloadPath, allowedRoles: new Set(["summary"]) });
@@ -190,7 +255,7 @@ async function loadThreadResolutionBuildArtifact(
 async function writeThreadResolutionResultArtifact(options: {
 	ctx: PrAddressExecContext;
 	buildArtifact: ThreadResolutionBuildArtifact;
-	buildReference: z.infer<typeof threadResolutionBuildArtifactSchema>["resolved_inputs"]["plan"];
+	buildReference: PayloadReference;
 	batchResult: ResolveThreadBatchResult;
 }) {
 	if (options.buildArtifact.payload === null) throw new Error("Cannot write a resolution result artifact without a ready build payload.");

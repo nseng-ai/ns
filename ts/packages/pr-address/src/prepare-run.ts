@@ -5,6 +5,7 @@ import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatew
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
+import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 
 interface PrepareRunInlineFound {
 	payload_mode: "inline";
@@ -37,6 +38,7 @@ type PrepareRunInlineResult = PrepareRunInlineFound | PrepareRunInlineNoPr;
 const prepareRunParseSchema = z.object({
 	payload_mode: z.enum(["inline", "payload"]).default("payload"),
 	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 	include_all_threads: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 });
@@ -56,7 +58,7 @@ export const prepareRunOperation = defineExecOperation({
 async function runPrepareRunOperation(ctx: PrAddressExecContext, request: PrepareRunRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway work; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
-	if (request.payload_mode === "payload") {
+	if (request.payload_mode === "payload" || request.stdout_mode === "compact") {
 		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitHarnessSessionId: request.harness_session_id ?? null,
 			env: ctx.env,
@@ -95,6 +97,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 		inlineResult = prepared.value;
 	}
 
+	if (request.payload_mode === "inline" && request.stdout_mode === "full") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const descriptor = inlineResult.found ? `pr-address-prepare-run-pr-${inlineResult.number}` : "pr-address-prepare-run-no-pr";
@@ -104,7 +107,25 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 		payload: toMachineEnvelope(ok(inlineResult)),
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
-	return ok(buildManifest(inlineResult, rawReference.value));
+	const manifest = buildManifest(inlineResult, rawReference.value);
+	if (request.stdout_mode === "full") return ok(manifest);
+	return ok(
+		compactOperationResult({
+			operation: "prepare-run",
+			counts: inlineResult.found
+				? {
+						reviews: inlineResult.reviews.length,
+						review_threads: inlineResult.review_threads.length,
+						discussion_comments: inlineResult.discussion_comments.length,
+						reopened_threads: inlineResult.reopened_thread_ids.length,
+						restructured_files: inlineResult.restructured_files.length,
+					}
+				: { found: 0 },
+			warnings: inlineResult.found ? inlineResult.warnings : [],
+			artifacts: { full_output: rawReference.value },
+			details: { manifest },
+		}),
+	);
 }
 
 async function prepareFoundRun(options: {

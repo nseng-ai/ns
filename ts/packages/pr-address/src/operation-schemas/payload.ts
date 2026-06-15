@@ -7,6 +7,7 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceInputSchema,
 	resolutionReplyModeSchema,
+	stdoutModeDocSchema,
 } from "./shared.ts";
 
 // --- build-resolve-thread-batch-payload ----------------------------------------------
@@ -18,6 +19,7 @@ export const buildResolveThreadBatchPayloadRequestSchema = z.object({
 	continue_on_error: z.boolean().optional(),
 	decisions_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const buildResolveThreadBatchPayloadErrorSchema = z.object({
@@ -80,6 +82,7 @@ export const recordBatchCheckpointRequestSchema = z.object({
 	commit_sha: z.string(),
 	evidence_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const batchValidationCommandEvidenceSchema = z.object({
@@ -175,6 +178,7 @@ export const recordBatchCheckpointResultSchema = z.object({
 export const finalizeRunRequestSchema = z.object({
 	pr_number: z.int(),
 	harness_session_id: nullableStringSchema.optional(),
+	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const finalizeRunThreadSummarySchema = z.object({

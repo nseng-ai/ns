@@ -24,13 +24,14 @@ import type { StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contr
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveOperationInput, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
+import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
 	payload_file: z.string().optional(),
 	prep_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: z.enum(["full", "compact"]).default("full"),
+	stdout_mode: stdoutModeSchema,
 });
 
 interface StackFeedbackPlanInputResult {
@@ -82,7 +83,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary, resolvedInputs });
 		return negative(
 			"Stack feedback classification failed validation; no stack plan produced.",
-			request.stdout_mode === "compact" ? compactPlanResult(negativeResult) : negativeResult,
+			request.stdout_mode === "compact" ? compactPlanOperationResult(negativeResult) : negativeResult,
 		);
 	}
 
@@ -101,7 +102,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	const stackPlanReference = await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: resultWithoutReference });
 	if (stackPlanReference.type === "error") return failure(stackPlanReference.errorType, stackPlanReference.message);
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
-	if (request.stdout_mode === "compact") return ok(compactPlanResult(result));
+	if (request.stdout_mode === "compact") return ok(compactPlanOperationResult(result));
 	return ok(result);
 }
 
@@ -422,7 +423,20 @@ function informationalDecision(item: StackFeedbackPlanInformationalItem, decisio
 	};
 }
 
-function compactPlanResult(result: StackFeedbackPlanResult): unknown {
+function compactPlanOperationResult(result: StackFeedbackPlanResult): Record<string, unknown> {
+	const compact = compactPlanResult(result);
+	const produced = result.stack_plan_reference === null ? [] : [{ kind: "stack-plan", reference: result.stack_plan_reference }];
+	return compactOperationResult({
+		operation: "stack-feedback-plan",
+		counts: result.summary === null ? { pr_count: result.pr_count, batches: result.batches.length, informational: result.informational.length } : { ...result.summary },
+		errors: result.validation.per_pr.flatMap((item) => item.errors),
+		resolvedInputs: result.resolved_inputs,
+		artifacts: { produced },
+		details: compact,
+	});
+}
+
+function compactPlanResult(result: StackFeedbackPlanResult): Record<string, unknown> {
 	return {
 		valid: result.valid,
 		harness_session_id: result.harness_session_id,

@@ -49,6 +49,8 @@ describe("managed payload/finalization CLI operations", () => {
 				decisionsPath,
 				"--format",
 				"json",
+				"--stdout-mode",
+				"full",
 			],
 			{ cwd: REPO_ROOT, env, payloadStoreFactory },
 		);
@@ -99,6 +101,8 @@ describe("managed payload/finalization CLI operations", () => {
 				decisionsPath,
 				"--format",
 				"json",
+				"--stdout-mode",
+				"full",
 			],
 			{ cwd: REPO_ROOT, env, payloadStoreFactory },
 		);
@@ -106,7 +110,7 @@ describe("managed payload/finalization CLI operations", () => {
 		const buildReference = JSON.parse(buildRun.stdout.join("")).data.build_reference;
 
 		const github = new InMemoryPrAddressGitHubGateway({ reviewThreads: { 42: [reviewThread({ id: "T_single", is_resolved: true })] } });
-		const resolveRun = runScenario(["exec", "resolve-thread-batch", "--from-build", buildReference.payload_path, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const resolveRun = runScenario(["exec", "resolve-thread-batch", "--from-build", buildReference.payload_path, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 		expect(await resolveRun.exit).toBe(0);
 		const resolutionData = JSON.parse(resolveRun.stdout.join("")).data;
 		expect(resolutionData.resolved_inputs.build.payload_path).toBe(buildReference.payload_path);
@@ -127,6 +131,8 @@ describe("managed payload/finalization CLI operations", () => {
 				evidencePath,
 				"--format",
 				"json",
+				"--stdout-mode",
+				"full",
 			],
 			{ cwd: REPO_ROOT, env, payloadStoreFactory, git },
 		);
@@ -136,10 +142,10 @@ describe("managed payload/finalization CLI operations", () => {
 		expect(checkpointData.resolved_inputs).toMatchObject({ plan: { descriptor: "pr-address-pr-42-plan" }, build: { descriptor: "pr-address-pr-42-batch-single_file-resolve-build" }, resolution: { descriptor: "pr-address-pr-42-batch-single_file-resolution" } });
 		expect(checkpointData.checkpoint_reference).toMatchObject({ descriptor: "pr-address-pr-42-batch-single_file-checkpoint", role: "summary" });
 
-		const feedbackRun = runScenario(["exec", "get-feedback", "42", "--include-resolved", "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const feedbackRun = runScenario(["exec", "get-feedback", "42", "--include-resolved", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 		expect(await feedbackRun.exit).toBe(0);
 
-		const finalizeRun = runScenario(["exec", "finalize-run", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory });
+		const finalizeRun = runScenario(["exec", "finalize-run", "--pr-number", "42", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory });
 		expect(await finalizeRun.exit, finalizeRun.stdout.join("")).toBe(0);
 		const finalizeData = JSON.parse(finalizeRun.stdout.join("")).data;
 		expect(finalizeData.ready_to_stop).toBe(true);
@@ -156,7 +162,7 @@ describe("managed payload/finalization CLI operations", () => {
 		expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "plan" }), role: "summary", payload: plan }));
 		expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "feedback" }), role: "raw", payload: { data: { reviews: [], review_threads: [], discussion_comments: [] } } }));
 
-		const run = runScenario(["exec", "finalize-run", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory });
+		const run = runScenario(["exec", "finalize-run", "--pr-number", "42", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory });
 
 		expect(await run.exit).toBe(1);
 		const data = JSON.parse(run.stdout.join("")).data;
@@ -166,7 +172,7 @@ describe("managed payload/finalization CLI operations", () => {
 
 	test("lifecycle helpers no longer accept composed payload options", async () => {
 		for (const operation of ["record-batch-checkpoint", "finalize-run"]) {
-			const run = runScenario(["exec", operation, "--payload-json", "{}", "--format", "json"], { cwd: REPO_ROOT });
+			const run = runScenario(["exec", operation, "--payload-json", "{}", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
 			expect(await run.exit, operation).toBe(2);
 			expect(run.stdout.join(""), operation).toBe("");
 			expect(run.stderr.join(""), operation).toContain("unknown option '--payload-json'");
@@ -175,7 +181,7 @@ describe("managed payload/finalization CLI operations", () => {
 
 	test("build-resolve-thread-batch-payload no longer accepts composed payload options", async () => {
 		const buildPayload = await readFile(join(GOLDEN_V1_ROOT, "build-resolve-thread-batch-payload/valid-fixed-batch-commit-sha/input.json"), "utf8");
-		const run = runScenario(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json"], { cwd: REPO_ROOT });
+		const run = runScenario(["exec", "build-resolve-thread-batch-payload", "--payload-json", buildPayload, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
@@ -191,7 +197,7 @@ describe("managed payload/finalization CLI operations", () => {
 			"utf8",
 		);
 
-		const run = runScenario(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json"], { cwd: REPO_ROOT });
+		const run = runScenario(["exec", "read-feedback-detail", "--payload-path", payloadPath, "--json-pointer", "/data/reviews/0/body", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT });
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({

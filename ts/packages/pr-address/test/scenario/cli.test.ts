@@ -112,7 +112,7 @@ describe("pr-address CLI", () => {
 			review_threads: [],
 			discussion_comments: [],
 		};
-		const run = runScenario(["exec", "classification-template", "--format", "json"], { stdin: async () => JSON.stringify(manifest) });
+		const run = runScenario(["exec", "classification-template", "--format", "json", "--stdout-mode", "full"], { stdin: async () => JSON.stringify(manifest) });
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toMatchObject({ manifest_kind: "get_feedback", pr_number: 42 });
@@ -183,7 +183,7 @@ describe("pr-address CLI", () => {
 		expect(await prRun.exit).toBe(2);
 		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "harness_session_required" });
 
-		const bodyCharsRun = runScenario(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json"]);
+		const bodyCharsRun = runScenario(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json", "--stdout-mode", "full"]);
 		expect(await bodyCharsRun.exit).toBe(1);
 		const bodyCharsEnvelope = JSON.parse(bodyCharsRun.stdout.join("")) as { exit_code: number; message: string };
 		expect(bodyCharsEnvelope.exit_code).toBe(1);

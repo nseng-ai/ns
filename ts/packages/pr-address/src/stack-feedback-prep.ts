@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
 import type { PayloadArtifactStore } from "./payload-store.ts";
 import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput } from "./stack-feedback-prep-contracts.ts";
@@ -11,7 +12,7 @@ const stackFeedbackPrepParseSchema = z.object({
 	stack_json: z.string().optional(),
 	stack_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: z.enum(["full", "compact"]).default("full"),
+	stdout_mode: stdoutModeSchema,
 	include_resolved: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 });
@@ -58,7 +59,17 @@ async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request:
 	if (prepared.type === "error") return prepared.exit;
 
 	const { result, stackSummaryReference } = prepared.value;
-	if (request.stdout_mode === "compact") return ok(compactPrepResult(result, stackSummaryReference));
+	if (request.stdout_mode === "compact") {
+		const compact = compactPrepResult(result, stackSummaryReference);
+		return ok(
+			compactOperationResult({
+				operation: "stack-feedback-prep",
+				counts: { ...compact.summary },
+				artifacts: { produced: [{ kind: "stack-prep", reference: stackSummaryReference }] },
+				details: { ...compact },
+			}),
+		);
+	}
 	return ok(result);
 }
 

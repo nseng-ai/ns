@@ -5,6 +5,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewComment, PRReviewThread, PRSummary } from "./gateways.ts";
 import { gatewayFailureMessage, gatewayOptions } from "./exec-operation.ts";
+import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
 
 type DiscussionSourceKind = "automation_like" | "human_like";
 
@@ -96,6 +97,8 @@ const summarizeFeedbackParseSchema = z.object({
 	include_resolved: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 	body_chars: z.int().default(DEFAULT_BODY_CHARS),
+	harness_session_id: z.string().optional(),
+	stdout_mode: stdoutModeSchema,
 });
 
 type SummarizeFeedbackRequest = z.output<typeof summarizeFeedbackParseSchema>;
@@ -131,7 +134,10 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 			error: lookupResult.stderr,
 			returncode: lookupResult.returncode,
 		};
-		return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, data);
+		if (request.stdout_mode === "full") return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, data);
+		const compact = await compactSummarizeFeedbackResult(ctx, request.harness_session_id, data);
+		if (compact.type === "error") return failure(compact.errorType, compact.message);
+		return negative(`No PR found for PR ${request.pr_number}: ${lookupResult.stderr}`, compact.value);
 	}
 
 	const snapshotResult = await fetchFeedbackSnapshot({
@@ -144,7 +150,51 @@ async function runSummarizeFeedbackOperation(ctx: PrAddressExecContext, request:
 	});
 	if (snapshotResult.type === "error") return snapshotResult.exit;
 
-	return ok(buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars));
+	const result = buildSummarizeFeedbackResult(lookupResult.pr, snapshotResult.snapshot, bodyChars);
+	if (request.stdout_mode === "full") return ok(result);
+	const compact = await compactSummarizeFeedbackResult(ctx, request.harness_session_id, { ...result });
+	if (compact.type === "error") return failure(compact.errorType, compact.message);
+	return ok(compact.value);
+}
+
+async function compactSummarizeFeedbackResult(
+	ctx: PrAddressExecContext,
+	harnessSessionId: string | undefined,
+	data: Record<string, unknown>,
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId });
+	if (store.type === "error") return { type: "error", errorType: store.errorType, message: store.message };
+	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation: "summarize-feedback", data });
+	if (fullOutput.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
+			operation: "summarize-feedback",
+			counts: asRecord(data.counts),
+			artifacts: { full_output: fullOutput.value },
+			details: compactSummarizeDetails(data),
+		}),
+	};
+}
+
+function compactSummarizeDetails(data: Record<string, unknown>): Record<string, unknown> {
+	if (data.found === false) return { found: false, pr_number: data.pr_number, error: data.error, returncode: data.returncode };
+	return {
+		found: true,
+		pr_number: data.pr_number,
+		pr: data.pr,
+		review_ids: Array.isArray(data.reviews) ? data.reviews.map((item) => (isRecord(item) ? item.id : null)).filter((value) => value !== null) : [],
+		thread_ids: Array.isArray(data.review_threads) ? data.review_threads.map((item) => (isRecord(item) ? item.thread_id : null)).filter((value) => value !== null) : [],
+		discussion_comment_ids: Array.isArray(data.discussion_comments) ? data.discussion_comments.map((item) => (isRecord(item) ? item.comment_id : null)).filter((value) => value !== null) : [],
+	};
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return isRecord(value) ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function buildSummarizeFeedbackResult(pr: PRSummary, snapshot: FeedbackSnapshot, bodyChars: number): SummarizeFeedbackFoundResult {

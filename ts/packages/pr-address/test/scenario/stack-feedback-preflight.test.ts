@@ -157,7 +157,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 
 	test("full mode carries unfiltered prep data plus mapping and stack references", async () => {
 		const root = await makePayloadRoot();
-		const run = runPreflight([], {
+		const run = runPreflight(["--stdout-mode", "full"], {
 			root,
 			github: feedbackGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "feature-empty"] }),
