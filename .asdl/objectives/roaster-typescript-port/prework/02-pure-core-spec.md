@@ -8,18 +8,22 @@ tests listed at the end of each section are the port checklist.
 ## 1. Diff parsing — `diff_parsing.py` → `diff-parsing.ts`
 
 ### `estimate_tokens(text) -> int` (`diff_parsing.py:44-48`)
+
 ```
 text === "" ? 0 : Math.ceil([...text].length / 4)
 ```
+
 **Count code points** (`[...text].length`), not `text.length`. Drives diff-cap inclusion (Slice 4).
 
 ### `DiffFile` (`diff_parsing.py:15-28`)
+
 Fields: `path: string`, `oldPath: string | null` (set only for `renamed`/`copied`, else null),
 `changeKind: "added"|"modified"|"deleted"|"renamed"|"copied"`, `rawText: string` (exact segment,
 round-trips), `isBinary: boolean`, `addedLines`, `removedLines`, `hunkCount`, `byteSize`
 (**UTF-8 byte length** — `Buffer.byteLength`/`TextEncoder`, not string length), `estimatedTokens`.
 
 ### `parseUnifiedDiff(diffText) -> DiffFile[]`
+
 - Empty/whitespace `diffText` → `[]` (`:51-56`).
 - **Segmentation** (`_diff_segments`, `:59-73`): `splitlines(keepends=True)` (preserve line
   terminators); a new segment starts at every line beginning with `"diff --git "` **only when a
@@ -27,13 +31,13 @@ round-trips), `isBinary: boolean`, `addedLines`, `removedLines`, `hunkCount`, `b
   lines flush as the final segment. Text before any `diff --git` (or with none) → one degraded
   segment.
 - **Per-segment** (`_parse_segment`, `:76-116`): path resolution order = patch headers
-  (`--- `/`+++ ` lines; `/dev/null` → null) → fallback `diff --git` line tokens → rename/copy
+  (`---`/`+++` lines; `/dev/null` → null) → fallback `diff --git` line tokens → rename/copy
   metadata override → if new path still null use `old_path or ""` → force `old_path = null` unless
   renamed/copied. Path prefix normalization strips leading `a/`/`b/` (`/dev/null` & null pass
   through).
 - **change kind** (`_change_kind`, `:119-136`), first match wins: `"new file mode "`→added;
-  `"deleted file mode "`→deleted; presence of `rename from `/`rename to `→renamed; `copy from `/
-  `copy to `→copied; else modified.
+  `"deleted file mode "`→deleted; presence of `rename from`/`rename to`→renamed; `copy from`/
+  `copy to`→copied; else modified.
 - **binary** (`:102`): any line `startswith("Binary files ") and endswith(" differ")`.
 - **hunk metrics** (`_hunk_metrics`, `:177-200`): binary → (0,0,0). Hunk header regex
   `^@@ -\d+(?:,\d+)? \+(?P<start>\d+)(?:,\d+)? @@`. Each header → `hunkCount++`, `inHunk=true`.
@@ -45,6 +49,7 @@ round-trips), `isBinary: boolean`, `addedLines`, `removedLines`, `hunkCount`, `b
   `"a/spaced/\303\251 file.txt"` → `spaced/é file.txt`.
 
 ### TS test checklist (`tests/unit/test_diff_parsing.py`)
+
 Single-file fixtures asserting all `DiffFile` fields + `rawText == input`: modified, added, deleted,
 pure-rename, rename-with-content, copy, binary (`image.png`, isBinary), quoted-path
 (`spaced/é file.txt`). Plus: multi-file ordering; round-trip (concat of all `rawText` == original);
@@ -81,6 +86,7 @@ file, modified, `path=""`, 0/0); `estimate_tokens`: `""`→0, `"a"`→1, `"abcd"
   string (`sonnet`, `claude-sonnet-4-6`, `gpt-5-mini`). Effective model chosen in `workflow.ts`.
 
 ### TS test checklist (`tests/unit/test_review_definition.py`)
+
 Real `reviews/*.md` fixtures (dignified-python: `default_model=haiku`, include `["**/*.py"]`, exclude
 `["**/tests/**/*.py"]`; typescript-style; duplicative-abstractions). Plus: full applicability OK; no
 `default_model`→null; missing instructions / missing open fence / missing close fence / missing
@@ -115,6 +121,7 @@ different engine; see §4). Keep them distinct.
 - **Contribution** (`_path_contributes`, `:43-47`): matches some `include` AND no `exclude`.
 
 ### TS test checklist (`tests/unit/test_review_applicability.py`)
+
 `**/*.py` matches `app.py` (zero dirs) & `packages/pkg/src/app.py`; `**/tests/**/*.py` matches
 `tests/test_x.py` & deep; non-matches: `**/*.py` vs `README.md`, `*.py` vs `packages/pkg/src/app.py`
 (single `*` doesn't cross `/`), `**/*.ts` vs `app.tsx`; empty include → all incl. empty; test-only
@@ -129,6 +136,7 @@ Config schema lives in **shared** `packages/asdl-core/src/asdl_core/project_conf
 glob→pathspec conversion lives in the **diff gateway** (`gateways/local_diff/real.py`).
 
 ### Config parsing (`project_config.py`)
+
 - `[roaster.diff].exclude` → `tuple[str,...]` (default `()` when `[roaster]`/`exclude` absent).
 - `exclude` must be a TOML array of non-empty strings (else "must be a TOML array of non-empty
   strings" / "must contain only non-empty strings").
@@ -141,19 +149,23 @@ glob→pathspec conversion lives in the **diff gateway** (`gateways/local_diff/r
   but no TS consumer exists yet — a roaster-local module is the lower-risk default).
 
 ### glob → git-pathspec conversion (STATED RISK) — `gateways/local_diff/real.py:51-56`
+
 ```python
 cmd = ["git", "diff", "--no-ext-diff", f"origin/{base_ref}...HEAD"]
 if exclude_globs:
     exclude_pathspecs = tuple(f":(exclude,glob){pattern}" for pattern in exclude_globs)
     cmd.extend(["--", ".", *exclude_pathspecs])
 ```
+
 Each repo-relative glob `P` → `:(exclude,glob)P`; diff scoped with `-- . <pathspecs…>`. Range is
 **three-dot** `origin/<base>...HEAD` with `--no-ext-diff`. Notes:
+
 - `origin/` prefix is added here (the trunk resolver does not add it).
 - `:(…,glob)` enables `**`-aware git globbing — this is git's engine, **not** the §3 matcher.
 - The validator guarantees inputs are plain globs, so string-concat is safe.
 
 ### TS test checklist (`asdl-core tests/unit/test_project_config.py`)
+
 Missing file → `()`; empty TOML → `()`; areg-only → `()`; parses two excludes; parses areg+roaster;
 rejects scalar `exclude`, `["*.py", 1]`, `[""]`, `["/tmp/*.py"]`, `["skills/../*.py"]`,
 `[":(exclude,glob)vendor/**/*.py"]`; unrelated sections ignored; non-table known sections rejected;
@@ -162,9 +174,10 @@ non-file config path rejected. Plus a direct test of the glob→pathspec command
 ---
 
 ## Cross-cutting gotchas
+
 1. `estimate_tokens` uses code points (`[...text].length`), `byteSize` uses UTF-8 bytes.
 2. **Two distinct glob engines**: §3 custom segment matcher (case-sensitive, `*` no cross `/`) vs §4
    git `:(exclude,glob)`. Do not unify.
 3. Git C-quoted path decoding is byte-level with UTF-8 replacement.
 4. YAML type coercion (`123`→num, `[]`→arr) is load-bearing for validation branches.
-</content>
+   </content>

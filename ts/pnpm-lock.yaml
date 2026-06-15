@@ -227,6 +227,24 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/roaster:
+    dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
+      smol-toml:
+        specifier: ^1.6.1
+        version: 1.6.1
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/sdl:
     dependencies:
       '@asdl/clinkr':

@@ -11,13 +11,13 @@ facts (the Claude Code argv and the CI invocation contract) were independently r
 
 ## Documents
 
-| Doc | Covers | Roadmap slice(s) |
-|---|---|---|
-| `01-architecture-and-module-map.md` | Python→TS module map, target file tree, slice ordering & dependencies, resolved decisions, conventions | all |
-| `02-pure-core-spec.md` | diff parsing, token estimation, review-definition frontmatter, applicability globs, `asdl.toml [roaster.diff]` + git-pathspec conversion | Slice 1, parts of 3 |
-| `03-harness-spec.md` | Claude Code CLI invocation contract, stdin pump, output parsing, prompt assembly, diff-cap/coverage math, the harness seam | Slice 4 |
-| `04-github-and-publication-spec.md` | the 5-method roaster-local GitHub gateway, inline-commentability mapping, findings publication (markers/rendering/activity-log), the three `exec` commands | Slices 5, 6, 7 |
-| `05-ts-scaffold-and-ci-cutover.md` | `package.json`/`tsconfig`/`cli.ts` scaffold, clinkr + asdl-core helpers, CLI surfaces (`review list`/`run`), CI invocation contract & cutover | Slices 1, 7, 8, 9 |
+| Doc                                 | Covers                                                                                                                                                     | Roadmap slice(s)    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `01-architecture-and-module-map.md` | Python→TS module map, target file tree, slice ordering & dependencies, resolved decisions, conventions                                                     | all                 |
+| `02-pure-core-spec.md`              | diff parsing, token estimation, review-definition frontmatter, applicability globs, `asdl.toml [roaster.diff]` + git-pathspec conversion                   | Slice 1, parts of 3 |
+| `03-harness-spec.md`                | Claude Code CLI invocation contract, stdin pump, output parsing, prompt assembly, diff-cap/coverage math, the harness seam                                 | Slice 4             |
+| `04-github-and-publication-spec.md` | the 5-method roaster-local GitHub gateway, inline-commentability mapping, findings publication (markers/rendering/activity-log), the three `exec` commands | Slices 5, 6, 7      |
+| `05-ts-scaffold-and-ci-cutover.md`  | `package.json`/`tsconfig`/`cli.ts` scaffold, clinkr + asdl-core helpers, CLI surfaces (`review list`/`run`), CI invocation contract & cutover              | Slices 1, 7, 8, 9   |
 
 ## How to use
 
@@ -49,4 +49,4 @@ reasoning and `file:line` evidence.
   via `gh api --paginate` / `--input -`, mirroring the Python real-gateway helpers. Build a fresh
   **5-method roaster-local** gateway; do **not** share or extend asdl-core's PR gateway.
 - **Zod version:** `^4.4.3` (uniform across all TS packages; load-bearing for clinkr integration).
-</content>
+  </content>

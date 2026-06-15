@@ -7,6 +7,7 @@ Reference package: `ts/packages/pr-address`. Workspace: pnpm rooted at `ts/`
 `just ts-check`.
 
 ## 1. package.json
+
 ```json
 {
   "name": "@asdl/roaster",
@@ -28,17 +29,21 @@ Reference package: `ts/packages/pr-address`. Workspace: pnpm rooted at `ts/`
   }
 }
 ```
+
 (pr-address itself needs only the first three deps; `yaml`/`smol-toml` are roaster-specific.)
 
 ## 2. tsconfig.json (verbatim, 4 lines)
+
 ```json
 { "extends": "../../tsconfig.json", "include": ["src/**/*.ts", "test/**/*.ts"] }
 ```
+
 Base enforces `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `NodeNext`,
 `verbatimModuleSyntax`, `erasableSyntaxOnly`, `allowImportingTsExtensions`, `noEmit`. → use
 `import type` and `.ts` import extensions everywhere.
 
 ## 3. CLI entry (`cli.ts`) — copy pr-address shape
+
 - Line 1 shebang `#!/usr/bin/env node`; entry guard
   `if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) { process.exitCode = await runCli(process.argv.slice(2)); }`.
 - `buildCli(operations?) -> ClinkrGroup<RoasterExecContext>`: root group `{name:"roaster",
@@ -52,6 +57,7 @@ Base enforces `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 - `index.ts`: `export { runCli, type CliDeps } from "./cli.ts";`.
 
 ## 4. clinkr APIs (`ts/packages/clinkr/src/`)
+
 - `new ClinkrGroup<TContext>({name, description?, isHidden?, version?, runtimeInfo?})`; `version`/
   `runtimeInfo` root-only.
 - `.command(spec)` (chainable). `ClinkrCommandSpec {name, description?, schema: z.ZodObject,
@@ -68,6 +74,7 @@ Base enforces `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
   `.data.count` from this envelope.**
 
 ## 5. asdl-core TS helpers (`ts/packages/asdl-core/src/`)
+
 - **exec** (`exec.ts`): inject `interface CommandExecApi { exec(command, args, options?):
   Promise<ExecResult> }`; real adapter `class NodeCommandExecApi`. `ExecResult {stdout, stderr, code,
   killed, startupError?}`; `ExecOptions {cwd?, env?, timeout?, signal?, onStdout?, onStderr?}`. This
@@ -83,17 +90,20 @@ Base enforces `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
 ## 6. CLI surfaces being ported (`cli/roaster/review/`, `workflow.py`)
 
 ### `review list` (`list_reviews.py`) — alias `ls`
+
 Options: `--applicable` (flag, default false), `--base-ref STR?` (used only with `--applicable`).
 Lists catalog keys, parses each definition; when `--applicable`, loads the diff and filters via
 `applicableReviewKeys`. **Result `.data` shape (CI contract):**
 `{reviews_dir, keys: string[], count: int, reviews: [{key, description, default_model}]}`.
 
 ### `review run <key>` (`run.py`)
+
 Positional `key`; `--model STR?`; `--base-ref STR?` (defaults to resolved trunk). Delegates to
 `workflow.runReviewByKey`. Progress to **stderr**. `ok` payload (the run envelope CI pipes to exec):
 `{review_name, review_path, model, base_ref, payload: FindingsReview, usage, input_coverage}`.
 
 ### `workflow.runReviewByKey` (`workflow.py:25-102`) — pure orchestration over gateways
+
 1. `catalog.loadReviewSource(key)` → failure short-circuits.
 2. `parseReviewDefinition(source, {name: key})` → invalid → failure.
 3. Resolve model: explicit `--model` → frontmatter `default_model` → else `ModelNotProvided`
@@ -105,12 +115,14 @@ Positional `key`; `--model STR?`; `--base-ref STR?` (defaults to resolved trunk)
 7. Build the `LocalReviewResult` run envelope.
 
 ### local-diff gateway (`gateways/local_diff/real.py`) — what to replicate
+
 repoRoot via toplevel; base-ref = trimmed `--base-ref` else `trunkBranch`, empty →
 `BaseRefUnavailable`; read `roaster.diff.exclude` from asdl project config; diff =
 `git diff --no-ext-diff origin/<base>...HEAD` + (if excludes) `-- . :(exclude,glob)<pat>…`;
 non-zero exit → `GitDiffFailed`; success → `LocalDiff{baseRef, diffText}` (derive `changedPaths`).
 
 ## 7. Test layout (mirror pr-address `test/`)
+
 ```
 test/
   scenario/   # CLI via runCli: review list/run, exec ops, help/version/runtime bytes, envelope→exit
@@ -118,6 +130,7 @@ test/
   gateways/   # Real* adapters (may use temp dirs / real git)
   support/    # run-scenario.ts harness + in-memory fakes (fakeRoasterContext)
 ```
+
 Scenario tests build the CLI via `runCli(args, {context: fakeRoasterContext(...), cwd, env, stdin,
 stdout, stderr})` and assert on captured stdout/stderr + exit code. Per the repo CLI-testing
 convention, scenario tests use `build_cli()` (the user-facing entry), exhaustively cover the
@@ -127,13 +140,16 @@ shebang source.
 ## 8. CI cutover (`.github/workflows/roaster.yml`) — VERIFIED contract
 
 Two jobs. `discover` (resolves `BASE_REF` via `gh pr view … --json baseRefName`):
+
 ```bash
 output=$(uv run roaster review list --applicable --base-ref "$BASE_REF" --format json)
 reviews=$(printf '%s' "$output" | jq -c '.data.keys')   # array of keys → matrix
 count=$(printf '%s' "$output" | jq '.data.count')
 ```
+
 `review` (matrix over keys; installs `@anthropic-ai/claude-code` globally; `ANTHROPIC_API_KEY`,
 `GH_TOKEN`, `PR_NUMBER`, `REVIEW_KEY`):
+
 ```bash
 output=$(uv run roaster review run "$REVIEW_KEY" --base-ref "$BASE_REF" --format json)
 printf '%s' "$output" > "$roaster_output_file"
@@ -149,6 +165,7 @@ uv run roaster exec format-findings-comment \
 ```
 
 **Cutover requirements (Slice 8):** the TS CLI must preserve, exactly —
+
 - command paths: `roaster review list`, `roaster review run <key>`, `roaster exec
   post-inline-findings|format-findings-comment|post-findings-comment`;
 - flags & order as above (`--applicable`, `--base-ref`, `--format json`, `--pr-number`,
@@ -158,10 +175,10 @@ uv run roaster exec format-findings-comment \
   comment body to stdout; `post-findings-comment` reads the body on stdin;
 - the `review list --format json` envelope's `.data.keys` (array) + `.data.count` (int) survive
   `jq`.
-Only the invocation prefix changes: `uv run roaster …` → the built TS bin (resolve how the runner
-installs/invokes the Node CLI; note CI already sets up Node 20 for claude-code — confirm the TS CLI
-runs under the workflow's Node, or add a setup step / `pnpm` build/link as the bun→node objectives
-established).
+  Only the invocation prefix changes: `uv run roaster …` → the built TS bin (resolve how the runner
+  installs/invokes the Node CLI; note CI already sets up Node 20 for claude-code — confirm the TS CLI
+  runs under the workflow's Node, or add a setup step / `pnpm` build/link as the bun→node objectives
+  established).
 
 **Slice 9 (delete Python):** gated on a green TS CI run on a real PR. Then remove
 `packages/roaster`, its `pyproject.toml` workspace membership, `asdl.plugins`/`[project.scripts]`
