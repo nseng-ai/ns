@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import { feedbackPlanningValidationResultSchema } from "./feedback-plan-contracts.ts";
-import { payloadError, type JsonPayloadRole, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
+import { isSafeSegment, payloadError, type JsonPayloadRole, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
+export type PrBatchArtifactKind = "resolve-build";
 export type StackArtifactKind = "prep" | "plan";
 
 export interface ResolvedSessionArtifact<T = unknown> {
@@ -21,6 +22,10 @@ export type ClassificationArtifact = z.infer<typeof classificationArtifactSchema
 
 export function prArtifactDescriptor(options: { prNumber: number; kind: PrArtifactKind }): string {
 	return `pr-address-pr-${positivePrNumber(options.prNumber)}-${options.kind}`;
+}
+
+export function prBatchArtifactDescriptor(options: { prNumber: number; batchId: string; kind: PrBatchArtifactKind }): string {
+	return `pr-address-pr-${positivePrNumber(options.prNumber)}-batch-${safeBatchId(options.batchId)}-${options.kind}`;
 }
 
 export function stackArtifactDescriptor(kind: StackArtifactKind): string {
@@ -50,4 +55,10 @@ function parseResolvedValue<T>(value: unknown, schema: z.ZodType<T> | undefined,
 function positivePrNumber(value: number): number {
 	if (Number.isInteger(value) && value > 0) return value;
 	throw new Error(`PR number must be a positive integer: ${String(value)}`);
+}
+
+function safeBatchId(value: string): string {
+	const trimmed = value.trim();
+	if (isSafeSegment(trimmed)) return trimmed;
+	throw new Error(`Batch id must be a safe segment: ${String(value)}`);
 }

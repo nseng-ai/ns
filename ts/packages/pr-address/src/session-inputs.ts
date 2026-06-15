@@ -14,6 +14,7 @@ import {
 	type ResolvedSessionArtifact,
 	type StackArtifactKind,
 } from "./session-artifacts.ts";
+import { feedbackPlanConsumerSchema, type FeedbackPlanConsumer } from "./feedback-plan-contracts.ts";
 import {
 	stackFeedbackPlanConsumerResultSchema,
 	type StackFeedbackPlanConsumerResult,
@@ -189,6 +190,18 @@ export interface StackFeedbackDiffCurrentSessionInputResult {
 	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs;
 }
 
+export interface ResolveThreadBuildPlanSessionInput {
+	store: PayloadArtifactStore;
+	plan: FeedbackPlanConsumer;
+	resolvedInput: PayloadReference;
+}
+
+export interface StackResolveThreadBuildPlanSessionInput {
+	store: PayloadArtifactStore;
+	plan: StackFeedbackPlanConsumerResult;
+	resolvedInput: PayloadReference;
+}
+
 export async function openPayloadStoreFromContext(options: OpenPayloadStoreFromContextOptions): Promise<OperationResult<PayloadArtifactStore, PayloadErrorType>> {
 	const storeResult = await options.ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitHarnessSessionId: options.harnessSessionId ?? null,
@@ -256,6 +269,32 @@ export async function resolvePrManifestSessionInput(options: {
 	return { type: "ok", value: { store: storeResult.value, manifest: artifact.value.value, resolvedInput: artifact.value.reference } };
 }
 
+export async function resolveResolveThreadBuildPlanSessionInput(options: {
+	ctx: PrAddressExecContext;
+	prNumber: number;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<ResolveThreadBuildPlanSessionInput, PayloadErrorType | "invalid_request">> {
+	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
+	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
+	if (storeResult.type === "error") return storeResult;
+	const artifact = await resolveLatestPrSessionArtifact({
+		store: storeResult.value,
+		prNumber: options.prNumber,
+		kind: "plan",
+		role: "summary",
+		schema: feedbackPlanConsumerSchema,
+	});
+	if (artifact.type === "error") return artifact;
+	if (artifact.value.value.pr_number !== options.prNumber) {
+		return {
+			type: "error",
+			errorType: "invalid_request",
+			message: `Resolved plan artifact PR number ${artifact.value.value.pr_number} does not match requested PR ${options.prNumber}.`,
+		};
+	}
+	return { type: "ok", value: { store: storeResult.value, plan: artifact.value.value, resolvedInput: artifact.value.reference } };
+}
+
 export async function resolvePlanFeedbackSessionInputs(options: {
 	ctx: PrAddressExecContext;
 	prNumber: number;
@@ -301,6 +340,22 @@ export async function resolveLatestStackSessionArtifact<T>(options: {
 		role: options.role,
 		schema: options.schema,
 	});
+}
+
+export async function resolveStackResolveThreadBuildPlanSessionInput(options: {
+	ctx: PrAddressExecContext;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<StackResolveThreadBuildPlanSessionInput, PayloadErrorType>> {
+	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
+	if (storeResult.type === "error") return storeResult;
+	const artifact = await resolveLatestStackSessionArtifact({
+		store: storeResult.value,
+		kind: "plan",
+		role: "summary",
+		schema: stackFeedbackPlanConsumerResultSchema,
+	});
+	if (artifact.type === "error") return artifact;
+	return { type: "ok", value: { store: storeResult.value, plan: artifact.value.value, resolvedInput: artifact.value.reference } };
 }
 
 export async function resolveStackFeedbackPlanSessionInput(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanSessionInputResult>> {

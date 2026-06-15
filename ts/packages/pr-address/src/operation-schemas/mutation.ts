@@ -53,6 +53,10 @@ export const resolveThreadWithReplyResultSchema = z.object({
 	provenance: resolutionProvenanceSchema.nullable().optional(),
 });
 
+export const resolveThreadBatchRequestSchema = z.object({
+	from_build: z.string(),
+});
+
 const resolveThreadBatchItemResultSchema = z.object({
 	index: z.int(),
 	thread_id: z.string(),

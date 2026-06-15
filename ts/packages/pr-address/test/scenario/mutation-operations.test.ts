@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 
+import { InMemoryPayloadStoreFactory, type PayloadResult } from "../../src/payload-store.ts";
+import { prBatchArtifactDescriptor } from "../../src/session-artifacts.ts";
+import type { ThreadResolutionBuildArtifact } from "../../src/thread-resolution-build-artifact.ts";
 import { REPO_ROOT } from "../support/golden.ts";
-import { runScenario } from "../support/run-scenario.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway, prSummary } from "../support/in-memory-pr-address-gateways.ts";
+import { fixedClock, runScenario } from "../support/run-scenario.ts";
 
 describe("mutation operations use fake gateways", () => {
 	test("mutation positional integers reject non-decimal forms before mutation", async () => {
@@ -79,22 +82,24 @@ describe("mutation operations use fake gateways", () => {
 		expect(github.resolvedThreadIds).toEqual(["PRRT_plan"]);
 	});
 
-	test("resolve-thread-batch rejects invalid payload before any mutation", async () => {
+	test("resolve-thread-batch requires an explicit build artifact before any mutation", async () => {
 		const github = new InMemoryPrAddressGitHubGateway();
-		const run = runScenario(
-			[
-				"exec",
-				"resolve-thread-batch",
-				"--payload-json",
-				JSON.stringify({ commit_sha: "abc123", items: [{ thread_id: "PRRT_fixed", mode: "fixed", message: " " }] }),
-				"--format",
-				"json",
-			],
-			{ cwd: REPO_ROOT, github },
-		);
+		const run = runScenario(["exec", "resolve-thread-batch", "--format", "json"], { cwd: REPO_ROOT, github });
 
 		expect(await run.exit).toBe(2);
-		expect(JSON.parse(run.stdout.join("")).message).toContain("message");
+		const envelope = JSON.parse(run.stdout.join(""));
+		expect(envelope.error_type).toBe("explicit_artifact_required");
+		expect(github.threadReplies).toEqual([]);
+		expect(github.resolvedThreadIds).toEqual([]);
+	});
+
+	test("resolve-thread-batch rejects invalid build artifacts before any mutation", async () => {
+		const github = new InMemoryPrAddressGitHubGateway();
+		const { env, payloadStoreFactory, artifactPath } = await seedBuildArtifact({ prNumber: 42, threadId: "PRRT_fixed", artifact: { artifact_kind: "wrong" } });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join("")).error_type).toBe("invalid_request");
 		expect(github.threadReplies).toEqual([]);
 		expect(github.resolvedThreadIds).toEqual([]);
 	});
@@ -102,13 +107,18 @@ describe("mutation operations use fake gateways", () => {
 	test("resolve-thread-batch validates all provenance before first mutation", async () => {
 		const github = new InMemoryPrAddressGitHubGateway();
 		const git = new InMemoryPrAddressGitGateway({ branchHeadOids: { "reuse-worker": "abc1234" } });
-		const payload = {
-			items: [
-				{ thread_id: "PRRT_first", mode: "pre_existing" },
-				{ thread_id: "PRRT_missing", mode: "planned", message: "Later.", provenance: { kind: "local_branch", branch: "missing" } },
-			],
-		};
-		const run = runScenario(["exec", "resolve-thread-batch", "--payload-json", JSON.stringify(payload), "--format", "json"], { cwd: REPO_ROOT, github, git });
+		const { env, payloadStoreFactory, artifactPath } = await seedBuildArtifact({
+			prNumber: 42,
+			threadId: "PRRT_first",
+			artifact: buildArtifact({
+				prNumber: 42,
+				items: [
+					{ thread_id: "PRRT_first", mode: "pre_existing", message: null, commit_sha: null, provenance: null },
+					{ thread_id: "PRRT_missing", mode: "planned", message: "Later.", commit_sha: null, provenance: { kind: "local_branch", branch: "missing" } },
+				],
+			}),
+		});
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github, git });
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join("")).message).toContain("does not exist");
@@ -116,18 +126,49 @@ describe("mutation operations use fake gateways", () => {
 		expect(github.resolvedThreadIds).toEqual([]);
 	});
 
+	test("resolve-thread-batch loads the named build artifact rather than latest", async () => {
+		const github = new InMemoryPrAddressGitHubGateway();
+		const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
+		const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
+		const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
+		const named = expectOk(
+			await store.writeJsonArtifact({
+				descriptor: prBatchArtifactDescriptor({ prNumber: 42, batchId: "batch-1", kind: "resolve-build" }),
+				role: "summary",
+				payload: buildArtifact({ prNumber: 42, threadId: "PRRT_named" }),
+			}),
+		);
+		expectOk(
+			await store.writeJsonArtifact({
+				descriptor: prBatchArtifactDescriptor({ prNumber: 42, batchId: "batch-1", kind: "resolve-build" }),
+				role: "summary",
+				payload: buildArtifact({ prNumber: 42, threadId: "PRRT_latest" }),
+			}),
+		);
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", named.payload_path, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+
+		expect(await run.exit).toBe(0);
+		expect(github.threadReplies.map((reply) => reply.threadId)).toEqual(["PRRT_named"]);
+		expect(github.resolvedThreadIds).toEqual(["PRRT_named"]);
+	});
+
 	test("resolve-thread-batch returns partial negative data and skips by default on gateway failure", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({ threadReplyFailureIds: new Set(["PRRT_fail"]) });
-		const payload = {
-			commit_sha: "abc1234",
-			items: [
-				{ thread_id: "PRRT_ok", mode: "fixed", message: "Fixed." },
-				{ thread_id: "PRRT_fail", mode: "fixed", message: "Fails." },
-				{ thread_id: "PRRT_skip", mode: "fixed", message: "Skipped." },
-			],
-		};
+		const { env, payloadStoreFactory, artifactPath } = await seedBuildArtifact({
+			prNumber: 42,
+			threadId: "PRRT_ok",
+			artifact: buildArtifact({
+				prNumber: 42,
+				commitSha: "abc1234",
+				items: [
+					{ thread_id: "PRRT_ok", mode: "fixed", message: "Fixed.", commit_sha: null, provenance: null },
+					{ thread_id: "PRRT_fail", mode: "fixed", message: "Fails.", commit_sha: null, provenance: null },
+					{ thread_id: "PRRT_skip", mode: "fixed", message: "Skipped.", commit_sha: null, provenance: null },
+				],
+			}),
+		});
 
-		const run = runScenario(["exec", "resolve-thread-batch", "--payload-json", JSON.stringify(payload), "--format", "json"], { cwd: REPO_ROOT, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(1);
 		const envelope = JSON.parse(run.stdout.join(""));
@@ -139,3 +180,59 @@ describe("mutation operations use fake gateways", () => {
 		expect(github.resolvedThreadIds).toEqual(["PRRT_ok"]);
 	});
 });
+
+function expectOk<T>(result: PayloadResult<T>): T {
+	if (result.type !== "ok") throw new Error(`expected ok result, got ${result.errorType}: ${result.message}`);
+	return result.value;
+}
+
+async function seedBuildArtifact(options: {
+	prNumber: number;
+	threadId: string;
+	artifact: unknown;
+}): Promise<{ env: NodeJS.ProcessEnv; payloadStoreFactory: InMemoryPayloadStoreFactory; artifactPath: string }> {
+	const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
+	const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
+	const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
+	const reference = expectOk(
+		await store.writeJsonArtifact({
+			descriptor: prBatchArtifactDescriptor({ prNumber: options.prNumber, batchId: "batch-1", kind: "resolve-build" }),
+			role: "summary",
+			payload: options.artifact,
+		}),
+	);
+	return { env, payloadStoreFactory, artifactPath: reference.payload_path };
+}
+
+function buildArtifact(options: {
+	prNumber: number;
+	threadId?: string | undefined;
+	commitSha?: string | null | undefined;
+	items?: ThreadResolutionBuildArtifact["payload"]["items"] | undefined;
+}): ThreadResolutionBuildArtifact {
+	const items = options.items ?? [{ thread_id: options.threadId ?? "PRRT_fixed", mode: "fixed" as const, message: "Fixed.", commit_sha: null, provenance: null }];
+	return {
+		artifact_kind: "thread_resolution_build",
+		source: "single_pr",
+		pr_number: options.prNumber,
+		batch_id: "batch-1",
+		commit_sha: options.commitSha ?? "abc1234",
+		continue_on_error: false,
+		payload_ready: true,
+		payload: { commit_sha: options.commitSha ?? "abc1234", continue_on_error: false, items },
+		resolved_inputs: {
+			plan: {
+				payload_path: "/payload-root/sessions/sess-1/payloads/20260610t120000z-0001-pr-address-pr-42-plan.summary.json",
+				session_id: "sess-1",
+				descriptor: "pr-address-pr-42-plan",
+				role: "summary",
+				created_at_utc: "2026-06-10T12:00:00Z",
+				sequence: 1,
+				payload_bytes: 2,
+				content_type: "application/json",
+				extension: "json",
+			},
+		},
+		build: { review_thread_count: items.length, resolved_thread_count: items.length, skipped_thread_count: 0, skipped_items: [], ignored_non_thread_items: [], warnings: [] },
+	};
+}
