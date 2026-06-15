@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
+import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
 
@@ -37,7 +38,6 @@ const CHECK_ISSUE_CODES = [
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
 const PLACEHOLDER_HASH = "PENDING_REGEN";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/u;
-const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 
 type CheckIssueCode = (typeof CHECK_ISSUE_CODES)[number];
@@ -115,39 +115,9 @@ export function buildCheckReport(inspection: AregCheckProjectInspectionResult, l
 }
 
 export function parseSkillFrontmatterText(text: string): { type: "ok"; fields: Readonly<Record<string, string>> } | { type: "error"; message: string } {
-	const lines = text.split(/\r?\n/u);
-	if (lines.at(-1) === "") lines.pop();
-	if (lines.length === 0 || lines[0] !== "---") return { type: "error", message: "missing opening frontmatter delimiter '---'" };
-	const endIndex = lines.indexOf("---", 1);
-	if (endIndex === -1) return { type: "error", message: "missing closing frontmatter delimiter '---'" };
-	const fields: Record<string, string> = {};
-	let currentKey: string | undefined;
-	let currentValues: string[] = [];
-	function flushCurrent(): void {
-		if (currentKey === undefined) return;
-		let rawValue = currentValues.filter((value) => value.length > 0).join(" ").trim();
-		if (rawValue.length >= 2 && rawValue[0] === rawValue.at(-1) && (rawValue[0] === "\"" || rawValue[0] === "'")) rawValue = rawValue.slice(1, -1);
-		fields[currentKey] = rawValue;
-	}
-	for (const line of lines.slice(1, endIndex)) {
-		const stripped = line.trim();
-		if (stripped.length === 0) continue;
-		if (stripped.startsWith("#")) continue;
-		if (!line.startsWith(" ") && !line.startsWith("\t")) {
-			flushCurrent();
-			const match = FRONTMATTER_KEY_RE.exec(line);
-			if (match?.groups === undefined) return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(line)}` };
-			currentKey = match.groups.key ?? "";
-			currentValues = [];
-			const inlineValue = (match.groups.value ?? "").trim();
-			if (inlineValue.length > 0) currentValues.push(inlineValue);
-			continue;
-		}
-		if (currentKey === undefined) return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(line)}` };
-		currentValues.push(line.trim());
-	}
-	flushCurrent();
-	return { type: "ok", fields };
+	const parsed = parseSkillFrontmatterBlock(text);
+	if (parsed.type === "error") return parsed;
+	return { type: "ok", fields: parsed.value.fields };
 }
 
 export { derivePiReplacementCommand };

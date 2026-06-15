@@ -491,8 +491,8 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 
 	async cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult> {
 		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot, cwd: request.cwd });
-		if (this.cleanupFailure !== undefined) return { ok: false, error: copyErrorInfo(this.cleanupFailure) };
-		return { ok: true };
+		if (this.cleanupFailure !== undefined) return { type: "error", error: copyErrorInfo(this.cleanupFailure) };
+		return { type: "ok" };
 	}
 
 	operations(): readonly FakeAregSkillxOperation[] {

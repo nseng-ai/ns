@@ -7,7 +7,7 @@ export interface AregErrorInfo {
 	displayCommand?: string | undefined;
 }
 
-export type AregOperationResult = { ok: true } | { ok: false; error: AregErrorInfo };
+export type AregOperationResult = { type: "ok" } | { type: "error"; error: AregErrorInfo };
 
 export type AregToolCheckResult =
 	| { type: "found"; tool: AregHostToolName; path: string }
