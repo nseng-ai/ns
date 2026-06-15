@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { isRecord } from "@asdl/core";
+
 import {
 	inlinePostingStatusSchema,
 	reviewFindingSchema,
@@ -270,10 +272,6 @@ function parseJsonObject(raw: string): JsonObjectResult {
 	}
 	if (!isRecord(parsed)) return { type: "error", message: `expected a JSON object at top level, got ${typeof parsed}` };
 	return { type: "ok", value: parsed };
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function coerceString(value: unknown, fallback: string): string {
