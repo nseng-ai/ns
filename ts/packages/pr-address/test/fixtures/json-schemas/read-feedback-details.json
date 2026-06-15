@@ -34,187 +34,27 @@
             "type": "null"
           }
         ]
+      },
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
       }
     },
     "additionalProperties": false
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "payload_path": {
-        "type": "string"
-      },
-      "selected_payload_reference": {
+    "anyOf": [
+      {
         "type": "object",
         "properties": {
           "payload_path": {
             "type": "string"
           },
-          "session_id": {
-            "type": "string"
-          },
-          "descriptor": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "raw",
-              "summary",
-              "log"
-            ]
-          },
-          "created_at_utc": {
-            "type": "string"
-          },
-          "sequence": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "payload_bytes": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "content_type": {
-            "type": "string"
-          },
-          "extension": {
-            "type": "string",
-            "enum": [
-              "json",
-              "txt"
-            ]
-          }
-        },
-        "required": [
-          "payload_path",
-          "session_id",
-          "descriptor",
-          "role",
-          "created_at_utc",
-          "sequence",
-          "payload_bytes",
-          "content_type",
-          "extension"
-        ],
-        "additionalProperties": false
-      },
-      "details": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "json_pointer": {
-              "type": "string"
-            },
-            "detail_kind": {
-              "type": "string",
-              "enum": [
-                "review",
-                "review_body",
-                "review_thread",
-                "thread_comment",
-                "thread_comment_body",
-                "discussion_comment",
-                "discussion_comment_body"
-              ]
-            },
-            "artifact_json_pointer": {
-              "type": "string"
-            },
-            "value_kind": {
-              "type": "string",
-              "enum": [
-                "string",
-                "object"
-              ]
-            },
-            "value_chars": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "body_chars": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "object_keys": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          },
-          "required": [
-            "json_pointer",
-            "detail_kind",
-            "artifact_json_pointer",
-            "value_kind"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "counts": {
-        "type": "object",
-        "properties": {
-          "requested": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "selected": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "body_values": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "item_values": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          }
-        },
-        "required": [
-          "requested",
-          "selected",
-          "body_values",
-          "item_values"
-        ],
-        "additionalProperties": false
-      },
-      "resolved_inputs": {
-        "type": "object",
-        "properties": {
-          "feedback": {
+          "selected_payload_reference": {
             "type": "object",
             "properties": {
               "payload_path": {
@@ -270,20 +110,369 @@
               "extension"
             ],
             "additionalProperties": false
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "json_pointer": {
+                  "type": "string"
+                },
+                "detail_kind": {
+                  "type": "string",
+                  "enum": [
+                    "review",
+                    "review_body",
+                    "review_thread",
+                    "thread_comment",
+                    "thread_comment_body",
+                    "discussion_comment",
+                    "discussion_comment_body"
+                  ]
+                },
+                "artifact_json_pointer": {
+                  "type": "string"
+                },
+                "value_kind": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "object"
+                  ]
+                },
+                "value_chars": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "body_chars": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "object_keys": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "json_pointer",
+                "detail_kind",
+                "artifact_json_pointer",
+                "value_kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "requested": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "selected": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "body_values": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "item_values": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "requested",
+              "selected",
+              "body_values",
+              "item_values"
+            ],
+            "additionalProperties": false
+          },
+          "resolved_inputs": {
+            "type": "object",
+            "properties": {
+              "feedback": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "feedback"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
-          "feedback"
+          "payload_path",
+          "selected_payload_reference",
+          "details",
+          "counts"
         ],
         "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "summary": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "errors": {
+            "type": "array",
+            "items": {}
+          },
+          "warnings": {
+            "type": "array",
+            "items": {}
+          },
+          "resolved_inputs": {},
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "full_output": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              },
+              "produced": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "payload_path": {
+                          "type": "string"
+                        },
+                        "session_id": {
+                          "type": "string"
+                        },
+                        "descriptor": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "summary",
+                            "log"
+                          ]
+                        },
+                        "created_at_utc": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "payload_bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "content_type": {
+                          "type": "string"
+                        },
+                        "extension": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "txt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "payload_path",
+                        "session_id",
+                        "descriptor",
+                        "role",
+                        "created_at_utc",
+                        "sequence",
+                        "payload_bytes",
+                        "content_type",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": {}
+          },
+          "details": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": {}
       }
-    },
-    "required": [
-      "payload_path",
-      "selected_payload_reference",
-      "details",
-      "counts"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

@@ -1,20 +1,19 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "thread_id": {
-        "title": "Thread Id",
         "type": "string"
       },
       "mode": {
+        "type": "string",
         "enum": [
           "fixed",
           "pre_existing",
           "explained",
           "planned"
-        ],
-        "title": "Mode",
-        "type": "string"
+        ]
       },
       "message": {
         "anyOf": [
@@ -24,8 +23,7 @@
           {
             "type": "null"
           }
-        ],
-        "title": "Message"
+        ]
       },
       "commit_sha": {
         "anyOf": [
@@ -35,8 +33,7 @@
           {
             "type": "null"
           }
-        ],
-        "title": "Commit Sha"
+        ]
       },
       "provenance_json": {
         "anyOf": [
@@ -46,9 +43,24 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Provenance Json"
+        ]
+      },
+      "harness_session_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
       }
     },
     "required": [
@@ -57,193 +69,338 @@
       "message",
       "commit_sha"
     ],
-    "title": "ResolveThreadWithReplyRequest",
-    "type": "object"
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "LocalBranchResolutionProvenance": {
-        "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "anyOf": [
+      {
+        "type": "object",
         "properties": {
-          "kind": {
-            "const": "local_branch",
-            "title": "Kind",
+          "thread_id": {
             "type": "string"
-          },
-          "branch": {
-            "title": "Branch",
-            "type": "string"
-          },
-          "branch_head_oid": {
-            "title": "Branch Head Oid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "branch",
-          "branch_head_oid"
-        ],
-        "title": "LocalBranchResolutionProvenance",
-        "type": "object"
-      },
-      "PRReviewComment": {
-        "description": "A single comment within a PR review thread.\n\nAttributes:\n    id: Numeric database ID of the comment.\n    body: Markdown body of the comment.\n    author: Author's GitHub login, or empty string if the account was\n        deleted.\n    path: File path the comment is on.\n    line: Line number (None for file-level or outdated comments). When\n        the parent thread covers a multi-line range, this is the *end*\n        of that range; `start_line` is the start. Equals `start_line`\n        for single-line threads (in which case `start_line` is None).\n    start_line: Start of the multi-line range the comment covers, or\n        None for single-line comments. GitHub renders multi-line\n        threads as \"lines +<start_line> to +<line>\".\n    created_at: ISO-8601 timestamp of the comment's creation.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "integer"
           },
           "body": {
-            "title": "Body",
             "type": "string"
           },
-          "author": {
-            "title": "Author",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "line": {
-            "anyOf": [
-              {
-                "type": "integer"
+          "comment": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Line"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "start_line": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Start Line"
-          }
-        },
-        "required": [
-          "id",
-          "body",
-          "author",
-          "path",
-          "line",
-          "created_at"
-        ],
-        "title": "PRReviewComment",
-        "type": "object"
-      },
-      "PrResolutionProvenance": {
-        "additionalProperties": false,
-        "properties": {
-          "kind": {
-            "const": "pr",
-            "title": "Kind",
-            "type": "string"
-          },
-          "pr_number": {
-            "title": "Pr Number",
-            "type": "integer"
-          },
-          "pr_url": {
-            "title": "Pr Url",
-            "type": "string"
-          },
-          "pr_state": {
-            "title": "Pr State",
-            "type": "string"
-          },
-          "pr_head_ref_name": {
-            "title": "Pr Head Ref Name",
-            "type": "string"
-          },
-          "pr_head_ref_oid": {
-            "anyOf": [
-              {
+              "body": {
                 "type": "string"
               },
+              "author": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "line": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "start_line": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "body",
+              "author",
+              "path",
+              "line",
+              "created_at"
+            ],
+            "additionalProperties": {}
+          },
+          "is_resolved": {
+            "type": "boolean"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "local_branch"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "branch_head_oid": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "branch",
+                      "branch_head_oid"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "pr"
+                      },
+                      "pr_number": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "pr_url": {
+                        "type": "string"
+                      },
+                      "pr_state": {
+                        "type": "string"
+                      },
+                      "pr_head_ref_name": {
+                        "type": "string"
+                      },
+                      "pr_head_ref_oid": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "pr_number",
+                      "pr_url",
+                      "pr_state",
+                      "pr_head_ref_name"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
               {
                 "type": "null"
               }
-            ],
-            "default": null,
-            "title": "Pr Head Ref Oid"
+            ]
           }
         },
         "required": [
-          "kind",
-          "pr_number",
-          "pr_url",
-          "pr_state",
-          "pr_head_ref_name"
+          "thread_id",
+          "body",
+          "comment",
+          "is_resolved"
         ],
-        "title": "PrResolutionProvenance",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "thread_id": {
-        "title": "Thread Id",
-        "type": "string"
+        "additionalProperties": false
       },
-      "body": {
-        "title": "Body",
-        "type": "string"
-      },
-      "comment": {
-        "$ref": "#/$defs/PRReviewComment"
-      },
-      "is_resolved": {
-        "title": "Is Resolved",
-        "type": "boolean"
-      },
-      "provenance": {
-        "anyOf": [
-          {
-            "discriminator": {
-              "mapping": {
-                "local_branch": "#/$defs/LocalBranchResolutionProvenance",
-                "pr": "#/$defs/PrResolutionProvenance"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/LocalBranchResolutionProvenance"
-              },
-              {
-                "$ref": "#/$defs/PrResolutionProvenance"
-              }
-            ]
+      {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string"
           },
-          {
-            "type": "null"
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "summary": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "errors": {
+            "type": "array",
+            "items": {}
+          },
+          "warnings": {
+            "type": "array",
+            "items": {}
+          },
+          "resolved_inputs": {},
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "full_output": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              },
+              "produced": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "payload_path": {
+                          "type": "string"
+                        },
+                        "session_id": {
+                          "type": "string"
+                        },
+                        "descriptor": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "summary",
+                            "log"
+                          ]
+                        },
+                        "created_at_utc": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "payload_bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "content_type": {
+                          "type": "string"
+                        },
+                        "extension": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "txt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "payload_path",
+                        "session_id",
+                        "descriptor",
+                        "role",
+                        "created_at_utc",
+                        "sequence",
+                        "payload_bytes",
+                        "content_type",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": {}
+          },
+          "details": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           }
+        },
+        "required": [
+          "operation"
         ],
-        "default": null,
-        "title": "Provenance"
+        "additionalProperties": {}
       }
-    },
-    "required": [
-      "thread_id",
-      "body",
-      "comment",
-      "is_resolved"
-    ],
-    "title": "ResolveThreadWithReplyResult",
-    "type": "object"
+    ]
   }
 }

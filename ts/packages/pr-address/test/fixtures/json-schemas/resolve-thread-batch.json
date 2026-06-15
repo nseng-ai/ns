@@ -5,6 +5,13 @@
     "properties": {
       "from_build": {
         "type": "string"
+      },
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
       }
     },
     "required": [
@@ -14,213 +21,113 @@
   },
   "output_json_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "total": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
-      },
-      "resolved": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
-      },
-      "failed": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
-      },
-      "skipped": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
-      },
-      "all_succeeded": {
-        "type": "boolean"
-      },
-      "results": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "index": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991
-            },
-            "thread_id": {
-              "type": "string"
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "fixed",
-                "pre_existing",
-                "explained",
-                "planned"
-              ]
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "resolved",
-                "failed",
-                "skipped"
-              ]
-            },
-            "body": {
-              "anyOf": [
-                {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "resolved": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "all_succeeded": {
+            "type": "boolean"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "thread_id": {
                   "type": "string"
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "comment": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "body": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "fixed",
+                    "pre_existing",
+                    "explained",
+                    "planned"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "resolved",
+                    "failed",
+                    "skipped"
+                  ]
+                },
+                "body": {
+                  "anyOf": [
+                    {
                       "type": "string"
                     },
-                    "author": {
-                      "type": "string"
-                    },
-                    "path": {
-                      "type": "string"
-                    },
-                    "line": {
-                      "anyOf": [
-                        {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "created_at": {
-                      "type": "string"
-                    },
-                    "start_line": {
-                      "anyOf": [
-                        {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    {
+                      "type": "null"
                     }
-                  },
-                  "required": [
-                    "id",
-                    "body",
-                    "author",
-                    "path",
-                    "line",
-                    "created_at"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "is_resolved": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "error_type": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "error_message": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "provenance": {
-              "anyOf": [
-                {
-                  "oneOf": [
+                "comment": {
+                  "anyOf": [
                     {
                       "type": "object",
                       "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "local_branch"
-                        },
-                        "branch": {
-                          "type": "string"
-                        },
-                        "branch_head_oid": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "kind",
-                        "branch",
-                        "branch_head_oid"
-                      ],
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string",
-                          "const": "pr"
-                        },
-                        "pr_number": {
+                        "id": {
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
-                        "pr_url": {
+                        "body": {
                           "type": "string"
                         },
-                        "pr_state": {
+                        "author": {
                           "type": "string"
                         },
-                        "pr_head_ref_name": {
+                        "path": {
                           "type": "string"
                         },
-                        "pr_head_ref_oid": {
+                        "line": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "start_line": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             },
                             {
                               "type": "null"
@@ -229,35 +136,200 @@
                         }
                       },
                       "required": [
-                        "kind",
-                        "pr_number",
-                        "pr_url",
-                        "pr_state",
-                        "pr_head_ref_name"
+                        "id",
+                        "body",
+                        "author",
+                        "path",
+                        "line",
+                        "created_at"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
                     }
                   ]
                 },
-                {
-                  "type": "null"
+                "is_resolved": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "error_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "error_message": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "provenance": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "local_branch"
+                            },
+                            "branch": {
+                              "type": "string"
+                            },
+                            "branch_head_oid": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "branch",
+                            "branch_head_oid"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "pr"
+                            },
+                            "pr_number": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "pr_url": {
+                              "type": "string"
+                            },
+                            "pr_state": {
+                              "type": "string"
+                            },
+                            "pr_head_ref_name": {
+                              "type": "string"
+                            },
+                            "pr_head_ref_oid": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "pr_number",
+                            "pr_url",
+                            "pr_state",
+                            "pr_head_ref_name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
-              ]
+              },
+              "required": [
+                "index",
+                "thread_id",
+                "mode",
+                "status"
+              ],
+              "additionalProperties": false
             }
           },
-          "required": [
-            "index",
-            "thread_id",
-            "mode",
-            "status"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "resolved_inputs": {
-        "type": "object",
-        "properties": {
-          "build": {
+          "resolved_inputs": {
+            "type": "object",
+            "properties": {
+              "build": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "build"
+            ],
+            "additionalProperties": false
+          },
+          "resolution_reference": {
             "type": "object",
             "properties": {
               "payload_path": {
@@ -316,78 +388,195 @@
           }
         },
         "required": [
-          "build"
+          "total",
+          "resolved",
+          "failed",
+          "skipped",
+          "all_succeeded",
+          "results",
+          "resolved_inputs",
+          "resolution_reference"
         ],
         "additionalProperties": false
       },
-      "resolution_reference": {
+      {
         "type": "object",
         "properties": {
-          "payload_path": {
+          "operation": {
             "type": "string"
           },
-          "session_id": {
-            "type": "string"
+          "counts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           },
-          "descriptor": {
-            "type": "string"
+          "summary": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "raw",
-              "summary",
-              "log"
-            ]
+          "errors": {
+            "type": "array",
+            "items": {}
           },
-          "created_at_utc": {
-            "type": "string"
+          "warnings": {
+            "type": "array",
+            "items": {}
           },
-          "sequence": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+          "resolved_inputs": {},
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "full_output": {
+                "type": "object",
+                "properties": {
+                  "payload_path": {
+                    "type": "string"
+                  },
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "summary",
+                      "log"
+                    ]
+                  },
+                  "created_at_utc": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payload_bytes": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "content_type": {
+                    "type": "string"
+                  },
+                  "extension": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "txt"
+                    ]
+                  }
+                },
+                "required": [
+                  "payload_path",
+                  "session_id",
+                  "descriptor",
+                  "role",
+                  "created_at_utc",
+                  "sequence",
+                  "payload_bytes",
+                  "content_type",
+                  "extension"
+                ],
+                "additionalProperties": false
+              },
+              "produced": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "payload_path": {
+                          "type": "string"
+                        },
+                        "session_id": {
+                          "type": "string"
+                        },
+                        "descriptor": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "summary",
+                            "log"
+                          ]
+                        },
+                        "created_at_utc": {
+                          "type": "string"
+                        },
+                        "sequence": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "payload_bytes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "content_type": {
+                          "type": "string"
+                        },
+                        "extension": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "txt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "payload_path",
+                        "session_id",
+                        "descriptor",
+                        "role",
+                        "created_at_utc",
+                        "sequence",
+                        "payload_bytes",
+                        "content_type",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "reference"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": {}
           },
-          "payload_bytes": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
-          "content_type": {
-            "type": "string"
-          },
-          "extension": {
-            "type": "string",
-            "enum": [
-              "json",
-              "txt"
-            ]
+          "details": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           }
         },
         "required": [
-          "payload_path",
-          "session_id",
-          "descriptor",
-          "role",
-          "created_at_utc",
-          "sequence",
-          "payload_bytes",
-          "content_type",
-          "extension"
+          "operation"
         ],
-        "additionalProperties": false
+        "additionalProperties": {}
       }
-    },
-    "required": [
-      "total",
-      "resolved",
-      "failed",
-      "skipped",
-      "all_succeeded",
-      "results",
-      "resolved_inputs",
-      "resolution_reference"
-    ],
-    "additionalProperties": false
+    ]
   }
 }
