@@ -43,6 +43,17 @@ pr-address --help  # via the installed shim, dispatches to this checkout
 pr-address exec prepare-run --payload-session-id pr-address-demo --format json
 ```
 
+Validate classification JSON without creating repo scratch files:
+
+```bash
+printf '%s' "$CLASSIFICATION_JSON" \
+  | pr-address exec validate-feedback-classification \
+      --pr-number <pr-number> \
+      --format json
+```
+
+`validate-feedback-classification --classification-file <path>` hard-fails when `<path>` resolves inside the current git worktree. Use stdin, `--classification-json`, or a file outside the worktree.
+
 ## Validation
 
 ```bash

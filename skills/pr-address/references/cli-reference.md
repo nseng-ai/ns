@@ -3,7 +3,8 @@
 ## Artifact boundary
 
 - Pipeline-produced artifacts live in the payload session and are resolved by PR number or by latest stack artifact lookup.
-- Agent-authored files remain explicit inputs: classification packets, decisions files, checkpoint evidence files, and collection inputs where documented.
+- Classification packets are agent-authored JSON inputs normally sent via stdin or `--classification-json`; `--classification-file` is allowed only for files outside the current git worktree.
+- Agent-authored decisions files, checkpoint evidence files, and collection inputs remain explicit files where documented.
 - Do not compose pipeline-produced wrapper JSON by hand.
 
 ## Session-only helpers
@@ -17,7 +18,9 @@ These helpers reject non-empty stdin with a machine `invalid_request` and treat 
 
 ## Helpers that still read explicit agent-authored input
 
-- `validate-feedback-classification --pr-number <pr> --classification-file <path>` reads the agent-authored classification packet.
+- `validate-feedback-classification --pr-number <pr>` reads the agent-authored classification packet from stdin when no classification option is supplied.
+- `validate-feedback-classification --pr-number <pr> --classification-json <json>` remains available for compact inline classification packets.
+- `validate-feedback-classification --pr-number <pr> --classification-file <path>` reads an agent-authored classification packet only when `<path>` is outside the current git worktree; worktree-local paths hard-fail with no override.
 - `build-resolve-thread-batch-payload --decisions-file <path>` and `build-stack-resolve-thread-payloads --decisions-file <path>` read agent-authored decisions.
 - `record-batch-checkpoint --evidence-file <path>` reads agent-authored evidence.
 - Collection helpers such as `map-branch-prs`, `stack-feedback-preflight`, and `stack-feedback-prep` may still read their documented collection inputs from stdin or explicit collection flags.
@@ -79,4 +82,4 @@ Use `--stdout-mode full` only as an explicit debugging escape. Full inline outpu
 - **`pr_number`** — required for operations scoped to a PR (reviews,
   discussion comments, feedback fetches).
 
-When in doubt, keep authored judgment in files and let `pr-address` locate pipeline artifacts through the current payload session.
+When in doubt, keep classification JSON out of the worktree, keep authored decisions/evidence in explicit files, and let `pr-address` locate pipeline artifacts through the current payload session.

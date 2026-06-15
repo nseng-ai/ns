@@ -83,6 +83,7 @@ export type CurrentBranchResult = { type: "branch"; branch: string } | { type: "
 export type BranchHeadOidResult = { type: "found"; oid: string } | { type: "missing"; stderr: string; returncode: number } | { type: "failure"; failure: GatewayFailure };
 export type CommitChangedFilesResult = { type: "ok"; files: readonly string[] } | { type: "failure"; failure: GatewayFailure };
 export type RepoContextResult = { type: "inside" } | { type: "outside" } | { type: "failure"; failure: GatewayFailure };
+export type WorkTreeRootResult = { type: "inside"; root: string } | { type: "outside" } | { type: "failure"; failure: GatewayFailure };
 
 export interface GatewayOptions {
 	cwd: string;
@@ -106,6 +107,7 @@ export interface PrAddressGitHubGateway {
 export interface PrAddressGitGateway {
 	getCurrentBranch(options: GatewayOptions): Promise<CurrentBranchResult>;
 	isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult>;
+	getWorkTreeRoot(options: GatewayOptions): Promise<WorkTreeRootResult>;
 	getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult>;
 	getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<CommitChangedFilesResult>;
 	getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>>;
@@ -371,6 +373,14 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 	async isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult> {
 		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--is-inside-work-tree"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode === 0) return result.stdout.trim() === "true" ? { type: "inside" } : { type: "outside" };
+		// git exits 128 with "not a git repository" outside any work tree.
+		if (result.exitCode === 128) return { type: "outside" };
+		return { type: "failure", failure: failureFromProcess(result) };
+	}
+
+	async getWorkTreeRoot(options: GatewayOptions): Promise<WorkTreeRootResult> {
+		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--show-toplevel"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
+		if (result.exitCode === 0) return { type: "inside", root: result.stdout.trim() };
 		// git exits 128 with "not a git repository" outside any work tree.
 		if (result.exitCode === 128) return { type: "outside" };
 		return { type: "failure", failure: failureFromProcess(result) };

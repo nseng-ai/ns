@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
 import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import { prArtifactDescriptor } from "../../src/session-artifacts.ts";
+import { InMemoryPrAddressGitGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, REPO_ROOT, readJson } from "../support/golden.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -94,7 +95,7 @@ describe("managed classification/planning CLI operations", () => {
 		expect(envelope.message).toContain("payload-session artifacts");
 	});
 
-	test("validate-feedback-classification resolves manifest by PR number and auto-persists classification", async () => {
+	test("validate-feedback-classification accepts an outside-worktree classification file and auto-persists classification", async () => {
 		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
 		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
 		const sessionId = "session-validate";
@@ -119,7 +120,7 @@ describe("managed classification/planning CLI operations", () => {
 				"--format",
 				"json",
 			],
-			{ cwd: REPO_ROOT, env, payloadClock: fixedClock("2026-06-09T08:30:01Z") },
+			{ cwd: REPO_ROOT, env, git: new InMemoryPrAddressGitGateway({ workTreeRoot: REPO_ROOT }), payloadClock: fixedClock("2026-06-09T08:30:01Z") },
 		);
 		expect(await validateRun.exit).toBe(0);
 		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as {
@@ -150,12 +151,95 @@ describe("managed classification/planning CLI operations", () => {
 		expect(planEnvelope.data.details.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 4 });
 	});
 
-	test("validate-feedback-classification session mode rejects missing classification source", async () => {
+	test("validate-feedback-classification accepts stdin classification and auto-persists classification", async () => {
+		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
+		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
+		const sessionId = "session-validate-stdin";
+		const prNumber = 42;
+		const store = expectPayloadOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-06-09T08:30:00Z") }));
+		expectPayloadOk(
+			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
+		);
+		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
+
+		const validateRun = runScenario(["exec", "validate-feedback-classification", "--pr-number", String(prNumber), "--format", "json"], {
+			cwd: REPO_ROOT,
+			env,
+			stdin: JSON.stringify(input.classification),
+			payloadClock: fixedClock("2026-06-09T08:30:01Z"),
+		});
+		expect(await validateRun.exit).toBe(0);
+		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as {
+			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number } }; classification_reference: { descriptor: string; sequence: number } };
+		};
+		expect(validateEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
+		expect(validateEnvelope.data.classification_reference).toMatchObject({ descriptor: "pr-address-pr-42-classification", role: "summary", sequence: 2 });
+
+		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
+			cwd: REPO_ROOT,
+			env,
+			payloadClock: fixedClock("2026-06-09T08:30:02Z"),
+		});
+		expect(await planRun.exit).toBe(0);
+		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
+			data: { resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } } };
+		};
+		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
+		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
+	});
+
+	test("validate-feedback-classification rejects worktree-local classification files before reading", async () => {
+		const run = runScenario(
+			[
+				"exec",
+				"validate-feedback-classification",
+				"--pr-number",
+				"42",
+				"--classification-file",
+				"classification.json",
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, git: new InMemoryPrAddressGitGateway({ workTreeRoot: REPO_ROOT }) },
+		);
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("refuses --classification-file paths inside the current git worktree");
+		expect(envelope.message).toContain("stdin");
+		expect(envelope.message).toContain("--classification-json");
+	});
+
+	test("validate-feedback-classification session mode rejects missing classification input", async () => {
 		const missingRun = runScenario(["exec", "validate-feedback-classification", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT });
 		expect(await missingRun.exit).toBe(2);
 		const missingEnvelope = JSON.parse(missingRun.stdout.join(""));
 		expect(missingEnvelope.error_type).toBe("invalid_request");
-		expect(missingEnvelope.message).toContain("requires exactly one classification source");
+		expect(missingEnvelope.message).toContain("requires a non-empty classification via stdin, --classification-json, or --classification-file");
+	});
+
+	test("validate-feedback-classification rejects mixed classification option sources", async () => {
+		const run = runScenario(
+			[
+				"exec",
+				"validate-feedback-classification",
+				"--pr-number",
+				"42",
+				"--classification-json",
+				"{}",
+				"--classification-file",
+				"classification.json",
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, git: new InMemoryPrAddressGitGateway({ workTreeRoot: REPO_ROOT }) },
+		);
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("invalid_request");
+		expect(envelope.message).toContain("accepts only one classification source");
+		expect(envelope.message).toContain("--classification-json");
+		expect(envelope.message).toContain("--classification-file");
 	});
 
 	test("plan-feedback resolves and writes session artifacts through an injected in-memory payload store", async () => {
