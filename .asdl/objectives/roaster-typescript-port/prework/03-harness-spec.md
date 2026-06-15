@@ -9,6 +9,7 @@ dropped (CI-only). Stdin pump retained.
 The two facts below were re-verified against source.
 
 ## 1. Claude Code argv (VERIFIED `invocation.py:250-279`)
+
 ```
 claude -p --output-format json --bare
   --tools Bash,Read
@@ -16,6 +17,7 @@ claude -p --output-format json --bare
   --system-prompt <full text of review_system_findings.md>
   --json-schema <JSON.stringify(findings schema)>
 ```
+
 - Binary literal `"claude"`; resolved via `which` (injectable `binaryLocator`); missing → return
   `HarnessBinaryMissing` **before** spawn.
 - `--tools` is **variadic** — it MUST be followed by a flag. Keep `--model` immediately after the
@@ -32,6 +34,7 @@ claude -p --output-format json --bare
   repo cwd).
 
 ## 2. stdin pump (`invocation.py:251-252, 478-547`)
+
 - The **user prompt is sent via stdin, unconditionally** (no threshold) — so a large diff never
   triggers `E2BIG` at execve.
 - Mechanism: write full prompt to stdin on a separate writer while concurrently reading stdout
@@ -41,6 +44,7 @@ claude -p --output-format json --bare
   module-global `subprocess.Popen` monkeypatch).
 
 ## 3. Output parsing (`invocation.py:308-426`)
+
 - **Exit first**: non-zero return → `HarnessExecutionFailed` (message = stderr, else last stdout
   line, else "exited with status N").
 - Parse stdout as a **single JSON document** (`--output-format json --bare` emits one object). Two
@@ -56,7 +60,9 @@ claude -p --output-format json --bare
   `input_tokens`/`output_tokens`/`cache_creation_input_tokens`/`cache_read_input_tokens` not int.
 
 ## 4. Prompt assembly (`invocation.py:92-128`)
+
 Two markdown assets (copy verbatim into `src/prompts/`):
+
 - **System**: `review_system_findings.md` (trimmed), passed as `--system-prompt`. Instructs the
   model to call `StructuredOutput` once with `{findings:[…]}`, `line: null` for file-level findings,
   `{findings: []}` when nothing.
@@ -65,22 +71,25 @@ Two markdown assets (copy verbatim into `src/prompts/`):
   `changed_path_count`, `changed_paths` (`- {path}` lines or "(no changed paths reported)"),
   `diff_block` (the capped diff in a fence). Final prompt `.strip()`ed.
 - **Fence collision safety** (`_render_prompt_fence`): fence backtick count =
-  `max(3, longestBacktickRun(content) + 1)`. A diff containing ``` ``` ``` gets a 4-backtick fence.
+  `max(3, longestBacktickRun(content) + 1)`. A diff containing `` ``` gets a 4-backtick fence.
 - Port note: replicate `str.format` named substitution exactly; literal braces in the template would
   be hazardous. (TS: a small named-substitution helper, not template literals over untrusted text.)
 
 ## 5. Diff-cap / coverage (`workflow.py` / `_prompt_sized_diff`, `:131-206`)
+
 Constants: total `_MAX_PROMPT_DIFF_TOKENS = 120_000`; per-file `_MAX_PROMPT_DIFF_FILE_TOKENS =
 40_000`. Token estimate = `ceil(codepoints/4)` per `02-§1`. **Total estimate is over the whole diff
 text, not the sum of per-file estimates.**
 
 Inclusion loop over `localDiff.files` **in diff order** (greedy, non-backtracking):
+
 ```
 for f in files:
   if f.estimatedTokens > PER_FILE_CAP:           omit(reason="file_exceeds_cap"); continue   # strict >
   if includedTokens + f.estimatedTokens > TOTAL_CAP: omit(reason="diff_budget_exhausted"); continue  # strict >
   include(f.rawText); includedTokens += f.estimatedTokens
 ```
+
 - Both comparisons strict `>` — a file exactly at a cap is **included**.
 - Greedy and non-backtracking: a too-big file is skipped but later smaller files can still fit. No
   sorting; preserve diff order.
@@ -97,6 +106,7 @@ for f in files:
   carries its trailing newline). Empty body (all omitted) → header only.
 
 ## 6. Data shapes (`models.py`)
+
 - Request: `HarnessReviewRequest { model, reviewDefinition, target: { localDiff } }`. `LocalDiff
   { baseRef, diffText }` with derived `files`/`changedPaths` (cached, so they can't drift).
 - Success: `ReviewExecutionResponse { payload: FindingsReview, usage: ReviewUsage|null,
@@ -111,12 +121,14 @@ for f in files:
   idiomatically as discriminated-union values.
 
 ## 7. The fake
+
 The Python fake subclasses `HarnessRuntime` and overrides only `run_review`, keyed by
 `reviewDefinition.name`, recording requests, returning a default empty `FindingsReview`. In TS make
 `HarnessGateway` an interface with a real adapter and an in-memory fake; the only contract that
 matters is `runReview(request) -> ReviewExecutionResponse | Failure`.
 
 ## Must-match vs free
+
 **Must match (external contract):** argv order/flags; `--json-schema` stringified single arg + field
 set; prompt-via-stdin with no-deadlock + broken-pipe tolerance; findings from
 `structured_output`; usage field names; `ceil(codepoints/4)` + strict-`>` greedy in-diff-order
@@ -128,6 +140,7 @@ byte-for-byte; coverage invariant `<=`.
 500-char truncation; failure-type names; the fake-as-interface seam.
 
 ### TS test checklist (`tests/unit/test_harness_invocation.py`)
+
 argv assertions: `--bare` present, `--verbose` absent, `--append-system-prompt` absent, no JSON
 `$ref`s in schema, Edit/Write absent, `--tools` value followed by a flag; prompt-on-stdin (200KB
 diff not in any argv token); non-zero exit → failure (stderr wins); per-file cap omits a file even
