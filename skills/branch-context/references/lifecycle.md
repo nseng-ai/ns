@@ -69,6 +69,13 @@ CLI surfaces:
 
 ## Branch creation policy
 
-- The portable CLI default is `plain-git` when `--branch-creation` is omitted.
-- Use `--branch-creation graphite` only when the user, wrapper, or repo policy explicitly requests Graphite.
-- Passing `--branch <target-branch>` changes the target branch name only. For from-plan workflows, the Branch Memory key remains derived from the branch-context slug as `<branch-context-slug>.md`.
+Choose the branch creation method before invoking `branch-context exec from-plan`. Policy precedence is:
+
+1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; direct CLI invocations translate these to `--branch-creation graphite` or `--branch-creation plain-git`.
+2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.
+3. Repo policy from loaded project instructions/docs.
+4. Portable CLI default (`plain-git`) only when no higher-priority policy exists.
+
+The portable CLI default is still `plain-git` when `--branch-creation` is omitted. In this repo, direct skill/CLI execution should include `--branch-creation graphite`; omitting `--branch-creation` is correct only for portable/default contexts without a repo policy.
+
+Passing `--branch <target-branch>` changes the target branch name only. For from-plan workflows, the Branch Memory key remains derived from the branch-context slug as `<branch-context-slug>.md`.

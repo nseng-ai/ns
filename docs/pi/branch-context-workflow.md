@@ -143,7 +143,7 @@ Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attac
 
 ### Graphite branch creation
 
-Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/branch-context:from-plan` and `/branch-context:upstack-impl-session` to request Graphite branch creation unless the user passes `--plain-git`.
+Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/branch-context:from-plan` and `/branch-context:upstack-impl-session` to request Graphite branch creation unless the user passes `--plain-git`. Direct skill/CLI agent invocations in this repo bypass that Pi adapter option, so they must pass `--branch-creation graphite` unless the user explicitly requests plain Git.
 
 Graphite creation still creates the local Git branch first:
 

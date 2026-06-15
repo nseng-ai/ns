@@ -19,6 +19,44 @@ import {
 	TARGET_BRANCH,
 	contentSlugEvidence,
 } from "./branch-context-extension-support.ts";
+
+function expectBranchCreationPolicyPrecedence(text: string): void {
+	const normalizedText = text.toLowerCase();
+	const explicitUserIndex = normalizedText.indexOf("explicit user");
+	const wrapperIndex = normalizedText.indexOf("wrapper");
+	const repoPolicyIndex = normalizedText.indexOf("repo policy");
+	const portableDefaultIndex = normalizedText.indexOf("portable cli default");
+
+	expect(text).toMatch(/policy precedence|branch creation policy/i);
+	expect(text).toContain("--branch-creation graphite");
+	expect(explicitUserIndex).toBeGreaterThanOrEqual(0);
+	expect(wrapperIndex).toBeGreaterThanOrEqual(0);
+	expect(repoPolicyIndex).toBeGreaterThanOrEqual(0);
+	expect(portableDefaultIndex).toBeGreaterThanOrEqual(0);
+	expect(explicitUserIndex).toBeLessThan(wrapperIndex);
+	expect(wrapperIndex).toBeLessThan(repoPolicyIndex);
+	expect(repoPolicyIndex).toBeLessThan(portableDefaultIndex);
+}
+
+describe("branch-context from-plan policy docs", () => {
+	test("direct skill invocation honors repo Graphite policy precedence", async () => {
+		const skillText = await readFile(join(REPO_ROOT, "skills", "branch-context-from-plan", "SKILL.md"), "utf8");
+		const lifecycleText = await readFile(
+			join(REPO_ROOT, "skills", "branch-context", "references", "lifecycle.md"),
+			"utf8",
+		);
+		const agentsText = await readFile(join(REPO_ROOT, "AGENTS.md"), "utf8");
+		const projectExtensionText = await readFile(join(REPO_ROOT, ".pi", "extensions", "branch-context.ts"), "utf8");
+
+		expect(agentsText).toContain("This repo uses Graphite (`gt`) as the default tool for branch and PR workflow");
+		expect(agentsText).toContain("Creating branches: use `gt create");
+		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
+		expectBranchCreationPolicyPrecedence(skillText);
+		expectBranchCreationPolicyPrecedence(lifecycleText);
+		expect(skillText).not.toContain("Omit `--branch-creation` for the portable default");
+	});
+});
+
 describe("branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
