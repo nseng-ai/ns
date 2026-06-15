@@ -32,6 +32,20 @@ async function loadPreExistingFixture(): Promise<{ plan: Record<string, unknown>
 	};
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function planBatches(plan: Record<string, unknown>): Array<Record<string, unknown>> {
+	const batches = plan.batches;
+	if (!Array.isArray(batches)) return [];
+	return batches.filter(isRecord);
+}
+
+function batchId(batch: Record<string, unknown>): string | undefined {
+	return typeof batch.batch_id === "string" ? batch.batch_id : undefined;
+}
+
 describe("managed payload/finalization CLI operations", () => {
 	test("build-resolve-thread-batch-payload resolves the latest PR plan and writes a build artifact", async () => {
 		const buildInput = await loadBuildFixture();
@@ -92,7 +106,7 @@ describe("managed payload/finalization CLI operations", () => {
 		const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
 		const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
 		const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
-		const plan = { ...buildInput.plan, batches: ((buildInput.plan.batches as unknown[]) ?? []).filter((batch) => (batch as { batch_id?: string }).batch_id === "single_file") };
+		const plan = { ...buildInput.plan, batches: planBatches(buildInput.plan).filter((batch) => batchId(batch) === "single_file") };
 		expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "plan" }), role: "summary", payload: plan }));
 
 		const buildRun = runScenario(
@@ -175,7 +189,7 @@ describe("managed payload/finalization CLI operations", () => {
 		const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
 		const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
 		const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
-		const plan = { ...input.plan, batches: ((input.plan.batches as unknown[]) ?? []).filter((batch) => (batch as { batch_id?: string }).batch_id === "pre_existing") };
+		const plan = { ...input.plan, batches: planBatches(input.plan).filter((batch) => batchId(batch) === "pre_existing") };
 		expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "plan" }), role: "summary", payload: plan }));
 
 		const checkpointRun = runScenario(
@@ -226,7 +240,7 @@ describe("managed payload/finalization CLI operations", () => {
 
 	test("finalize-run reports missing planned-batch checkpoint evidence", async () => {
 		const buildInput = await loadBuildFixture();
-		const plan = { ...buildInput.plan, batches: [...((buildInput.plan.batches as unknown[]) ?? []), { batch_id: "second_batch", complexity: "single_file", approval_required: false, items: [] }] };
+		const plan = { ...buildInput.plan, batches: [...planBatches(buildInput.plan), { batch_id: "second_batch", complexity: "single_file", approval_required: false, items: [] }] };
 		const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
 		const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
 		const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
