@@ -55,10 +55,10 @@ A noteworthy finding: a richer, reducer-style `AgentHarness` hook layer exists i
 
 Don't conflate them:
 
-| Plane | Mechanism | Direction | Catalog |
-|---|---|---|---|
-| **Lifecycle events** | `ExtensionRunner.emit*()` | host → extensions | Fixed `ExtensionEvent` union |
-| **`pi.events`** | plain Node `EventEmitter` (`event-bus.ts`, 33 lines) | extension ↔ extension | Arbitrary string channels |
+| Plane                | Mechanism                                            | Direction             | Catalog                      |
+| -------------------- | ---------------------------------------------------- | --------------------- | ---------------------------- |
+| **Lifecycle events** | `ExtensionRunner.emit*()`                            | host → extensions     | Fixed `ExtensionEvent` union |
+| **`pi.events`**      | plain Node `EventEmitter` (`event-bus.ts`, 33 lines) | extension ↔ extension | Arbitrary string channels    |
 
 `pi.events` is one shared bus threaded into every extension's API (loader.ts:325, 422), used for inter-extension coordination. The runner holds no reference to it.
 
@@ -87,17 +87,17 @@ agent_end
 
 The genuinely interesting design work is in **how multiple handlers' return values combine** — and it differs per event, with the type system (`RunnerEmitEvent` excludes specialized events, runner.ts:120-132) forcing each through the right combiner:
 
-| Event | Combination semantics |
-|---|---|
-| **`tool_call`** | First handler returning `{block}` short-circuits. `event.input` is mutable in place; later handlers see earlier mutations; no re-validation. |
-| **`tool_result`** | Middleware chain mutating a shared `currentEvent` — each handler sees accumulated `content`/`details`/`isError`. |
+| Event                    | Combination semantics                                                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`tool_call`**          | First handler returning `{block}` short-circuits. `event.input` is mutable in place; later handlers see earlier mutations; no re-validation.                                     |
+| **`tool_result`**        | Middleware chain mutating a shared `currentEvent` — each handler sees accumulated `content`/`details`/`isError`.                                                                 |
 | **`before_agent_start`** | System prompt is **chained** (each handler sees prior edits via rebound `getSystemPrompt`), but only the **last** edit survives. Injected messages **accumulate** into an array. |
-| **`context`** | Input deep-cloned (`structuredClone`) first; message array threaded through handlers. |
-| **`message_end`** | Chains the message; **rejects** any replacement that changes `role`. |
-| **`input`** | Transform chain; `handled` short-circuits, `transform` updates text/images. |
-| **`session_before_*`** | `cancel: true` is first-wins short-circuit; otherwise last result wins. |
-| **`resources_discover`** | Pure fan-in: concatenates all skill/prompt/theme paths. |
-| **`project_trust`** | First `yes`/`no` wins; `undecided` falls through. |
+| **`context`**            | Input deep-cloned (`structuredClone`) first; message array threaded through handlers.                                                                                            |
+| **`message_end`**        | Chains the message; **rejects** any replacement that changes `role`.                                                                                                             |
+| **`input`**              | Transform chain; `handled` short-circuits, `transform` updates text/images.                                                                                                      |
+| **`session_before_*`**   | `cancel: true` is first-wins short-circuit; otherwise last result wins.                                                                                                          |
+| **`resources_discover`** | Pure fan-in: concatenates all skill/prompt/theme paths.                                                                                                                          |
+| **`project_trust`**      | First `yes`/`no` wins; `undecided` falls through.                                                                                                                                |
 
 **Error isolation is deliberately asymmetric.** Almost every dispatcher wraps each handler in try/catch, routes to an error listener, and **continues** (fail-open: a crashing handler is skipped, the event proceeds). The one exception is `tool_call`, which has **no try/catch** (runner.ts:870-880): a thrown error propagates and the caller **re-throws to block the tool** (agent-session.ts:410-422, "Extension failed, blocking execution"). So a permission-gate extension that crashes *blocks* rather than waves the call through — **fail-safe** exactly where safety matters. This is the single most important and easily-missed nuance in the model.
 

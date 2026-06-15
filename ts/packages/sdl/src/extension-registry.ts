@@ -95,8 +95,9 @@ export async function loadExtensions(options: LoadExtensionsOptions): Promise<Lo
 	const merged = new Map<string, LoadedCommandContribution>();
 	for (const level of SOURCE_LEVELS) {
 		const contributions = contributionsByLevel.get(level) ?? [];
-		const validated = validateLevelContributions(level, contributions, diagnostics);
-		for (const contribution of validated) {
+		const validation = validateLevelContributions(level, contributions);
+		diagnostics.push(...validation.diagnostics);
+		for (const contribution of validation.contributions) {
 			const existing = merged.get(contribution.name);
 			if (existing !== undefined) {
 				diagnostics.push({
@@ -183,8 +184,11 @@ async function runExtensionFactory(
 function validateLevelContributions(
 	level: ExtensionSourceLevel,
 	contributions: readonly ExtensionCommandContribution[],
-	diagnostics: ExtensionDiagnostic[],
-): readonly LoadedCommandContribution[] {
+): {
+	contributions: readonly LoadedCommandContribution[];
+	diagnostics: readonly ExtensionDiagnostic[];
+} {
+	const diagnostics: ExtensionDiagnostic[] = [];
 	const validated: LoadedCommandContribution[] = [];
 	for (const contribution of contributions) {
 		if (contribution.name === undefined || !SDL_COMMAND_NAME_PATTERN.test(contribution.name)) {
@@ -225,7 +229,10 @@ function validateLevelContributions(
 			sourceLevel: level,
 		});
 	}
-	return validated.filter((contribution) => !duplicateNames.has(contribution.name));
+	return {
+		contributions: validated.filter((contribution) => !duplicateNames.has(contribution.name)),
+		diagnostics,
+	};
 }
 
 function addContribution(
