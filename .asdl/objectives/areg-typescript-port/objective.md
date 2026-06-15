@@ -20,9 +20,9 @@ The port should cover the active `areg` surfaces: `areg init`, `areg check`, `ar
 - Preserve the current agent-facing JSON contracts for hidden `exec skillx` helpers unless the contract inventory classifies a field or shape as incidental and records an accepted divergence.
 - Preserve current skill-management behavior around `.agents/skills`, `.claude/skills`, `skills-lock.json`, `asdl.toml` `[areg].agents`, legacy `areg.json` fallback where still supported, managed instruction blocks, and local skill validation.
 - Preserve external boundaries as fake-driven TypeScript gateways for Git-root discovery, host tool availability, `gh api`, `npx skills add`, transient skillx workspaces, filesystem mutation, and project configuration reads/writes.
-- Decide and document the accepted TypeScript distribution/install model for `areg`, rather than inheriting Python `uvx` or previous run-from-source shims automatically.
-- Update public docs, skill prose, install recipes, workspace metadata, and relevant repo tooling so normal development and installed invocation use the TypeScript implementation by default.
-- Retire the active Python `packages/areg` path only after TS parity, caller migration, and rollback/reference evidence are recorded.
+- Use an immediate checkout-local TypeScript invocation path for `areg` cutover, rather than waiting on npm-style external distribution or preserving Python `uvx` packaging.
+- Update public docs, skill prose, install recipes, workspace metadata, and relevant repo tooling so normal repo development and CI invocation use the TypeScript implementation by default.
+- Retire the active Python `packages/areg` path now that TS parity is evidenced, after caller migration and rollback/reference evidence are recorded.
 - Record the out-of-sequence selection and any reusable lessons back into the parent TypeScript migration Objective.
 
 ## Non-Goals
@@ -44,7 +44,7 @@ The port should cover the active `areg` surfaces: `areg init`, `areg check`, `ar
 - `areg init` preserves the accepted project-bootstrap behavior, including Git-root checks, managed instruction blocks, bootstrap skills, agent resolution, non-destructive config handling, and fake-backed external `npx skills` installation.
 - `areg update-skills` preserves the curated-lockfile workaround for upstream `npx skills update` behavior until that workaround is explicitly retired.
 - The Objective-local `skill-invocation-kinds.md` system is reimplemented in TypeScript, including artifact-inferred `normal`, `invoke-only`, `command-backed`, `ambient-only`, `mixed`, and `inconsistent` kinds, Pi replacement verification for command-backed skills, status/list/show reporting, `areg check` diagnostics, and docs/tests for the flattened surface.
-- Public docs, skills, just recipes, package metadata, and install instructions point at the TypeScript-backed `areg` path.
+- Public docs, skills, just recipes, package metadata, and install instructions point at the TypeScript-backed `areg` path for repo-local use.
 - Python `packages/areg` is deleted, archived, or otherwise removed from active paths after rollback/reference evidence is recorded.
 - The parent migration ledger and porting playbook capture any reusable `areg` lessons or sequencing rationale needed by later capability ports.
 
@@ -65,13 +65,13 @@ Risks:
 - `areg init` mutates multiple project files and invokes `npx skills`; a direct port could regress the previous review-remediation safety work if planning/mutation and fake-driven gateway seams are not preserved.
 - The hidden `exec skillx` JSON shapes may already be consumed by skills or Pi flows; accidental schema changes could break agent workflows.
 - The kind system edits local skills, Codex sidecars, and Pi replacement settings, so destructive path, symlink, artifact-inference, and replacement-verification edge cases remain important; the completed apply slice materially de-risks them with package-local planning, real/fake gateway safety tests, dry-run behavior, and deletion confirmation gates.
-- Post-kind review evidence identified drift risk from duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams. This does not invalidate the completed command surface, but it should be addressed before distribution/cutover so TS `areg` does not become the default with avoidable duplicated safety policy.
-- Distribution is less obvious than prior ports: `areg` documentation still references `uvx areg`, while prior TS ports accepted run-from-source shims only after consumer evidence. Choosing the wrong model could surprise downstream project bootstrap users.
+- Post-kind review evidence identified drift risk from duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams. This does not invalidate the completed command surface. For ASAP Python removal, treat this as blocker triage only: fix consolidation issues that directly threaten cutover safety, and park broader architecture cleanup rather than blocking deletion.
+- The immediate distribution decision is repo-local TypeScript invocation from the `ts/` workspace. External installed use, npm-style packaging, and Python `uvx areg` replacement remain follow-up distribution questions, not blockers to removing the Python implementation from this repo.
 - Current tests may encode both durable contracts and incidental Click/Python formatting behavior; the inventory must classify parser/help/output differences deliberately.
 
 ## Open Questions
 
-- What TypeScript distribution model should `areg` use after cutover: run-from-source shim, npm-style package execution, both, or another documented model?
+- What external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model?
 - Should `areg` keep legacy `areg.json` fallback indefinitely, or should the TS port define a retirement path in favor of `asdl.toml` `[areg].agents`?
 - Which current Click/help/usage-byte behaviors are durable enough to preserve exactly, and which should adopt the TypeScript command framework's standard behavior?
 - After `areg` becomes TS-default, should any reusable skill-lock, project-config, managed-block, or skill-layout validation seams move into shared TypeScript packages, or remain package-local?
