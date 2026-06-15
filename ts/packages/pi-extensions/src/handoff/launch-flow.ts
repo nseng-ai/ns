@@ -23,6 +23,14 @@ export interface HandoffLaunchRequest {
 	focus: string;
 }
 
+export interface HandoffLaunchPromptOptions {
+	skillBlock: string | undefined;
+	request: HandoffLaunchRequest;
+	extraTargetSections?: string[];
+	toolCallInstruction?: string;
+	extraRequirements?: string[];
+}
+
 export type HandoffLaunchRequestBuildResult =
 	| { type: "valid"; request: HandoffLaunchRequest }
 	| { type: "invalid"; message: string };
@@ -43,12 +51,20 @@ export interface HandoffLaunchCommandSpec {
 	preflight?(options: { pi: ExtensionAPI; ctx: CommandContext; request: HandoffLaunchRequest }): Promise<{ type: "ok" } | { type: "failed"; message: string }>;
 }
 
+export interface PreparedHandoffLaunchCommand {
+	request: HandoffLaunchRequest;
+	skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
+	skillReadError: string | undefined;
+}
+
 export interface HandoffLaunchParams {
 	branch: string;
 	slug: string;
 	key: string;
 	pickupCommand: string;
 }
+
+export type HandoffLaunchParamsParseResult = { type: "valid"; params: HandoffLaunchParams } | { type: "invalid"; message: string };
 
 export interface HandoffLaunchToolSpec {
 	name: string;
@@ -78,8 +94,22 @@ export function buildHandoffLaunchRequest(options: { branch: string; focus: stri
 	return { type: "valid", request: { branch: options.branch, focus } };
 }
 
-export function buildHandoffLaunchPrompt(copy: HandoffLaunchPromptCopy, options: { skillBlock: string | undefined; request: HandoffLaunchRequest }): string {
+export function buildHandoffLaunchPrompt(copy: HandoffLaunchPromptCopy, options: HandoffLaunchPromptOptions): string {
 	const request = options.request;
+	const targetSections = [
+		`Use this storage target:\n\n- Branch: ${request.branch}\n- Namespace: ${HANDOFF_NAMESPACE}\n- Entry: derive from the final Markdown handoff content with ${DERIVE_HANDOFF_SLUG_TOOL_NAME}`,
+		...(options.extraTargetSections ?? []),
+	];
+	const requirements = [
+		"Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.",
+		`Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.`,
+		"Use the returned slug/key. Do not derive the entry name from the raw continuation focus.",
+		`Check for an existing artifact with \`brmem check <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch}\`. If it exists, stop; do not overwrite and ${copy.abortClause}.`,
+		`If missing, store the exact final Markdown content directly through /dev/stdin with \`brmem put <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+		options.toolCallInstruction ?? `After \`brmem put\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
+		...(options.extraRequirements ?? []),
+	];
 	return `${options.skillBlock ?? CREATE_HANDOFF_FALLBACK}
 
 This is a /${copy.commandName} request. ${copy.intentSentence}
@@ -88,32 +118,22 @@ Continuation focus:
 
 ${fencedBlock("text", request.focus)}
 
-Use this storage target:
-
-- Branch: ${request.branch}
-- Namespace: ${HANDOFF_NAMESPACE}
-- Entry: derive from the final Markdown handoff content with ${DERIVE_HANDOFF_SLUG_TOOL_NAME}
+${targetSections.join("\n\n")}
 
 Hard requirements:
 
-1. Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.
-2. Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.
-3. Use the returned slug/key. Do not derive the entry name from the raw continuation focus.
-4. Check for an existing artifact with \`brmem check <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch}\`. If it exists, stop; do not overwrite and ${copy.abortClause}.
-5. If missing, store the exact final Markdown content directly through /dev/stdin with \`brmem put <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.
-6. After \`brmem put\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.
-7. Do not call ${copy.toolName} before the handoff is saved successfully.
+${requirements.map((requirement, index) => `${index + 1}. ${requirement}`).join("\n")}
 
 ${copy.previewHeading}
 
 ${fencedBlock("text", copy.previewBody(request.branch))}`;
 }
 
-export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ctx: CommandContext, spec: HandoffLaunchCommandSpec): Promise<void> {
+export async function prepareHandoffLaunchCommand(pi: ExtensionAPI, args: string, ctx: CommandContext, spec: HandoffLaunchCommandSpec): Promise<PreparedHandoffLaunchCommand | undefined> {
 	await ctx.waitForIdle();
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
-		return;
+		return undefined;
 	}
 
 	let branch: string;
@@ -121,20 +141,20 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 		branch = await currentBranch(pi, ctx, "create");
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
-		return;
+		return undefined;
 	}
 
 	const builtRequest = buildHandoffLaunchRequest({ branch, focus });
 	if (builtRequest.type === "invalid") {
 		ctx.ui.notify(builtRequest.message, "error");
-		return;
+		return undefined;
 	}
 	const request = builtRequest.request;
 
 	const preflight = await spec.preflight?.({ pi, ctx, request });
 	if (preflight?.type === "failed") {
 		ctx.ui.notify(preflight.message, "error");
-		return;
+		return undefined;
 	}
 
 	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
@@ -145,8 +165,17 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 		skillReadError = formatErrorMessage(error);
 	}
 
-	ctx.ui.notify(createHandoffStartMessage(spec.startMessages, skill, skillReadError), skill ? "info" : "warning");
-	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: skill?.block, request }), { deliverAs: "followUp" });
+	return { request, skill, skillReadError };
+}
+
+export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ctx: CommandContext, spec: HandoffLaunchCommandSpec): Promise<void> {
+	const prepared = await prepareHandoffLaunchCommand(pi, args, ctx, spec);
+	if (prepared === undefined) {
+		return;
+	}
+
+	ctx.ui.notify(createHandoffStartMessage(spec.startMessages, prepared.skill, prepared.skillReadError), prepared.skill ? "info" : "warning");
+	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: prepared.skill?.block, request: prepared.request }), { deliverAs: "followUp" });
 }
 
 export function buildHandoffLaunchTool(pi: ExtensionAPI, spec: HandoffLaunchToolSpec): ToolDefinition {
@@ -212,7 +241,7 @@ export function handoffLaunchToolFailure(message: string, details?: unknown): To
 	};
 }
 
-function parseHandoffLaunchParams(params: unknown, toolName: string): { type: "valid"; params: HandoffLaunchParams } | { type: "invalid"; message: string } {
+export function parseHandoffLaunchParams(params: unknown, toolName: string): HandoffLaunchParamsParseResult {
 	if (!isRecord(params)) {
 		return { type: "invalid", message: `${toolName} parameters must be an object.` };
 	}

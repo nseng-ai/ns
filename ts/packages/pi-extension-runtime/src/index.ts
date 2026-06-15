@@ -40,6 +40,13 @@ export {
 	type ObjectiveSelectionNotifyLevel,
 	type ObjectiveSelectionSpec,
 } from "./objective-selection.ts";
+export type {
+	SessionReplacementContext,
+	SessionReplacementOptions,
+	SessionReplacementResult,
+	SessionUserMessageDelivery,
+	SessionUserMessageOptions,
+} from "./session-replacement.ts";
 export {
 	buildFencedTextBlock,
 	expandRepoSkillBlock,

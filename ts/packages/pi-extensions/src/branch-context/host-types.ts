@@ -5,6 +5,7 @@ import type {
 	loadBranchContextPlan,
 } from "@asdl/branch-context";
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { SessionReplacementContext, SessionReplacementOptions, SessionReplacementResult } from "@asdl/pi-extension-runtime/session-replacement";
 import type {
 	resolveSelectedSavedPlanFile,
 	writeSavedPlanFile,
@@ -42,20 +43,14 @@ export interface SessionManagerLike {
 	getSessionFile?(): string | undefined;
 }
 
-export interface NewSessionResult {
-	cancelled: boolean;
-}
+export type NewSessionResult = SessionReplacementResult;
 
-export interface ReplacedSessionContext extends CommandContext {
+export interface ReplacedSessionContext extends CommandContext, SessionReplacementContext {
 	sendMessage(message: CustomMessage, options?: SendMessageOptions): Promise<void> | void;
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
-export interface NewSessionOptions {
-	parentSession?: string;
-	setup?(sessionManager: SessionManagerLike): Promise<void> | void;
-	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
-}
+export type NewSessionOptions = SessionReplacementOptions<ReplacedSessionContext, SessionManagerLike>;
 
 export interface BranchContextOperations {
 	loadBranchContextPlan: typeof loadBranchContextPlan;

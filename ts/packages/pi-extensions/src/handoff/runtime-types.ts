@@ -1,9 +1,8 @@
 import type { ExecResult } from "@asdl/core/exec";
-import type { SendUserMessageOptions } from "../message-delivery.ts";
+import type { SessionReplacementContext, SessionReplacementOptions, SessionReplacementResult, SessionUserMessageOptions } from "@asdl/pi-extension-runtime/session-replacement";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type { ExecResult } from "@asdl/core/exec";
-export type { SendUserMessageOptions } from "../message-delivery.ts";
 export type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
@@ -54,23 +53,19 @@ export interface ToolResult<Details = unknown> {
 	content: Array<{ type: "text"; text: string }>;
 	details?: Details;
 	isError?: boolean;
+	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
 	terminate?: boolean;
 }
 
-export interface SessionReplacementResult {
-	cancelled: boolean;
-}
+export type SendUserMessageOptions = SessionUserMessageOptions;
+export type { SessionReplacementResult };
 
-export interface ReplacedSessionContext extends BaseRuntimeContext {
+export interface ReplacedSessionContext extends BaseRuntimeContext, SessionReplacementContext {
 	sendUserMessage(content: string, options?: SendUserMessageOptions): Promise<void>;
 	sendMessage?(message: CustomMessage): Promise<void>;
 }
 
-export interface NewSessionOptions {
-	parentSession?: string;
-	setup?(sessionManager: unknown): Promise<void> | void;
-	withSession?(ctx: ReplacedSessionContext): Promise<void> | void;
-}
+export type NewSessionOptions = SessionReplacementOptions<ReplacedSessionContext>;
 
 export interface ToolDefinition {
 	name: string;
