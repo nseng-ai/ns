@@ -7,10 +7,10 @@ and update your row when done.
 
 ## Execution order & status
 
-| Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
-| 001  | sdl: command discovery, validation & runtime module-loading tests | P1 | M | — | TODO |
-| 002  | pi-extension-runtime: objective picker & selection-path tests | P1 | M | — | TODO |
+| Plan | Title                                                             | Priority | Effort | Depends on | Status |
+| ---- | ----------------------------------------------------------------- | -------- | ------ | ---------- | ------ |
+| 001  | sdl: command discovery, validation & runtime module-loading tests | P1       | M      | —          | TODO   |
+| 002  | pi-extension-runtime: objective picker & selection-path tests     | P1       | M      | —          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 

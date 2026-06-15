@@ -141,21 +141,23 @@ Files in scope (read them before writing tests):
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Typecheck this package | `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check` | exit 0, no tsc errors |
-| Run this package's tests | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test` | all pass, including new tests |
-| Run one new file | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` | pass |
-| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install` | exit 0 |
+| Purpose                       | Command                                                                                                                                               | Expected on success           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Typecheck this package        | `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check`                                                               | exit 0, no tsc errors         |
+| Run this package's tests      | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test`                                                                | all pass, including new tests |
+| Run one new file              | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/pi-extension-runtime/test/objective-picker.test.ts` | pass                          |
+| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install`                                                                                               | exit 0                        |
 
 ## Scope
 
 **In scope** (the only files you should create):
+
 - `ts/packages/pi-extension-runtime/test/objective-picker.test.ts` (create)
 - `ts/packages/pi-extension-runtime/test/objective-list.test.ts` (create)
 - `ts/packages/pi-extension-runtime/test/objective-selection-picker.test.ts` (create)
 
 **Out of scope** (do NOT modify):
+
 - Any file under `ts/packages/pi-extension-runtime/src/`. Test-only plan. A real
   bug found via a test is a STOP condition, not a fix-here task.
 - The existing `test/runtime-helpers.test.ts` — leave it as is (add new files;
@@ -180,7 +182,7 @@ Cover (these are pure functions — no host needed):
   - lines outside `.asdl/objectives/...` or shallower than `<slug>/<file>` → ignored.
   - blank input → `[]`.
 - `parseObjectiveStatusChangedSlugs` (NUL-separated — build inputs with `"\0"`):
-  - ` M .asdl/objectives/alpha/objective.md` (note 2-char status + space) → `["alpha"]`.
+  - `M .asdl/objectives/alpha/objective.md` (note 2-char status + space) → `["alpha"]`.
   - an ignored entry `!! .asdl/objectives/zeta/x.md` → excluded.
   - a rename entry `R  .asdl/objectives/new/x.md` followed by a second NUL entry `.asdl/objectives/old/x.md` → includes both `new` and `old`, and does not misparse the consumed second path as its own entry.
   - empty trailing entries ignored.
@@ -203,6 +205,7 @@ Use small inline `ObjectiveList`/`ObjectiveListRecord` literals (see the type in
 
 Create `test/objective-list.test.ts` importing `parseObjectiveList` from
 `../src/objective-list.ts`. Cover:
+
 - valid envelope (the `data` shape from the conventions section) → `{ type: "valid" }` with the records mapped (`latest_update_iso: null` → `latestUpdateIso: null`).
 - envelope with a non-array `records` → `{ type: "invalid" }` with a message mentioning the missing fields.
 - a record missing `slug`/`status` → `{ type: "invalid" }` mentioning the record index.
@@ -217,6 +220,7 @@ and `objectiveSelectionContextFromCommandContext` from `../src/objective-selecti
 `VIEW_OTHER_OBJECTIVES_CHOICE` from `../src/objective-picker.ts`, and the
 `CommandContext`/`ExecResult` types from `../src/cmux/types.ts` (same import the
 existing test uses). Build a `host` whose `exec` branches on command/args:
+
 - `command === "objective"` → return the objective-list envelope (with ≥2 records so "view others" is reachable).
 - `command === "git" && args[0] === "diff"` → return diff stdout (code 0).
 - `command === "git" && args[0] === "status"` → return `-z` porcelain stdout (code 0).
@@ -254,6 +258,7 @@ Record `select` calls (title + items) and `notify` calls. Cover:
 ### Step 4: Typecheck and full-package test
 
 **Verify**:
+
 - `cd /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime && pnpm run check` → exit 0.
 - `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/pi-extension-runtime run test` → all pass (existing + new).
 
@@ -303,4 +308,4 @@ Stop and report back (do not improvise) if:
 - Reviewer should confirm the picker tests assert observable outcomes (returned
   slug, notify level, number of `select` calls) and avoid coupling to incidental
   wording.
-</content>
+  </content>

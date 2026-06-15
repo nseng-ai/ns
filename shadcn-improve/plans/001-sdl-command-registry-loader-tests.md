@@ -131,12 +131,12 @@ Files in scope (read them before writing tests):
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-|---|---|---|
-| Typecheck this package | `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check` | exit 0, no tsc errors |
-| Run this package's tests | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test` | all pass, including the new tests |
-| Run one new file | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` | pass |
-| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install` | exit 0 |
+| Purpose                       | Command                                                                                                                                   | Expected on success               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Typecheck this package        | `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check`                                                                    | exit 0, no tsc errors             |
+| Run this package's tests      | `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test`                                                                     | all pass, including the new tests |
+| Run one new file              | `pnpm --dir /Users/schrockn/code/asdl-tools/ts exec vitest run --config vitest.config.ts packages/sdl/test/unit/command-registry.test.ts` | pass                              |
+| Install (if a fresh checkout) | `pnpm --dir /Users/schrockn/code/asdl-tools/ts install`                                                                                   | exit 0                            |
 
 If `pnpm run check` or `run test` fails with "command not found" or missing
 modules, run the install command once, then retry.
@@ -144,10 +144,12 @@ modules, run the install command once, then retry.
 ## Scope
 
 **In scope** (the only files you should create):
+
 - `ts/packages/sdl/test/unit/command-registry.test.ts` (create)
 - `ts/packages/sdl/test/unit/sdk-module-loader.test.ts` (create)
 
 **Out of scope** (do NOT modify):
+
 - Any file under `ts/packages/sdl/src/` — this is a test-only plan. If a test
   reveals a real bug in source, that is a STOP condition (report it; do not fix
   it here).
@@ -202,6 +204,7 @@ injected `@asdl/sdl/sdk` resolves even though the temp dir has no `node_modules`
 and (c) `moduleCache: false` means an edited file reloads fresh.
 
 Pattern for the fixture file content (write with `writeFileSync`):
+
 ```ts
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 export default defineCommand({
@@ -212,6 +215,7 @@ export default defineCommand({
 ```
 
 Cover:
+
 - **Loads and is valid**: write the fixture as `<tmp>/demo.ts`, call
   `await loadSdkCommandModule(path)`, then pass the result through
   `validateSdlCommand(result, "demo", "demo.ts")` (import from
@@ -235,6 +239,7 @@ Clean up temp dirs in `afterEach`.
 ### Step 3: Typecheck and full-package test
 
 **Verify**:
+
 - `cd /Users/schrockn/code/asdl-tools/ts/packages/sdl && pnpm run check` → exit 0.
 - `pnpm --dir /Users/schrockn/code/asdl-tools/ts/packages/sdl run test` → all pass (existing + new).
 
@@ -282,5 +287,5 @@ Stop and report back (do not improvise) if:
 - Reviewer should confirm the tests assert on discriminant fields (`.ok`, `.type`,
   `.exitCode`, messages) rather than snapshotting whole objects, to stay robust to
   unrelated message wording tweaks.
-</content>
-</invoke>
+  </content>
+  </invoke>
