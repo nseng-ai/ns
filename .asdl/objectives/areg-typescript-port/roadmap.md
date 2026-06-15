@@ -24,11 +24,11 @@
 - [x] Port `areg update-skills` as the curated lockfile workaround.
   - Implemented visible TypeScript `areg update-skills` with GitHub-sourced lockfile selection, `--skill`/`--source` filtering, `--dry-run`, shared agent resolution, a dedicated read-only update inspection gateway, one `npx skills add` call per selected skill, and aggregate failure reporting with structured Clinkr data.
   - Evidence: Semantic Update `updates/2026-06-15T012054Z-areg-update-skills-typescript-port.md`; focused `@asdl/areg` type-check and Vitest suite passed with scenario/gateway coverage for sorted one-by-one updates, local-skill skipping, filters, no-match/early-error paths, dry-run, agent precedence, missing/malformed lockfiles, missing `npx`, partial failures, JSON envelopes, fake copy behavior, and real update inspection.
-- [ ] Reimplement the skill invocation kinds system in TypeScript.
-  - Use Objective-local `skill-invocation-kinds.md` as the canonical TypeScript implementation contract, with PR #1510 as prototype/provenance evidence.
-  - Replace the old standalone `areg command convert|revert|list` porting row with the kind model: inferred `normal`, `invoke-only`, `command-backed`, `ambient-only`, concrete artifact planning, status inference, Pi replacement verification for command-backed skills, and skill list/show reporting.
-  - Do not preserve final `areg command convert|revert|list` compatibility; the flattened `areg skill apply/list/show` surface is the current deliverable.
-  - Evidence: scenario/gateway/unit tests cover the acceptance checklist in Objective-local `skill-invocation-kinds.md`, including skill apply/list/show, local skill selectors and path-like selectors, refusal cases, Pi replacement verification, artifact cleanup, inferred kind status, dry-run behavior, multi-skill partial failure behavior, and `areg check` diagnostics.
+- [x] Reimplement the skill invocation kinds system in TypeScript.
+  - Implemented the flattened `areg skill apply|list|show` surface, replacing the planned `skill kind` subgroup and removing final `areg command convert|revert|list` compatibility from the current Objective spec.
+  - `areg skill apply` now plans and applies the managed artifact matrix for `normal`, `invoke-only`, `command-backed`, and `ambient-only`, including frontmatter edits, Codex sidecar writes/deletes, Pi settings reconciliation, replacement verification, dry-runs, and deletion confirmation/`--yes` behavior.
+  - Added package-local fake and real gateway apply-plan seams with path/symlink safety, plus a minimal Clinkr final-variadic positional extension so `apply <kind> <skill...>` is represented directly.
+  - Evidence: branch diff against `skill-invocation-kind/read-only-foundation`; PR #1564 corroborates the same file set; focused `@asdl/areg` and `@asdl/clinkr` checks/tests passed; full TypeScript workspace check/test passed; `just dprint-check` passed.
 - [ ] Decide and implement the TypeScript distribution/install model.
   - Choose consumer-backed invocation for local checkout development and installed use, update `justfile`/workspace metadata/docs accordingly, and avoid assuming either Python `uvx` or prior run-from-source shims without evidence.
   - Evidence: installation recipe and docs invoke TypeScript-backed `areg` consistently.

@@ -56,7 +56,7 @@ Assumptions:
 - The durable product surface is the standalone `areg` CLI, not an `asdl` plugin or renamed command group.
 - Current Python behavior after the completed nonslop migration and review remediation is the best reference for contract inventory.
 - TypeScript gateway/fake boundaries can preserve the review-remediated safety properties without copying Python module structure directly.
-- The existing TypeScript workspace foundations, especially `@asdl/clinkr` and `@asdl/core` where appropriate, are sufficient for the first slices; missing seams should start package-local unless reuse is proven.
+- The existing TypeScript workspace foundations, especially `@asdl/clinkr` and `@asdl/core` where appropriate, are mostly sufficient for the first slices; the skill-kind apply slice proved one small shared Clinkr extension was warranted for final variadic positionals, while areg-specific mutation seams remain package-local unless reuse is proven.
 - `npx skills add`, `gh api`, and Git-root/tool checks remain external command boundaries rather than embedded service clients for this port.
 
 Risks:
@@ -64,7 +64,7 @@ Risks:
 - Overriding the parent migration order could create ledger drift if the umbrella Objective is not updated early and again at cutover.
 - `areg init` mutates multiple project files and invokes `npx skills`; a direct port could regress the previous review-remediation safety work if planning/mutation and fake-driven gateway seams are not preserved.
 - The hidden `exec skillx` JSON shapes may already be consumed by skills or Pi flows; accidental schema changes could break agent workflows.
-- The kind system edits local skills, Codex sidecars, and Pi replacement settings, so a shallow CLI parity pass could miss destructive path, symlink, artifact-inference, or replacement-verification edge cases.
+- The kind system edits local skills, Codex sidecars, and Pi replacement settings, so destructive path, symlink, artifact-inference, and replacement-verification edge cases remain important; the completed apply slice materially de-risks them with package-local planning, real/fake gateway safety tests, dry-run behavior, and deletion confirmation gates.
 - Distribution is less obvious than prior ports: `areg` documentation still references `uvx areg`, while prior TS ports accepted run-from-source shims only after consumer evidence. Choosing the wrong model could surprise downstream project bootstrap users.
 - Current tests may encode both durable contracts and incidental Click/Python formatting behavior; the inventory must classify parser/help/output differences deliberately.
 
