@@ -18,9 +18,9 @@
 - [x] Port `areg check` and skill/lockfile validation.
   - Implemented visible TypeScript `areg check [--path PATH]` with Clinkr human/JSON behavior, a package-local constrained project inspection gateway, lockfile/frontmatter parsing, local and remote skill structure checks, invoke-only/Pi replacement checks, lock hash checks, orphan/dangling checks, and `AGENTS.md`/`CLAUDE.md` pairing checks.
   - Evidence: focused `@asdl/areg` type-check and Vitest suite passed with scenario/unit/gateway coverage for success, malformed lockfiles, invalid hashes, local/remote layout failures, SKILL.md/frontmatter failures, invoke-only/Pi replacement failures, orphan/dangling entries, pairing failures, fake gateway copy behavior, and real adapter symlink/traversal facts.
-- [ ] Port `areg init` project bootstrap behavior.
-  - Preserve Git-root requirements, bootstrap skill install, agent resolution, managed `AGENTS.md`/`CLAUDE.md` blocks, `asdl.toml` `[areg].agents`, legacy config fallback where accepted, symlink/path safety, and non-destructive config handling.
-  - Evidence: fake-backed scenario tests show planning/mutation order and local validation failures do not leave predictable half-applied state.
+- [x] Port `areg init` project bootstrap behavior.
+  - Implemented visible TypeScript `areg init [target] [--agent AGENT ...] [--yes] [--no-append]` with Git-root requirements, bootstrap skill install, agent resolution, managed `AGENTS.md`/`CLAUDE.md` blocks, `asdl.toml` `[areg].agents`, legacy config fallback, symlink/path safety, and non-destructive planning before `npx` install.
+  - Evidence: focused `@asdl/areg` type-check and Vitest suite passed with scenario/unit/gateway coverage for command shape, default and explicit agents, TOML preservation, legacy migration, prompts, `--yes`, `--no-append`, malformed markers, invalid config, Git-root rejection, npx non-destructiveness, JSON output, and real init gateway symlink/path revalidation.
 - [ ] Port `areg update-skills` as the curated lockfile workaround.
   - Preserve filtering by skill/source, dry-run behavior, agent resolution, one-by-one `npx skills add` calls, and aggregate failure reporting while the upstream `npx skills update` bug remains relevant.
   - Evidence: scenario tests verify curated lockfile behavior and documented workaround semantics.

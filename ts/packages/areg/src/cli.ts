@@ -7,6 +7,7 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import { checkRequestSchema, checkResultSchema, renderCheck, runCheck } from "./operations/check.ts";
+import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { buildSkillxGroup } from "./operations/skillx.ts";
 
 export const VERSION = "0.1.0";
@@ -25,6 +26,15 @@ export function buildCli(): ClinkrGroup<AregCliContext> {
 		description: "Manage ASDL agent registry projects.",
 		version: VERSION,
 		runtimeInfo,
+	});
+	root.command({
+		name: "init",
+		description: "Initialize an existing Git project for areg skill workflows.",
+		schema: initRequestSchema,
+		positionals: { target: { position: 0 } },
+		resultSchema: initResultSchema,
+		handler: runInit,
+		renderHuman: renderInit,
 	});
 	root.command({
 		name: "check",

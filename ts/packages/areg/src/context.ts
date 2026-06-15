@@ -1,14 +1,22 @@
+import { NodeCommandExecApi } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+
 import type {
 	AregCheckProjectInspectionGateway,
 	AregGithubGateway,
 	AregHostGateway,
+	AregInitProjectGateway,
+	AregNpxSkillsGateway,
+	AregPromptGateway,
 	AregSkillxWorkspaceGateway,
 } from "./gateways.ts";
 import {
 	RealAregCheckProjectInspectionGateway,
 	RealAregGithubGateway,
 	RealAregHostGateway,
+	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
+	RealAregPromptGateway,
 	RealAregSkillxWorkspaceGateway,
 } from "./real-gateways.ts";
 
@@ -17,6 +25,10 @@ export interface AregCliContext {
 	github: AregGithubGateway;
 	skillxWorkspace: AregSkillxWorkspaceGateway;
 	projectInspection: AregCheckProjectInspectionGateway;
+	git: GitGateway;
+	npxSkills: AregNpxSkillsGateway;
+	prompt: AregPromptGateway;
+	initProject: AregInitProjectGateway;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 }
@@ -30,6 +42,10 @@ export function createRealAregContext(options: { cwd?: string | undefined; env?:
 		github: new RealAregGithubGateway(),
 		skillxWorkspace: new RealAregSkillxWorkspaceGateway({ npxSkills }),
 		projectInspection: new RealAregCheckProjectInspectionGateway(),
+		git: new RealGitGateway(new NodeCommandExecApi()),
+		npxSkills,
+		prompt: new RealAregPromptGateway(),
+		initProject: new RealAregInitProjectGateway(),
 		cwd,
 		env,
 	};

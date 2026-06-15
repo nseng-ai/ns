@@ -42,6 +42,10 @@ export interface AregNpxSkillsGateway {
 	addSkills(request: AregNpxSkillsAddRequest): Promise<AregNpxSkillsAddResult>;
 }
 
+export interface AregPromptGateway {
+	confirm(request: { message: string; defaultValue: boolean }): Promise<boolean>;
+}
+
 export interface AregSkillxInstalledSkill {
 	name: string;
 	directory: string;
@@ -132,4 +136,44 @@ export interface AregCheckProjectInspectionRequest {
 
 export interface AregCheckProjectInspectionGateway {
 	inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult>;
+}
+
+export type AregInitPathState = AregCheckPathState;
+export type AregInitTextFileState = AregCheckTextFileState;
+
+export interface AregInitProjectInspectionResult {
+	projectDir: string;
+	targetPathState: AregInitPathState;
+	agentsMd: AregInitTextFileState;
+	claudeMd: AregInitTextFileState;
+	asdlToml: AregInitTextFileState;
+	aregJson: AregInitTextFileState;
+	claudeDir: AregInitPathState;
+	claudeSettings: AregInitTextFileState;
+}
+
+export interface AregInitTextWritePlan {
+	relativePath: "asdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
+	content: string;
+	description: string;
+	createParent: boolean;
+}
+
+export type AregInitApplyResult = { ok: true; writtenRelativePaths: readonly string[] } | { ok: false; error: AregErrorInfo };
+
+export interface AregInitProjectInspectionRequest {
+	cwd: string;
+	target: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregInitTextWritePlanRequest {
+	projectDir: string;
+	writes: readonly AregInitTextWritePlan[];
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregInitProjectGateway {
+	inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult>;
+	applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult>;
 }

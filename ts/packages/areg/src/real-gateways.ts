@@ -1,7 +1,8 @@
 import { constants } from "node:fs";
-import { access, lstat, mkdtemp, readdir, readFile, readlink, realpath, rm } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, readdir, readFile, readlink, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline/promises";
 
 import {
 	formatCommand,
@@ -26,10 +27,17 @@ import type {
 	AregGithubSkillListResult,
 	AregHostGateway,
 	AregHostToolName,
+	AregInitApplyResult,
+	AregInitProjectGateway,
+	AregInitProjectInspectionRequest,
+	AregInitProjectInspectionResult,
+	AregInitTextWritePlan,
+	AregInitTextWritePlanRequest,
 	AregNpxSkillsAddRequest,
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
+	AregPromptGateway,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
@@ -132,6 +140,68 @@ export class RealAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 
 	async cleanupWorkspace(request: { workspaceRoot: string; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregOperationResult> {
 		return await cleanupSkillxWorkspace(request.workspaceRoot);
+	}
+}
+
+export class RealAregPromptGateway implements AregPromptGateway {
+	async confirm(request: { message: string; defaultValue: boolean }): Promise<boolean> {
+		const suffix = request.defaultValue ? " [Y/n] " : " [y/N] ";
+		const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+		try {
+			while (true) {
+				const answer = (await rl.question(`${request.message}${suffix}`)).trim().toLowerCase();
+				if (answer.length === 0) return request.defaultValue;
+				if (answer === "y" || answer === "yes") return true;
+				if (answer === "n" || answer === "no") return false;
+				process.stdout.write("Please answer yes or no.\n");
+			}
+		} finally {
+			rl.close();
+		}
+	}
+}
+
+export class RealAregInitProjectGateway implements AregInitProjectGateway {
+	async inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult> {
+		const projectDir = path.resolve(request.cwd, request.target);
+		return {
+			projectDir,
+			targetPathState: await inspectPath(projectDir),
+			agentsMd: await inspectTextFile(path.join(projectDir, "AGENTS.md")),
+			claudeMd: await inspectTextFile(path.join(projectDir, "CLAUDE.md")),
+			asdlToml: await inspectTextFile(path.join(projectDir, "asdl.toml")),
+			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
+			claudeDir: await inspectPath(path.join(projectDir, ".claude")),
+			claudeSettings: await inspectTextFile(path.join(projectDir, ".claude", "settings.local.json")),
+		};
+	}
+
+	async applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult> {
+		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
+		const writtenRelativePaths: string[] = [];
+		for (const write of request.writes) {
+			const target = resolveAllowedInitTarget(projectRoot.value, write);
+			if (target.type === "error") return { ok: false, error: target.error };
+			const validation = await validateInitWriteTarget(target.value, projectRoot.value, write);
+			if (!validation.ok) return validation;
+			if (write.createParent) {
+				try {
+					await mkdir(path.dirname(target.value), { recursive: true });
+				} catch (error) {
+					return { ok: false, error: errorInfo("init-parent-create-failed", `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
+				}
+				const revalidation = await validateInitWriteTarget(target.value, projectRoot.value, write);
+				if (!revalidation.ok) return revalidation;
+			}
+			try {
+				await writeFile(target.value, write.content, "utf8");
+				writtenRelativePaths.push(write.relativePath);
+			} catch (error) {
+				return { ok: false, error: errorInfo("init-write-failed", `Failed to write ${write.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+			}
+		}
+		return { ok: true, writtenRelativePaths };
 	}
 }
 
@@ -380,6 +450,71 @@ async function removeWorkspaceQuietly(workspaceRoot: string): Promise<void> {
 	}
 }
 
+async function resolveExistingDirectory(candidate: string, description: string): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
+	const state = await inspectPath(candidate);
+	if (state.type === "symlink") return { type: "error", error: errorInfo("init-symlink", `${description} at ${candidate} is a symlink; refusing to manage it.`) };
+	if (state.type !== "directory") return { type: "error", error: errorInfo("init-not-directory", `${candidate} exists but is not a directory.`) };
+	try {
+		return { type: "ok", value: await realpath(candidate) };
+	} catch (error) {
+		return { type: "error", error: errorInfo("init-realpath-failed", `Could not resolve ${description} at ${candidate}: ${formatErrorMessage(error)}`) };
+	}
+}
+
+function resolveAllowedInitTarget(projectRoot: string, write: AregInitTextWritePlan): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
+	if (!["asdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(write.relativePath)) {
+		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write unsupported init target: ${write.relativePath}`) };
+	}
+	if (path.isAbsolute(write.relativePath) || write.relativePath.split("/").includes("..")) {
+		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write unsafe init target: ${write.relativePath}`) };
+	}
+	const target = path.join(projectRoot, ...write.relativePath.split("/"));
+	const relative = path.relative(projectRoot, target);
+	if (relative.startsWith("..") || path.isAbsolute(relative)) {
+		return { type: "error", error: errorInfo("init-write-target-refused", `Refusing to write outside project root: ${write.relativePath}`) };
+	}
+	return { type: "ok", value: target };
+}
+
+async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<AregOperationResult> {
+	const targetState = await inspectPath(target);
+	if (targetState.type === "symlink") return { ok: false, error: errorInfo("init-symlink", `${write.description} at ${target} is a symlink; refusing to manage it.`) };
+	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo("init-not-file", `${target} exists but is not a file.`) };
+	if (targetState.type === "file") return await requirePathAtOrBelow(target, projectRoot, write.description);
+	const parent = await nearestExistingParent(target, projectRoot);
+	if (parent.type === "error") return { ok: false, error: parent.error };
+	const parentState = await inspectPath(parent.value);
+	if (parentState.type === "symlink") return { ok: false, error: errorInfo("init-parent-symlink", `Parent directory at ${parent.value} is a symlink; refusing to manage it.`) };
+	if (parentState.type !== "directory") return { ok: false, error: errorInfo("init-parent-not-directory", `${parent.value} exists but is not a directory.`) };
+	const parentCheck = await requirePathAtOrBelow(parent.value, projectRoot, "Parent directory");
+	if (!parentCheck.ok) return parentCheck;
+	if (!write.createParent && path.dirname(target) !== parent.value) {
+		return { ok: false, error: errorInfo("init-parent-missing", `Parent directory at ${path.dirname(target)} does not exist.`) };
+	}
+	return { ok: true };
+}
+
+async function nearestExistingParent(target: string, projectRoot: string): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
+	let current = path.dirname(target);
+	while (current !== projectRoot) {
+		const state = await inspectPath(current);
+		if (state.type !== "missing") return { type: "ok", value: current };
+		const parent = path.dirname(current);
+		if (parent === current) return { type: "error", error: errorInfo("init-parent-missing", `Parent directory at ${current} does not exist.`) };
+		current = parent;
+	}
+	return { type: "ok", value: projectRoot };
+}
+
+async function requirePathAtOrBelow(candidate: string, projectRoot: string, description: string): Promise<AregOperationResult> {
+	try {
+		const resolved = await realpath(candidate);
+		if (isPathAtOrBelow(resolved, projectRoot)) return { ok: true };
+		return { ok: false, error: errorInfo("init-outside-project", `${description} at ${candidate} resolves outside ${projectRoot}; refusing to manage it.`) };
+	} catch (error) {
+		return { ok: false, error: errorInfo("init-realpath-failed", `Could not resolve ${description} at ${candidate}: ${formatErrorMessage(error)}`) };
+	}
+}
 
 function errorInfo(code: string, message: string, displayCommand?: string | undefined): AregErrorInfo {
 	return displayCommand === undefined ? { code, message } : { code, message, displayCommand };
