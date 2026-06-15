@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
+import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
@@ -158,18 +159,4 @@ function mappingFailureMessage(result: MapBranchPrsResult): string {
 	}
 	if (ambiguousBranchNames.length > 0) return `Multiple open PRs found for branches: ${ambiguousBranchNames.join(", ")}`;
 	return `No open PR found for branches: ${result.missing_branches.join(", ")}`;
-}
-
-function duplicateValues<T>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
 }

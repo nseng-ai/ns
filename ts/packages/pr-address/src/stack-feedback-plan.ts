@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResult } from "./classification.ts";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
@@ -419,21 +420,6 @@ function compactInformationalSummary(informational: readonly StackFeedbackPlanIn
 function pythonOrPrNumber(validationPrNumber: number | null, fallbackPrNumber: number): number {
 	if (validationPrNumber === null || validationPrNumber === 0) return fallbackPrNumber;
 	return validationPrNumber;
-}
-
-
-function duplicateValues<T>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
 }
 
 function pythonRepr(value: string): string {

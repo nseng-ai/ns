@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isRecord } from "@asdl/core";
+import { duplicateValues } from "./duplicate-values.ts";
 import type { classificationTemplateResultDocSchema } from "./operation-schemas/classification.ts";
 import {
 	getFeedbackManifestSchema,
@@ -1031,21 +1032,6 @@ function classificationLocatorRef(locator: BodyLocator): { json_pointer: string;
 		json_pointer: locator.json_pointer,
 		item_pointer: locator.item_pointer,
 	};
-}
-
-
-function duplicateValues<T>(values: readonly T[]): T[] {
-	const counts = new Map<T, number>();
-	for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-	const seen = new Set<T>();
-	const duplicates: T[] = [];
-	for (const value of values) {
-		if ((counts.get(value) ?? 0) > 1 && !seen.has(value)) {
-			duplicates.push(value);
-			seen.add(value);
-		}
-	}
-	return duplicates;
 }
 
 function pythonRepr(value: string | null): string {
