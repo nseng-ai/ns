@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — areg CLI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 5 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .grid-paper {
+        background-image:
+          linear-gradient(#e7e5e4 1px, transparent 1px),
+          linear-gradient(90deg, #e7e5e4 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-14">
+      <!-- ============ HEADER ============ -->
+      <header class="space-y-5">
+        <div class="flex items-baseline justify-between flex-wrap gap-3">
+          <h1 class="text-4xl font-serif tracking-tight">Architecture review — <span class="mono text-3xl">areg</span> CLI</h1>
+          <span class="text-sm text-slate-500">packages/areg · 2026-06-15</span>
+        </div>
+        <p class="text-slate-600 max-w-3xl">
+          Five deepening opportunities. The theme: <strong>areg knows a lot about the on-disk shape of an installed
+          skill</strong> — <span class="mono text-sm">skills/&lt;name&gt;/</span>, its mirror symlinks, its sidecar, its
+          Pi exclusion — but that knowledge is re-derived inline across checks and commands instead of sitting behind one
+          deep interface.
+        </p>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600 border-t border-b border-slate-200 py-3">
+          <span class="flex items-center gap-2"><span class="inline-block w-5 h-3 border-2 border-slate-700 bg-white"></span> module</span>
+          <span class="flex items-center gap-2"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="#475569" stroke-width="2" stroke-dasharray="5 4"/></svg> seam</span>
+          <span class="flex items-center gap-2"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="#dc2626" stroke-width="2"/></svg> duplicated / leaked knowledge</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-5 h-3 deep rounded-sm"></span> deep module</span>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-12">
+
+        <!-- ============ CANDIDATE 1 ============ -->
+        <article id="c1" class="bg-white rounded-xl border border-slate-200 shadow-sm p-7 space-y-6 scroll-mt-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">Strong</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+              <span class="text-xs text-slate-400 mono ml-auto">#1</span>
+            </div>
+            <h2 class="text-2xl font-serif">Give the installed skill a layout module</h2>
+          </div>
+
+          <div class="text-sm mono text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span>invoke_only.py</span><span>check/checks/local_skill.py</span><span>check/checks/skill_md.py</span>
+            <span>check/checks/orphans.py</span><span>command.py</span><span>command_conversion.py</span>
+          </div>
+
+          <!-- before / after -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — layout re-derived at 6 sites</p>
+              <pre class="mermaid">
+flowchart TD
+  K["skill name + project_dir"]
+  K --> A["local_skill.py<br/>skills/ .agents/ .claude/ paths<br/>+ symlink targets"]
+  K --> B["orphans.py<br/>skills/ .agents/ .claude/ paths"]
+  K --> C["skill_md.py<br/>local vs github SKILL.md path"]
+  K --> D["invoke_only.py<br/>skill_dir/skill_md/openai_policy"]
+  K --> E["command.py<br/>.agents/skills + SKILL.md"]
+  K --> F["command_conversion.py<br/>.pi/settings.json path"]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class A,B,C,D,E,F leak
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">Path strings and expected symlink targets (<span class="mono">../../skills/&lt;name&gt;</span>) are literal-duplicated. Same fact, six places.</p>
+            </div>
+            <div class="rounded-lg border-2 border-slate-800 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one deep module owns the layout</p>
+              <pre class="mermaid">
+flowchart TD
+  K["skill name + project_dir"] --> L["SkillLayout"]
+  L -.-> A["local_skill.py"]
+  L -.-> B["orphans.py"]
+  L -.-> C["skill_md.py"]
+  L -.-> D["invoke_only.py"]
+  L -.-> E["command.py"]
+  L -.-> F["command_conversion.py"]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class L deep
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">Callers ask <span class="mono">layout.skill_md</span>, <span class="mono">layout.agents_symlink</span>, <span class="mono">layout.expected_agents_target</span>. The seam is the layout, not raw <span class="mono">Path</span> arithmetic.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Problem</p>
+              <p>The canonical on-disk layout of an installed skill is re-derived inline everywhere; no module owns it.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Solution</p>
+              <p>A <span class="mono">SkillLayout(project_dir, name)</span> value object exposing every canonical path and expected symlink target.</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Wins</p>
+            <ul class="grid sm:grid-cols-2 gap-1.5 text-sm text-slate-700 list-disc list-inside">
+              <li>locality: symlink targets defined once</li>
+              <li>leverage: one interface, six call sites</li>
+              <li>deletion test: complexity reappears across 6 checks</li>
+              <li>interface is the test surface for layout facts</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 2 ============ -->
+        <article id="c2" class="bg-white rounded-xl border border-slate-200 shadow-sm p-7 space-y-6 scroll-mt-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+              <span class="text-xs text-slate-400 mono ml-auto">#2</span>
+            </div>
+            <h2 class="text-2xl font-serif">One frontmatter module — read <em>and</em> edit</h2>
+          </div>
+
+          <div class="text-sm mono text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span>check/frontmatter.py</span><span>command.py</span><span>invoke_only.py</span>
+          </div>
+
+          <!-- mass diagram: two parsers -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 p-4 grid-paper">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — two parsers for one <span class="mono">---</span> block</p>
+              <div class="flex items-end justify-around h-48 gap-6">
+                <div class="text-center">
+                  <div class="w-24 bg-slate-700 rounded-t" style="height:118px"></div>
+                  <p class="text-[11px] mono mt-1 leading-tight">frontmatter.py<br/>read parser<br/>(55 lines)</p>
+                </div>
+                <div class="text-center">
+                  <div class="w-24 bg-red-600 rounded-t" style="height:118px"></div>
+                  <p class="text-[11px] mono mt-1 leading-tight">command.py<br/>edit parser<br/>(~55 lines)</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Two independent hand-rolled scanners for the same delimited block. The read path and the flag-write path share no representation.</p>
+            </div>
+            <div class="rounded-lg border-2 border-slate-800 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one deep frontmatter module</p>
+              <div class="flex items-end justify-center h-48">
+                <div class="text-center">
+                  <div class="w-28 deep rounded-t flex items-center justify-center text-stone-300 text-[11px] mono px-2 text-center" style="height:150px">parse · read flag · set/clear flag</div>
+                  <p class="text-[11px] mono mt-1">frontmatter module</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Edit operations sit beside the parser. <span class="mono">disable-model-invocation</span> becomes one operation, not two parsers that must agree.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Problem</p>
+              <p><span class="mono">command.py</span> re-implements frontmatter boundary scanning to flip a flag the read parser already understands.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Solution</p>
+              <p>Move flag set/clear next to the parser; both read and edit cross one seam over the SKILL.md frontmatter.</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Wins</p>
+            <ul class="grid sm:grid-cols-2 gap-1.5 text-sm text-slate-700 list-disc list-inside">
+              <li>locality: one scanner, one set of edge cases</li>
+              <li>read and write can't drift apart</li>
+              <li>flag logic testable without the CLI</li>
+              <li>interface shrinks; ~55 lines absorbed</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 3 ============ -->
+        <article id="c3" class="bg-white rounded-xl border border-slate-200 shadow-sm p-7 space-y-6 scroll-mt-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+              <span class="text-xs text-slate-400 mono ml-auto">#3</span>
+            </div>
+            <h2 class="text-2xl font-serif">One edit-plan, one apply seam</h2>
+          </div>
+
+          <div class="text-sm mono text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span>init_project.py</span><span>command.py</span><span>file_plan.py</span>
+          </div>
+
+          <!-- cross-section: two parallel apply loops collapse into one band -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — two plan types, two apply loops</p>
+              <div class="space-y-3">
+                <div class="border-l-4 border-red-500 pl-3 py-2 bg-red-50/40">
+                  <p class="text-[11px] mono font-semibold">init_project.py</p>
+                  <p class="text-[11px] mono text-slate-500">InitPlan(text_files) · own apply loop</p>
+                </div>
+                <div class="border-l-4 border-red-500 pl-3 py-2 bg-red-50/40">
+                  <p class="text-[11px] mono font-semibold">command.py</p>
+                  <p class="text-[11px] mono text-slate-500">CommandEditPlan(text/delete/dirs) · own apply + dry-run echo</p>
+                </div>
+                <div class="border-l-4 border-slate-300 pl-3 py-2">
+                  <p class="text-[11px] mono font-semibold">file_plan.py</p>
+                  <p class="text-[11px] mono text-slate-500">atoms only: apply_text / apply_delete / apply_remove_dir</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">Each command owns its aggregate and its loop; dry-run echo lives in <span class="mono">command.py</span> only.</p>
+            </div>
+            <div class="rounded-lg border-2 border-slate-800 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one aggregate, one apply</p>
+              <div class="space-y-3">
+                <div class="deep rounded-md px-3 py-4 text-stone-200">
+                  <p class="text-[11px] mono font-semibold">EditPlan</p>
+                  <p class="text-[11px] mono text-stone-400">text + delete + remove-dir</p>
+                  <p class="text-[11px] mono text-stone-400 mt-1">apply(plan, *, project_dir, dry_run) → echo</p>
+                </div>
+                <div class="border-l-4 border-slate-300 pl-3 py-2">
+                  <p class="text-[11px] mono font-semibold">init_project.py · command.py</p>
+                  <p class="text-[11px] mono text-slate-500">build EditPlan, hand it to apply()</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">Dry-run reporting and ordering live once. Both commands cross the same seam.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Problem</p>
+              <p><span class="mono">InitPlan</span> and <span class="mono">CommandEditPlan</span> duplicate the "collect edits, apply them" shape with divergent dry-run behavior.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Solution</p>
+              <p>One <span class="mono">EditPlan</span> aggregate over <span class="mono">file_plan</span> atoms, with a single <span class="mono">apply</span> that owns echo + ordering.</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Wins</p>
+            <ul class="grid sm:grid-cols-2 gap-1.5 text-sm text-slate-700 list-disc list-inside">
+              <li>locality: dry-run echo in one place</li>
+              <li>leverage: every command reuses one apply</li>
+              <li>init gains dry-run for free</li>
+              <li>one apply surface to test</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 4 ============ -->
+        <article id="c4" class="bg-white rounded-xl border border-slate-200 shadow-sm p-7 space-y-6 scroll-mt-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">Worth exploring</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+              <span class="text-xs text-slate-400 mono ml-auto">#4</span>
+            </div>
+            <h2 class="text-2xl font-serif">Read command-conversion state once</h2>
+          </div>
+
+          <div class="text-sm mono text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span>command_conversion.py</span><span>check/checks/invoke_only.py</span><span>invoke_only.py</span>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — the check re-assembles state by hand</p>
+              <pre class="mermaid">
+flowchart TD
+  subgraph chk["InvokeOnlyCheck.run"]
+    P1["parse frontmatter"]
+    P2["build InvokeOnlyState manually"]
+    P3["pi_skill_exclusion_present()"]
+    P4["verify_pi_replacement()"]
+  end
+  subgraph cc["command_conversion"]
+    R1["read_command_conversion_state()"]
+    R2["pi_skill_exclusion_present()"]
+    R3["verify_pi_replacement()"]
+  end
+  P3 --> R2
+  P4 --> R3
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class P1,P2,P3,P4 leak
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">The check duplicates the exact state <span class="mono">read_command_conversion_state</span> already computes, just to emit per-field issues.</p>
+            </div>
+            <div class="rounded-lg border-2 border-slate-800 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — one read, the check classifies</p>
+              <pre class="mermaid">
+flowchart TD
+  R["read_command_conversion_state()"]:::deep --> S["CommandConversionState"]
+  S --> CHK["InvokeOnlyCheck<br/>maps state → issues"]
+  S --> LIST["command list<br/>maps state → labels"]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">One deep read of converted-skill state; callers only classify it into issues or status labels.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Problem</p>
+              <p>The invoke-only check re-derives flag/sidecar/exclusion/replacement state that <span class="mono">command_conversion</span> already reads.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Solution</p>
+              <p>Have the check consume <span class="mono">CommandConversionState</span>; keep only the state→issue mapping in the check.</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Wins</p>
+            <ul class="grid sm:grid-cols-2 gap-1.5 text-sm text-slate-700 list-disc list-inside">
+              <li>locality: one definition of "converted"</li>
+              <li>check and list agree by construction</li>
+              <li>state read tested independent of issues</li>
+              <li>delete one hand-built state assembly</li>
+            </ul>
+          </div>
+        </article>
+
+        <!-- ============ CANDIDATE 5 ============ -->
+        <article id="c5" class="bg-white rounded-xl border border-slate-200 shadow-sm p-7 space-y-6 scroll-mt-6">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">Speculative</span>
+              <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">in-process</span>
+              <span class="text-xs text-slate-400 mono ml-auto">#5</span>
+            </div>
+            <h2 class="text-2xl font-serif">Hand checks facts, not a raw data bag</h2>
+          </div>
+
+          <div class="text-sm mono text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+            <span>check/context.py</span><span>check/models.py</span><span>check/checks/*</span>
+          </div>
+
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+            The <span class="mono">SkillCheck</span> / <span class="mono">ProjectCheck</span> seam itself is justified — seven adapters cross it. This candidate touches only the <em>context</em> the seam carries, and pairs with <a href="#c1" class="underline">#1</a>.
+          </div>
+
+          <!-- mass diagram: wide shallow context -->
+          <div class="grid md:grid-cols-2 gap-5">
+            <div class="rounded-lg border border-slate-200 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">Before — wide bag, each check uses a slice</p>
+              <div class="space-y-1.5 text-[11px] mono">
+                <p class="text-slate-500">CheckContext: 5 raw fields</p>
+                <div class="flex gap-1">
+                  <span class="px-2 py-1 bg-slate-200 rounded">project_dir</span>
+                  <span class="px-2 py-1 bg-slate-200 rounded">skills</span>
+                  <span class="px-2 py-1 bg-slate-200 rounded">lockfile_names</span>
+                  <span class="px-2 py-1 bg-slate-200 rounded">excluded</span>
+                  <span class="px-2 py-1 bg-slate-200 rounded">lockfile_skills</span>
+                </div>
+                <div class="pt-2 space-y-1 text-slate-600">
+                  <p>local_skill → uses 1, re-derives 3 paths</p>
+                  <p>orphans → uses 3, re-derives 3 paths</p>
+                  <p>skill_md → uses 1, re-parses frontmatter</p>
+                  <p>invoke_only → uses 1, re-parses + re-reads</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">No check uses all five; each re-derives layout and re-parses frontmatter from <span class="mono">(project_dir, name)</span>.</p>
+            </div>
+            <div class="rounded-lg border-2 border-slate-800 p-4">
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-3">After — context yields per-skill facts</p>
+              <div class="space-y-2 text-[11px] mono">
+                <div class="deep rounded px-3 py-2 text-stone-200">
+                  SkillFacts(layout, frontmatter, source)
+                </div>
+                <p class="text-slate-600">checks read facts; no re-derivation, no re-parse</p>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">Layout (from <a href="#c1" class="underline">#1</a>) and parsed frontmatter computed once; checks consume, never re-compute.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Problem</p>
+              <p><span class="mono">CheckContext</span> is a shallow raw-data bag; checks re-derive paths and re-parse frontmatter per run.</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Solution</p>
+              <p>Deepen the context to hand each check a per-skill facts object (layout + parsed frontmatter).</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Wins</p>
+            <ul class="grid sm:grid-cols-2 gap-1.5 text-sm text-slate-700 list-disc list-inside">
+              <li>locality: frontmatter parsed once per skill</li>
+              <li>checks shrink to pure classification</li>
+              <li>builds on #1's layout module</li>
+              <li>caveat: depends on #1 landing first</li>
+            </ul>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- ============ TOP RECOMMENDATION ============ -->
+      <section id="top-recommendation">
+        <div class="deep rounded-2xl p-8 text-stone-100 space-y-3">
+          <p class="text-xs uppercase tracking-widest text-emerald-300">Top recommendation</p>
+          <h2 class="text-3xl font-serif">Start with <a href="#c1" class="underline decoration-emerald-400">#1 — the skill layout module</a>.</h2>
+          <p class="text-stone-300 max-w-3xl">
+            It is the deepest single change and the keystone for the rest. The on-disk layout of an installed skill is
+            the one fact <span class="mono text-sm">areg</span> repeats most — six sites re-derive the same paths and
+            symlink targets. Concentrating it passes the deletion test cleanly, and a <span class="mono text-sm">SkillLayout</span>
+            module is exactly what <a href="#c4" class="underline">#4</a> and <a href="#c5" class="underline">#5</a> would
+            hand to their callers. Land #1, then #2 and #3 in either order.
+          </p>
+        </div>
+      </section>
+
+      <footer class="text-xs text-slate-400 pt-4">
+        Vocabulary per the architecture glossary (module · interface · implementation · depth · seam · adapter · leverage · locality).
+        No <span class="mono">areg/CONTEXT.md</span> or <span class="mono">areg</span>-scoped ADR exists yet, so no documented decisions were re-litigated.
+      </footer>
+    </main>
+  </body>
+</html>
