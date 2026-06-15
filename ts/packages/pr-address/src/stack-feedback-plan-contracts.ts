@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import type { FeedbackClassificationValidationError, FeedbackClassificationValidationResult } from "./classification.ts";
-import { feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema } from "./feedback-plan-contracts.ts";
+import { VOIDED_BY_STACK_WORK_BATCH_ID, feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema, feedbackPlanVoidedThreadItemSchema } from "./feedback-plan-contracts.ts";
+import type { OperationPayloadField } from "./json-input.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { nullableStringSchema, stackFeedbackPrepResultInputSchema, type StackFeedbackPrepResultInput } from "./stack-feedback-prep-contracts.ts";
 
@@ -20,7 +21,10 @@ const stackFeedbackPlanItemMetadataSchema = z.looseObject({
 
 export const stackFeedbackPlanActionItemSchema = feedbackPlanActionItemSchema.and(stackFeedbackPlanItemMetadataSchema);
 export const stackFeedbackPlanInformationalItemSchema = feedbackPlanInformationalItemSchema.and(stackFeedbackPlanItemMetadataSchema);
-export const stackFeedbackPlanResultItemSchema = z.union([stackFeedbackPlanActionItemSchema, stackFeedbackPlanInformationalItemSchema]);
+export const stackFeedbackPlanVoidedThreadItemSchema = feedbackPlanVoidedThreadItemSchema
+	.extend({ complexity: z.literal(VOIDED_BY_STACK_WORK_BATCH_ID) })
+	.and(stackFeedbackPlanItemMetadataSchema);
+export const stackFeedbackPlanResultItemSchema = z.union([stackFeedbackPlanActionItemSchema, stackFeedbackPlanInformationalItemSchema, stackFeedbackPlanVoidedThreadItemSchema]);
 export const stackFeedbackPlanBatchSchema = z.looseObject({
 	batch_id: z.string(),
 	complexity: z.string(),
@@ -155,6 +159,7 @@ export interface StackFeedbackPlanSummary {
 	approval_required_items: number;
 	informational_items: number;
 	automation_discussion_comments: number;
+	voided_by_stack_work_items?: number | undefined;
 }
 
 export interface StackFeedbackPlanResolvedClassificationInput {
