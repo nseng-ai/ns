@@ -120,6 +120,7 @@ def _build_fakes(
     stack_result: StackInfo | UntrackedBranch | GtCommandFailure | None = None,
     slot_branch: str | None = "feature/slot",
     recent_branch_isos: dict[str, str | None] | None = None,
+    local_branches: set[str] | None = None,
     create_db: bool = True,
 ) -> _StackMapFakes:
     repo_root = (tmp_path / "repo").resolve()
@@ -134,9 +135,12 @@ def _build_fakes(
     if slot_branch is not None:
         worktrees.append(WorktreeInfo(path=slot_path, branch=slot_branch, is_bare=False))
 
-    branch_names = {row.branch_name for row in metadata_rows if row.branch_name}
-    branch_names.update(recent_branch_isos or {})
-    branch_names.add("feature/current")
+    if local_branches is not None:
+        branch_names = set(local_branches)
+    else:
+        branch_names = {row.branch_name for row in metadata_rows if row.branch_name}
+        branch_names.update(recent_branch_isos or {})
+        branch_names.add("feature/current")
     branch_result = (
         current_branch_result if current_branch_result is not None else "feature/current"
     )
@@ -262,6 +266,37 @@ def test_stack_map_branches_recent_untracked_branch_is_skipped(
     assert "feature/recent" in branch_names
     assert "feature/untracked" not in branch_names
     assert payload["data"]["warnings"] == []
+
+
+def test_stack_map_branches_excludes_stale_metadata_branches(
+    cli_group: ClinkrGroup,
+    tmp_path: Path,
+) -> None:
+    rows = [
+        _BranchRow("main", None, ("feature/current", "stale-1"), "TRUNK"),
+        _BranchRow("feature/current", "main", (), "VALID"),
+        _BranchRow("stale-1", "main", ("stale-2",), "VALID"),
+        _BranchRow("stale-2", "stale-1", (), "VALID"),
+    ]
+    fakes = _build_fakes(
+        tmp_path,
+        rows=rows,
+        slot_branch=None,
+        local_branches={"main", "feature/current"},
+        stack_result=_stack(current="feature/current", trunk="main", ancestors=("main",)),
+    )
+
+    result = CliRunner().invoke(
+        cli_group,
+        ["gt", "exec", "stack-map-branches", "--format", "json"],
+        obj=_obj(fakes.ctx),
+    )
+
+    payload = _machine_payload(result.stdout)
+    assert result.exit_code == 0, result.output
+    branch_names = [branch["name"] for branch in payload["data"]["branches"]]
+    assert branch_names == ["feature/current", "main"]
+    assert "stale-1" not in branch_names and "stale-2" not in branch_names
 
 
 def test_stack_map_branches_marks_needs_restack_without_failing(
