@@ -600,7 +600,7 @@
                 ],
                 "additionalProperties": false
               },
-              "current_prep": {
+              "current_thread_state": {
                 "type": "object",
                 "properties": {
                   "payload_path": {
@@ -660,7 +660,7 @@
             },
             "required": [
               "stack_plan",
-              "current_prep"
+              "current_thread_state"
             ],
             "additionalProperties": false
           }

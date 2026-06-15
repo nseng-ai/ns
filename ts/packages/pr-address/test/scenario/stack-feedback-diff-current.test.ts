@@ -24,7 +24,7 @@ interface DiffEnvelope {
 		errors: Array<{ code: string }>;
 		resolved_inputs?: {
 			stack_plan: { descriptor: string; sequence: number };
-			current_prep: { descriptor: string; sequence: number };
+			current_thread_state: { descriptor: string; sequence: number };
 		};
 	};
 }
@@ -42,7 +42,7 @@ describe("stack-feedback-diff-current", () => {
 	test("returns ok when planned actionable threads still match current feedback", async () => {
 		const result = diffStackFeedbackCurrent({
 			stack_plan: stackPlan({ threadId: "PRRT_1" }),
-			current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
+			current_thread_state: currentThreadState({ threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
 		});
 
 		expect(result.safe_to_resolve_planned).toBe(true);
@@ -52,7 +52,7 @@ describe("stack-feedback-diff-current", () => {
 	test("returns negative when current feedback has drift", async () => {
 		const result = diffStackFeedbackCurrent({
 			stack_plan: stackPlan({ threadId: "PRRT_1" }),
-			current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })] }),
+			current_thread_state: currentThreadState({ threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })] }),
 		});
 
 		expect(result.safe_to_resolve_planned).toBe(false);
@@ -65,7 +65,7 @@ describe("stack-feedback-diff-current", () => {
 		plan.batches[0]?.items.push({ ...plan.batches[0].items[0] });
 		const result = diffStackFeedbackCurrent({
 			stack_plan: plan,
-			current_prep: currentPrep({ shouldIncludeResolved: true, prNumber: 100, threads: [thread({ thread_id: "PRRT_1" })] }),
+			current_thread_state: currentThreadState({ prNumber: 100, threads: [thread({ thread_id: "PRRT_1" })] }),
 		});
 
 		expect(result.errors.map((error) => error.code)).toEqual(["missing_current_pr", "unknown_current_pr", "duplicate_planned_thread"]);
@@ -73,17 +73,18 @@ describe("stack-feedback-diff-current", () => {
 });
 
 describe("stack-feedback-diff-current session inputs", () => {
-	async function seedSession(root: string, sessionId: string, options: { plan: unknown; prep: unknown }): Promise<void> {
+	async function seedSession(root: string, sessionId: string, options: { plan: unknown; threadState?: unknown | undefined; prep?: unknown | undefined }): Promise<void> {
 		const store = expectOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-01-02T03:04:05.000Z") }));
 		expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: options.plan }));
-		expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("prep"), role: "summary", payload: options.prep }));
+		if (options.prep !== undefined) expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("prep"), role: "summary", payload: options.prep }));
+		if (options.threadState !== undefined) expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("thread-state"), role: "summary", payload: options.threadState }));
 	}
 
-	test("resolves latest stack plan and current prep from an empty-stdin harness session", async () => {
+	test("resolves latest stack plan and current thread-state from an empty-stdin harness session", async () => {
 		const root = join(await makeTempDir(), "payload-root");
 		await seedSession(root, "stack-session", {
 			plan: stackPlan({ threadId: "PRRT_1" }),
-			prep: currentPrep({ shouldIncludeResolved: true, threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
+			threadState: currentThreadState({ threads: [thread({ thread_id: "PRRT_1", is_resolved: false })] }),
 		});
 
 		const run = runDiffWithArgs([], "", { env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "stack-session" } });
@@ -92,15 +93,14 @@ describe("stack-feedback-diff-current session inputs", () => {
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(true);
 		expect(envelope.data.resolved_inputs?.stack_plan).toMatchObject({ descriptor: "pr-address-stack-plan", sequence: 1 });
-		expect(envelope.data.resolved_inputs?.current_prep).toMatchObject({ descriptor: "pr-address-stack-prep", sequence: 2 });
+		expect(envelope.data.resolved_inputs?.current_thread_state).toMatchObject({ descriptor: "pr-address-stack-thread-state", sequence: 2 });
 	});
 
 	test("keeps resolved input audit facts on drift", async () => {
 		const root = join(await makeTempDir(), "payload-root");
 		await seedSession(root, "stack-session", {
 			plan: stackPlan({ threadId: "PRRT_1" }),
-			prep: currentPrep({
-				shouldIncludeResolved: true,
+			threadState: currentThreadState({
 				threads: [thread({ thread_id: "PRRT_1", path: "renamed.ts", is_resolved: false }), thread({ thread_id: "PRRT_new", is_resolved: false })],
 			}),
 		});
@@ -111,7 +111,22 @@ describe("stack-feedback-diff-current session inputs", () => {
 		const envelope = parseDiffEnvelope(run.stdout.join(""));
 		expect(envelope.data.safe_to_resolve_planned).toBe(false);
 		expect(envelope.data.resolved_inputs?.stack_plan.descriptor).toBe("pr-address-stack-plan");
-		expect(envelope.data.resolved_inputs?.current_prep.descriptor).toBe("pr-address-stack-prep");
+		expect(envelope.data.resolved_inputs?.current_thread_state.descriptor).toBe("pr-address-stack-thread-state");
+	});
+
+	test("fails closed when the session has prep but no thread-state artifact", async () => {
+		const root = join(await makeTempDir(), "payload-root");
+		await seedSession(root, "stack-session", {
+			plan: stackPlan({ threadId: "PRRT_1" }),
+			prep: { legacy: "prep-only" },
+		});
+
+		const run = runDiffWithArgs([], "", { env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "stack-session" } });
+
+		expect(await run.exit).toBe(2);
+		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
+		expect(envelope.error_type).toBe("payload_lookup_failed");
+		expect(envelope.message).toContain("pr-address-stack-thread-state");
 	});
 
 	test("requires a harness session when empty stdin has no explicit source", async () => {
@@ -145,7 +160,7 @@ describe("stack-feedback-diff-current removed inputs", () => {
 	}
 
 	test("rejects non-empty stdin", async () => {
-		const run = runDiffWithArgs([], JSON.stringify({ stack_plan: stackPlan({ threadId: "PRRT_1" }), current_prep: currentPrep({ shouldIncludeResolved: true, threads: [thread()] }) }));
+		const run = runDiffWithArgs([], JSON.stringify({ stack_plan: stackPlan({ threadId: "PRRT_1" }), current_thread_state: currentThreadState({ threads: [thread()] }) }));
 
 		expect(await run.exit).toBe(2);
 		const envelope = errorEnvelope(run);
@@ -198,17 +213,22 @@ function stackPlan(options: { threadId: string }): {
 	};
 }
 
-function currentPrep(options: { shouldIncludeResolved: boolean; prNumber?: number | undefined; threads: Array<Record<string, unknown>> }): Record<string, unknown> {
+function currentThreadState(options: { prNumber?: number | undefined; threads: Array<Record<string, unknown>> }): Record<string, unknown> {
 	return {
 		harness_session_id: "session",
-		include_resolved: options.shouldIncludeResolved,
+		include_resolved: true,
+		stack_thread_state_reference: null,
+		summary: { prs: 1, review_threads: options.threads.length, unresolved_review_threads: options.threads.filter((thread) => thread.is_resolved !== true).length, resolved_review_threads: options.threads.filter((thread) => thread.is_resolved === true).length },
 		stack: [
 			{
 				pr_number: options.prNumber ?? 42,
 				branch: "feature",
 				title: "Feature",
 				url: "https://example.com/pr/42",
-				manifest: { review_threads: options.threads },
+				head_ref_name: "feature",
+				base_ref_name: "main",
+				review_threads: options.threads,
+				counts: { review_threads: options.threads.length, unresolved_review_threads: options.threads.filter((thread) => thread.is_resolved !== true).length, resolved_review_threads: options.threads.filter((thread) => thread.is_resolved === true).length },
 			},
 		],
 	};

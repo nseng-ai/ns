@@ -231,6 +231,7 @@ describe("pr-address exec operation table", () => {
 			"stack-feedback-plan",
 			"stack-feedback-preflight",
 			"stack-feedback-prep",
+			"stack-feedback-thread-state",
 			"summarize-feedback",
 			"validate-feedback-classification",
 		]);

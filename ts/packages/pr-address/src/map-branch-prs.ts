@@ -26,10 +26,16 @@ export interface BranchPrEntry {
 	base_ref_name: string;
 }
 
+export interface AmbiguousBranchPrEntry {
+	branch: string;
+	candidates: BranchPrEntry[];
+}
+
 export interface MapBranchPrsResult {
 	branch_prs: BranchPrEntry[];
 	missing_branches: string[];
-	summary: { requested: number; matched: number; missing: number };
+	ambiguous_branches: AmbiguousBranchPrEntry[];
+	summary: { requested: number; matched: number; missing: number; ambiguous: number };
 }
 
 export const mapBranchPrsOperation = defineExecOperation({
@@ -50,7 +56,7 @@ export const mapBranchPrsOperation = defineExecOperation({
 					operation: "map-branch-prs",
 					counts: result.summary,
 					artifacts: { full_output: fullOutput },
-					details: { branch_prs: result.branch_prs, missing_branches: result.missing_branches },
+					details: { branch_prs: result.branch_prs, missing_branches: result.missing_branches, ambiguous_branches: result.ambiguous_branches },
 				}),
 			};
 		},
@@ -75,8 +81,8 @@ async function runMapBranchPrsOperation(ctx: PrAddressExecContext, request: MapB
 	const mapping = await mapBranchesToOpenPrs({ branches, github: ctx.context.github, ctx });
 	if (mapping.type === "error") return mapping.exit;
 	const result = mapping.value;
-	if (result.missing_branches.length === 0) return ok(result);
-	return negative(`No open PR found for branches: ${result.missing_branches.join(", ")}`, result);
+	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0) return ok(result);
+	return negative(mappingFailureMessage(result), result);
 }
 
 export async function mapBranchesToOpenPrs(options: {
@@ -87,30 +93,31 @@ export async function mapBranchesToOpenPrs(options: {
 	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.ctx));
 	if (openPrsResult.type === "failure") return { type: "error", exit: gatewayFailureExit("Failed to list open PRs", openPrsResult.failure) };
 
-	const prsByHeadBranch = lowestNumberedPrByHeadBranch(openPrsResult.value);
+	const prsByHeadBranch = prsGroupedByHeadBranch(openPrsResult.value);
 	const branchPrs: BranchPrEntry[] = [];
 	const missingBranches: string[] = [];
+	const ambiguousBranches: AmbiguousBranchPrEntry[] = [];
 	for (const branch of options.branches) {
-		const pr = prsByHeadBranch.get(branch);
-		if (pr === undefined) {
+		const candidates = prsByHeadBranch.get(branch) ?? [];
+		if (candidates.length === 0) {
 			missingBranches.push(branch);
 			continue;
 		}
-		branchPrs.push({
-			branch,
-			pr_number: pr.number,
-			title: pr.title,
-			url: pr.url,
-			head_ref_name: pr.head_ref_name,
-			base_ref_name: pr.base_ref_name,
-		});
+		if (candidates.length > 1) {
+			ambiguousBranches.push({ branch, candidates: candidates.map((pr) => branchPrEntry(branch, pr)) });
+			continue;
+		}
+		const [pr] = candidates;
+		if (pr === undefined) throw new Error(`Expected PR candidate for branch ${branch}.`);
+		branchPrs.push(branchPrEntry(branch, pr));
 	}
 	return {
 		type: "ok",
 		value: {
 			branch_prs: branchPrs,
 			missing_branches: missingBranches,
-			summary: { requested: options.branches.length, matched: branchPrs.length, missing: missingBranches.length },
+			ambiguous_branches: ambiguousBranches,
+			summary: { requested: options.branches.length, matched: branchPrs.length, missing: missingBranches.length, ambiguous: ambiguousBranches.length },
 		},
 	};
 }
@@ -123,16 +130,35 @@ export function branchesValidationMessage(branches: readonly string[], commandNa
 	return null;
 }
 
-/** Multiple open PRs can share a head branch (e.g. a retargeted duplicate); pick the lowest PR number for determinism. */
-function lowestNumberedPrByHeadBranch(prs: readonly PRSummary[]): ReadonlyMap<string, PRSummary> {
-	const byBranch = new Map<string, PRSummary>();
+function branchPrEntry(branch: string, pr: PRSummary): BranchPrEntry {
+	return {
+		branch,
+		pr_number: pr.number,
+		title: pr.title,
+		url: pr.url,
+		head_ref_name: pr.head_ref_name,
+		base_ref_name: pr.base_ref_name,
+	};
+}
+
+function prsGroupedByHeadBranch(prs: readonly PRSummary[]): ReadonlyMap<string, readonly PRSummary[]> {
+	const byBranch = new Map<string, PRSummary[]>();
 	for (const pr of prs) {
-		const existing = byBranch.get(pr.head_ref_name);
-		if (existing === undefined || pr.number < existing.number) byBranch.set(pr.head_ref_name, pr);
+		const existing = byBranch.get(pr.head_ref_name) ?? [];
+		existing.push(pr);
+		byBranch.set(pr.head_ref_name, existing);
 	}
 	return byBranch;
 }
 
+function mappingFailureMessage(result: MapBranchPrsResult): string {
+	const ambiguousBranchNames = result.ambiguous_branches.map((entry) => entry.branch);
+	if (result.missing_branches.length > 0 && ambiguousBranchNames.length > 0) {
+		return `Could not map branches uniquely; missing: ${result.missing_branches.join(", ")}; ambiguous: ${ambiguousBranchNames.join(", ")}`;
+	}
+	if (ambiguousBranchNames.length > 0) return `Multiple open PRs found for branches: ${ambiguousBranchNames.join(", ")}`;
+	return `No open PR found for branches: ${result.missing_branches.join(", ")}`;
+}
 
 function duplicateValues<T>(values: readonly T[]): T[] {
 	const counts = new Map<T, number>();

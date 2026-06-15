@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -41,7 +41,7 @@ interface PayloadReference {
 
 interface CompactPreflightDetails {
 	harness_session_id: string;
-	mapping_summary: { requested: number; matched: number; missing: number };
+	mapping_summary: { requested: number; matched: number; missing: number; ambiguous: number };
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
 	summary: { prs: number; reviews: number; unresolved_review_threads: number; discussion_comments: number };
@@ -57,7 +57,7 @@ interface CompactPreflightData {
 
 interface FullPreflightData {
 	harness_session_id: string;
-	mapping_summary: { requested: number; matched: number; missing: number };
+	mapping_summary: { requested: number; matched: number; missing: number; ambiguous: number };
 	stack_reference: PayloadReference;
 	stack_summary_reference: PayloadReference;
 	stack: Array<{ pr_number: number; branch: string; manifest: unknown }>;
@@ -66,7 +66,8 @@ interface FullPreflightData {
 interface MissingMappingData {
 	branch_prs: Array<{ branch: string; pr_number: number }>;
 	missing_branches: string[];
-	summary: { requested: number; matched: number; missing: number };
+	ambiguous_branches: Array<{ branch: string; candidates: Array<{ pr_number: number }> }>;
+	summary: { requested: number; matched: number; missing: number; ambiguous: number };
 }
 
 afterEach(async () => {
@@ -119,15 +120,6 @@ function feedbackGithub(): InMemoryPrAddressGitHubGateway {
 	});
 }
 
-async function payloadFiles(root: string): Promise<string[]> {
-	try {
-		return await readdir(join(root, "sessions", SESSION_ID, "payloads"));
-	} catch (error) {
-		if (typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "ENOENT") return [];
-		throw error;
-	}
-}
-
 describe("pr-address exec stack-feedback-preflight", () => {
 	test("maps branches, freezes the stack, runs prep, and emits a compact feedback-bearing split", async () => {
 		const root = await makePayloadRoot();
@@ -141,7 +133,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.exit_code).toBe(0);
 		expect(envelope.data?.details.harness_session_id).toBe(SESSION_ID);
-		expect(envelope.data?.details.mapping_summary).toEqual({ requested: 3, matched: 3, missing: 0 });
+		expect(envelope.data?.details.mapping_summary).toEqual({ requested: 3, matched: 3, missing: 0, ambiguous: 0 });
 		expect(envelope.data?.details.summary).toMatchObject({ prs: 3, reviews: 1, unresolved_review_threads: 1, discussion_comments: 1 });
 		expect(envelope.data?.details.stack.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch }))).toEqual([
 			{ pr_number: 20, branch: "feature-a" },
@@ -171,7 +163,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope<FullPreflightData>(run);
-		expect(envelope.data?.mapping_summary).toEqual({ requested: 2, matched: 2, missing: 0 });
+		expect(envelope.data?.mapping_summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 		expect(envelope.data?.stack.map((entry) => entry.pr_number)).toEqual([20, 22]);
 		expect(envelope.data?.stack.every((entry) => entry.manifest !== undefined)).toBe(true);
 		expect(envelope.data?.stack_reference.descriptor).toBe("pr-address-stack-feedback-preflight");
@@ -190,7 +182,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		const envelope = parseEnvelope<CompactPreflightData>(run);
 		expect(envelope.message).toBe("No open PR found for branches: missing-branch");
 		expect(envelope.data?.details.missing_branches).toEqual(["missing-branch"]);
-		expect(envelope.data?.counts).toEqual({ requested: 2, matched: 1, missing: 1 });
+		expect(envelope.data?.counts).toEqual({ requested: 2, matched: 1, missing: 1, ambiguous: 0 });
 		expect(envelope.data?.artifacts.full_output.descriptor).toBe("pr-address-command-stack-feedback-preflight-output");
 	});
 
@@ -253,16 +245,18 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		expect(envelope.message).toBe("Failed to list open PRs: gh: network down");
 	});
 
-	test("breaks shared-head-branch ties by choosing the lowest PR number", async () => {
+	test("returns exit 1 for ambiguous shared-head-branch mapping before writing artifacts", async () => {
 		const root = await makePayloadRoot();
 		const github = new InMemoryPrAddressGitHubGateway({
 			prs: [prSummary({ number: 44, head_ref_name: "shared" }), prSummary({ number: 40, head_ref_name: "shared" })],
 		});
 		const run = runPreflight(["--stdout-mode", "compact"], { root, github, stdin: JSON.stringify({ branches: ["shared"] }) });
 
-		expect(await run.exit).toBe(0);
+		expect(await run.exit).toBe(1);
 		const envelope = parseEnvelope<CompactPreflightData>(run);
-		expect(envelope.data?.details.zero_feedback_prs).toEqual([{ pr_number: 40, branch: "shared" }]);
+		expect(envelope.message).toBe("Multiple open PRs found for branches: shared");
+		expect(envelope.data?.details.branch_prs).toEqual([]);
+		expect(envelope.data?.counts).toEqual({ requested: 1, matched: 0, missing: 0, ambiguous: 1 });
 	});
 
 	test("accepts branch input via --branches-json", async () => {
@@ -273,6 +267,6 @@ describe("pr-address exec stack-feedback-preflight", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseEnvelope<CompactPreflightData>(run).data?.details.mapping_summary).toEqual({ requested: 1, matched: 1, missing: 0 });
+		expect(parseEnvelope<CompactPreflightData>(run).data?.details.mapping_summary).toEqual({ requested: 1, matched: 1, missing: 0, ambiguous: 0 });
 	});
 });

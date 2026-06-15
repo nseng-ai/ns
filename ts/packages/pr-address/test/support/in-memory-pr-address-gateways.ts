@@ -70,6 +70,7 @@ export interface InMemoryGitHubState {
 	unresolveFailureIds?: ReadonlySet<string> | undefined;
 	reactionFailureCommentIds?: ReadonlySet<number> | undefined;
 	reviewsFailurePrNumbers?: ReadonlySet<number> | undefined;
+	reviewThreadsFailurePrNumbers?: ReadonlySet<number> | undefined;
 	discussionCommentsFailurePrNumbers?: ReadonlySet<number> | undefined;
 }
 
@@ -102,6 +103,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	private readonly unresolveFailureIds: ReadonlySet<string>;
 	private readonly reactionFailureCommentIds: ReadonlySet<number>;
 	private readonly reviewsFailurePrNumbers: ReadonlySet<number>;
+	private readonly reviewThreadsFailurePrNumbers: ReadonlySet<number>;
 	private readonly discussionCommentsFailurePrNumbers: ReadonlySet<number>;
 	private readonly commentCalls: Array<{ prNumber: number; body: string }> = [];
 	private readonly threadReplyCalls: Array<{ threadId: string; body: string }> = [];
@@ -134,6 +136,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		this.unresolveFailureIds = state.unresolveFailureIds ?? new Set();
 		this.reactionFailureCommentIds = state.reactionFailureCommentIds ?? new Set();
 		this.reviewsFailurePrNumbers = state.reviewsFailurePrNumbers ?? new Set();
+		this.reviewThreadsFailurePrNumbers = state.reviewThreadsFailurePrNumbers ?? new Set();
 		this.discussionCommentsFailurePrNumbers = state.discussionCommentsFailurePrNumbers ?? new Set();
 	}
 
@@ -183,6 +186,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
+		if (this.reviewThreadsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
 		const threads = clone(this.reviewThreads.get(prNumber) ?? []);
 		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
 	}

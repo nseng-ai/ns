@@ -5,7 +5,7 @@ import { isSafeSegment, payloadError, type JsonPayloadRole, type PayloadArtifact
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
 export type PrBatchArtifactKind = "resolve-build" | "resolution" | "checkpoint";
-export type StackArtifactKind = "prep" | "plan";
+export type StackArtifactKind = "prep" | "plan" | "thread-state";
 
 export interface ResolvedSessionArtifact<T = unknown> {
 	reference: PayloadReference;

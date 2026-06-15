@@ -111,7 +111,7 @@ async function runStackFeedbackPreflightOperation(
 	const github = ctx.context.github;
 	const mapping = await mapBranchesToOpenPrs({ branches, github, ctx });
 	if (mapping.type === "error") return mapping.exit;
-	if (mapping.value.missing_branches.length > 0) return missingBranchesResult(mapping.value);
+	if (mapping.value.missing_branches.length > 0 || mapping.value.ambiguous_branches.length > 0) return mappingCoverageFailureResult(mapping.value);
 
 	const frozenStack: FrozenStackArtifact = { stack: mapping.value.branch_prs.map(stackEntry) };
 	const stackReference = await store.writeJsonArtifact({ descriptor: "pr-address-stack-feedback-preflight", role: "summary", payload: frozenStack });
@@ -150,7 +150,12 @@ function stackEntry(entry: MapBranchPrsResult["branch_prs"][number]): StackFeedb
 	};
 }
 
-function missingBranchesResult(mapping: MapBranchPrsResult): ClinkrExit<unknown> {
+function mappingCoverageFailureResult(mapping: MapBranchPrsResult): ClinkrExit<unknown> {
+	const ambiguousBranchNames = mapping.ambiguous_branches.map((entry) => entry.branch);
+	if (mapping.missing_branches.length > 0 && ambiguousBranchNames.length > 0) {
+		return negative(`Could not map branches uniquely; missing: ${mapping.missing_branches.join(", ")}; ambiguous: ${ambiguousBranchNames.join(", ")}`, mapping);
+	}
+	if (ambiguousBranchNames.length > 0) return negative(`Multiple open PRs found for branches: ${ambiguousBranchNames.join(", ")}`, mapping);
 	return negative(`No open PR found for branches: ${mapping.missing_branches.join(", ")}`, mapping);
 }
 

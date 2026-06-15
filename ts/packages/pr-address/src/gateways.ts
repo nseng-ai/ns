@@ -227,6 +227,9 @@ mutation($threadId: ID!, $body: String!) {
   }
 }`;
 
+// Known limitation: this query does not paginate reviewThreads(first: 100)
+// or comments(first: 20). Large PRs can be under-collected until pagination
+// is implemented.
 export const reviewThreadsQuery = `
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {

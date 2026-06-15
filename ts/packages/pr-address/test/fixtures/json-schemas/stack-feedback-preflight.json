@@ -3,6 +3,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
+      },
       "branches_json": {
         "anyOf": [
           {
@@ -21,13 +28,6 @@
           {
             "type": "null"
           }
-        ]
-      },
-      "stdout_mode": {
-        "type": "string",
-        "enum": [
-          "full",
-          "compact"
         ]
       }
     },
@@ -1914,12 +1914,18 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "ambiguous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
                   }
                 },
                 "required": [
                   "requested",
                   "matched",
-                  "missing"
+                  "missing",
+                  "ambiguous"
                 ],
                 "additionalProperties": false
               },
@@ -2013,12 +2019,18 @@
                     "type": "integer",
                     "minimum": -9007199254740991,
                     "maximum": 9007199254740991
+                  },
+                  "ambiguous": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
                   }
                 },
                 "required": [
                   "requested",
                   "matched",
-                  "missing"
+                  "missing",
+                  "ambiguous"
                 ],
                 "additionalProperties": false
               },
