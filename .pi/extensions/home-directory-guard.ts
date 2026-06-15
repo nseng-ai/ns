@@ -1,3 +1,5 @@
+import { isRecord } from "../../ts/packages/pi-extension-runtime/src/cmux/primitives.ts";
+
 const HOME_ROOT = "/Users/schrockn";
 const BLOCK_REASON = "Blocked by home-directory-guard extension: home-directory root target is forbidden. Scope to a repo or explicit subfolder.";
 
@@ -87,7 +89,7 @@ export function commandTargetsHomeRoot(command: string): boolean {
 }
 
 export function tokenizeShellLikeCommand(command: string): string[] {
-	const tokens: string[] = [];
+	let tokens: readonly string[] = [];
 	let current = "";
 	let quote: "'" | '"' | undefined;
 
@@ -110,7 +112,7 @@ export function tokenizeShellLikeCommand(command: string): string[] {
 		}
 
 		if (isShellTokenSeparator(character)) {
-			pushToken(tokens, current);
+			tokens = appendToken(tokens, current);
 			current = "";
 			continue;
 		}
@@ -118,8 +120,7 @@ export function tokenizeShellLikeCommand(command: string): string[] {
 		current += character;
 	}
 
-	pushToken(tokens, current);
-	return tokens;
+	return appendToken(tokens, current);
 }
 
 export function pathValueTargetsHomeRoot(value: string): boolean {
@@ -135,34 +136,28 @@ export function pathValueTargetsHomeRoot(value: string): boolean {
 }
 
 export function collectPathLikeValues(input: unknown): string[] {
-	const values: string[] = [];
-	collectPathLikeValuesInto(input, undefined, values);
-	return values;
+	return collectPathLikeValuesForKey(input, undefined);
 }
 
-function collectPathLikeValuesInto(input: unknown, key: string | undefined, values: string[]): void {
+function collectPathLikeValuesForKey(input: unknown, key: string | undefined): string[] {
 	if (typeof input === "string") {
-		if (key !== undefined && isPathLikeKey(key)) values.push(input);
-		return;
+		return key !== undefined && isPathLikeKey(key) ? [input] : [];
 	}
 
 	if (Array.isArray(input)) {
-		for (const item of input) {
-			collectPathLikeValuesInto(item, key, values);
-		}
-		return;
+		return input.flatMap((item) => collectPathLikeValuesForKey(item, key));
 	}
 
-	if (!isPlainObject(input)) return;
+	if (!isRecord(input)) return [];
 
-	for (const [childKey, childValue] of Object.entries(input)) {
-		if (TEXT_CONTENT_KEYS.has(childKey)) continue;
-		collectPathLikeValuesInto(childValue, childKey, values);
-	}
+	return Object.entries(input).flatMap(([childKey, childValue]) => {
+		if (TEXT_CONTENT_KEYS.has(childKey)) return [];
+		return collectPathLikeValuesForKey(childValue, childKey);
+	});
 }
 
 function commandFromInput(input: unknown): string | undefined {
-	if (!isPlainObject(input)) return undefined;
+	if (!isRecord(input)) return undefined;
 	const command = input.command;
 	return typeof command === "string" ? command : undefined;
 }
@@ -183,9 +178,8 @@ function isShellTokenSeparator(character: string): boolean {
 	return /\s/.test(character) || character === ";" || character === "&" || character === "|" || character === "<" || character === ">";
 }
 
-function pushToken(tokens: string[], token: string): void {
-	if (token.length === 0) return;
-	tokens.push(token);
+function appendToken(tokens: readonly string[], token: string): string[] {
+	return token.length === 0 ? [...tokens] : [...tokens, token];
 }
 
 function stripSimpleMatchingQuotes(value: string): string {
@@ -202,8 +196,4 @@ function stripSimpleMatchingQuotes(value: string): string {
 
 function isPathLikeKey(key: string): boolean {
 	return PATH_LIKE_KEYS.has(key);
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
