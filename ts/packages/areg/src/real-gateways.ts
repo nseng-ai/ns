@@ -224,8 +224,8 @@ export class RealAregCheckProjectInspectionGateway implements AregCheckProjectIn
 			excludedSkillNames: await readLocallyExcludedSkillNames(projectDir),
 			piSettings: await inspectTextFile(path.join(projectDir, ".pi", "settings.json")),
 			genericReplacement: {
-				adapterExists: (await inspectTextFile(path.join(projectDir, ".pi", "extensions", "backing-skill-commands.ts"))).type === "file",
-				packageModuleExists: (await inspectTextFile(path.join(projectDir, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"))).type === "file",
+				hasAdapter: (await inspectTextFile(path.join(projectDir, ".pi", "extensions", "backing-skill-commands.ts"))).type === "file",
+				hasPackageModule: (await inspectTextFile(path.join(projectDir, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"))).type === "file",
 			},
 			skills: await inspectSkills(projectDir, allSkillNames),
 			pairingDirectories: await inspectPairingDirectories(projectDir),

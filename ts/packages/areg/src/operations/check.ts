@@ -77,7 +77,7 @@ const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 };
 
-const MAX_SKILL_DESCRIPTION_LENGTH = 1024;
+const MAX_SKILL_DESCRIPTION_CHARS = 1024;
 const PLACEHOLDER_HASH = "PENDING_REGEN";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/u;
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
@@ -176,7 +176,7 @@ export function buildCheckReport(inspection: AregCheckProjectInspectionResult, l
 		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
-		if (entry.sourceType === "local") issues.push(...checkInvokeOnly(entry, inspected, inspection, piExclusions));
+		if (entry.sourceType === "local") issues.push(...checkInvokeOnly({ entry, inspected, inspection, piExclusions }));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
@@ -325,13 +325,21 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 	const frontmatter = parseSkillFrontmatterText(skillMd.text);
 	if (frontmatter.type === "error") return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid frontmatter: ${frontmatter.message}`)];
 	const description = frontmatter.fields.description;
-	if (description !== undefined && description.length > MAX_SKILL_DESCRIPTION_LENGTH) {
+	if (description !== undefined && description.length > MAX_SKILL_DESCRIPTION_CHARS) {
 		return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid description: exceeds maximum length of 1024 characters (got ${description.length})`)];
 	}
 	return [];
 }
 
-function checkInvokeOnly(entry: LockfileSkill, inspected: AregCheckSkillInspection, inspection: AregCheckProjectInspectionResult, piExclusions: readonly string[]): CheckIssue[] {
+interface CheckInvokeOnlyOptions {
+	entry: LockfileSkill;
+	inspected: AregCheckSkillInspection;
+	inspection: AregCheckProjectInspectionResult;
+	piExclusions: readonly string[];
+}
+
+function checkInvokeOnly(options: CheckInvokeOnlyOptions): CheckIssue[] {
+	const { entry, inspected, inspection, piExclusions } = options;
 	if (inspected.localSkillMd.type !== "file") return [];
 	const frontmatter = parseSkillFrontmatterText(inspected.localSkillMd.text);
 	if (frontmatter.type === "error") return [];
@@ -420,7 +428,7 @@ function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInsp
 	if (specialized !== undefined) return { verified: true, surface: specialized };
 	const derived = derivePiReplacementCommand(skillName);
 	if (derived === undefined) return { verified: false };
-	return { verified: inspection.genericReplacement.adapterExists && inspection.genericReplacement.packageModuleExists, surface: derived };
+	return { verified: inspection.genericReplacement.hasAdapter && inspection.genericReplacement.hasPackageModule, surface: derived };
 }
 
 function invalidLockfile(reason: string): { type: "error"; message: string } {

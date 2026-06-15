@@ -121,8 +121,8 @@ export interface AregCheckProjectInspectionResult {
 	excludedSkillNames: readonly string[];
 	piSettings: AregCheckTextFileState;
 	genericReplacement: {
-		adapterExists: boolean;
-		packageModuleExists: boolean;
+		hasAdapter: boolean;
+		hasPackageModule: boolean;
 	};
 	skills: readonly AregCheckSkillInspection[];
 	pairingDirectories: readonly AregCheckPairingDirectory[];

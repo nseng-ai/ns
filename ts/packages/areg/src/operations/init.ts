@@ -256,11 +256,8 @@ async function buildInitTextPlan(
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<PlanResult<InitTextPlan>> {
-	const writes: AregInitTextWritePlan[] = [];
-	const skippedFiles: SkippedFile[] = [];
 	const asdl = planAsdlToml(inspection.asdlToml, options.agents);
 	if (asdl.type === "error") return asdl;
-	writes.push(asdl.value);
 
 	const agents = await planManagedBlock(ctx, {
 		path: "AGENTS.md",
@@ -274,16 +271,21 @@ async function buildInitTextPlan(
 		updatePrompt: "AGENTS.md has an existing areg-managed Skills block. Replace it?",
 	});
 	if (agents.type === "error") return agents;
-	addTextPlan(agents.value, writes, skippedFiles);
 
 	const claude = await planClaudeMd(ctx, inspection.projectDir, inspection.claudeMd, { yes: options.yes, noAppend: options.noAppend });
 	if (claude.type === "error") return claude;
-	addTextPlan(claude.value, writes, skippedFiles);
 
 	const settings = planSettings(inspection.claudeDir, inspection.claudeSettings);
 	if (settings.type === "error") return settings;
-	addTextPlan(settings.value, writes, skippedFiles);
-	return { type: "ok", value: { writes, skippedFiles } };
+
+	const textPlans = [agents.value, claude.value, settings.value];
+	return {
+		type: "ok",
+		value: {
+			writes: [asdl.value, ...textPlans.filter(isTextWritePlan)],
+			skippedFiles: textPlans.filter(isSkippedFile).map((skipped) => ({ ...skipped })),
+		},
+	};
 }
 
 function parseAsdlAregAgentsFromState(state: AregInitTextFileState): PlanResult<string[]> {
@@ -384,12 +386,12 @@ function planSettings(claudeDirState: { type: string; target?: string }, setting
 	return { type: "ok", value: { path: ".claude/settings.local.json", reason: "existing settings file is preserved" } };
 }
 
-function addTextPlan(plan: AregInitTextWritePlan | SkippedFile, writes: AregInitTextWritePlan[], skippedFiles: SkippedFile[]): void {
-	if ("relativePath" in plan) {
-		writes.push(plan);
-		return;
-	}
-	skippedFiles.push({ ...plan });
+function isTextWritePlan(plan: AregInitTextWritePlan | SkippedFile): plan is AregInitTextWritePlan {
+	return "relativePath" in plan;
+}
+
+function isSkippedFile(plan: AregInitTextWritePlan | SkippedFile): plan is SkippedFile {
+	return !("relativePath" in plan);
 }
 
 function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content: string, description: string, createParent = false): AregInitTextWritePlan {

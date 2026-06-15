@@ -51,7 +51,7 @@ export interface FakeAregCheckProjectInspectionGatewayOptions {
 	agentsSkillNames?: readonly string[] | undefined;
 	excludedSkillNames?: readonly string[] | undefined;
 	piSettings?: AregCheckTextFileState | object | string | undefined;
-	genericReplacement?: { adapterExists?: boolean | undefined; packageModuleExists?: boolean | undefined } | undefined;
+	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
 	skills?: readonly FakeAregCheckSkillOptions[] | undefined;
 	pairingDirectories?: readonly AregCheckPairingDirectory[] | undefined;
 }
@@ -70,8 +70,8 @@ export class FakeAregCheckProjectInspectionGateway implements AregCheckProjectIn
 			excludedSkillNames: [...(options.excludedSkillNames ?? [])],
 			piSettings: normalizeTextFileState(options.piSettings ?? { type: "missing" }),
 			genericReplacement: {
-				adapterExists: options.genericReplacement?.adapterExists ?? false,
-				packageModuleExists: options.genericReplacement?.packageModuleExists ?? false,
+				hasAdapter: options.genericReplacement?.hasAdapter ?? false,
+				hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
 			},
 			skills: (options.skills ?? []).map(copyFakeCheckSkill),
 			pairingDirectories: (options.pairingDirectories ?? []).map(copyPairingDirectory),
@@ -177,21 +177,21 @@ export type FakeAregPromptOperation = { type: "confirm"; message: string; defaul
 
 export interface FakeAregPromptGatewayOptions {
 	responses?: readonly boolean[] | undefined;
-	defaultResponse?: boolean | undefined;
+	shouldConfirmByDefault?: boolean | undefined;
 }
 
 export class FakeAregPromptGateway implements AregPromptGateway {
 	private readonly responses: boolean[];
-	private readonly defaultResponse: boolean;
+	private readonly shouldConfirmByDefault: boolean;
 	private readonly log: FakeAregPromptOperation[] = [];
 
 	constructor(options: FakeAregPromptGatewayOptions = {}) {
 		this.responses = [...(options.responses ?? [])];
-		this.defaultResponse = options.defaultResponse ?? false;
+		this.shouldConfirmByDefault = options.shouldConfirmByDefault ?? false;
 	}
 
 	async confirm(request: { message: string; defaultValue: boolean }): Promise<boolean> {
-		const response = this.responses.shift() ?? this.defaultResponse;
+		const response = this.responses.shift() ?? this.shouldConfirmByDefault;
 		this.log.push({ type: "confirm", message: request.message, defaultValue: request.defaultValue, response });
 		return response;
 	}
