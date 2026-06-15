@@ -3,7 +3,7 @@ import { z } from "zod";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
-import { loadJsonInput } from "./json-input.ts";
+import { listPrCheckpointArtifacts, openPayloadStoreFromContext, resolveLatestPrSessionArtifact } from "./session-inputs.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const payloadReferenceSchema = z.looseObject({ payload_path: nullableStringSchema });
@@ -134,34 +134,38 @@ export interface FinalizeRunResult {
 }
 
 const finalizeRunParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
+	pr_number: z.int(),
+	harness_session_id: z.string().optional(),
 });
 
 export const finalizeRunOperation = defineExecOperation({
 	spec: {
 		name: "finalize-run",
-		description: "Summarize final pr-address unresolved, skipped, and checkpoint evidence.",
+		description: "Summarize final pr-address unresolved, skipped, and checkpoint evidence from payload-session artifacts.",
 		schema: finalizeRunParseSchema,
 		handler: runFinalizeRunOperation,
 	},
 });
 
 async function runFinalizeRunOperation(ctx: PrAddressExecContext, request: z.output<typeof finalizeRunParseSchema>): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadJsonInput({
-		optionValue: request.payload_json,
-		filePath: request.payload_file,
-		commandName: "finalize-run",
-		inputDescription: "finalization JSON",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: finalizeRunInputSchema,
-		stdin: ctx.stdin,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const result = finalizeRun(payloadResult.value);
-	if (result.valid && result.ready_to_stop) return ok(result);
-	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result);
+	if (request.pr_number <= 0) return failure("invalid_request", "--pr-number must be a positive integer.");
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
+	const feedbackResult = await resolveLatestPrSessionArtifact({ store: storeResult.value, prNumber: request.pr_number, kind: "manifest", role: "summary", schema: feedbackManifestSchema });
+	if (feedbackResult.type === "error") return failure(feedbackResult.errorType, feedbackResult.message);
+	const checkpointsResult = await listPrCheckpointArtifacts({ store: storeResult.value, prNumber: request.pr_number });
+	if (checkpointsResult.type === "error") return failure(checkpointsResult.errorType, checkpointsResult.message);
+	const finalizationInput = finalizeRunInputSchema.parse({ feedback: feedbackResult.value.value, checkpoints: checkpointsResult.value.map((checkpoint) => checkpoint.value) });
+	const result = finalizeRun(finalizationInput);
+	const data = {
+		...result,
+		resolved_inputs: {
+			feedback: feedbackResult.value.reference,
+			checkpoints: checkpointsResult.value.map((checkpoint) => checkpoint.reference),
+		},
+	};
+	if (result.valid && result.ready_to_stop) return ok(data);
+	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", data);
 }
 
 export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {

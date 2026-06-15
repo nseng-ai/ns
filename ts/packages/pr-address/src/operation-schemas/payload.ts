@@ -45,6 +45,15 @@ export const resolveThreadBatchPayloadSchema = z.object({
 	items: z.array(resolveThreadBatchPayloadItemSchema),
 });
 
+export const buildResolveThreadBatchPayloadRequestSchema = z.object({
+	pr_number: z.int(),
+	batch_id: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	continue_on_error: z.boolean().optional(),
+	decisions_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 export const buildResolveThreadBatchPayloadResultSchema = z.object({
 	valid: z.boolean(),
 	payload_ready: z.boolean(),
@@ -59,6 +68,8 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 	payload: resolveThreadBatchPayloadSchema.nullable().optional(),
 	errors: z.array(buildResolveThreadBatchPayloadErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.object({ plan: payloadReferenceSchema }).optional(),
+	build_reference: payloadReferenceSchema.nullable().optional(),
 });
 
 // --- record-batch-checkpoint ------------------------------------------------------
@@ -125,6 +136,21 @@ const batchThreadCheckpointSummarySchema = z.object({
 	all_succeeded: nullableBooleanSchema.optional(),
 });
 
+export const recordBatchCheckpointRequestSchema = z.object({
+	pr_number: z.int(),
+	batch_id: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	validation_file: nullableStringSchema.optional(),
+	validation_json: nullableStringSchema.optional(),
+	non_thread_outcomes_file: nullableStringSchema.optional(),
+	non_thread_outcomes_json: nullableStringSchema.optional(),
+	from_build: nullableIntSchema.optional(),
+	from_build_reference: nullableStringSchema.optional(),
+	from_resolution: nullableIntSchema.optional(),
+	from_resolution_reference: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 export const recordBatchCheckpointResultSchema = z.object({
 	valid: z.boolean(),
 	batch_complete: z.boolean(),
@@ -142,6 +168,7 @@ export const recordBatchCheckpointResultSchema = z.object({
 	non_thread_outcomes: z.array(batchNonThreadOutcomeSummarySchema).optional(),
 	errors: z.array(batchCheckpointErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.record(z.string(), payloadReferenceSchema).optional(),
 });
 
 // --- finalize-run -----------------------------------------------------------------
@@ -202,6 +229,11 @@ const finalizeRunErrorSchema = z.object({
 	discussion_comment_id: nullableIntSchema.optional(),
 });
 
+export const finalizeRunRequestSchema = z.object({
+	pr_number: z.int(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 export const finalizeRunResultSchema = z.object({
 	valid: z.boolean(),
 	ready_to_stop: z.boolean(),
@@ -215,4 +247,5 @@ export const finalizeRunResultSchema = z.object({
 	checkpoint_summaries: z.array(finalizeRunCheckpointSummarySchema).optional(),
 	errors: z.array(finalizeRunErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.object({ feedback: payloadReferenceSchema, checkpoints: z.array(payloadReferenceSchema) }).optional(),
 });

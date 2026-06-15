@@ -107,6 +107,7 @@ export interface PrAddressGitGateway {
 	isInsideWorkTree(options: GatewayOptions): Promise<RepoContextResult>;
 	getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult>;
 	getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>>;
+	getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<GatewayResult<readonly string[]>>;
 }
 
 export interface ProcessRequest {
@@ -385,6 +386,12 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 		const result = await this.runProcess({ command: "git", args: ["diff", "--name-status", "-M", "-C", `origin/${baseRefName}...HEAD`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
 		return { type: "ok", value: parseRestructuredFiles(result.stdout) };
+	}
+
+	async getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<GatewayResult<readonly string[]>> {
+		const result = await this.runProcess({ command: "git", args: ["diff-tree", "--no-commit-id", "--name-only", "-r", commitSha], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
+		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		return { type: "ok", value: result.stdout.split("\n").map((line) => line.trim()).filter((line) => line !== "") };
 	}
 }
 

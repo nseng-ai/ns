@@ -79,6 +79,8 @@ export interface InMemoryGitState {
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
 	restructuredFiles?: readonly RestructuredFile[] | undefined;
 	restructuredFilesFailure?: GatewayFailure | undefined;
+	commitChangedFiles?: ReadonlyMap<string, readonly string[]> | Record<string, readonly string[]> | undefined;
+	commitChangedFilesFailureShas?: ReadonlySet<string> | undefined;
 }
 
 export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
@@ -230,6 +232,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
 	private readonly restructuredFiles: readonly RestructuredFile[];
 	private readonly restructuredFilesFailure: GatewayFailure | undefined;
+	private readonly commitChangedFiles: ReadonlyMap<string, readonly string[]>;
+	private readonly commitChangedFilesFailureShas: ReadonlySet<string>;
 
 	constructor(state: InMemoryGitState = {}) {
 		this.currentBranch = state.currentBranch === undefined ? "main" : state.currentBranch;
@@ -239,6 +243,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 		this.branchHeadOids = stringMap(state.branchHeadOids);
 		this.restructuredFiles = clone(state.restructuredFiles ?? []);
 		this.restructuredFilesFailure = state.restructuredFilesFailure;
+		this.commitChangedFiles = stringMap(state.commitChangedFiles);
+		this.commitChangedFilesFailureShas = state.commitChangedFilesFailureShas ?? new Set();
 	}
 
 	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
@@ -261,6 +267,11 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	async getRestructuredFiles(_baseRefName: string, _options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
 		if (this.restructuredFilesFailure !== undefined) return { type: "failure", failure: clone(this.restructuredFilesFailure) };
 		return { type: "ok", value: clone(this.restructuredFiles) };
+	}
+
+	async getCommitChangedFiles(commitSha: string, _options: GatewayOptions): Promise<GatewayResult<readonly string[]>> {
+		if (this.commitChangedFilesFailureShas.has(commitSha)) return { type: "failure", failure: { stderr: `failed to inspect commit ${commitSha}`, stdout: "", returncode: 128 } };
+		return { type: "ok", value: clone(this.commitChangedFiles.get(commitSha) ?? []) };
 	}
 }
 

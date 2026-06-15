@@ -303,27 +303,3 @@ describe("read-feedback detail session resolution", () => {
 	});
 });
 
-describe("record-batch-checkpoint parity with the Python CLI", () => {
-	for (const checkpointCase of recordBatchCheckpointFixture.cases) {
-		test(`matches Python envelope and artifact for ${checkpointCase.name}`, async () => {
-			const root = await makePayloadRoot();
-			if (checkpointCase.raw_artifact !== null) {
-				await writeRawArtifact(root, checkpointCase.raw_artifact, recordBatchCheckpointFixture.raw_clock_iso);
-			}
-
-			const run = runScenario(
-				["exec", "record-batch-checkpoint", "--payload-json", checkpointCase.input_json_template.replaceAll("{ROOT}", root), "--format", "json"],
-				{ payloadClock: fixedClock(recordBatchCheckpointFixture.summary_clock_iso) },
-			);
-
-			expect(await run.exit).toBe(checkpointCase.expected_exit_code);
-			const envelopeText = run.stdout.join("");
-			expect(normalizePayloadBytes(envelopeText)).toBe(normalizePayloadBytes(checkpointCase.expected_envelope_text.replaceAll("{ROOT}", root)));
-			if (checkpointCase.expected_summary_relative_path !== null && checkpointCase.expected_summary_text !== null) {
-				const summaryText = await readFile(join(root, checkpointCase.expected_summary_relative_path), "utf8");
-				expect(summaryText).toBe(checkpointCase.expected_summary_text.replaceAll("{ROOT}", root));
-				expect(payloadBytesOfReference(envelopeText, "checkpoint_reference")).toBe(Buffer.byteLength(summaryText, "utf8"));
-			}
-		});
-	}
-});

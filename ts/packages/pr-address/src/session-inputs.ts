@@ -3,17 +3,25 @@ import { z } from "zod";
 import type { PrAddressExecContext } from "./exec-operation.ts";
 import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./feedback-manifest-contracts.ts";
 import type { JsonInputError } from "./json-input.ts";
-import type { JsonPayloadRole, PayloadArtifactStore, PayloadErrorType, PayloadReference } from "./payload-store.ts";
+import type { JsonPayloadRole, PayloadArtifactStore, PayloadErrorType, PayloadReference, PayloadResult, ResolvedJsonPayloadArtifact } from "./payload-store.ts";
 import {
+	checkpointArtifactSchema,
 	classificationArtifactSchema,
 	prArtifactDescriptor,
+	prBatchArtifactDescriptor,
+	resolveBuildArtifactSchema,
 	resolveLatestJsonSessionArtifact,
 	stackArtifactDescriptor,
+	threadResolutionArtifactSchema,
+	type CheckpointArtifact,
 	type ClassificationArtifact,
 	type PrArtifactKind,
 	type ResolvedSessionArtifact,
+	type ResolveBuildArtifact,
 	type StackArtifactKind,
+	type ThreadResolutionArtifact,
 } from "./session-artifacts.ts";
+import { feedbackPlanConsumerSchema, type FeedbackPlanConsumer } from "./feedback-plan-contracts.ts";
 import {
 	stackFeedbackPlanConsumerResultSchema,
 	type StackFeedbackPlanConsumerResult,
@@ -183,6 +191,11 @@ export interface StackFeedbackDiffCurrentSessionInputResult {
 	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs;
 }
 
+export interface ResolvedPrBatchArtifacts {
+	resolveBuild?: PayloadReference | undefined;
+	threadResolution?: PayloadReference | undefined;
+}
+
 export async function openPayloadStoreFromContext(options: OpenPayloadStoreFromContextOptions): Promise<OperationResult<PayloadArtifactStore, PayloadErrorType>> {
 	const storeResult = await options.ctx.context.payloadStoreFactory.fromEnvironment({
 		explicitHarnessSessionId: options.harnessSessionId ?? null,
@@ -278,6 +291,141 @@ export async function resolveLatestStackSessionArtifact<T>(options: {
 		role: options.role,
 		schema: options.schema,
 	});
+}
+
+export async function resolveLatestPrPlanArtifact(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+}): Promise<OperationResult<ResolvedSessionArtifact<FeedbackPlanConsumer>, PayloadErrorType>> {
+	return await resolveLatestPrSessionArtifact({ store: options.store, prNumber: options.prNumber, kind: "plan", role: "summary", schema: feedbackPlanConsumerSchema });
+}
+
+export async function resolveLatestStackPlanArtifact(store: PayloadArtifactStore): Promise<OperationResult<ResolvedSessionArtifact<StackFeedbackPlanConsumerResult>, PayloadErrorType>> {
+	return await resolveLatestStackSessionArtifact({ store, kind: "plan", role: "summary", schema: stackFeedbackPlanConsumerResultSchema });
+}
+
+export async function resolveResolveBuildArtifactBySequence(options: {
+	store: PayloadArtifactStore;
+	sequence: number;
+	prNumber?: number | undefined;
+	batchId?: string | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<ResolveBuildArtifact>, PayloadErrorType | "invalid_request">> {
+	return await resolvePrBatchArtifactValue({
+		artifact: await options.store.findJsonArtifactBySequence({ sequence: options.sequence, role: "summary" }),
+		schema: resolveBuildArtifactSchema,
+		kind: "resolve_build",
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+	});
+}
+
+export async function resolveThreadResolutionArtifactBySequence(options: {
+	store: PayloadArtifactStore;
+	sequence: number;
+	prNumber?: number | undefined;
+	batchId?: string | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<ThreadResolutionArtifact>, PayloadErrorType | "invalid_request">> {
+	return await resolvePrBatchArtifactValue({
+		artifact: await options.store.findJsonArtifactBySequence({ sequence: options.sequence, role: "summary" }),
+		schema: threadResolutionArtifactSchema,
+		kind: "thread_resolution",
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+	});
+}
+
+export async function resolveResolveBuildArtifactByPath(options: {
+	ctx: PrAddressExecContext;
+	payloadPath: string;
+	prNumber?: number | undefined;
+	batchId?: string | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<ResolveBuildArtifact>, PayloadErrorType | "invalid_request">> {
+	const artifact = await resolveJsonArtifactByPath(options.ctx, options.payloadPath);
+	return await resolvePrBatchArtifactValue({ artifact, schema: resolveBuildArtifactSchema, kind: "resolve_build", prNumber: options.prNumber, batchId: options.batchId });
+}
+
+export async function resolveThreadResolutionArtifactByPath(options: {
+	ctx: PrAddressExecContext;
+	payloadPath: string;
+	prNumber?: number | undefined;
+	batchId?: string | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<ThreadResolutionArtifact>, PayloadErrorType | "invalid_request">> {
+	const artifact = await resolveJsonArtifactByPath(options.ctx, options.payloadPath);
+	return await resolvePrBatchArtifactValue({ artifact, schema: threadResolutionArtifactSchema, kind: "thread_resolution", prNumber: options.prNumber, batchId: options.batchId });
+}
+
+export async function resolveLatestResolveBuildArtifact(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	batchId: string;
+}): Promise<OperationResult<ResolvedSessionArtifact<ResolveBuildArtifact>, PayloadErrorType | "invalid_request">> {
+	return await resolvePrBatchArtifactValue({
+		artifact: await options.store.findLatestJsonArtifact({ descriptor: prBatchArtifactDescriptor({ prNumber: options.prNumber, batchId: options.batchId, kind: "resolve-build" }), role: "summary" }),
+		schema: resolveBuildArtifactSchema,
+		kind: "resolve_build",
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+	});
+}
+
+export async function resolveLatestThreadResolutionArtifact(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	batchId: string;
+}): Promise<OperationResult<ResolvedSessionArtifact<ThreadResolutionArtifact>, PayloadErrorType | "invalid_request">> {
+	return await resolvePrBatchArtifactValue({
+		artifact: await options.store.findLatestJsonArtifact({ descriptor: prBatchArtifactDescriptor({ prNumber: options.prNumber, batchId: options.batchId, kind: "thread-resolution" }), role: "summary" }),
+		schema: threadResolutionArtifactSchema,
+		kind: "thread_resolution",
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+	});
+}
+
+export async function listPrCheckpointArtifacts(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+}): Promise<OperationResult<readonly ResolvedSessionArtifact<CheckpointArtifact>[], PayloadErrorType | "invalid_request">> {
+	const prefix = `pr-address-pr-${options.prNumber}-batch-`;
+	const listed = await options.store.listJsonArtifacts({ descriptorPrefix: prefix, role: "summary" });
+	if (listed.type === "error") return listed;
+	const checkpoints: Array<ResolvedSessionArtifact<CheckpointArtifact>> = [];
+	for (const artifact of listed.value.filter((candidate) => candidate.reference.descriptor.endsWith("-checkpoint"))) {
+		const resolved = await resolvePrBatchArtifactValue({ artifact: { type: "ok", value: artifact }, schema: checkpointArtifactSchema, kind: "checkpoint", prNumber: options.prNumber });
+		if (resolved.type === "error") return resolved;
+		checkpoints.push(resolved.value);
+	}
+	return { type: "ok", value: checkpoints };
+}
+
+async function resolveJsonArtifactByPath(ctx: PrAddressExecContext, payloadPath: string): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+	const storeResult = await ctx.context.payloadStoreFactory.openContainingArtifact(payloadPath, { clock: ctx.context.payloadClock });
+	if (storeResult.type === "error") return storeResult;
+	const listed = await storeResult.value.listJsonArtifacts({ role: "summary" });
+	if (listed.type === "error") return listed;
+	const match = listed.value.find((artifact) => artifact.reference.payload_path === payloadPath);
+	if (match === undefined) return { type: "error", errorType: "payload_lookup_failed", message: `Payload artifact path does not exist in its containing session: ${payloadPath}` };
+	return { type: "ok", value: match };
+}
+
+async function resolvePrBatchArtifactValue<T extends { artifact_kind: string; pr_number?: number | null | undefined; batch_id?: string | undefined }>(options: {
+	artifact: PayloadResult<ResolvedJsonPayloadArtifact>;
+	schema: z.ZodType<T>;
+	kind: string;
+	prNumber?: number | undefined;
+	batchId?: string | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<T>, PayloadErrorType | "invalid_request">> {
+	if (options.artifact.type === "error") return options.artifact;
+	const parsed = options.schema.safeParse(options.artifact.value.value);
+	if (!parsed.success) return { type: "error", errorType: "payload_lookup_failed", message: `Referenced ${options.kind} artifact failed schema validation: ${z.prettifyError(parsed.error)}` };
+	if (parsed.data.artifact_kind !== options.kind) return { type: "error", errorType: "invalid_request", message: `Referenced artifact kind ${parsed.data.artifact_kind} does not match expected ${options.kind}.` };
+	if (options.prNumber !== undefined && parsed.data.pr_number !== options.prNumber) {
+		return { type: "error", errorType: "invalid_request", message: `Referenced artifact PR ${String(parsed.data.pr_number)} does not match requested PR ${options.prNumber}.` };
+	}
+	if (options.batchId !== undefined && parsed.data.batch_id !== options.batchId) {
+		return { type: "error", errorType: "invalid_request", message: `Referenced artifact batch ${String(parsed.data.batch_id)} does not match requested batch ${options.batchId}.` };
+	}
+	return { type: "ok", value: { reference: options.artifact.value.reference, value: parsed.data } };
 }
 
 export async function resolveStackFeedbackPlanSessionInput(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanSessionInputResult>> {

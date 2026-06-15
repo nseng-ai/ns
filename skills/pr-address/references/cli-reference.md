@@ -69,11 +69,7 @@ All `pr-address exec <command> --format json` helpers:
 - Support `--json-schema` to print JSON schemas for input/output/error shapes
   and exit without running the operation.
 
-For helpers that accept payload fields by reference, e.g.
-`stack-feedback-diff-current --stack-plan-reference ... --current-prep-reference ...`,
-stdin is ignored only when every payload field is supplied by reference and no
-explicit `--payload-json`/`--payload-file` is passed. In all other cases, keep
-using exactly one payload source.
+Input source rules are command-specific. Older planning/collection helpers may still accept `--payload-json`, `--payload-file`, stdin, or artifact-reference fields as documented in their category file. The session-native mutation/lifecycle helpers (`build-resolve-thread-batch-payload`, `build-stack-resolve-thread-payloads`, `resolve-thread-batch`, `record-batch-checkpoint`, `finalize-run`) deliberately removed composed pipeline payload sources; use the explicit options documented for those commands.
 
 ```bash
 pr-address exec resolve-thread-with-reply \
@@ -96,7 +92,7 @@ full feedback envelope to a store-owned `.raw.json` payload. The manifest carrie
 `payload_reference.payload_path` plus item-level body locators; it does not paste
 full review bodies into the main transcript.
 
-Payload mode requires a raw harness session id from `HARNESS_SESSION_ID` or a manual `--harness-session-id <id>` override. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
+Payload mode requires a harness session id from `HARNESS_SESSION_ID` or a manual `--harness-session-id <id>` override. The validated harness id is used verbatim as the payload session id and appears in payload references as `session_id` / command output as `harness_session_id` where applicable.
 
 Use `--payload-mode inline` only as an explicit debugging or migration escape
 hatch. Inline mode prints the full raw payload and does not require a harness session id.

@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
 import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
 import {
 	buildResolveThreadBatchPayload,
 	buildResolveThreadBatchPayloadInputSchema,
@@ -13,10 +15,12 @@ import {
 	finalizeRunResultSchema,
 } from "../../src/operation-schemas/payload.ts";
 import { resolveThreadBatchResultSchema } from "../../src/operation-schemas/mutation.ts";
+import { prBatchArtifactDescriptor } from "../../src/session-artifacts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "../../src/gateways.ts";
 import { goldenCases, readJson, REPO_ROOT } from "../support/golden.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
+import { useTempDirs } from "../support/temp.ts";
 
 /**
  * Schema drift guards: verify that parity-frozen result schemas from
@@ -90,6 +94,13 @@ describe("summarize-feedback drift guard", async () => {
 	});
 });
 
+const makeTempDir = useTempDirs();
+
+function expectOk<T>(result: PayloadResult<T>): T {
+	if (result.type !== "ok") throw new Error(`expected ok payload result, got ${result.errorType}: ${result.message}`);
+	return result.value;
+}
+
 describe("resolve-thread-batch drift guard", () => {
 	test("partial resolve-thread-batch scenario output parses under resolveThreadBatchResultSchema", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({ threadReplyFailureIds: new Set(["PRRT_fail"]) });
@@ -101,7 +112,15 @@ describe("resolve-thread-batch drift guard", () => {
 				{ thread_id: "PRRT_skip", mode: "fixed", message: "Skipped." },
 			],
 		};
-		const run = runScenario(["exec", "resolve-thread-batch", "--payload-json", JSON.stringify(payload), "--format", "json"], { cwd: REPO_ROOT, github });
+		const root = join(await makeTempDir("pr-address-schema-drift-"), "payload-root");
+		const store = expectOk(await PayloadStore.open({ root, sessionId: "schema-drift" }));
+		const sourcePlan = expectOk(await store.writeJsonArtifact({ descriptor: "source-plan", role: "summary", payload: { valid: true } }));
+		const buildReference = expectOk(await store.writeJsonArtifact({
+			descriptor: prBatchArtifactDescriptor({ prNumber: 42, batchId: "local", kind: "resolve-build" }),
+			role: "summary",
+			payload: { artifact_kind: "resolve_build", pr_number: 42, batch_id: "local", source_plan: sourcePlan, build: { valid: true, payload_ready: true, batch_id: "local", commit_sha: null, continue_on_error: false, review_thread_count: 3, resolved_thread_count: 3, skipped_thread_count: 0, ignored_non_thread_items: [], skipped_items: [], payload, errors: [] } },
+		}));
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", String(buildReference.sequence), "--format", "json"], { cwd: REPO_ROOT, github, env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "schema-drift" } });
 
 		expect(await run.exit).toBe(1);
 		const envelope = JSON.parse(run.stdout.join("")) as { data: unknown };

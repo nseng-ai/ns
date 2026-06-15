@@ -117,8 +117,12 @@ export const stackFeedbackDiffCurrentRequestSchema = payloadJsonOrFileRequestSch
 	harness_session_id: nullableStringSchema.optional(),
 });
 
-export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({
-	stack_plan_reference: nullableStringSchema.optional(),
+export const buildStackResolveThreadPayloadsRequestSchema = z.object({
+	batch_id: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	continue_on_error: z.boolean().optional(),
+	decisions_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
 });
 
 export function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): JsonSchemaDocument {

@@ -1,8 +1,10 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { PayloadStore, type PayloadResult } from "../../src/payload-store.ts";
+import { stackArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { runScenario } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
 
@@ -23,8 +25,9 @@ const fixture = JSON.parse(
 
 const makeScopedTempDir = useTempDirs();
 
-async function makeTempDir(): Promise<string> {
-	return makeScopedTempDir("pr-address-stack-resolve-");
+function expectOk<T>(result: PayloadResult<T>): T {
+	if (result.type !== "ok") throw new Error(`expected ok payload result, got ${result.errorType}: ${result.message}`);
+	return result.value;
 }
 
 function requiredCase(name: string): BuildStackResolveThreadPayloadsCase {
@@ -33,141 +36,56 @@ function requiredCase(name: string): BuildStackResolveThreadPayloadsCase {
 	return fixtureCase;
 }
 
-describe("build-stack-resolve-thread-payloads parity with the Python CLI", () => {
-	for (const buildCase of fixture.cases) {
-		test(`matches the Python envelope for ${buildCase.name}`, async () => {
-			// Payload paths embedded in the stack plan input are inert; the literal
-			// {ROOT} placeholder matches the sanitized payload used for generation.
-			const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--payload-json", buildCase.payload_json_template, "--format", "json"]);
+async function seedStackPlanAndDecisions(caseName: string): Promise<{ root: string; decisionsPath: string; batchId: string; commitSha: string | null }> {
+	const root = join(await makeScopedTempDir("pr-address-stack-resolve-"), "payload-root");
+	const payload = JSON.parse(requiredCase(caseName).payload_json_template) as { stack_plan: unknown; batch_id: string; commit_sha: string | null; decisions: unknown[] };
+	const store = expectOk(await PayloadStore.open({ root, sessionId: "stack-session" }));
+	expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: payload.stack_plan }));
+	const decisionsPath = join(await makeScopedTempDir("pr-address-stack-decisions-"), "decisions.json");
+	await writeFile(decisionsPath, JSON.stringify(payload.decisions), "utf8");
+	return { root, decisionsPath, batchId: payload.batch_id, commitSha: payload.commit_sha };
+}
 
-			expect(await run.exit).toBe(buildCase.expected_exit_code);
-			expect(run.stdout.join("")).toBe(buildCase.expected_envelope_text);
+describe("build-stack-resolve-thread-payloads session-native flow", () => {
+	test("resolves latest stack plan and writes one PR-scoped build artifact per PR entry", async () => {
+		const seeded = await seedStackPlanAndDecisions("multi-pr-resolve");
+		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--batch-id", seeded.batchId, "--commit-sha", String(seeded.commitSha), "--decisions-file", seeded.decisionsPath, "--format", "json"], {
+			env: { ASDL_PAYLOAD_ROOT: seeded.root, HARNESS_SESSION_ID: "stack-session" },
 		});
-	}
 
-	test("reports invalid_json for malformed payloads", async () => {
-		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--payload-json", "{", "--format", "json"]);
-
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string };
-		expect(envelope.error_type).toBe("invalid_json");
+		expect(await run.exit).toBe(0);
+		const envelope = JSON.parse(run.stdout.join(""));
+		expect(envelope.data.valid).toBe(true);
+		expect(envelope.data.resolved_inputs.stack_plan.descriptor).toBe("pr-address-stack-plan");
+		expect(envelope.data.build_references.length).toBe(envelope.data.payloads.length);
+		expect(envelope.data.build_references.every((reference: { descriptor: string }) => reference.descriptor.includes("-resolve-build"))).toBe(true);
+		const files = await readdir(join(seeded.root, "sessions", "stack-session", "payloads"));
+		expect(files.filter((file) => file.includes("resolve-build.summary.json")).length).toBe(envelope.data.payloads.length);
 	});
 
-	test("rejects unknown options with a commander usage error", async () => {
-		// PINNED CLINKR SEMANTICS: unknown options are a raw commander usage
-		// error (stderr, exit 2), never a machine envelope — click parity.
-		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--bogus", "--format", "json"]);
+	test("invalid decisions return a negative result without writing build artifacts", async () => {
+		const seeded = await seedStackPlanAndDecisions("duplicate-decision");
+		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--batch-id", seeded.batchId, "--decisions-file", seeded.decisionsPath, "--format", "json"], {
+			env: { ASDL_PAYLOAD_ROOT: seeded.root, HARNESS_SESSION_ID: "stack-session" },
+		});
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toBe("error: unknown option '--bogus'\n");
+		expect(await run.exit).toBe(1);
+		const envelope = JSON.parse(run.stdout.join(""));
+		expect(envelope.data.valid).toBe(false);
+		expect(envelope.data.build_references).toEqual([]);
 	});
 
-	test("accepts --payload-file for the full payload", async () => {
-		const happyCase = requiredCase("multi-pr-resolve");
-		const dir = await makeTempDir();
-		const payloadPath = join(dir, "payload.json");
-		await writeFile(payloadPath, happyCase.payload_json_template, "utf8");
+	test("old composed payload and stack-plan-reference options are removed", async () => {
+		const oldPayload = requiredCase("multi-pr-resolve").payload_json_template;
+		const payloadRun = runScenario(["exec", "build-stack-resolve-thread-payloads", "--payload-json", oldPayload, "--format", "json"]);
+		expect(await payloadRun.exit).toBe(2);
+		expect(payloadRun.stdout.join("")).toBe("");
+		expect(payloadRun.stderr.join("")).toContain("unknown option '--payload-json'");
 
-		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--payload-file", payloadPath, "--format", "json"]);
-
-		expect(await run.exit).toBe(happyCase.expected_exit_code);
-		expect(run.stdout.join("")).toBe(happyCase.expected_envelope_text);
-	});
-
-	test("builds from --stack-plan-reference plus a payload without stack_plan", async () => {
-		const happyCase = requiredCase("multi-pr-resolve");
-		const { stack_plan: stackPlan, ...payloadRest } = JSON.parse(happyCase.payload_json_template) as { stack_plan: unknown } & Record<string, unknown>;
-		const dir = await makeTempDir();
-		const planPath = join(dir, "stack-plan.json");
-		await writeFile(planPath, JSON.stringify(stackPlan), "utf8");
-
-		const run = runScenario([
-			"exec",
-			"build-stack-resolve-thread-payloads",
-			"--stack-plan-reference",
-			planPath,
-			"--payload-json",
-			JSON.stringify(payloadRest),
-			"--format",
-			"json",
-		]);
-
-		expect(await run.exit).toBe(happyCase.expected_exit_code);
-		expect(run.stdout.join("")).toBe(happyCase.expected_envelope_text);
-	});
-
-	test("rejects --stack-plan-reference combined with an embedded stack_plan key", async () => {
-		const happyCase = requiredCase("multi-pr-resolve");
-		const { stack_plan: stackPlan } = JSON.parse(happyCase.payload_json_template) as { stack_plan: unknown };
-		const dir = await makeTempDir();
-		const planPath = join(dir, "stack-plan.json");
-		await writeFile(planPath, JSON.stringify(stackPlan), "utf8");
-
-		const run = runScenario([
-			"exec",
-			"build-stack-resolve-thread-payloads",
-			"--stack-plan-reference",
-			planPath,
-			"--payload-json",
-			happyCase.payload_json_template,
-			"--format",
-			"json",
-		]);
-
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("cannot mix an embedded stack_plan payload key with --stack-plan-reference");
-	});
-
-	test("rejects --payload-json combined with --payload-file", async () => {
-		const happyCase = requiredCase("multi-pr-resolve");
-		const dir = await makeTempDir();
-		const payloadPath = join(dir, "payload.json");
-		await writeFile(payloadPath, happyCase.payload_json_template, "utf8");
-
-		const run = runScenario([
-			"exec",
-			"build-stack-resolve-thread-payloads",
-			"--payload-json",
-			happyCase.payload_json_template,
-			"--payload-file",
-			payloadPath,
-			"--format",
-			"json",
-		]);
-
-		expect(await run.exit).toBe(2);
-		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };
-		expect(envelope.error_type).toBe("invalid_request");
-		expect(envelope.message).toContain("only one");
-	});
-
-	test("rejects missing, malformed, and wrong-shape --stack-plan-reference files", async () => {
-		const happyCase = requiredCase("multi-pr-resolve");
-		const { stack_plan: _stackPlan, ...payloadRest } = JSON.parse(happyCase.payload_json_template) as { stack_plan: unknown } & Record<string, unknown>;
-		const payloadJson = JSON.stringify(payloadRest);
-		const dir = await makeTempDir();
-
-		const missingRun = runScenario(["exec", "build-stack-resolve-thread-payloads", "--stack-plan-reference", join(dir, "missing.json"), "--payload-json", payloadJson, "--format", "json"]);
-		expect(await missingRun.exit).toBe(2);
-		const missingEnvelope = JSON.parse(missingRun.stdout.join("")) as { error_type: string; message: string };
-		expect(missingEnvelope.error_type).toBe("invalid_request");
-		expect(missingEnvelope.message).toContain("must point to an existing file");
-
-		const malformedPath = join(dir, "broken.json");
-		await writeFile(malformedPath, "{", "utf8");
-		const malformedRun = runScenario(["exec", "build-stack-resolve-thread-payloads", "--stack-plan-reference", malformedPath, "--payload-json", payloadJson, "--format", "json"]);
-		expect(await malformedRun.exit).toBe(2);
-		expect((JSON.parse(malformedRun.stdout.join("")) as { error_type: string }).error_type).toBe("invalid_json");
-
-		const wrongShapePath = join(dir, "stack-prep.json");
-		await writeFile(wrongShapePath, JSON.stringify({ stack: [], summary: {} }), "utf8");
-		const wrongShapeRun = runScenario(["exec", "build-stack-resolve-thread-payloads", "--stack-plan-reference", wrongShapePath, "--payload-json", payloadJson, "--format", "json"]);
-		expect(await wrongShapeRun.exit).toBe(1);
-		const wrongShapeEnvelope = JSON.parse(wrongShapeRun.stdout.join("")) as { data: { errors: Array<{ code: string }> } };
-		expect(wrongShapeEnvelope.data.errors.map((error) => error.code)).toContain("invalid_stack_plan_shape");
+		const referenceRun = runScenario(["exec", "build-stack-resolve-thread-payloads", "--stack-plan-reference", "/tmp/plan.json", "--format", "json"]);
+		expect(await referenceRun.exit).toBe(2);
+		expect(referenceRun.stdout.join("")).toBe("");
+		expect(referenceRun.stderr.join("")).toContain("unknown option '--stack-plan-reference'");
 	});
 
 	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {

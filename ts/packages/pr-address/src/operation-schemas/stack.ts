@@ -60,6 +60,7 @@ const stackResolveThreadPayloadEntrySchema = z.object({
 	skipped_items: z.array(stackSkippedResolveThreadItemSchema).optional(),
 	payload: resolveThreadBatchPayloadSchema.nullable().optional(),
 	warnings: z.array(z.string()).optional(),
+	build_reference: payloadReferenceSchema.optional(),
 });
 
 export const buildStackResolveThreadPayloadsResultSchema = z.object({
@@ -76,6 +77,8 @@ export const buildStackResolveThreadPayloadsResultSchema = z.object({
 	payloads: z.array(stackResolveThreadPayloadEntrySchema).optional(),
 	errors: z.array(buildStackResolveThreadPayloadsErrorSchema).optional(),
 	warnings: z.array(z.string()).optional(),
+	resolved_inputs: z.object({ stack_plan: payloadReferenceSchema }).optional(),
+	build_references: z.array(payloadReferenceSchema).optional(),
 });
 
 // --- stack-feedback-diff-current ---------------------------------------------------

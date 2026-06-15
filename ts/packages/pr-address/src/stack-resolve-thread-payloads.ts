@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { loadOperationPayload, type OperationPayloadField } from "./json-input.ts";
+import { loadJsonInput } from "./json-input.ts";
+import { isSafeSegment } from "./payload-store.ts";
+import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
+import { openPayloadStoreFromContext, resolveLatestStackPlanArtifact } from "./session-inputs.ts";
 import { buildThreadResolutionDecision, firstDuplicatePayloadThreadId, resolveThreadBatchDecisionSchema, type ResolveThreadBatchItem } from "./resolve-thread-batch-payload.ts";
 import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
 
@@ -21,20 +24,6 @@ const buildStackResolveThreadPayloadsInputSchema = z.looseObject({
 	continue_on_error: z.boolean().default(false),
 	decisions: z.array(stackResolveThreadDecisionSchema),
 });
-
-/** Wire payload: `stack_plan` may be omitted when `--stack-plan-reference` supplies it. */
-const buildStackResolveThreadPayloadsWirePayloadSchema = buildStackResolveThreadPayloadsInputSchema.extend({
-	stack_plan: z.unknown().optional(),
-});
-type BuildStackResolveThreadPayloadsWirePayload = z.infer<typeof buildStackResolveThreadPayloadsWirePayloadSchema>;
-const buildStackResolveThreadPayloadsFields = [
-	{
-		key: "stack_plan",
-		artifactDescription: "a stack-feedback-plan data artifact",
-		referenceSchema: z.unknown(),
-		inputName: "stack plan",
-	},
-] as const satisfies readonly OperationPayloadField<BuildStackResolveThreadPayloadsWirePayload, keyof BuildStackResolveThreadPayloadsWirePayload & string>[];
 
 const stackPlanItemSchema = z.looseObject({
 	pr_number: z.number().int(),
@@ -131,15 +120,17 @@ interface BuildStackResolveThreadPayloadsResult {
 }
 
 const buildStackResolveThreadPayloadsParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
-	stack_plan_reference: z.string().optional(),
+	batch_id: z.string(),
+	commit_sha: z.string().optional(),
+	continue_on_error: z.boolean().default(false),
+	decisions_file: z.string(),
+	harness_session_id: z.string().optional(),
 });
 
 export const buildStackResolveThreadPayloadsOperation = defineExecOperation({
 	spec: {
 		name: "build-stack-resolve-thread-payloads",
-		description: "Build non-mutating per-PR resolve-thread-batch payloads from stack decisions.",
+		description: "Build and persist per-PR resolve-thread-batch artifacts from the latest stack plan and decision evidence.",
 		schema: buildStackResolveThreadPayloadsParseSchema,
 		handler: runBuildStackResolveThreadPayloadsOperation,
 	},
@@ -149,19 +140,54 @@ async function runBuildStackResolveThreadPayloadsOperation(
 	ctx: PrAddressExecContext,
 	request: z.output<typeof buildStackResolveThreadPayloadsParseSchema>,
 ): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadOperationPayload({
+	const batchId = request.batch_id.trim();
+	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
+	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
+	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
+	const stackPlanResult = await resolveLatestStackPlanArtifact(storeResult.value);
+	if (stackPlanResult.type === "error") return failure(stackPlanResult.errorType, stackPlanResult.message);
+	const decisionsResult = await loadJsonInput({
+		optionValue: undefined,
+		filePath: request.decisions_file,
 		commandName: "build-stack-resolve-thread-payloads",
-		inputDescription: "JSON payload",
-		payloadSchema: buildStackResolveThreadPayloadsWirePayloadSchema,
-		request,
+		inputDescription: "decisions JSON",
+		optionName: "--decisions-json",
+		fileOptionName: "--decisions-file",
+		schema: z.array(stackResolveThreadDecisionSchema),
 		stdin: ctx.stdin,
-		fields: buildStackResolveThreadPayloadsFields,
+		canReadStdin: false,
 	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
+	if (decisionsResult.type === "error") return failure(decisionsResult.error.errorType, decisionsResult.error.message);
 
-	const result = buildStackResolveThreadPayloads(payloadResult.value);
-	if (result.valid) return ok(result);
-	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", result);
+	const result = buildStackResolveThreadPayloads({
+		stack_plan: stackPlanResult.value.value,
+		batch_id: batchId,
+		commit_sha: request.commit_sha ?? null,
+		continue_on_error: request.continue_on_error,
+		decisions: decisionsResult.value,
+	});
+	if (!result.valid) {
+		return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", {
+			...result,
+			resolved_inputs: { stack_plan: stackPlanResult.value.reference },
+			build_references: [],
+		});
+	}
+
+	const payloadsWithReferences = [];
+	const buildReferences = [];
+	for (const entry of result.payloads) {
+		const build = { ...entry, valid: true, commit_sha: result.commit_sha, continue_on_error: result.continue_on_error, errors: [] };
+		const written = await storeResult.value.writeJsonArtifact({
+			descriptor: prBatchArtifactDescriptor({ prNumber: entry.pr_number, batchId, kind: "resolve-build" }),
+			role: "summary",
+			payload: { artifact_kind: "resolve_build", pr_number: entry.pr_number, batch_id: batchId, source_plan: stackPlanResult.value.reference, build },
+		});
+		if (written.type === "error") return failure(written.errorType, written.message);
+		buildReferences.push(written.value);
+		payloadsWithReferences.push({ ...entry, build_reference: written.value });
+	}
+	return ok({ ...result, payloads: payloadsWithReferences, resolved_inputs: { stack_plan: stackPlanResult.value.reference }, build_references: buildReferences });
 }
 
 export function buildStackResolveThreadPayloads(input: unknown): BuildStackResolveThreadPayloadsResult {

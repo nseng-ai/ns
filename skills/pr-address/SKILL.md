@@ -388,59 +388,36 @@ the JSON shape:
 - `reply-to-review` — post a formatted reply to a PR-level review
 - `reply-to-discussion` — reply to a discussion comment with reaction
 
-For an approved batch that addresses inline threads, commit first, then call
-`build-resolve-thread-batch-payload` with the `plan-feedback` output, the
-selected `batch_id`, the batch commit SHA when the current commit fixed the
-thread, and one explicit `resolve` or `skip` decision for every review-thread
-item in that batch. Use `mode=fixed` for code changes present in the current
-commit, `mode=pre_existing` for moved/restructured pre-existing comments,
-`mode=explained` for factual false-positive/already-fixed explanations, and
-`mode=planned` only when the user/operator explicitly accepts provenance-backed
-deferral to an existing local branch or PR. Planned mode requires a non-empty
-message and validated provenance; do not use it for vague promises. Provenance
-is only valid for `mode=planned`. In batch payloads, planned items reject only
-item-level `commit_sha`; a top-level batch `commit_sha` may be present for fixed
-items in the same payload and is ignored by planned items. Treat any captured
-branch HEAD OID or PR state in the reply as a batch-start snapshot, not a live
-reference.
+For an approved batch that addresses inline threads, commit first, write a decisions JSON file, then call the session-native builder. For single-PR runs:
+
+```bash
+pr-address exec build-resolve-thread-batch-payload \
+  --pr-number <pr> \
+  --batch-id <batch_id> \
+  --commit-sha <batch_commit_sha> \
+  --decisions-file decisions.json \
+  --format json
+```
+
+For stack runs, use `build-stack-resolve-thread-payloads --batch-id <batch_id> --commit-sha <sha> --decisions-file decisions.json --format json`; each decision includes `pr_number`.
+
+Use `mode=fixed` for code changes present in the batch commit, `mode=pre_existing` for moved/restructured pre-existing comments, `mode=explained` for factual false-positive/already-fixed explanations, and `mode=planned` only for a concrete accepted follow-up with provenance. Missing decisions never mean skip; every review-thread item needs an explicit `resolve` or `skip` decision.
 
 Inspect the builder result:
 
-- If `data.payload_ready` is true, pipe `data.payload` to
-  `resolve-thread-batch --format json`.
-- If `data.payload_ready` is false, do not call `resolve-thread-batch`; report
-  the warning/skipped items and handle any PR-level review or discussion-comment
-  items with the appropriate helpers.
-- If the builder exits 1, fix the structured decision errors before mutating
-  GitHub.
+- If `data.payload_ready` / a stack entry's `payload_ready` is true, call `resolve-thread-batch --from-build <data.build_reference.sequence>` (or the stack entry's build reference sequence).
+- If no payload is ready, do not call `resolve-thread-batch`; checkpoint the no-payload build evidence and handle PR-level review/discussion-comment items with their helpers.
+- If the builder exits 1, fix the structured decision errors before mutating GitHub.
 
-After committing the batch and after any relevant GitHub mutation helper has
-returned, run `record-batch-checkpoint` with the `plan-feedback` output,
-selected `batch_id`, batch commit SHA when files changed, changed-file list,
-validation command evidence, any `build-resolve-thread-batch-payload` result,
-any `resolve-thread-batch` result, and explicit PR-level review or discussion
-comment outcomes. Use repository-relative forward-slash paths in
-`changed_files`. Include the returned `data.checkpoint_reference` in your final
-summary and use it as finalization evidence. If it exits 1 or returns
-`data.batch_complete == false`, do not treat the batch as done: fix the missing
-or failed evidence, or report a blocker.
+`resolve-thread-batch` no longer reads stdin or composed JSON. It requires `--from-build <sequence>` for normal session use or `--from-build-reference <payload-path>` for explicit replay. It validates the persisted build and provenance before any GitHub call and writes `data.resolution_reference` after any mutation attempt, including partial failures.
+
+After committing the batch and after any relevant GitHub mutation helper has returned, run `record-batch-checkpoint` with `--pr-number`, `--batch-id`, `--commit-sha`, validation evidence, and non-thread outcome evidence. The helper resolves the latest plan/build/resolution artifacts from the payload session and derives changed files from the commit. Include `data.checkpoint_reference` in your final summary. If it exits 1 or returns `data.batch_complete == false`, do not treat the batch as done.
 
 Common footguns (the reference is still the source of truth):
 
-- Missing decisions never mean skip; every review-thread item needs an explicit
-  `resolve` or `skip` decision.
-- `build-resolve-thread-batch-payload` is per-PR: pass `plan-feedback` output,
-  not merged `stack-feedback-plan` output. For stack runs, pass the validated
-  `stack-feedback-plan` output plus explicit `(pr_number, thread_id)` decisions
-  to `build-stack-resolve-thread-payloads`, then call `resolve-thread-batch` per
-  ready payload.
-- `resolve-thread-batch` reads JSON from stdin by default. Invalid payloads fail
-  before mutation; gateway failures may return `exit_code: 1` with partial
-  result data.
-- `resolve-thread-with-reply` uses positional fields and `mode` must be one of
-  `pre_existing`, `fixed`, `explained`, or `planned`. `planned` also requires
-  `--provenance-json` naming an existing local branch or PR; non-planned modes
-  reject provenance. Anything else is rejected.
+- Do not pass `plan-feedback` or `stack-feedback-plan` JSON wrappers to the build helpers; they resolve plans from the current payload session.
+- Do not pipe `data.payload` to `resolve-thread-batch`; use the persisted build reference sequence.
+- `resolve-thread-with-reply` remains a one-off fallback with positional fields and modes `pre_existing`, `fixed`, `explained`, or `planned`.
 
 Do not hand-roll reply bodies. The helper commands own the marker, timestamp,
 and standard formatting.
@@ -455,15 +432,12 @@ pr-address exec get-feedback <pr_number> \
   --include-resolved \
   --format json
 
-# Put the final get-feedback data object and all record-batch-checkpoint data
-# objects into a finalization JSON file, then run:
 pr-address exec finalize-run \
-  --payload-file pr-address-finalization.json \
+  --pr-number <pr_number> \
   --format json
 ```
 
-Use the `data` object from final `get-feedback`, not the Clinkr envelope. Include
-each `data` object returned by `record-batch-checkpoint` in `checkpoints`.
+`finalize-run` resolves the latest feedback manifest and all PR-scoped checkpoint artifacts from the payload session; do not build a composed finalization JSON file.
 
 If `finalize-run` exits 1 or returns `data.ready_to_stop == false`, do not claim
 the PR-address run is complete. Report the helper's unresolved unskipped

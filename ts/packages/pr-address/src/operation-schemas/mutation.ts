@@ -66,6 +66,12 @@ const resolveThreadBatchItemResultSchema = z.object({
 	provenance: resolutionProvenanceSchema.nullable().optional(),
 });
 
+export const resolveThreadBatchRequestSchema = z.object({
+	from_build: z.int().optional(),
+	from_build_reference: nullableStringSchema.optional(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 export const resolveThreadBatchResultSchema = z.object({
 	total: z.int(),
 	resolved: z.int(),
@@ -73,4 +79,6 @@ export const resolveThreadBatchResultSchema = z.object({
 	skipped: z.int(),
 	all_succeeded: z.boolean(),
 	results: z.array(resolveThreadBatchItemResultSchema),
+	resolved_inputs: z.object({ resolve_build: z.unknown() }).optional(),
+	resolution_reference: z.unknown().nullable().optional(),
 });

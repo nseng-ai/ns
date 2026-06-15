@@ -45,6 +45,8 @@ export interface PayloadArtifactStore {
 	readJsonArtifact(options: { payloadPath: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
 	readJsonArtifactValue(options: { payloadPath: string; pointer: string; allowedRoles?: ReadonlySet<string> | undefined }): Promise<PayloadResult<unknown>>;
 	findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>>;
+	findJsonArtifactBySequence(options: { sequence: number; role?: JsonPayloadRole | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>>;
+	listJsonArtifacts(options: { descriptorPrefix?: string | undefined; role: JsonPayloadRole }): Promise<PayloadResult<readonly ResolvedJsonPayloadArtifact[]>>;
 }
 
 export interface PayloadStoreFactory {
@@ -85,6 +87,18 @@ function selectLatestJsonPayloadCandidate<T extends ParsedPayloadCandidate>(
 		if (latest === null || candidate.parsed.sequence > latest.parsed.sequence) latest = candidate;
 	}
 	return latest;
+}
+
+function matchingJsonPayloadCandidates<T extends ParsedPayloadCandidate>(
+	candidates: readonly T[],
+	options: { descriptorPrefix?: string | undefined; role: JsonPayloadRole },
+): T[] {
+	return candidates
+		.filter((candidate) => {
+			if (candidate.parsed.role !== options.role || candidate.parsed.extension !== "json") return false;
+			return options.descriptorPrefix === undefined || candidate.parsed.descriptor.startsWith(options.descriptorPrefix);
+		})
+		.sort((left, right) => left.parsed.sequence - right.parsed.sequence);
 }
 
 function nextPayloadSequence(candidates: readonly ParsedPayloadCandidate[]): number {
@@ -268,32 +282,36 @@ export class PayloadStore implements PayloadArtifactStore {
 	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
 		const candidate = await this.latestJsonPayloadCandidate(options);
 		if (candidate.type === "error") return candidate;
-		const payloadPath = join(this.payloadDir, candidate.value.filename);
-		let payloadStats;
-		try {
-			payloadStats = await stat(payloadPath);
-		} catch (error) {
-			return payloadError("payload_lookup_failed", `Failed to stat latest payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
+		return await this.resolveJsonCandidate({ filename: candidate.value.filename, parsed: candidate.value.parsed, role: options.role });
+	}
+
+	async findJsonArtifactBySequence(options: { sequence: number; role?: JsonPayloadRole | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		if (!Number.isInteger(options.sequence) || options.sequence <= 0) {
+			return payloadError("payload_lookup_failed", `Payload artifact sequence must be a positive integer: ${String(options.sequence)}`);
 		}
-		const parsed = await this.readJsonArtifact({ payloadPath, allowedRoles: new Set([options.role]) });
-		if (parsed.type === "error") return parsed;
-		return {
-			type: "ok",
-			value: {
-				reference: buildPayloadReference({
-					payloadPath,
-					sessionId: this.sessionId,
-					descriptor: candidate.value.parsed.descriptor,
-					role: candidate.value.parsed.role,
-					createdAtUtc: candidate.value.parsed.createdAtUtc,
-					sequence: candidate.value.parsed.sequence,
-					payloadBytes: payloadStats.size,
-					contentType: "application/json",
-					extension: candidate.value.parsed.extension,
-				}),
-				value: parsed.value,
-			},
-		};
+		const candidates = await this.jsonPayloadCandidates();
+		if (candidates.type === "error") return candidates;
+		const matches = candidates.value.filter((candidate) => {
+			if (candidate.parsed.sequence !== options.sequence || candidate.parsed.extension !== "json") return false;
+			return options.role === undefined || candidate.parsed.role === options.role;
+		});
+		if (matches.length === 0) return payloadError("payload_lookup_failed", `No JSON payload artifact found in session ${this.sessionId} for sequence ${options.sequence}.`);
+		if (matches.length > 1) return payloadError("payload_lookup_failed", `Multiple JSON payload artifacts found in session ${this.sessionId} for sequence ${options.sequence}; pass a role filter.`);
+		const match = matches[0];
+		if (match === undefined) throw new Error("unreachable empty sequence match");
+		return await this.resolveJsonCandidate({ filename: match.filename, parsed: match.parsed, role: match.parsed.role as JsonPayloadRole });
+	}
+
+	async listJsonArtifacts(options: { descriptorPrefix?: string | undefined; role: JsonPayloadRole }): Promise<PayloadResult<readonly ResolvedJsonPayloadArtifact[]>> {
+		const candidates = await this.jsonPayloadCandidates();
+		if (candidates.type === "error") return candidates;
+		const resolved: ResolvedJsonPayloadArtifact[] = [];
+		for (const candidate of matchingJsonPayloadCandidates(candidates.value, options)) {
+			const artifact = await this.resolveJsonCandidate({ filename: candidate.filename, parsed: candidate.parsed, role: options.role });
+			if (artifact.type === "error") return artifact;
+			resolved.push(artifact.value);
+		}
+		return { type: "ok", value: resolved };
 	}
 
 	private async writeArtifact(options: {
@@ -353,6 +371,14 @@ export class PayloadStore implements PayloadArtifactStore {
 	}
 
 	private async latestJsonPayloadCandidate(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<{ filename: string; parsed: ParsedPayloadFilename }>> {
+		const candidates = await this.jsonPayloadCandidates();
+		if (candidates.type === "error") return candidates;
+		const latest = selectLatestJsonPayloadCandidate(candidates.value, options);
+		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
+		return { type: "ok", value: latest };
+	}
+
+	private async jsonPayloadCandidates(): Promise<PayloadResult<Array<{ filename: string; parsed: ParsedPayloadFilename }>>> {
 		let entries: readonly string[];
 		try {
 			entries = await readdir(this.payloadDir);
@@ -362,11 +388,38 @@ export class PayloadStore implements PayloadArtifactStore {
 		const candidates: Array<{ filename: string; parsed: ParsedPayloadFilename }> = [];
 		for (const filename of entries) {
 			const parsed = parsePayloadFilename(filename);
-			if (parsed !== null) candidates.push({ filename, parsed });
+			if (parsed !== null && parsed.extension === "json") candidates.push({ filename, parsed });
 		}
-		const latest = selectLatestJsonPayloadCandidate(candidates, options);
-		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
-		return { type: "ok", value: latest };
+		return { type: "ok", value: candidates };
+	}
+
+	private async resolveJsonCandidate(options: { filename: string; parsed: ParsedPayloadFilename; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		const payloadPath = join(this.payloadDir, options.filename);
+		let payloadStats;
+		try {
+			payloadStats = await stat(payloadPath);
+		} catch (error) {
+			return payloadError("payload_lookup_failed", `Failed to stat payload artifact ${payloadPath}: ${formatErrorMessage(error)}`);
+		}
+		const parsed = await this.readJsonArtifact({ payloadPath, allowedRoles: new Set([options.role]) });
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: {
+				reference: buildPayloadReference({
+					payloadPath,
+					sessionId: this.sessionId,
+					descriptor: options.parsed.descriptor,
+					role: options.parsed.role,
+					createdAtUtc: options.parsed.createdAtUtc,
+					sequence: options.parsed.sequence,
+					payloadBytes: payloadStats.size,
+					contentType: "application/json",
+					extension: options.parsed.extension,
+				}),
+				value: parsed.value,
+			},
+		};
 	}
 }
 
@@ -500,33 +553,35 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 	}
 
 	async findLatestJsonArtifact(options: { descriptor: string; role: JsonPayloadRole }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
-		const candidates: Array<{ payloadPath: string; parsed: ParsedPayloadFilename; text: string }> = [];
-		for (const [payloadPath, text] of this.artifacts.entries()) {
-			if (dirname(payloadPath) !== this.payloadDir) continue;
-			const parsed = parsePayloadFilename(basename(payloadPath));
-			if (parsed !== null) candidates.push({ payloadPath, parsed, text });
-		}
+		const candidates = this.jsonPayloadCandidates();
 		const latest = selectLatestJsonPayloadCandidate(candidates, options);
 		if (latest === null) return missingLatestJsonArtifactError({ sessionId: this.sessionId, descriptor: options.descriptor, role: options.role });
-		const parsed = await this.readJsonArtifact({ payloadPath: latest.payloadPath, allowedRoles: new Set([options.role]) });
-		if (parsed.type === "error") return parsed;
-		return {
-			type: "ok",
-			value: {
-				reference: buildPayloadReference({
-					payloadPath: latest.payloadPath,
-					sessionId: this.sessionId,
-					descriptor: latest.parsed.descriptor,
-					role: latest.parsed.role,
-					createdAtUtc: latest.parsed.createdAtUtc,
-					sequence: latest.parsed.sequence,
-					payloadBytes: Buffer.byteLength(latest.text, "utf8"),
-					contentType: "application/json",
-					extension: latest.parsed.extension,
-				}),
-				value: parsed.value,
-			},
-		};
+		return await this.resolveJsonCandidate({ payloadPath: latest.payloadPath, parsed: latest.parsed, text: latest.text, role: options.role });
+	}
+
+	async findJsonArtifactBySequence(options: { sequence: number; role?: JsonPayloadRole | undefined }): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		if (!Number.isInteger(options.sequence) || options.sequence <= 0) {
+			return payloadError("payload_lookup_failed", `Payload artifact sequence must be a positive integer: ${String(options.sequence)}`);
+		}
+		const matches = this.jsonPayloadCandidates().filter((candidate) => {
+			if (candidate.parsed.sequence !== options.sequence) return false;
+			return options.role === undefined || candidate.parsed.role === options.role;
+		});
+		if (matches.length === 0) return payloadError("payload_lookup_failed", `No JSON payload artifact found in session ${this.sessionId} for sequence ${options.sequence}.`);
+		if (matches.length > 1) return payloadError("payload_lookup_failed", `Multiple JSON payload artifacts found in session ${this.sessionId} for sequence ${options.sequence}; pass a role filter.`);
+		const match = matches[0];
+		if (match === undefined) throw new Error("unreachable empty sequence match");
+		return await this.resolveJsonCandidate({ payloadPath: match.payloadPath, parsed: match.parsed, text: match.text, role: match.parsed.role as JsonPayloadRole });
+	}
+
+	async listJsonArtifacts(options: { descriptorPrefix?: string | undefined; role: JsonPayloadRole }): Promise<PayloadResult<readonly ResolvedJsonPayloadArtifact[]>> {
+		const resolved: ResolvedJsonPayloadArtifact[] = [];
+		for (const candidate of matchingJsonPayloadCandidates(this.jsonPayloadCandidates(), options)) {
+			const artifact = await this.resolveJsonCandidate({ payloadPath: candidate.payloadPath, parsed: candidate.parsed, text: candidate.text, role: options.role });
+			if (artifact.type === "error") return artifact;
+			resolved.push(artifact.value);
+		}
+		return { type: "ok", value: resolved };
 	}
 
 	private writeArtifact(options: { descriptor: string; role: PayloadRole; extension: PayloadExtension; contentType: string; text: string }): PayloadResult<PayloadReference> {
@@ -559,6 +614,43 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 			if (parsed !== null) candidates.push({ parsed });
 		}
 		return nextPayloadSequence(candidates);
+	}
+
+	private jsonPayloadCandidates(): Array<{ payloadPath: string; parsed: ParsedPayloadFilename; text: string }> {
+		const candidates: Array<{ payloadPath: string; parsed: ParsedPayloadFilename; text: string }> = [];
+		for (const [payloadPath, text] of this.artifacts.entries()) {
+			if (dirname(payloadPath) !== this.payloadDir) continue;
+			const parsed = parsePayloadFilename(basename(payloadPath));
+			if (parsed !== null && parsed.extension === "json") candidates.push({ payloadPath, parsed, text });
+		}
+		return candidates;
+	}
+
+	private async resolveJsonCandidate(options: {
+		payloadPath: string;
+		parsed: ParsedPayloadFilename;
+		text: string;
+		role: JsonPayloadRole;
+	}): Promise<PayloadResult<ResolvedJsonPayloadArtifact>> {
+		const parsed = await this.readJsonArtifact({ payloadPath: options.payloadPath, allowedRoles: new Set([options.role]) });
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: {
+				reference: buildPayloadReference({
+					payloadPath: options.payloadPath,
+					sessionId: this.sessionId,
+					descriptor: options.parsed.descriptor,
+					role: options.parsed.role,
+					createdAtUtc: options.parsed.createdAtUtc,
+					sequence: options.parsed.sequence,
+					payloadBytes: Buffer.byteLength(options.text, "utf8"),
+					contentType: "application/json",
+					extension: options.parsed.extension,
+				}),
+				value: parsed.value,
+			},
+		};
 	}
 }
 
