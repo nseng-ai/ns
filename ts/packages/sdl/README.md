@@ -50,7 +50,7 @@ Direct files and directory indexes infer one SDL command-entry name from the fil
 
 Manifest command entries require `name`, `description`, and a relative POSIX-style `entry` path to a `.ts` or `.js` file. `fullDescription` is optional and defaults to `description`.
 
-SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's `commands` array:
+SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current SDL surface.
 
 ```ts
 import { defineExtension, ok } from "@asdl/sdl/sdk";
@@ -72,7 +72,7 @@ Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, 
 
 Duplicate command names within one source level are errors. Across source levels, higher-precedence sources override lower-precedence sources: project overrides global and built-in; global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 
-Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
+Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --runtime`, and unselected command lookup read only built-in definitions, filesystem entries, and JSON manifests. Malformed discovery entries that do not affect the selected command are printed as stderr warnings while the invocation continues and stdout remains reserved for primary output. Discovery diagnostics that affect the selected command are fatal, including higher-precedence broken overrides that would otherwise fall back to lower-precedence commands. SDL imports and validates exactly one external SDL extension contribution only when that command is selected, including selected-command help and JSON schema.
 
 The legacy `.asdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
@@ -89,7 +89,7 @@ import type { SdlContext, SdlResult } from "@asdl/sdl/sdk";
 
 That SDK subpath is the public author API for SDL extensions. It exposes:
 
-- `defineExtension()` for declaring SDL extension contributions;
+- `defineExtension()` for declaring SDL extension contributions, including commandless extensions and arbitrary-length inline `commands` arrays;
 - `ok()` and `failed()` for returning command results;
 - `z` for declaring command schemas through the SDK-owned Zod boundary;
 - `SdlContext` for command execution capabilities;

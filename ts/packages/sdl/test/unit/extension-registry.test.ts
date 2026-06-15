@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { hasExtensionErrors, loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extension-registry.ts";
+import { classifyExtensionDiagnosticsForInvocation, hasExtensionErrors, loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extension-registry.ts";
 
 const tempDirs: string[] = [];
 
@@ -179,11 +179,79 @@ export default defineExtension({
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
-		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_name_invalid" }));
+		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_name_invalid", commandName: "Bad" }));
 		const selected = loaded.candidates.get("throws");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
 		const command = await loadSelectedSdlCommand(selected);
-		expect(command).toMatchObject({ ok: false, diagnostic: { code: "sdl_extension_contribution_import_failed" } });
+		expect(command).toMatchObject({ ok: false, diagnostic: { code: "sdl_extension_contribution_import_failed", commandName: "throws" } });
+	});
+
+	test("diagnostic classification treats unrelated selected-command diagnostics as warnings", () => {
+		const selectedCandidate = {
+			name: "cp",
+			description: "cp",
+			fullDescription: "cp",
+			source: { level: "built-in" as const, label: "built-in command cp" },
+			command: { name: "cp", description: "cp", run: () => ({ ok: true as const, message: "" }) },
+		};
+
+		const classified = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: [{ severity: "error", code: "broken", message: "broken hello", commandName: "hello", sourceLevel: "project" }],
+			requestedCommandName: "cp",
+			selectedCandidate,
+		});
+
+		expect(classified).toEqual({ fatal: [], warnings: [expect.objectContaining({ commandName: "hello" })] });
+	});
+
+	test("diagnostic classification makes selected same-level duplicates fatal", () => {
+		const classified = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: [{ severity: "error", code: "extension_command_duplicate_in_level", message: "Duplicate cp", commandName: "cp", sourceLevel: "project" }],
+			requestedCommandName: "cp",
+			selectedCandidate: {
+				name: "cp",
+				description: "cp",
+				fullDescription: "cp",
+				entryPath: "/project/cp.ts",
+				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
+			},
+		});
+
+		expect(classified.fatal).toHaveLength(1);
+		expect(classified.warnings).toHaveLength(0);
+	});
+
+	test("diagnostic classification allows higher-precedence valid selected candidates", () => {
+		const classified = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: [{ severity: "error", code: "broken", message: "broken global cp", commandName: "cp", sourceLevel: "global" }],
+			requestedCommandName: "cp",
+			selectedCandidate: {
+				name: "cp",
+				description: "cp",
+				fullDescription: "cp",
+				entryPath: "/project/cp.ts",
+				source: { level: "project", label: "project cp", path: "/project/cp.ts" },
+			},
+		});
+
+		expect(classified).toEqual({ fatal: [], warnings: [expect.objectContaining({ sourceLevel: "global" })] });
+	});
+
+	test("diagnostic classification blocks fallback below a higher-precedence selected-name error", () => {
+		const classified = classifyExtensionDiagnosticsForInvocation({
+			diagnostics: [{ severity: "error", code: "broken", message: "broken project cp", commandName: "cp", sourceLevel: "project" }],
+			requestedCommandName: "cp",
+			selectedCandidate: {
+				name: "cp",
+				description: "cp",
+				fullDescription: "cp",
+				source: { level: "built-in", label: "built-in command cp" },
+				command: { name: "cp", description: "cp", run: () => ({ ok: true as const, message: "" }) },
+			},
+		});
+
+		expect(classified.fatal).toHaveLength(1);
+		expect(classified.warnings).toHaveLength(0);
 	});
 });

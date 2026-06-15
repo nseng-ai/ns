@@ -53,7 +53,7 @@ export default defineExtension({
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
 	});
 
-	test("invalid default export is left to command validation", async () => {
+	test("object-shaped commandless default export is left to selected command validation", async () => {
 		const modulePath = await createModule("export default { name: 'greet' };\n");
 
 		const loaded = await loadSdlExtensionContribution(modulePath);
@@ -62,7 +62,7 @@ export default defineExtension({
 		if (!loaded.ok) return;
 		expect(validateSdlExtensionContribution(loaded.defaultExport, "greet", modulePath)).toMatchObject({
 			ok: false,
-			message: expect.stringContaining("default export must be an extension object created with defineExtension()"),
+			message: expect.stringContaining("expected a command entry named \"greet\" in commands[]"),
 		});
 	});
 

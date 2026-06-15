@@ -395,15 +395,65 @@ export default defineExtension({
 		expect(selectedRun.context.execCalls).toEqual([]);
 	});
 
-	test("invalid inferred SDL command entry name fails clearly during discovery", async () => {
+	test("invalid inferred SDL command entry name warns during top-level help", async () => {
 		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Usage: sdl");
+		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("command entry name inferred");
 		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
 		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("malformed unrelated extension warns without breaking static version output", async () => {
+		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
+		const run = runWithFakes({ args: ["--version"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("0.1.0\n");
+		expect(run.stderr.join("")).toContain("Warning:");
+		expect(run.stderr.join("")).toContain("command entry name inferred");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("malformed unrelated extension warns without breaking built-in cp", async () => {
+		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
+		const run = runWithFakes({ args: ["cp"], cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("[cp] Update checkpoint tests");
+		expect(run.stderr.join("")).toContain("Warning:");
+		expect(run.stderr.join("")).toContain("command entry name inferred");
+		expect(run.context.execCalls.map(formatExecCall)).toEqual(expect.arrayContaining([expect.stringMatching(/^git commit -F /)]));
+	});
+
+	test("malformed selected manifest command exits with its discovery diagnostic", async () => {
+		const cwd = await createManifestProject(
+			{ asdl: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
+			{},
+		);
+		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Extension manifest command entry does not exist: ./missing.ts");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("malformed selected project override fails instead of falling back to built-in cp", async () => {
+		const cwd = await createManifestProject(
+			{ asdl: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
+			{},
+		);
+		const run = runWithFakes({ args: ["cp"], cwd });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toContain("Extension manifest command entry does not exist: ./missing.ts");
+		expect(run.context.execCalls).toEqual([]);
+		expect(run.context.modelCalls).toEqual([]);
 	});
 
 	test("SDL command entry schema must be a Zod object", async () => {
@@ -700,7 +750,7 @@ export default defineExtension({
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("default export must be an extension object created with defineExtension()");
+		expect(run.stderr.join("")).toContain("expected a command entry named \"cp\" in commands[]");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.modelCalls).toEqual([]);
 	});

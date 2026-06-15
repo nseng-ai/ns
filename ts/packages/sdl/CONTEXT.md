@@ -17,8 +17,8 @@ The user-facing invocation pair for a migrated lifecycle command: `sdl <name>` p
 *Avoid*: `asdl-dev` command for migrated workflows, `/code:*` target namespace, compatibility alias.
 
 **SDL extension**:
-Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions live under `.asdl/extensions` and default-export an extension object created with `defineExtension()` from `@asdl/sdl/sdk`.
-*Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, single-command-only model.
+Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions live under `.asdl/extensions` and default-export an extension object created with `defineExtension()` from `@asdl/sdl/sdk`; command contributions currently live in an optional `commands` bucket.
+*Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
 
 **SDL command entry**:
 A command contribution inside an SDL extension's `commands` array. It names and implements one flat `sdl <name>` command.
@@ -29,8 +29,8 @@ The side-effect-light SDL CLI step that scans built-in command definitions plus 
 *Avoid*: eager module loading for help, recursive command crawling, hidden task registry, factory execution during discovery.
 
 **Selected SDL extension loading**:
-The SDL CLI step that imports and validates exactly one external SDL extension contribution after the user selects a command. Selected help and JSON schema may load the selected extension contribution; top-level help and unrelated commands must not load unselected entries.
-*Avoid*: loading all extension code to discover command names, partial registration state from failed modules.
+The SDL CLI step that imports and validates exactly one external SDL extension contribution after the user selects a command. Selected help and JSON schema may load the selected extension contribution; top-level help and unrelated commands must not load unselected entries. Discovery diagnostics that affect the selected command are fatal; unrelated discovery diagnostics are warnings.
+*Avoid*: loading all extension code to discover command names, partial registration state from failed modules, bricking static help/version/runtime for unrelated malformed entries.
 
 **CLI-only dynamic SDL extension loading**:
 The current boundary for dynamically discovered SDL extensions: `sdl <name>` can be registered from `.asdl/extensions`, while exact dynamic `/sdl:<name>` Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
