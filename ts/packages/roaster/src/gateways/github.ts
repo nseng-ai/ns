@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -80,11 +80,15 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 	}
 
 	async createPrReview(prNumber: number, comments: readonly PRInlineCommentInput[], options: GitHubGatewayOptions): Promise<RoasterResult<void>> {
-		const inputPath = await writeJsonInput({ event: "COMMENT", comments: comments.map((comment) => ({ path: comment.path, line: comment.line, body: comment.body })) });
-		const args = ["api", "--method", "POST", `repos/{owner}/{repo}/pulls/${prNumber}/reviews`, "--input", inputPath];
-		const result = await this.runGh(args, options);
-		if (result.type === "error") return result;
-		return { type: "ok", value: undefined };
+		const input = await writeJsonInput({ event: "COMMENT", comments: comments.map((comment) => ({ path: comment.path, line: comment.line, body: comment.body })) });
+		try {
+			const args = ["api", "--method", "POST", `repos/{owner}/{repo}/pulls/${prNumber}/reviews`, "--input", input.path];
+			const result = await this.runGh(args, options);
+			if (result.type === "error") return result;
+			return { type: "ok", value: undefined };
+		} finally {
+			await input.cleanup();
+		}
 	}
 
 	async findPrDiscussionCommentByMarker(prNumber: number, marker: string, authorLogin: string, options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
@@ -236,11 +240,21 @@ function numericId(value: string | number | undefined): number {
 	return 0;
 }
 
-async function writeJsonInput(value: unknown): Promise<string> {
+interface JsonInputFile {
+	readonly path: string;
+	cleanup(): Promise<void>;
+}
+
+async function writeJsonInput(value: unknown): Promise<JsonInputFile> {
 	const directory = await mkdtemp(join(tmpdir(), "roaster-gh-"));
 	const path = join(directory, "input.json");
 	await writeFile(path, JSON.stringify(value), "utf8");
-	return path;
+	return {
+		path,
+		async cleanup() {
+			await rm(directory, { recursive: true, force: true });
+		},
+	};
 }
 
 function ghExecOptions(options: GitHubGatewayOptions): ExecOptions {

@@ -25,8 +25,7 @@ export function estimateTokens(text: string): number {
 export function parseUnifiedDiff(diffText: string): readonly DiffFile[] {
 	if (diffText.trim() === "") return [];
 
-	const rawSegments = diffSegments(diffText);
-	return parsePierreDiffFiles(diffText).map((metadata, index) => diffFileFromPierre(metadata, rawSegments[index] ?? diffText));
+	return diffSegments(diffText).flatMap((rawSegment) => parsePierreDiffFiles(rawSegment).map((metadata) => diffFileFromPierre(metadata, rawSegment)));
 }
 
 function parsePierreDiffFiles(diffText: string): readonly FileDiffMetadata[] {
