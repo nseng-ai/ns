@@ -11,9 +11,9 @@ function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}
 	return { name, skillMd, ...options };
 }
 
-describe("areg skill kind list/show CLI", () => {
+describe("areg skill list/show CLI", () => {
 	test("list reports no local skills", async () => {
-		const run = runScenario(["skill", "kind", "list"], { skillKindProject: { skills: [] } });
+		const run = runScenario(["skill", "list"], { skillKindProject: { skills: [] } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("No local skills found.\n");
@@ -21,7 +21,7 @@ describe("areg skill kind list/show CLI", () => {
 	});
 
 	test("list reports clean and diagnostic inferred kinds in human output", async () => {
-		const run = runScenario(["skill", "kind", "list"], {
+		const run = runScenario(["skill", "list"], {
 			skillKindProject: {
 				piSettings: { skills: ["-skills/command-skill", "-skills/broken"] },
 				genericReplacement: { hasAdapter: true, hasPackageModule: true },
@@ -47,7 +47,7 @@ describe("areg skill kind list/show CLI", () => {
 	});
 
 	test("list JSON uses snake_case boundary fields", async () => {
-		const run = runScenario(["skill", "kind", "list", "--format", "json"], { skillKindProject: { skills: [skill("demo-skill")] } });
+		const run = runScenario(["skill", "list", "--format", "json"], { skillKindProject: { skills: [skill("demo-skill")] } });
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({
@@ -79,7 +79,7 @@ describe("areg skill kind list/show CLI", () => {
 	});
 
 	test("show resolves one skill and renders required labels", async () => {
-		const run = runScenario(["skill", "kind", "show", "branch-context-from-plan"], {
+		const run = runScenario(["skill", "show", "branch-context-from-plan"], {
 			skillKindProject: {
 				piSettings: { skills: ["-skills/branch-context-from-plan"] },
 				skills: [
@@ -109,11 +109,11 @@ describe("areg skill kind list/show CLI", () => {
 	});
 
 	test("fails when frontmatter or target project are invalid", async () => {
-		const malformed = runScenario(["skill", "kind", "list"], { skillKindProject: { skills: [skill("bad", "# missing frontmatter\n")] } });
+		const malformed = runScenario(["skill", "list"], { skillKindProject: { skills: [skill("bad", "# missing frontmatter\n")] } });
 		expect(await malformed.exit).toBe(1);
 		expect(malformed.stderr.join("")).toContain("missing opening frontmatter delimiter");
 
-		const missingPath = runScenario(["skill", "kind", "list", "--path", "missing"], { skillKindProject: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
+		const missingPath = runScenario(["skill", "list", "--path", "missing"], { skillKindProject: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
 		expect(await missingPath.exit).toBe(1);
 		expect(missingPath.stderr.join("")).toContain("Target /repo/missing does not exist.");
 	});

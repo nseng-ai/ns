@@ -312,9 +312,10 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 		command.addArgument(buildCommanderArgument(positional));
 	}
 	if (registered.plan.positionals.length > 0) {
-		const parts = registered.plan.positionals.map((positional) =>
-			positional.isRequired ? `<${positional.name}>` : `[${positional.name}]`,
-		);
+		const parts = registered.plan.positionals.map((positional) => {
+			const name = positional.isVariadic ? `${positional.name}...` : positional.name;
+			return positional.isRequired ? `<${name}>` : `[${name}]`;
+		});
 		command.usage(`[options] ${parts.join(" ")}`);
 	}
 	for (const optionPlan of registered.plan.options) {
@@ -400,7 +401,8 @@ function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>):
 function buildCommanderArgument(plan: PositionalPlan): Argument {
 	// Declared bracket-optional so commander never enforces requiredness: zod
 	// owns it, keeping the usage-error channel uniform and --json-schema eager.
-	const argument = new Argument(`[${plan.name}]`, plan.description);
+	const name = plan.isVariadic ? `[${plan.name}...]` : `[${plan.name}]`;
+	const argument = new Argument(name, plan.description);
 	if (plan.kind.type === "number") argument.argParser(parseNumberValue);
 	if (plan.kind.type === "integer") argument.argParser(parseIntegerValue);
 	if (plan.kind.type === "enum") argument.choices([...plan.kind.values]);

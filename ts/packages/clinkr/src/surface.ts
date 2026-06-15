@@ -29,6 +29,7 @@ export interface PositionalPlan {
 	name: string;
 	kind: FieldKind;
 	isRequired: boolean;
+	isVariadic: boolean;
 	description: string;
 }
 
@@ -176,14 +177,14 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 		const description = describeField(unwrapped);
 		const positionalSpec = positionals[key];
 		if (positionalSpec !== undefined) {
-			if (kind.type === "boolean" || kind.type === "string-array") {
+			if (kind.type === "boolean") {
 				throw new Error(
 					`clinkr: field '${key}' in command '${commandName}' cannot be a positional (${kind.type})`,
 				);
 			}
 			positionalEntries.push({
 				position: positionalSpec.position,
-				plan: { key, name: kebabCase(key), kind, isRequired, description },
+				plan: { key, name: kebabCase(key), kind, isRequired, isVariadic: kind.type === "string-array", description },
 			});
 			continue;
 		}
@@ -204,6 +205,11 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 		if (entry.position !== index) {
 			throw new Error(
 				`clinkr: positional positions for command '${commandName}' must be unique and contiguous from 0`,
+			);
+		}
+		if (entry.plan.isVariadic && index !== positionalEntries.length - 1) {
+			throw new Error(
+				`clinkr: variadic positional field '${entry.plan.key}' in command '${commandName}' must be the final positional`,
 			);
 		}
 	});

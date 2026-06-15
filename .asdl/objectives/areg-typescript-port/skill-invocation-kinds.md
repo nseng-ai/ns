@@ -20,13 +20,9 @@ Kinds are **inferred from concrete artifacts**, not stored in a central config f
 
 In scope:
 
-- `areg skill kind set KIND SKILL...`
-- `areg skill kind list`
-- `areg skill kind show SKILL`
-- Legacy compatibility commands:
-  - `areg command convert SKILL...`
-  - `areg command revert SKILL...`
-  - `areg command list`
+- `areg skill apply KIND SKILL...`
+- `areg skill list`
+- `areg skill show SKILL`
 - The kind artifact matrix and inference rules.
 - The Pi replacement verification rule used before command-backed conversion.
 - `areg check` validation for invoke-only / command-backed artifact consistency.
@@ -44,7 +40,7 @@ Out of scope:
 
 A first-party skill whose canonical source is `skills/<name>/SKILL.md` under the target Git project.
 
-`areg skill kind` commands MUST only mutate local skills. A skill found only under `.agents/skills/<name>` is not local and MUST be rejected, even if it is invocable by harnesses.
+`areg skill` commands MUST only mutate local skills. A skill found only under `.agents/skills/<name>` is not local and MUST be rejected, even if it is invocable by harnesses.
 
 ### Invocation kind
 
@@ -68,11 +64,11 @@ The kind reported by `list` and `show`, derived from the current artifact set. I
 
 ### Pi replacement command
 
-A Pi extension command that replaces native `/skill:<name>` for a command-backed skill. A command-backed conversion MUST NOT hide `/skill:<name>` unless such a replacement is verified.
+A Pi extension command that replaces native `/skill:<name>` for a command-backed skill. A command-backed apply MUST NOT hide `/skill:<name>` unless such a replacement is verified.
 
 ## 4. Target project resolution
 
-All kind and legacy command-conversion commands accept:
+All skill invocation kind commands accept:
 
 ```text
 --path PATH
@@ -285,18 +281,18 @@ The failure message SHOULD tell the user:
 
 - the skill name
 - the expected command, if derivable
-- that conversion would hide `/skill:<name>` in Pi
+- that applying `command-backed` would hide `/skill:<name>` in Pi
 - that a replacement command must read `skills/<name>/SKILL.md` directly because native Pi skill discovery will exclude `/skill:<name>`
 - that tests should prove the command works while the backing skill is excluded
 
 ## 9. CLI surfaces
 
-### `areg skill kind set`
+### `areg skill apply`
 
 Synopsis:
 
 ```text
-areg skill kind set [--path PATH] [--dry-run] KIND SKILL...
+areg skill apply [--path PATH] [--dry-run] [--yes] KIND SKILL...
 ```
 
 `KIND` MUST be one of:
@@ -313,12 +309,14 @@ Behavior:
 - Resolves the target project.
 - Resolves each skill spec to a canonical local skill name.
 - Applies the kind artifact plan for each skill in order.
-- With `--dry-run`, prints planned writes/deletes/removals and writes nothing.
+- With `--dry-run`, prints planned writes/deletes/removals, writes nothing, and does not prompt.
+- Without `--dry-run`, planned managed-artifact deletions require confirmation unless `--yes` is passed.
+- `--yes` only approves deletion prompts; it does not bypass path safety, malformed files, or missing replacement checks.
 
 Human output:
 
 ```text
-Setting <skill> to <kind>...
+Applying <kind> to <skill>...
 ```
 
 For each artifact, output uses these verbs:
@@ -331,12 +329,12 @@ For each artifact, output uses these verbs:
 
 Exact paths are included in artifact output.
 
-### `areg skill kind list`
+### `areg skill list`
 
 Synopsis:
 
 ```text
-areg skill kind list [--path PATH]
+areg skill list [--path PATH]
 ```
 
 Behavior:
@@ -361,12 +359,12 @@ Columns:
 
 The table may use color/styling for humans; styling is not semantic.
 
-### `areg skill kind show`
+### `areg skill show`
 
 Synopsis:
 
 ```text
-areg skill kind show [--path PATH] SKILL
+areg skill show [--path PATH] SKILL
 ```
 
 Behavior:
@@ -396,98 +394,6 @@ If notes exist, append:
 Notes:
 - <note>
 ```
-
-### Legacy `areg command convert`
-
-Synopsis:
-
-```text
-areg command convert [--path PATH] [--dry-run] SKILL...
-```
-
-Equivalent to:
-
-```text
-areg skill kind set command-backed SKILL...
-```
-
-Human output starts each skill with:
-
-```text
-Converting <skill>...
-```
-
-### Legacy `areg command revert`
-
-Synopsis:
-
-```text
-areg command revert [--path PATH] [--dry-run] SKILL...
-```
-
-Equivalent to:
-
-```text
-areg skill kind set normal SKILL...
-```
-
-Human output starts each skill with:
-
-```text
-Reverting <skill>...
-```
-
-### Legacy `areg command list`
-
-Synopsis:
-
-```text
-areg command list [--path PATH]
-```
-
-Behavior:
-
-- Lists local skill command-conversion status in tab-separated rows.
-- This command exists for compatibility with the older command-conversion workflow.
-- If no local skills exist, prints `No local skills found.`
-
-Row format:
-
-```text
-<skill>\t<legacy-kind-label>\t<pi-visible|pi-excluded>\t<replacement-label>
-```
-
-Replacement labels:
-
-| Condition                            | Label                            |
-| ------------------------------------ | -------------------------------- |
-| No replacement information           | `replacement-missing`            |
-| Verified replacement with no surface | `replacement-verified`           |
-| Verified replacement with surface    | `replacement-verified:<surface>` |
-| Missing replacement with surface     | `replacement-missing:<surface>`  |
-
-Legacy kind label:
-
-- If inferred kind is not `inconsistent`, use the inferred kind value.
-- If `disable-model-invocation` is present but the Codex sidecar is absent, use:
-
-  ```text
-  inconsistent: flag set but agents/openai.yaml missing
-  ```
-
-- If the Codex sidecar is present but `disable-model-invocation` is absent, use:
-
-  ```text
-  inconsistent: agents/openai.yaml present but flag unset
-  ```
-
-- If Pi is excluded and the replacement is missing, use:
-
-  ```text
-  inconsistent: Pi exclusion without verified replacement
-  ```
-
-- Otherwise use `inconsistent`.
 
 ## 10. Kind inference
 
@@ -589,7 +495,7 @@ Commands fail without mutation for the current skill when:
 - no Git root can be found
 - skill spec cannot be resolved to a local skill
 - canonical local skill directory or `SKILL.md` is missing or unsafe
-- `SKILL.md` frontmatter is malformed for a mutation or kind show/list operation
+- `SKILL.md` frontmatter is malformed for a mutation or skill show/list operation
 - `.pi/settings.json` is malformed, not a JSON object, has non-string `skills`, or is unsafe
 - `command-backed` replacement verification fails
 
@@ -619,7 +525,7 @@ description: Example skill.
 Command:
 
 ```bash
-areg skill kind set command-backed my-skill
+areg skill apply command-backed my-skill
 ```
 
 Expected artifact results:
@@ -653,7 +559,7 @@ policy:
 }
 ```
 
-`areg skill kind show my-skill` reports:
+`areg skill show my-skill` reports:
 
 ```text
 Skill: my-skill
@@ -669,16 +575,10 @@ Artifacts:
 - Pi replacement: replacement-verified:my:skill
 ```
 
-`areg command list` includes:
-
-```text
-my-skill	command-backed	pi-excluded	replacement-verified:my:skill
-```
-
 Reverting:
 
 ```bash
-areg command revert my-skill
+areg skill apply normal my-skill
 ```
 
 restores `SKILL.md` to no managed frontmatter keys, deletes `agents/openai.yaml`, removes `skills/my-skill/agents/` if empty, and removes only the exact `-skills/my-skill` entry from `.pi/settings.json`.
@@ -699,8 +599,7 @@ restores `SKILL.md` to no managed frontmatter keys, deletes `agents/openai.yaml`
 - [ ] Supports skill-name, local path, `SKILL.md` path, and harness symlink path resolution.
 - [ ] Verifies Pi replacement commands before adding `-skills/<name>`.
 - [ ] Preserves existing `.pi/settings.json` object fields and unrelated `skills` entries.
-- [ ] Provides `skill kind set/list/show` surfaces with the documented arguments and outputs.
-- [ ] Keeps legacy `command convert/revert/list` behavior compatible.
+- [ ] Provides `skill apply/list/show` surfaces with the documented arguments and outputs.
 - [ ] Keeps `--dry-run` validation and no-write semantics.
 - [ ] Extends `areg check` with missing sidecar, sidecar without flag, and missing Pi replacement diagnostics.
 - [ ] Includes conformance tests for idempotency, round trip, malformed files, path safety, replacement verification, and multi-skill partial failure behavior.

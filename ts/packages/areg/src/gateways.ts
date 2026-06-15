@@ -209,6 +209,35 @@ export interface AregSkillKindSkillInspection {
 	openaiPolicy: AregSkillKindTextFileState;
 }
 
+export interface AregSkillKindTextWritePlan {
+	relativePath: string;
+	content: string;
+	description: string;
+	createParent: boolean;
+}
+
+export interface AregSkillKindDeletePlan {
+	relativePath: string;
+	description: string;
+}
+
+export interface AregSkillKindRemoveEmptyDirPlan {
+	relativePath: string;
+	description: string;
+}
+
+export interface AregSkillKindApplyPlanRequest {
+	projectDir: string;
+	writes: readonly AregSkillKindTextWritePlan[];
+	deletes: readonly AregSkillKindDeletePlan[];
+	removeEmptyDirs: readonly AregSkillKindRemoveEmptyDirPlan[];
+	env: NodeJS.ProcessEnv;
+}
+
+export type AregSkillKindApplyPlanResult =
+	| { ok: true; writtenRelativePaths: readonly string[]; deletedRelativePaths: readonly string[]; removedEmptyDirRelativePaths: readonly string[] }
+	| { ok: false; error: AregErrorInfo };
+
 export interface AregSkillKindProjectInspectionRequest {
 	cwd: string;
 	projectPath: string;
@@ -239,4 +268,5 @@ export type AregSkillKindResolveResult = { type: "ok"; skillName: string } | { t
 export interface AregSkillKindProjectGateway {
 	inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult>;
 	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
+	applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult>;
 }

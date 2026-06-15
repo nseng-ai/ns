@@ -162,7 +162,7 @@ describe("buildSurfacePlan positionals", () => {
 		).toThrow(/unknown field 'b'/);
 	});
 
-	test("rejects boolean and array positionals", () => {
+	test("rejects boolean positionals but allows a final string-array positional", () => {
 		expect(() =>
 			buildSurfacePlan({
 				commandName: "probe",
@@ -170,13 +170,25 @@ describe("buildSurfacePlan positionals", () => {
 				positionals: { flag: { position: 0 } },
 			}),
 		).toThrow(/cannot be a positional \(boolean\)/);
+		const plan = buildSurfacePlan({
+			commandName: "probe",
+			schema: z.object({ kind: z.string(), tags: z.array(z.string()) }),
+			positionals: { kind: { position: 0 }, tags: { position: 1 } },
+		});
+		expect(plan.positionals.map((positional) => [positional.key, positional.isVariadic])).toEqual([
+			["kind", false],
+			["tags", true],
+		]);
+	});
+
+	test("rejects non-final variadic positionals", () => {
 		expect(() =>
 			buildSurfacePlan({
 				commandName: "probe",
-				schema: z.object({ tags: z.array(z.string()) }),
-				positionals: { tags: { position: 0 } },
+				schema: z.object({ tags: z.array(z.string()), target: z.string() }),
+				positionals: { tags: { position: 0 }, target: { position: 1 } },
 			}),
-		).toThrow(/cannot be a positional \(string-array\)/);
+		).toThrow(/must be the final positional/);
 	});
 
 	test("rejects non-contiguous or duplicate positions", () => {

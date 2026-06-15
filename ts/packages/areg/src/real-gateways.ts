@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, lstat, mkdir, mkdtemp, readdir, readFile, readlink, realpath, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, readdir, readFile, readlink, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline/promises";
@@ -41,6 +41,8 @@ import type {
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
+	AregSkillKindApplyPlanRequest,
+	AregSkillKindApplyPlanResult,
 	AregSkillKindProjectGateway,
 	AregSkillKindProjectInspectionRequest,
 	AregSkillKindProjectInspectionResult,
@@ -256,6 +258,64 @@ export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGate
 		if (mdState.type === "symlink") return { type: "error", error: errorInfo("skill-kind-symlink-skill-md", `skills/${resolved.skillName}/SKILL.md is a symlink but should be a real file (canonical source)`) };
 		if (mdState.type !== "file") return { type: "error", error: errorInfo("skill-kind-missing-skill-md", `skills/${resolved.skillName}/SKILL.md does not exist`) };
 		return { type: "ok", skillName: resolved.skillName };
+	}
+
+	async applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult> {
+		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
+		const writtenRelativePaths: string[] = [];
+		const deletedRelativePaths: string[] = [];
+		const removedEmptyDirRelativePaths: string[] = [];
+		for (const write of request.writes) {
+			const target = resolveAllowedSkillKindTarget(projectRoot.value, write.relativePath, write.description);
+			if (target.type === "error") return { ok: false, error: target.error };
+			const validation = await validateSkillKindWriteTarget(target.value, projectRoot.value, write.createParent, write.description);
+			if (!validation.ok) return validation;
+			if (write.createParent) {
+				try {
+					await mkdir(path.dirname(target.value), { recursive: true });
+				} catch (error) {
+					return { ok: false, error: errorInfo("skill-kind-parent-create-failed", `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
+				}
+				const revalidation = await validateSkillKindWriteTarget(target.value, projectRoot.value, write.createParent, write.description);
+				if (!revalidation.ok) return revalidation;
+			}
+			try {
+				await writeFile(target.value, write.content, "utf8");
+				writtenRelativePaths.push(write.relativePath);
+			} catch (error) {
+				return { ok: false, error: errorInfo("skill-kind-write-failed", `Failed to write ${write.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+			}
+		}
+		for (const deletePlan of request.deletes) {
+			const target = resolveAllowedSkillKindTarget(projectRoot.value, deletePlan.relativePath, deletePlan.description);
+			if (target.type === "error") return { ok: false, error: target.error };
+			const validation = await validateSkillKindDeleteTarget(target.value, projectRoot.value, deletePlan.description);
+			if (!validation.ok) return validation;
+			try {
+				await rm(target.value);
+				deletedRelativePaths.push(deletePlan.relativePath);
+			} catch (error) {
+				return { ok: false, error: errorInfo("skill-kind-delete-failed", `Failed to delete ${deletePlan.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+			}
+		}
+		for (const removePlan of request.removeEmptyDirs) {
+			const target = resolveAllowedSkillKindTarget(projectRoot.value, removePlan.relativePath, removePlan.description);
+			if (target.type === "error") return { ok: false, error: target.error };
+			const validation = await validateSkillKindRemoveDirTarget(target.value, projectRoot.value, removePlan.description);
+			if (!validation.ok) return validation;
+			if (validation.exists) {
+				try {
+					await rmdir(target.value);
+					removedEmptyDirRelativePaths.push(removePlan.relativePath);
+				} catch (error) {
+					if (!isNodeErrorCode(error, "ENOTEMPTY")) {
+						return { ok: false, error: errorInfo("skill-kind-remove-dir-failed", `Failed to remove ${removePlan.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+					}
+				}
+			}
+		}
+		return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths };
 	}
 }
 
@@ -605,6 +665,29 @@ function resolveAllowedInitTarget(projectRoot: string, write: AregInitTextWriteP
 	return { type: "ok", value: target };
 }
 
+function resolveAllowedSkillKindTarget(projectRoot: string, relativePath: string, description: string): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
+	if (path.isAbsolute(relativePath) || relativePath.split("/").includes("..")) {
+		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage unsafe ${description} target: ${relativePath}`) };
+	}
+	if (!isAllowedSkillKindRelativePath(relativePath)) {
+		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage unsupported ${description} target: ${relativePath}`) };
+	}
+	const target = path.join(projectRoot, ...relativePath.split("/"));
+	const relative = path.relative(projectRoot, target);
+	if (relative.startsWith("..") || path.isAbsolute(relative)) {
+		return { type: "error", error: errorInfo("skill-kind-target-refused", `Refusing to manage ${description} outside project root: ${relativePath}`) };
+	}
+	return { type: "ok", value: target };
+}
+
+function isAllowedSkillKindRelativePath(relativePath: string): boolean {
+	if (relativePath === ".pi/settings.json") return true;
+	const parts = relativePath.split("/");
+	return parts.length === 3 && parts[0] === "skills" && parts[2] === "SKILL.md"
+		|| parts.length === 4 && parts[0] === "skills" && parts[2] === "agents" && parts[3] === "openai.yaml"
+		|| parts.length === 3 && parts[0] === "skills" && parts[2] === "agents";
+}
+
 async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<AregOperationResult> {
 	const targetState = await inspectPath(target);
 	if (targetState.type === "symlink") return { ok: false, error: errorInfo("init-symlink", `${write.description} at ${target} is a symlink; refusing to manage it.`) };
@@ -621,6 +704,42 @@ async function validateInitWriteTarget(target: string, projectRoot: string, writ
 		return { ok: false, error: errorInfo("init-parent-missing", `Parent directory at ${path.dirname(target)} does not exist.`) };
 	}
 	return { ok: true };
+}
+
+async function validateSkillKindWriteTarget(target: string, projectRoot: string, createParent: boolean, description: string): Promise<AregOperationResult> {
+	const targetState = await inspectPath(target);
+	if (targetState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-symlink", `${description} at ${target} is a symlink; refusing to manage it.`) };
+	if (targetState.type === "directory" || targetState.type === "other") return { ok: false, error: errorInfo("skill-kind-not-file", `${target} exists but is not a file.`) };
+	if (targetState.type === "file") return await requirePathAtOrBelow(target, projectRoot, description);
+	const parent = await nearestExistingParent(target, projectRoot);
+	if (parent.type === "error") return { ok: false, error: parent.error };
+	const parentState = await inspectPath(parent.value);
+	if (parentState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-parent-symlink", `Parent directory at ${parent.value} is a symlink; refusing to manage it.`) };
+	if (parentState.type !== "directory") return { ok: false, error: errorInfo("skill-kind-parent-not-directory", `${parent.value} exists but is not a directory.`) };
+	const parentCheck = await requirePathAtOrBelow(parent.value, projectRoot, "Parent directory");
+	if (!parentCheck.ok) return parentCheck;
+	if (!createParent && path.dirname(target) !== parent.value) {
+		return { ok: false, error: errorInfo("skill-kind-parent-missing", `Parent directory at ${path.dirname(target)} does not exist.`) };
+	}
+	return { ok: true };
+}
+
+async function validateSkillKindDeleteTarget(target: string, projectRoot: string, description: string): Promise<AregOperationResult> {
+	const targetState = await inspectPath(target);
+	if (targetState.type === "missing") return { ok: false, error: errorInfo("skill-kind-delete-missing", `${description} at ${target} does not exist.`) };
+	if (targetState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-symlink", `${description} at ${target} is a symlink; refusing to delete it.`) };
+	if (targetState.type !== "file") return { ok: false, error: errorInfo("skill-kind-not-file", `${target} exists but is not a file.`) };
+	return await requirePathAtOrBelow(target, projectRoot, description);
+}
+
+async function validateSkillKindRemoveDirTarget(target: string, projectRoot: string, description: string): Promise<{ ok: true; exists: boolean } | { ok: false; error: AregErrorInfo }> {
+	const targetState = await inspectPath(target);
+	if (targetState.type === "missing") return { ok: true, exists: false };
+	if (targetState.type === "symlink") return { ok: false, error: errorInfo("skill-kind-symlink", `${description} at ${target} is a symlink; refusing to remove it.`) };
+	if (targetState.type !== "directory") return { ok: false, error: errorInfo("skill-kind-not-directory", `${target} exists but is not a directory.`) };
+	const pathCheck = await requirePathAtOrBelow(target, projectRoot, description);
+	if (!pathCheck.ok) return pathCheck;
+	return { ok: true, exists: true };
 }
 
 async function nearestExistingParent(target: string, projectRoot: string): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
