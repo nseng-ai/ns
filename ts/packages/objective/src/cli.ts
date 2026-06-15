@@ -7,6 +7,13 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 import {
+	legacyObjectiveListMachine,
+	listObjectivesRequestSchema,
+	renderObjectiveListHuman,
+	renderObjectiveListMarkdown,
+	runListObjectives,
+} from "./operations/list-objectives.ts";
+import {
 	legacyReadObjectiveMachine,
 	readObjectiveRequestSchema,
 	renderReadObjective,
@@ -29,6 +36,15 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		description: "Work with checked-in Objective records.",
 		version: VERSION,
 		runtimeInfo,
+	});
+	root.command({
+		name: "list",
+		description: "List Objective records in the current checkout.",
+		schema: listObjectivesRequestSchema,
+		handler: runListObjectives,
+		renderHuman: renderObjectiveListHuman,
+		renderMarkdown: renderObjectiveListMarkdown,
+		legacyMachine: legacyObjectiveListMachine,
 	});
 	const execGroup = new ClinkrGroup<ObjectiveCliContext>({
 		name: "exec",

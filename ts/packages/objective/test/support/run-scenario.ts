@@ -1,11 +1,14 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { ObjectiveCliContext } from "../../src/context.ts";
+import { FakeObjectiveGitFactsGateway, type FakeObjectiveGitFactsGatewayOptions } from "../../src/fake-git-facts.ts";
 import { FakeObjectiveStorageGateway, type FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
 
 export interface ScenarioRunOptions {
 	context?: ObjectiveCliContext | undefined;
 	fake?: FakeObjectiveStorageGatewayOptions | undefined;
+	git?: FakeObjectiveGitFactsGatewayOptions | undefined;
+	trunkBranch?: string | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 }
@@ -24,7 +27,9 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		repoRoot: cwd,
+		trunkBranch: options.trunkBranch ?? "master",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.fake)),
+		gitFacts: new FakeObjectiveGitFactsGateway(options.git),
 	};
 	const deps: CliDeps = {
 		context,

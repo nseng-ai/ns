@@ -11,10 +11,10 @@
   - Start with `ts/packages/objective`, a standalone `objective` CLI shell, package-local storage/fake seams, and `objective exec read-objective` JSON/Markdown parity.
   - Policy: execution may proceed after preview as a single focused branch/PR. Keep the slice read-only and contract-heavy; do not add list/archive/runner usage in the same branch unless the preview is revised.
   - Evidence: `ts/packages/objective` now provides a standalone CLI shell with hidden `exec` group and `objective exec read-objective` JSON/Markdown output, backed by package-local storage/fake seams and focused Vitest scenario/unit coverage. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
-- [ ] Port `objective list --minimal --format json` and minimal list-mode rendering.
+- [x] Port `objective list --minimal --format json` and minimal list-mode rendering.
   - Preserve active-root discovery, open/closed filtering, archive-root omission, latest update facts, JSON envelope fields parsed by Pi/CCC, names-only output, and dirty-marker boundaries.
   - Policy: execution may proceed after preview when the slice is limited to minimal/list contracts needed by Pi/CCC selection. Ask before freezing broad help/parser behavior or changing consumer JSON shapes.
-  - Evidence: TypeScript tests for open/closed/archive-root/names-only/minimal JSON behavior and existing Pi/CCC parser compatibility remaining green or explicitly migrated.
+  - Evidence: TypeScript `objective list` now supports selection-critical minimal JSON/Markdown rendering, `--names`, active/open/closed/all filtering, active-root direct-child discovery, archive-root omission, incomplete active directory inclusion, filename-derived latest update facts, and dirty markers stripped from JSON but rendered for human/Markdown output. Parent validation passed `pnpm --dir ts --filter @asdl/objective run check`, `pnpm --dir ts --filter @asdl/objective run test`, and `pnpm --dir ts run check`.
 - [ ] Port full `objective list` branch attribution and human/Markdown rendering.
   - Preserve default branch attribution, truncation notes, dirty marker display, local branch ordering, unavailable repo/trunk failure surfaces, and `--status` behavior.
   - Policy: execution may proceed after preview if branch attribution stays package-local. Ask before extracting shared git attribution helpers into `@asdl/core`.
