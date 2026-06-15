@@ -67,6 +67,10 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("GitHub issues/PRs");
 		expect(prompt).toContain("Do not merely link to external resources");
 		expect(prompt).toContain("Do not include secrets");
+		expect(prompt).toContain("Refactor execution strategy");
+		expect(prompt).toContain("ts-morph-refactor");
+		expect(prompt).toContain("refactor-swarm");
+		expect(prompt).toContain("stale-terminology check");
 		expect(prompt).toContain("Recommended saved plan sections");
 		expect(prompt).toContain("External/off-repo research context");
 		expect(prompt).toContain("Validation guidance and expected results");
@@ -98,6 +102,13 @@ describe("buildWritePlanPrompt", () => {
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("sdl cp");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("ts-morph-refactor");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("refactor-swarm");
+		expect(checkedInContent).toContain("Refactor execution strategy:");
+		expect(checkedInContent).toContain("ts-morph-analyze");
+		expect(checkedInContent).toContain("semantic doc/spec changes");
+		expect(checkedInContent).toContain("stale-terminology check");
 		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
 		expect(checkedInContent).toContain(
 			"`Subagent orchestration opportunities: none` with a one-sentence rationale",
@@ -167,6 +178,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).not.toContain("validation scope");
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
+		expect(prompt).toContain("ts-morph-refactor");
+		expect(prompt).toContain("refactor-swarm");
+		expect(prompt).toContain("precise edits for 1-4 files");
 		expect(prompt).toContain("Do not create a branch or write Branch Memory");
 		expect(prompt).not.toContain("GRILL_UI_CONTRACT");
 	});

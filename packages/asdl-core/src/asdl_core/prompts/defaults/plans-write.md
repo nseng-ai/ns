@@ -14,6 +14,15 @@ External research/context contract:
 - If external findings may become stale, mark what should be revalidated during implementation.
 - Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
 
+Refactor execution strategy:
+
+- If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
+- For TypeScript symbol/API refactors, call out the `ts-morph-refactor` skill when it fits; use `ts-morph-analyze` for AST inspection before designing broad TypeScript changes.
+- Prefer deterministic AST/codemod tooling for purely syntactic refactors when a suitable repo or installed skill tool exists.
+- For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc `text.replace()` scripts for semantic changes.
+- For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend `refactor-swarm`.
+- Require a final grep or equivalent stale-terminology check when changing names/concepts.
+
 Recommended saved plan sections:
 
 - Goal and user-visible outcome.

@@ -43,6 +43,15 @@ Harness-neutral command guidance:
 - For checkpointing guidance, write `sdl cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
 - If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
 
+Refactor execution strategy:
+
+- If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
+- For TypeScript symbol/API refactors, call out the `ts-morph-refactor` skill when it fits; use `ts-morph-analyze` for AST inspection before designing broad TypeScript changes.
+- Prefer deterministic AST/codemod tooling for purely syntactic refactors when a suitable repo or installed skill tool exists.
+- For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc `text.replace()` scripts for semantic changes.
+- For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend `refactor-swarm`.
+- Require a final grep or equivalent stale-terminology check when changing names/concepts.
+
 Recommended saved plan sections:
 
 - Goal and user-visible outcome.
