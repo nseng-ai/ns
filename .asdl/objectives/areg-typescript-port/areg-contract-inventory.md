@@ -25,6 +25,8 @@ Evidence inspected for this inventory:
 
 `areg exec skillx` is an agent-facing machine-readable surface. JSON shape and cleanup safety are durable; exact indentation and key order are only durable where tests or skills consume them as ordinary JSON, not bytes.
 
+Accepted TypeScript divergence: the TypeScript hidden `exec skillx` helpers use normal Clinkr rendered-command behavior rather than the Python raw-JSON boundary. Machine callers must pass `--format json` and read the Clinkr envelope. The old success/failure payloads are preserved under envelope `data` for `ok(...)` and `negative(...)` exits where applicable; Clinkr precondition failures use the envelope `error_type`/`message` failure channel. Live caller docs remain intentionally unmigrated until the later TypeScript cutover/distribution row because Python `areg` remains the active reference path for current users.
+
 ### `areg exec skillx parse <input_text>`
 
 Durable behavior:

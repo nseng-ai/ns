@@ -1,6 +1,8 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { createAregCliContext, type AregCliContext } from "../../src/context.ts";
 import {
+	FakeAregCheckProjectInspectionGateway,
+	type FakeAregCheckProjectInspectionGatewayOptions,
 	FakeAregGithubGateway,
 	type FakeAregGithubGatewayOptions,
 	FakeAregHostGateway,
@@ -17,6 +19,7 @@ export interface ScenarioRunOptions {
 	github?: FakeAregGithubGatewayOptions | undefined;
 	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions | undefined;
+	projectInspection?: FakeAregCheckProjectInspectionGatewayOptions | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 }
@@ -37,6 +40,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		github: new FakeAregGithubGateway(options.github),
 		npxSkills: new FakeAregNpxSkillsGateway(options.npxSkills),
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
+		projectInspection: new FakeAregCheckProjectInspectionGateway(options.projectInspection),
 		cwd,
 		env,
 	});

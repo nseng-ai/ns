@@ -49,6 +49,9 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/asdl-core: {}
 

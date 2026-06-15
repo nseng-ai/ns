@@ -1,0 +1,477 @@
+import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { z } from "zod";
+
+import type { AregCliContext } from "../context.ts";
+import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
+
+const SOURCE_TYPES = ["local", "github", "git", "gitlab"] as const;
+const CHECK_ISSUE_CODES = [
+	"invalid_lock_hash",
+	"missing_skills_dir",
+	"skills_dir_is_symlink",
+	"invalid_local_lock_source",
+	"agents_not_symlink",
+	"agents_wrong_target",
+	"agents_missing",
+	"claude_not_symlink",
+	"claude_wrong_target",
+	"claude_missing",
+	"invalid_skill_md",
+	"invoke_only_missing_openai_policy",
+	"openai_policy_without_invoke_only",
+	"command_converted_missing_pi_exclusion",
+	"command_converted_missing_pi_replacement",
+	"agents_not_real_dir",
+	"unexpected_skills_dir",
+	"orphan_in_skills",
+	"orphan_in_agents",
+	"dangling_lockfile",
+	"claude_md_missing_peer",
+	"agents_md_missing_peer",
+	"claude_md_missing_agents_ref",
+] as const;
+
+const KNOWN_PI_COMMAND_NAMESPACES = [
+	"branch-context",
+	"enriched-plan",
+	"objective",
+	"handoff",
+	"context",
+	"changelog",
+	"typescript",
+	"python",
+	"refactor",
+	"setup",
+	"create",
+	"skill",
+	"code",
+	"ccc",
+	"claude",
+	"dev",
+	"cli",
+	"pr",
+	"sdl",
+	"pi",
+	"stack",
+] as const;
+
+const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
+	"branch-context-from-plan": "branch-context:from-plan",
+	"branch-context-impl": "branch-context:impl",
+	"enriched-plan-save": "enriched-plan:save",
+	"handoff-create": "handoff:create",
+	"handoff-pickup": "handoff:pickup",
+	"objective-create": "objective:create",
+	"objective-current": "objective:current",
+	"objective-next": "objective:next",
+	"objective-stack-impl": "objective:stack-impl",
+	"objective-update": "objective:update",
+	"pi-grill-ui": "pi:grill-me",
+	"pi-grill-with-docs-ui": "pi:grill-with-docs",
+	"code-autobranch": "code:autobranch",
+	"code-checkpoint": "code:checkpoint",
+	"code-just-fix": "code:just-fix",
+	"code-submit": "code:submit",
+	"ccc-sidebar": "ccc:sidebar:pr-summary",
+};
+
+const MAX_SKILL_DESCRIPTION_LENGTH = 1024;
+const PLACEHOLDER_HASH = "PENDING_REGEN";
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/u;
+const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
+const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
+
+type SourceType = (typeof SOURCE_TYPES)[number];
+type CheckIssueCode = (typeof CHECK_ISSUE_CODES)[number];
+
+interface LockfileSkill {
+	name: string;
+	source: string;
+	sourceType: SourceType;
+	computedHash: string;
+	skillPath?: string | undefined;
+}
+
+interface SkillsLockfile {
+	version: 1;
+	skills: readonly LockfileSkill[];
+}
+
+interface CheckIssue {
+	skill: string;
+	code: CheckIssueCode;
+	message: string;
+}
+
+const checkIssueSchema = z.object({
+	skill: z.string(),
+	code: z.enum(CHECK_ISSUE_CODES),
+	message: z.string(),
+});
+
+const checkReportSchema = z.object({
+	ok: z.boolean(),
+	project_dir: z.string(),
+	issue_count: z.number().int().nonnegative(),
+	issues: z.array(checkIssueSchema),
+});
+
+export const checkRequestSchema = z.object({
+	path: z.string().default(".").describe("Project directory to check (default: current directory)."),
+});
+
+export const checkResultSchema = checkReportSchema;
+
+export type CheckRequest = z.infer<typeof checkRequestSchema>;
+export type CheckReport = z.infer<typeof checkReportSchema>;
+
+export async function runCheck(ctx: AregCliContext, request: CheckRequest): Promise<ClinkrExit<CheckReport>> {
+	const inspection = await ctx.projectInspection.inspectProjectForCheck({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
+	if (inspection.projectPathState.type !== "directory") {
+		return negative(`${inspection.projectDir} is not a directory`, emptyReport(inspection.projectDir));
+	}
+	const lockfileResult = parseInspectedLockfile(inspection);
+	if (lockfileResult.type === "error") {
+		return negative(lockfileResult.message, emptyReport(inspection.projectDir));
+	}
+	if (lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local")) {
+		const piSettings = parsePiExclusions(inspection.piSettings);
+		if (piSettings.type === "error") return negative(piSettings.message, emptyReport(inspection.projectDir));
+	}
+	const report = buildCheckReport(inspection, lockfileResult.lockfile);
+	if (report.ok) return ok(report);
+	return negative(formatCheckReport(report), report);
+}
+
+export function renderCheck(report: CheckReport): string {
+	if (report.ok) return "All skills OK.";
+	return formatCheckReport(report);
+}
+
+export function buildCheckReport(inspection: AregCheckProjectInspectionResult, lockfile: SkillsLockfile): CheckReport {
+	const issues: CheckIssue[] = [];
+	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
+	for (const entry of lockfile.skills) {
+		const inspected = byName.get(entry.name) ?? missingSkillInspection(entry.name);
+		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
+		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
+		issues.push(...checkSkillMd(entry, inspected));
+		if (entry.sourceType === "local") issues.push(...checkInvokeOnly(entry, inspected, inspection));
+	}
+	issues.push(...checkLockfileHashes(lockfile));
+	issues.push(...checkOrphansAndDangling(lockfile, inspection));
+	issues.push(...checkPairing(inspection));
+	return {
+		ok: issues.length === 0,
+		project_dir: inspection.projectDir,
+		issue_count: issues.length,
+		issues,
+	};
+}
+
+export function parseLockfileData(data: unknown): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
+	const root = requireRecord(data, "root");
+	if (root.type === "error") return invalidLockfile(root.reason);
+	const version = root.value.version;
+	if (version === undefined) return invalidLockfile("$.version is required and must be 1");
+	if (typeof version !== "number" || !Number.isInteger(version) || version !== 1) return invalidLockfile("$.version must be 1");
+	const skillsValue = root.value.skills;
+	if (skillsValue === undefined) return invalidLockfile("$.skills is required and must be an object");
+	const skillsObject = requireRecord(skillsValue, "$.skills");
+	if (skillsObject.type === "error") return invalidLockfile(skillsObject.reason);
+	const skills: LockfileSkill[] = [];
+	for (const name of Object.keys(skillsObject.value).sort((left, right) => left.localeCompare(right))) {
+		const parsed = parseLockfileSkill(name, skillsObject.value[name]);
+		if (parsed.type === "error") return parsed;
+		skills.push(parsed.skill);
+	}
+	return { type: "ok", lockfile: { version: 1, skills } };
+}
+
+export function parseSkillFrontmatterText(text: string): { type: "ok"; fields: Readonly<Record<string, string>> } | { type: "error"; message: string } {
+	const lines = text.split(/\r?\n/u);
+	if (lines.at(-1) === "") lines.pop();
+	if (lines.length === 0 || lines[0] !== "---") return { type: "error", message: "missing opening frontmatter delimiter '---'" };
+	const endIndex = lines.indexOf("---", 1);
+	if (endIndex === -1) return { type: "error", message: "missing closing frontmatter delimiter '---'" };
+	const fields: Record<string, string> = {};
+	let currentKey: string | undefined;
+	let currentValues: string[] = [];
+	function flushCurrent(): void {
+		if (currentKey === undefined) return;
+		let rawValue = currentValues.filter((value) => value.length > 0).join(" ").trim();
+		if (rawValue.length >= 2 && rawValue[0] === rawValue.at(-1) && (rawValue[0] === "\"" || rawValue[0] === "'")) rawValue = rawValue.slice(1, -1);
+		fields[currentKey] = rawValue;
+	}
+	for (const line of lines.slice(1, endIndex)) {
+		const stripped = line.trim();
+		if (stripped.length === 0) continue;
+		if (stripped.startsWith("#")) continue;
+		if (!line.startsWith(" ") && !line.startsWith("\t")) {
+			flushCurrent();
+			const match = FRONTMATTER_KEY_RE.exec(line);
+			if (match?.groups === undefined) return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(line)}` };
+			currentKey = match.groups.key ?? "";
+			currentValues = [];
+			const inlineValue = (match.groups.value ?? "").trim();
+			if (inlineValue.length > 0) currentValues.push(inlineValue);
+			continue;
+		}
+		if (currentKey === undefined) return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(line)}` };
+		currentValues.push(line.trim());
+	}
+	flushCurrent();
+	return { type: "ok", fields };
+}
+
+export function derivePiReplacementCommand(skillName: string): string | undefined {
+	for (const namespace of [...KNOWN_PI_COMMAND_NAMESPACES].sort((left, right) => right.length - left.length)) {
+		const prefix = `${namespace}-`;
+		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
+	}
+	const firstHyphen = skillName.indexOf("-");
+	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
+	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
+}
+
+export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
+	const grouped = new Map<string, CheckIssue[]>();
+	for (const issue of report.issues) {
+		const existing = grouped.get(issue.skill) ?? [];
+		existing.push(issue);
+		grouped.set(issue.skill, existing);
+	}
+	const lines: string[] = [];
+	for (const skill of [...grouped.keys()].sort((left, right) => left.localeCompare(right))) {
+		lines.push("", `${skill}:`);
+		for (const issue of grouped.get(skill) ?? []) lines.push(`  ${issue.message}`);
+	}
+	lines.push("", `${report.issues.length} error(s)`);
+	return lines.join("\n");
+}
+
+function parseInspectedLockfile(inspection: AregCheckProjectInspectionResult): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
+	if (inspection.lockfile.type === "missing") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this a areg project?` };
+	if (inspection.lockfile.type !== "file") return { type: "error", message: `skills-lock.json not found in ${inspection.projectDir}. Is this a areg project?` };
+	let data: unknown;
+	try {
+		data = JSON.parse(inspection.lockfile.text);
+	} catch (error) {
+		return { type: "error", message: `Invalid JSON in skills-lock.json: ${errorMessage(error)}` };
+	}
+	return parseLockfileData(data);
+}
+
+function parseLockfileSkill(name: string, raw: unknown): { type: "ok"; skill: LockfileSkill } | { type: "error"; message: string } {
+	const path = `$.skills.${name}`;
+	const data = requireRecord(raw, path);
+	if (data.type === "error") return invalidLockfile(data.reason);
+	const source = requireStringField(data.value, "source", path);
+	if (source.type === "error") return invalidLockfile(source.reason);
+	const sourceType = requireStringField(data.value, "sourceType", path);
+	if (sourceType.type === "error") return invalidLockfile(sourceType.reason);
+	if (!isSourceType(sourceType.value)) return invalidLockfile(`${path}.sourceType must be one of ${[...SOURCE_TYPES].sort().join(", ")}`);
+	const computedHash = requireStringField(data.value, "computedHash", path);
+	if (computedHash.type === "error") return invalidLockfile(computedHash.reason);
+	const skillPath = optionalStringField(data.value, "skillPath", path);
+	if (skillPath.type === "error") return invalidLockfile(skillPath.reason);
+	return { type: "ok", skill: { name, source: source.value, sourceType: sourceType.value, computedHash: computedHash.value, skillPath: skillPath.value } };
+}
+
+function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
+	const issues: CheckIssue[] = [];
+	const expectedSource = `skills/${entry.name}`;
+	if (entry.source !== expectedSource) {
+		issues.push(issue(entry.name, "invalid_local_lock_source", `Local skill lockfile source must be '${expectedSource}', found '${entry.source}'`));
+	}
+	if (inspected.skillsPath.type === "missing") {
+		issues.push(issue(entry.name, "missing_skills_dir", `Local skill missing canonical source: skills/${entry.name}/ does not exist`));
+	} else if (inspected.skillsPath.type === "symlink") {
+		issues.push(issue(entry.name, "skills_dir_is_symlink", `skills/${entry.name} is a symlink but should be a real directory (canonical source)`));
+	}
+	const expectedAgentsTarget = `../../skills/${entry.name}`;
+	if (inspected.agentsPath.type === "missing") {
+		issues.push(issue(entry.name, "agents_missing", `.agents/skills/${entry.name} does not exist`));
+	} else if (inspected.agentsPath.type !== "symlink") {
+		issues.push(issue(entry.name, "agents_not_symlink", `.agents/skills/${entry.name} is a real directory, expected symlink to ${expectedAgentsTarget}`));
+	} else if (inspected.agentsPath.target !== expectedAgentsTarget) {
+		issues.push(issue(entry.name, "agents_wrong_target", `.agents/skills/${entry.name} symlink points to ${inspected.agentsPath.target}, expected ${expectedAgentsTarget}`));
+	}
+	issues.push(...checkClaudeSymlink(entry.name, inspected));
+	return issues;
+}
+
+function checkRemoteSkill(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
+	const issues: CheckIssue[] = [];
+	if (inspected.agentsPath.type === "missing") {
+		issues.push(issue(entry.name, "agents_not_real_dir", `.agents/skills/${entry.name}/ does not exist`));
+	} else if (inspected.agentsPath.type === "symlink") {
+		issues.push(issue(entry.name, "agents_not_real_dir", `.agents/skills/${entry.name} is a symlink but should be a real directory (vendored)`));
+	}
+	issues.push(...checkClaudeSymlink(entry.name, inspected));
+	if (inspected.skillsPath.type !== "missing") issues.push(issue(entry.name, "unexpected_skills_dir", `GitHub-sourced skill should not have skills/${entry.name}/ entry`));
+	return issues;
+}
+
+function checkClaudeSymlink(name: string, inspected: AregCheckSkillInspection): CheckIssue[] {
+	const expectedTarget = `../../.agents/skills/${name}`;
+	if (inspected.claudePath.type === "missing") return [issue(name, "claude_missing", `.claude/skills/${name} does not exist`)];
+	if (inspected.claudePath.type !== "symlink") return [issue(name, "claude_not_symlink", `.claude/skills/${name} is a real directory, expected symlink to ${expectedTarget}`)];
+	if (inspected.claudePath.target !== expectedTarget) return [issue(name, "claude_wrong_target", `.claude/skills/${name} symlink points to ${inspected.claudePath.target}, expected ${expectedTarget}`)];
+	return [];
+}
+
+function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection): CheckIssue[] {
+	const relativePath = entry.sourceType === "local" ? `skills/${entry.name}/SKILL.md` : `.agents/skills/${entry.name}/SKILL.md`;
+	const skillMd = entry.sourceType === "local" ? inspected.localSkillMd : inspected.remoteSkillMd;
+	if (skillMd.type !== "file") return [issue(entry.name, "invalid_skill_md", `${relativePath} does not exist`)];
+	const frontmatter = parseSkillFrontmatterText(skillMd.text);
+	if (frontmatter.type === "error") return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid frontmatter: ${frontmatter.message}`)];
+	const description = frontmatter.fields.description;
+	if (description !== undefined && description.length > MAX_SKILL_DESCRIPTION_LENGTH) {
+		return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid description: exceeds maximum length of 1024 characters (got ${description.length})`)];
+	}
+	return [];
+}
+
+function checkInvokeOnly(entry: LockfileSkill, inspected: AregCheckSkillInspection, inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+	if (inspected.localSkillMd.type !== "file") return [];
+	const frontmatter = parseSkillFrontmatterText(inspected.localSkillMd.text);
+	if (frontmatter.type === "error") return [];
+	const flagEnabled = frontmatter.fields[DISABLE_MODEL_INVOCATION_KEY]?.trim().toLowerCase() === "true";
+	const sidecarExists = inspected.openaiPolicy.type === "file";
+	const issues: CheckIssue[] = [];
+	if (flagEnabled && !sidecarExists) issues.push(issue(entry.name, "invoke_only_missing_openai_policy", `skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`));
+	if (!flagEnabled && sidecarExists) issues.push(issue(entry.name, "openai_policy_without_invoke_only", `skills/${entry.name}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`));
+	const piExclusion = parsePiExclusions(inspection.piSettings);
+	if (piExclusion.type === "error") return issues;
+	const isPiExcluded = piExclusion.exclusions.includes(`-skills/${entry.name}`);
+	if ((flagEnabled || sidecarExists) && !isPiExcluded) {
+		issues.push(issue(entry.name, "command_converted_missing_pi_exclusion", `.pi/settings.json missing -skills/${entry.name} for command-converted skill`));
+	}
+	const replacement = verifyPiReplacement(entry.name, inspection);
+	if (isPiExcluded && !replacement.verified) {
+		const expected = replacement.surface === undefined ? "a derived command" : `/${replacement.surface}`;
+		issues.push(issue(entry.name, "command_converted_missing_pi_replacement", `Pi skill is excluded but no verified replacement command exists; expected ${expected}`));
+	}
+	return issues;
+}
+
+function checkLockfileHashes(lockfile: SkillsLockfile): CheckIssue[] {
+	const issues: CheckIssue[] = [];
+	for (const entry of lockfile.skills) {
+		if (entry.computedHash === PLACEHOLDER_HASH) {
+			issues.push(issue(entry.name, "invalid_lock_hash", `skills-lock.json entry for ${entry.name} has placeholder computedHash ${PLACEHOLDER_HASH}; regenerate or normalize the lockfile before relying on areg check.`));
+		} else if (!SHA256_HEX_RE.test(entry.computedHash)) {
+			issues.push(issue(entry.name, "invalid_lock_hash", `skills-lock.json entry for ${entry.name} has invalid computedHash '${entry.computedHash}'; expected 64 lowercase hex characters.`));
+		}
+	}
+	return issues;
+}
+
+function checkOrphansAndDangling(lockfile: SkillsLockfile, inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+	const lockNames = new Set(lockfile.skills.map((skill) => skill.name));
+	const excluded = new Set(inspection.excludedSkillNames);
+	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
+	const issues: CheckIssue[] = [];
+	for (const name of [...inspection.skillsDirectoryNames].sort((left, right) => left.localeCompare(right))) {
+		if (!lockNames.has(name) && !excluded.has(name)) issues.push(issue(name, "orphan_in_skills", `Orphaned directory skills/${name}/ has no entry in skills-lock.json`));
+	}
+	for (const name of [...inspection.agentsSkillNames].sort((left, right) => left.localeCompare(right))) {
+		if (!lockNames.has(name) && !excluded.has(name)) issues.push(issue(name, "orphan_in_agents", `Orphaned directory .agents/skills/${name}/ has no entry in skills-lock.json`));
+	}
+	for (const name of [...lockNames].sort((left, right) => left.localeCompare(right))) {
+		const inspected = byName.get(name) ?? missingSkillInspection(name);
+		if (inspected.skillsPath.type === "missing" && inspected.agentsPath.type === "missing" && inspected.claudePath.type === "missing") {
+			issues.push(issue(name, "dangling_lockfile", `Dangling lockfile entry: no directories found on disk for ${name}`));
+		}
+	}
+	return issues;
+}
+
+function checkPairing(inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+	const issues: CheckIssue[] = [];
+	for (const directory of inspection.pairingDirectories) {
+		const agentsRel = directory.relativeDir.length === 0 ? "AGENTS.md" : `${directory.relativeDir}/AGENTS.md`;
+		const claudeRel = directory.relativeDir.length === 0 ? "CLAUDE.md" : `${directory.relativeDir}/CLAUDE.md`;
+		if (directory.hasAgents && !directory.hasClaude) {
+			issues.push(issue(agentsRel, "claude_md_missing_peer", `AGENTS.md at ${agentsRel} has no peer CLAUDE.md in the same directory`));
+		} else if (directory.hasClaude && !directory.hasAgents) {
+			issues.push(issue(claudeRel, "agents_md_missing_peer", `CLAUDE.md at ${claudeRel} has no peer AGENTS.md in the same directory`));
+		} else if (directory.hasAgents && directory.hasClaude && !directory.claudeText?.includes("@AGENTS.md")) {
+			issues.push(issue(claudeRel, "claude_md_missing_agents_ref", `CLAUDE.md at ${claudeRel} does not include peer AGENTS.md via @AGENTS.md syntax`));
+		}
+	}
+	return issues;
+}
+
+function parsePiExclusions(settings: AregCheckTextFileState): { type: "ok"; exclusions: readonly string[] } | { type: "error"; message: string } {
+	if (settings.type === "missing") return { type: "ok", exclusions: [] };
+	if (settings.type !== "file") return { type: "ok", exclusions: [] };
+	let data: unknown;
+	try {
+		data = JSON.parse(settings.text);
+	} catch (error) {
+		return { type: "error", message: `Invalid JSON in .pi/settings.json: ${errorMessage(error)}.` };
+	}
+	if (!isRecord(data)) return { type: "error", message: ".pi/settings.json must contain a JSON object." };
+	if (data.skills === undefined) return { type: "ok", exclusions: [] };
+	if (!Array.isArray(data.skills) || data.skills.some((value) => typeof value !== "string")) return { type: "error", message: ".pi/settings.json field 'skills' must be an array of strings." };
+	return { type: "ok", exclusions: data.skills };
+}
+
+function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInspectionResult): { verified: boolean; surface?: string | undefined } {
+	const specialized = SPECIALIZED_SKILL_REPLACEMENTS[skillName];
+	if (specialized !== undefined) return { verified: true, surface: specialized };
+	const derived = derivePiReplacementCommand(skillName);
+	if (derived === undefined) return { verified: false };
+	return { verified: inspection.genericReplacement.adapterExists && inspection.genericReplacement.packageModuleExists, surface: derived };
+}
+
+function invalidLockfile(reason: string): { type: "error"; message: string } {
+	return { type: "error", message: `Invalid skills-lock.json: ${reason}.` };
+}
+
+function requireRecord(value: unknown, path: string): { type: "ok"; value: Record<string, unknown> } | { type: "error"; reason: string } {
+	if (!isRecord(value)) return { type: "error", reason: `${path} must be an object` };
+	return { type: "ok", value };
+}
+
+function requireStringField(data: Record<string, unknown>, field: string, path: string): { type: "ok"; value: string } | { type: "error"; reason: string } {
+	if (!(field in data)) return { type: "error", reason: `${path}.${field} is required and must be a string` };
+	const value = data[field];
+	if (typeof value !== "string") return { type: "error", reason: `${path}.${field} must be a string` };
+	return { type: "ok", value };
+}
+
+function optionalStringField(data: Record<string, unknown>, field: string, path: string): { type: "ok"; value?: string | undefined } | { type: "error"; reason: string } {
+	if (!(field in data)) return { type: "ok" };
+	const value = data[field];
+	if (typeof value !== "string") return { type: "error", reason: `${path}.${field} must be a string` };
+	return { type: "ok", value };
+}
+
+function isSourceType(value: string): value is SourceType {
+	return (SOURCE_TYPES as readonly string[]).includes(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {
+	return { skill, code, message };
+}
+
+function emptyReport(projectDir: string): CheckReport {
+	return { ok: false, project_dir: projectDir, issue_count: 0, issues: [] };
+}
+
+function missingSkillInspection(name: string): AregCheckSkillInspection {
+	const missing = { type: "missing" as const };
+	return { name, skillsPath: missing, agentsPath: missing, claudePath: missing, localSkillMd: missing, remoteSkillMd: missing, openaiPolicy: missing };
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}

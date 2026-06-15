@@ -1,4 +1,11 @@
 import type {
+	AregCheckPairingDirectory,
+	AregCheckPathState,
+	AregCheckProjectInspectionGateway,
+	AregCheckProjectInspectionRequest,
+	AregCheckProjectInspectionResult,
+	AregCheckSkillInspection,
+	AregCheckTextFileState,
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
@@ -8,12 +15,71 @@ import type {
 	AregNpxSkillsAddRequest,
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
+	AregOperationResult,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
+	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
 } from "./gateways.ts";
+
+export type FakeAregCheckProjectInspectionOperation = { type: "inspect-project-for-check"; cwd: string; projectPath: string };
+
+export interface FakeAregCheckSkillOptions {
+	name: string;
+	skillsPath?: AregCheckPathState | undefined;
+	agentsPath?: AregCheckPathState | undefined;
+	claudePath?: AregCheckPathState | undefined;
+	localSkillMd?: AregCheckTextFileState | undefined;
+	remoteSkillMd?: AregCheckTextFileState | undefined;
+	openaiPolicy?: AregCheckTextFileState | undefined;
+}
+
+export interface FakeAregCheckProjectInspectionGatewayOptions {
+	projectDir?: string | undefined;
+	projectPathState?: AregCheckPathState | undefined;
+	lockfile?: AregCheckTextFileState | object | string | undefined;
+	skillsDirectoryNames?: readonly string[] | undefined;
+	agentsSkillNames?: readonly string[] | undefined;
+	excludedSkillNames?: readonly string[] | undefined;
+	piSettings?: AregCheckTextFileState | object | string | undefined;
+	genericReplacement?: { adapterExists?: boolean | undefined; packageModuleExists?: boolean | undefined } | undefined;
+	skills?: readonly FakeAregCheckSkillOptions[] | undefined;
+	pairingDirectories?: readonly AregCheckPairingDirectory[] | undefined;
+}
+
+export class FakeAregCheckProjectInspectionGateway implements AregCheckProjectInspectionGateway {
+	private readonly result: AregCheckProjectInspectionResult;
+	private readonly log: FakeAregCheckProjectInspectionOperation[] = [];
+
+	constructor(options: FakeAregCheckProjectInspectionGatewayOptions = {}) {
+		this.result = {
+			projectDir: options.projectDir ?? "/repo",
+			projectPathState: copyPathState(options.projectPathState ?? { type: "directory" }),
+			lockfile: normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} }),
+			skillsDirectoryNames: [...(options.skillsDirectoryNames ?? [])],
+			agentsSkillNames: [...(options.agentsSkillNames ?? [])],
+			excludedSkillNames: [...(options.excludedSkillNames ?? [])],
+			piSettings: normalizeTextFileState(options.piSettings ?? { type: "missing" }),
+			genericReplacement: {
+				adapterExists: options.genericReplacement?.adapterExists ?? false,
+				packageModuleExists: options.genericReplacement?.packageModuleExists ?? false,
+			},
+			skills: (options.skills ?? []).map(copyFakeCheckSkill),
+			pairingDirectories: (options.pairingDirectories ?? []).map(copyPairingDirectory),
+		};
+	}
+
+	async inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult> {
+		this.log.push({ type: "inspect-project-for-check", cwd: request.cwd, projectPath: request.projectPath });
+		return copyCheckProjectInspectionResult(this.result);
+	}
+
+	operations(): readonly FakeAregCheckProjectInspectionOperation[] {
+		return this.log.map((operation) => ({ ...operation }));
+	}
+}
 
 export type FakeAregHostOperation =
 	| { type: "check-tool"; tool: AregHostToolName; cwd: string }
@@ -115,24 +181,29 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 	}
 }
 
-export type FakeAregSkillxOperation = { type: "install-into-workspace" } & Omit<AregSkillxInstallRequest, "env">;
+export type FakeAregSkillxOperation =
+	| ({ type: "install-into-workspace" } & Omit<AregSkillxInstallRequest, "env">)
+	| ({ type: "cleanup-workspace" } & Omit<AregSkillxWorkspaceCleanupRequest, "env">);
 
 export interface FakeAregSkillxWorkspaceGatewayOptions {
 	workspaceRoot?: string | undefined;
 	installedSkills?: readonly AregSkillxInstalledSkill[] | undefined;
 	failure?: AregErrorInfo | undefined;
+	cleanupFailure?: AregErrorInfo | undefined;
 }
 
 export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGateway {
 	private readonly workspaceRoot: string;
 	private readonly installedSkills: readonly AregSkillxInstalledSkill[];
 	private readonly failure: AregErrorInfo | undefined;
+	private readonly cleanupFailure: AregErrorInfo | undefined;
 	private readonly log: FakeAregSkillxOperation[] = [];
 
 	constructor(options: FakeAregSkillxWorkspaceGatewayOptions = {}) {
 		this.workspaceRoot = options.workspaceRoot ?? "/tmp/areg-skillx";
 		this.installedSkills = (options.installedSkills ?? []).map(copyInstalledSkill);
 		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
+		this.cleanupFailure = options.cleanupFailure === undefined ? undefined : copyErrorInfo(options.cleanupFailure);
 	}
 
 	async installIntoWorkspace(request: AregSkillxInstallRequest): Promise<AregSkillxInstallResult> {
@@ -147,9 +218,77 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 		};
 	}
 
+	async cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult> {
+		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot, cwd: request.cwd });
+		if (this.cleanupFailure !== undefined) return { ok: false, error: copyErrorInfo(this.cleanupFailure) };
+		return { ok: true };
+	}
+
 	operations(): readonly FakeAregSkillxOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
 	}
+}
+
+function copyCheckProjectInspectionResult(result: AregCheckProjectInspectionResult): AregCheckProjectInspectionResult {
+	return {
+		projectDir: result.projectDir,
+		projectPathState: copyPathState(result.projectPathState),
+		lockfile: copyTextFileState(result.lockfile),
+		skillsDirectoryNames: [...result.skillsDirectoryNames],
+		agentsSkillNames: [...result.agentsSkillNames],
+		excludedSkillNames: [...result.excludedSkillNames],
+		piSettings: copyTextFileState(result.piSettings),
+		genericReplacement: { ...result.genericReplacement },
+		skills: result.skills.map(copyCheckSkill),
+		pairingDirectories: result.pairingDirectories.map(copyPairingDirectory),
+	};
+}
+
+function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillInspection {
+	return {
+		name: skill.name,
+		skillsPath: copyPathState(skill.skillsPath ?? { type: "missing" }),
+		agentsPath: copyPathState(skill.agentsPath ?? { type: "missing" }),
+		claudePath: copyPathState(skill.claudePath ?? { type: "missing" }),
+		localSkillMd: copyTextFileState(skill.localSkillMd ?? { type: "missing" }),
+		remoteSkillMd: copyTextFileState(skill.remoteSkillMd ?? { type: "missing" }),
+		openaiPolicy: copyTextFileState(skill.openaiPolicy ?? { type: "missing" }),
+	};
+}
+
+function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspection {
+	return {
+		name: skill.name,
+		skillsPath: copyPathState(skill.skillsPath),
+		agentsPath: copyPathState(skill.agentsPath),
+		claudePath: copyPathState(skill.claudePath),
+		localSkillMd: copyTextFileState(skill.localSkillMd),
+		remoteSkillMd: copyTextFileState(skill.remoteSkillMd),
+		openaiPolicy: copyTextFileState(skill.openaiPolicy),
+	};
+}
+
+function normalizeTextFileState(value: AregCheckTextFileState | object | string): AregCheckTextFileState {
+	if (typeof value === "string") return { type: "file", text: value };
+	if ("type" in value) return copyTextFileState(value as AregCheckTextFileState);
+	return { type: "file", text: `${JSON.stringify(value, null, 2)}\n` };
+}
+
+function copyTextFileState(state: AregCheckTextFileState): AregCheckTextFileState {
+	return { ...state };
+}
+
+function copyPathState(state: AregCheckPathState): AregCheckPathState {
+	return { ...state };
+}
+
+function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPairingDirectory {
+	return {
+		relativeDir: directory.relativeDir,
+		hasAgents: directory.hasAgents,
+		hasClaude: directory.hasClaude,
+		claudeText: directory.claudeText,
+	};
 }
 
 function copyGitRootOption(value: string | null | AregErrorInfo | undefined): string | null | AregErrorInfo {

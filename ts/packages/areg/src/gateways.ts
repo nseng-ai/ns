@@ -35,6 +35,7 @@ export interface AregGithubGateway {
 
 export interface AregNpxSkillsAddRequest {
 	sourceRepo: string;
+	/** Empty means install all skills from the source repository. */
 	skillNames: readonly string[];
 	targetAgents: readonly string[];
 	cwd: string;
@@ -68,10 +69,75 @@ export interface AregSkillxInstallRequest {
 	env: NodeJS.ProcessEnv;
 }
 
+export interface AregSkillxWorkspaceCleanupRequest {
+	workspaceRoot: string;
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+}
+
 export type AregSkillxInstallResult =
 	| { type: "ok"; workspace: AregSkillxWorkspaceInstall }
 	| { type: "error"; error: AregErrorInfo };
 
 export interface AregSkillxWorkspaceGateway {
 	installIntoWorkspace(request: AregSkillxInstallRequest): Promise<AregSkillxInstallResult>;
+	cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult>;
+}
+
+export type AregCheckPathState =
+	| { type: "missing" }
+	| { type: "file" }
+	| { type: "directory" }
+	| { type: "symlink"; target: string }
+	| { type: "other" };
+
+export type AregCheckTextFileState =
+	| { type: "missing" }
+	| { type: "file"; text: string }
+	| { type: "directory" }
+	| { type: "symlink"; target: string }
+	| { type: "other" }
+	| { type: "unreadable"; message: string };
+
+export interface AregCheckSkillInspection {
+	name: string;
+	skillsPath: AregCheckPathState;
+	agentsPath: AregCheckPathState;
+	claudePath: AregCheckPathState;
+	localSkillMd: AregCheckTextFileState;
+	remoteSkillMd: AregCheckTextFileState;
+	openaiPolicy: AregCheckTextFileState;
+}
+
+export interface AregCheckPairingDirectory {
+	relativeDir: string;
+	hasAgents: boolean;
+	hasClaude: boolean;
+	claudeText?: string | undefined;
+}
+
+export interface AregCheckProjectInspectionResult {
+	projectDir: string;
+	projectPathState: AregCheckPathState;
+	lockfile: AregCheckTextFileState;
+	skillsDirectoryNames: readonly string[];
+	agentsSkillNames: readonly string[];
+	excludedSkillNames: readonly string[];
+	piSettings: AregCheckTextFileState;
+	genericReplacement: {
+		adapterExists: boolean;
+		packageModuleExists: boolean;
+	};
+	skills: readonly AregCheckSkillInspection[];
+	pairingDirectories: readonly AregCheckPairingDirectory[];
+}
+
+export interface AregCheckProjectInspectionRequest {
+	cwd: string;
+	projectPath: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregCheckProjectInspectionGateway {
+	inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult>;
 }
