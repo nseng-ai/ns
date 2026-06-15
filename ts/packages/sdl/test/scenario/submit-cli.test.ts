@@ -409,11 +409,50 @@ describe("sdl submit CLI", () => {
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
 		expect(error).toContain("Graphite readiness changed after restack. Submission was not attempted");
-		expect(error).toContain("AI interpretation:");
+		expect(error).toContain("----- AI interpretation (model-generated) -----");
+		expect(error).toContain("----- end AI interpretation -----");
 		expect(error).toContain("Graphite still thinks the stack is stale.");
 		expect(run.context.modelCalls).toHaveLength(1);
 		expect(run.context.modelCalls[0]?.operation).toBe("submit-failure");
 		expect(run.context.modelCalls[0]?.prompt).toContain("WARNING: You must restack before submitting this stack.");
+		expect(run.context.modelCalls[0]?.prompt).toContain("branch <name> is empty");
+	});
+
+	test("empty-branch post-submit failure names the branch and fences model interpretation", async () => {
+		const run = runWithFakes(["submit"], {
+			exec: [
+				...cleanCheckpointResponses(),
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+				{
+					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+					result: {
+						stdout: `Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.
+
+🥞 Validating that this Graphite stack is ready to submit...
+▸ sdl-extension-api-followup-stack
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-sdl-extension-api (No-op)
+`,
+						stderr: `WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+					},
+				},
+				{ match: "gt branch info --no-interactive", result: { stdout: "fix-submit-empty-branch-warning\n\nParent: sdl-extension-api-followup/registry-refactor\n" } },
+			],
+			textGeneration: [{ ok: true, text: "## What happened\nBranch `sdl-extension-api-followup-stack` is empty.\n\n## Recommended next steps\nDelete or reparent around it, then rerun `sdl submit`." }],
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("because branch sdl-extension-api-followup-stack is empty");
+		expect(error).toContain("----- AI interpretation (model-generated) -----");
+		expect(error).toContain("Branch `sdl-extension-api-followup-stack` is empty.");
+		expect(error).toContain("----- end AI interpretation -----");
+		expect(run.context.modelCalls[0]?.prompt).toContain("because branch sdl-extension-api-followup-stack is empty");
 	});
 
 	test("description edit failure keeps submitted PR links visible", async () => {

@@ -24,8 +24,10 @@ export async function maybeAppendSubmitFailureInterpretation<T extends SubmitFai
 	if (text === "") return result;
 
 	const stderr = `${result.stderr.endsWith("\n") ? result.stderr : `${result.stderr}\n`}
-AI interpretation:
-${text}\n`;
+----- AI interpretation (model-generated) -----
+${text}
+----- end AI interpretation -----
+`;
 	return { ...result, stderr };
 }
 
@@ -63,6 +65,7 @@ function buildSubmitFailureInterpretationPrompt(input: { failureText: string; ex
 		"1. `What happened` — one or two sentences describing the likely failure.",
 		"2. `Recommended next steps` — concrete commands or checks to run next.",
 		"Prefer the command names already present in the output. If the output is ambiguous, say what to inspect instead of guessing.",
+		"Pay close attention to Graphite warning blocks and deterministic preamble lines that name branches. If the output says Graphite skipped submission because `branch <name> is empty`, repeat that exact branch name in `What happened` and tell the user to delete it, reparent around it, or add changes before resubmitting.",
 		"",
 		`Exit code: ${input.exitCode}`,
 		"",
