@@ -50,6 +50,7 @@ export interface CliCommandInfo {
 	name: string;
 	description: string;
 	canAcceptPositionalArgs?: boolean;
+	startMessage?: string;
 }
 
 export type CliCommandConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
@@ -372,6 +373,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	let hasLiveOutput = false;
 	let exitCode = 1;
 	const argv = [command.name, ...parsed.args];
+	emitCliCommandStart(ctx, command.startMessage);
 	const progress = new LiveCommandProgress(ctx, {
 		argv,
 		cliName: spec.cliName,
@@ -495,6 +497,12 @@ function buildOutputDetails(options: BuildOutputDetailsOptions): CliCommandOutpu
 function startsWithPositionalArgs(args: readonly string[]): boolean {
 	const first = args[0];
 	return first !== undefined && (first === "--" || !first.startsWith("-"));
+}
+
+function emitCliCommandStart(ctx: CommandContext, message: string | undefined): void {
+	if (message === undefined || !ctx.hasUI) return;
+
+	ctx.ui.notify(message, "info");
 }
 
 interface RestoreCommandInvocationOptions {

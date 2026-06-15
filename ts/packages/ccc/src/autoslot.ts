@@ -97,8 +97,10 @@ function parseCreatedBranchName(summary: string): string {
 }
 
 async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
-	await ctx.waitForIdle();
+	ctx.ui.notify("Starting /code:autoslot — waiting for Pi idle, then creating a branch and moving it to a slot.", "info");
+	ctx.ui.setStatus(STATUS_KEY, "waiting for Pi idle…");
 	try {
+		await ctx.waitForIdle();
 		await createAutoslotFlow({
 			cwd: ctx.cwd,
 			args,

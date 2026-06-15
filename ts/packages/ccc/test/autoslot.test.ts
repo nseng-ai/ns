@@ -104,6 +104,42 @@ describe("autoslot flow", () => {
 		expect(commands.get("code:autoslot")?.description).toContain("managed slot worktree");
 	});
 
+	test("command reports start before waiting for idle", () => {
+		const commands = new Map<string, { description?: string; handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void }>();
+		const notifications: Array<{ message: string; level: string | undefined }> = [];
+		const statuses: Array<string | undefined> = [];
+		let waitCalls = 0;
+		registerAutoslotCommand({
+			registerCommand: (name, command) => commands.set(name, command),
+			exec: async () => {
+				throw new Error("exec should not run before waitForIdle resolves");
+			},
+		});
+
+		const command = commands.get("code:autoslot");
+		if (command === undefined) throw new Error("Expected code:autoslot command to be registered.");
+		void command.handler("", {
+			cwd: "/repo",
+			ui: {
+				notify: (message, level) => notifications.push({ message, level }),
+				setStatus: (_key, value) => statuses.push(value),
+			},
+			waitForIdle: async () => {
+				waitCalls += 1;
+				await new Promise<void>(() => {});
+			},
+		});
+
+		expect(notifications).toEqual([
+			{
+				level: "info",
+				message: "Starting /code:autoslot — waiting for Pi idle, then creating a branch and moving it to a slot.",
+			},
+		]);
+		expect(statuses).toEqual(["waiting for Pi idle…"]);
+		expect(waitCalls).toBe(1);
+	});
+
 	test("successful dirty autoslot runs slot checkout current", async () => {
 		const harness = createHarness();
 

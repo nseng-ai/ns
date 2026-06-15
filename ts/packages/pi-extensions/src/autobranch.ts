@@ -24,7 +24,13 @@ export default function autobranchExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "ccc",
 		piNamespace: "code",
-		commands: [{ name: "autobranch", description: AUTOBRANCH_SUMMARY }],
+		commands: [
+			{
+				name: "autobranch",
+				description: AUTOBRANCH_SUMMARY,
+				startMessage: "Starting /code:autobranch — waiting for Pi idle, then creating a Graphite branch.",
+			},
+		],
 		runCli: (args, deps) => runCli(["exec", ...args], deps),
 	});
 }
