@@ -253,7 +253,7 @@ export function createContext(
 		inputUnavailable?: boolean;
 		sessionFile?: string;
 		cwd?: string;
-		newSessionCancelled?: boolean;
+		isNewSessionCancelled?: boolean;
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -342,7 +342,7 @@ export function createContext(
 		},
 		async newSession(sessionOptions?: NewSessionOptions): Promise<{ cancelled: boolean }> {
 			newSessionCalls.push({ parentSession: sessionOptions?.parentSession });
-			if (options.newSessionCancelled) {
+			if (options.isNewSessionCancelled) {
 				return { cancelled: true };
 			}
 			await sessionOptions?.withSession?.({
@@ -398,7 +398,7 @@ interface RunExtensionCommandOptions {
 		inputUnavailable?: boolean;
 		cwd?: string;
 		sessionFile?: string;
-		newSessionCancelled?: boolean;
+		isNewSessionCancelled?: boolean;
 	};
 	commandInfos?: CommandInfo[];
 	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean };
