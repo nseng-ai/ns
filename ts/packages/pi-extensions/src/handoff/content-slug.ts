@@ -1,6 +1,6 @@
-import { deriveSlugWithModel, type SlugModelEvidence } from "@asdl/plans";
 import { formatOutputSection } from "@asdl/core/exec";
-import { parseFlatHandoffSlug } from "./identity.ts";
+import { parseFlatHandoffSlug } from "@asdl/handoff/identity";
+import { deriveSlugWithModel, type SlugModelEvidence } from "@asdl/plans";
 import type { ExtensionAPI } from "./runtime-types.ts";
 
 const MAX_ERROR_CHARS = 4_000;

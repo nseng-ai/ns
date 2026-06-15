@@ -2,9 +2,9 @@ import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
-import { HANDOFF_NAMESPACE } from "../identity.ts";
-import { collectHandoffSummaries, handoffSummarySchema, type HandoffSummary } from "../inventory.ts";
-import { confirmFromStdin, gatewayFailure } from "./shared.ts";
+import { deleteHandoffArtifact, listHandoffSummaries } from "../artifact-storage.ts";
+import { handoffSummarySchema, type HandoffSummary } from "../inventory.ts";
+import { confirmFromStdin } from "./shared.ts";
 
 const gcActionSchema = z.enum(["kept_active", "would_delete", "deleted", "error"]);
 export type GcAction = z.infer<typeof gcActionSchema>;
@@ -74,9 +74,12 @@ export function renderGc(result: GcResult): string {
 }
 
 async function loadAllSummaries(ctx: HandoffCliContext) {
-	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE });
-	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to load handoffs");
-	return await collectHandoffSummaries({ entries: entries.value, git: ctx.git, cwd: ctx.cwd, includeDeleted: true });
+	const summaries = await listHandoffSummaries(
+		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ branch: undefined, shouldIncludeDeleted: true },
+	);
+	if (summaries.type === "error") return failure(summaries.error.code, summaries.error.message);
+	return { type: "resolved" as const, value: summaries.value };
 }
 
 function previewResult(summaries: readonly HandoffSummary[], dryRun: boolean): GcResult {
@@ -93,15 +96,18 @@ async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: re
 			entries.push(entryFromSummary(summary, "kept_active"));
 			continue;
 		}
-		const deleted = await ctx.brmem.deleteEntry({ namespace: HANDOFF_NAMESPACE, key: summary.key, branch: summary.branch });
+		const deleted = await deleteHandoffArtifact(
+			{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+			{ branch: summary.branch, key: summary.key },
+		);
 		if (deleted.type === "error") {
-			const message = deleted.error.code === "key_not_found"
+			const message = deleted.error.code === "handoff_not_found"
 				? `Handoff disappeared before deletion: ${deleted.error.message}`
-				: `Failed to delete handoff: ${deleted.error.message}`;
+				: deleted.error.message;
 			entries.push(entryFromSummary(summary, "error", { message }));
 			continue;
 		}
-		entries.push(entryFromSummary(summary, "deleted", { commit: deleted.value.commitSha }));
+		entries.push(entryFromSummary(summary, "deleted", { commit: deleted.value.commit }));
 	}
 	return resultFromEntries(entries, { dryRun: false, cancelled: false });
 }

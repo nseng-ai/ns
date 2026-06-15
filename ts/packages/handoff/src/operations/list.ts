@@ -2,9 +2,9 @@ import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
-import { HANDOFF_NAMESPACE } from "../identity.ts";
-import { collectHandoffSummaries, handoffSummarySchema } from "../inventory.ts";
-import { gatewayFailure, resolveBranch } from "./shared.ts";
+import { listHandoffSummaries } from "../artifact-storage.ts";
+import { handoffSummarySchema } from "../inventory.ts";
+import { resolveBranch } from "./shared.ts";
 
 export const listRequestSchema = z.object({
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
@@ -35,15 +35,11 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 		branch = resolved.value;
 	}
 
-	const entries = await ctx.brmem.listEntries({ namespace: HANDOFF_NAMESPACE, branch });
-	if (entries.type === "error") return gatewayFailure(entries.error, "Failed to list handoffs");
-	const handoffs = await collectHandoffSummaries({
-		entries: entries.value,
-		git: ctx.git,
-		cwd: ctx.cwd,
-		includeDeleted: request.include_deleted,
-	});
-	if (handoffs.type !== "resolved") return handoffs;
+	const handoffs = await listHandoffSummaries(
+		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ branch, shouldIncludeDeleted: request.include_deleted },
+	);
+	if (handoffs.type === "error") return failure(handoffs.error.code, handoffs.error.message);
 	return ok({
 		scope: request.all ? "all-branches" : "branch",
 		branch: branch ?? null,

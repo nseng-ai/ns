@@ -9,6 +9,7 @@
   "dependencies": {
     "@asdl/core": "workspace:*",
     "@asdl/ccc": "workspace:*",
+    "@asdl/handoff": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
     "@asdl/branch-context": "workspace:*",
     "@asdl/plans": "workspace:*",
