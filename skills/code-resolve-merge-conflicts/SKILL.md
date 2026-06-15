@@ -148,12 +148,28 @@ the continue command:
 - **Pass** → run the conflict-marker sweep from step 3c → `git add` the
   resolved files → run the continue command.
 - **Fail** → `git restore --merge <file>` to bring back the conflict markers,
-  then **escalate** that file.
+  then **escalate** that file. Do not dismiss a failure as pre-existing unless
+  you reproduced it against the relevant base SHA and can report the SHA,
+  command, and output. If reproduction is blocked, call the claim `unverified`;
+  absent proof, treat the failure as caused by the current resolution.
 
 ### 5. Escalate
 
 When a conflict falls outside the safe set, or verification failure forces
 escalation, branch on the configured **escalation channel**.
+
+Before escalating based on a runtime or behavior claim, verify the claim
+empirically with the smallest relevant command/test you can run in the current
+state. Quote the command and observed output in the escalation payload.
+Behavior claims include: command accepts/rejects an input source, output field
+shape changed, a test is stale, a failure is pre-existing, or a resolution would
+preserve/break runtime behavior.
+
+If the claim cannot be observed because the repository cannot run far enough,
+label it `unverified` and explain what blocked observation. Do not present a
+source-reading inference as proven behavior. If this rule proves too
+constraining, relax it later by allowing best-effort evidence, but keep the
+`unverified` label for claims without observed output.
 
 #### Channel: `user` (default/bare mode)
 

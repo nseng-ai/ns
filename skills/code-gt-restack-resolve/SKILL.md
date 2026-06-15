@@ -139,7 +139,13 @@ While the restack is stopped at conflicts:
 2. Await that subagent completely before launching any other subagent.
 3. Inspect the subagent's final text/status, then re-run `git status` in the
    parent session. Do not blindly trust the final text.
-4. Branch on the observed outcome:
+4. Do not propagate an unverified behavior diagnosis or pre-existing failure
+   claim as fact. If a subagent reports `behavior_evidence: unverified` or
+   `preexisting_failure_evidence: unverified`, either independently verify the
+   claim before using it as context/whitelist, or preserve the `unverified`
+   label when asking the user, launching the next subagent, or summarizing.
+   Unverified claims cannot become failure whitelists.
+5. Branch on the observed outcome:
    - **advanced:** `gt continue` succeeded but the restack stopped again on a
      later conflict. Loop and launch a new subagent for that next stop.
    - **completed:** the restack completed. Proceed to **Done**.
@@ -203,21 +209,29 @@ Agent-decided work:
 - Stage resolved files.
 - Run gt continue if and only if verification passes and no escalation or
   bail-out condition blocks it.
+- After gt continue, inspect git status only enough to classify the outcome.
 
 Hard constraints:
 - Do not prompt the user.
 - Do not abort the rebase/restack.
 - Do not resolve conflicts outside the current conflict stop.
+- Run gt continue at most once. This is an audit boundary: if that continue
+  reaches a new conflict stop, do not resolve it; return outcome=advanced with
+  the new repository state.
 - Do not use whole-file checkout except for generated files as allowed by the
   engine.
 
-Output contract: end with this delimited result block:
+Output contract: end with this delimited result block, filling every line for
+all outcomes:
 --- CONFLICT SUBAGENT RESULT ---
 outcome: advanced | completed | escalation | bail
 files_resolved: <paths or none>
 safe_categories_used: <categories or none>
 verification: <commands and pass/fail results>
 gt_continue_ran: yes | no
+traceability_check: <base|incoming|intent-diff|mechanical-propagation|mixed; note "no novel logic" or describe any novel logic>
+behavior_evidence: <not_applicable | observed: <command + concise output> | unverified: <reason>>
+preexisting_failure_evidence: <not_applicable | observed: <base_sha + command + concise output> | unverified: <reason>>
 summary: <concise summary>
 
 For outcome=escalation, also include:
