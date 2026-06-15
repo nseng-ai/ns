@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# @@ASDL_TOOL@@ — runs an asdl TypeScript CLI from source.
+#
+# Installed by the tool's just install recipe. The installer replaces this
+# template's placeholders with shell-quoted literal values, baking in the
+# installing checkout's path as the canonical fallback. Inside an asdl checkout
+# the enclosing worktree's sources win, so each checkout/worktree runs its own
+# code; everywhere else the baked canonical checkout is used.
+set -euo pipefail
+
+tool=@@ASDL_TOOL@@
+canonical_checkout=@@ASDL_CANONICAL_CHECKOUT@@
+cli_rel_path=@@ASDL_CLI_REL_PATH@@
+install_hint=@@ASDL_INSTALL_HINT@@
+
+run_checkout() {
+  local checkout="$1"
+  shift
+  if [[ ! -d "$checkout/ts/node_modules" ]]; then
+    echo "$tool: $checkout has no ts/node_modules; run 'just ts-install' there first" >&2
+    exit 2
+  fi
+  exec node "$checkout/$cli_rel_path" "$@"
+}
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -n "$repo_root" && -f "$repo_root/$cli_rel_path" ]]; then
+  run_checkout "$repo_root" "$@"
+fi
+
+if [[ -f "$canonical_checkout/$cli_rel_path" ]]; then
+  run_checkout "$canonical_checkout" "$@"
+fi
+
+echo "$tool: no asdl checkout found (cwd is not inside an asdl checkout and the canonical checkout '$canonical_checkout' is missing $cli_rel_path); reinstall from an asdl checkout with: $install_hint" >&2
+exit 2

@@ -65,31 +65,37 @@ js-test: ts-test
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/scripts/pr-address-shim")
+install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/src/cli.ts" "just install-pr-address")
 
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-brmem: (_install-ts-shim "brmem" "ts/packages/brmem/scripts/brmem-shim")
+install-brmem: (_install-ts-shim "brmem" "ts/packages/brmem/src/cli.ts" "just install-brmem or just install-tools")
 
 # Install the handoff shim to ~/.local/bin so `handoff` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/scripts/handoff-shim")
+install-handoff: (_install-ts-shim "handoff" "ts/packages/handoff/src/cli.ts" "just install-handoff or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/handoff"
     @echo "removed stale project venv handoff script if present"
 
 # Install the areg shim to ~/.local/bin so `areg` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
-install-areg: (_install-ts-shim "areg" "ts/packages/areg/scripts/areg-shim")
+install-areg: (_install-ts-shim "areg" "ts/packages/areg/src/cli.ts" "just install-areg or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/areg"
     @echo "removed stale project venv areg script if present"
 
-_install-ts-shim tool script: ts-install
+_install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
-    sed "s|@@ASDL_CANONICAL_CHECKOUT@@|{{justfile_directory()}}|" "{{justfile_directory()}}/{{script}}" > "$HOME/.local/bin/{{tool}}"
+    ASDL_TOOL="{{tool}}" \
+    ASDL_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
+    ASDL_CLI_REL_PATH="{{cli_rel_path}}" \
+    ASDL_INSTALL_HINT="{{install_hint}}" \
+    ASDL_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
+    ASDL_OUTPUT="$HOME/.local/bin/{{tool}}" \
+      python -c 'import os, shlex, sys; from functools import reduce; from pathlib import Path; template_path = Path(os.environ["ASDL_TEMPLATE"]); output_path = Path(os.environ["ASDL_OUTPUT"]); replacements = {"@@ASDL_TOOL@@": shlex.quote(os.environ["ASDL_TOOL"]), "@@ASDL_CANONICAL_CHECKOUT@@": shlex.quote(os.environ["ASDL_CANONICAL_CHECKOUT"]), "@@ASDL_CLI_REL_PATH@@": shlex.quote(os.environ["ASDL_CLI_REL_PATH"]), "@@ASDL_INSTALL_HINT@@": shlex.quote(os.environ["ASDL_INSTALL_HINT"])}; rendered = reduce(lambda text, item: text.replace(item[0], item[1]), replacements.items(), template_path.read_text()); sys.exit(f"unrendered shim token remains in {template_path}") if "@@ASDL_" in rendered else output_path.write_text(rendered)'
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
