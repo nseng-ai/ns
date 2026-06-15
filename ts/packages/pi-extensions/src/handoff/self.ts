@@ -74,6 +74,7 @@ const HANDOFF_SELF_START_MESSAGES = {
 	fallbackLabel: "handoff:self workflow prompt for a content-derived slug",
 } satisfies HandoffStartMessages;
 
+<<<<<<< HEAD
 const HANDOFF_SELF_LAUNCH_COMMAND_SPEC = {
 	statusKey: HANDOFF_SELF_STATUS_KEY,
 	promptCopy: HANDOFF_SELF_PROMPT_COPY,
@@ -82,6 +83,8 @@ const HANDOFF_SELF_LAUNCH_COMMAND_SPEC = {
 
 export const buildHandoffSelfRequest = buildHandoffLaunchRequest;
 
+=======
+>>>>>>> a75e8d9a3 ([cp] Refine handoff self session flow)
 export function createHandoffSelfWorkflow(
 	pi: ExtensionAPI,
 	options: { timeoutMs?: number } = {},
@@ -145,7 +148,14 @@ export function createHandoffSelfWorkflow(
 		const workflowId = createWorkflowId();
 		state = { type: "starting", workflowId };
 		try {
+<<<<<<< HEAD
 			if (ctx.newSession === undefined) {
+=======
+			await ctx.waitForIdle();
+
+			const newSession = ctx.newSession;
+			if (newSession === undefined) {
+>>>>>>> a75e8d9a3 ([cp] Refine handoff self session flow)
 				ctx.ui.notify(`/${HANDOFF_SELF_COMMAND_NAME} requires Pi session replacement support.`, "error");
 				return;
 			}
@@ -164,6 +174,27 @@ export function createHandoffSelfWorkflow(
 				throw error;
 			}
 
+<<<<<<< HEAD
+=======
+			const builtRequest = buildHandoffLaunchRequest({ branch, focus });
+			if (builtRequest.type === "invalid") {
+				ctx.ui.notify(builtRequest.message, "error");
+				return;
+			}
+
+			let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
+			let skillReadError: string | undefined;
+			try {
+				skill = await expandHandoffSkill(ctx.cwd, CREATE_HANDOFF_SKILL_NAME);
+			} catch (error) {
+				skillReadError = formatErrorMessage(error);
+			}
+
+			const completion = createWaitingWorkflow({ branch, workflowId });
+			ctx.ui.notify(createHandoffStartMessage(HANDOFF_SELF_START_MESSAGES, skill, skillReadError), skill ? "info" : "warning");
+			pi.sendUserMessage(buildHandoffSelfPrompt({ skillBlock: skill?.block, request: builtRequest.request, workflowId }));
+
+>>>>>>> a75e8d9a3 ([cp] Refine handoff self session flow)
 			const result = await completion;
 			if (result.type === "timed-out") {
 				ctx.ui.notify("handoff:self timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.", "error");
@@ -171,7 +202,7 @@ export function createHandoffSelfWorkflow(
 			}
 
 			await ctx.waitForIdle();
-			await replaceSessionForSelfHandoff(ctx, result);
+			await replaceSessionForSelfHandoff(ctx, newSession, result);
 		} finally {
 			resetStarting(workflowId);
 		}
@@ -283,15 +314,11 @@ export function formatHandoffSelfKickoffPrompt(branch: string, slug: string): st
 	return `Pick up handoff ${slug} on branch ${branch}. Summarize it and wait for my direction before continuing.`;
 }
 
-async function replaceSessionForSelfHandoff(ctx: CommandContext, completion: { branch: string; slug: string }): Promise<void> {
-	// handleCommand preflights this, but keep a local capability read for host-provided
-	// context narrowing and defensive recovery if the context shape changes.
-	const newSession = ctx.newSession;
-	if (newSession === undefined) {
-		ctx.ui.notify(`/${HANDOFF_SELF_COMMAND_NAME} requires Pi session replacement support.`, "error");
-		return;
-	}
-
+async function replaceSessionForSelfHandoff(
+	ctx: CommandContext,
+	newSession: NonNullable<CommandContext["newSession"]>,
+	completion: { branch: string; slug: string },
+): Promise<void> {
 	const kickoffPrompt = formatHandoffSelfKickoffPrompt(completion.branch, completion.slug);
 	const parentSession = ctx.sessionManager?.getSessionFile?.();
 

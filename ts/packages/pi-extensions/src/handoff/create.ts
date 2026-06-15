@@ -2,7 +2,6 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
 
 import {
-	CREATE_HANDOFF_COMMAND_NAME,
 	CREATE_HANDOFF_FALLBACK,
 	CREATE_HANDOFF_SKILL_NAME,
 	createHandoffStartMessage,
@@ -63,8 +62,3 @@ export async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string,
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
 }
-
-export const createHandoffCommandDescription = {
-	name: CREATE_HANDOFF_COMMAND_NAME,
-	description: "Create a directed handoff artifact for a future continuation.",
-} as const;
