@@ -56,6 +56,10 @@ function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGatewa
 	});
 }
 
+function withFullStdout(args: readonly string[]): string[] {
+	return args.includes("--stdout-mode") ? [...args] : [...args, "--stdout-mode", "full"];
+}
+
 function gitGatewayFor(variant: GitVariant): InMemoryPrAddressGitGateway {
 	if (variant === "detached") return new InMemoryPrAddressGitGateway({ currentBranch: null });
 	if (variant === "branch-failure") {
@@ -80,7 +84,7 @@ describe("prepare-run parity with the Python CLI", () => {
 				env = prepareCase.payload_env === "session" ? { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: fixture.session_id } : { ASDL_PAYLOAD_ROOT: root };
 			}
 
-			const run = runScenario(["exec", ...prepareCase.args], {
+			const run = runScenario(["exec", ...withFullStdout(prepareCase.args)], {
 				github: githubGatewayFor(prepareCase.github),
 				git: gitGatewayFor(prepareCase.git),
 				env,
@@ -112,7 +116,7 @@ describe("prepare-run parity with the Python CLI", () => {
 
 	test("records no reopens when the unresolve mutation fails", async () => {
 		const github = githubGatewayFor("unresolve-failure");
-		const run = runScenario(["exec", "prepare-run", "--format", "json", "--payload-mode", "inline"], {
+		const run = runScenario(["exec", "prepare-run", "--format", "json", "--payload-mode", "inline", "--stdout-mode", "full"], {
 			github,
 			git: gitGatewayFor("default"),
 			env: { PATH: "/fake/bin" },

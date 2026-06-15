@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PrAddressExecContext } from "./exec-operation.ts";
 import { requireSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult, type PayloadErrorType } from "./payload-store.ts";
 
-export const stdoutModeSchema = z.enum(["compact", "full"]).default("compact");
+export const stdoutModeSchema = z.enum(["full", "compact"]).default("compact");
 export type StdoutMode = z.infer<typeof stdoutModeSchema>;
 
 export interface ProducedArtifactReference {
@@ -47,7 +47,12 @@ export function compactOperationResult(options: CompactOperationResultOptions): 
 		if (options.artifacts.produced !== undefined && options.artifacts.produced.length > 0) artifacts.produced = options.artifacts.produced.map((artifact) => ({ ...artifact }));
 		if (Object.keys(artifacts).length > 0) result.artifacts = artifacts;
 	}
-	if (options.details !== undefined) result.details = options.details;
+	if (options.details !== undefined) {
+		for (const [key, value] of Object.entries(options.details)) {
+			if (!(key in result)) result[key] = value;
+		}
+		result.details = options.details;
+	}
 	return result;
 }
 

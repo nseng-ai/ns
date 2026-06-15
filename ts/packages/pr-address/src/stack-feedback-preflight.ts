@@ -105,14 +105,13 @@ async function runStackFeedbackPreflightOperation(
 			compactOperationResult({
 				operation: "stack-feedback-preflight",
 				counts: { ...compact.summary },
-				summary: compact.mapping_summary,
 				artifacts: {
 					produced: [
 						{ kind: "stack", reference: compact.stack_reference },
 						{ kind: "stack-prep", reference: compact.stack_summary_reference },
 					],
 				},
-				details: { harness_session_id: compact.harness_session_id, stack: compact.stack, zero_feedback_prs: compact.zero_feedback_prs },
+				details: { ...compact },
 			}),
 		);
 	}

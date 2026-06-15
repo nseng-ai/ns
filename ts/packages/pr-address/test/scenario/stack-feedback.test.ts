@@ -76,6 +76,10 @@ function numberKeyed<T>(record: Record<string, T>): Map<number, T> {
 	return new Map(Object.entries(record).map(([key, value]) => [Number(key), value]));
 }
 
+function withFullStdout(args: readonly string[]): string[] {
+	return args.includes("--stdout-mode") ? [...args] : [...args, "--stdout-mode", "full"];
+}
+
 function payloadEnv(mode: "session" | "root-only" | null, root: string | null, sessionId: string): NodeJS.ProcessEnv {
 	if (mode === null || root === null) return { PATH: "/fake/bin" };
 	if (mode === "session") return { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
@@ -94,7 +98,7 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 	for (const prepCase of prepFixture.cases) {
 		test(`matches the Python envelope for ${prepCase.name}`, async () => {
 			const root = prepCase.payload_env === null ? null : await makePayloadRoot();
-			const run = runScenario(["exec", ...prepCase.args], {
+			const run = runScenario(["exec", ...withFullStdout(prepCase.args)], {
 				github: fixtureGithubGateway(),
 				env: payloadEnv(prepCase.payload_env, root, prepFixture.session_id),
 				payloadClock: fixedClock(prepFixture.clock_iso),
@@ -109,7 +113,7 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 
 	test("reports the stack summary reference size from the real artifact", async () => {
 		const root = await makePayloadRoot();
-		const run = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json", "--stdout-mode", "full"], {
 			github: fixtureGithubGateway(),
 			env: payloadEnv("session", root, prepFixture.session_id),
 			payloadClock: fixedClock(prepFixture.clock_iso),
@@ -255,7 +259,7 @@ describe("stack-feedback-plan parity with the Python CLI", () => {
 	for (const planCase of planFixture.cases) {
 		test(`matches the Python envelope for ${planCase.name}`, async () => {
 			const root = planCase.payload_env === null ? null : await makePayloadRoot();
-			const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", planCase.payload_json_template, ...planCase.extra_args, "--format", "json"], {
+			const run = runScenario(["exec", "stack-feedback-plan", "--payload-json", planCase.payload_json_template, ...withFullStdout(planCase.extra_args), "--format", "json"], {
 				env: payloadEnv(planCase.payload_env, root, planFixture.session_id),
 				payloadClock: fixedClock(planFixture.clock_iso),
 			});
@@ -284,7 +288,7 @@ describe("stack-feedback-plan reference and file inputs", () => {
 	const validPlanCase = requiredPlanCase("valid-full");
 
 	function runPlan(args: readonly string[], root: string): ScenarioRun {
-		return runScenario(["exec", "stack-feedback-plan", ...args, "--format", "json"], {
+		return runScenario(["exec", "stack-feedback-plan", ...withFullStdout(args), "--format", "json"], {
 			env: payloadEnv("session", root, planFixture.session_id),
 			payloadClock: fixedClock(planFixture.clock_iso),
 		});
@@ -325,7 +329,7 @@ describe("stack-feedback-plan reference and file inputs", () => {
 
 	test("accepts stdin for the full plan payload", async () => {
 		const root = await makePayloadRoot();
-		const run = runScenario(["exec", "stack-feedback-plan", "--format", "json"], {
+		const run = runScenario(["exec", "stack-feedback-plan", "--format", "json", "--stdout-mode", "full"], {
 			env: payloadEnv("session", root, planFixture.session_id),
 			payloadClock: fixedClock(planFixture.clock_iso),
 			stdin: validPlanCase.payload_json_template,
@@ -414,7 +418,7 @@ describe("stack-feedback-plan reference and file inputs", () => {
 	});
 
 	async function seedStackSession(root: string, classificationsToValidate: "all" | "first-only" = "all"): Promise<void> {
-		const prepRun = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json"], {
+		const prepRun = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json", "--stdout-mode", "full"], {
 			github: fixtureGithubGateway(),
 			env: payloadEnv("session", root, planFixture.session_id),
 			payloadClock: fixedClock(prepFixture.clock_iso),
@@ -465,9 +469,9 @@ describe("stack-feedback-plan reference and file inputs", () => {
 		expect(envelope.data.resolved_inputs.prep).toMatchObject({ descriptor: "pr-address-stack-prep", sequence: 7 });
 		expect(envelope.data.resolved_inputs.classifications).toEqual([
 			expect.objectContaining({ pr_number: 101, reference: expect.objectContaining({ descriptor: "pr-address-pr-101-classification", sequence: 8 }) }),
-			expect.objectContaining({ pr_number: 102, reference: expect.objectContaining({ descriptor: "pr-address-pr-102-classification", sequence: 9 }) }),
+			expect.objectContaining({ pr_number: 102, reference: expect.objectContaining({ descriptor: "pr-address-pr-102-classification", sequence: 10 }) }),
 		]);
-		expect(envelope.data.stack_plan_reference).toMatchObject({ descriptor: "pr-address-stack-plan", sequence: 10 });
+		expect(envelope.data.stack_plan_reference).toMatchObject({ descriptor: "pr-address-stack-plan", sequence: 12 });
 	});
 
 	test("implicit stack planning reports the missing per-PR classification descriptor", async () => {

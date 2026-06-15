@@ -41,7 +41,7 @@ function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGatewa
 describe("summarize-feedback parity with the Python CLI", () => {
 	for (const summarizeCase of fixture.cases) {
 		test(`matches the Python envelope for ${summarizeCase.name}`, async () => {
-			const run = runScenario(["exec", ...summarizeCase.args], { github: githubGatewayFor(summarizeCase.github) });
+			const run = runScenario(["exec", ...summarizeCase.args, "--stdout-mode", "full"], { github: githubGatewayFor(summarizeCase.github) });
 
 			expect(await run.exit).toBe(summarizeCase.expected_exit_code);
 			expect(run.stdout.join("")).toBe(summarizeCase.expected_envelope_text);

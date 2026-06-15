@@ -6,7 +6,7 @@ import { ACTION_COMPLEXITIES, INFORMATIONAL_REASONS } from "../feedback-plan-con
 export const nullableStringSchema = z.string().nullable();
 export const nullableIntSchema = z.int().nullable();
 export const nullableBooleanSchema = z.boolean().nullable();
-export const stdoutModeDocSchema = z.enum(["compact", "full"]);
+export const stdoutModeDocSchema = z.enum(["full", "compact"]);
 
 // --- shared enums -----------------------------------------------------------
 

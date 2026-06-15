@@ -30,7 +30,7 @@ describe("read-only GitHub-backed operations", () => {
 			discussionComments: { 42: [discussionComment({ id: 7 })] },
 		});
 
-		const inlineRun = runWithGithub(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json"], github);
+		const inlineRun = runWithGithub(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json", "--stdout-mode", "full"], github);
 		expect(await inlineRun.exit).toBe(0);
 		const inlineData = parseEnvelope(inlineRun.stdout.join("")).data;
 		expect(inlineData.payload_mode).toBe("inline");
@@ -38,7 +38,7 @@ describe("read-only GitHub-backed operations", () => {
 
 		const tempDir = await makeTempDir("pr-address-readonly-collection-");
 		const root = join(tempDir, "payload-root");
-		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json"], github, {
+		const payloadRun = runWithGithub(["exec", "get-feedback", "42", "--format", "json", "--stdout-mode", "full"], github, {
 			PATH: "/fake/bin",
 			ASDL_PAYLOAD_ROOT: root,
 			HARNESS_SESSION_ID: "sess-readonly",

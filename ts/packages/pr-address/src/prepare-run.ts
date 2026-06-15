@@ -97,7 +97,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 		inlineResult = prepared.value;
 	}
 
-	if (request.stdout_mode === "full") return ok(inlineResult);
+	if (request.payload_mode === "inline" && request.stdout_mode === "full") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const descriptor = inlineResult.found ? `pr-address-prepare-run-pr-${inlineResult.number}` : "pr-address-prepare-run-no-pr";
@@ -108,6 +108,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
 	const manifest = buildManifest(inlineResult, rawReference.value);
+	if (request.stdout_mode === "full") return ok(manifest);
 	return ok(
 		compactOperationResult({
 			operation: "prepare-run",

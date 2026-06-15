@@ -88,7 +88,7 @@ describe("summarize-feedback drift guard", async () => {
 			reviewThreads: { [fixture.gateway.pr.number]: fixture.gateway.review_threads },
 			discussionComments: { [fixture.gateway.pr.number]: fixture.gateway.discussion_comments },
 		});
-		const run = runScenario(["exec", "summarize-feedback", String(fixture.gateway.pr.number), "--format", "json"], { github });
+		const run = runScenario(["exec", "summarize-feedback", String(fixture.gateway.pr.number), "--format", "json", "--stdout-mode", "full"], { github });
 
 		expect(await run.exit).toBe(0);
 		const envelope = JSON.parse(run.stdout.join("")) as { data: unknown };
@@ -141,7 +141,7 @@ describe("resolve-thread-batch drift guard", () => {
 				},
 			}),
 		);
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", reference.payload_path, "--format", "json"], { cwd: REPO_ROOT, github, env, payloadStoreFactory });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", reference.payload_path, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github, env, payloadStoreFactory });
 
 		expect(await run.exit).toBe(1);
 		const envelope = JSON.parse(run.stdout.join("")) as { data: unknown };

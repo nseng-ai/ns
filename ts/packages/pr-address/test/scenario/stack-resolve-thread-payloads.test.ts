@@ -53,7 +53,20 @@ describe("build-stack-resolve-thread-payloads session artifact flow", () => {
 		expectOk(await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: input.stack_plan }));
 
 		const run = runScenario(
-			["exec", "build-stack-resolve-thread-payloads", "--batch-id", "local", "--commit-sha", "abc123", "--decisions-file", decisionsPath, "--format", "json"],
+			[
+				"exec",
+				"build-stack-resolve-thread-payloads",
+				"--batch-id",
+				"local",
+				"--commit-sha",
+				"abc123",
+				"--decisions-file",
+				decisionsPath,
+				"--format",
+				"json",
+				"--stdout-mode",
+				"full",
+			],
 			{ env, payloadStoreFactory },
 		);
 

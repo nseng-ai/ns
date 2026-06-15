@@ -70,7 +70,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 		review_threads: snapshot.review_threads,
 		discussion_comments: snapshot.discussion_comments,
 	};
-	if (request.stdout_mode === "full") return ok(inlineResult);
+	if (request.payload_mode === "inline" && request.stdout_mode === "full") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const rawReference = await store.writeJsonArtifact({
@@ -80,6 +80,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
 	const manifest = buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value);
+	if (request.stdout_mode === "full") return ok(manifest);
 	const manifestReference = await store.writeJsonArtifact({
 		descriptor: prArtifactDescriptor({ prNumber: snapshot.pr_number, kind: "manifest" }),
 		role: "summary",

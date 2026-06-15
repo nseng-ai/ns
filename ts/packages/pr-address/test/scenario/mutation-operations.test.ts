@@ -12,14 +12,14 @@ describe("mutation operations use fake gateways", () => {
 		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
 		// error (stderr, exit 2), never a machine envelope — click parity.
 		const reviewGithub = new InMemoryPrAddressGitHubGateway();
-		const review = runScenario(["exec", "reply-to-review", "1e2", "reviewer", "Done.", "--format", "json"], { cwd: REPO_ROOT, github: reviewGithub });
+		const review = runScenario(["exec", "reply-to-review", "1e2", "reviewer", "Done.", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github: reviewGithub });
 		expect(await review.exit).toBe(2);
 		expect(review.stdout.join("")).toBe("");
 		expect(review.stderr.join("")).toContain("expected an integer");
 		expect(reviewGithub.comments).toEqual([]);
 
 		const discussionGithub = new InMemoryPrAddressGitHubGateway();
-		const discussion = runScenario(["exec", "reply-to-discussion", "42", "0x10", "reviewer", "Original", "Done.", "--format", "json"], { cwd: REPO_ROOT, github: discussionGithub });
+		const discussion = runScenario(["exec", "reply-to-discussion", "42", "0x10", "reviewer", "Original", "Done.", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github: discussionGithub });
 		expect(await discussion.exit).toBe(2);
 		expect(discussion.stdout.join("")).toBe("");
 		expect(discussion.stderr.join("")).toContain("expected an integer");
@@ -29,7 +29,7 @@ describe("mutation operations use fake gateways", () => {
 	test("reply builders post formatted comments and preserve reaction warning success", async () => {
 		// Options must precede `--` (click parity); everything after it is positional.
 		const reviewGithub = new InMemoryPrAddressGitHubGateway();
-		const review = runScenario(["exec", "reply-to-review", "42", "reviewer", "--format", "json", "--", "- Updated tests"], { cwd: REPO_ROOT, github: reviewGithub });
+		const review = runScenario(["exec", "reply-to-review", "42", "reviewer", "--format", "json", "--stdout-mode", "full", "--", "- Updated tests"], { cwd: REPO_ROOT, github: reviewGithub });
 		expect(await review.exit).toBe(0);
 		const reviewBody = JSON.parse(review.stdout.join("")).data.body as string;
 		expect(reviewBody).toContain("Addressed review feedback from @reviewer:");
@@ -38,7 +38,7 @@ describe("mutation operations use fake gateways", () => {
 
 		const github = new InMemoryPrAddressGitHubGateway({ reactionFailureCommentIds: new Set([9001]) });
 		const discussion = runScenario(
-			["exec", "reply-to-discussion", "42", "9001", "reviewer", "Can you update this?", "Done.", "--format", "json"],
+			["exec", "reply-to-discussion", "42", "9001", "reviewer", "Can you update this?", "Done.", "--format", "json", "--stdout-mode", "full"],
 			{ cwd: REPO_ROOT, github },
 		);
 		expect(await discussion.exit).toBe(0);
@@ -51,7 +51,7 @@ describe("mutation operations use fake gateways", () => {
 	test("resolve-thread-with-reply validates before mutation and applies valid planned provenance", async () => {
 		const invalidGithub = new InMemoryPrAddressGitHubGateway();
 		const invalid = runScenario(
-			["exec", "resolve-thread-with-reply", "PRRT_bad", "fixed", "Fixed.", "abc123", "--provenance-json", '{"kind":"local_branch","branch":"reuse-worker"}', "--format", "json"],
+			["exec", "resolve-thread-with-reply", "PRRT_bad", "fixed", "Fixed.", "abc123", "--provenance-json", '{"kind":"local_branch","branch":"reuse-worker"}', "--format", "json", "--stdout-mode", "full"],
 			{ cwd: REPO_ROOT, github: invalidGithub },
 		);
 		expect(await invalid.exit).toBe(2);
@@ -72,6 +72,8 @@ describe("mutation operations use fake gateways", () => {
 				'{"kind":"pr","pr_number":1073}',
 				"--format",
 				"json",
+				"--stdout-mode",
+				"full",
 			],
 			{ cwd: REPO_ROOT, github },
 		);
@@ -84,7 +86,7 @@ describe("mutation operations use fake gateways", () => {
 
 	test("resolve-thread-batch requires an explicit build artifact before any mutation", async () => {
 		const github = new InMemoryPrAddressGitHubGateway();
-		const run = runScenario(["exec", "resolve-thread-batch", "--format", "json"], { cwd: REPO_ROOT, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github });
 
 		expect(await run.exit).toBe(2);
 		const envelope = JSON.parse(run.stdout.join(""));
@@ -96,7 +98,7 @@ describe("mutation operations use fake gateways", () => {
 	test("resolve-thread-batch rejects invalid build artifacts before any mutation", async () => {
 		const github = new InMemoryPrAddressGitHubGateway();
 		const { env, payloadStoreFactory, artifactPath } = await seedBuildArtifact({ prNumber: 42, threadId: "PRRT_fixed", artifact: { artifact_kind: "wrong" } });
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join("")).error_type).toBe("invalid_request");
@@ -118,7 +120,7 @@ describe("mutation operations use fake gateways", () => {
 				],
 			}),
 		});
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github, git });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github, git });
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join("")).message).toContain("does not exist");
@@ -145,7 +147,7 @@ describe("mutation operations use fake gateways", () => {
 				payload: buildArtifact({ prNumber: 42, threadId: "PRRT_latest" }),
 			}),
 		);
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", named.payload_path, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", named.payload_path, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(0);
 		const data = JSON.parse(run.stdout.join("")).data;
@@ -166,7 +168,7 @@ describe("mutation operations use fake gateways", () => {
 		});
 		const beforeArtifacts = payloadStoreFactory.artifactPaths;
 
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join("")).error_type).toBe("invalid_request");
@@ -191,7 +193,7 @@ describe("mutation operations use fake gateways", () => {
 			}),
 		});
 
-		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(1);
 		const envelope = JSON.parse(run.stdout.join(""));

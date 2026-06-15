@@ -66,7 +66,7 @@ async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request:
 				operation: "stack-feedback-prep",
 				counts: { ...compact.summary },
 				artifacts: { produced: [{ kind: "stack-prep", reference: stackSummaryReference }] },
-				details: { harness_session_id: compact.harness_session_id, stack: compact.stack },
+				details: { ...compact },
 			}),
 		);
 	}
