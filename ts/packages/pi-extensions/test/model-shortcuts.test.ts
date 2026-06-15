@@ -26,6 +26,8 @@ const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
 	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.5" },
 	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
+	{ command: "model:gemini-pro", provider: "google", modelId: "gemini-3.1-pro-preview" },
+	{ command: "model:gemini-flash", provider: "google", modelId: "gemini-3.5-flash" },
 	{ command: "model:haiku", provider: "anthropic", modelId: "claude-haiku-4-5" },
 	{ command: "model:opus", provider: "anthropic", modelId: "claude-opus-4-8" },
 ];
