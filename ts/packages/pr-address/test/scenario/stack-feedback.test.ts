@@ -431,11 +431,10 @@ describe("stack-feedback-plan reference and file inputs", () => {
 				[
 					"exec",
 					"validate-feedback-classification",
-					"--manifest-json",
-					JSON.stringify(prepItem.manifest),
+					"--pr-number",
+					String(item.pr_number),
 					"--classification-json",
 					JSON.stringify(item.classification),
-					"--persist-session",
 					"--format",
 					"json",
 				],

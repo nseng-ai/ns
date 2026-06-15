@@ -95,39 +95,9 @@ describe("managed classification/planning CLI operations", () => {
 		}
 	});
 
-	test("validate-feedback-classification and plan-feedback return managed JSON envelopes", async () => {
+	test("plan-feedback returns managed JSON envelopes for wrapper input", async () => {
 		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");
 		const payload = await readFile(inputPath, "utf8");
-
-		const validateRun = runScenario(["exec", "validate-feedback-classification", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT });
-		expect(await validateRun.exit).toBe(0);
-		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: unknown } };
-		expect(validateEnvelope.data.valid).toBe(true);
-		expect(validateEnvelope.data.classification_reference).toBeNull();
-
-		const input = asWrapperInput(await readJson(inputPath));
-		const tempDir = await makeTempDir("pr-address-classification-");
-		const manifestPath = join(tempDir, "manifest.json");
-		const classificationPath = join(tempDir, "classification.json");
-		await writeFile(manifestPath, JSON.stringify(input.manifest), "utf8");
-		await writeFile(classificationPath, JSON.stringify(input.classification), "utf8");
-		const splitValidateRun = runScenario(
-			[
-				"exec",
-				"validate-feedback-classification",
-				"--manifest-file",
-				manifestPath,
-				"--classification-file",
-				classificationPath,
-				"--format",
-				"json",
-			],
-			{ cwd: REPO_ROOT },
-		);
-		expect(await splitValidateRun.exit).toBe(0);
-		const splitValidateEnvelope = JSON.parse(splitValidateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: unknown } };
-		expect(splitValidateEnvelope.data.valid).toBe(true);
-		expect(splitValidateEnvelope.data.classification_reference).toBeNull();
 
 		const planRun = runScenario(["exec", "plan-feedback", "--payload-json", payload, "--format", "json"], { cwd: REPO_ROOT });
 		expect(await planRun.exit).toBe(0);
@@ -150,56 +120,6 @@ describe("managed classification/planning CLI operations", () => {
 		const conflictEnvelope = JSON.parse(conflictRun.stdout.join(""));
 		expect(conflictEnvelope.error_type).toBe("invalid_request");
 		expect(conflictEnvelope.message).toContain("--payload-file");
-	});
-
-	test("validated classifications are persisted and plan-feedback resolves latest PR inputs from the session", async () => {
-		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
-		const root = join(await makeTempDir("pr-address-classification-"), "payload-root");
-		const sessionId = "session-plan";
-		const prNumber = 42;
-		const store = expectPayloadOk(await PayloadStore.open({ root, sessionId, clock: fixedClock("2026-06-09T08:30:00Z") }));
-		expectPayloadOk(
-			await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber, kind: "manifest" }), role: "summary", payload: input.manifest }),
-		);
-		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: sessionId };
-
-		const validateRun = runScenario(
-			[
-				"exec",
-				"validate-feedback-classification",
-				"--manifest-json",
-				JSON.stringify(input.manifest),
-				"--classification-json",
-				JSON.stringify(input.classification),
-				"--persist-session",
-				"--format",
-				"json",
-			],
-			{ cwd: REPO_ROOT, env, payloadClock: fixedClock("2026-06-09T08:30:01Z") },
-		);
-		expect(await validateRun.exit).toBe(0);
-		const validateEnvelope = JSON.parse(validateRun.stdout.join("")) as { data: { valid: boolean; classification_reference: { descriptor: string; sequence: number } } };
-		expect(validateEnvelope.data.valid).toBe(true);
-		expect(validateEnvelope.data.classification_reference.descriptor).toBe("pr-address-pr-42-classification");
-		expect(validateEnvelope.data.classification_reference.sequence).toBe(2);
-
-		const planRun = runScenario(["exec", "plan-feedback", "--pr-number", String(prNumber), "--format", "json"], {
-			cwd: REPO_ROOT,
-			env,
-			payloadClock: fixedClock("2026-06-09T08:30:02Z"),
-		});
-		expect(await planRun.exit).toBe(0);
-		const planEnvelope = JSON.parse(planRun.stdout.join("")) as {
-			data: {
-				valid: boolean;
-				resolved_inputs: { manifest: { descriptor: string; sequence: number }; classification: { descriptor: string; sequence: number } };
-				plan_reference: { descriptor: string; sequence: number };
-			};
-		};
-		expect(planEnvelope.data.valid).toBe(true);
-		expect(planEnvelope.data.resolved_inputs.manifest).toMatchObject({ descriptor: "pr-address-pr-42-manifest", sequence: 1 });
-		expect(planEnvelope.data.resolved_inputs.classification).toMatchObject({ descriptor: "pr-address-pr-42-classification", sequence: 2 });
-		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
 	});
 
 	test("validate-feedback-classification resolves manifest by PR number and auto-persists classification", async () => {
@@ -260,40 +180,12 @@ describe("managed classification/planning CLI operations", () => {
 		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
 	});
 
-	test("validate-feedback-classification session mode rejects missing or mixed classification sources", async () => {
-		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
-		const payload = JSON.stringify(input);
-
+	test("validate-feedback-classification session mode rejects missing classification source", async () => {
 		const missingRun = runScenario(["exec", "validate-feedback-classification", "--pr-number", "42", "--format", "json"], { cwd: REPO_ROOT });
 		expect(await missingRun.exit).toBe(2);
 		const missingEnvelope = JSON.parse(missingRun.stdout.join(""));
 		expect(missingEnvelope.error_type).toBe("invalid_request");
 		expect(missingEnvelope.message).toContain("requires exactly one classification source");
-
-		const wrapperRun = runScenario(
-			["exec", "validate-feedback-classification", "--pr-number", "42", "--payload-json", payload, "--format", "json"],
-			{ cwd: REPO_ROOT },
-		);
-		expect(await wrapperRun.exit).toBe(2);
-		expect(JSON.parse(wrapperRun.stdout.join("")).message).toContain("cannot mix session resolution");
-
-		const manifestRun = runScenario(
-			[
-				"exec",
-				"validate-feedback-classification",
-				"--pr-number",
-				"42",
-				"--manifest-json",
-				JSON.stringify(input.manifest),
-				"--classification-json",
-				JSON.stringify(input.classification),
-				"--format",
-				"json",
-			],
-			{ cwd: REPO_ROOT },
-		);
-		expect(await manifestRun.exit).toBe(2);
-		expect(JSON.parse(manifestRun.stdout.join("")).message).toContain("cannot mix session resolution");
 	});
 
 	test("plan-feedback resolves and writes session artifacts through an injected in-memory payload store", async () => {
@@ -346,16 +238,40 @@ describe("managed classification/planning CLI operations", () => {
 		expect(planEnvelope.data.plan_reference).toMatchObject({ descriptor: "pr-address-pr-42-plan", sequence: 3 });
 	});
 
-	test("validate-feedback-classification exposes explicit persistence at the command boundary", async () => {
+	test("validate-feedback-classification exposes only session input options at the command boundary", async () => {
 		const helpRun = runScenario(["exec", "validate-feedback-classification", "--help"], { cwd: REPO_ROOT });
 		expect(await helpRun.exit).toBe(0);
-		expect(helpRun.stdout.join("")).toContain("--persist-session");
+		const helpText = helpRun.stdout.join("");
+		expect(helpText).toContain("--pr-number");
+		expect(helpText).toContain("--classification-json");
+		expect(helpText).toContain("--classification-file");
+		expect(helpText).not.toContain("--payload-json");
+		expect(helpText).not.toContain("--manifest-json");
+		expect(helpText).not.toContain("--persist-session");
 
 		const schemaRun = runScenario(["exec", "validate-feedback-classification", "--json-schema"], { cwd: REPO_ROOT });
 		expect(await schemaRun.exit).toBe(0);
 		const schemaDocument = JSON.parse(schemaRun.stdout.join("")) as { input_json_schema: { properties: Record<string, unknown> } };
-		expect(schemaDocument.input_json_schema.properties).toHaveProperty("persist_session");
+		expect(schemaDocument.input_json_schema.properties).toHaveProperty("pr_number");
+		expect(schemaDocument.input_json_schema.properties).toHaveProperty("classification_json");
+		expect(schemaDocument.input_json_schema.properties).toHaveProperty("classification_file");
+		expect(schemaDocument.input_json_schema.properties).toHaveProperty("harness_session_id");
+		expect(schemaDocument.input_json_schema.properties).not.toHaveProperty("payload_json");
+		expect(schemaDocument.input_json_schema.properties).not.toHaveProperty("manifest_json");
+		expect(schemaDocument.input_json_schema.properties).not.toHaveProperty("persist_session");
 	});
+
+	for (const removedOptionArgs of [["--payload-json", "{}"], ["--manifest-json", "{}"], ["--persist-session"]]) {
+		test(`validate-feedback-classification rejects removed option ${removedOptionArgs[0]}`, async () => {
+			const run = runScenario(
+				["exec", "validate-feedback-classification", "--pr-number", "42", ...removedOptionArgs, "--format", "json"],
+				{ cwd: REPO_ROOT },
+			);
+			expect(await run.exit).toBe(2);
+			expect(run.stdout.join("")).toBe("");
+			expect(run.stderr.join("")).toContain(`unknown option '${removedOptionArgs[0]}'`);
+		});
+	}
 
 	test("plan-feedback session mode rejects mixed or missing sources and reports missing artifacts", async () => {
 		const inputPath = join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json");

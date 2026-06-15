@@ -44,9 +44,9 @@ questions the stronger agent should inspect next.
    - operation-vocabulary helper names that would not appear in the hand-rolled
      code (`register*Command*`, `*Cli*Command*`, `runCli`, `format*Output`,
      `retry`, `paginate`, `notify*`, `withTimeout`, etc.).
-   For Pi command handlers that invoke a package CLI, specifically check whether
-   `registerCliCommandExtension` exists before accepting custom
-   `registerCommand` with direct `exec` and stdout/stderr rendering code.
+     For Pi command handlers that invoke a package CLI, specifically check whether
+     `registerCliCommandExtension` exists before accepting custom
+     `registerCommand` with direct `exec` and stdout/stderr rendering code.
 3. **Core heuristic — direct call where siblings use a wrapper:** if existing
    call sites appear to route through a shared helper while the changed code
    performs the same operation directly, emit a lead. You do not need to prove
