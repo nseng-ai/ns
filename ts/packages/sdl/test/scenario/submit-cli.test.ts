@@ -414,6 +414,8 @@ describe("sdl submit CLI", () => {
 		expect(run.context.modelCalls).toHaveLength(1);
 		expect(run.context.modelCalls[0]?.operation).toBe("submit-failure");
 		expect(run.context.modelCalls[0]?.prompt).toContain("WARNING: You must restack before submitting this stack.");
+		expect(run.context.modelCalls[0]?.prompt).toContain("This branch does not introduce any changes");
+		expect(run.context.modelCalls[0]?.prompt).toContain("state the exact empty branch name");
 	});
 
 	test("description edit failure keeps submitted PR links visible", async () => {
