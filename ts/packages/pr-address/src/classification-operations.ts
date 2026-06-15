@@ -1,8 +1,9 @@
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
 
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { isPathInside } from "@asdl/plans";
 
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
 import { defineExecOperation, gatewayFailureMessage, type PrAddressExecContext } from "./exec-operation.ts";
@@ -264,7 +265,7 @@ async function validateClassificationFileLocation(ctx: PrAddressExecContext, cla
 		};
 	}
 	const rootPath = resolve(workTreeRoot.root);
-	if (!isPathInsideOrEqual(rootPath, classificationPath)) return { type: "ok", value: null };
+	if (!isPathInside(rootPath, classificationPath)) return { type: "ok", value: null };
 	return {
 		type: "error",
 		errorType: "invalid_request",
@@ -272,7 +273,3 @@ async function validateClassificationFileLocation(ctx: PrAddressExecContext, cla
 	};
 }
 
-function isPathInsideOrEqual(parent: string, candidate: string): boolean {
-	const rel = relative(parent, candidate);
-	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
-}

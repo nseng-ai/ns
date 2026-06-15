@@ -11,7 +11,7 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	schemaDocument,
-	stdoutModeRequestMixin,
+	stdoutModeRequestSchema,
 	validationErrorCodeSchema,
 	validationItemKindSchema,
 } from "./shared.ts";
@@ -101,7 +101,7 @@ export const classificationTemplateResultDocSchema = z.object({
 
 const nullableCliStringSchema = z.string().nullable().default(null);
 
-const validateFeedbackClassificationRequestSchema = stdoutModeRequestMixin
+const validateFeedbackClassificationRequestSchema = stdoutModeRequestSchema
 	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest resolution and classification persistence."),
 		classification_json: nullableCliStringSchema.describe("Inline PR feedback classification packet JSON."),
@@ -110,14 +110,14 @@ const validateFeedbackClassificationRequestSchema = stdoutModeRequestMixin
 	})
 	.strict();
 
-const planFeedbackRequestSchema = stdoutModeRequestMixin
+const planFeedbackRequestSchema = stdoutModeRequestSchema
 	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest and classification resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for session resolution and plan persistence."),
 	})
 	.strict();
 
-export const classificationTemplateRequestSchema = stdoutModeRequestMixin
+export const classificationTemplateRequestSchema = stdoutModeRequestSchema
 	.extend({
 		pr_number: z.int().describe("PR number for payload-session manifest resolution."),
 		harness_session_id: nullableCliStringSchema.describe("Payload session id override for manifest resolution."),

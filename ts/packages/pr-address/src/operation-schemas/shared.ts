@@ -8,7 +8,7 @@ export const nullableIntSchema = z.int().nullable();
 export const nullableBooleanSchema = z.boolean().nullable();
 export const stdoutModeDocSchema = z.enum(["full", "compact"]);
 
-export const stdoutModeRequestMixin = z.object({
+export const stdoutModeRequestSchema = z.object({
 	stdout_mode: stdoutModeDocSchema.optional(),
 });
 export const stdoutModeRequestShape = {

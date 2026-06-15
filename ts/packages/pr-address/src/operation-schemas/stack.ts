@@ -14,12 +14,12 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	planSourceKindDocSchema,
-	stdoutModeRequestMixin,
+	stdoutModeRequestSchema,
 } from "./shared.ts";
 
 // --- build-stack-resolve-thread-payloads ----------------------------------------------
 
-export const buildStackResolveThreadPayloadsRequestSchema = stdoutModeRequestMixin.extend({
+export const buildStackResolveThreadPayloadsRequestSchema = stdoutModeRequestSchema.extend({
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
 	continue_on_error: z.boolean().optional(),
@@ -156,7 +156,7 @@ export const stackFeedbackDiffCurrentResultSchema = z.object({
 
 // --- stack-feedback-prep -----------------------------------------------------------
 
-export const stackFeedbackPrepRequestSchema = stdoutModeRequestMixin.extend({
+export const stackFeedbackPrepRequestSchema = stdoutModeRequestSchema.extend({
 	stack_json: nullableStringSchema.optional(),
 	stack_reference: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
@@ -248,7 +248,7 @@ export const stackFeedbackPrepResultUnionSchema = z.union([stackFeedbackPrepResu
 
 // --- stack-feedback-preflight ------------------------------------------------------
 
-export const stackFeedbackPreflightRequestSchema = stdoutModeRequestMixin.extend({
+export const stackFeedbackPreflightRequestSchema = stdoutModeRequestSchema.extend({
 	branches_json: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
 });
@@ -277,7 +277,7 @@ export const stackFeedbackPreflightResultUnionSchema = z.union([stackFeedbackPre
 
 // --- stack-feedback-plan -----------------------------------------------------------
 
-export const stackFeedbackPlanRequestSchema = stdoutModeRequestMixin.extend({
+export const stackFeedbackPlanRequestSchema = stdoutModeRequestSchema.extend({
 	harness_session_id: nullableStringSchema.optional(),
 });
 

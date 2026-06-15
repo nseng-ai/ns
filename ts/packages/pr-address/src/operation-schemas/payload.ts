@@ -7,12 +7,12 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceInputSchema,
 	resolutionReplyModeSchema,
-	stdoutModeRequestMixin,
+	stdoutModeRequestSchema,
 } from "./shared.ts";
 
 // --- build-resolve-thread-batch-payload ----------------------------------------------
 
-export const buildResolveThreadBatchPayloadRequestSchema = stdoutModeRequestMixin.extend({
+export const buildResolveThreadBatchPayloadRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
@@ -75,7 +75,7 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 
 // --- record-batch-checkpoint ------------------------------------------------------
 
-export const recordBatchCheckpointRequestSchema = stdoutModeRequestMixin.extend({
+export const recordBatchCheckpointRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	batch_id: z.string(),
 	commit_sha: nullableStringSchema.optional(),
@@ -174,7 +174,7 @@ export const recordBatchCheckpointResultSchema = z.object({
 
 // --- finalize-run -----------------------------------------------------------------
 
-export const finalizeRunRequestSchema = stdoutModeRequestMixin.extend({
+export const finalizeRunRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	harness_session_id: nullableStringSchema.optional(),
 });

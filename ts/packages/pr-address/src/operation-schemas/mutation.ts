@@ -7,12 +7,12 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceSchema,
 	resolutionReplyModeSchema,
-	stdoutModeRequestMixin,
+	stdoutModeRequestSchema,
 } from "./shared.ts";
 
 // --- mutation operations --------------------------------------------------------
 
-export const replyToDiscussionRequestSchema = stdoutModeRequestMixin.extend({
+export const replyToDiscussionRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	comment_id: z.int(),
 	comment_author: z.string(),
@@ -29,7 +29,7 @@ export const replyToDiscussionResultSchema = z.object({
 	warning: nullableStringSchema.optional(),
 });
 
-export const replyToReviewRequestSchema = stdoutModeRequestMixin.extend({
+export const replyToReviewRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	review_author: z.string(),
 	summary_markdown: z.string(),
@@ -41,7 +41,7 @@ export const replyToReviewResultSchema = z.object({
 	comment: prDiscussionCommentSchema,
 });
 
-export const resolveThreadWithReplyRequestSchema = stdoutModeRequestMixin.extend({
+export const resolveThreadWithReplyRequestSchema = stdoutModeRequestSchema.extend({
 	thread_id: z.string(),
 	mode: resolutionReplyModeSchema,
 	message: nullableStringSchema,
@@ -58,7 +58,7 @@ export const resolveThreadWithReplyResultSchema = z.object({
 	provenance: resolutionProvenanceSchema.nullable().optional(),
 });
 
-export const resolveThreadBatchRequestSchema = stdoutModeRequestMixin.extend({
+export const resolveThreadBatchRequestSchema = stdoutModeRequestSchema.extend({
 	from_build: z.string(),
 });
 
