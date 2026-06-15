@@ -248,7 +248,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 
 	async getRemoteConfig(remote: string): Promise<import("./contracts.ts").BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
 		const error = this.operationErrors.remoteConfig;
-		if (error !== undefined) return brmemError(error.code, error.message);
+		if (error !== undefined) return brmemOptionalError(error.code, error.message);
 		const cfg = this.remotes.get(remote);
 		if (cfg === undefined) return brmemMissing();
 		return brmemFound({ push: [...cfg.push], fetch: [...cfg.fetch] });

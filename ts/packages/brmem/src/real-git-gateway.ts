@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@asdl/core/exec";
 
-import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError, type BrmemResult } from "./contracts.ts";
+import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError, type BrmemResult, type BrmemOptionalResult } from "./contracts.ts";
 import type {
 	BrmemGateway,
 	CopyEntriesResult,
