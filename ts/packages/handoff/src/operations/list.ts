@@ -37,7 +37,7 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 
 	const handoffs = await listHandoffSummaries(
 		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
-		{ branch, includeDeleted: request.include_deleted },
+		{ branch, shouldIncludeDeleted: request.include_deleted },
 	);
 	if (handoffs.type === "error") return failure(handoffs.error.code, handoffs.error.message);
 	return ok({

@@ -24,7 +24,7 @@ export interface HandoffStorageError {
 
 export interface ListHandoffSummariesOptions {
 	branch?: string | undefined;
-	includeDeleted: boolean;
+	shouldIncludeDeleted: boolean;
 }
 
 export interface HandoffDeletionTarget {
@@ -54,7 +54,7 @@ export async function listHandoffSummaries(
 
 		const state = await classifyBranchState(deps, entry.branch, branchStates);
 		if (state.type === "error") return state;
-		if (state.value === "deleted" && !options.includeDeleted) continue;
+		if (state.value === "deleted" && !options.shouldIncludeDeleted) continue;
 
 		handoffs.push({
 			summary: {
