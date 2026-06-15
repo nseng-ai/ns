@@ -7,6 +7,7 @@ import {
 } from "./autobranch/asdl-dev-checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
+import { startIdleWaitStatus } from "./idle-wait-status.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
 const COMMAND_NAME = "code:autoslot";
@@ -97,10 +98,17 @@ function parseCreatedBranchName(summary: string): string {
 }
 
 async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
-	ctx.ui.notify("Starting /code:autoslot — waiting for Pi idle, then creating a branch and moving it to a slot.", "info");
-	ctx.ui.setStatus(STATUS_KEY, "waiting for Pi idle…");
+	ctx.ui.notify(
+		"Starting /code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
+		"info",
+	);
+	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);
 	try {
-		await ctx.waitForIdle();
+		try {
+			await ctx.waitForIdle();
+		} finally {
+			stopIdleStatus();
+		}
 		await createAutoslotFlow({
 			cwd: ctx.cwd,
 			args,

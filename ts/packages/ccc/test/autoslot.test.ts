@@ -1,6 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { AutobranchCommandContext, AutoslotFlowInput } from "../src/autoslot.ts";
 import { createAutoslotFlow, registerAutoslotCommand } from "../src/autoslot.ts";
+import { startIdleWaitStatus } from "../src/idle-wait-status.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {
@@ -105,39 +106,49 @@ describe("autoslot flow", () => {
 	});
 
 	test("command reports start before waiting for idle", () => {
-		const commands = new Map<string, { description?: string; handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void }>();
-		const notifications: Array<{ message: string; level: string | undefined }> = [];
-		const statuses: Array<string | undefined> = [];
-		let waitCalls = 0;
-		registerAutoslotCommand({
-			registerCommand: (name, command) => commands.set(name, command),
-			exec: async () => {
-				throw new Error("exec should not run before waitForIdle resolves");
-			},
-		});
+		vi.useFakeTimers();
+		try {
+			const commands = new Map<string, { description?: string; handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void }>();
+			const notifications: Array<{ message: string; level: string | undefined }> = [];
+			const statuses: Array<string | undefined> = [];
+			let waitCalls = 0;
+			registerAutoslotCommand({
+				registerCommand: (name, command) => commands.set(name, command),
+				exec: async () => {
+					throw new Error("exec should not run before waitForIdle resolves");
+				},
+			});
 
-		const command = commands.get("code:autoslot");
-		if (command === undefined) throw new Error("Expected code:autoslot command to be registered.");
-		void command.handler("", {
-			cwd: "/repo",
-			ui: {
-				notify: (message, level) => notifications.push({ message, level }),
-				setStatus: (_key, value) => statuses.push(value),
-			},
-			waitForIdle: async () => {
-				waitCalls += 1;
-				await new Promise<void>(() => {});
-			},
-		});
+			const command = commands.get("code:autoslot");
+			if (command === undefined) throw new Error("Expected code:autoslot command to be registered.");
+			void command.handler("", {
+				cwd: "/repo",
+				ui: {
+					notify: (message, level) => notifications.push({ message, level }),
+					setStatus: (_key, value) => statuses.push(value),
+				},
+				waitForIdle: async () => {
+					waitCalls += 1;
+					await new Promise<void>(() => {});
+				},
+			});
 
-		expect(notifications).toEqual([
-			{
-				level: "info",
-				message: "Starting /code:autoslot — waiting for Pi idle, then creating a branch and moving it to a slot.",
-			},
-		]);
-		expect(statuses).toEqual(["waiting for Pi idle…"]);
-		expect(waitCalls).toBe(1);
+			expect(notifications).toEqual([
+				{
+					level: "info",
+					message:
+						"Starting /code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
+				},
+			]);
+			// First status is set synchronously, before the await, so the footer is never blank.
+			expect(statuses[0]).toBe("waiting for Pi to finish responding (0s)");
+			// The ticker keeps the status alive while waitForIdle never resolves.
+			vi.advanceTimersByTime(2_000);
+			expect(statuses.at(-1)).toBe("waiting for Pi to finish responding (2s)");
+			expect(waitCalls).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("successful dirty autoslot runs slot checkout current", async () => {
@@ -192,5 +203,29 @@ describe("autoslot flow", () => {
 		expect(harness.notifications.at(-1)?.level).toBe("error");
 		expect(harness.notifications.at(-1)?.message).toContain("Autoslot created test-branch, but slot checkout failed.");
 		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
+	});
+});
+
+describe("startIdleWaitStatus", () => {
+	test("renders immediately, ticks every second, and stops on cleanup", () => {
+		vi.useFakeTimers();
+		try {
+			const statuses: Array<string | undefined> = [];
+			const stop = startIdleWaitStatus({ setStatus: (_key, value) => statuses.push(value) }, "autoslot");
+
+			expect(statuses).toEqual(["waiting for Pi to finish responding (0s)"]);
+
+			vi.advanceTimersByTime(1_000);
+			expect(statuses.at(-1)).toBe("waiting for Pi to finish responding (1s)");
+			vi.advanceTimersByTime(1_000);
+			expect(statuses.at(-1)).toBe("waiting for Pi to finish responding (2s)");
+
+			stop();
+			const countAfterStop = statuses.length;
+			vi.advanceTimersByTime(5_000);
+			expect(statuses.length).toBe(countAfterStop);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
