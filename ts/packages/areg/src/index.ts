@@ -24,6 +24,11 @@ export type {
 	AregSkillxWorkspaceGateway,
 	AregSkillxWorkspaceInstall,
 	AregToolCheckResult,
+	AregUpdatePathState,
+	AregUpdateProjectGateway,
+	AregUpdateProjectInspectionRequest,
+	AregUpdateProjectInspectionResult,
+	AregUpdateTextFileState,
 } from "./gateways.ts";
 export { derivePiReplacementCommand, parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
 export { parseSkillInput } from "./operations/skillx.ts";
@@ -34,4 +39,5 @@ export {
 	RealAregHostGateway,
 	RealAregNpxSkillsGateway,
 	RealAregSkillxWorkspaceGateway,
+	RealAregUpdateProjectGateway,
 } from "./real-gateways.ts";

@@ -6,6 +6,7 @@ import {
 	FakeAregHostGateway,
 	FakeAregNpxSkillsGateway,
 	FakeAregSkillxWorkspaceGateway,
+	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
 import type {
 	AregCheckProjectInspectionGateway,
@@ -13,6 +14,7 @@ import type {
 	AregHostGateway,
 	AregNpxSkillsGateway,
 	AregSkillxInstalledSkill,
+	AregUpdateProjectGateway,
 	AregSkillxWorkspaceGateway,
 } from "../../src/gateways.ts";
 
@@ -34,6 +36,22 @@ describe("areg gateway fakes", () => {
 		expect((fake as FakeAregCheckProjectInspectionGateway).operations()).toEqual([
 			{ type: "inspect-project-for-check", cwd: "/work", projectPath: "." },
 			{ type: "inspect-project-for-check", cwd: "/work", projectPath: "subdir" },
+		]);
+	});
+
+	test("update project fake copies configured state and logs inspections", async () => {
+		const lockfile = { version: 1, skills: { demo: { source: "owner/repo", sourceType: "github", computedHash: "a".repeat(64) } } };
+		const update: AregUpdateProjectGateway = new FakeAregUpdateProjectGateway({ projectDir: "/repo/project", lockfile, asdlToml: '[areg]\nagents = ["codex"]\n' });
+		lockfile.skills.demo.source = "mutated/repo";
+
+		const first = await update.inspectProjectForUpdate({ cwd: "/repo", projectPath: "project", env: {} });
+		expect(first).toMatchObject({ projectDir: "/repo/project", projectPathState: { type: "directory" }, lockfile: { type: "file", text: expect.stringContaining("owner/repo") } });
+		if (first.lockfile.type === "file") first.lockfile.text = "mutated return";
+		const second = await update.inspectProjectForUpdate({ cwd: "/repo", projectPath: ".", env: {} });
+		expect(second.lockfile).toMatchObject({ type: "file", text: expect.stringContaining("owner/repo") });
+		expect((update as FakeAregUpdateProjectGateway).operations()).toEqual([
+			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "project" },
+			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "." },
 		]);
 	});
 
@@ -77,6 +95,10 @@ describe("areg gateway fakes", () => {
 		const fake = npxSkills as FakeAregNpxSkillsGateway;
 		expect(fake.operations()).toEqual([{ type: "add-skills", sourceRepo: "owner/repo", skillNames: ["one"], targetAgents: ["codex"], cwd: "/repo" }]);
 		expect(await npxSkills.addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: [], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
+
+		const keyed = new FakeAregNpxSkillsGateway({ failures: { "owner/repo:one": { code: "one-failed", message: "one failed" } } });
+		expect(await keyed.addSkills({ sourceRepo: "owner/repo", skillNames: ["one"], targetAgents: [], cwd: "/repo", env: {} })).toMatchObject({ type: "error", error: { code: "one-failed" } });
+		expect(await keyed.addSkills({ sourceRepo: "owner/repo", skillNames: ["two"], targetAgents: [], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
 
 		const failing = new FakeAregNpxSkillsGateway({ failure: { code: "npx-failed", message: "npx failed", displayCommand: "npx skills add" } });
 		expect(await failing.addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: [], cwd: "/repo", env: {} })).toMatchObject({

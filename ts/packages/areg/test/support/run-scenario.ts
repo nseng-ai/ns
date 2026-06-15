@@ -17,6 +17,8 @@ import {
 	type FakeAregPromptGatewayOptions,
 	FakeAregSkillxWorkspaceGateway,
 	type FakeAregSkillxWorkspaceGatewayOptions,
+	FakeAregUpdateProjectGateway,
+	type FakeAregUpdateProjectGatewayOptions,
 } from "../../src/fake-gateways.ts";
 
 export interface ScenarioRunOptions {
@@ -29,6 +31,7 @@ export interface ScenarioRunOptions {
 	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	prompt?: FakeAregPromptGatewayOptions | undefined;
 	initProject?: FakeAregInitProjectGatewayOptions | undefined;
+	updateProject?: FakeAregUpdateProjectGatewayOptions | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 }
@@ -54,6 +57,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		npxSkills,
 		prompt: new FakeAregPromptGateway(options.prompt),
 		initProject: new FakeAregInitProjectGateway(options.initProject),
+		updateProject: new FakeAregUpdateProjectGateway(options.updateProject),
 		cwd,
 		env,
 	} satisfies AregCliContext;
