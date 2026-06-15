@@ -204,8 +204,14 @@ Classification rules:
   classification/execution will follow.
 - For each PR with feedback, classify from
   `classification_template.classification_template`, compact manifests, payload
-  locators, classifier rules, and strict JSON output. Prefer one focused
-  subagent per PR when model routing is available.
+  locators, classifier rules, and strict JSON output. Pipe that JSON to
+  `validate-feedback-classification --pr-number <pr>` or pass it via
+  `--classification-json`; never create repo-root `classification-<pr>.json` or
+  `classification.json` scratch files. Prefer one focused subagent per PR when
+  model routing is available.
+- Classifier subagents should return JSON to the parent session, or store any
+  temporary packet outside the worktree under the helper run directory/payload
+  store. Do not write classification packets into the repo.
 - Direct parent-session classification may skip a classifier subagent only when
   the whole stack has at most three simple unresolved inline review-thread
   comments, they are clearly bot/roaster automation, there are no actionable

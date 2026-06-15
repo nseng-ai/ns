@@ -13,7 +13,8 @@ Use `pr-address exec ...` helpers to collect, classify, plan, build, and optiona
 - Do not push, submit, publish, merge, or deploy unless the user explicitly asks.
 - Do not hand-roll reply bodies or resolve review threads outside ready `pr-address` build artifacts.
 - Do not drop unresolved review threads from classification or finalization.
-- Agent-authored files are allowed and expected: classification packets, decisions files, and checkpoint evidence files.
+- Classification packets are agent-authored JSON input, normally sent via stdin or `--classification-json`; `validate-feedback-classification` persists the validated packet into the payload session.
+- Agent-authored decisions files and checkpoint evidence files remain file-based.
 - Pipeline-produced artifacts are resolved from the payload session, not pasted into wrapper JSON.
 
 ## Session setup
@@ -39,15 +40,15 @@ export HARNESS_SESSION_ID="pr-address-$(date -u +%Y%m%dT%H%M%SZ)"
    pr-address exec classification-template --pr-number <pr-number> --format json
    ```
 
-3. Write an agent-authored `classification.json` from the scaffold and inspected payload details.
+3. Produce agent-authored classification JSON from the scaffold and inspected payload details.
 
-4. Validate and persist the classification:
+4. Validate and persist the classification without creating a repo scratch file:
 
    ```bash
-   pr-address exec validate-feedback-classification \
-     --pr-number <pr-number> \
-     --classification-file classification.json \
-     --format json
+   printf '%s' "$CLASSIFICATION_JSON" \
+     | pr-address exec validate-feedback-classification \
+         --pr-number <pr-number> \
+         --format json
    ```
 
 5. Plan feedback from session artifacts:
@@ -86,7 +87,7 @@ export HARNESS_SESSION_ID="pr-address-$(date -u +%Y%m%dT%H%M%SZ)"
 ## Stack flow
 
 1. Map/prepare the stack so prep and per-PR manifests/templates are in the session.
-2. For each PR, run `classification-template --pr-number <pr>`, write a classification file, and validate it with `validate-feedback-classification --pr-number <pr> --classification-file <file>`.
+2. For each PR, run `classification-template --pr-number <pr>`, produce strict classification JSON, and pipe it to `validate-feedback-classification --pr-number <pr>`; do not create repo-root classification files.
 3. Plan the stack from session artifacts:
 
    ```bash

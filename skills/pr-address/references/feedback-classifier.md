@@ -14,16 +14,16 @@ Inspect referenced payload artifacts as needed. Do not ask the classifier to com
 
 ## Output
 
-Write a PR feedback classification packet as an agent-authored JSON file. Then validate and persist it with:
+Return a PR feedback classification packet as strict agent-authored JSON. The parent session validates and persists it without creating a repo scratch file:
 
 ```bash
-pr-address exec validate-feedback-classification \
-  --pr-number <pr-number> \
-  --classification-file classification.json \
-  --format json
+printf '%s' "$CLASSIFICATION_JSON" \
+  | pr-address exec validate-feedback-classification \
+      --pr-number <pr-number> \
+      --format json
 ```
 
-Validation resolves the manifest from the payload session and stores the classification artifact used by `plan-feedback` and `stack-feedback-plan`.
+`validate-feedback-classification` also accepts `--classification-json` for compact inline packets. `--classification-file <path>` is only for files outside the current git worktree, such as temp files or externally managed scratch directories; worktree-local paths hard-fail with no override. Validation resolves the manifest from the payload session and stores the classification artifact used by `plan-feedback` and `stack-feedback-plan`.
 
 ## Classification responsibilities
 

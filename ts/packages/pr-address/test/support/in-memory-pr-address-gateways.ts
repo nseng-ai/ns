@@ -18,6 +18,7 @@ import type {
 	Reaction,
 	RepoContextResult,
 	RestructuredFile,
+	WorkTreeRootResult,
 } from "../../src/gateways.ts";
 import type { PrAddressContext } from "../../src/context.ts";
 import { createNodePayloadStoreFactory } from "../../src/payload-store.ts";
@@ -77,6 +78,8 @@ export interface InMemoryGitState {
 	currentBranchFailure?: GatewayFailure | undefined;
 	isInsideWorkTree?: boolean | undefined;
 	repoContextFailure?: GatewayFailure | undefined;
+	workTreeRoot?: string | null | undefined;
+	workTreeRootFailure?: GatewayFailure | undefined;
 	branchHeadOids?: ReadonlyMap<string, string> | Record<string, string> | undefined;
 	commitChangedFiles?: ReadonlyMap<string, readonly string[]> | Record<string, readonly string[]> | undefined;
 	commitChangedFilesFailure?: GatewayFailure | undefined;
@@ -230,6 +233,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	private readonly currentBranchFailure: GatewayFailure | undefined;
 	private readonly isConfiguredInsideWorkTree: boolean;
 	private readonly repoContextFailure: GatewayFailure | undefined;
+	private readonly workTreeRoot: string | null;
+	private readonly workTreeRootFailure: GatewayFailure | undefined;
 	private readonly branchHeadOids: ReadonlyMap<string, string>;
 	private readonly commitChangedFiles: ReadonlyMap<string, readonly string[]>;
 	private readonly commitChangedFilesFailure: GatewayFailure | undefined;
@@ -241,6 +246,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 		this.currentBranchFailure = state.currentBranchFailure;
 		this.isConfiguredInsideWorkTree = state.isInsideWorkTree ?? true;
 		this.repoContextFailure = state.repoContextFailure;
+		this.workTreeRoot = state.workTreeRoot === undefined ? (this.isConfiguredInsideWorkTree ? "/repo" : null) : state.workTreeRoot;
+		this.workTreeRootFailure = state.workTreeRootFailure;
 		this.branchHeadOids = stringMap(state.branchHeadOids);
 		this.commitChangedFiles = stringMap(state.commitChangedFiles);
 		this.commitChangedFilesFailure = state.commitChangedFilesFailure;
@@ -257,6 +264,12 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	async isInsideWorkTree(_options: GatewayOptions): Promise<RepoContextResult> {
 		if (this.repoContextFailure !== undefined) return { type: "failure", failure: clone(this.repoContextFailure) };
 		return this.isConfiguredInsideWorkTree ? { type: "inside" } : { type: "outside" };
+	}
+
+	async getWorkTreeRoot(_options: GatewayOptions): Promise<WorkTreeRootResult> {
+		if (this.workTreeRootFailure !== undefined) return { type: "failure", failure: clone(this.workTreeRootFailure) };
+		if (!this.isConfiguredInsideWorkTree || this.workTreeRoot === null) return { type: "outside" };
+		return { type: "inside", root: this.workTreeRoot };
 	}
 
 	async getBranchHeadOid(branch: string, _options: GatewayOptions): Promise<BranchHeadOidResult> {

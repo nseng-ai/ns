@@ -1,9 +1,11 @@
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification, type FeedbackClassificationValidationResult } from "./classification.ts";
-import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
+import { defineExecOperation, gatewayFailureMessage, type PrAddressExecContext } from "./exec-operation.ts";
 import { loadJsonRecord } from "./json-input.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
@@ -215,17 +217,20 @@ async function loadValidateSessionInput(
 	request: z.output<typeof validateFeedbackClassificationParseSchema>,
 ): Promise<OperationResult<ValidateFeedbackClassificationInput, string>> {
 	const classificationSourceCount = Number(request.classification_json !== undefined) + Number(request.classification_file !== undefined);
-	if (classificationSourceCount !== 1) {
+	if (classificationSourceCount > 1) {
 		return {
 			type: "error",
 			errorType: "invalid_request",
-			message: "validate-feedback-classification session input requires exactly one classification source (--classification-json or --classification-file).",
+			message: "validate-feedback-classification accepts only one classification source; do not pass both --classification-json and --classification-file.",
 		};
+	}
+	if (request.classification_file !== undefined) {
+		const fileLocation = await validateClassificationFileLocation(ctx, request.classification_file);
+		if (fileLocation.type === "error") return fileLocation;
 	}
 	const classification = await loadJsonRecord({
 		optionValue: request.classification_json,
 		filePath: request.classification_file,
-		canReadStdin: false,
 		commandName: "validate-feedback-classification",
 		inputDescription: "classification",
 		optionName: "--classification-json",
@@ -245,4 +250,29 @@ async function loadValidateSessionInput(
 			resolvedInputs: { manifest: manifest.value.resolvedInput },
 		},
 	};
+}
+
+async function validateClassificationFileLocation(ctx: PrAddressExecContext, classificationFile: string): Promise<OperationResult<null, string>> {
+	const classificationPath = resolve(ctx.cwd, classificationFile);
+	const workTreeRoot = await ctx.context.git.getWorkTreeRoot({ cwd: ctx.cwd, env: ctx.env });
+	if (workTreeRoot.type === "outside") return { type: "ok", value: null };
+	if (workTreeRoot.type === "failure") {
+		return {
+			type: "error",
+			errorType: "pr_gateway_failure",
+			message: gatewayFailureMessage("Failed to resolve current git worktree root for validate-feedback-classification --classification-file safety guard", workTreeRoot.failure),
+		};
+	}
+	const rootPath = resolve(workTreeRoot.root);
+	if (!isPathInsideOrEqual(rootPath, classificationPath)) return { type: "ok", value: null };
+	return {
+		type: "error",
+		errorType: "invalid_request",
+		message: `validate-feedback-classification refuses --classification-file paths inside the current git worktree: ${classificationPath}. Pass classification JSON on stdin or via --classification-json, or use a file outside the worktree.`,
+	};
+}
+
+function isPathInsideOrEqual(parent: string, candidate: string): boolean {
+	const rel = relative(parent, candidate);
+	return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }

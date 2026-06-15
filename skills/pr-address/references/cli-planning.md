@@ -1,6 +1,6 @@
 # pr-address CLI planning helpers
 
-Planning helpers are session-store first: pipeline-produced artifacts are resolved from the payload session, while agent-authored JSON stays in files.
+Planning helpers are session-store first: pipeline-produced artifacts are resolved from the payload session, while agent-authored classification JSON is sent via stdin/`--classification-json` and file-based decisions/evidence stay in explicit files.
 
 ## Session prerequisites
 
@@ -24,16 +24,16 @@ The helper no longer accepts manifest JSON through stdin or explicit manifest fl
 
 ## Validate classification
 
-The agent writes a classification packet file from the scaffold, then validates it by PR number:
+The agent produces a classification packet from the scaffold, then validates it by PR number. Prefer stdin so no repo scratch file is created:
 
 ```bash
-pr-address exec validate-feedback-classification \
-  --pr-number <pr-number> \
-  --classification-file classification.json \
-  --format json
+printf '%s' "$CLASSIFICATION_JSON" \
+  | pr-address exec validate-feedback-classification \
+      --pr-number <pr-number> \
+      --format json
 ```
 
-Validation resolves the manifest from the payload session and persists the validated classification artifact for later planning.
+`--classification-json` remains available for compact inline packets. `--classification-file <path>` is allowed only for files outside the current git worktree, such as temp files or externally managed scratch directories; worktree-local paths hard-fail with no override. Validation resolves the manifest from the payload session and persists the validated classification artifact for later planning.
 
 ## Single-PR plan
 
@@ -50,7 +50,7 @@ It no longer accepts wrapper payload JSON via stdin or explicit payload flags. N
 Stack planning uses only session artifacts:
 
 1. Run `stack-feedback-prep` so the session contains stack prep and per-PR manifests/templates.
-2. For each PR, run `classification-template --pr-number <pr>`, write an agent-authored classification file, then run `validate-feedback-classification --pr-number <pr> --classification-file <file>`.
+2. For each PR, run `classification-template --pr-number <pr>`, produce strict classification JSON, then pipe it to `validate-feedback-classification --pr-number <pr>` or pass it via `--classification-json`.
 3. Run `stack-feedback-plan` with empty stdin and no payload-source flags:
 
 ```bash
