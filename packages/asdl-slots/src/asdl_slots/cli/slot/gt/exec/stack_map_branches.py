@@ -140,11 +140,13 @@ def run_stack_map_branches(
         slots_ctx.git.list_local_branch_tips(),
         request.recent_limit,
     )
+    local_branch_names = frozenset(slots_ctx.git.list_local_branches())
     selected, selection_warnings = _select_visible_branches(
         graph_by_name=graph_by_name,
         stack=stack,
         slot_rows=slot_rows,
         recent_branches=recent_branches,
+        local_branches=local_branch_names,
     )
     warnings = _dedupe_warnings(
         (*graph_result.render_warnings(), *stack.render_warnings(), *selection_warnings)
@@ -195,6 +197,7 @@ def _select_visible_branches(
     stack: StackInfo,
     slot_rows: tuple[SlotGtStackMapSlot, ...],
     recent_branches: tuple[str, ...],
+    local_branches: frozenset[str],
 ) -> tuple[set[str], tuple[str, ...]]:
     selected = {
         stack.trunk,
@@ -220,7 +223,8 @@ def _select_visible_branches(
             continue
         _add_ancestors(branch, selected, graph_by_name, warnings)
         _add_descendants(branch, selected, graph_by_name, warnings)
-    return selected.intersection(graph_by_name), tuple(warnings)
+    visible = selected.intersection(graph_by_name) & local_branches
+    return visible, tuple(warnings)
 
 
 def _add_ancestors(

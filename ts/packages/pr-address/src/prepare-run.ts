@@ -57,8 +57,8 @@ export const prepareRunOperation = defineExecOperation({
 		harnessSessionId: (request) => request.harness_session_id,
 		buildCompact: async ({ data, store, fullOutput }) => {
 			const manifest = isPrepareRunInlineResult(data) ? buildManifest(data, fullOutput) : (data as ReturnType<typeof buildPrepareRunPayloadManifest>);
-			const shouldMirror = isPrepareRunInlineResult(data) && data.found;
-			const manifestReference = shouldMirror ? await writePrManifestArtifact({ store, prNumber: (data as PrepareRunInlineFound).number, manifest }) : null;
+			const manifestReference =
+				manifest.found && manifest.number !== null ? await writePrManifestArtifact({ store, prNumber: manifest.number, manifest }) : null;
 			if (manifestReference?.type === "error") return { type: "error", errorType: manifestReference.errorType, message: manifestReference.message };
 			return {
 				type: "ok",
