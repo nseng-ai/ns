@@ -1,15 +1,17 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError, type SdlCommandCandidate } from "./command-registry.ts";
+import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError } from "./command-registry.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
-export interface DiscoveredExtensionCommand extends SdlCommandCandidate {
-	kind: DiscoveredExtensionCommandKind;
+export interface DiscoveredExtensionCommand {
+	name: string;
+	description: string;
+	fullDescription: string;
 	entryPath: string;
-	rootDir: string;
 	displayPath: string;
+	kind: DiscoveredExtensionCommandKind;
 }
 
 export interface ExtensionDiscoveryDiagnostic {
@@ -177,34 +179,25 @@ function commandForManifestEntry(options: {
 		diagnostics.push(diagnostic("extension_manifest_command_name_invalid", `Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${name.value}.`, { path: options.packageJsonPath, commandName }));
 	}
 
+	let entryPath: string | undefined;
 	if (rawEntryPath.value !== undefined) {
-		if (rawEntryPath.value.startsWith("/") || rawEntryPath.value.includes("\\")) {
-			diagnostics.push(diagnostic("extension_manifest_entry_not_relative", `Extension manifest command entry must be a relative POSIX-style path inside the package: ${rawEntryPath.value}.`, { path: options.packageJsonPath, commandName }));
+		const entryPathValidation = validateManifestEntryPath({
+			packageDir: options.packageDir,
+			packageJsonPath: options.packageJsonPath,
+			rawEntryPath: rawEntryPath.value,
+			commandName,
+		});
+		if (entryPathValidation.ok) {
+			entryPath = entryPathValidation.entryPath;
 		} else {
-			const resolvedEntry = resolve(options.packageDir, rawEntryPath.value);
-			if (!isInsideDirectory(options.packageDir, resolvedEntry)) {
-				diagnostics.push(diagnostic("extension_manifest_entry_escapes", `Extension manifest command entry must not escape its package directory: ${rawEntryPath.value}.`, { path: options.packageJsonPath, commandName }));
-			} else if (!isLoadableExtensionFile(basename(resolvedEntry))) {
-				diagnostics.push(diagnostic("extension_manifest_entry_unsupported", `Extension manifest command entry must be a .ts or .js file, excluding .d.ts: ${rawEntryPath.value}.`, { path: options.packageJsonPath, commandName }));
-			} else {
-				let entryStat;
-				try {
-					entryStat = statSync(resolvedEntry);
-				} catch {
-					diagnostics.push(diagnostic("extension_manifest_entry_missing", `Extension manifest command entry does not exist: ${rawEntryPath.value}.`, { path: options.packageJsonPath, commandName }));
-				}
-				if (entryStat !== undefined && !entryStat.isFile()) {
-					diagnostics.push(diagnostic("extension_manifest_entry_not_file", `Extension manifest command entry must be a file: ${rawEntryPath.value}.`, { path: options.packageJsonPath, commandName }));
-				}
-			}
+			diagnostics.push(...entryPathValidation.diagnostics);
 		}
 	}
 
-	if (diagnostics.length > 0 || name.value === undefined || description.value === undefined || fullDescription.value === undefined || rawEntryPath.value === undefined) {
+	if (diagnostics.length > 0 || name.value === undefined || description.value === undefined || fullDescription.value === undefined || entryPath === undefined) {
 		return { ok: false, diagnostics };
 	}
 
-	const entryPath = resolve(options.packageDir, rawEntryPath.value);
 	const displayPath = relativeDisplayPath(options.rootDir, entryPath);
 	return {
 		ok: true,
@@ -214,11 +207,79 @@ function commandForManifestEntry(options: {
 			description: description.value,
 			fullDescription: fullDescription.value,
 			entryPath,
-			rootDir: options.rootDir,
 			displayPath,
-			source: { level: "project", label: displayPath, path: entryPath },
 		},
 	};
+}
+
+function validateManifestEntryPath(options: {
+	packageDir: string;
+	packageJsonPath: string;
+	rawEntryPath: string;
+	commandName: string | undefined;
+}): { ok: true; entryPath: string } | { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
+	if (options.rawEntryPath.startsWith("/") || options.rawEntryPath.includes("\\")) {
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic("extension_manifest_entry_not_relative", `Extension manifest command entry must be a relative POSIX-style path inside the package: ${options.rawEntryPath}.`, {
+					path: options.packageJsonPath,
+					commandName: options.commandName,
+				}),
+			],
+		};
+	}
+
+	const resolvedEntry = resolve(options.packageDir, options.rawEntryPath);
+	if (!isInsideDirectory(options.packageDir, resolvedEntry)) {
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic("extension_manifest_entry_escapes", `Extension manifest command entry must not escape its package directory: ${options.rawEntryPath}.`, {
+					path: options.packageJsonPath,
+					commandName: options.commandName,
+				}),
+			],
+		};
+	}
+	if (!isLoadableExtensionFile(basename(resolvedEntry))) {
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic("extension_manifest_entry_unsupported", `Extension manifest command entry must be a .ts or .js file, excluding .d.ts: ${options.rawEntryPath}.`, {
+					path: options.packageJsonPath,
+					commandName: options.commandName,
+				}),
+			],
+		};
+	}
+
+	let entryStat;
+	try {
+		entryStat = statSync(resolvedEntry);
+	} catch {
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic("extension_manifest_entry_missing", `Extension manifest command entry does not exist: ${options.rawEntryPath}.`, {
+					path: options.packageJsonPath,
+					commandName: options.commandName,
+				}),
+			],
+		};
+	}
+	if (!entryStat.isFile()) {
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic("extension_manifest_entry_not_file", `Extension manifest command entry must be a file: ${options.rawEntryPath}.`, {
+					path: options.packageJsonPath,
+					commandName: options.commandName,
+				}),
+			],
+		};
+	}
+	return { ok: true, entryPath: resolvedEntry };
 }
 
 function readRequiredString(options: {
@@ -251,9 +312,7 @@ function buildCommand(options: {
 		description,
 		fullDescription: description,
 		entryPath: options.entryPath,
-		rootDir: options.rootDir,
 		displayPath: relativeDisplayPath(options.rootDir, options.entryPath),
-		source: { level: "project", label: relativeDisplayPath(options.rootDir, options.entryPath), path: options.entryPath },
 	};
 }
 
