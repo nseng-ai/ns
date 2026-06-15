@@ -5,6 +5,7 @@ import { type GitGateway, RealGitGateway } from "@asdl/core/git";
 import { NodeCommandExecApi } from "@asdl/core/exec";
 
 import type { ReviewCatalogFailure, RoasterResult } from "../failures.ts";
+import { isMissingFileError } from "./filesystem-errors.ts";
 
 const REVIEWS_DIRNAME = "reviews";
 
@@ -196,6 +197,3 @@ function mapFromEntries<T>(source: Readonly<Record<string, T>> | ReadonlyMap<str
 	return new Map(Object.entries(source));
 }
 
-function isMissingFileError(caught: unknown): boolean {
-	return typeof caught === "object" && caught !== null && "code" in caught && caught.code === "ENOENT";
-}

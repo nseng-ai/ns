@@ -42,11 +42,17 @@ export interface GitHubGatewayOptions {
 	readonly signal?: AbortSignal | undefined;
 }
 
+export interface FindPrDiscussionCommentByMarkerOptions extends GitHubGatewayOptions {
+	readonly prNumber: number;
+	readonly marker: string;
+	readonly authorLogin: string;
+}
+
 export interface RoasterGitHubGateway {
 	getPrChangedFiles(prNumber: number, options: GitHubGatewayOptions): Promise<RoasterResult<readonly PRChangedFile[]>>;
 	getPrReviewComments(prNumber: number, options: GitHubGatewayOptions): Promise<RoasterResult<readonly PRReviewComment[]>>;
 	createPrReview(prNumber: number, comments: readonly PRInlineCommentInput[], options: GitHubGatewayOptions): Promise<RoasterResult<void>>;
-	findPrDiscussionCommentByMarker(prNumber: number, marker: string, authorLogin: string, options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment | null>>;
+	findPrDiscussionCommentByMarker(options: FindPrDiscussionCommentByMarkerOptions): Promise<RoasterResult<PRDiscussionComment | null>>;
 	addPrDiscussionComment(prNumber: number, body: string, options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment>>;
 	updatePrDiscussionComment(commentId: number, body: string, options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment>>;
 }
@@ -91,10 +97,10 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		}
 	}
 
-	async findPrDiscussionCommentByMarker(prNumber: number, marker: string, authorLogin: string, options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
-		const comments = await this.getIssueComments(prNumber, options);
+	async findPrDiscussionCommentByMarker(options: FindPrDiscussionCommentByMarkerOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
+		const comments = await this.getIssueComments(options.prNumber, options);
 		if (comments.type === "error") return comments;
-		const comment = comments.value.find((item) => item.author === authorLogin && item.body.includes(marker));
+		const comment = comments.value.find((item) => item.author === options.authorLogin && item.body.includes(options.marker));
 		return { type: "ok", value: comment === undefined ? null : publicDiscussionComment(comment) };
 	}
 
@@ -176,8 +182,8 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 		return { type: "ok", value: undefined };
 	}
 
-	async findPrDiscussionCommentByMarker(prNumber: number, marker: string, authorLogin: string, _options: GitHubGatewayOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
-		const comment = (this.discussionCommentsByPr.get(prNumber) ?? []).find((item) => item.author === authorLogin && item.body.includes(marker));
+	async findPrDiscussionCommentByMarker(options: FindPrDiscussionCommentByMarkerOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
+		const comment = (this.discussionCommentsByPr.get(options.prNumber) ?? []).find((item) => item.author === options.authorLogin && item.body.includes(options.marker));
 		return { type: "ok", value: comment === undefined ? null : { id: comment.id, body: comment.body } };
 	}
 
