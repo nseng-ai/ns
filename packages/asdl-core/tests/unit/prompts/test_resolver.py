@@ -267,6 +267,7 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert "Harness-neutral command guidance:" not in embedded_prompt
     assert "Implementation checkpoint guidance:" not in embedded_prompt
     assert "sdl cp" not in embedded_prompt
+    # PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
     assert "Refactor execution strategy:" in embedded_prompt
     assert "ts-morph-refactor" in embedded_prompt
     assert "refactor-swarm" in embedded_prompt
@@ -274,6 +275,7 @@ def test_checked_in_plans_write_prompt_is_intentional_repo_override() -> None:
     assert "ts-morph-analyze" in resolution.content
     assert "semantic doc/spec changes" in resolution.content
     assert "stale-terminology check" in resolution.content
+    # PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
     assert "Subagent orchestration opportunities:" in resolution.content
     assert "`Subagent orchestration opportunities: none` with a one-sentence rationale" in (
         resolution.content

@@ -43,6 +43,8 @@ Harness-neutral command guidance:
 - For checkpointing guidance, write `sdl cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
 - If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
+
 Refactor execution strategy:
 
 - If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
@@ -51,6 +53,8 @@ Refactor execution strategy:
 - For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc `text.replace()` scripts for semantic changes.
 - For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend `refactor-swarm`.
 - Require a final grep or equivalent stale-terminology check when changing names/concepts.
+
+<!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 
 Recommended saved plan sections:
 

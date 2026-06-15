@@ -58,6 +58,7 @@ External research/context contract:
 - If external findings may become stale, mark what should be revalidated during implementation.
 - Do not include secrets, credentials, private tokens, or unnecessary sensitive data.
 
+<!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
 Refactor execution strategy:
 - If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
 - For TypeScript symbol/API refactors, call out the ts-morph-refactor skill when it fits; use ts-morph-analyze for AST inspection before designing broad TypeScript changes.
@@ -65,6 +66,7 @@ Refactor execution strategy:
 - For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc text.replace() scripts for semantic changes.
 - For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend refactor-swarm.
 - Require a final grep or equivalent stale-terminology check when changing names/concepts.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 
 Recommended saved plan sections:
 - Goal and user-visible outcome.
@@ -160,7 +162,9 @@ Save/no-save decision:
 
 Final plan requirements:
 - Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
+<!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
 - If the plan includes same-shape edits across multiple files, explicitly choose an execution strategy: ts-morph-refactor/ts-morph-analyze for fitting TypeScript AST work, precise edits for 1-4 files or semantic docs/specs, and refactor-swarm for 5+ file-local prose-aware or mixed code/docs/tests edits.
+<!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 - Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
 - Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
 }
