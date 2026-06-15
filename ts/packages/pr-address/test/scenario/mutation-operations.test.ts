@@ -148,8 +148,31 @@ describe("mutation operations use fake gateways", () => {
 		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", named.payload_path, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
 		expect(await run.exit).toBe(0);
+		const data = JSON.parse(run.stdout.join("")).data;
+		expect(data.resolved_inputs.build.payload_path).toBe(named.payload_path);
+		expect(data.resolution_reference).toMatchObject({ descriptor: "pr-address-pr-42-batch-batch-1-resolution", role: "summary" });
+		const resolutionArtifact = JSON.parse(payloadStoreFactory.artifactText(data.resolution_reference.payload_path) ?? "{}");
+		expect(resolutionArtifact).toMatchObject({ artifact_kind: "thread_resolution_result", pr_number: 42, batch_id: "batch-1", build_reference: { payload_path: named.payload_path } });
 		expect(github.threadReplies.map((reply) => reply.threadId)).toEqual(["PRRT_named"]);
 		expect(github.resolvedThreadIds).toEqual(["PRRT_named"]);
+	});
+
+	test("resolve-thread-batch rejects non-ready build artifacts before any mutation", async () => {
+		const github = new InMemoryPrAddressGitHubGateway();
+		const { env, payloadStoreFactory, artifactPath } = await seedBuildArtifact({
+			prNumber: 42,
+			threadId: "PRRT_fixed",
+			artifact: { ...buildArtifact({ prNumber: 42, threadId: "PRRT_fixed" }), payload_ready: false, payload: null },
+		});
+		const beforeArtifacts = payloadStoreFactory.artifactPaths;
+
+		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join("")).error_type).toBe("invalid_request");
+		expect(github.threadReplies).toEqual([]);
+		expect(github.resolvedThreadIds).toEqual([]);
+		expect(payloadStoreFactory.artifactPaths).toEqual(beforeArtifacts);
 	});
 
 	test("resolve-thread-batch returns partial negative data and skips by default on gateway failure", async () => {
@@ -176,6 +199,7 @@ describe("mutation operations use fake gateways", () => {
 		expect(envelope.data.failed).toBe(1);
 		expect(envelope.data.skipped).toBe(1);
 		expect(envelope.data.results.map((result: { status: string }) => result.status)).toEqual(["resolved", "failed", "skipped"]);
+		expect(envelope.data.resolution_reference).toMatchObject({ descriptor: "pr-address-pr-42-batch-batch-1-resolution" });
 		expect(github.threadReplies.map((reply) => reply.threadId)).toEqual(["PRRT_ok"]);
 		expect(github.resolvedThreadIds).toEqual(["PRRT_ok"]);
 	});
@@ -208,7 +232,7 @@ function buildArtifact(options: {
 	prNumber: number;
 	threadId?: string | undefined;
 	commitSha?: string | null | undefined;
-	items?: ThreadResolutionBuildArtifact["payload"]["items"] | undefined;
+	items?: NonNullable<ThreadResolutionBuildArtifact["payload"]>["items"] | undefined;
 }): ThreadResolutionBuildArtifact {
 	const items = options.items ?? [{ thread_id: options.threadId ?? "PRRT_fixed", mode: "fixed" as const, message: "Fixed.", commit_sha: null, provenance: null }];
 	return {

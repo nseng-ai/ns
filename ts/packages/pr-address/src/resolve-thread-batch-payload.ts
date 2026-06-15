@@ -137,7 +137,7 @@ async function runBuildResolveThreadBatchPayloadOperation(
 		decisions: decisions.value,
 	});
 	const resultWithInputs = { ...result, resolved_inputs: { plan: planInput.value.resolvedInput }, build_reference: null as PayloadReference | null };
-	if (result.valid && result.payload_ready && result.payload !== null) {
+	if (result.valid) {
 		const writeResult = await planInput.value.store.writeJsonArtifact({
 			descriptor: prBatchArtifactDescriptor({ prNumber: request.pr_number, batchId, kind: "resolve-build" }),
 			role: "summary",
@@ -174,7 +174,7 @@ export function threadResolutionBuildArtifact(options: {
 	result: BuildResolveThreadBatchPayloadResult;
 	planReference: PayloadReference;
 }): ThreadResolutionBuildArtifact {
-	if (options.result.payload === null || !options.result.payload_ready) throw new Error("Cannot create thread-resolution build artifact without a ready payload.");
+	if (!options.result.valid) throw new Error("Cannot create thread-resolution build artifact from an invalid build result.");
 	return {
 		artifact_kind: "thread_resolution_build",
 		source: options.source,
@@ -182,7 +182,7 @@ export function threadResolutionBuildArtifact(options: {
 		batch_id: options.result.batch_id,
 		commit_sha: options.result.commit_sha,
 		continue_on_error: options.result.continue_on_error,
-		payload_ready: true,
+		payload_ready: options.result.payload_ready,
 		payload: options.result.payload,
 		resolved_inputs: { plan: options.planReference },
 		build: {

@@ -2,11 +2,13 @@ import { z } from "zod";
 
 import type { PrAddressExecContext } from "./exec-operation.ts";
 import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./feedback-manifest-contracts.ts";
+import type { FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import type { JsonInputError } from "./json-input.ts";
-import type { JsonPayloadRole, PayloadArtifactStore, PayloadErrorType, PayloadReference } from "./payload-store.ts";
+import { buildGetFeedbackPayloadManifest, type JsonPayloadRole, type PayloadArtifactStore, type PayloadErrorType, type PayloadReference } from "./payload-store.ts";
 import {
 	classificationArtifactSchema,
 	prArtifactDescriptor,
+	prBatchArtifactDescriptor,
 	resolveLatestJsonSessionArtifact,
 	stackArtifactDescriptor,
 	type ClassificationArtifact,
@@ -15,6 +17,7 @@ import {
 	type StackArtifactKind,
 } from "./session-artifacts.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanConsumer } from "./feedback-plan-contracts.ts";
+import { threadResolutionBuildArtifactSchema, threadResolutionResultArtifactSchema, type ThreadResolutionBuildArtifact, type ThreadResolutionResultArtifact } from "./thread-resolution-build-artifact.ts";
 import {
 	stackFeedbackPlanConsumerResultSchema,
 	type StackFeedbackPlanConsumerResult,
@@ -227,6 +230,84 @@ export async function resolveLatestPrSessionArtifact<T>(options: {
 	});
 }
 
+export async function resolveLatestPrBatchSessionArtifact<T = unknown>(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	batchId: string;
+	kind: "resolve-build" | "resolution" | "checkpoint";
+	role: JsonPayloadRole;
+	schema?: z.ZodType<T> | undefined;
+}): Promise<OperationResult<ResolvedSessionArtifact<T>, PayloadErrorType>> {
+	return await resolveLatestJsonSessionArtifact({
+		store: options.store,
+		descriptor: prBatchArtifactDescriptor({ prNumber: options.prNumber, batchId: options.batchId, kind: options.kind }),
+		role: options.role,
+		schema: options.schema,
+	});
+}
+
+const rawFeedbackReviewSchema = z.looseObject({
+	id: z.string(),
+	author: z.string().default(""),
+	body: z.string().default(""),
+	state: z.string().default(""),
+	submitted_at: z.string().default(""),
+});
+const rawFeedbackReviewCommentSchema = z.looseObject({
+	id: z.number().int(),
+	body: z.string().default(""),
+	author: z.string().default(""),
+	path: z.string().default(""),
+	line: z.number().int().nullable().default(null),
+	start_line: z.number().int().nullable().default(null),
+	created_at: z.string().default(""),
+});
+const rawFeedbackReviewThreadSchema = z.looseObject({
+	id: z.string().optional(),
+	thread_id: z.string().optional(),
+	path: z.string().default(""),
+	line: z.number().int().nullable().default(null),
+	start_line: z.number().int().nullable().default(null),
+	is_resolved: z.boolean().default(false),
+	is_outdated: z.boolean().default(false),
+	comments: z.array(rawFeedbackReviewCommentSchema).default([]),
+});
+const rawFeedbackDiscussionCommentSchema = z.looseObject({
+	id: z.number().int().optional(),
+	comment_id: z.number().int().optional(),
+	body: z.string().default(""),
+	author: z.string().default(""),
+	url: z.string().default(""),
+});
+const rawFeedbackEnvelopeSchema = z.looseObject({
+	data: z.looseObject({
+		reviews: z.array(rawFeedbackReviewSchema).default([]),
+		review_threads: z.array(rawFeedbackReviewThreadSchema).default([]),
+		discussion_comments: z.array(rawFeedbackDiscussionCommentSchema).default([]),
+	}),
+});
+
+function manifestFromRawFeedbackArtifact(options: {
+	value: unknown;
+	reference: PayloadReference;
+	prNumber: number;
+}): OperationResult<GetFeedbackManifest, "invalid_request"> {
+	const parsed = rawFeedbackEnvelopeSchema.safeParse(options.value);
+	if (!parsed.success) return { type: "error", errorType: "invalid_request", message: `Latest raw feedback artifact is not a pr-address get-feedback envelope: ${z.prettifyError(parsed.error)}` };
+	const reviewThreads = parsed.data.data.review_threads.map((thread) => ({ ...thread, id: thread.id ?? thread.thread_id ?? "" })).filter((thread) => thread.id !== "");
+	const discussionComments = parsed.data.data.discussion_comments.map((comment) => ({ ...comment, id: comment.id ?? comment.comment_id ?? 0 })).filter((comment) => comment.id !== 0);
+	const manifest = buildGetFeedbackPayloadManifest({
+		payload_reference: options.reference,
+		pr_number: options.prNumber,
+		reviews: parsed.data.data.reviews,
+		review_threads: reviewThreads,
+		discussion_comments: discussionComments,
+	});
+	const manifestResult = getFeedbackManifestSchema.safeParse(manifest);
+	if (!manifestResult.success) return { type: "error", errorType: "invalid_request", message: `Latest raw feedback artifact could not be converted to finalization feedback: ${z.prettifyError(manifestResult.error)}` };
+	return { type: "ok", value: manifestResult.data };
+}
+
 export async function resolvePrFeedbackSourceFromSession(options: {
 	ctx: PrAddressExecContext;
 	prNumber: number;
@@ -293,6 +374,156 @@ export async function resolveResolveThreadBuildPlanSessionInput(options: {
 		};
 	}
 	return { type: "ok", value: { store: storeResult.value, plan: artifact.value.value, resolvedInput: artifact.value.reference } };
+}
+
+export interface BatchCheckpointSessionInputs {
+	store: PayloadArtifactStore;
+	plan: FeedbackPlanConsumer;
+	batch: FeedbackPlanBatch;
+	resolvedInputs: {
+		plan: PayloadReference;
+		build: PayloadReference | null;
+		resolution: PayloadReference | null;
+	};
+	buildArtifact: ThreadResolutionBuildArtifact | null;
+	resolutionArtifact: ThreadResolutionResultArtifact | null;
+}
+
+export interface FinalizeRunSessionInputs {
+	payload: {
+		feedback: GetFeedbackManifest;
+		checkpoints: unknown[];
+		expected_batches: Array<{ batch_id: string }>;
+		missing_checkpoints: Array<{ batch_id: string }>;
+	};
+	resolvedInputs: {
+		plan: PayloadReference;
+		feedback: PayloadReference;
+		checkpoints: Array<{ batch_id: string; reference: PayloadReference }>;
+	};
+}
+
+export async function resolveBatchCheckpointSessionInputs(options: {
+	ctx: PrAddressExecContext;
+	prNumber: number;
+	batchId: string;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<BatchCheckpointSessionInputs, PayloadErrorType | "invalid_request">> {
+	const planInput = await resolveResolveThreadBuildPlanSessionInput(options);
+	if (planInput.type === "error") return planInput;
+	const batch = planInput.value.plan.batches.find((item) => item.batch_id === options.batchId) ?? null;
+	if (batch === null) return { type: "error", errorType: "invalid_request", message: `No plan batch found for batch_id '${options.batchId}'.` };
+	const hasReviewThreadItems = batch.items.some((item) => item.source_kind === "review_thread");
+	if (!hasReviewThreadItems) {
+		return {
+			type: "ok",
+			value: {
+				store: planInput.value.store,
+				plan: planInput.value.plan,
+				batch,
+				resolvedInputs: { plan: planInput.value.resolvedInput, build: null, resolution: null },
+				buildArtifact: null,
+				resolutionArtifact: null,
+			},
+		};
+	}
+	const build = await resolveLatestPrBatchSessionArtifact({
+		store: planInput.value.store,
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+		kind: "resolve-build",
+		role: "summary",
+		schema: threadResolutionBuildArtifactSchema,
+	});
+	if (build.type === "error") return build;
+	if (build.value.value.pr_number !== options.prNumber || build.value.value.batch_id !== options.batchId) {
+		return { type: "error", errorType: "invalid_request", message: `Resolved build artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.` };
+	}
+	if (build.value.value.payload_ready !== true) {
+		return {
+			type: "ok",
+			value: {
+				store: planInput.value.store,
+				plan: planInput.value.plan,
+				batch,
+				resolvedInputs: { plan: planInput.value.resolvedInput, build: build.value.reference, resolution: null },
+				buildArtifact: build.value.value,
+				resolutionArtifact: null,
+			},
+		};
+	}
+	const resolution = await resolveLatestPrBatchSessionArtifact({
+		store: planInput.value.store,
+		prNumber: options.prNumber,
+		batchId: options.batchId,
+		kind: "resolution",
+		role: "summary",
+		schema: threadResolutionResultArtifactSchema,
+	});
+	if (resolution.type === "error") return resolution;
+	if (resolution.value.value.pr_number !== options.prNumber || resolution.value.value.batch_id !== options.batchId) {
+		return { type: "error", errorType: "invalid_request", message: `Resolved resolution artifact does not match requested PR ${options.prNumber} batch ${options.batchId}.` };
+	}
+	if (resolution.value.value.build_reference.payload_path !== build.value.reference.payload_path) {
+		return { type: "error", errorType: "invalid_request", message: `Resolved resolution artifact does not reference the latest build artifact for batch ${options.batchId}.` };
+	}
+	return {
+		type: "ok",
+		value: {
+			store: planInput.value.store,
+			plan: planInput.value.plan,
+			batch,
+			resolvedInputs: { plan: planInput.value.resolvedInput, build: build.value.reference, resolution: resolution.value.reference },
+			buildArtifact: build.value.value,
+			resolutionArtifact: resolution.value.value,
+		},
+	};
+}
+
+export async function resolveFinalizeRunSessionInput(options: {
+	ctx: PrAddressExecContext;
+	prNumber: number;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<FinalizeRunSessionInputs, PayloadErrorType | "invalid_request">> {
+	const planInput = await resolveResolveThreadBuildPlanSessionInput(options);
+	if (planInput.type === "error") return planInput;
+	const feedback = await resolveLatestPrSessionArtifact({ store: planInput.value.store, prNumber: options.prNumber, kind: "feedback", role: "raw" });
+	if (feedback.type === "error") return feedback;
+	const manifest = manifestFromRawFeedbackArtifact({ value: feedback.value.value, reference: feedback.value.reference, prNumber: options.prNumber });
+	if (manifest.type === "error") return manifest;
+	const checkpoints: unknown[] = [];
+	const resolvedCheckpoints: Array<{ batch_id: string; reference: PayloadReference }> = [];
+	const missingCheckpoints: Array<{ batch_id: string }> = [];
+	for (const batch of planInput.value.plan.batches) {
+		const checkpoint = await resolveLatestPrBatchSessionArtifact({
+			store: planInput.value.store,
+			prNumber: options.prNumber,
+			batchId: batch.batch_id,
+			kind: "checkpoint",
+			role: "summary",
+		});
+		if (checkpoint.type === "error") {
+			if (checkpoint.errorType === "payload_lookup_failed" && checkpoint.message.startsWith("No JSON payload artifact found")) {
+				missingCheckpoints.push({ batch_id: batch.batch_id });
+				continue;
+			}
+			return checkpoint;
+		}
+		checkpoints.push(checkpoint.value.value);
+		resolvedCheckpoints.push({ batch_id: batch.batch_id, reference: checkpoint.value.reference });
+	}
+	return {
+		type: "ok",
+		value: {
+			payload: {
+				feedback: manifest.value,
+				checkpoints,
+				expected_batches: planInput.value.plan.batches.map((batch) => ({ batch_id: batch.batch_id })),
+				missing_checkpoints: missingCheckpoints,
+			},
+			resolvedInputs: { plan: planInput.value.resolvedInput, feedback: feedback.value.reference, checkpoints: resolvedCheckpoints },
+		},
+	};
 }
 
 export async function resolvePlanFeedbackSessionInputs(options: {

@@ -8,20 +8,21 @@ The durable rule this Objective installs: **files carry what the agent authored;
 
 ### Status (rebaselined 2026-06-13)
 
-This Objective is **in progress**. Its predecessor `pr-address-typescript-port` closed as completed on 2026-06-13 (the TS cutover, clinkr shell migration, bundle/distribution, plugin retirement, and Python deletion all landed; `packages/asdl-pr-address` is gone). The dependency gate that previously blocked this work — recorded in the 2026-06-12 update — is therefore lifted. The descriptor-taxonomy / planning-resolution slice is implemented, and latest JSON artifact lookup is now owned by the payload-store abstraction rather than workflow-local filesystem scans.
+This Objective is **in progress**. Its predecessor `pr-address-typescript-port` closed as completed on 2026-06-13 (the TS cutover, clinkr shell migration, bundle/distribution, plugin retirement, Python deletion all landed; `packages/asdl-pr-address` is gone). The dependency gate that previously blocked this work — recorded in the 2026-06-12 update — is therefore lifted. The descriptor-taxonomy / planning-resolution slice is implemented, latest JSON artifact lookup is now owned by the payload-store abstraction rather than workflow-local filesystem scans, and the single-PR lifecycle helpers now resolve build, resolution, checkpoint, and finalization artifacts from the payload session.
 
 The codebase this Objective targets is now **TypeScript-only**, at `ts/packages/pr-address/` (package `@asdl/pr-address`). All Python framing in the original record has been removed; the problem and the remaining work are restated below against the live TS surface.
 
 ### Why the thesis still holds
 
-The composed-payload glue this Objective set out to eliminate survives the TypeScript port, but the validation path has now crossed the session-store boundary: `validate-feedback-classification` is session-only, resolves the manifest from the payload session by PR number, and accepts only the agent-authored classification packet as JSON or a file. Other helpers still receive agent-composed wrapper JSON:
+The composed-payload glue this Objective set out to eliminate survives in narrower parts of the TypeScript surface, but the validation and single-PR lifecycle paths have now crossed the session-store boundary:
 
-- `plan-feedback` still takes a `{manifest, classification}` wrapper for manual/debug compatibility, while `validate-feedback-classification` no longer accepts wrapper, explicit manifest, or explicit persistence flags (`src/classification-operations.ts`).
-- `build-resolve-thread-batch-payload` takes `{plan, batch_id, commit_sha, decisions}` (`src/resolve-thread-batch-payload.ts`).
-- `record-batch-checkpoint` takes an eight-field composed payload — `plan`, `batch_id`, `commit_sha`, `changed_files`, `validation_commands`, `thread_payload_build`, `thread_resolution_result`, `non_thread_outcomes` (`src/batch-checkpoint.ts`).
-- `resolve-thread-batch` takes `{commit_sha, continue_on_error, items}` and `finalize-run` takes `{feedback, checkpoints}` (`src/mutation-operations.ts`, `src/finalization.ts`).
+- `validate-feedback-classification` is session-only, resolves the manifest from the payload session by PR number, and accepts only the agent-authored classification packet as JSON or a file.
+- `build-resolve-thread-batch-payload` resolves the latest PR plan by `--pr-number`, takes an agent-authored decisions file, and writes a managed PR/batch resolve-build artifact.
+- `resolve-thread-batch` requires an explicit `--from-build` artifact path, rejects non-ready build artifacts before mutation, and writes a managed resolution-result artifact after successful or partial mutation attempts.
+- `record-batch-checkpoint` takes PR number, batch id, commit SHA, and an agent-authored evidence file; it derives changed files from git and resolves plan/build/resolution artifacts from the session.
+- `finalize-run` takes PR number, resolves the latest plan, final feedback, and per-planned-batch checkpoint artifacts from the session, and reports missing checkpoints explicitly.
 
-Building each of these wrappers is deterministic plumbing the agent has to do by hand between helpers — exactly the glue the session store should absorb.
+The remaining composed-payload glue is concentrated in compatibility paths and unported slices: `plan-feedback` still accepts `{manifest, classification}` for manual/debug compatibility, stack build/finalization paths still need equivalent lifecycle migration, and compact-by-default stdout has not landed.
 
 ### What already exists (the gap is narrower than originally framed)
 
@@ -29,7 +30,7 @@ The payload session store itself is already built and is the dominant coordinati
 
 - The store exists at `src/payload-store.ts`: sessions live under `{ASDL_PAYLOAD_ROOT|/tmp/asdl}/sessions/{session-id}/payloads/`, with the exact filename contract this Objective assumes — `{date}t{time}z-{sequence:04d}-{descriptor}.{role}.{ext}` — and exclusive-create sequence allocation that already provides write coordination.
 - Helpers already default to `payload_mode: "payload"` and write their raw envelope into the session (`prepare-run`, `get-feedback`); `record-batch-checkpoint` already returns a `checkpoint_reference`; `read-feedback-details` writes a summary artifact; stack helpers already consume references (`--prep-reference`, `--stack-reference`, `--stack-plan-reference`). So **"every helper writes its artifact to the session" is largely already true.**
-- What now exists for the planning slice: reserved scope-first descriptors, latest JSON lookup by exact descriptor/role/extension/highest sequence, session-only classification validation and persistence, `plan-feedback --pr-number` and empty-stdin `stack-feedback-plan` session resolution, and `resolved_inputs` audit blocks for those implicit planning paths. What still does **not** exist: mutation/build/checkpoint/finalization session flow, compact-by-default stdout everywhere, skill docs for the final flow, and explicit `--from-build`-style mutation references.
+- What now exists for the planning and single-PR lifecycle slices: reserved scope-first descriptors, latest JSON lookup by exact descriptor/role/extension/highest sequence, session-only classification validation and persistence, `plan-feedback --pr-number` and empty-stdin `stack-feedback-plan` session resolution, explicit `resolve-thread-batch --from-build` mutation references, PR/batch build/resolution/checkpoint artifacts, `finalize-run --pr-number` session resolution, and `resolved_inputs` audit blocks for those implicit paths. What still does **not** exist: equivalent stack build/lifecycle migration, compact-by-default stdout everywhere, the full skill rewrite, and removal of every remaining composed-payload compatibility path.
 
 ## Scope
 
@@ -39,7 +40,7 @@ Resolution contract:
 
 - Reserved, PR-scoped descriptors per artifact kind (classification, plan, resolve-build per batch, checkpoint per batch, final feedback). Latest-of-kind resolves as max sequence among matching descriptors using the existing payload filename contract. No session index or journal file — the store's exclusive-create sequence allocation already provides write coordination.
 - Planning and read helpers resolve predecessors implicitly (latest of kind) and echo a `resolved_inputs` block naming the exact artifacts used, so implicit resolution stays auditable. This is implemented for the PR and stack planning paths; remaining helpers should reuse the same store-owned lookup boundary.
-- Mutation helpers (`resolve-thread-batch` and the stack equivalents) require an explicit artifact reference (e.g. `--from-build <sequence>`) and fail with `explicit_artifact_required` when it is omitted. No "latest" mode exists for mutations: the agent must name the validated payload it is applying.
+- Mutation helpers require explicit artifact references. For the single-PR helper, `resolve-thread-batch --from-build <payload-path>` is the concrete contract and fails with `explicit_artifact_required` when omitted. No "latest" mode exists for mutations: the agent must name the validated payload it is applying. Stack equivalents still need to finish adopting the same contract.
 - Validation is the gate into the store: `validate-feedback-classification` is session-only, resolves the manifest through the payload session, and persists the classification as a session artifact only on success, which is what entitles `plan-feedback` to trust "latest classification."
 
 Helper migrations:
@@ -47,9 +48,9 @@ Helper migrations:
 - Payload mode uses the harness-owned session contract: `HARNESS_SESSION_ID` or explicit `--harness-session-id` supplies the validated storage id. Do not reintroduce `ASDL_PAYLOAD_SESSION_ID`, caller-chosen auto-minting, or derived storage ids.
 - `validate-feedback-classification` takes `--pr-number` plus exactly one classification source, resolves the manifest from the session, writes the PR-scoped classification artifact on success, and rejects the removed wrapper/manifest/persist flags as unknown options.
 - `plan-feedback` resolves manifest and classification from the session when invoked with `--pr-number`; composed `{manifest, classification}` wrapper compatibility remains until the later input-style removal row.
-- `build-resolve-thread-batch-payload` takes `--batch-id`, `--commit-sha`, and `--decisions-file`, resolves the plan from the session, and writes the validated build payload as a session artifact whose reference it prints.
-- `record-batch-checkpoint` shrinks to agent-owned inputs (batch id, commit SHA, validation results); it derives `changed_files` from the commit and pulls plan, build payload, and resolution result from the session.
-- `finalize-run` discovers checkpoints and the final feedback artifact from the session.
+- `build-resolve-thread-batch-payload` takes `--pr-number`, `--batch-id`, `--commit-sha`, and `--decisions-file`, resolves the plan from the session, and writes every valid build result as a session artifact whose reference it prints.
+- `record-batch-checkpoint` shrinks to agent-owned inputs (PR number, batch id, commit SHA, and an evidence file containing validation results and non-thread outcomes); it derives `changed_files` from the commit and pulls plan, build payload, and resolution result from the session.
+- `finalize-run` discovers planned checkpoints and the final feedback artifact from the session, and missing planned-batch checkpoints are explicit incomplete evidence rather than silently ignored.
 - Single-PR and stack flows migrate together, with no phasing — the descriptor contract is designed against the stack flow's per-PR artifacts before any helper ships.
 
 Full helper inventory (the no-phasing scope, all in `ts/packages/pr-address/src/`):
@@ -110,13 +111,12 @@ Assumptions:
 
 Risks:
 
-- Descriptor taxonomy ambiguity in stack runs is de-risked for the planning slice: scope-first descriptors and store-owned exact-match latest lookup now cover PR and stack planning paths, and `resolved_inputs` records the artifacts used. The risk still applies to later mutation/build/checkpoint/finalization helpers until they adopt the same contract.
+- Descriptor taxonomy ambiguity is de-risked for the planning and single-PR lifecycle slices: scope-first descriptors and store-owned exact-match latest lookup now cover PR/stack planning paths plus PR/batch build, resolution, and checkpoint artifacts, and `resolved_inputs` records the artifacts used. The risk still applies to stack build/lifecycle helpers until they adopt the same contract.
 - The no-phasing decision (single-PR and stack migrate together) makes the first landable slice large, and the helper surface has grown to ~20 operations since this Objective was first written — the slice is larger than originally scoped. Accepted deliberately to avoid the CLI ever shipping two invocation styles.
-- Removing composed input styles deletes a debugging affordance. This has now materialized for `validate-feedback-classification` and is accepted: removed flags are usage errors, while direct reads of session artifacts, JSON schema output, and remaining manual/debug compatibility on helpers that have not crossed the cutover remain the debug path.
+- Removing composed input styles deletes a debugging affordance. This has now materialized for `validate-feedback-classification`, `record-batch-checkpoint`, and `finalize-run` and is accepted: removed flags are usage errors, while direct reads of session artifacts, JSON schema output, and remaining manual/debug compatibility on helpers that have not crossed the cutover remain the debug path.
 - Compact-by-default stdout could hide evidence in edge cases. Mitigated by including errors and warnings verbatim in the digest along with the artifact path to the full envelope.
 - The original evidence (a 2026-06-11 Python run on PR #1274 with "roughly ten ad hoc Python heredocs") no longer describes the live tool — Python is deleted. A fresh non-mutating TS pass was captured on 2026-06-13 against PR #1427 and recorded in `updates/2026-06-13T143520Z-fresh-typescript-reground-run.md`; it confirmed the composed-JSON glue persists. Its validation-specific observation is now historical: `validate-feedback-classification` moved from split/wrapper compatibility to session-only validation in the 2026-06-15 cutover. Because PR #1427 had zero feedback, actionable batch helpers were inventoried from help/source rather than exercised with a real batch.
 
 ## Open Questions
 
-- Whether explicit mutation references accept sequence numbers only, or also full artifact paths.
-- Input shape for `record-batch-checkpoint` validation results: a small agent-authored file vs repeated structured flags.
+- Whether stack mutation/lifecycle helpers should mirror the single-PR full artifact path contract exactly, or add a thinner stack-specific reference convenience later.

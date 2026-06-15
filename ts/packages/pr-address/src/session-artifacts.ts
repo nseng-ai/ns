@@ -4,7 +4,7 @@ import { feedbackPlanningValidationResultSchema } from "./feedback-plan-contract
 import { isSafeSegment, payloadError, type JsonPayloadRole, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
-export type PrBatchArtifactKind = "resolve-build";
+export type PrBatchArtifactKind = "resolve-build" | "resolution" | "checkpoint";
 export type StackArtifactKind = "prep" | "plan";
 
 export interface ResolvedSessionArtifact<T = unknown> {

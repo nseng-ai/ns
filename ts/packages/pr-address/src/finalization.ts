@@ -3,7 +3,8 @@ import { z } from "zod";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
-import { loadJsonInput } from "./json-input.ts";
+import type { PayloadReference } from "./payload-store.ts";
+import { resolveFinalizeRunSessionInput } from "./session-inputs.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const payloadReferenceSchema = z.looseObject({ payload_path: nullableStringSchema });
@@ -52,13 +53,18 @@ const checkpointSchema = z.looseObject({
 	thread_summary: threadSummarySchema.nullable().default(null),
 	non_thread_outcomes: z.array(nonThreadOutcomeSchema).default([]),
 });
+const expectedBatchSchema = z.looseObject({ batch_id: z.string() });
+const missingCheckpointSchema = z.looseObject({ batch_id: z.string() });
 export const finalizeRunInputSchema = z.looseObject({
 	feedback: feedbackManifestSchema,
 	checkpoints: z.array(checkpointSchema).default([]),
+	expected_batches: z.array(expectedBatchSchema).default([]),
+	missing_checkpoints: z.array(missingCheckpointSchema).default([]),
 });
 
 type FinalizeRunInput = z.infer<typeof finalizeRunInputSchema>;
 type Checkpoint = z.infer<typeof checkpointSchema>;
+type MissingCheckpoint = z.infer<typeof missingCheckpointSchema>;
 type ThreadManifestItem = z.infer<typeof finalizationThreadManifestItemSchema>;
 type NonThreadOutcome = z.infer<typeof nonThreadOutcomeSchema>;
 
@@ -118,12 +124,19 @@ interface FinalizeRunCheckpointSummary {
 	failed_validation_commands: Array<z.infer<typeof validationCommandSchema>>;
 }
 
+interface FinalizeRunResolvedInputs {
+	plan: PayloadReference;
+	feedback: PayloadReference;
+	checkpoints: Array<{ batch_id: string; reference: PayloadReference }>;
+}
+
 export interface FinalizeRunResult {
 	valid: boolean;
 	ready_to_stop: boolean;
 	all_feedback_addressed: boolean;
 	pr_number: number;
 	payload_path: string | null;
+	resolved_inputs?: FinalizeRunResolvedInputs | undefined;
 	counts: FinalizeRunCounts;
 	unresolved_threads: FinalizeRunThreadSummary[];
 	unresolved_unskipped_threads: FinalizeRunThreadSummary[];
@@ -134,8 +147,8 @@ export interface FinalizeRunResult {
 }
 
 const finalizeRunParseSchema = z.object({
-	payload_json: z.string().optional(),
-	payload_file: z.string().optional(),
+	pr_number: z.number().int(),
+	harness_session_id: z.string().optional(),
 });
 
 export const finalizeRunOperation = defineExecOperation({
@@ -148,18 +161,12 @@ export const finalizeRunOperation = defineExecOperation({
 });
 
 async function runFinalizeRunOperation(ctx: PrAddressExecContext, request: z.output<typeof finalizeRunParseSchema>): Promise<ClinkrExit<unknown>> {
-	const payloadResult = await loadJsonInput({
-		optionValue: request.payload_json,
-		filePath: request.payload_file,
-		commandName: "finalize-run",
-		inputDescription: "finalization JSON",
-		optionName: "--payload-json",
-		fileOptionName: "--payload-file",
-		schema: finalizeRunInputSchema,
-		stdin: ctx.stdin,
-	});
-	if (payloadResult.type === "error") return failure(payloadResult.error.errorType, payloadResult.error.message);
-	const result = finalizeRun(payloadResult.value);
+	if (request.pr_number <= 0) return failure("invalid_request", "--pr-number must be a positive integer.");
+	const input = await resolveFinalizeRunSessionInput({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
+	if (input.type === "error") return failure(input.errorType, input.message);
+	const parsed = finalizeRunInputSchema.safeParse(input.value.payload);
+	if (!parsed.success) return failure("invalid_request", `Resolved finalization session inputs are invalid: ${z.prettifyError(parsed.error)}`);
+	const result = { ...finalizeRun(parsed.data), resolved_inputs: input.value.resolvedInputs };
 	if (result.valid && result.ready_to_stop) return ok(result);
 	return negative("Final pr-address verification found unresolved, failed, or inconsistent evidence; do not treat the run as complete.", result);
 }
@@ -169,6 +176,7 @@ export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {
 	const warnings: string[] = [];
 	let invalidErrorCount = 0;
 	if (request.checkpoints.length === 0) warnings.push("No batch checkpoint evidence supplied.");
+	for (const missing of request.missing_checkpoints) errors.push(missingCheckpointError(missing));
 	invalidErrorCount += validatePrNumbers(request, errors);
 	invalidErrorCount += validateUniqueBatchIds(request, errors);
 	const checkpointSummaries = checkpointSummariesForRequest(request.checkpoints);
@@ -183,7 +191,7 @@ export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {
 		errors.push(errorItem({ code: "checkpointed_thread_still_unresolved", message: `Checkpoint evidence says thread ${threadId} was resolved, but fresh feedback still reports it unresolved.`, threadId }));
 	}
 	for (const checkpoint of request.checkpoints) errors.push(...checkpointErrors(checkpoint));
-	const hasIncompleteCheckpoint = request.checkpoints.some((checkpoint) => !checkpoint.valid || !checkpoint.batch_complete);
+	const hasIncompleteCheckpoint = request.checkpoints.some((checkpoint) => !checkpoint.valid || !checkpoint.batch_complete) || request.missing_checkpoints.length > 0;
 	const hasFailedThreads = failedThreadIds.size > 0;
 	const hasFailedValidation = request.checkpoints.some((checkpoint) => checkpoint.validation_commands.some((command) => command.status === "failed"));
 	const valid = invalidErrorCount === 0;
@@ -204,7 +212,7 @@ export function finalizeRun(request: FinalizeRunInput): FinalizeRunResult {
 		counts: {
 			checkpoint_batches: request.checkpoints.length,
 			complete_batches: request.checkpoints.filter((checkpoint) => checkpoint.valid && checkpoint.batch_complete).length,
-			incomplete_batches: request.checkpoints.filter((checkpoint) => !checkpoint.valid || !checkpoint.batch_complete).length,
+			incomplete_batches: request.checkpoints.filter((checkpoint) => !checkpoint.valid || !checkpoint.batch_complete).length + request.missing_checkpoints.length,
 			unresolved_threads: unresolvedThreads.length,
 			unresolved_unskipped_threads: unresolvedUnskippedThreads.length,
 			resolved_threads_from_checkpoints: resolvedThreadIds.size,
@@ -312,6 +320,14 @@ function checkpointErrors(checkpoint: Checkpoint): FinalizeRunError[] {
 		errors.push(errorItem({ code: "failed_validation_command", message: `Checkpoint batch ${checkpoint.batch_id} reports failed validation command: ${command.command}`, batchId: checkpoint.batch_id }));
 	}
 	return errors;
+}
+
+function missingCheckpointError(missing: MissingCheckpoint): FinalizeRunError {
+	return errorItem({
+		code: "missing_checkpoint_evidence",
+		message: `Missing checkpoint evidence for planned batch ${missing.batch_id}.`,
+		batchId: missing.batch_id,
+	});
 }
 
 function threadSummary(thread: ThreadManifestItem): FinalizeRunThreadSummary {

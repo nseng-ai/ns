@@ -36,6 +36,8 @@ describe("session artifact descriptors", () => {
 		expect(prArtifactDescriptor({ prNumber: 1427, kind: "classification" })).toBe("pr-address-pr-1427-classification");
 		expect(prArtifactDescriptor({ prNumber: 1427, kind: "plan" })).toBe("pr-address-pr-1427-plan");
 		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "resolve-build" })).toBe("pr-address-pr-1427-batch-batch-1-resolve-build");
+		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "resolution" })).toBe("pr-address-pr-1427-batch-batch-1-resolution");
+		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "checkpoint" })).toBe("pr-address-pr-1427-batch-batch-1-checkpoint");
 		expect(stackArtifactDescriptor("prep")).toBe("pr-address-stack-prep");
 		expect(stackArtifactDescriptor("plan")).toBe("pr-address-stack-plan");
 	});

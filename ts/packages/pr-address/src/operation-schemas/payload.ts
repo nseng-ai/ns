@@ -74,6 +74,14 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 
 // --- record-batch-checkpoint ------------------------------------------------------
 
+export const recordBatchCheckpointRequestSchema = z.object({
+	pr_number: z.int(),
+	batch_id: z.string(),
+	commit_sha: z.string(),
+	evidence_file: z.string(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
 const batchValidationCommandEvidenceSchema = z.object({
 	command: z.string(),
 	status: z.enum(["passed", "failed", "skipped"]),
@@ -136,6 +144,12 @@ const batchThreadCheckpointSummarySchema = z.object({
 	all_succeeded: nullableBooleanSchema.optional(),
 });
 
+const recordBatchCheckpointResolvedInputsSchema = z.object({
+	plan: payloadReferenceSchema,
+	build: payloadReferenceSchema.nullable(),
+	resolution: payloadReferenceSchema.nullable(),
+});
+
 export const recordBatchCheckpointResultSchema = z.object({
 	valid: z.boolean(),
 	batch_complete: z.boolean(),
@@ -145,6 +159,7 @@ export const recordBatchCheckpointResultSchema = z.object({
 	pr_number: nullableIntSchema.optional(),
 	payload_path: nullableStringSchema.optional(),
 	checkpoint_reference: payloadReferenceSchema.nullable().optional(),
+	resolved_inputs: recordBatchCheckpointResolvedInputsSchema.optional(),
 	commit_sha: nullableStringSchema.optional(),
 	changed_files: z.array(z.string()).optional(),
 	validation_commands: z.array(batchValidationCommandEvidenceSchema).optional(),
@@ -156,6 +171,11 @@ export const recordBatchCheckpointResultSchema = z.object({
 });
 
 // --- finalize-run -----------------------------------------------------------------
+
+export const finalizeRunRequestSchema = z.object({
+	pr_number: z.int(),
+	harness_session_id: nullableStringSchema.optional(),
+});
 
 const finalizeRunThreadSummarySchema = z.object({
 	thread_id: z.string(),
@@ -213,12 +233,19 @@ const finalizeRunErrorSchema = z.object({
 	discussion_comment_id: nullableIntSchema.optional(),
 });
 
+const finalizeRunResolvedInputsSchema = z.object({
+	plan: payloadReferenceSchema,
+	feedback: payloadReferenceSchema,
+	checkpoints: z.array(z.object({ batch_id: z.string(), reference: payloadReferenceSchema })),
+});
+
 export const finalizeRunResultSchema = z.object({
 	valid: z.boolean(),
 	ready_to_stop: z.boolean(),
 	all_feedback_addressed: z.boolean(),
 	pr_number: z.int(),
 	payload_path: nullableStringSchema.optional(),
+	resolved_inputs: finalizeRunResolvedInputsSchema.optional(),
 	counts: finalizeRunCountsSchema,
 	unresolved_threads: z.array(finalizeRunThreadSummarySchema).optional(),
 	unresolved_unskipped_threads: z.array(finalizeRunThreadSummarySchema).optional(),
