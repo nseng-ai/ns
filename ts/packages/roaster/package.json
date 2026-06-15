@@ -18,6 +18,7 @@
 	"dependencies": {
 		"@asdl/clinkr": "workspace:*",
 		"@asdl/core": "workspace:*",
+		"@pierre/diffs": "^1.2.10",
 		"smol-toml": "^1.6.1",
 		"yaml": "^2.9.0",
 		"zod": "^4.4.3"

@@ -67,11 +67,31 @@ describe("git diff pathspec helpers", () => {
 	});
 
 	test("builds base git diff args without excludes", () => {
-		expect(buildGitDiffArgs({ baseRef: "main" })).toEqual(["diff", "--no-ext-diff", "origin/main...HEAD"]);
+		expect(buildGitDiffArgs({ baseRef: "main" })).toEqual([
+			"-c",
+			"diff.noprefix=false",
+			"-c",
+			"diff.mnemonicPrefix=false",
+			"-c",
+			"diff.srcPrefix=a/",
+			"-c",
+			"diff.dstPrefix=b/",
+			"diff",
+			"--no-ext-diff",
+			"origin/main...HEAD",
+		]);
 	});
 
 	test("builds git diff args with pathspec excludes", () => {
 		expect(buildGitDiffArgs({ baseRef: "main", excludeGlobs: [".agents/skills/**/*.py", ".claude/skills/**/*.py"] })).toEqual([
+			"-c",
+			"diff.noprefix=false",
+			"-c",
+			"diff.mnemonicPrefix=false",
+			"-c",
+			"diff.srcPrefix=a/",
+			"-c",
+			"diff.dstPrefix=b/",
 			"diff",
 			"--no-ext-diff",
 			"origin/main...HEAD",
