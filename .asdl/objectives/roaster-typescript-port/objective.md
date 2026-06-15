@@ -55,6 +55,15 @@ This is a **clean break**: we target functional parity, not byte-level continuit
 
 ## Open Questions
 
-- TS dependency choices: which YAML parser for review-definition frontmatter, and confirmation that `smol-toml` (already used in `areg`) is the TOML choice. The token-estimation heuristic must match Python's `estimate_tokens` closely enough that coverage facts stay meaningful.
-- Whether the TS roaster mounts as an asdl plugin subgroup (Python exposes `asdl.plugins`) or ships standalone-CLI-only for CI; the Python plugin smoke-test convention may or may not have a TS analog.
-- The exact GitHub API mechanism for each gateway operation (gh CLI vs. REST vs. GraphQL), to be settled against the `code-gh` skill during the gateway slice.
+Resolved during prework (evidence + detail in `prework/01-architecture-and-module-map.md §Decisions`):
+
+- **YAML parser:** `yaml` (eemeli) v2.x — already transitive in the TS lockfile; `js-yaml` is absent. Parse, then validate the mapping with Zod. **TOML:** `smol-toml` confirmed (direct dep of `areg`, locked 1.6.1). **Token heuristic:** `Math.ceil([...text].length / 4)` — must count Unicode code points (not UTF-16 units) to match Python's `estimate_tokens`.
+- **Plugin mounting:** there is no TS analog of `asdl.plugins`; every TS package ships standalone-CLI-only. The TS roaster ships standalone-only (the plugin item stays parked); `cli/plugin.py` has nothing to port.
+- **GitHub API mechanism:** `gh` CLI shelled through an injected exec runner, REST endpoints via `gh api --paginate` / `--input -`, mirroring the Python real-gateway helpers. A fresh 5-method roaster-local gateway (see `prework/04`); not shared with asdl-core.
+
+## Prework
+
+`prework/` contains verified, code-referenced specs for downstream execution: an architecture +
+Python→TS module map and slice plan (`01`), and per-surface contracts for the pure core (`02`), the
+Claude Code harness (`03`), the GitHub gateway + publication + exec commands (`04`), and the TS
+scaffold + CI cutover (`05`). Start at `prework/README.md`.
