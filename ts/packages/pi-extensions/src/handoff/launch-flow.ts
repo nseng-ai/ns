@@ -1,7 +1,8 @@
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@asdl/handoff/identity";
 
 import { isRecord, stringField } from "../cmux/primitives.ts";
-import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey, parseFlatHandoffSlug } from "./identity.ts";
+import { formatPickupHandoffCommand } from "./identity.ts";
 import {
 	CREATE_HANDOFF_FALLBACK,
 	CREATE_HANDOFF_SKILL_NAME,

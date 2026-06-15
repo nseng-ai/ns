@@ -5,7 +5,8 @@ import {
 	runHandoffCreateCommand,
 	type HandoffLaunchPromptCopy,
 } from "../handoff/launch-flow.ts";
-import { HANDOFF_NAMESPACE, formatPickupHandoffCommand, handoffSlugToKey } from "../handoff/identity.ts";
+import { HANDOFF_NAMESPACE, handoffSlugToKey } from "@asdl/handoff/identity";
+import { formatPickupHandoffCommand } from "../handoff/identity.ts";
 import type { HandoffStartMessages } from "../handoff/shared.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI, RenderComponent, ToolDefinition } from "../handoff/runtime-types.ts";
 import { definePiSurfaceParity } from "../parity.ts";

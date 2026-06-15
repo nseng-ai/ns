@@ -67,6 +67,13 @@ describe("handoff delete", () => {
 		expect(await slash.exit).toBe(2);
 		expect(parseJsonOutput(slash)).toMatchObject({ error_type: "invalid_handoff_slug" });
 
+		const underscore = runScenario(["delete", "alpha_beta", "--format", "json"]);
+		expect(await underscore.exit).toBe(2);
+		expect(parseJsonOutput(underscore)).toMatchObject({
+			error_type: "invalid_handoff_slug",
+			message: "handoff slug must use lowercase letters, numbers, and single interior dashes only.",
+		});
+
 		const branch = runScenario(["delete", "--branch", "feat---x", "alpha", "--format", "json"]);
 		expect(await branch.exit).toBe(2);
 		expect(parseJsonOutput(branch)).toMatchObject({ error_type: "invalid_branch_name" });

@@ -2,8 +2,8 @@ import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { isRecord } from "./cmux/primitives.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "@asdl/handoff/identity";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "./handoff/identity.ts";
 import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
 import {
 	BRMEM_TIMEOUT_MS,
