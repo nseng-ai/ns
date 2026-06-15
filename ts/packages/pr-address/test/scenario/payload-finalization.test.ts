@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { isRecord } from "@asdl/core";
 import { describe, expect, test } from "vitest";
 
 import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
@@ -30,10 +31,6 @@ async function loadPreExistingFixture(): Promise<{ plan: Record<string, unknown>
 		plan: Record<string, unknown>;
 		decisions: unknown;
 	};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function planBatches(plan: Record<string, unknown>): Array<Record<string, unknown>> {
