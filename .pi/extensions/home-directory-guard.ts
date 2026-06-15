@@ -1,5 +1,5 @@
 const HOME_ROOT = "/Users/schrockn";
-const BLOCK_REASON = "Home-directory root target is forbidden. Scope to a repo or explicit subfolder.";
+const BLOCK_REASON = "Blocked by home-directory-guard extension: home-directory root target is forbidden. Scope to a repo or explicit subfolder.";
 
 const PATH_LIKE_KEYS = new Set([
 	"path",
@@ -16,8 +16,24 @@ const PATH_LIKE_KEYS = new Set([
 
 const TEXT_CONTENT_KEYS = new Set(["content", "oldText", "newText", "prompt", "summary", "query"]);
 
+interface UserBashEvent {
+	command: string;
+	excludeFromContext: boolean;
+	cwd: string;
+}
+
+interface UserBashResult {
+	result?: {
+		output: string;
+		exitCode: number;
+		cancelled: boolean;
+		truncated: boolean;
+	};
+}
+
 interface ExtensionAPI {
 	on(event: "tool_call", handler: ToolCallHandler): void;
+	on(event: "user_bash", handler: (event: UserBashEvent) => UserBashResult | undefined | void): void;
 }
 
 type ToolCallHandler = (event: ToolCallEvent) => ToolCallResult | undefined | void;
@@ -41,6 +57,15 @@ export default function homeDirectoryGuardExtension(pi: ExtensionAPI): void {
 		const violation = findHomeRootTarget(event);
 		if (violation === undefined) return undefined;
 		return { block: true, reason: violation.reason };
+	});
+
+	pi.on("user_bash", (event) => {
+		if (commandTargetsHomeRoot(event.command)) {
+			return {
+				result: { output: BLOCK_REASON, exitCode: 1, cancelled: false, truncated: false },
+			};
+		}
+		return undefined;
 	});
 }
 

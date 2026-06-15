@@ -299,6 +299,86 @@ describe("worktree status extension registration", () => {
 		});
 	});
 
+	test("custom footer tolerates context usage estimation failures", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new LifecycleFakePi([
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: { entries: [] },
+					}),
+				}),
+				...basicGitStatusScript(),
+			]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				sessionManager: {
+					getEntries() {
+						return [];
+					},
+					getCwd() {
+						return root;
+					},
+					getSessionName() {
+						return undefined;
+					},
+				},
+				modelRegistry: {
+					isUsingOAuth() {
+						return false;
+					},
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+				getContextUsage() {
+					throw new TypeError("Cannot read properties of undefined (reading 'length')");
+				},
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						if (value === undefined) statuses.delete(key);
+						else statuses.set(key, value);
+					},
+					setWidget() {},
+					setFooter(factory) {
+						footerFactory = factory;
+					},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				{
+					getGitBranch() {
+						return "main";
+					},
+					getExtensionStatuses() {
+						return statuses;
+					},
+					getAvailableProviderCount() {
+						return 1;
+					},
+					onBranchChange() {
+						return () => {};
+					},
+				},
+			);
+
+			expect(footer.render(200).map(stripTerminalEscapes)[1]).toContain("?/272k (auto)");
+			await pi.sessionShutdown?.();
+		});
+	});
+
 	test("custom footer renders multiline worktree status as separate footer lines", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
