@@ -86,6 +86,18 @@ export interface HandoffLaunchToolSpec {
 	}): Promise<ToolResult> | ToolResult;
 }
 
+export interface VerifyHandoffLaunchOptions {
+	params: HandoffLaunchParams;
+	statusKey: string;
+	verifyStatus: string;
+	verifyUpdate?: string | undefined;
+	missingMessage(params: HandoffLaunchParams): string;
+	failureDetails?: ((message: string, params: HandoffLaunchParams) => unknown) | undefined;
+	onUpdate?: ((update: Partial<ToolResult>) => void) | undefined;
+}
+
+export type VerifyHandoffLaunchResult = { type: "ok" } | { type: "failed"; result: ToolResult };
+
 export function buildHandoffLaunchRequest(options: { branch: string; focus: string }): HandoffLaunchRequestBuildResult {
 	const focus = options.focus.trim();
 	if (!/[a-z0-9]/i.test(focus)) {
@@ -178,6 +190,26 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: prepared.skill?.block, request: prepared.request }), { deliverAs: "followUp" });
 }
 
+export async function verifyHandoffLaunchTarget(pi: ExtensionAPI, ctx: BaseRuntimeContext, options: VerifyHandoffLaunchOptions): Promise<VerifyHandoffLaunchResult> {
+	if (options.verifyUpdate !== undefined) {
+		options.onUpdate?.({ content: [{ type: "text", text: options.verifyUpdate }] });
+	}
+	setStatus(ctx, options.statusKey, options.verifyStatus);
+	try {
+		const exists = await checkHandoffExists(pi, ctx.cwd, options.params.branch, options.params.key);
+		if (exists.type === "missing") {
+			const message = options.missingMessage(options.params);
+			return { type: "failed", result: handoffLaunchToolFailure(message, options.failureDetails?.(message, options.params)) };
+		}
+		if (exists.type === "failed") {
+			return { type: "failed", result: handoffLaunchToolFailure(exists.message, options.failureDetails?.(exists.message, options.params)) };
+		}
+		return { type: "ok" };
+	} finally {
+		setStatus(ctx, options.statusKey, undefined);
+	}
+}
+
 export function buildHandoffLaunchTool(pi: ExtensionAPI, spec: HandoffLaunchToolSpec): ToolDefinition {
 	return {
 		name: spec.name,
@@ -211,21 +243,17 @@ export function buildHandoffLaunchTool(pi: ExtensionAPI, spec: HandoffLaunchTool
 				return handoffLaunchToolFailure(gateFailure);
 			}
 
-			if (spec.verifyUpdate !== undefined) {
-				onUpdate?.({ content: [{ type: "text", text: spec.verifyUpdate }] });
-			}
-			setStatus(ctx, spec.statusKey, spec.verifyStatus(parsed.params));
-			try {
-				const exists = await checkHandoffExists(pi, ctx.cwd, parsed.params.branch, parsed.params.key);
-				if (exists.type === "missing") {
-					const message = spec.missingMessage(parsed.params);
-					return handoffLaunchToolFailure(message, spec.verifyFailureDetails?.(message, parsed.params));
-				}
-				if (exists.type === "failed") {
-					return handoffLaunchToolFailure(exists.message, spec.verifyFailureDetails?.(exists.message, parsed.params));
-				}
-			} finally {
-				setStatus(ctx, spec.statusKey, undefined);
+			const verified = await verifyHandoffLaunchTarget(pi, ctx, {
+				params: parsed.params,
+				statusKey: spec.statusKey,
+				verifyStatus: spec.verifyStatus(parsed.params),
+				verifyUpdate: spec.verifyUpdate,
+				missingMessage: spec.missingMessage,
+				failureDetails: spec.verifyFailureDetails,
+				onUpdate,
+			});
+			if (verified.type === "failed") {
+				return verified.result;
 			}
 
 			return spec.launch({ params: parsed.params, ctx, signal, onUpdate });

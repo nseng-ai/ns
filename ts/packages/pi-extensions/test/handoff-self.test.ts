@@ -102,7 +102,6 @@ describe("handoff:self extension", () => {
 			branch: BRANCH,
 			slug: "finish-widget",
 			workflowId,
-			pickupPrompt: formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"),
 		});
 		expect(pi.sentUserMessageCalls).toHaveLength(1);
 		await waitForCondition(() => waitForIdleCalls === 2);
@@ -120,6 +119,32 @@ describe("handoff:self extension", () => {
 			{ content: formatHandoffSelfKickoffPrompt(BRANCH, "finish-widget"), options: undefined },
 		]);
 		expect(context.statuses).toEqual(["verifying saved handoff…", undefined, "clearing context…"]);
+	});
+
+	test("starting lock is released when session replacement support is unavailable", async () => {
+		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		registerSelfOnly(pi, 30_000);
+		const command = getRegisteredCommand(pi, "handoff:self");
+		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
+		const unsupportedContext = createContext();
+		delete unsupportedContext.ctx.newSession;
+
+		await command.handler("first focus", unsupportedContext.ctx);
+
+		expect(unsupportedContext.notifications).toEqual([
+			{ message: "/handoff:self requires Pi session replacement support.", level: "error" },
+		]);
+		expect(pi.sentUserMessages).toEqual([]);
+
+		const supportedContext = createContext();
+		const commandPromise = Promise.resolve(command.handler("finish widget", supportedContext.ctx));
+		await waitForSentUserMessage(pi);
+		const workflowId = extractWorkflowId(pi.sentUserMessages[0] ?? "");
+		await tool.execute("tool-call-1", { branch: BRANCH, slug: "finish-widget", workflow_id: workflowId }, undefined, undefined, supportedContext.ctx);
+		await commandPromise;
+
+		pi.assertDone();
+		expect(supportedContext.newSessionCalls).toEqual([{ parentSession: undefined }]);
 	});
 
 	test("handoff_self_queue_pickup fails closed when no workflow is active", async () => {
