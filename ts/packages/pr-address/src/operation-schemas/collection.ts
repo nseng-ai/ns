@@ -12,17 +12,16 @@ import {
 	nullableStringSchema,
 	payloadReferenceSchema,
 	prStateSchema,
-	stdoutModeDocSchema,
+	stdoutModeRequestMixin,
 } from "./shared.ts";
 
 // --- map-branch-prs ---------------------------------------------------------------
 // TypeScript-only operation: no Python contract exists; the schema document is
 // TypeScript-owned and its fixture is captured from `--json-schema` output.
 
-export const mapBranchPrsRequestSchema = z.object({
+export const mapBranchPrsRequestSchema = stdoutModeRequestMixin.extend({
 	branches_json: z.string().optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const mapBranchPrsEntrySchema = z.object({
@@ -48,36 +47,33 @@ export const mapBranchPrsResultSchema = z.object({
 
 // --- read-only collection operations -------------------------------------------
 
-export const getFeedbackRequestSchema = z.object({
+export const getFeedbackRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const getFeedbackResultSchema = z.union([getFeedbackInlineResultSchema, getFeedbackPayloadManifestSchema]);
 
-export const prepareRunRequestSchema = z.object({
+export const prepareRunRequestSchema = stdoutModeRequestMixin.extend({
 	include_all_threads: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	payload_mode: z.enum(["inline", "payload"]).optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const prepareRunResultSchema = z.union([prepareRunInlineResultSchema, prepareRunPayloadManifestSchema]);
 
 // --- summarize-feedback ----------------------------------------------------------
 
-export const summarizeFeedbackRequestSchema = z.object({
+export const summarizeFeedbackRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	include_resolved: z.boolean().optional(),
 	include_empty_reviews: z.boolean().optional(),
 	body_chars: z.int().optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const compactPullRequestSummarySchema = z.object({
@@ -151,12 +147,11 @@ export const summarizeFeedbackResultSchema = z.object({
 
 // --- read-feedback-detail ----------------------------------------------------------
 
-export const readFeedbackDetailRequestSchema = z.object({
+export const readFeedbackDetailRequestSchema = stdoutModeRequestMixin.extend({
 	payload_path: nullableStringSchema.optional(),
 	pr_number: nullableIntSchema.optional(),
 	json_pointer: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const readFeedbackDetailResultSchema = z.object({
@@ -167,11 +162,10 @@ export const readFeedbackDetailResultSchema = z.object({
 	resolved_inputs: z.object({ feedback: payloadReferenceSchema }).optional(),
 });
 
-export const readFeedbackDetailsRequestSchema = z.object({
+export const readFeedbackDetailsRequestSchema = stdoutModeRequestMixin.extend({
 	selection_json: nullableStringSchema.optional(),
 	pr_number: nullableIntSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const selectedFeedbackDetailSummarySchema = z.object({

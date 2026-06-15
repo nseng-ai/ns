@@ -7,19 +7,18 @@ import {
 	payloadReferenceSchema,
 	resolutionProvenanceSchema,
 	resolutionReplyModeSchema,
-	stdoutModeDocSchema,
+	stdoutModeRequestMixin,
 } from "./shared.ts";
 
 // --- mutation operations --------------------------------------------------------
 
-export const replyToDiscussionRequestSchema = z.object({
+export const replyToDiscussionRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	comment_id: z.int(),
 	comment_author: z.string(),
 	original_body: z.string(),
 	response: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const replyToDiscussionResultSchema = z.object({
@@ -30,12 +29,11 @@ export const replyToDiscussionResultSchema = z.object({
 	warning: nullableStringSchema.optional(),
 });
 
-export const replyToReviewRequestSchema = z.object({
+export const replyToReviewRequestSchema = stdoutModeRequestMixin.extend({
 	pr_number: z.int(),
 	review_author: z.string(),
 	summary_markdown: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const replyToReviewResultSchema = z.object({
@@ -43,14 +41,13 @@ export const replyToReviewResultSchema = z.object({
 	comment: prDiscussionCommentSchema,
 });
 
-export const resolveThreadWithReplyRequestSchema = z.object({
+export const resolveThreadWithReplyRequestSchema = stdoutModeRequestMixin.extend({
 	thread_id: z.string(),
 	mode: resolutionReplyModeSchema,
 	message: nullableStringSchema,
 	commit_sha: nullableStringSchema,
 	provenance_json: nullableStringSchema.optional(),
 	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 export const resolveThreadWithReplyResultSchema = z.object({
@@ -61,9 +58,8 @@ export const resolveThreadWithReplyResultSchema = z.object({
 	provenance: resolutionProvenanceSchema.nullable().optional(),
 });
 
-export const resolveThreadBatchRequestSchema = z.object({
+export const resolveThreadBatchRequestSchema = stdoutModeRequestMixin.extend({
 	from_build: z.string(),
-	stdout_mode: stdoutModeDocSchema.optional(),
 });
 
 const resolveThreadBatchItemResultSchema = z.object({

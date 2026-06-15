@@ -6,7 +6,7 @@ import { formatErrorMessage } from "@asdl/core";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, gatewayFailureDetail, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanActionItem, type FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
-import { parseJsonWithSchema } from "./json-input.ts";
+import { parseJsonWithSchema, loadJsonInputFile } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveBatchCheckpointSessionInputs, type BatchCheckpointSessionInputs } from "./session-inputs.ts";
@@ -183,7 +183,12 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 	const isNoCodeChange = !request.code_change;
 	if (isNoCodeChange && commitSha !== null) return failure("invalid_request", "--no-code-change cannot be combined with --commit-sha.");
 	if (!isNoCodeChange && commitSha === null) return failure("invalid_request", "--commit-sha must be non-empty unless --no-code-change is set.");
-	const evidence = await loadCheckpointEvidenceFile(request.evidence_file);
+	const evidence = await loadJsonInputFile({
+		filePath: request.evidence_file,
+		schema: recordBatchCheckpointEvidenceSchema,
+		commandName: "record-batch-checkpoint",
+		optionName: "--evidence-file",
+	});
 	if (evidence.type === "error") return failure(evidence.errorType, evidence.message);
 	const sessionInput = await resolveBatchCheckpointSessionInputs({ ctx, prNumber: request.pr_number, batchId, harnessSessionId: request.harness_session_id });
 	if (sessionInput.type === "error") return failure(sessionInput.errorType, sessionInput.message);
@@ -236,23 +241,6 @@ function compactRecordBatchCheckpointResult(
 			details: { valid: result.valid, batch_complete: result.batch_complete, batch_id: result.batch_id, checkpoint_reference: result.checkpoint_reference },
 		}),
 	};
-}
-
-async function loadCheckpointEvidenceFile(filePath: string): Promise<{ type: "ok"; value: z.infer<typeof recordBatchCheckpointEvidenceSchema> } | { type: "error"; errorType: string; message: string }> {
-	let text: string;
-	try {
-		text = await readFile(filePath, "utf8");
-	} catch (error) {
-		return { type: "error", errorType: "invalid_request", message: `record-batch-checkpoint --evidence-file must point to an existing JSON file: ${filePath} (${formatErrorMessage(error)})` };
-	}
-	const parsed = parseJsonWithSchema({
-		text,
-		schema: recordBatchCheckpointEvidenceSchema,
-		jsonDescription: "record-batch-checkpoint --evidence-file",
-		schemaDescription: "record-batch-checkpoint --evidence-file",
-	});
-	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
-	return { type: "ok", value: parsed.value };
 }
 
 function legacyThreadPayloadBuild(sessionInput: BatchCheckpointSessionInputs): ThreadPayloadBuild | null {

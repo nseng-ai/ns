@@ -1,25 +1,10 @@
 import { z } from "zod";
 
 import { payloadReferenceSchema } from "./feedback-manifest-contracts.ts";
+import { resolveThreadBatchPayloadSchema, resolveThreadBatchPayloadItemSchema } from "./operation-schemas/payload.ts";
 
-export const resolutionProvenanceInputSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("local_branch"), branch: z.string() }).strict(),
-	z.object({ kind: z.literal("pr"), pr_number: z.number().int() }).strict(),
-]);
-
-export const resolveThreadBatchPayloadItemSchema = z.object({
-	thread_id: z.string(),
-	mode: z.enum(["fixed", "pre_existing", "explained", "planned"]),
-	message: z.string().nullable().default(null),
-	commit_sha: z.string().nullable().default(null),
-	provenance: resolutionProvenanceInputSchema.nullable().default(null),
-});
-
-export const resolveThreadBatchPayloadSchema = z.object({
-	commit_sha: z.string().nullable().default(null),
-	continue_on_error: z.boolean().default(false),
-	items: z.array(resolveThreadBatchPayloadItemSchema),
-});
+export { resolutionProvenanceInputSchema } from "./operation-schemas/shared.ts";
+export { resolveThreadBatchPayloadSchema, resolveThreadBatchPayloadItemSchema };
 
 export const threadResolutionBuildArtifactSchema = z.object({
 	artifact_kind: z.literal("thread_resolution_build"),

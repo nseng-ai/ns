@@ -324,9 +324,9 @@ async function normalizeResolveThreadBatchPayload(
 		const normalizedItem = await normalizeResolutionRequest({
 			threadId,
 			mode: item.mode,
-			message: item.message,
+			message: item.message ?? null,
 			commitSha: effectiveCommitSha,
-			provenanceInput: item.provenance,
+			provenanceInput: item.provenance ?? null,
 			ctx,
 			itemLabel: `items[${index}]`,
 		});

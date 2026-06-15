@@ -11,7 +11,7 @@ import {
 	type FeedbackPlanBatch,
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
-import { parseJsonWithSchema } from "./json-input.ts";
+import { parseJsonWithSchema, loadJsonInputFile } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
@@ -132,7 +132,12 @@ async function runBuildResolveThreadBatchPayloadOperation(
 	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
 	const planInput = await resolveResolveThreadBuildPlanSessionInput({ ctx, prNumber: request.pr_number, harnessSessionId: request.harness_session_id });
 	if (planInput.type === "error") return failure(planInput.errorType, planInput.message);
-	const decisions = await loadDecisionsFile(request.decisions_file, resolveThreadBatchDecisionSchema.array(), "build-resolve-thread-batch-payload");
+	const decisions = await loadJsonInputFile({
+		filePath: request.decisions_file,
+		schema: resolveThreadBatchDecisionSchema.array(),
+		commandName: "build-resolve-thread-batch-payload",
+		optionName: "--decisions-file",
+	});
 	if (decisions.type === "error") return failure(decisions.errorType, decisions.message);
 	const result = buildResolveThreadBatchPayload({
 		plan: planInput.value.plan,
@@ -181,23 +186,6 @@ function compactBuildResolveThreadBatchPayloadResult(
 			details: { valid: result.valid, payload_ready: result.payload_ready, batch_id: result.batch_id, build_reference: result.build_reference },
 		}),
 	};
-}
-
-export async function loadDecisionsFile<T>(filePath: string, schema: z.ZodType<T>, commandName: string): Promise<{ type: "ok"; value: T } | { type: "error"; errorType: string; message: string }> {
-	let text: string;
-	try {
-		text = await readFile(filePath, "utf8");
-	} catch (error) {
-		return { type: "error", errorType: "invalid_request", message: `${commandName} --decisions-file must point to an existing JSON file: ${filePath} (${formatErrorMessage(error)})` };
-	}
-	const parsed = parseJsonWithSchema({
-		text,
-		schema,
-		jsonDescription: `${commandName} --decisions-file`,
-		schemaDescription: `${commandName} --decisions-file`,
-	});
-	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
-	return { type: "ok", value: parsed.value };
 }
 
 export function threadResolutionBuildArtifact(options: {
