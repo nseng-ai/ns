@@ -3,9 +3,9 @@ export { BASE_NAMESPACE, encodeBranchName, decodeBranchName, buildSnapshotRef, b
 export type { EntryRef, SnapshotRefParts, EntryLocatorParts } from "./ref-layout.ts";
 export { validateBranchName, validateNamespaceName, validateEntryKey, validateKeyGlob } from "./validation.ts";
 export type { ValidationResult } from "./validation.ts";
-export type { BrmemGateway, EntryContent, EntryDiagnostic, ListedEntry, PutEntryResult, DeleteEntryResult, CopyEntriesResult } from "./gateway.ts";
+export type { BrmemGateway, EntryContent, EntryDiagnostic, ListedEntry, PutEntryResult, DeleteEntryResult, CopyEntriesResult, GitRemoteConfig } from "./gateway.ts";
 export type { BrmemErrorInfo, BrmemOptionalResult, BrmemResult } from "./contracts.ts";
 export { brmemOk, brmemError, brmemFound, brmemMissing, brmemOptionalError } from "./contracts.ts";
 export { RealGitBrmemGateway } from "./real-git-gateway.ts";
 export { FakeBrmemGateway } from "./fake-gateway.ts";
-export type { FakeBrmemGatewayOptions, FakeEntrySeed } from "./fake-gateway.ts";
+export type { FakeBrmemGatewayOptions, FakeEntrySeed, FakeGitRemoteConfig } from "./fake-gateway.ts";

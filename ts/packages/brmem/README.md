@@ -11,6 +11,7 @@ It implements the current operation set:
 - `check`
 - `copy`
 - `export`
+- `setup-git`
 - hidden skill-facing `exec resolve-prompt`
 
 ## Distribution
@@ -43,6 +44,34 @@ Expected runtime diagnostics include:
 runtime: typescript
 entry_point: @asdl/brmem bin brmem -> ts/packages/brmem/src/cli.ts
 ```
+
+## Git setup for Branch Memory Snapshot Refs
+
+`brmem setup-git` configures the current clone's local Git config so ordinary remote operations include Branch Memory Snapshot Refs under `refs/brmem/*`.
+
+```text
+brmem setup-git
+brmem setup-git --remote upstream
+brmem setup-git --dry-run --format json
+```
+
+The command is safe to rerun. It preserves existing `remote.<remote>.push` and `remote.<remote>.fetch` entries and only adds missing Branch Memory refspecs.
+
+When a remote has no explicit push refspecs, `setup-git` first adds:
+
+```text
+remote.<remote>.push = HEAD
+```
+
+This preserves normal `git push <remote>` current-branch behavior after Git switches to explicit configured push refspecs. Existing custom push policies are preserved; if push refspecs already exist, `setup-git` does not add `HEAD`.
+
+Fetch setup uses a non-force refspec:
+
+```text
+remote.<remote>.fetch = refs/brmem/*:refs/brmem/*
+```
+
+Divergent local Branch Memory Snapshot Refs therefore produce an ordinary Git fetch failure instead of being silently overwritten. The command only edits clone-local `.git/config`; it does not push, fetch, create hooks, or mutate Branch Memory Entries.
 
 ## Validation
 

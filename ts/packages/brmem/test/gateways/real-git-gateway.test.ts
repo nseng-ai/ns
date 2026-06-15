@@ -148,6 +148,36 @@ describe("RealGitBrmemGateway", () => {
 			repo.cleanup();
 		}
 	});
+
+	it("reads and writes git remote config for branch memory", async () => {
+		const repo = createTempGitRepo();
+		try {
+			repo.runGit(["remote", "add", "origin", "/tmp/brmem-setup-test-remote.git"]);
+			const gateway = new RealGitBrmemGateway(repo.path);
+
+			const found = await gateway.getRemoteConfig("origin");
+			expect(found).toMatchObject({
+				type: "found",
+				value: {
+					push: [],
+					fetch: ["+refs/heads/*:refs/remotes/origin/*"],
+				},
+			});
+
+			expect((await gateway.addRemoteRefspecs("origin", ["HEAD", "refs/brmem/*:refs/brmem/*"], ["refs/brmem/*:refs/brmem/*"])).type).toBe("ok");
+
+			const updated = await gateway.getRemoteConfig("origin");
+			expect(updated).toMatchObject({
+				type: "found",
+				value: {
+					push: ["HEAD", "refs/brmem/*:refs/brmem/*"],
+					fetch: ["+refs/heads/*:refs/remotes/origin/*", "refs/brmem/*:refs/brmem/*"],
+				},
+			});
+		} finally {
+			repo.cleanup();
+		}
+	});
 });
 
 interface CommandStep {

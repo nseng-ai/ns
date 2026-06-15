@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@asdl/core/exec";
 
-import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError, type BrmemResult } from "./contracts.ts";
+import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError, type BrmemResult, type BrmemOptionalResult } from "./contracts.ts";
 import type {
 	BrmemGateway,
 	CopyEntriesResult,
@@ -281,6 +281,35 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update destination Snapshot Ref.", update);
 		return brmemOk({ entries: sourceMatching.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries) });
 	}
+
+	async getRemoteConfig(remote: string): Promise<BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
+		const exists = await runGit(this.commands, ["remote", "get-url", remote], { cwd: this.cwd });
+		if (exists.code !== 0) return brmemMissing();
+
+		const push = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.push`], { cwd: this.cwd });
+		const pushValues = push.code === 0 ? splitConfigValues(push.stdout) : [];
+
+		const fetch = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.fetch`], { cwd: this.cwd });
+		const fetchValues = fetch.code === 0 ? splitConfigValues(fetch.stdout) : [];
+
+		return brmemFound({ push: pushValues, fetch: fetchValues });
+	}
+
+	async addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<BrmemResult<void>> {
+		for (const p of push) {
+			const res = await runGit(this.commands, ["config", "--local", "--add", `remote.${remote}.push`, p], { cwd: this.cwd });
+			if (res.code !== 0) return gitError("git_config_write_failed", `Could not add Git config remote.${remote}.push.`, res);
+		}
+		for (const f of fetch) {
+			const res = await runGit(this.commands, ["config", "--local", "--add", `remote.${remote}.fetch`, f], { cwd: this.cwd });
+			if (res.code !== 0) return gitError("git_config_write_failed", `Could not add Git config remote.${remote}.fetch.`, res);
+		}
+		return brmemOk(undefined);
+	}
+}
+
+function splitConfigValues(stdout: string): readonly string[] {
+	return stdout.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
 }
 
 async function runGit(commands: CommandExecApi, args: readonly string[], options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }): Promise<GitRunResult> {
