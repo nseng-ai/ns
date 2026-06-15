@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { buildStackResolveThreadPayloads } from "../../src/stack-resolve-thread-payloads.ts";
 import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
 import type { PayloadResult } from "../../src/payload-store.ts";
 import { stackArtifactDescriptor } from "../../src/session-artifacts.ts";
@@ -86,6 +87,93 @@ describe("build-stack-resolve-thread-payloads session artifact flow", () => {
 			expect(artifact).toMatchObject({ artifact_kind: "thread_resolution_build", source: "stack", pr_number: entry.pr_number, payload_ready: true });
 			expect(artifact.payload).toEqual(entry.payload);
 		}
+	});
+
+	test("builds explained payloads for only voided_by_stack_work batch threads", () => {
+		interface StackPlanItem {
+			pr_number: number;
+			branch: string;
+			title: string | null;
+			url: string | null;
+			source_batch_id: string | null;
+			source_kind: string;
+			summary: string;
+			action_summary: string | null;
+			complexity: string | null;
+			approval_required: boolean;
+			review_id: string | null;
+			review_state: string | null;
+			submitted_at: string | null;
+			thread_id: string | null;
+			discussion_comment_id: number | null;
+			covered_comment_ids: number[];
+			body_locator: unknown | null;
+			thread_item_pointer: string | null;
+			path: string | null;
+			line: number | null;
+			start_line: number | null;
+			is_outdated: boolean | null;
+			author: string | null;
+			needs_reply: boolean | null;
+		}
+		interface StackPlanBatch {
+			batch_id: string;
+			complexity: string;
+			approval_required: boolean;
+			items: StackPlanItem[];
+		}
+		interface StackPlanFixtureInput {
+			stack_plan: { batches: StackPlanBatch[] };
+		}
+		const happyCase = requiredCase("multi-pr-resolve");
+		const input = JSON.parse(happyCase.payload_json_template) as StackPlanFixtureInput;
+		const localBatch = input.stack_plan.batches.find((batch) => batch.batch_id === "local");
+		const templateItem = localBatch?.items.find((item) => item.thread_id === "PRRT_102");
+		if (templateItem === undefined) throw new Error("fixture must include PRRT_102 local thread");
+		input.stack_plan.batches.unshift({
+			batch_id: "voided_by_stack_work",
+			complexity: "voided_by_stack_work",
+			approval_required: false,
+			items: [
+				{
+					...templateItem,
+					source_batch_id: "voided_by_stack_work",
+					thread_id: "PRRT_VOIDED",
+					summary: "Lower-stack parser request is obsolete at stack tip.",
+					action_summary: "Already addressed by later stack work: both parsing paths use the shared parser.",
+					complexity: "voided_by_stack_work",
+					approval_required: false,
+				},
+			],
+		});
+
+		const result = buildStackResolveThreadPayloads({
+			stack_plan: input.stack_plan,
+			batch_id: "voided_by_stack_work",
+			commit_sha: null,
+			continue_on_error: false,
+			decisions: [
+				{
+					pr_number: 102,
+					thread_id: "PRRT_VOIDED",
+					action: "resolve",
+					mode: "explained",
+					message: "Already addressed by later stack work: both parsing paths use the shared parser.",
+				},
+			],
+		});
+
+		expect(result).toMatchObject({ valid: true, batch_id: "voided_by_stack_work", review_thread_count: 1, resolved_thread_count: 1 });
+		expect(result.errors).toEqual([]);
+		expect(JSON.stringify(result)).not.toContain("missing_thread_decision");
+		expect(result.payloads).toHaveLength(1);
+		expect(result.payloads[0]?.payload?.items).toEqual([
+			expect.objectContaining({
+				thread_id: "PRRT_VOIDED",
+				mode: "explained",
+				message: "Already addressed by later stack work: both parsing paths use the shared parser.",
+			}),
+		]);
 	});
 
 	test("reports invalid_json for malformed decisions files", async () => {

@@ -1349,6 +1349,11 @@
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
+                      },
+                      "voided_by_stack_work_items": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
                       }
                     },
                     "required": [
@@ -2088,6 +2093,11 @@
                         "maximum": 9007199254740991
                       },
                       "automation_discussion_comments": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "voided_by_stack_work_items": {
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991

@@ -455,6 +455,7 @@ const stackFeedbackPlanSummarySchema = z.object({
 	approval_required_items: z.int(),
 	informational_items: z.int(),
 	automation_discussion_comments: z.int(),
+	voided_by_stack_work_items: z.int().optional(),
 });
 
 const stackFeedbackPlanResolvedInputsSchema = z.object({

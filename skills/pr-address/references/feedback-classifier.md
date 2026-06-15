@@ -10,6 +10,53 @@ Use the scaffold from:
 pr-address exec classification-template --pr-number <pr-number> --format json
 ```
 
+The parent may also supply manifest locators, raw payload paths, restructured-file context, and selected body text from `read-feedback-detail`. Do not paste the full raw payload artifact into the main transcript; inspect only the bodies needed for semantic judgment.
+
+## Delegated classifier report
+
+When acting as a delegated classifier subagent, return a concise prose/Markdown
+classification report keyed by stable review, thread, discussion-comment, and
+covered thread-comment IDs. Do not emit the final validation JSON packet unless
+the parent prompt explicitly requests a special machine packet for a structured
+terminal-capture mode.
+
+Recommended report shape:
+
+Stack-feedback classifiers may use `Disposition: voided_by_stack_work` for a review thread only when an unresolved lower-stack thread is obsolete because current stack-tip or upstack code already made the requested change. Include prose evidence in both the summary and recommended action. Do not use this disposition for single-PR `pr-address` runs, PR-level reviews, discussion comments, ordinary false positives, or pre-existing moved-file bot comments.
+
+```md
+## Coverage
+
+- Reviews: accounted for 1/1
+- Review threads: accounted for 1/1
+- Thread comments: covered 2/2
+- Discussion comments: accounted for 1/1
+
+## Review threads
+
+### PRRT_kw...
+
+Disposition: actionable
+Summary: Reviewer is asking for a clearer error message.
+Recommended action: Update the raised error text and nearby assertion.
+Complexity: single_file
+Pre-existing: no
+Covered comments: 123456, 123457
+Confidence: high
+Evidence: /data/review_threads/0/comments/0/body, /data/review_threads/0/comments/1/body
+
+## Discussion comments
+
+### 987654
+
+Disposition: informational
+Summary: CI status bot posted a passing workflow summary.
+Informational reason: automation
+Needs reply: no
+Confidence: high
+Evidence: /data/discussion_comments/0/body
+```
+
 Inspect referenced payload artifacts as needed. Do not ask the classifier to combine manifests with classifications or to build planning wrappers.
 
 ## Output
@@ -29,6 +76,13 @@ printf '%s' "$CLASSIFICATION_JSON" \
 
 For each review, review thread, and discussion comment in the scaffold:
 
+- `disposition`: `actionable`, `informational`; stack-feedback review threads may also use `voided_by_stack_work`
+- `complexity`: `pre_existing`, `local`, `single_file`, `cross_cutting`,
+  `complex`
+- `informational_reason`: `resolved_reference`, `automation`,
+  `acknowledgement`, `approval`, `question_only`, `fyi`, `noise`,
+  `already_addressed`, `other`
+
 - choose a disposition;
 - provide concise summaries/action summaries for actionable items;
 - assign complexity and approval requirement where the schema asks for them;
@@ -42,6 +96,7 @@ Do not call raw GitHub write endpoints, do not resolve threads directly, and do 
   no `informational_reason`.
 - `informational` items have `informational_reason`, and no `action_summary`,
   `complexity`, `pre_existing: true`, or `needs_reply: true`.
+- `voided_by_stack_work` is valid only for stack-feedback review threads. It requires non-empty `summary` and `action_summary` prose explaining why later stack work voided the request, and must not include `complexity`, `informational_reason`, or `pre_existing: true`.
 - `pre_existing: true` and `complexity: "pre_existing"` must appear together.
 
 ## Completeness invariant
@@ -139,21 +194,22 @@ matches wins.
 
 1. **Resolved threads** → reference-only. Current validation rejects them in the
    packet, so do not include them as work.
-2. **Thread on a restructured path, first commenter is a bot** →
+2. **Stack-only obsolete lower-stack request** → in `stack-feedback-plan` classification only, use `disposition: "voided_by_stack_work"` when the unresolved thread was valid against its own lower PR but current stack-tip/upstack work already made the requested design or code change. Put the original request and stack-tip evidence in `summary`/`action_summary`. Do not use this for single-PR flows, generic false positives, or pre-existing moved-file bot comments.
+3. **Thread on a restructured path, first commenter is a bot** →
    `disposition: "actionable"`, `complexity: "pre_existing"`,
    `pre_existing: true`. Action summary: `Bot comment on moved file: <summary of body>`.
    These land in the Pre-Existing batch and auto-resolve with the standard
    pre-existing comment without code changes.
-3. **Thread from a bot, body is a trivial nit** (repeated boilerplate, suggests
+4. **Thread from a bot, body is a trivial nit** (repeated boilerplate, suggests
    a pattern already present nearby, or flags a false positive you can verify
    in-place) → still `actionable`, but execution will often reply-and-resolve
    without a code change.
-4. **Outdated thread** (`is_outdated: true`, `line: null`) → `actionable` with a
+5. **Outdated thread** (`is_outdated: true`, `line: null`) → `actionable` with a
    note in `action_summary`: `[outdated] <summary>`. During execution, check
    whether the issue is already fixed; if so, resolve without a new edit.
-5. **Normal inline thread with a request or suggestion** → `actionable`. Infer
+6. **Normal inline thread with a request or suggestion** → `actionable`. Infer
    complexity from the body.
-6. **Normal inline thread with only questions or approvals** → `informational`
+7. **Normal inline thread with only questions or approvals** → `informational`
    with `informational_reason: "question_only"`, `"approval"`, or `"fyi"`. The
    user decides whether to reply or dismiss.
 
@@ -213,14 +269,15 @@ approval than to auto-execute something surprising.
 Batches are derived from the validated packet, not from unvalidated scratchpad
 fields. Use only `disposition: "actionable"` items for actionable batches.
 
-| # | Name          | auto_proceed | Contents                                           |
-| - | ------------- | ------------ | -------------------------------------------------- |
-| 0 | Pre-Existing  | yes          | All items with `complexity: "pre_existing"`        |
-| 1 | Local Fixes   | yes          | All items with `complexity: "local"`               |
-| 2 | Single-File   | yes          | All items with `complexity: "single_file"`         |
-| 3 | Cross-Cutting | **no**       | All items with `complexity: "cross_cutting"`       |
-| 4 | Complex       | **no**       | All items with `complexity: "complex"`             |
-| 5 | Informational | **no**       | Review threads with `disposition: "informational"` |
+| # | Name                 | auto_proceed | Contents                                                             |
+| - | -------------------- | ------------ | -------------------------------------------------------------------- |
+| 0 | Voided-by-stack-work | yes          | Stack-only review threads with `disposition: "voided_by_stack_work"` |
+| 1 | Pre-Existing         | yes          | All items with `complexity: "pre_existing"`                          |
+| 2 | Local Fixes          | yes          | All items with `complexity: "local"`                                 |
+| 3 | Single-File          | yes          | All items with `complexity: "single_file"`                           |
+| 4 | Cross-Cutting        | **no**       | All items with `complexity: "cross_cutting"`                         |
+| 5 | Complex              | **no**       | All items with `complexity: "complex"`                               |
+| 6 | Informational        | **no**       | Review threads with `disposition: "informational"`                   |
 
 Skip any batch that would be empty.
 
