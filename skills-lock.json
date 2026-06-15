@@ -187,11 +187,6 @@
       "sourceType": "local",
       "computedHash": "059e3d47258c0840c43e2d322351b150d4ecf03c36b1e8875a730da7f5c418e5"
     },
-    "objective-current": {
-      "source": "skills/objective-current",
-      "sourceType": "local",
-      "computedHash": "10035e8226321704f5e0ff5745558873697874f8a23eaeae491ef5887fb84953"
-    },
     "objective-next": {
       "source": "skills/objective-next",
       "sourceType": "local",

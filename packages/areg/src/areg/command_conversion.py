@@ -49,7 +49,6 @@ SPECIALIZED_SKILL_REPLACEMENTS: dict[str, str] = {
     "handoff-create": "handoff:create",
     "handoff-pickup": "handoff:pickup",
     "objective-create": "objective:create",
-    "objective-current": "objective:current",
     "objective-next": "objective:next",
     "objective-stack-impl": "objective:stack-impl",
     "objective-update": "objective:update",

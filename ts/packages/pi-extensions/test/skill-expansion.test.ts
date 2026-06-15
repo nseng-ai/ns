@@ -188,12 +188,12 @@ Do next work.
 	});
 
 	test("strips CRLF frontmatter", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("objective-current", "C:/skills/objective-current/SKILL.md", "C:/skills/objective-current")]), "objective-current", {
-			readTextFile: async () => "---\r\nname: objective-current\r\n---\r\n# Objective Current\r\n",
+		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "C:/skills/objective-next/SKILL.md", "C:/skills/objective-next")]), "objective-next", {
+			readTextFile: async () => "---\r\nname: objective-next\r\n---\r\n# Objective Next\r\n",
 		});
 
-		expect(expanded?.body).toBe("# Objective Current");
-		expect(expanded?.body).not.toContain("name: objective-current");
+		expect(expanded?.body).toBe("# Objective Next");
+		expect(expanded?.body).not.toContain("name: objective-next");
 	});
 });
 
