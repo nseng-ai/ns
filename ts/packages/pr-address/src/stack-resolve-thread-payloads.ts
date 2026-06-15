@@ -14,7 +14,7 @@ import {
 } from "./resolve-thread-batch-payload.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveStackResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
-import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import { informationalReviewThreadKeys, itemsByThread, otherBatchReviewThreads, threadKeyString } from "./stack-feedback-thread-index.ts";
 
 const INVALID_STACK_PLAN_SHAPE_MESSAGE = "stack_plan must be the data object returned by stack-feedback-plan.";
@@ -134,7 +134,6 @@ const buildStackResolveThreadPayloadsParseSchema = z.object({
 	continue_on_error: z.boolean().default(false),
 	decisions_file: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 export const buildStackResolveThreadPayloadsOperation = defineExecOperation({
@@ -143,6 +142,10 @@ export const buildStackResolveThreadPayloadsOperation = defineExecOperation({
 		description: "Build non-mutating per-PR resolve-thread-batch payloads from stack decisions.",
 		schema: buildStackResolveThreadPayloadsParseSchema,
 		handler: runBuildStackResolveThreadPayloadsOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => compactBuildStackResolveThreadPayloadsResult(data, fullOutput),
 	},
 });
 
@@ -176,47 +179,40 @@ async function runBuildStackResolveThreadPayloadsOperation(
 			if (artifactResult.type === "error") return failure(artifactResult.errorType, artifactResult.message);
 			entry.build_reference = artifactResult.value;
 		}
-		if (request.stdout_mode === "full") return ok(resultWithInputs);
-		const compact = await compactBuildStackResolveThreadPayloadsResult(planInput.value.store, resultWithInputs);
-		if (compact.type === "error") return failure(compact.errorType, compact.message);
-		return ok(compact.value);
+		return ok(resultWithInputs);
 	}
-	if (request.stdout_mode === "full") return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", resultWithInputs);
-	const compact = await compactBuildStackResolveThreadPayloadsResult(planInput.value.store, resultWithInputs);
-	if (compact.type === "error") return failure(compact.errorType, compact.message);
-	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", compact.value);
+	return negative("Stack resolve-thread payload decisions failed validation; no payloads produced.", resultWithInputs);
 }
 
-async function compactBuildStackResolveThreadPayloadsResult(
-	store: PayloadArtifactStore,
-	data: BuildStackResolveThreadPayloadsResult & { payloads: Array<StackResolveThreadPayloadEntry & { build_reference: PayloadReference | null }>; resolved_inputs: unknown },
-): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+function compactBuildStackResolveThreadPayloadsResult(
+	data: unknown,
+	fullOutput: PayloadReference,
+): { type: "ok"; value: Record<string, unknown> } {
+	const result = data as BuildStackResolveThreadPayloadsResult & { payloads: Array<StackResolveThreadPayloadEntry & { build_reference: PayloadReference | null }>; resolved_inputs: unknown };
 	const produced: Array<{ kind: string; reference: PayloadReference }> = [];
-	for (const entry of data.payloads) {
+	for (const entry of result.payloads) {
 		if (entry.build_reference !== null && entry.build_reference !== undefined) produced.push({ kind: "resolve-build", reference: entry.build_reference });
 	}
-	const fullOutput = produced.length === 0 ? await writeGenericFullOutputArtifact({ store, operation: "build-stack-resolve-thread-payloads", data }) : null;
-	if (fullOutput?.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
 	return {
 		type: "ok",
 		value: compactOperationResult({
 			operation: "build-stack-resolve-thread-payloads",
 			counts: {
-				review_thread_count: data.review_thread_count,
-				resolved_thread_count: data.resolved_thread_count,
-				skipped_thread_count: data.skipped_thread_count,
-				payloads: data.payloads.length,
-				payloads_ready: data.payloads.filter((entry) => entry.payload_ready).length,
+				review_thread_count: result.review_thread_count,
+				resolved_thread_count: result.resolved_thread_count,
+				skipped_thread_count: result.skipped_thread_count,
+				payloads: result.payloads.length,
+				payloads_ready: result.payloads.filter((entry) => entry.payload_ready).length,
 			},
-			errors: data.errors,
-			warnings: data.warnings,
-			resolvedInputs: data.resolved_inputs,
-			artifacts: { full_output: fullOutput?.value, produced },
+			errors: result.errors,
+			warnings: result.warnings,
+			resolvedInputs: result.resolved_inputs,
+			artifacts: { full_output: fullOutput, produced },
 			details: {
-				valid: data.valid,
-				payloads_ready: data.payloads_ready,
-				batch_id: data.batch_id,
-				payloads: data.payloads.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch, payload_ready: entry.payload_ready, build_reference: entry.build_reference })),
+				valid: result.valid,
+				payloads_ready: result.payloads_ready,
+				batch_id: result.batch_id,
+				payloads: result.payloads.map((entry) => ({ pr_number: entry.pr_number, branch: entry.branch, payload_ready: entry.payload_ready, build_reference: entry.build_reference })),
 			},
 		}),
 	};

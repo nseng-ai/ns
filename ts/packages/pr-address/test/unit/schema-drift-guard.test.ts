@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
-import { InMemoryPayloadStoreFactory, type PayloadResult } from "../../src/payload-store.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import type { PayloadResult } from "../../src/payload-store.ts";
 import { prBatchArtifactDescriptor } from "../../src/session-artifacts.ts";
 import {
 	buildResolveThreadBatchPayload,

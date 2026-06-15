@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryPayloadStoreFactory, type PayloadResult } from "../../src/payload-store.ts";
+import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
+import type { PayloadResult } from "../../src/payload-store.ts";
 import { prArtifactDescriptor, prBatchArtifactDescriptor } from "../../src/session-artifacts.ts";
 import { GOLDEN_V1_ROOT, REPO_ROOT } from "../support/golden.ts";
 import { InMemoryPrAddressGitGateway, InMemoryPrAddressGitHubGateway, reviewThread } from "../support/in-memory-pr-address-gateways.ts";

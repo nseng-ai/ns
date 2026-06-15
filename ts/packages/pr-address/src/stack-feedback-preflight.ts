@@ -2,7 +2,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import { loadJsonInput } from "./json-input.ts";
 import { branchesValidationMessage, mapBranchesToOpenPrs, mapBranchPrsInputSchema, type MapBranchPrsResult } from "./map-branch-prs.ts";
 import type { PayloadReference } from "./payload-store.ts";
@@ -36,7 +36,6 @@ interface StackFeedbackPreflightCompactResult {
 const stackFeedbackPreflightParseSchema = z.object({
 	branches_json: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 export const stackFeedbackPreflightOperation = defineExecOperation({
@@ -46,6 +45,40 @@ export const stackFeedbackPreflightOperation = defineExecOperation({
 		description: "Map branches to open PRs, freeze the stack, and prepare stack feedback in one pass.",
 		schema: stackFeedbackPreflightParseSchema,
 		handler: runStackFeedbackPreflightOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			if (isMapBranchPrsResult(data)) {
+				return {
+					type: "ok",
+					value: compactOperationResult({
+						operation: "stack-feedback-preflight",
+						counts: data.summary,
+						artifacts: { full_output: fullOutput },
+						details: { branch_prs: data.branch_prs, missing_branches: data.missing_branches },
+					}),
+				};
+			}
+			const result = data as StackFeedbackPreflightFullResult;
+			if (result.stack_summary_reference === null) return { type: "error", errorType: "payload_lookup_failed", message: "stack-feedback-preflight compact output requires a stack summary reference." };
+			const compact = compactPreflightResult(result, result.stack_summary_reference);
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "stack-feedback-preflight",
+					counts: { ...compact.summary },
+					artifacts: {
+						full_output: fullOutput,
+						produced: [
+							{ kind: "stack", reference: compact.stack_reference },
+							{ kind: "stack-prep", reference: compact.stack_summary_reference },
+						],
+					},
+					details: { ...compact },
+				}),
+			};
+		},
 	},
 });
 
@@ -99,23 +132,11 @@ async function runStackFeedbackPreflightOperation(
 		mapping_summary: mapping.value.summary,
 		stack_reference: stackReference.value,
 	};
-	if (request.stdout_mode === "compact") {
-		const compact = compactPreflightResult(fullResult, prepared.value.stackSummaryReference);
-		return ok(
-			compactOperationResult({
-				operation: "stack-feedback-preflight",
-				counts: { ...compact.summary },
-				artifacts: {
-					produced: [
-						{ kind: "stack", reference: compact.stack_reference },
-						{ kind: "stack-prep", reference: compact.stack_summary_reference },
-					],
-				},
-				details: { ...compact },
-			}),
-		);
-	}
 	return ok(fullResult);
+}
+
+function isMapBranchPrsResult(value: unknown): value is MapBranchPrsResult {
+	return typeof value === "object" && value !== null && "branch_prs" in value && "missing_branches" in value && "summary" in value;
 }
 
 function stackEntry(entry: MapBranchPrsResult["branch_prs"][number]): StackFeedbackPrInput {

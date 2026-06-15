@@ -6,7 +6,7 @@ import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayO
 import type { GatewayFailure, GatewayOptions, PRReviewComment, PrAddressGitGateway, PrAddressGitHubGateway } from "./gateways.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
-import { compactOperationResult, openPayloadStoreForStdoutMode, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import { resolutionProvenanceInputSchema, resolveThreadBatchPayloadSchema, threadResolutionBuildArtifactSchema, type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
 
 export const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
@@ -21,7 +21,6 @@ const replyToReviewParseSchema = z.object({
 	review_author: z.string(),
 	summary_markdown: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 const replyToDiscussionParseSchema = z.object({
@@ -31,7 +30,6 @@ const replyToDiscussionParseSchema = z.object({
 	original_body: z.string(),
 	response: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 const resolveThreadWithReplyParseSchema = z.object({
@@ -41,12 +39,10 @@ const resolveThreadWithReplyParseSchema = z.object({
 	commit_sha: z.string().optional(),
 	provenance_json: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 const resolveThreadBatchParseSchema = z.object({
 	from_build: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 interface NormalizedResolutionRequest {
@@ -79,6 +75,13 @@ export const replyToReviewOperation = defineExecOperation({
 		positionals: { pr_number: { position: 0 }, review_author: { position: 1 }, summary_markdown: { position: 2 } },
 		handler: runReplyToReviewOperation,
 	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ request, data, fullOutput }) => compactMutationResult("reply-to-review", data, fullOutput, {
+			counts: { comments_added: 1 },
+			details: { pr_number: request.pr_number, review_author: request.review_author, comment: (data as Record<string, unknown>).comment },
+		}),
+	},
 });
 
 export const replyToDiscussionOperation = defineExecOperation({
@@ -89,6 +92,18 @@ export const replyToDiscussionOperation = defineExecOperation({
 		schema: replyToDiscussionParseSchema,
 		positionals: { pr_number: { position: 0 }, comment_id: { position: 1 }, comment_author: { position: 2 }, original_body: { position: 3 }, response: { position: 4 } },
 		handler: runReplyToDiscussionOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ request, data, fullOutput }) => {
+			const result = data as Record<string, unknown>;
+			const reactionAdded = result.reaction_added === true;
+			return compactMutationResult("reply-to-discussion", data, fullOutput, {
+				counts: { comments_added: 1, reactions_added: reactionAdded ? 1 : 0 },
+				warnings: typeof result.warning === "string" ? [result.warning] : undefined,
+				details: { pr_number: request.pr_number, comment_id: request.comment_id, comment: result.comment, reaction_added: reactionAdded },
+			});
+		},
 	},
 });
 
@@ -101,6 +116,16 @@ export const resolveThreadWithReplyOperation = defineExecOperation({
 		positionals: { thread_id: { position: 0 }, mode: { position: 1 }, message: { position: 2 }, commit_sha: { position: 3 } },
 		handler: runResolveThreadWithReplyOperation,
 	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => {
+			const result = data as Record<string, unknown>;
+			return compactMutationResult("resolve-thread-with-reply", data, fullOutput, {
+				counts: { resolved_threads: result.is_resolved === true ? 1 : 0, comments_added: 1 },
+				details: { thread_id: result.thread_id, mode: result.mode, comment: result.comment, is_resolved: result.is_resolved },
+			});
+		},
+	},
 });
 
 export const resolveThreadBatchOperation = defineExecOperation({
@@ -110,6 +135,9 @@ export const resolveThreadBatchOperation = defineExecOperation({
 		description: "Reply to and resolve multiple PR review threads from an explicit build artifact.",
 		schema: resolveThreadBatchParseSchema,
 		handler: runResolveThreadBatchOperation,
+	},
+	compactOutput: {
+		buildCompact: ({ data, fullOutput }) => ({ type: "ok", value: compactResolveThreadBatchResult(data, fullOutput) }),
 	},
 });
 
@@ -121,11 +149,7 @@ async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.o
 	const result = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
 	const data = { body, comment: result.value };
-	if (request.stdout_mode === "full") return ok(data);
-	return await compactMutationResult(ctx, request.harness_session_id, "reply-to-review", data, {
-		counts: { comments_added: 1 },
-		details: { pr_number: request.pr_number, review_author: request.review_author, comment: result.value },
-	});
+	return ok(data);
 }
 
 async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request: z.output<typeof replyToDiscussionParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -138,19 +162,10 @@ async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request:
 	const reaction = await gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
 	if (reaction.type === "failure") {
 		const data = { body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` };
-		if (request.stdout_mode === "full") return ok(data);
-		return await compactMutationResult(ctx, request.harness_session_id, "reply-to-discussion", data, {
-			counts: { comments_added: 1, reactions_added: 0 },
-			warnings: [data.warning],
-			details: { pr_number: request.pr_number, comment_id: request.comment_id, comment: comment.value, reaction_added: false },
-		});
+		return ok(data);
 	}
 	const data = { body, comment: comment.value, reaction_added: true, reaction: reaction.value };
-	if (request.stdout_mode === "full") return ok(data);
-	return await compactMutationResult(ctx, request.harness_session_id, "reply-to-discussion", data, {
-		counts: { comments_added: 1, reactions_added: 1 },
-		details: { pr_number: request.pr_number, comment_id: request.comment_id, comment: comment.value, reaction_added: true },
-	});
+	return ok(data);
 }
 
 async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadWithReplyParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -159,11 +174,7 @@ async function runResolveThreadWithReplyOperation(ctx: PrAddressExecContext, req
 	const gateway = ctx.context.github;
 	const result = await applyResolution(gateway, requestResult.value, gatewayOptions(ctx));
 	if (result.type === "failure") return gatewayFailureExit(result.prefix, result.failure);
-	if (request.stdout_mode === "full") return ok(result.value);
-	return await compactMutationResult(ctx, request.harness_session_id, "resolve-thread-with-reply", result.value, {
-		counts: { resolved_threads: result.value.is_resolved ? 1 : 0, comments_added: 1 },
-		details: { thread_id: result.value.thread_id, mode: requestResult.value.mode, comment: result.value.comment, is_resolved: result.value.is_resolved },
-	});
+	return ok({ ...result.value, mode: requestResult.value.mode });
 }
 
 async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request: z.output<typeof resolveThreadBatchParseSchema>): Promise<ClinkrExit<unknown>> {
@@ -199,43 +210,37 @@ async function runResolveThreadBatchOperation(ctx: PrAddressExecContext, request
 	const writeResult = await writeThreadResolutionResultArtifact({ ctx, buildArtifact: buildArtifact.value.artifact, buildReference: buildArtifact.value.reference, batchResult });
 	if (writeResult.type === "error") return failure(writeResult.errorType, `GitHub mutations were attempted, but writing the resolution artifact failed: ${writeResult.message}`);
 	const data = { ...batchResult, resolved_inputs: { build: buildArtifact.value.reference }, resolution_reference: writeResult.value };
-	const output = request.stdout_mode === "compact" ? compactResolveThreadBatchResult(data) : data;
-	if (batchResult.all_succeeded) return ok(output);
-	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, output);
+	if (batchResult.all_succeeded) return ok(data);
+	return negative(`resolve-thread-batch failed for ${batchResult.failed} item(s); skipped ${batchResult.skipped} item(s).`, data);
 }
 
-async function compactMutationResult(
-	ctx: PrAddressExecContext,
-	harnessSessionId: string | undefined,
+function compactMutationResult(
 	operation: string,
-	data: Record<string, unknown>,
+	data: unknown,
+	fullOutput: PayloadReference,
 	options: { counts: Record<string, unknown>; warnings?: readonly string[] | undefined; details: Record<string, unknown> },
-): Promise<ClinkrExit<unknown>> {
-	const store = await openPayloadStoreForStdoutMode({ ctx, harnessSessionId });
-	if (store.type === "error") return failure(store.errorType, store.message);
-	const fullOutput = await writeGenericFullOutputArtifact({ store: store.value, operation, data });
-	if (fullOutput.type === "error") return failure(fullOutput.errorType, fullOutput.message);
-	return ok(
-		compactOperationResult({
+): { type: "ok"; value: Record<string, unknown> } {
+	return {
+		type: "ok",
+		value: compactOperationResult({
 			operation,
 			counts: options.counts,
 			warnings: options.warnings,
-			artifacts: { full_output: fullOutput.value },
+			artifacts: { full_output: fullOutput },
 			details: options.details,
 		}),
-	);
+	};
 }
 
-function compactResolveThreadBatchResult(
-	data: ResolveThreadBatchResult & { resolved_inputs: { build: PayloadReference }; resolution_reference: PayloadReference },
-): Record<string, unknown> {
+function compactResolveThreadBatchResult(data: unknown, fullOutput: PayloadReference): Record<string, unknown> {
+	const result = data as ResolveThreadBatchResult & { resolved_inputs: { build: PayloadReference }; resolution_reference: PayloadReference };
 	return compactOperationResult({
 		operation: "resolve-thread-batch",
-		counts: { total: data.total, resolved: data.resolved, failed: data.failed, skipped: data.skipped },
-		errors: data.results.filter((item) => item.status === "failed"),
-		resolvedInputs: data.resolved_inputs,
-		artifacts: { produced: [{ kind: "resolution", reference: data.resolution_reference }] },
-		details: { all_succeeded: data.all_succeeded, results: data.results },
+		counts: { total: result.total, resolved: result.resolved, failed: result.failed, skipped: result.skipped },
+		errors: result.results.filter((item) => item.status === "failed"),
+		resolvedInputs: result.resolved_inputs,
+		artifacts: { full_output: fullOutput, produced: [{ kind: "resolution", reference: result.resolution_reference }] },
+		details: { all_succeeded: result.all_succeeded, results: result.results },
 	});
 }
 

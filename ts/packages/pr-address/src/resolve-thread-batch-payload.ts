@@ -15,7 +15,7 @@ import { parseJsonWithSchema } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
-import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 import { type ThreadResolutionBuildArtifact } from "./thread-resolution-build-artifact.ts";
 
 const VALID_RESOLUTION_MODES = ["fixed", "pre_existing", "explained", "planned"] as const;
@@ -109,7 +109,6 @@ const buildResolveThreadBatchPayloadParseSchema = z.object({
 	continue_on_error: z.boolean().default(false),
 	decisions_file: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 export const buildResolveThreadBatchPayloadOperation = defineExecOperation({
@@ -118,6 +117,10 @@ export const buildResolveThreadBatchPayloadOperation = defineExecOperation({
 		description: "Build a non-mutating resolve-thread-batch payload from planned feedback decisions.",
 		schema: buildResolveThreadBatchPayloadParseSchema,
 		handler: runBuildResolveThreadBatchPayloadOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => compactBuildResolveThreadBatchPayloadResult(data, fullOutput),
 	},
 });
 
@@ -148,37 +151,34 @@ async function runBuildResolveThreadBatchPayloadOperation(
 		if (writeResult.type === "error") return failure(writeResult.errorType, writeResult.message);
 		resultWithInputs.build_reference = writeResult.value;
 	}
-	const data = request.stdout_mode === "compact" ? await compactBuildResolveThreadBatchPayloadResult(planInput.value.store, resultWithInputs) : { type: "ok" as const, value: resultWithInputs };
-	if (data.type === "error") return failure(data.errorType, data.message);
-	if (result.valid) return ok(data.value);
-	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, data.value);
-	return negative("Resolve-thread batch payload decisions failed validation; no payload produced.", data.value);
+	if (result.valid) return ok(resultWithInputs);
+	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, resultWithInputs);
+	return negative("Resolve-thread batch payload decisions failed validation; no payload produced.", resultWithInputs);
 }
 
-async function compactBuildResolveThreadBatchPayloadResult(
-	store: PayloadArtifactStore,
-	data: BuildResolveThreadBatchPayloadResult & { resolved_inputs: unknown; build_reference: PayloadReference | null },
-): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
-	const fullOutput = data.build_reference === null ? await writeGenericFullOutputArtifact({ store, operation: "build-resolve-thread-batch-payload", data }) : null;
-	if (fullOutput?.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+function compactBuildResolveThreadBatchPayloadResult(
+	data: unknown,
+	fullOutput: PayloadReference,
+): { type: "ok"; value: Record<string, unknown> } {
+	const result = data as BuildResolveThreadBatchPayloadResult & { resolved_inputs: unknown; build_reference: PayloadReference | null };
 	return {
 		type: "ok",
 		value: compactOperationResult({
 			operation: "build-resolve-thread-batch-payload",
 			counts: {
-				review_thread_count: data.review_thread_count,
-				resolved_thread_count: data.resolved_thread_count,
-				skipped_thread_count: data.skipped_thread_count,
-				ignored_non_thread_items: data.ignored_non_thread_items.length,
+				review_thread_count: result.review_thread_count,
+				resolved_thread_count: result.resolved_thread_count,
+				skipped_thread_count: result.skipped_thread_count,
+				ignored_non_thread_items: result.ignored_non_thread_items.length,
 			},
-			errors: data.errors,
-			warnings: data.warnings,
-			resolvedInputs: data.resolved_inputs,
+			errors: result.errors,
+			warnings: result.warnings,
+			resolvedInputs: result.resolved_inputs,
 			artifacts: {
-				full_output: fullOutput?.value,
-				produced: data.build_reference === null ? [] : [{ kind: "resolve-build", reference: data.build_reference }],
+				full_output: fullOutput,
+				produced: result.build_reference === null ? [] : [{ kind: "resolve-build", reference: result.build_reference }],
 			},
-			details: { valid: data.valid, payload_ready: data.payload_ready, batch_id: data.batch_id, build_reference: data.build_reference },
+			details: { valid: result.valid, payload_ready: result.payload_ready, batch_id: result.batch_id, build_reference: result.build_reference },
 		}),
 	};
 }

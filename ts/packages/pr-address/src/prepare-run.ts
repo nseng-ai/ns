@@ -6,7 +6,7 @@ import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 interface PrepareRunInlineFound {
 	payload_mode: "inline";
@@ -39,7 +39,6 @@ type PrepareRunInlineResult = PrepareRunInlineFound | PrepareRunInlineNoPr;
 const prepareRunParseSchema = z.object({
 	payload_mode: z.enum(["inline", "payload"]).default("payload"),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 	include_all_threads: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
 });
@@ -54,12 +53,34 @@ export const prepareRunOperation = defineExecOperation({
 		schema: prepareRunParseSchema,
 		handler: runPrepareRunOperation,
 	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: async ({ data, store, fullOutput }) => {
+			const manifest = isPrepareRunInlineResult(data) ? buildManifest(data, fullOutput) : (data as ReturnType<typeof buildPrepareRunPayloadManifest>);
+			const shouldMirror = isPrepareRunInlineResult(data) && data.found;
+			const manifestReference = shouldMirror ? await writePrManifestArtifact({ store, prNumber: (data as PrepareRunInlineFound).number, manifest }) : null;
+			if (manifestReference?.type === "error") return { type: "error", errorType: manifestReference.errorType, message: manifestReference.message };
+			return {
+				type: "ok",
+				value: compactOperationResult({
+					operation: "prepare-run",
+					counts: prepareRunCompactCounts(manifest),
+					warnings: Array.isArray(manifest.warnings) ? manifest.warnings : [],
+					artifacts: {
+						full_output: fullOutput,
+						produced: manifestReference === null ? [] : [{ kind: "manifest", reference: manifestReference.value }],
+					},
+					details: { manifest },
+				}),
+			};
+		},
+	},
 });
 
 async function runPrepareRunOperation(ctx: PrAddressExecContext, request: PrepareRunRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway work; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
-	if (request.payload_mode === "payload" || request.stdout_mode === "compact") {
+	if (request.payload_mode === "payload") {
 		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitHarnessSessionId: request.harness_session_id ?? null,
 			env: ctx.env,
@@ -98,7 +119,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 		inlineResult = prepared.value;
 	}
 
-	if (request.payload_mode === "inline" && request.stdout_mode === "full") return ok(inlineResult);
+	if (request.payload_mode === "inline") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const descriptor = inlineResult.found ? `pr-address-prepare-run-pr-${inlineResult.number}` : "pr-address-prepare-run-no-pr";
@@ -109,29 +130,7 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
 	const manifest = buildManifest(inlineResult, rawReference.value);
-	const manifestReference = request.stdout_mode === "compact" && inlineResult.found ? await writePrManifestArtifact({ store, prNumber: inlineResult.number, manifest }) : null;
-	if (manifestReference?.type === "error") return failure(manifestReference.errorType, manifestReference.message);
-	if (request.stdout_mode === "full") return ok(manifest);
-	return ok(
-		compactOperationResult({
-			operation: "prepare-run",
-			counts: inlineResult.found
-				? {
-						reviews: inlineResult.reviews.length,
-						review_threads: inlineResult.review_threads.length,
-						discussion_comments: inlineResult.discussion_comments.length,
-						reopened_threads: inlineResult.reopened_thread_ids.length,
-						restructured_files: inlineResult.restructured_files.length,
-					}
-				: { found: 0 },
-			warnings: inlineResult.found ? inlineResult.warnings : [],
-			artifacts: {
-				full_output: rawReference.value,
-				produced: manifestReference === null ? [] : [{ kind: "manifest", reference: manifestReference.value }],
-			},
-			details: { manifest },
-		}),
-	);
+	return ok(manifest);
 }
 
 async function prepareFoundRun(options: {
@@ -215,7 +214,22 @@ async function writePrManifestArtifact(options: {
 	});
 }
 
-function buildManifest(inlineResult: PrepareRunInlineResult, payloadReference: PayloadReference): unknown {
+function prepareRunCompactCounts(manifest: ReturnType<typeof buildPrepareRunPayloadManifest>): Record<string, unknown> {
+	if (!manifest.found) return { found: 0 };
+	return {
+		reviews: manifest.reviews.length,
+		review_threads: manifest.review_threads.length,
+		discussion_comments: manifest.discussion_comments.length,
+		reopened_threads: manifest.reopened_thread_ids.length,
+		restructured_files: manifest.restructured_files.length,
+	};
+}
+
+function isPrepareRunInlineResult(value: unknown): value is PrepareRunInlineResult {
+	return typeof value === "object" && value !== null && "payload_mode" in value && value.payload_mode === "inline";
+}
+
+function buildManifest(inlineResult: PrepareRunInlineResult, payloadReference: PayloadReference): ReturnType<typeof buildPrepareRunPayloadManifest> {
 	if (!inlineResult.found) {
 		return buildPrepareRunPayloadManifest({
 			payload_reference: payloadReference,

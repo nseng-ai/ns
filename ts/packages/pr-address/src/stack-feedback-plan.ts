@@ -5,7 +5,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
 import { loadOperationPayload, parseJsonWithSchema } from "./json-input.ts";
-import type { PayloadArtifactStore } from "./payload-store.ts";
+import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import {
 	stackFeedbackPlanPayloadFields,
 	stackFeedbackPlanPayloadSchema,
@@ -23,15 +23,14 @@ import {
 import type { StackFeedbackPrepPrResultInput } from "./stack-feedback-prep-contracts.ts";
 import { isAutomationDiscussionTriageItem, triageSummary, type StackDiscussionTriageItem } from "./stack-feedback-triage.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
-import { resolveOperationInput, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { resolveExplicitStdinOrDefaultSessionInput, resolveStackFeedbackPlanSessionInput, type OperationResult } from "./session-inputs.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 const stackFeedbackPlanParseSchema = z.object({
 	payload_json: z.string().optional(),
 	payload_file: z.string().optional(),
 	prep_reference: z.string().optional(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 interface StackFeedbackPlanInputResult {
@@ -45,6 +44,10 @@ export const stackFeedbackPlanOperation = defineExecOperation({
 		description: "Validate stack feedback classifications and merge deterministic per-PR plans.",
 		schema: stackFeedbackPlanParseSchema,
 		handler: runStackFeedbackPlanOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => ({ type: "ok", value: compactPlanOperationResult(data as StackFeedbackPlanResult, fullOutput) }),
 	},
 });
 
@@ -81,10 +84,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	};
 	if (!validationSummary.all_valid) {
 		const negativeResult = emptyPlanResult({ sessionId: store.sessionId, prCount: payload.prep.stack.length, validation: validationSummary, resolvedInputs });
-		return negative(
-			"Stack feedback classification failed validation; no stack plan produced.",
-			request.stdout_mode === "compact" ? compactPlanOperationResult(negativeResult) : negativeResult,
-		);
+		return negative("Stack feedback classification failed validation; no stack plan produced.", negativeResult);
 	}
 
 	const prPlans: PrPlanPair[] = payload.prep.stack.map((prResult) => ({
@@ -102,7 +102,6 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	const stackPlanReference = await store.writeJsonArtifact({ descriptor: stackArtifactDescriptor("plan"), role: "summary", payload: resultWithoutReference });
 	if (stackPlanReference.type === "error") return failure(stackPlanReference.errorType, stackPlanReference.message);
 	const result: StackFeedbackPlanResult = { ...resultWithoutReference, stack_plan_reference: stackPlanReference.value };
-	if (request.stdout_mode === "compact") return ok(compactPlanOperationResult(result));
 	return ok(result);
 }
 
@@ -111,20 +110,13 @@ async function loadStackFeedbackPlanInput(
 	request: z.output<typeof stackFeedbackPlanParseSchema>,
 	store: PayloadArtifactStore,
 ): Promise<OperationResult<StackFeedbackPlanInputResult, string>> {
-	const resolved = await resolveOperationInput({
-		commandName: "stack-feedback-plan",
+	const resolved = await resolveExplicitStdinOrDefaultSessionInput({
 		explicitSource: {
 			hasExplicitSource: request.payload_json !== undefined || request.payload_file !== undefined || request.prep_reference !== undefined,
-			description: "payload input (--payload-json/--payload-file/--prep-reference)",
 			resolve: async (stdin) => await loadStackFeedbackPlanInputFromExplicitSources(request, store, stdin),
 		},
-		stdin: { read: ctx.stdin, nonEmptyMode: "inline-json", resolveInlineJson: loadStackFeedbackPlanInputFromInlineText },
-		sessionSource: {
-			isSelected: false,
-			description: "latest stack prep and per-PR classifications from the payload session",
-			resolve: async () => await resolveStackFeedbackPlanSessionInput(store),
-		},
-		defaultSource: "session",
+		stdin: { type: "inline_json", read: ctx.stdin, resolveInlineJson: loadStackFeedbackPlanInputFromInlineText },
+		defaultSessionSource: { resolve: async () => await resolveStackFeedbackPlanSessionInput(store) },
 	});
 	if (resolved.type === "error") return resolved;
 	return { type: "ok", value: resolved.value.value };
@@ -423,7 +415,7 @@ function informationalDecision(item: StackFeedbackPlanInformationalItem, decisio
 	};
 }
 
-function compactPlanOperationResult(result: StackFeedbackPlanResult): Record<string, unknown> {
+function compactPlanOperationResult(result: StackFeedbackPlanResult, fullOutput: PayloadReference): Record<string, unknown> {
 	const compact = compactPlanResult(result);
 	const produced = result.stack_plan_reference === null ? [] : [{ kind: "stack-plan", reference: result.stack_plan_reference }];
 	return compactOperationResult({
@@ -431,7 +423,7 @@ function compactPlanOperationResult(result: StackFeedbackPlanResult): Record<str
 		counts: result.summary === null ? { pr_count: result.pr_count, batches: result.batches.length, informational: result.informational.length } : { ...result.summary },
 		errors: result.validation.per_pr.flatMap((item) => item.errors),
 		resolvedInputs: result.resolved_inputs,
-		artifacts: { produced },
+		artifacts: { full_output: fullOutput, produced },
 		details: compact,
 	});
 }

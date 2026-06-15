@@ -5,7 +5,7 @@ import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddress
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { buildGetFeedbackPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor } from "./session-artifacts.ts";
-import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
@@ -16,7 +16,6 @@ const getFeedbackParseSchema = z.object({
 	include_empty_reviews: z.boolean().default(false),
 	payload_mode: z.enum(["inline", "payload"]).default("payload"),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 type GetFeedbackRequest = z.output<typeof getFeedbackParseSchema>;
@@ -29,6 +28,14 @@ export interface FeedbackSnapshot {
 	discussion_comments: readonly PRDiscussionComment[];
 }
 
+interface GetFeedbackInlineResult {
+	payload_mode: "inline";
+	pr_number: number;
+	reviews: readonly PRReview[];
+	review_threads: readonly PRReviewThread[];
+	discussion_comments: readonly PRDiscussionComment[];
+}
+
 export const getFeedbackOperation = defineExecOperation({
 	isRepoContextRequired: true,
 	spec: {
@@ -38,12 +45,16 @@ export const getFeedbackOperation = defineExecOperation({
 		positionals: { pr_number: { position: 0 } },
 		handler: runGetFeedbackOperation,
 	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: async ({ data, store, fullOutput }) => await compactGetFeedbackResult(data, store, fullOutput),
+	},
 });
 
 async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFeedbackRequest): Promise<ClinkrExit<unknown>> {
 	// Python opens the payload store before any gateway fetch; preserve that ordering.
 	let store: PayloadArtifactStore | undefined;
-	if (request.payload_mode === "payload" || request.stdout_mode === "compact") {
+	if (request.payload_mode === "payload") {
 		const storeResult = await ctx.context.payloadStoreFactory.fromEnvironment({
 			explicitHarnessSessionId: request.harness_session_id ?? null,
 			env: ctx.env,
@@ -70,7 +81,7 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 		review_threads: snapshot.review_threads,
 		discussion_comments: snapshot.discussion_comments,
 	};
-	if (request.payload_mode === "inline" && request.stdout_mode === "full") return ok(inlineResult);
+	if (request.payload_mode === "inline") return ok(inlineResult);
 	if (store === undefined) return ok(inlineResult);
 
 	const rawReference = await store.writeJsonArtifact({
@@ -80,24 +91,64 @@ async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFe
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
 	const manifest = buildGetFeedbackManifestFromSnapshot(snapshot, rawReference.value);
-	if (request.stdout_mode === "full") return ok(manifest);
+	return ok(manifest);
+}
+
+async function compactGetFeedbackResult(
+	data: unknown,
+	store: PayloadArtifactStore,
+	fullOutput: PayloadReference,
+): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
+	if (isInlineFeedbackResult(data)) {
+		const rawReference = await store.writeJsonArtifact({
+			descriptor: prArtifactDescriptor({ prNumber: data.pr_number, kind: "feedback" }),
+			role: "raw",
+			payload: toMachineEnvelope(ok(data)),
+		});
+		if (rawReference.type === "error") return { type: "error", errorType: rawReference.errorType, message: rawReference.message };
+		const manifest = buildGetFeedbackPayloadManifest({
+			payload_reference: rawReference.value,
+			pr_number: data.pr_number,
+			reviews: data.reviews,
+			review_threads: data.review_threads,
+			discussion_comments: data.discussion_comments,
+		});
+		const manifestReference = await store.writeJsonArtifact({
+			descriptor: prArtifactDescriptor({ prNumber: data.pr_number, kind: "manifest" }),
+			role: "summary",
+			payload: manifest,
+		});
+		if (manifestReference.type === "error") return { type: "error", errorType: manifestReference.errorType, message: manifestReference.message };
+		return {
+			type: "ok",
+			value: compactOperationResult({
+				operation: "get-feedback",
+				counts: feedbackCounts({ ...data, counted_review_threads: data.review_threads }),
+				artifacts: { full_output: fullOutput, produced: [{ kind: "manifest", reference: manifestReference.value }] },
+				details: { pr_number: data.pr_number, manifest },
+			}),
+		};
+	}
+	const manifest = data as ReturnType<typeof buildGetFeedbackPayloadManifest>;
 	const manifestReference = await store.writeJsonArtifact({
-		descriptor: prArtifactDescriptor({ prNumber: snapshot.pr_number, kind: "manifest" }),
+		descriptor: prArtifactDescriptor({ prNumber: manifest.pr_number, kind: "manifest" }),
 		role: "summary",
 		payload: manifest,
 	});
-	if (manifestReference.type === "error") return failure(manifestReference.errorType, manifestReference.message);
-	return ok(
-		compactOperationResult({
+	if (manifestReference.type === "error") return { type: "error", errorType: manifestReference.errorType, message: manifestReference.message };
+	return {
+		type: "ok",
+		value: compactOperationResult({
 			operation: "get-feedback",
-			counts: feedbackCounts(snapshot),
-			artifacts: {
-				full_output: rawReference.value,
-				produced: [{ kind: "manifest", reference: manifestReference.value }],
-			},
-			details: { pr_number: snapshot.pr_number, manifest },
+			counts: manifest.counts,
+			artifacts: { full_output: fullOutput, produced: [{ kind: "manifest", reference: manifestReference.value }] },
+			details: { pr_number: manifest.pr_number, manifest },
 		}),
-	);
+	};
+}
+
+function isInlineFeedbackResult(value: unknown): value is GetFeedbackInlineResult {
+	return typeof value === "object" && value !== null && "pr_number" in value && "reviews" in value && "review_threads" in value && "discussion_comments" in value;
 }
 
 function feedbackCounts(snapshot: FeedbackSnapshot): Record<string, number> {

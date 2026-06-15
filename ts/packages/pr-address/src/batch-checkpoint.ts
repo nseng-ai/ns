@@ -10,7 +10,7 @@ import { parseJsonWithSchema } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference, type PayloadResult } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveBatchCheckpointSessionInputs, type BatchCheckpointSessionInputs } from "./session-inputs.ts";
-import { compactOperationResult, stdoutModeSchema, writeGenericFullOutputArtifact } from "./stdout-mode.ts";
+import { compactOperationResult } from "./stdout-mode.ts";
 
 const nullableStringSchema = z.string().nullable().default(null);
 const validationCommandSchema = z.looseObject({
@@ -155,7 +155,6 @@ const recordBatchCheckpointParseSchema = z.object({
 	code_change: z.boolean().default(true),
 	evidence_file: z.string(),
 	harness_session_id: z.string().optional(),
-	stdout_mode: stdoutModeSchema,
 });
 
 const recordBatchCheckpointEvidenceSchema = z.looseObject({
@@ -169,6 +168,10 @@ export const recordBatchCheckpointOperation = defineExecOperation({
 		description: "Validate and record compact evidence for one pr-address plan-feedback batch.",
 		schema: recordBatchCheckpointParseSchema,
 		handler: runRecordBatchCheckpointOperation,
+	},
+	compactOutput: {
+		harnessSessionId: (request) => request.harness_session_id,
+		buildCompact: ({ data, fullOutput }) => compactRecordBatchCheckpointResult(data, fullOutput),
 	},
 });
 
@@ -204,36 +207,33 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 		checkpointResult = { ...checkpointResult, checkpoint_reference: written.value };
 	}
 
-	const output = request.stdout_mode === "compact" ? await compactRecordBatchCheckpointResult(sessionInput.value.store, checkpointResult) : { type: "ok" as const, value: checkpointResult };
-	if (output.type === "error") return failure(output.errorType, output.message);
-	if (checkpointResult.valid && checkpointResult.batch_complete) return ok(output.value);
-	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", output.value);
+	if (checkpointResult.valid && checkpointResult.batch_complete) return ok(checkpointResult);
+	return negative("Batch checkpoint evidence is incomplete or failed; do not treat this batch as complete.", checkpointResult);
 }
 
-async function compactRecordBatchCheckpointResult(
-	store: PayloadArtifactStore,
-	data: RecordBatchCheckpointResult,
-): Promise<{ type: "ok"; value: Record<string, unknown> } | { type: "error"; errorType: string; message: string }> {
-	const fullOutput = data.checkpoint_reference === null ? await writeGenericFullOutputArtifact({ store, operation: "record-batch-checkpoint", data }) : null;
-	if (fullOutput?.type === "error") return { type: "error", errorType: fullOutput.errorType, message: fullOutput.message };
+function compactRecordBatchCheckpointResult(
+	data: unknown,
+	fullOutput: PayloadReference,
+): { type: "ok"; value: Record<string, unknown> } {
+	const result = data as RecordBatchCheckpointResult;
 	return {
 		type: "ok",
 		value: compactOperationResult({
 			operation: "record-batch-checkpoint",
 			counts: {
-				selected_items: data.selected_items.length,
-				changed_files: data.changed_files.length,
-				validation_commands: data.validation_commands.length,
-				non_thread_outcomes: data.non_thread_outcomes.length,
+				selected_items: result.selected_items.length,
+				changed_files: result.changed_files.length,
+				validation_commands: result.validation_commands.length,
+				non_thread_outcomes: result.non_thread_outcomes.length,
 			},
-			errors: data.errors,
-			warnings: data.warnings,
-			resolvedInputs: data.resolved_inputs,
+			errors: result.errors,
+			warnings: result.warnings,
+			resolvedInputs: result.resolved_inputs,
 			artifacts: {
-				full_output: fullOutput?.value,
-				produced: data.checkpoint_reference === null ? [] : [{ kind: "checkpoint", reference: data.checkpoint_reference }],
+				full_output: fullOutput,
+				produced: result.checkpoint_reference === null ? [] : [{ kind: "checkpoint", reference: result.checkpoint_reference }],
 			},
-			details: { valid: data.valid, batch_complete: data.batch_complete, batch_id: data.batch_id, checkpoint_reference: data.checkpoint_reference },
+			details: { valid: result.valid, batch_complete: result.batch_complete, batch_id: result.batch_id, checkpoint_reference: result.checkpoint_reference },
 		}),
 	};
 }
