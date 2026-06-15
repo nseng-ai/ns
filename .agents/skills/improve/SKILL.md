@@ -15,7 +15,7 @@ The economics of this skill: an expensive, high-ceiling model does the part wher
 
 ## Hard Rules
 
-1. **Never modify source code yourself.** No edits, no fixes, no "quick wins while you're in there." The ONLY files you may create or modify live under `plans/` in the repo root (create it if absent). The `execute` variant dispatches a *separate executor subagent* that edits code in an isolated git worktree — you review its diff and render a verdict; you still never edit code directly, and you never merge, push, or commit to the user's branch.
+1. **Never modify source code yourself.** No edits, no fixes, no "quick wins while you're in there." The ONLY files you may create or modify live under `shadcn-improve/plans/` in the repo root (create it if absent). The `execute` variant dispatches a *separate executor subagent* that edits code in an isolated git worktree — you review its diff and render a verdict; you still never edit code directly, and you never merge, push, or commit to the user's branch.
 2. **Never run commands that mutate the user's working tree** — no installs, no builds that write artifacts outside standard ignored dirs, no git commits, no formatters. Read, search, and run read-only analysis only (e.g. `tsc --noEmit`, lint in check mode, `npm audit` / `pnpm audit`, test suite if cheap and side-effect free). Two scoped exceptions: verification commands inside an executor's disposable worktree during `execute` review, and `gh issue create` under an explicit `--issues` flag.
 3. **Every plan must be fully self-contained.** The executor has not seen this conversation, this codebase survey, or any other plan. If a plan references "the pattern discussed above," it is broken.
 4. **Never reproduce secret values.** If the audit finds credentials, tokens, or `.env` contents, findings and plans reference the `file:line` and credential type only, and recommend rotation. The value itself must never appear in anything you write.
@@ -73,23 +73,24 @@ Present **direction findings separately**, after the table — they're options f
 
 Then ask which findings to turn into plans (default suggestion: the top 3–5 plus anything they flag). Also surface **dependency ordering** — e.g. "characterization tests for module X (plan 02) must land before the refactor of X (plan 05)."
 
-Wait for the selection. Do not write 30 plans nobody asked for. If running non-interactively (no user available to choose), write plans for the top 3–5 by leverage and record that default in `plans/README.md`.
+Wait for the selection. Do not write 30 plans nobody asked for. If running non-interactively (no user available to choose), write plans for the top 3–5 by leverage and record that default in `shadcn-improve/plans/README.md`.
 
 ### Phase 4 — Write the plans
 
 For each selected finding, write one plan file using the template in [references/plan-template.md](references/plan-template.md) — read it before writing the first plan. Plans go in:
 
 ```
-plans/
-  README.md          ← index: priority order, dependency graph, status table
-  001-<slug>.md
-  002-<slug>.md
+shadcn-improve/
+  plans/
+    README.md          ← index: priority order, dependency graph, status table
+    001-<slug>.md
+    002-<slug>.md
 ```
 
 **Excerpts come from your own reads, never from a subagent's report.** Before writing each plan, open every cited file yourself — subagent line numbers and attributions are leads, not facts, and a wrong excerpt becomes a wrong plan that fails its own drift check.
 
 <!-- PLAN-VERIFICATION-WORKSTREAM:START improve-plan-authoring-contract -->
-Before writing anything: record `git rev-parse --short HEAD` — every plan stamps the commit it was written against (the executor uses it for drift detection). If `plans/` already exists from a previous run, **reconcile, don't duplicate**: read `plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `plans/` exists for some unrelated purpose, use `advisor-plans/` instead and say so.
+Before writing anything: record `git rev-parse --short HEAD` — every plan stamps the commit it was written against (the executor uses it for drift detection). If `shadcn-improve/plans/` already exists from a previous run, **reconcile, don't duplicate**: read `shadcn-improve/plans/README.md`, keep numbering monotonic, skip findings already planned or listed as rejected, and mark superseded plans stale in the index. If `shadcn-improve/` exists for some unrelated purpose, use `advisor-plans/` instead and say so.
 
 Write each plan **for the weakest plausible executor**. That means:
 
@@ -101,7 +102,7 @@ Write each plan **for the weakest plausible executor**. That means:
 - A maintenance note (what future changes will interact with this, what to watch in review).
 - Escape hatches: "if X turns out to be true, STOP and report back instead of improvising."
 
-Finish by writing `plans/README.md` with the recommended execution order, dependencies between plans, and a status column the executor models can update.
+Finish by writing `shadcn-improve/plans/README.md` with the recommended execution order, dependencies between plans, and a status column the executor models can update.
 <!-- PLAN-VERIFICATION-WORKSTREAM:END improve-plan-authoring-contract -->
 
 ## Invocation variants
@@ -113,7 +114,7 @@ Finish by writing `plans/README.md` with the recommended execution order, depend
 - `next` (or `features`, `roadmap`) → run Recon, then audit only the direction category, in more depth: 4–6 grounded suggestions, each with evidence, trade-offs, and a coarse effort estimate. Selected ones become design/spike plans, not build-everything plans.
 - `plan <description>` → skip the audit; the user already knows what they want. Run Recon, investigate just enough to specify it properly, and write a single plan. If the description is too ambiguous to specify honestly, first try to resolve each ambiguity from the codebase itself; only what's left becomes questions to the user — asked one at a time, each with a recommended answer.
 <!-- PLAN-VERIFICATION-WORKSTREAM:START improve-review-execute-reconcile-variants -->
-- `review-plan <file>` → critique an existing plan in `plans/` against the template's standards and tighten it. If you authored the plan in this same session, also have a fresh-context subagent read it cold and report ambiguities — self-critique misses gaps you mentally fill from context the executor won't have.
+- `review-plan <file>` → critique an existing plan in `shadcn-improve/plans/` against the template's standards and tighten it. If you authored the plan in this same session, also have a fresh-context subagent read it cold and report ambiguities — self-critique misses gaps you mentally fill from context the executor won't have.
 - `execute <plan>` → dispatch a cheaper executor subagent on one plan (isolated worktree), then review its diff like a tech lead — re-run done criteria, check scope, read the code — and render a verdict. Requires a host agent that can spawn subagents in an isolated worktree; if yours can't, say so and hand the plan over for manual execution instead. **Read [references/closing-the-loop.md](references/closing-the-loop.md) before the first dispatch.**
 - `reconcile` → process what happened since last session: verify DONE plans, investigate BLOCKED ones, refresh drifted TODOs, retire dead findings. See [references/closing-the-loop.md](references/closing-the-loop.md).
 <!-- PLAN-VERIFICATION-WORKSTREAM:END improve-review-execute-reconcile-variants -->
