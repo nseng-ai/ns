@@ -1,33 +1,33 @@
-# Skill Invocation Profiles Specification
+# Skill Invocation Kinds Specification
 
-Status: **Distilled from Python prototype on branch `skill-profile-command-backed-api`.**
+Status: **Distilled from the Python prototype tracked by PR #1510.**
 
 This document specifies the user-visible behavior that the future TypeScript implementation must preserve. It intentionally avoids Python implementation details except where the on-disk artifacts are themselves the compatibility contract.
 
 ## 1. Purpose
 
-`areg` manages first-party local skills in a Git project. A local skill can be assigned an **invocation profile** that controls whether agents may discover or invoke that skill ambiently, directly, or through a replacement Pi extension command.
+`areg` manages first-party local skills in a Git project. A local skill can be assigned an **invocation kind** that controls whether agents may discover or invoke that skill ambiently, directly, or through a replacement Pi extension command.
 
-The profile system exists because the three supported harnesses do not expose the same controls:
+The kind system exists because the three supported harnesses do not expose the same controls:
 
 - Claude Code and Pi can remove a skill from model ambient context with `disable-model-invocation: true`.
 - Codex can block implicit invocation only through `skills/<name>/agents/openai.yaml`; it still pays ambient description cost.
 - Pi can additionally hide native `/skill:<name>` commands with `.pi/settings.json` skill exclusions, but only if a verified replacement command exists.
 
-Profiles are **inferred from concrete artifacts**, not stored in a central config file.
+Kinds are **inferred from concrete artifacts**, not stored in a central config file.
 
 ## 2. Scope
 
 In scope:
 
-- `areg skill profile set PROFILE SKILL...`
-- `areg skill profile list`
-- `areg skill profile show SKILL`
+- `areg skill kind set KIND SKILL...`
+- `areg skill kind list`
+- `areg skill kind show SKILL`
 - Legacy compatibility commands:
   - `areg command convert SKILL...`
   - `areg command revert SKILL...`
   - `areg command list`
-- The profile artifact matrix and inference rules.
+- The kind artifact matrix and inference rules.
 - The Pi replacement verification rule used before command-backed conversion.
 - `areg check` validation for invoke-only / command-backed artifact consistency.
 
@@ -44,27 +44,27 @@ Out of scope:
 
 A first-party skill whose canonical source is `skills/<name>/SKILL.md` under the target Git project.
 
-`areg skill profile` commands MUST only mutate local skills. A skill found only under `.agents/skills/<name>` is not local and MUST be rejected, even if it is invocable by harnesses.
+`areg skill kind` commands MUST only mutate local skills. A skill found only under `.agents/skills/<name>` is not local and MUST be rejected, even if it is invocable by harnesses.
 
-### Invocation profile
+### Invocation kind
 
 One of four desired states for a local skill:
 
-| Profile          | Meaning                                                                                                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `normal`         | Default skill behavior. Remove managed explicit-only, ambient-only, and Pi-exclusion artifacts.                                                                                            |
-| `invoke-only`    | Hide from Claude/Pi model ambient context and block Codex implicit invocation where possible, but leave native direct skill invocation available.                                          |
-| `command-backed` | Compatibility profile for skills replaced by Pi extension commands. Same explicit-only artifacts as `invoke-only`, plus a Pi native skill exclusion after verifying a replacement command. |
-| `ambient-only`   | Disable direct user invocation where supported by skill frontmatter, while leaving model/ambient discovery enabled.                                                                        |
+| Kind             | Meaning                                                                                                                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `normal`         | Default skill behavior. Remove managed explicit-only, ambient-only, and Pi-exclusion artifacts.                                                                                         |
+| `invoke-only`    | Hide from Claude/Pi model ambient context and block Codex implicit invocation where possible, but leave native direct skill invocation available.                                       |
+| `command-backed` | Compatibility kind for skills replaced by Pi extension commands. Same explicit-only artifacts as `invoke-only`, plus a Pi native skill exclusion after verifying a replacement command. |
+| `ambient-only`   | Disable direct user invocation where supported by skill frontmatter, while leaving model/ambient discovery enabled.                                                                     |
 
-### Inferred profile
+### Inferred kind
 
-The profile reported by `list` and `show`, derived from the current artifact set. In addition to the four desired profiles, reports may use:
+The kind reported by `list` and `show`, derived from the current artifact set. In addition to the four desired kinds, reports may use:
 
-| Inferred profile | Meaning                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------- |
-| `mixed`          | `user-invocable` artifacts are combined with explicit-only or Pi-exclusion artifacts. |
-| `inconsistent`   | Artifacts are incomplete or contradictory but not specifically `mixed`.               |
+| Inferred kind  | Meaning                                                                               |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `mixed`        | `user-invocable` artifacts are combined with explicit-only or Pi-exclusion artifacts. |
+| `inconsistent` | Artifacts are incomplete or contradictory but not specifically `mixed`.               |
 
 ### Pi replacement command
 
@@ -72,7 +72,7 @@ A Pi extension command that replaces native `/skill:<name>` for a command-backed
 
 ## 4. Target project resolution
 
-All profile and legacy command-conversion commands accept:
+All kind and legacy command-conversion commands accept:
 
 ```text
 --path PATH
@@ -141,7 +141,7 @@ Managed in `skills/<name>/SKILL.md`.
   user-invocable: false
   ```
 
-- Other profiles remove all top-level `user-invocable:` lines.
+- Other kinds remove all top-level `user-invocable:` lines.
 - If inserted, it is inserted immediately after the top-level `name:` line.
 
 ### Codex OpenAI policy sidecar
@@ -193,18 +193,18 @@ Rules:
 - Existing `.pi/settings.json` MUST contain a JSON object.
 - Existing `skills`, if present, MUST be an array of strings.
 
-## 7. Profile-to-artifact matrix
+## 7. Kind-to-artifact matrix
 
-Setting a profile produces this managed artifact state:
+Setting a kind produces this managed artifact state:
 
-| Profile          | `disable-model-invocation` | Codex sidecar | `user-invocable:false` | Pi `-skills/<name>` |
+| Kind             | `disable-model-invocation` | Codex sidecar | `user-invocable:false` | Pi `-skills/<name>` |
 | ---------------- | -------------------------- | ------------- | ---------------------- | ------------------- |
 | `normal`         | absent                     | absent        | absent                 | absent              |
 | `invoke-only`    | present                    | present       | absent                 | absent              |
 | `command-backed` | present                    | present       | absent                 | present             |
 | `ambient-only`   | absent                     | absent        | present                | absent              |
 
-Setting a profile is idempotent. If an artifact already has the desired state, the command reports a skip for that artifact rather than treating it as an error.
+Setting a kind is idempotent. If an artifact already has the desired state, the command reports a skip for that artifact rather than treating it as an error.
 
 For multi-skill commands, skills are processed in argument order. If a later skill fails, earlier successful mutations remain applied; there is no cross-skill transaction.
 
@@ -291,15 +291,15 @@ The failure message SHOULD tell the user:
 
 ## 9. CLI surfaces
 
-### `areg skill profile set`
+### `areg skill kind set`
 
 Synopsis:
 
 ```text
-areg skill profile set [--path PATH] [--dry-run] PROFILE SKILL...
+areg skill kind set [--path PATH] [--dry-run] KIND SKILL...
 ```
 
-`PROFILE` MUST be one of:
+`KIND` MUST be one of:
 
 ```text
 normal
@@ -312,13 +312,13 @@ Behavior:
 
 - Resolves the target project.
 - Resolves each skill spec to a canonical local skill name.
-- Applies the profile artifact plan for each skill in order.
+- Applies the kind artifact plan for each skill in order.
 - With `--dry-run`, prints planned writes/deletes/removals and writes nothing.
 
 Human output:
 
 ```text
-Setting <skill> to <profile>...
+Setting <skill> to <kind>...
 ```
 
 For each artifact, output uses these verbs:
@@ -331,12 +331,12 @@ For each artifact, output uses these verbs:
 
 Exact paths are included in artifact output.
 
-### `areg skill profile list`
+### `areg skill kind list`
 
 Synopsis:
 
 ```text
-areg skill profile list [--path PATH]
+areg skill kind list [--path PATH]
 ```
 
 Behavior:
@@ -350,35 +350,35 @@ Behavior:
 
 Columns:
 
-| Column    | Meaning                                             |
-| --------- | --------------------------------------------------- |
-| `Skill`   | local skill name                                    |
-| `Profile` | inferred profile                                    |
-| `Model`   | model-invocation status                             |
-| `Native`  | native direct-invocation status                     |
-| `Pi`      | Pi extension replacement status                     |
-| `Notes`   | only shown when at least one listed skill has notes |
+| Column   | Meaning                                             |
+| -------- | --------------------------------------------------- |
+| `Skill`  | local skill name                                    |
+| `Kind`   | inferred kind                                       |
+| `Model`  | model-invocation status                             |
+| `Native` | native direct-invocation status                     |
+| `Pi`     | Pi extension replacement status                     |
+| `Notes`  | only shown when at least one listed skill has notes |
 
 The table may use color/styling for humans; styling is not semantic.
 
-### `areg skill profile show`
+### `areg skill kind show`
 
 Synopsis:
 
 ```text
-areg skill profile show [--path PATH] SKILL
+areg skill kind show [--path PATH] SKILL
 ```
 
 Behavior:
 
 - Resolves one local skill.
-- Prints the inferred profile, status dimensions, concrete artifact presence, replacement label, and notes.
+- Prints the inferred kind, status dimensions, concrete artifact presence, replacement label, and notes.
 
 Required labels:
 
 ```text
 Skill: <name>
-Profile: <profile>
+Kind: <kind>
 model-invocation: <enabled|disabled|mixed>
 native-direct: <enabled|partial|mixed>
 pi-extension: <n/a|enabled|missing>
@@ -408,7 +408,7 @@ areg command convert [--path PATH] [--dry-run] SKILL...
 Equivalent to:
 
 ```text
-areg skill profile set command-backed SKILL...
+areg skill kind set command-backed SKILL...
 ```
 
 Human output starts each skill with:
@@ -428,7 +428,7 @@ areg command revert [--path PATH] [--dry-run] SKILL...
 Equivalent to:
 
 ```text
-areg skill profile set normal SKILL...
+areg skill kind set normal SKILL...
 ```
 
 Human output starts each skill with:
@@ -454,7 +454,7 @@ Behavior:
 Row format:
 
 ```text
-<skill>\t<legacy-profile-label>\t<pi-visible|pi-excluded>\t<replacement-label>
+<skill>\t<legacy-kind-label>\t<pi-visible|pi-excluded>\t<replacement-label>
 ```
 
 Replacement labels:
@@ -466,9 +466,9 @@ Replacement labels:
 | Verified replacement with surface    | `replacement-verified:<surface>` |
 | Missing replacement with surface     | `replacement-missing:<surface>`  |
 
-Legacy profile label:
+Legacy kind label:
 
-- If inferred profile is not `inconsistent`, use the inferred profile value.
+- If inferred kind is not `inconsistent`, use the inferred kind value.
 - If `disable-model-invocation` is present but the Codex sidecar is absent, use:
 
   ```text
@@ -489,7 +489,7 @@ Legacy profile label:
 
 - Otherwise use `inconsistent`.
 
-## 10. Profile inference
+## 10. Kind inference
 
 For each local skill, collect these facts:
 
@@ -540,12 +540,12 @@ Inference rules, in order:
 
 ### Native direct-invocation status
 
-| Condition                                              | Status    |
-| ------------------------------------------------------ | --------- |
-| inferred profile is `normal` or `invoke-only`          | `enabled` |
-| inferred profile is `command-backed` or `ambient-only` | `partial` |
-| `user-invocable:` key is present or Pi is excluded     | `mixed`   |
-| otherwise                                              | `enabled` |
+| Condition                                           | Status    |
+| --------------------------------------------------- | --------- |
+| inferred kind is `normal` or `invoke-only`          | `enabled` |
+| inferred kind is `command-backed` or `ambient-only` | `partial` |
+| `user-invocable:` key is present or Pi is excluded  | `mixed`   |
+| otherwise                                           | `enabled` |
 
 ### Pi extension status
 
@@ -566,7 +566,7 @@ Required note conditions:
 - `user-invocable:` present with a value other than `false`.
 - `user-invocable:false` mixed with explicit-only or Pi-exclusion artifacts.
 - Pi skill exclusion present without a verified replacement.
-- `ambient-only` profile, explaining:
+- `ambient-only` kind, explaining:
   - Claude native direct invocation is disabled.
   - Pi native direct invocation is not enforced.
   - Codex native direct invocation is not enforced.
@@ -589,7 +589,7 @@ Commands fail without mutation for the current skill when:
 - no Git root can be found
 - skill spec cannot be resolved to a local skill
 - canonical local skill directory or `SKILL.md` is missing or unsafe
-- `SKILL.md` frontmatter is malformed for a mutation or profile show/list operation
+- `SKILL.md` frontmatter is malformed for a mutation or kind show/list operation
 - `.pi/settings.json` is malformed, not a JSON object, has non-string `skills`, or is unsafe
 - `command-backed` replacement verification fails
 
@@ -619,7 +619,7 @@ description: Example skill.
 Command:
 
 ```bash
-areg skill profile set command-backed my-skill
+areg skill kind set command-backed my-skill
 ```
 
 Expected artifact results:
@@ -653,11 +653,11 @@ policy:
 }
 ```
 
-`areg skill profile show my-skill` reports:
+`areg skill kind show my-skill` reports:
 
 ```text
 Skill: my-skill
-Profile: command-backed
+Kind: command-backed
 model-invocation: disabled
 native-direct: partial
 pi-extension: enabled
@@ -685,7 +685,7 @@ restores `SKILL.md` to no managed frontmatter keys, deletes `agents/openai.yaml`
 
 ## 15. Non-goals and design constraints
 
-- Do not introduce a central desired-profile config file. The artifact set is the source of truth.
+- Do not introduce a central desired-kind config file. The artifact set is the source of truth.
 - Do not mutate vendored or installed `.agents/skills` content unless it resolves to a canonical local skill under `skills/<name>`.
 - Do not hide Pi native `/skill:<name>` unless a replacement command is verified first.
 - Do not rely on Codex filesystem tricks to remove ambient context; Codex cannot provide zero-ambient explicit-only skills with the current harness contract.
@@ -693,13 +693,13 @@ restores `SKILL.md` to no managed frontmatter keys, deletes `agents/openai.yaml`
 
 ## 16. Acceptance checklist for the TypeScript port
 
-- [ ] Implements all four profile-setting modes and the exact artifact matrix.
+- [ ] Implements all four kind-setting modes and the exact artifact matrix.
 - [ ] Infers `normal`, `invoke-only`, `command-backed`, `ambient-only`, `mixed`, and `inconsistent` from artifacts.
 - [ ] Preserves local-skill-only safety boundaries and rejects unsafe symlinks.
 - [ ] Supports skill-name, local path, `SKILL.md` path, and harness symlink path resolution.
 - [ ] Verifies Pi replacement commands before adding `-skills/<name>`.
 - [ ] Preserves existing `.pi/settings.json` object fields and unrelated `skills` entries.
-- [ ] Provides `skill profile set/list/show` surfaces with the documented arguments and outputs.
+- [ ] Provides `skill kind set/list/show` surfaces with the documented arguments and outputs.
 - [ ] Keeps legacy `command convert/revert/list` behavior compatible.
 - [ ] Keeps `--dry-run` validation and no-write semantics.
 - [ ] Extends `areg check` with missing sidecar, sidecar without flag, and missing Pi replacement diagnostics.

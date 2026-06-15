@@ -12,7 +12,7 @@ Evidence inspected for this inventory:
 - Skill validation: `packages/areg/src/areg/check/**`, `packages/areg/tests/integration/test_check.py`, `packages/areg/tests/unit/test_frontmatter.py`, `packages/areg/tests/unit/test_lockfile.py`, `packages/areg/tests/unit/test_pairing.py`.
 - Curated skill update workaround: `packages/areg/src/areg/update_skills.py`, `packages/areg/tests/scenario/test_update_skills.py`.
 - Command conversion: `packages/areg/src/areg/command.py`, `packages/areg/src/areg/command_conversion.py`, `packages/areg/src/areg/invoke_only.py`, `packages/areg/tests/scenario/test_command.py`.
-- Public prose and consumers: `packages/areg/README.md`, `justfile`, `skills/skill-management/SKILL.md`, `skills/skillx/SKILL.md`, `docs/harness-skill-invocation.md`, `docs/skill-invocation-profiles.md`.
+- Public prose and consumers: `packages/areg/README.md`, `justfile`, `skills/skill-management/SKILL.md`, `skills/skillx/SKILL.md`, `docs/harness-skill-invocation.md`, `docs/skill-invocation-kinds.md`.
 
 ## Durable product identity
 
@@ -207,7 +207,7 @@ Accepted incidental details:
 
 ## Durable `areg command convert|revert|list` contracts
 
-The current durable surface is the legacy `areg command` group. `docs/skill-invocation-profiles.md` describes future `areg skill profile` commands, but no such command group is registered in `packages/areg/src/areg/cli.py`; those future commands are not current-port parity scope unless separately added before or during this Objective.
+The current durable surface is the legacy `areg command` group. `docs/skill-invocation-kinds.md` describes future `areg skill kind` commands, but no such command group is registered in `packages/areg/src/areg/cli.py`; those future commands are not current-port parity scope unless separately added before or during this Objective.
 
 ### Shared command-selection contracts
 
@@ -299,5 +299,5 @@ These divergences are accepted up front and do not need separate Objective appro
 
 - Distribution is unresolved. The current docs mention both checkout-local `uv run areg` and future `uvx areg`; the TypeScript port must make a consumer-backed distribution/install decision before cutover.
 - Legacy `areg.json` is still a read fallback. The TS port should preserve it for parity unless a later explicit update records a retirement path.
-- `docs/skill-invocation-profiles.md` documents future `areg skill profile` commands that are not implemented by the current Python CLI. The TS port should not accidentally turn that aspirational design into required parity for this Objective’s scoped `areg command` row.
+- `docs/skill-invocation-kinds.md` documents future `areg skill kind` commands that are not implemented by the current Python CLI. The TS port should not accidentally turn that aspirational design into required parity for this Objective’s scoped `areg command` row.
 - Reusable TypeScript seams for skill-lock parsing, managed blocks, or project config should remain package-local until a second consumer proves they belong in shared packages.
