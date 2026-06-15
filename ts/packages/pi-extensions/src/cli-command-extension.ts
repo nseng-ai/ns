@@ -381,7 +381,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		piCommandName,
 	});
 	try {
-		progress.setPhase("waiting for Pi idle");
+		progress.setPhase("waiting for Pi to finish responding");
 		const waitStartedAt = Date.now();
 		traceCliCommand("wait_for_idle_start", { commandName: command.name, piCommandName });
 		await ctx.waitForIdle();

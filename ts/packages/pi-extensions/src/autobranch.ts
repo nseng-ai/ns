@@ -28,7 +28,7 @@ export default function autobranchExtension(pi: ExtensionAPI): void {
 			{
 				name: "autobranch",
 				description: AUTOBRANCH_SUMMARY,
-				startMessage: "Starting /code:autobranch — waiting for Pi idle, then creating a Graphite branch.",
+				startMessage: "Starting /code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
 			},
 		],
 		runCli: (args, deps) => runCli(["exec", ...args], deps),
