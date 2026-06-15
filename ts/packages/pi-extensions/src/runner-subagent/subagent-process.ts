@@ -7,6 +7,7 @@ import { basename, join } from "node:path";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
+import type { ModelInfo } from "../cmux/types.ts";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,
@@ -281,6 +282,9 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 export function buildChildPiArgs(input: BuildChildPiArgsInput): string[] {
 	const args = ["--mode", "json", "-p"];
 	if (input.model !== undefined) {
+		if (shouldPassInheritedProviderForRequestedModel(input.model, input.launch)) {
+			args.push("--provider", input.launch.model.provider);
+		}
 		args.push("--model", input.model);
 	} else if (input.launch?.model !== undefined) {
 		args.push("--provider", input.launch.model.provider, "--model", input.launch.model.id);
@@ -308,7 +312,8 @@ export function resolveRunnerSubagentLaunch(
 	options: RunnerSubagentOptions,
 ): RunnerSubagentLaunchMetadata | undefined {
 	const requestedModel = options.model;
-	const model = requestedModel === undefined ? options.launch?.model ?? ctx.model : undefined;
+	const inheritedModel = options.launch?.model ?? ctx.model;
+	const model = requestedModel === undefined ? inheritedModel : inheritedProviderModelForRequestedModel(requestedModel, inheritedModel);
 	const hasExplicitThinking = options.launch?.thinkingLevel !== undefined;
 	const hasInheritedThinkingSource = requestedModel === undefined && pi.getThinkingLevel !== undefined;
 	const hasThinkingSource = hasExplicitThinking || hasInheritedThinkingSource;
@@ -322,6 +327,22 @@ export function resolveRunnerSubagentLaunch(
 		hasModelArg: requestedModel !== undefined || model !== undefined,
 		hasThinkingArg,
 	};
+}
+
+function shouldPassInheritedProviderForRequestedModel(
+	requestedModel: string,
+	launch: RunnerSubagentLaunchMetadata | undefined,
+): launch is RunnerSubagentLaunchMetadata & { model: NonNullable<RunnerSubagentLaunchMetadata["model"]> } {
+	return !hasExplicitProviderInModelPattern(requestedModel) && launch?.requestedModel === requestedModel && launch.model !== undefined;
+}
+
+function inheritedProviderModelForRequestedModel(requestedModel: string, inheritedModel: ModelInfo | undefined): ModelInfo | undefined {
+	if (inheritedModel === undefined || hasExplicitProviderInModelPattern(requestedModel)) return undefined;
+	return { provider: inheritedModel.provider, id: requestedModel };
+}
+
+function hasExplicitProviderInModelPattern(model: string): boolean {
+	return model.includes("/");
 }
 
 function createUpdateEmitter(onProgress: ((update: RunnerSubagentUpdate) => void) | undefined): {

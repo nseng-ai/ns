@@ -299,6 +299,43 @@ describe("runner subagent process dispatcher", () => {
 		expect(result.status).toBe("final-text");
 	});
 
+	test("passes inherited provider with an unqualified requested model pattern", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
+		const running = dispatchRunnerSubagentProcess(
+			{ getThinkingLevel: () => "high" },
+			{ cwd: "/repo", model: { provider: "openai-codex", id: "gpt-5.5" } },
+			finalTextOptions({ title: "Cheap classifier", model: "gpt-5.4-mini:medium" }),
+			runner.dependencies,
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--provider",
+			"openai-codex",
+			"--model",
+			"gpt-5.4-mini:medium",
+			"--no-extensions",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Done." }] } }));
+		call.process.close(0);
+		const result = await running;
+
+		expect(result.progress.launch).toEqual({
+			model: { provider: "openai-codex", id: "gpt-5.4-mini:medium" },
+			requestedModel: "gpt-5.4-mini:medium",
+			thinkingLevel: "off",
+			hasModelArg: true,
+			hasThinkingArg: false,
+		});
+	});
+
 	test("does not inherit parent thinking when caller provides a model pattern", async () => {
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/runner-subagent.jsonl" });
 		const running = dispatchRunnerSubagentProcess(

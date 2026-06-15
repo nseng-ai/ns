@@ -398,6 +398,43 @@ describe("dispatch_runner_subagent extension", () => {
 		expect(details.requestedModel).toBe("openai-codex/gpt-5.4-mini:medium");
 	});
 
+	test("inherits provider for unqualified optional model patterns", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE });
+		const pi = new FakePi(runner.dependencies, { thinkingLevel: "high" });
+		const tool = registerTool({ pi });
+
+		const running = tool.execute(
+			"tool-1",
+			{ title: "OpenAI classifier", prompt: "Classify feedback.", model: "gpt-5" },
+			undefined,
+			undefined,
+			{ cwd: ROOT, model: { provider: "openai-codex", id: "gpt-5.5" } },
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(call.args.slice(0, -1)).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--provider",
+			"openai-codex",
+			"--model",
+			"gpt-5",
+			"--no-extensions",
+			"--session",
+			SESSION_FILE,
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		const result = await running;
+		const text = result.content[0]?.text ?? "";
+		const details = result.details as Record<string, unknown>;
+
+		expect(text).toContain("Model: openai-codex/gpt-5; Thinking: off");
+		expect(details.requestedModel).toBe("gpt-5");
+	});
+
 	test("streams parsed subagent progress through partial updates and UI without changing final result", async () => {
 		let now = 1_000;
 		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: SESSION_FILE, now: () => now });

@@ -21,7 +21,7 @@ pi --mode json -p [--provider <provider> --model <model>] [--thinking <level>] -
 Important details:
 
 - `--mode json -p` gives the parent JSONL session events to parse.
-- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override. If the caller provides the runner-subagent `model` string, it is passed as the child Pi `--model` pattern and the parent context model is not inherited.
+- `--provider`/`--model` are passed when the parent context has an explicit model or the caller provides a launch override. If the caller provides the runner-subagent `model` string, it is passed as the child Pi `--model` pattern. Fully qualified `provider/model` patterns select their own provider; unqualified patterns inherit the parent context provider when one is available.
 - `--thinking <level>` is passed for inherited or explicit non-off thinking levels. If the caller provides the runner-subagent `model` string, parent thinking is not inherited; encode the desired thinking in the model pattern or provide an explicit launch override.
 - `--no-extensions` prevents ordinary project parent extensions from recursively loading in the subagent.
 - `--extension <generated-runtime>` injects a private runtime extension containing only the requested terminal capture tools when terminal mode is used.
