@@ -150,7 +150,11 @@ interface PrepareRunDiscussionComment {
 	itemPointer: string | undefined;
 }
 
-type PrepareRunDataParseInvalid = { type: "invalid"; message: string };
+interface PrepareRunDataParseInvalid {
+	type: "invalid";
+	message: string;
+}
+
 type PrepareRunDataParseResult = { type: "valid"; data: PrepareRunData } | PrepareRunDataParseInvalid;
 
 export interface ExecResult {
