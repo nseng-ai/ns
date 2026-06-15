@@ -411,34 +411,6 @@ def test_claim_trunk_from_main_worktree_moves_current_branch_to_slot_and_checks_
     ]
 
 
-def test_claim_trunk_from_main_worktree_refuses_dirty_main_before_mutating(
-    tmp_path: Path,
-) -> None:
-    slots_root = tmp_path / "slots"
-    repo_root = make_repo_root(tmp_path)
-    ctx, git = make_slots_lifecycle_context(
-        tmp_path,
-        branches=("master", "feat/current"),
-        worktrees=(
-            WorktreeInfo(path=repo_root, branch="feat/current", is_bare=False),
-            slot_worktree(slots_root, 1, None),
-        ),
-        trunk_branch="master",
-        file_status_by_path={
-            repo_root: FileStatus(staged=False, modified=True, untracked=False),
-        },
-    )
-
-    outcome = claim_branch(ctx, "master")
-
-    assert isinstance(outcome, SlotLifecycleFailure)
-    assert outcome.error_type == "dirty_current_worktree"
-    assert git.get_current_branch(repo_root) == "feat/current"
-    assert git.get_current_branch(slot_path(slots_root, 1)) == DetachedHead()
-    assert git._detach_head_calls == []
-    assert git._checkout_calls == []
-
-
 def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_into_available_slot(
     tmp_path: Path,
 ) -> None:
@@ -469,6 +441,34 @@ def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_into_avail
     assert git.get_current_branch(slot_path(slots_root, 1)) == "feat/target"
     assert git._detach_head_calls == []
     assert git._checkout_calls == [(slot_path(slots_root, 1), "feat/target")]
+
+
+def test_claim_trunk_from_main_worktree_refuses_dirty_main_before_mutating(
+    tmp_path: Path,
+) -> None:
+    slots_root = tmp_path / "slots"
+    repo_root = make_repo_root(tmp_path)
+    ctx, git = make_slots_lifecycle_context(
+        tmp_path,
+        branches=("master", "feat/current"),
+        worktrees=(
+            WorktreeInfo(path=repo_root, branch="feat/current", is_bare=False),
+            slot_worktree(slots_root, 1, None),
+        ),
+        trunk_branch="master",
+        file_status_by_path={
+            repo_root: FileStatus(staged=False, modified=True, untracked=False),
+        },
+    )
+
+    outcome = claim_branch(ctx, "master")
+
+    assert isinstance(outcome, SlotLifecycleFailure)
+    assert outcome.error_type == "dirty_current_worktree"
+    assert git.get_current_branch(repo_root) == "feat/current"
+    assert git.get_current_branch(slot_path(slots_root, 1)) == DetachedHead()
+    assert git._detach_head_calls == []
+    assert git._checkout_calls == []
 
 
 def test_claim_branch_from_main_worktree_checks_out_unassigned_branch_when_main_dirty(
@@ -624,7 +624,7 @@ def test_claim_branch_rejects_dirty_current_slot(tmp_path: Path) -> None:
     assert git._checkout_calls == []
 
 
-def test_claim_branch_from_main_worktree_reuses_branch_already_assigned_to_slot(
+def test_claim_trunk_from_main_worktree_reuses_slot_currently_holding_trunk(
     tmp_path: Path,
 ) -> None:
     slots_root = tmp_path / "slots"
