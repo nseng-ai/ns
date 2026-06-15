@@ -2,9 +2,9 @@ import { draftChangesSummary } from "../changes-model-summary.ts";
 import { formatOutstandingChangesMessage } from "../changes-summary.ts";
 import { formatCheckpointSnapshotError } from "../checkpoint.ts";
 import { loadPendingWorktreeSnapshot } from "../pending-worktree.ts";
-import { defineCommand, failed, ok } from "../sdk.ts";
+import { failed, ok, type SdlCommand } from "../sdk.ts";
 
-export const defaultChangesCommand = defineCommand({
+export const defaultChangesCommand = {
 	name: "changes",
 	description: "Summarize outstanding worktree changes without committing.",
 	async run(ctx) {
@@ -28,5 +28,5 @@ export const defaultChangesCommand = defineCommand({
 
 		return ok(formatOutstandingChangesMessage({ snapshot, summaryText: summary.summaryText }));
 	},
-});
+} satisfies SdlCommand;
 

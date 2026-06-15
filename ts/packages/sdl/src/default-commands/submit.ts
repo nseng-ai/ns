@@ -9,14 +9,14 @@ import {
 } from "@asdl/core/submit";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
-import { defineCommand, failed, ok, z, type ExecOptions as SdlExecOptions, type SdlContext } from "../sdk.ts";
+import { failed, ok, z, type ExecOptions as SdlExecOptions, type SdlCommand, type SdlContext } from "../sdk.ts";
 import { maybeAppendSubmitFailureInterpretation } from "../submit-failure-interpretation.ts";
 
 const submitSchema = z.object({
 	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
 });
 
-export const defaultSubmitCommand = defineCommand({
+export const defaultSubmitCommand = {
 	name: "submit",
 	description: `Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.
 
@@ -72,7 +72,7 @@ The command owns its output and exit code. It does not support --format.`,
 		writeCommandResultOutput(interpretedResult, ctx);
 		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 	},
-});
+} satisfies SdlCommand<typeof submitSchema>;
 
 function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
 	return async (command, args, options) => {

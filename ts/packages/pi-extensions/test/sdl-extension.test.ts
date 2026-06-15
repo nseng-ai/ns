@@ -59,15 +59,17 @@ async function createOverrideProject(): Promise<string> {
 	writeFileSync(
 		extensionPath,
 		`
-import { defineCommand, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@asdl/sdl/sdk";
 
-export default defineCommand({
+export default defineExtension({
+	commands: [{
 	name: "cp",
 	description: "Custom checkpoint",
 	async run(ctx) {
 		const result = await ctx.exec("echo", ["pi-custom"]);
 		return ok(result.stdout.trim());
 	},
+}],
 });
 `,
 	);

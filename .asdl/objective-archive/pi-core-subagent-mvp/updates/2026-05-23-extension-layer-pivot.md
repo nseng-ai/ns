@@ -26,7 +26,7 @@ Durable plan changes:
 - Implement a local helper such as `runChildSession(pi, ctx, options)` instead of monkey-patching Pi command contexts.
 - Use a child process plus injected runtime extension as the base layer.
 - Keep terminal capture semantics, but implement them through child-local injected extension tools and parent JSON-event/result parsing.
-- Treat mixed terminal-plus-sibling tool calls as a protocol error, while recording the risk that public extension APIs may not prevent sibling side effects before detection.
+- Treat mixed terminal-plus-sibling tool calls as a protocol error, while recording the risk that public Pi runtime extension APIs may not prevent sibling side effects before detection.
 
 The previous PR stack is superseded. The replacement roadmap is four local review slices: strategy/local contract, child process runner and JSON parser, injected terminal-capture runtime, and parent integration/docs/first-consumer proof.
 

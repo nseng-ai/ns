@@ -6,7 +6,7 @@ import {
 	SDL_COMMAND_NAME_RULE,
 	commandInfoForLoadedCommand,
 	listBuiltInSdlCommandCandidates,
-	validateSdlCommand,
+	validateSdlExtensionContribution,
 	type BuiltInSdlCommandCandidate,
 	type SdlCommandCandidate,
 	type SdlCommandCliInfo,
@@ -14,7 +14,7 @@ import {
 	type SdlCommandSourceLevel,
 } from "./command-registry.ts";
 import { discoverExtensionsInRoot, type DiscoveredExtensionCommand, type ExtensionDiscoveryDiagnostic } from "./extension-discovery.ts";
-import { loadSdlCommandEntry, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
+import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
 import type { SdlCommand } from "./sdk.ts";
 
 export type ExtensionSourceLevel = SdlCommandSourceLevel;
@@ -120,11 +120,11 @@ export async function loadSelectedSdlCommand(candidate: ExtensionCommandCandidat
 		return { ok: true, command: candidate.command, source: candidate.source };
 	}
 
-	const loaded = await loadSdlCommandEntry(candidate.entryPath);
+	const loaded = await loadSdlExtensionContribution(candidate.entryPath);
 	if (!loaded.ok) {
 		return { ok: false, diagnostic: fromLoadDiagnostic(loaded.diagnostic, candidate.source.level) };
 	}
-	const validation = validateSdlCommand(loaded.defaultExport, candidate.name, formatSource(candidate.source));
+	const validation = validateSdlExtensionContribution(loaded.defaultExport, candidate.name, formatSource(candidate.source));
 	if (!validation.ok) {
 		return {
 			ok: false,

@@ -56,10 +56,22 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 	run(ctx: SdlContext, request: z.output<S>): Promise<SdlResult> | SdlResult;
 }
 
-export function defineCommand(command: Omit<SdlCommand<z.ZodObject>, "run"> & { run(ctx: SdlContext): Promise<SdlResult> | SdlResult }): SdlCommand<z.ZodObject>;
-export function defineCommand<S extends SdlCommandSchema>(command: SdlCommand<S>): SdlCommand<S>;
-export function defineCommand(command: SdlCommand): SdlCommand {
-	return command;
+export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
+	commands: TCommands;
+}
+
+export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject>(extension: SdlExtension<readonly [SdlCommand<S1>]>): SdlExtension<readonly [SdlCommand<S1>]>;
+export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject, S2 extends SdlCommandSchema = z.ZodObject>(
+	extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>]>,
+): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>]>;
+export function defineExtension<
+	S1 extends SdlCommandSchema = z.ZodObject,
+	S2 extends SdlCommandSchema = z.ZodObject,
+	S3 extends SdlCommandSchema = z.ZodObject,
+>(extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>;
+export function defineExtension(extension: SdlExtension): SdlExtension;
+export function defineExtension(extension: SdlExtension): SdlExtension {
+	return extension;
 }
 
 export function ok(message: string): SdlResult {

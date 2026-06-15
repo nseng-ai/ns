@@ -8,15 +8,15 @@ export interface ExtensionLoadDiagnostic {
 	path: string;
 }
 
-export type SdlCommandEntryLoadResult = { ok: true; defaultExport: unknown } | { ok: false; diagnostic: ExtensionLoadDiagnostic };
+export type SdlExtensionContributionLoadResult = { ok: true; defaultExport: unknown } | { ok: false; diagnostic: ExtensionLoadDiagnostic };
 
-export async function loadSdlCommandEntry(modulePath: string): Promise<SdlCommandEntryLoadResult> {
+export async function loadSdlExtensionContribution(modulePath: string): Promise<SdlExtensionContributionLoadResult> {
 	try {
 		return { ok: true, defaultExport: await loadSdlUserModuleDefault(modulePath) };
 	} catch (error) {
 		return {
 			ok: false,
-			diagnostic: diagnostic("extension_command_import_failed", `Failed to load SDL command entry ${modulePath}.\n${formatUnknownError(error)}`, modulePath),
+			diagnostic: diagnostic("sdl_extension_contribution_import_failed", `Failed to load SDL extension contribution ${modulePath}.\n${formatUnknownError(error)}`, modulePath),
 		};
 	}
 }

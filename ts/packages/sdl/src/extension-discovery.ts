@@ -129,7 +129,7 @@ function commandForDirectEntry(options: {
 			ok: false,
 			diagnostic: diagnostic(
 				"extension_command_name_invalid",
-				`SDL extension command name inferred from ${options.entryPath} must match ${SDL_COMMAND_NAME_RULE}.`,
+				`SDL command entry name inferred from ${options.entryPath} must match ${SDL_COMMAND_NAME_RULE}.`,
 				options.entryPath,
 			),
 		};
@@ -231,7 +231,7 @@ function buildCommand(options: {
 	entryPath: string;
 	rootDir: string;
 }): DiscoveredExtensionCommand {
-	const description = `Run SDL extension command '${options.name}'.`;
+	const description = `Run SDL command entry '${options.name}'.`;
 	return {
 		kind: options.kind,
 		name: options.name,

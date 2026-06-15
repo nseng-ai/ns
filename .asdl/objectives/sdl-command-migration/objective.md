@@ -8,8 +8,8 @@ The migration should hard-cut selected workflows from `asdl-dev` and `/code:*` i
 
 ## Scope
 
-- Define and document the SDL command model where project-specific SDL command extensions are first-class, not exceptions.
-- Standardize project-specific SDL extension loading before moving the larger backlog. The current `sdl cp` command-module override is useful precedent, but this Objective should establish the general command-extension shape before migrating command families like submit, autobranch, autoslot, land, and review flows.
+- Define and document the SDL command model where project-specific SDL extensions and their command entries are first-class, not exceptions.
+- Standardize project-specific SDL extension loading before moving the larger backlog. The current `sdl cp` override is useful precedent, but this Objective should establish the general SDL extension shape before migrating command families like submit, autobranch, autoslot, land, and review flows.
 - Use flat command names for the first migration pass: `sdl submit`, `sdl pr-regen`, `sdl changes`, `sdl autobranch`, `sdl autoslot`, `sdl land`, and `sdl push`, mirrored into Pi as `/sdl:submit`, `/sdl:pr-regen`, `/sdl:changes`, `/sdl:autobranch`, `/sdl:autoslot`, `/sdl:land`, and `/sdl:push` when implemented.
 - Move `submit` from `asdl-dev submit` and `/code:submit` to SDL as an early hard-cutover slice after the extension mechanism and docs are in place.
 - Include `/code:autoslot` in the migration backlog: this repo may treat slot movement as part of its project-specific development lifecycle, so autoslot should be evaluated and migrated under SDL rather than dismissed as non-SDL.
@@ -28,7 +28,7 @@ The migration should hard-cut selected workflows from `asdl-dev` and `/code:*` i
 
 ## Completion Criteria
 
-- The SDL docs explicitly state that project-specific SDL command extensions are supported and describe how they are discovered, authored, tested, and mirrored into Pi.
+- The SDL docs explicitly state that project-specific SDL extensions are supported and describe how command entries are discovered, authored, tested, and mirrored into Pi.
 - The repo has a general project-specific SDL extension mechanism that is documented and covered by tests beyond the one-off `cp` override precedent.
 - At least the first hard-cutover command slice lands through SDL with the old `asdl-dev` command and old `/code:*` Pi mirror deleted in the same slice.
 - The command backlog has explicit dispositions: migrated, deliberately parked, or intentionally out of SDL scope, with `/code:autoslot` represented as an SDL migration candidate.
