@@ -15,7 +15,7 @@ describe("objective CLI shape", () => {
 		expect(runtime.stderr.join("")).toBe("");
 	});
 
-	test("top-level help hides exec while exec help exposes read-objective", async () => {
+	test("top-level help hides exec while exec help exposes objective skill commands", async () => {
 		const topLevel = runScenario(["--help"]);
 		expect(await topLevel.exit).toBe(0);
 		expect(topLevel.stderr.join("")).toBe("");
@@ -31,6 +31,7 @@ describe("objective CLI shape", () => {
 		const execOutput = execHelp.stdout.join("");
 		expect(execOutput).toContain("Usage: objective exec");
 		expect(execOutput).toContain("Commands for use by objective skills.");
+		expect(execOutput).toContain("list-candidates");
 		expect(execOutput).toContain("read-objective");
 
 		const readHelp = runScenario(["exec", "read-objective", "--help"]);
