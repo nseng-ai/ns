@@ -52,6 +52,7 @@ This is a **clean break**: we target functional parity, not byte-level continuit
 - **Diff-cap/coverage math:** off-by-one or budget-accounting bugs in the per-file/total token caps would change which files reach the model. Mitigation: extract as pure functions with direct unit tests (an improvement over the Python structure, where this logic sits behind the harness fake).
 - **CI cutover ordering:** deleting Python before the TS CLI is proven green would break the only PR-review CI. Mitigation: deletion is the final gated slice, after a green TS CI run.
 - **Config/format parity:** `asdl.toml [roaster.diff]` exclude globs must convert to git pathspec excludes identically, or excluded paths could leak into model input. Mitigation: port and directly test the pathspec conversion.
+- **Unified-diff path parity:** prefixed rename/copy metadata and quoted UTF-8 paths are now covered by direct TS parser tests, de-risking that sub-surface; broader pure-core parity remains open until the remaining parser/config/catalog work is ported and tested.
 
 ## Open Questions
 

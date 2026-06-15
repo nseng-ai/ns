@@ -2,7 +2,8 @@
 
 ## Work
 
-- [ ] Scaffold `ts/packages/roaster` mirroring `pr-address` (package.json, tsconfig, clinkr CLI entry) and port the pure core: unified-diff parsing + token estimation, review-definition frontmatter parsing/validation, path-applicability globs, and `asdl.toml [roaster.diff]` config parsing with glob → git-pathspec conversion
+- [~] Scaffold `ts/packages/roaster` mirroring `pr-address` (package.json, tsconfig, clinkr CLI entry) and port the pure core: unified-diff parsing + token estimation, review-definition frontmatter parsing/validation, path-applicability globs, and `asdl.toml [roaster.diff]` config parsing with glob → git-pathspec conversion
+  - Progress: the TS unified-diff parser now preserves prefixed rename/copy metadata paths, decodes quoted UTF-8 paths, and returns readonly parsed structures; targeted roaster tests and typecheck passed. Remaining pure-core work includes the other listed parser/config/catalog surfaces and any scaffold parity not already landed downstack.
 - [ ] Define the TS domain + error model: Zod schemas and discriminated-union failure types replacing the Pydantic models and `RoasterFailure` union, with TS-native markers and CLI JSON envelope
 - [ ] Build the local-diff and review-catalog gateways (real + in-memory fake) on asdl-core's git/exec helpers
 - [ ] Port the Claude Code harness with the decided two-layer seam: semantic `HarnessGateway` + fake for the workflow; pure prompt-assembly, diff-cap/coverage, and `structured_output`/JSONL parsing functions with direct tests; real adapter with injected process-runner; stdin pump retained, progress streaming dropped
