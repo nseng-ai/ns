@@ -70,7 +70,7 @@ Do not trigger this skill for single-PR feedback; use `pr-address` instead.
   `fallen behind` or `Run gt restack` guidance, explicitly ask whether to run
   `gt restack` and resolve conflicts. Do not silently stop without this prompt,
   and do not restack before approval.
-- Use one lowercase safe `ASDL_PAYLOAD_SESSION_ID` for the whole run.
+- Use one lowercase safe `ASDL_HARNESS_SESSION_ID` for the whole run.
 - Store helper stdout outside the worktree under `git rev-parse --git-path`; in
   linked worktrees `.git` is a pointer file, not a scratch directory.
 - Use `--stdout-mode compact` for `stack-feedback-preflight`,
@@ -110,8 +110,8 @@ Run helpers from inside the target repository so `gh` can infer `owner/repo`.
 Use `pr-address` from `PATH`.
 
 ```bash
-export ASDL_PAYLOAD_SESSION_ID="pr-stack-address-$(date -u +%Y%m%dt%H%M%Sz)-a1"
-STACK_ADDRESS_RUN_DIR="$(git rev-parse --path-format=absolute --git-path "asdl/stack-address/${ASDL_PAYLOAD_SESSION_ID}")"
+export ASDL_HARNESS_SESSION_ID="pr-stack-address-$(date -u +%Y%m%dt%H%M%Sz)-a1"
+STACK_ADDRESS_RUN_DIR="$(git rev-parse --path-format=absolute --git-path "asdl/stack-address/${ASDL_HARNESS_SESSION_ID}")"
 mkdir -p "$STACK_ADDRESS_RUN_DIR"
 STACK_ADDRESS_PREP_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-prep.compact.json"
 STACK_ADDRESS_PLAN_COMPACT="$STACK_ADDRESS_RUN_DIR/stack-plan.compact.json"
@@ -143,7 +143,7 @@ Stop on `2`.
    ```bash
    slot gt exec stack-branches \
      | pr-address exec stack-feedback-preflight \
-         --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+         --harness-session-id "$ASDL_HARNESS_SESSION_ID" \
          --stdout-mode compact \
          --format json \
      > "$STACK_ADDRESS_PREP_COMPACT"
@@ -224,7 +224,7 @@ artifact:
 printf '%s' '{"classifications":[{"pr_number":1009,"classification":{}}]}' \
   | pr-address exec stack-feedback-plan \
       --prep-reference "$(jq -r '.data.stack_summary_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
-      --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+      --harness-session-id "$ASDL_HARNESS_SESSION_ID" \
       --stdout-mode compact \
       --format json \
   > "$STACK_ADDRESS_PLAN_COMPACT"
@@ -324,7 +324,7 @@ resolved threads included:
 pr-address exec stack-feedback-prep \
   --stack-reference "$(jq -r '.data.stack_reference.payload_path' "$STACK_ADDRESS_PREP_COMPACT")" \
   --include-resolved \
-  --payload-session-id "$ASDL_PAYLOAD_SESSION_ID" \
+  --harness-session-id "$ASDL_HARNESS_SESSION_ID" \
   --stdout-mode compact \
   --format json \
   > "$STACK_ADDRESS_CURRENT_PREP_COMPACT"

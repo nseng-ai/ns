@@ -40,7 +40,7 @@ From the repo root:
 ```bash
 node ts/packages/pr-address/src/cli.ts --help
 pr-address --help  # via the installed shim, dispatches to this checkout
-pr-address exec prepare-run --payload-session-id pr-address-demo --format json
+pr-address exec prepare-run --harness-session-id pr-address-demo --format json
 ```
 
 ## Validation
