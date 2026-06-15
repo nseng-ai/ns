@@ -24,9 +24,11 @@
 - [ ] Port `areg update-skills` as the curated lockfile workaround.
   - Preserve filtering by skill/source, dry-run behavior, agent resolution, one-by-one `npx skills add` calls, and aggregate failure reporting while the upstream `npx skills update` bug remains relevant.
   - Evidence: scenario tests verify curated lockfile behavior and documented workaround semantics.
-- [ ] Port `areg command convert|revert|list`.
-  - Preserve local-skill resolution, invoke-only state transitions, Pi replacement verification, settings edits, symlink/path safety, and revert/list reporting.
-  - Evidence: command scenario tests cover local skill names, path-like skill selectors, refusal cases, and replacement-status reporting.
+- [ ] Reimplement the skill invocation profiles system in TypeScript.
+  - Use Objective-local `skill-invocation-profiles.md` as the canonical TypeScript implementation contract, with PR #1510 as prototype/provenance evidence.
+  - Replace the old standalone `areg command convert|revert|list` porting row with the profile model: inferred `normal`, `invoke-only`, `command-backed`, `ambient-only`, concrete artifact planning, status inference, Pi replacement verification for command-backed skills, and profile list/show reporting.
+  - Treat legacy `areg command convert|revert|list` only as compatibility behavior inside this slice per the spec; do not preserve the pre-profile command-conversion row as its own deliverable.
+  - Evidence: scenario/gateway/unit tests cover the acceptance checklist in Objective-local `skill-invocation-profiles.md`, including profile set/list/show, local skill selectors and path-like selectors, refusal cases, Pi replacement verification, artifact cleanup, inferred profile status, dry-run behavior, multi-skill partial failure behavior, `areg check` diagnostics, and legacy alias behavior.
 - [ ] Decide and implement the TypeScript distribution/install model.
   - Choose consumer-backed invocation for local checkout development and installed use, update `justfile`/workspace metadata/docs accordingly, and avoid assuming either Python `uvx` or prior run-from-source shims without evidence.
   - Evidence: installation recipe and docs invoke TypeScript-backed `areg` consistently.
