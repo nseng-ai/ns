@@ -10,6 +10,8 @@ import { createLocalDiff, type LocalDiff } from "../models.ts";
 import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../project-config.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
 
+const GIT_TIMEOUT_MS = 10_000;
+
 export interface LoadDiffOptions {
 	readonly cwd: string;
 	readonly env?: NodeJS.ProcessEnv | undefined;
@@ -136,9 +138,10 @@ function error(errorValue: LocalDiffFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
 }
 
-function execOptions(cwd: string, options: LoadDiffOptions): { cwd: string; env?: NodeJS.ProcessEnv; signal?: AbortSignal } {
+function execOptions(cwd: string, options: LoadDiffOptions): { cwd: string; env?: NodeJS.ProcessEnv; signal?: AbortSignal; timeout: number } {
 	return {
 		cwd,
+		timeout: GIT_TIMEOUT_MS,
 		...(options.env === undefined ? {} : { env: options.env }),
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};
