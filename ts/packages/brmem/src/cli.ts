@@ -15,6 +15,7 @@ import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operatio
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
 import { resolvePromptRequestSchema, resolvePromptResultSchema, renderResolvePrompt, runResolvePrompt } from "./operations/resolve-prompt.ts";
+import { renderSetupGit, runSetupGit, setupGitRequestSchema, setupGitResultSchema } from "./operations/setup-git.ts";
 
 export const VERSION = "0.1.0";
 
@@ -96,6 +97,14 @@ export function buildCli(): ClinkrGroup<BrmemCliContext> {
 		resultSchema: exportResultSchema,
 		handler: runExport,
 		renderHuman: renderExport,
+	});
+	root.command({
+		name: "setup-git",
+		description: "Configure Git push/fetch refspecs for Branch Memory Snapshot Refs.",
+		schema: setupGitRequestSchema,
+		resultSchema: setupGitResultSchema,
+		handler: runSetupGit,
+		renderHuman: renderSetupGit,
 	});
 	const execGroup = new ClinkrGroup<BrmemCliContext>({
 		name: "exec",

@@ -18,7 +18,7 @@ describe("brmem CLI shape", () => {
 		const run = runScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		for (const command of ["put", "get", "delete", "list", "check", "copy", "export"]) {
+		for (const command of ["put", "get", "delete", "list", "check", "copy", "export", "setup-git"]) {
 			expect(help).toContain(command);
 		}
 		expect(help).not.toContain("resolve-prompt");

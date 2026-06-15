@@ -7,5 +7,7 @@ export type { BrmemGateway, EntryContent, EntryDiagnostic, ListedEntry, PutEntry
 export type { BrmemErrorInfo, BrmemOptionalResult, BrmemResult } from "./contracts.ts";
 export { brmemOk, brmemError, brmemFound, brmemMissing, brmemOptionalError } from "./contracts.ts";
 export { RealGitBrmemGateway } from "./real-git-gateway.ts";
+export { RealGitSetupGateway } from "./git-setup-gateway.ts";
+export type { GitSetupGateway } from "./git-setup-gateway.ts";
 export { FakeBrmemGateway } from "./fake-gateway.ts";
 export type { FakeBrmemGatewayOptions, FakeEntrySeed } from "./fake-gateway.ts";

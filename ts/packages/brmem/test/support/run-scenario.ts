@@ -6,12 +6,14 @@ import { type BrmemCliContext } from "../../src/context.ts";
 import { brmemError, brmemOk, type BrmemResult } from "../../src/contracts.ts";
 import { FakeBrmemGateway, type FakeBrmemGatewayOptions } from "../../src/fake-gateway.ts";
 import type { BrmemGateway } from "../../src/gateway.ts";
+import type { GitSetupGateway } from "../../src/git-setup-gateway.ts";
 import type { BrmemPromptResolver } from "../../src/prompt-resolution.ts";
 import type { BrmemSourceReader, SourceBytesResult } from "../../src/source-reader.ts";
 
 export interface ScenarioRunOptions {
 	gateway?: BrmemGateway | undefined;
 	fake?: FakeBrmemGatewayOptions | undefined;
+	gitSetupGateway?: GitSetupGateway | undefined;
 	promptResolver?: BrmemPromptResolver | undefined;
 	repoRoot?: string | undefined;
 	homeRoot?: string | undefined;
@@ -38,6 +40,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const cwd = options.cwd ?? "/repo";
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
+		gitSetupGateway: options.gitSetupGateway ?? new FakeGitSetupGateway(),
 		promptResolver: options.promptResolver ??
 			new ScenarioPromptResolver({
 				cwd,
@@ -65,6 +68,60 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 
 export function parseJsonOutput(run: ScenarioRun): unknown {
 	return JSON.parse(run.stdout.join(""));
+}
+
+export interface FakeGitSetupGatewayOptions {
+	remotes?: readonly string[] | undefined;
+	pushValues?: readonly string[] | undefined;
+	fetchValues?: readonly string[] | undefined;
+	operationErrors?: Partial<Record<"remote" | "read" | "write", { code: string; message: string }>> | undefined;
+}
+
+export interface FakeGitSetupWrite {
+	key: string;
+	value: string;
+}
+
+export class FakeGitSetupGateway implements GitSetupGateway {
+	readonly writes: FakeGitSetupWrite[] = [];
+	private readonly remotes: ReadonlySet<string>;
+	private readonly operationErrors: NonNullable<FakeGitSetupGatewayOptions["operationErrors"]>;
+	private readonly valuesByKey: Map<string, string[]>;
+
+	constructor(options: FakeGitSetupGatewayOptions = {}) {
+		this.remotes = new Set(options.remotes ?? ["origin"]);
+		this.operationErrors = { ...(options.operationErrors ?? {}) };
+		this.valuesByKey = new Map([
+			["remote.origin.push", [...(options.pushValues ?? [])]],
+			["remote.origin.fetch", [...(options.fetchValues ?? ["+refs/heads/*:refs/remotes/origin/*"])]],
+		]);
+	}
+
+	async remoteExists(remote: string): Promise<BrmemResult<boolean>> {
+		const error = this.operationErrors.remote;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		return brmemOk(this.remotes.has(remote));
+	}
+
+	async getConfigValues(key: string): Promise<BrmemResult<readonly string[]>> {
+		const error = this.operationErrors.read;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		return brmemOk([...(this.valuesByKey.get(key) ?? [])]);
+	}
+
+	async addConfigValue(key: string, value: string): Promise<BrmemResult<void>> {
+		const error = this.operationErrors.write;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		const values = this.valuesByKey.get(key) ?? [];
+		values.push(value);
+		this.valuesByKey.set(key, values);
+		this.writes.push({ key, value });
+		return brmemOk(undefined);
+	}
+
+	configValues(key: string): readonly string[] {
+		return [...(this.valuesByKey.get(key) ?? [])];
+	}
 }
 
 class ScenarioPromptResolver implements BrmemPromptResolver {
