@@ -156,13 +156,17 @@ packet with `schema_version: 1` and explicit `reviews`, `review_threads`, and
 `discussion_comments` entries. That packet is the deterministic CLI boundary,
 not the default agent-to-agent subagent report.
 
-Generate a deterministic scaffold from the compact manifest before asking for
-semantic classification:
+Generate a deterministic scaffold from the session-resolved compact manifest
+before asking for semantic classification:
 
 ```bash
-printf '%s' '<prepare-run data json>' \
-  | pr-address exec classification-template --format json
+pr-address exec classification-template \
+  --pr-number <pr> \
+  --format json
 ```
+
+For manual/debug compatibility, `classification-template` can still read a bare
+compact manifest from stdin, `--manifest-json`, or `--manifest-file`.
 
 The scaffold pre-fills IDs, locators, item pointers, and coverage skeletons.
 The raw scaffold is intentionally invalid until the parent fills semantic fields
@@ -229,19 +233,26 @@ In fallback mode there is no agent-to-agent boundary: the parent may classify
 and directly fill the JSON packet itself, while preserving the deterministic
 scaffold fields and validating before planning.
 
-Validate before displaying any execution plan. Prefer split manifest and
-classification inputs so no ad-hoc wrapper JSON is needed:
+Validate before displaying any execution plan. Prefer session-resolved manifest
+input so no ad-hoc manifest file or wrapper JSON is needed:
+
+```bash
+pr-address exec validate-feedback-classification \
+  --pr-number <pr> \
+  --classification-file classification.json \
+  --format json
+```
+
+Successful `--pr-number` validation automatically persists the classification
+artifact for `plan-feedback --pr-number`. Manual/debug split inputs remain
+supported:
 
 ```bash
 pr-address exec validate-feedback-classification \
   --manifest-file manifest.json \
   --classification-file classification.json \
   --format json
-```
 
-Direct JSON options are also supported for controlled invocations:
-
-```bash
 pr-address exec validate-feedback-classification \
   --manifest-json '<prepare-run data json>' \
   --classification-json '<classification packet json>' \
@@ -255,9 +266,9 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
   | pr-address exec validate-feedback-classification --format json
 ```
 
-Validation persistence is explicit. Do not add `--persist-session` for
-validation-only planning. Add it only when a later session-mode command must
-resolve the classification artifact from the payload session.
+For legacy wrapper/split modes, persistence is still explicit; add
+`--persist-session` only when a later session-mode command must resolve the
+classification artifact from the payload session.
 
 Validation outcomes:
 
@@ -275,15 +286,17 @@ Validation outcomes:
 - If the retry still fails, stop and report the diagnostics.
 - If validation exits `2`, treat it as malformed workflow input and stop.
 
-After validation succeeds, ask the helper to turn the validated packet into the
-execution plan:
+After validation succeeds, ask the helper to turn the persisted classification
+artifact into the execution plan:
 
 ```bash
-printf '%s' '<json wrapper>' \
-  | pr-address exec plan-feedback --format json
+pr-address exec plan-feedback \
+  --pr-number <pr> \
+  --format json
 ```
 
-Use the same wrapper shape as validation. If `plan-feedback` exits `1`, inspect
+For legacy/manual paths, `plan-feedback` can still read the same wrapper shape as
+validation. If `plan-feedback` exits `1`, inspect
 `data.validation.counts` and `data.validation.errors` and handle them like
 classification validation failures: fix parent translation/schema mistakes
 locally, retry/escalate only for incomplete or ambiguous semantic judgments, then

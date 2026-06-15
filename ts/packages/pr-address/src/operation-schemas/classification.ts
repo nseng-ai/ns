@@ -84,6 +84,10 @@ const classificationTemplateCountsSchema = z.object({
 	resolved_review_threads_omitted: z.int(),
 });
 
+const manifestResolvedInputsSchema = z.object({
+	manifest: payloadReferenceSchema,
+});
+
 export const classificationTemplateResultDocSchema = z.object({
 	manifest_kind: manifestKindSchema,
 	pr_number: nullableIntSchema.optional(),
@@ -102,10 +106,11 @@ const validateFeedbackClassificationRequestSchema = z
 		payload_file: nullableCliStringSchema.describe("Path to a wrapper payload JSON file."),
 		manifest_json: nullableCliStringSchema.describe("Inline split manifest JSON."),
 		manifest_file: nullableCliStringSchema.describe("Path to a split manifest JSON file."),
-		classification_json: nullableCliStringSchema.describe("Inline split classification JSON."),
-		classification_file: nullableCliStringSchema.describe("Path to a split classification JSON file."),
-		harness_session_id: nullableCliStringSchema.describe("Harness session id for persisting a validated classification artifact when persist_session is true."),
-		persist_session: z.boolean().default(false).describe("Persist the validated classification artifact into the configured payload session."),
+		classification_json: nullableCliStringSchema.describe("Inline split or session classification JSON."),
+		classification_file: nullableCliStringSchema.describe("Path to a split or session classification JSON file."),
+		pr_number: nullableIntSchema.describe("PR number for implicit manifest session resolution."),
+		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution or explicit persistence."),
+		persist_session: z.boolean().default(false).describe("Persist the validated classification artifact into the configured payload session for legacy explicit input modes."),
 	})
 	.strict();
 
@@ -122,6 +127,8 @@ export const classificationTemplateRequestSchema = z
 	.object({
 		manifest_json: nullableCliStringSchema.describe("Inline compact payload manifest JSON."),
 		manifest_file: nullableCliStringSchema.describe("Path to a compact payload manifest JSON file."),
+		pr_number: nullableIntSchema.describe("PR number for implicit manifest session resolution."),
+		harness_session_id: nullableCliStringSchema.describe("Harness session id for implicit session resolution."),
 	})
 	.strict();
 
@@ -182,6 +189,7 @@ const classificationTemplateResultSchema = z
 			})
 			.loose(),
 		classification_template: classificationTemplateSchema,
+		resolved_inputs: manifestResolvedInputsSchema.optional(),
 	})
 	.loose();
 
@@ -193,6 +201,7 @@ export function buildClassificationTemplateSchemaDocument(): JsonSchemaDocument 
 
 const validateFeedbackClassificationResultSchema = feedbackPlanningValidationResultSchema.extend({
 	classification_reference: payloadReferenceSchema.nullable().optional(),
+	resolved_inputs: manifestResolvedInputsSchema.optional(),
 });
 
 const planFeedbackResolvedInputsSchema = z.object({

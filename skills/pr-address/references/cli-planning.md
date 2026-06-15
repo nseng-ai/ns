@@ -17,8 +17,18 @@ Build a deterministic classification scaffold from a compact payload manifest.
 Use this after `prepare-run` or `get-feedback` in default payload mode and
 before asking the LLM to fill semantic judgments.
 
-**Invocation:** reads a bare compact manifest object from stdin by default.
-`--manifest-json` and `--manifest-file` are also available.
+**Preferred session invocation after `get-feedback`:** resolve the latest
+`pr-address-pr-<n>-manifest` summary artifact from `HARNESS_SESSION_ID` (or
+`--harness-session-id`) and build the scaffold from that manifest.
+
+```bash
+pr-address exec classification-template \
+  --pr-number <pr> \
+  --format json
+```
+
+Manual/debug compatibility paths still read a bare compact manifest object from
+stdin, `--manifest-json`, or `--manifest-file`.
 
 ```bash
 printf '%s' '<prepare-run or get-feedback data json>' \
@@ -38,6 +48,7 @@ pr-address exec classification-template \
 | `payload_path`            | Raw payload artifact path from the compact manifest                        |
 | `counts`                  | Prefilled review/thread/comment counts plus resolved-thread omission count |
 | `classification_template` | Strict packet-shaped scaffold with placeholder semantic fields             |
+| `resolved_inputs`         | Session mode only: exact resolved manifest payload reference               |
 
 The helper copies only deterministic fields: IDs, minimal body locators
 (`json_pointer`, `item_pointer`), review-thread item pointers, and exact comment
@@ -55,7 +66,23 @@ Invalid manifests, duplicate IDs, malformed JSON, and missing files return
 Validate a strict PR feedback classification packet against a compact payload
 manifest before planning or execution proceeds.
 
-**Preferred split invocation:** pass the compact manifest and classification
+**Preferred session invocation after `classification-template --pr-number`:**
+resolve the manifest from the payload session and pass the agent-authored
+classification packet as a file (or controlled inline JSON).
+
+```bash
+pr-address exec validate-feedback-classification \
+  --pr-number <pr> \
+  --classification-file classification.json \
+  --format json
+```
+
+Session mode resolves the latest `pr-address-pr-<n>-manifest` summary artifact
+from `HARNESS_SESSION_ID` (or `--harness-session-id`). On successful validation it
+automatically writes the PR-scoped classification summary artifact and returns
+`data.classification_reference`, which `plan-feedback --pr-number` can resolve.
+
+**Manual/debug split invocation:** pass the compact manifest and classification
 packet separately, avoiding wrapper JSON assembly.
 
 ```bash
@@ -73,14 +100,13 @@ pr-address exec validate-feedback-classification \
 Split mode requires exactly one manifest source (`--manifest-json` or
 `--manifest-file`) and exactly one classification source
 (`--classification-json` or `--classification-file`). It rejects explicit wrapper
-sources (`--payload-json` or `--payload-file`) mixed with split inputs. Stdin is
-only consumed in legacy wrapper mode when no split source is provided.
+sources (`--payload-json` or `--payload-file`) mixed with split inputs. Session
+mode rejects wrapper payloads and explicit manifest inputs; stdin is only
+consumed in legacy wrapper mode when no split or session source is provided.
 
-Persistence is explicit. Plain validation returns `classification_reference: null`
-even when `HARNESS_SESSION_ID` is set. Add `--persist-session` only when a later
-session-mode operation such as `plan-feedback --pr-number` or empty-stdin
-`stack-feedback-plan` must resolve the classification artifact from the payload
-session.
+`--persist-session` remains available for legacy wrapper/split modes that should
+seed the payload session. Plain wrapper/split validation returns
+`classification_reference: null` without it.
 
 **Legacy wrapper invocation:** reads wrapper JSON from stdin by default.
 `--payload-json` and `--payload-file` are also available for compatibility.
@@ -190,8 +216,12 @@ Semantic validation rules:
 **Output behavior:**
 
 - Valid packet: `exit_code: 0`, `data.valid == true`.
-- Valid packet with `--persist-session`: additionally writes the PR-scoped
-  classification artifact and returns `data.classification_reference`.
+- Valid packet in `--pr-number` session mode: writes the PR-scoped
+  classification artifact, returns `data.classification_reference`, and includes
+  `data.resolved_inputs.manifest`.
+- Valid packet with legacy wrapper/split input and `--persist-session`:
+  additionally writes the PR-scoped classification artifact and returns
+  `data.classification_reference`.
 - Well-formed but invalid packet: `exit_code: 1`, message
   `PR feedback classification failed validation.`, `data.valid == false`, plus
   structured `data.counts` and `data.errors` diagnostics.
@@ -205,9 +235,20 @@ classification packet. The helper validates internally before planning, uses
 only compact manifest locators and classification summaries, and does not read
 or print raw feedback body text.
 
-**Invocation:** reads the wrapper JSON from stdin by default. `--payload-json`
-and `--payload-file` are also available for direct/manual invocation; pass only
-one explicit payload source.
+**Preferred session invocation:** after successful
+`validate-feedback-classification --pr-number`, resolve the latest manifest and
+classification artifacts from the payload session and write the PR-scoped plan
+artifact.
+
+```bash
+pr-address exec plan-feedback \
+  --pr-number <pr> \
+  --format json
+```
+
+Manual/debug compatibility reads wrapper JSON from stdin by default.
+`--payload-json` and `--payload-file` are also available; pass only one explicit
+payload source.
 
 ```bash
 printf '%s' '{"manifest":{...},"classification":{...}}' \

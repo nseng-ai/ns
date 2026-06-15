@@ -158,6 +158,12 @@ export type PrFeedbackSourceResolution =
 
 export type PrFeedbackSessionSourceResolution = Extract<PrFeedbackSourceResolution, { kind: "session" }>;
 
+export interface PrManifestSessionInput {
+	store: PayloadArtifactStore;
+	manifest: GetFeedbackManifest;
+	resolvedInput: PayloadReference;
+}
+
 export interface PlanFeedbackSessionInputs {
 	store: PayloadArtifactStore;
 	manifest: GetFeedbackManifest;
@@ -222,6 +228,32 @@ export async function resolvePrFeedbackSourceFromSession(options: {
 		type: "ok",
 		value: { kind: "session", payloadPath: artifact.value.reference.payload_path, store: storeResult.value, resolvedInput: artifact.value.reference },
 	};
+}
+
+export async function resolvePrManifestSessionInput(options: {
+	ctx: PrAddressExecContext;
+	prNumber: number;
+	harnessSessionId?: string | undefined;
+}): Promise<OperationResult<PrManifestSessionInput, PayloadErrorType | "invalid_request">> {
+	if (options.prNumber <= 0) return { type: "error", errorType: "invalid_request", message: "--pr-number must be a positive integer." };
+	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
+	if (storeResult.type === "error") return storeResult;
+	const artifact = await resolveLatestPrSessionArtifact({
+		store: storeResult.value,
+		prNumber: options.prNumber,
+		kind: "manifest",
+		role: "summary",
+		schema: getFeedbackManifestSchema,
+	});
+	if (artifact.type === "error") return artifact;
+	if (artifact.value.value.pr_number !== options.prNumber) {
+		return {
+			type: "error",
+			errorType: "invalid_request",
+			message: `Resolved manifest artifact PR number ${artifact.value.value.pr_number} does not match requested PR ${options.prNumber}.`,
+		};
+	}
+	return { type: "ok", value: { store: storeResult.value, manifest: artifact.value.value, resolvedInput: artifact.value.reference } };
 }
 
 export async function resolvePlanFeedbackSessionInputs(options: {

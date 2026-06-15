@@ -1,8 +1,11 @@
 {
   "input_json_schema": {
-    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
     "properties": {
       "payload_json": {
+        "default": null,
+        "description": "Inline wrapper payload JSON.",
         "anyOf": [
           {
             "type": "string"
@@ -10,11 +13,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload Json"
+        ]
       },
       "payload_file": {
+        "default": null,
+        "description": "Path to a wrapper payload JSON file.",
         "anyOf": [
           {
             "type": "string"
@@ -22,11 +25,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Payload File"
+        ]
       },
       "manifest_json": {
+        "default": null,
+        "description": "Inline split manifest JSON.",
         "anyOf": [
           {
             "type": "string"
@@ -34,11 +37,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Manifest Json"
+        ]
       },
       "manifest_file": {
+        "default": null,
+        "description": "Path to a split manifest JSON file.",
         "anyOf": [
           {
             "type": "string"
@@ -46,11 +49,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Manifest File"
+        ]
       },
       "classification_json": {
+        "default": null,
+        "description": "Inline split or session classification JSON.",
         "anyOf": [
           {
             "type": "string"
@@ -58,11 +61,11 @@
           {
             "type": "null"
           }
-        ],
-        "default": null,
-        "title": "Classification Json"
+        ]
       },
       "classification_file": {
+        "default": null,
+        "description": "Path to a split or session classification JSON file.",
         "anyOf": [
           {
             "type": "string"
@@ -70,50 +73,130 @@
           {
             "type": "null"
           }
+        ]
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
         ],
+        "description": "PR number for implicit manifest session resolution."
+      },
+      "harness_session_id": {
         "default": null,
-        "title": "Classification File"
+        "description": "Harness session id for implicit session resolution or explicit persistence.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "persist_session": {
+        "default": false,
+        "description": "Persist the validated classification artifact into the configured payload session for legacy explicit input modes.",
+        "type": "boolean"
       }
     },
-    "title": "ValidateFeedbackClassificationRequest",
-    "type": "object"
+    "required": [
+      "payload_json",
+      "payload_file",
+      "manifest_json",
+      "manifest_file",
+      "classification_json",
+      "classification_file",
+      "pr_number",
+      "harness_session_id",
+      "persist_session"
+    ],
+    "additionalProperties": false
   },
   "output_json_schema": {
-    "$defs": {
-      "FeedbackClassificationValidationCounts": {
-        "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "manifest_kind": {
+        "type": "string",
+        "enum": [
+          "get_feedback",
+          "prepare_run"
+        ]
+      },
+      "pr_number": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "payload_path": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "counts": {
+        "type": "object",
         "properties": {
           "reviews_expected": {
-            "title": "Reviews Expected",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "reviews_classified": {
-            "title": "Reviews Classified",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "review_threads_expected": {
-            "title": "Review Threads Expected",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "review_threads_classified": {
-            "title": "Review Threads Classified",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "thread_comments_expected": {
-            "title": "Thread Comments Expected",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "thread_comments_covered": {
-            "title": "Thread Comments Covered",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "discussion_comments_expected": {
-            "title": "Discussion Comments Expected",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "discussion_comments_classified": {
-            "title": "Discussion Comments Classified",
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -126,143 +209,206 @@
           "discussion_comments_expected",
           "discussion_comments_classified"
         ],
-        "title": "FeedbackClassificationValidationCounts",
-        "type": "object"
+        "additionalProperties": false
       },
-      "FeedbackClassificationValidationError": {
-        "additionalProperties": false,
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "review",
+                "review_thread",
+                "thread_comment",
+                "discussion_comment",
+                "packet"
+              ]
+            },
+            "identifier": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "kind",
+            "identifier",
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "classification_reference": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "payload_path": {
+                "type": "string"
+              },
+              "session_id": {
+                "type": "string"
+              },
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
+              }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolved_inputs": {
+        "type": "object",
         "properties": {
-          "code": {
-            "enum": [
-              "invalid_schema",
-              "missing_review",
-              "duplicate_review",
-              "unknown_review",
-              "missing_thread",
-              "duplicate_thread",
-              "unknown_thread",
-              "resolved_thread_classified",
-              "missing_thread_comment",
-              "duplicate_thread_comment",
-              "unknown_thread_comment",
-              "missing_discussion_comment",
-              "duplicate_discussion_comment",
-              "unknown_discussion_comment",
-              "invalid_locator",
-              "invalid_action_fields",
-              "invalid_informational_fields"
-            ],
-            "title": "Code",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "review",
-              "review_thread",
-              "thread_comment",
-              "discussion_comment",
-              "packet"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "identifier": {
-            "anyOf": [
-              {
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "payload_path": {
                 "type": "string"
               },
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Identifier"
-          },
-          "path": {
-            "anyOf": [
-              {
+              "session_id": {
                 "type": "string"
               },
-              {
-                "type": "null"
+              "descriptor": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "raw",
+                  "summary",
+                  "log"
+                ]
+              },
+              "created_at_utc": {
+                "type": "string"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "payload_bytes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "content_type": {
+                "type": "string"
+              },
+              "extension": {
+                "type": "string",
+                "enum": [
+                  "json",
+                  "txt"
+                ]
               }
+            },
+            "required": [
+              "payload_path",
+              "session_id",
+              "descriptor",
+              "role",
+              "created_at_utc",
+              "sequence",
+              "payload_bytes",
+              "content_type",
+              "extension"
             ],
-            "default": null,
-            "title": "Path"
+            "additionalProperties": false
           }
         },
         "required": [
-          "code",
-          "message",
-          "kind"
+          "manifest"
         ],
-        "title": "FeedbackClassificationValidationError",
-        "type": "object"
-      }
-    },
-    "additionalProperties": false,
-    "properties": {
-      "valid": {
-        "title": "Valid",
-        "type": "boolean"
-      },
-      "manifest_kind": {
-        "enum": [
-          "get_feedback",
-          "prepare_run"
-        ],
-        "title": "Manifest Kind",
-        "type": "string"
-      },
-      "pr_number": {
-        "anyOf": [
-          {
-            "type": "integer"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Pr Number"
-      },
-      "payload_path": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "title": "Payload Path"
-      },
-      "counts": {
-        "$ref": "#/$defs/FeedbackClassificationValidationCounts"
-      },
-      "errors": {
-        "default": [],
-        "items": {
-          "$ref": "#/$defs/FeedbackClassificationValidationError"
-        },
-        "title": "Errors",
-        "type": "array"
+        "additionalProperties": false
       }
     },
     "required": [
       "valid",
       "manifest_kind",
-      "counts"
+      "pr_number",
+      "payload_path",
+      "counts",
+      "errors"
     ],
-    "title": "FeedbackClassificationValidationResult",
-    "type": "object"
+    "additionalProperties": false
   }
 }
