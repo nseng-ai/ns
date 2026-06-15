@@ -60,20 +60,20 @@ describe("handoff:self extension", () => {
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
 		const context = createContext({ sessionFile: "/sessions/current.jsonl" });
 		const originalNewSession = context.ctx.newSession;
-		let oldContextIsStale = false;
+		let isOldContextStale = false;
 		context.ctx.newSession = async (options) => {
 			const result = await originalNewSession?.(options);
-			oldContextIsStale = true;
+			isOldContextStale = true;
 			return result ?? { cancelled: false };
 		};
 		context.ctx.ui.notify = (message, level) => {
-			if (oldContextIsStale) {
+			if (isOldContextStale) {
 				throw new Error("old command context notify used after newSession");
 			}
 			context.notifications.push({ message, level });
 		};
 		context.ctx.ui.setStatus = (_key, value) => {
-			if (oldContextIsStale) {
+			if (isOldContextStale) {
 				throw new Error("old command context status used after newSession");
 			}
 			context.statuses.push(value);
