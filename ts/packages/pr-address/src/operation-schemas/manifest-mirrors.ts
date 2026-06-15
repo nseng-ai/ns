@@ -106,6 +106,7 @@ export const prepareRunPayloadManifestSchema = z.object({
 	found: z.boolean(),
 	current_branch: nullableStringSchema.optional(),
 	number: nullableIntSchema.optional(),
+	pr_number: nullableIntSchema.optional(),
 	title: nullableStringSchema.optional(),
 	url: nullableStringSchema.optional(),
 	head_ref_name: nullableStringSchema.optional(),

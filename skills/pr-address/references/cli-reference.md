@@ -94,7 +94,7 @@ git work tree they fail fast with `error_type: "repo_context_required"`
 
 ### Payload artifact commands
 
-`prepare-run` and `get-feedback` still accept `--payload-mode inline|payload`, but stdout mode controls what is printed. Default compact stdout writes the full feedback envelope to a store-owned `.raw.json` payload and prints only a digest plus artifact references. The manifest carries `payload_reference.payload_path` plus item-level body locators; it does not paste full review bodies into the main transcript.
+`prepare-run` and `get-feedback` still accept `--payload-mode inline|payload`, but stdout mode controls what is printed. Default compact stdout writes the full feedback envelope to a store-owned `.raw.json` payload and prints only a digest plus artifact references. `prepare-run` also writes a PR-scoped manifest summary artifact when a PR is found so `classification-template --pr-number` can use the same session. The manifest carries `payload_reference.payload_path` plus item-level body locators; it does not paste full review bodies into the main transcript.
 
 Payload/compact artifact mode requires `HARNESS_SESSION_ID` or `--harness-session-id <id>`. The payload store derives the safe on-disk payload session id from that raw harness id and outputs only the derived payload id plus a digest.
 

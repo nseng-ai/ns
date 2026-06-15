@@ -151,7 +151,8 @@ export interface RecordBatchCheckpointResult {
 const recordBatchCheckpointParseSchema = z.object({
 	pr_number: z.number().int(),
 	batch_id: z.string(),
-	commit_sha: z.string(),
+	commit_sha: z.string().optional(),
+	code_change: z.boolean().default(true),
 	evidence_file: z.string(),
 	harness_session_id: z.string().optional(),
 	stdout_mode: stdoutModeSchema,
@@ -175,13 +176,15 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 	if (request.pr_number <= 0) return failure("invalid_request", "--pr-number must be a positive integer.");
 	const batchId = request.batch_id.trim();
 	if (!isSafeSegment(batchId)) return failure("invalid_request", `--batch-id must be a safe payload descriptor segment: ${request.batch_id}`);
-	const commitSha = request.commit_sha.trim();
-	if (commitSha === "") return failure("invalid_request", "--commit-sha must be non-empty.");
+	const commitSha = trimOptional(request.commit_sha ?? null);
+	const isNoCodeChange = !request.code_change;
+	if (isNoCodeChange && commitSha !== null) return failure("invalid_request", "--no-code-change cannot be combined with --commit-sha.");
+	if (!isNoCodeChange && commitSha === null) return failure("invalid_request", "--commit-sha must be non-empty unless --no-code-change is set.");
 	const evidence = await loadCheckpointEvidenceFile(request.evidence_file);
 	if (evidence.type === "error") return failure(evidence.errorType, evidence.message);
 	const sessionInput = await resolveBatchCheckpointSessionInputs({ ctx, prNumber: request.pr_number, batchId, harnessSessionId: request.harness_session_id });
 	if (sessionInput.type === "error") return failure(sessionInput.errorType, sessionInput.message);
-	const changedFiles = await ctx.context.git.getCommitChangedFiles(commitSha, gatewayOptions(ctx));
+	const changedFiles = isNoCodeChange ? { type: "ok" as const, files: [] } : await ctx.context.git.getCommitChangedFiles(trimRequired(commitSha), gatewayOptions(ctx));
 	if (changedFiles.type === "failure") return failure("pr_gateway_failure", `Failed to derive changed files for commit ${commitSha}: ${gatewayFailureDetail(changedFiles.failure)}`);
 
 	let checkpointResult = recordBatchCheckpoint({

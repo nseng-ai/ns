@@ -12,7 +12,17 @@
         "type": "string"
       },
       "commit_sha": {
-        "type": "string"
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "no_code_change": {
+        "type": "boolean"
       },
       "evidence_file": {
         "type": "string"
@@ -38,7 +48,6 @@
     "required": [
       "pr_number",
       "batch_id",
-      "commit_sha",
       "evidence_file"
     ],
     "additionalProperties": false

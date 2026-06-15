@@ -35,8 +35,9 @@ Reply to and resolve a PR review thread with canonical pr-address formatting.
 
 `mode` values:
 
-- `pre_existing` — moved/restructured bot comment, no code change. `message`
-  and `commit_sha` may be empty strings.
+- `pre_existing` — moved/restructured bot comment, no code change. Leave
+  `message` and `commit_sha` empty and do not pass provenance; non-empty
+  message/commit or any provenance is invalid.
 - `fixed` — code change resolved by the current batch commit. Requires a
   non-empty `message` and `commit_sha`.
 - `explained` — already-fixed case or false positive. Requires a non-empty

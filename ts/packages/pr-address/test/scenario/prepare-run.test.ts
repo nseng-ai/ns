@@ -100,6 +100,31 @@ describe("prepare-run parity with the Python CLI", () => {
 		});
 	}
 
+	test("compact payload mode writes a PR manifest artifact usable by classification-template", async () => {
+		const root = await makePayloadRoot();
+		const env = { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: fixture.session_id };
+		const prepareRun = runScenario(["exec", "prepare-run", "--format", "json"], {
+			github: githubGatewayFor("default"),
+			git: gitGatewayFor("default"),
+			env,
+			payloadClock: fixedClock(fixture.clock_iso),
+		});
+
+		expect(await prepareRun.exit).toBe(0);
+		const prepareEnvelope = JSON.parse(prepareRun.stdout.join("")) as {
+			data: { artifacts: { produced: Array<{ kind: string; reference: { payload_path: string; descriptor: string; role: string } }> } };
+		};
+		const manifestArtifact = prepareEnvelope.data.artifacts.produced.find((artifact) => artifact.kind === "manifest") ?? null;
+		expect(manifestArtifact?.reference).toMatchObject({ descriptor: "pr-address-pr-42-manifest", role: "summary" });
+		const manifest = JSON.parse(await readFile(manifestArtifact?.reference.payload_path ?? "", "utf8")) as { found: boolean; number: number; pr_number: number };
+		expect(manifest).toMatchObject({ found: true, number: 42, pr_number: 42 });
+
+		const templateRun = runScenario(["exec", "classification-template", "--pr-number", "42", "--format", "json", "--stdout-mode", "full"], { env });
+		expect(await templateRun.exit).toBe(0);
+		const templateEnvelope = JSON.parse(templateRun.stdout.join("")) as { data: { manifest_kind: string; pr_number: number } };
+		expect(templateEnvelope.data).toMatchObject({ manifest_kind: "prepare_run", pr_number: 42 });
+	});
+
 	test("reopens only contested threads through the mutation gateway", async () => {
 		const root = await makePayloadRoot();
 		const github = githubGatewayFor("default");

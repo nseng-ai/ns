@@ -79,7 +79,8 @@ export const buildResolveThreadBatchPayloadResultSchema = z.object({
 export const recordBatchCheckpointRequestSchema = z.object({
 	pr_number: z.int(),
 	batch_id: z.string(),
-	commit_sha: z.string(),
+	commit_sha: nullableStringSchema.optional(),
+	no_code_change: z.boolean().optional(),
 	evidence_file: z.string(),
 	harness_session_id: nullableStringSchema.optional(),
 	stdout_mode: stdoutModeDocSchema.optional(),

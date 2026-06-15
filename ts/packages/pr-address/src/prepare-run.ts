@@ -5,6 +5,7 @@ import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatew
 import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
+import { prArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult, stdoutModeSchema } from "./stdout-mode.ts";
 
 interface PrepareRunInlineFound {
@@ -108,6 +109,8 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 	});
 	if (rawReference.type === "error") return failure(rawReference.errorType, rawReference.message);
 	const manifest = buildManifest(inlineResult, rawReference.value);
+	const manifestReference = request.stdout_mode === "compact" && inlineResult.found ? await writePrManifestArtifact({ store, prNumber: inlineResult.number, manifest }) : null;
+	if (manifestReference?.type === "error") return failure(manifestReference.errorType, manifestReference.message);
 	if (request.stdout_mode === "full") return ok(manifest);
 	return ok(
 		compactOperationResult({
@@ -122,7 +125,10 @@ async function runPrepareRunOperation(ctx: PrAddressExecContext, request: Prepar
 					}
 				: { found: 0 },
 			warnings: inlineResult.found ? inlineResult.warnings : [],
-			artifacts: { full_output: rawReference.value },
+			artifacts: {
+				full_output: rawReference.value,
+				produced: manifestReference === null ? [] : [{ kind: "manifest", reference: manifestReference.value }],
+			},
 			details: { manifest },
 		}),
 	);
@@ -195,6 +201,18 @@ async function prepareFoundRun(options: {
 			warnings,
 		},
 	};
+}
+
+async function writePrManifestArtifact(options: {
+	store: PayloadArtifactStore;
+	prNumber: number;
+	manifest: unknown;
+}): Promise<{ type: "ok"; value: PayloadReference } | { type: "error"; errorType: string; message: string }> {
+	return await options.store.writeJsonArtifact({
+		descriptor: prArtifactDescriptor({ prNumber: options.prNumber, kind: "manifest" }),
+		role: "summary",
+		payload: options.manifest,
+	});
 }
 
 function buildManifest(inlineResult: PrepareRunInlineResult, payloadReference: PayloadReference): unknown {

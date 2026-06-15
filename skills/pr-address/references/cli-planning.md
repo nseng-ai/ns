@@ -224,19 +224,22 @@ printf '%s' '{"manifest":{...},"classification":{...}}' \
 }
 ```
 
-**Output fields (under `data`):**
+**Output fields (under `data`):** full stdout includes the complete plan
+inline. Default compact stdout writes the complete plan to a plan summary
+artifact; open `data.details.plan_reference` or `data.artifacts.produced[]` with
+`kind: "plan"` before reading `batches`.
 
-| Field           | Description                                                                                   |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| `valid`         | Whether validation passed and a plan was produced                                             |
-| `manifest_kind` | `prepare_run` or `get_feedback`                                                               |
-| `pr_number`     | PR number when present                                                                        |
-| `payload_path`  | Raw payload path echoed from `manifest.payload_reference.payload_path`                        |
-| `validation`    | Full validation result used by the planner                                                    |
-| `counts`        | Plan counts when valid: actionable/informational totals, batch totals, and source-kind splits |
-| `batches`       | Ordered actionable batches                                                                    |
-| `informational` | Explicit informational review, review-thread, and discussion-comment items                    |
-| `warnings`      | Sparse non-fatal planning notes                                                               |
+| Field           | Description                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `valid`         | Whether validation passed and a plan was produced                                                       |
+| `manifest_kind` | `prepare_run` or `get_feedback`                                                                         |
+| `pr_number`     | PR number when present                                                                                  |
+| `payload_path`  | Raw payload path echoed from `manifest.payload_reference.payload_path`                                  |
+| `validation`    | Full validation result used by the planner                                                              |
+| `counts`        | Plan counts when valid: actionable/informational totals, batch totals, and source-kind splits           |
+| `batches`       | Full stdout / plan artifact: ordered actionable batches                                                 |
+| `informational` | Full stdout / plan artifact: explicit informational review, review-thread, and discussion-comment items |
+| `warnings`      | Sparse non-fatal planning notes                                                                         |
 
 Each `batches[]` entry contains:
 
@@ -281,28 +284,16 @@ do not require the same per-item choice by default.
 
 ```json
 {
-  "valid": true,
-  "batches": [
-    {
-      "batch_id": "single_file",
-      "complexity": "single_file",
-      "approval_required": false,
-      "items": [
-        {
-          "source_kind": "review_thread",
-          "thread_id": "PRRT_...",
-          "covered_comment_ids": [123456],
-          "path": "src/app.py",
-          "line": 42,
-          "summary": "Guard rejects empty payloads.",
-          "action_summary": "Add a failing test and fix the guard."
-        }
-      ]
-    }
-  ],
-  "informational": []
+  "operation": "plan-feedback",
+  "counts": {"batches": 1, "actionable_items": 1},
+  "artifacts": {
+    "produced": [{"kind": "plan", "reference": {"payload_path": "...pr-address-pr-630-plan.summary.json"}}]
+  },
+  "details": {"valid": true, "plan_reference": {"payload_path": "...pr-address-pr-630-plan.summary.json"}}
 }
 ```
+
+The referenced plan artifact contains `batches` and `informational`.
 
 ### `stack-feedback-plan`
 
