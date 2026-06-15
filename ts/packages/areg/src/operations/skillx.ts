@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type { AregSkillxInstalledSkill } from "../gateways.ts";
+import { sortStrings } from "../sort.ts";
 
 const SKILLX_FORMAT_VALUES = ["url", "skill_flag", "plain", "repo_only"] as const;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -106,18 +107,6 @@ export type SkillxListResult = z.infer<typeof skillxListResultSchema>;
 export type SkillxFetchResult = z.infer<typeof skillxFetchResultSchema>;
 export type SkillxCleanupResult = z.infer<typeof skillxCleanupResultSchema>;
 
-interface ParseSuccess {
-	type: "ok";
-	data: z.infer<typeof parseSuccessSchema>;
-}
-
-interface ParseError {
-	type: "error";
-	data: z.infer<typeof parseFailureSchema>;
-}
-
-type ParseResult = ParseSuccess | ParseError;
-
 export function buildSkillxGroup(): ClinkrGroup<AregCliContext> {
 	const group = new ClinkrGroup<AregCliContext>({
 		name: "skillx",
@@ -155,26 +144,26 @@ export function buildSkillxGroup(): ClinkrGroup<AregCliContext> {
 	return group;
 }
 
-export function parseSkillInput(raw: string): ParseResult {
+export function parseSkillInput(raw: string): SkillxParseResult {
 	const input = raw.trim();
 	if (input.length === 0) return parseError("Empty input");
 	const urlResult = parseGithubUrl(input);
-	if (urlResult !== undefined) return { type: "ok", data: urlResult };
+	if (urlResult !== undefined) return urlResult;
 	const parts = input.split(/\s+/u);
 	const [repo, second, third, ...rest] = parts;
 	if (repo === undefined || !isRepo(repo)) return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
 	if ((second === "--skill" || second === "-s") && third !== undefined && rest.length === 0) {
-		return { type: "ok", data: { success: true, repo, skill: third, format: "skill_flag" } };
+		return { success: true, repo, skill: third, format: "skill_flag" };
 	}
-	if (second === undefined) return { type: "ok", data: { success: true, repo, skill: null, format: "repo_only" } };
-	if (third === undefined && isSkillName(second)) return { type: "ok", data: { success: true, repo, skill: second, format: "plain" } };
+	if (second === undefined) return { success: true, repo, skill: null, format: "repo_only" };
+	if (third === undefined && isSkillName(second)) return { success: true, repo, skill: second, format: "plain" };
 	return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
 }
 
 export async function runSkillxParse(_ctx: AregCliContext, request: SkillxParseRequest): Promise<ClinkrExit<SkillxParseResult>> {
 	const result = parseSkillInput(request.inputText);
-	if (result.type === "ok") return ok(result.data);
-	return negative(result.data.error, result.data);
+	if (result.success) return ok(result);
+	return negative(result.error, result);
 }
 
 export async function runSkillxList(ctx: AregCliContext, request: SkillxListRequest): Promise<ClinkrExit<SkillxListResult>> {
@@ -182,7 +171,7 @@ export async function runSkillxList(ctx: AregCliContext, request: SkillxListRequ
 	if (tool.type === "missing") return failure("missing-tool", tool.message);
 	const result = await ctx.github.listSkillDirectoryNames({ repo: request.repo, env: ctx.env });
 	if (result.type === "ok") {
-		return ok({ success: true, repo: request.repo, skills: sortedStrings(result.skillNames) });
+		return ok({ success: true, repo: request.repo, skills: sortStrings(result.skillNames) });
 	}
 	if (result.type === "missing") {
 		const error = `No skills directory found in ${request.repo}`;
@@ -243,7 +232,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 		tmp_dir: workspaceRoot,
 		skill_dir: selected.directory,
 		skill_md: selected.skillFile,
-		files: sortedStrings(selected.relativeFiles),
+		files: sortStrings(selected.relativeFiles),
 		needs_selection: false,
 	});
 }
@@ -280,20 +269,16 @@ function isSkillName(value: string): boolean {
 	return value.length > 0 && !value.includes("/") && !value.includes("@") && !value.startsWith("-");
 }
 
-function parseError(error: string): ParseError {
-	return { type: "error", data: { success: false, error } };
+function parseError(error: string): SkillxParseResult {
+	return { success: false, error };
 }
 
 function fetchNegative(error: string): ClinkrExit<SkillxFetchResult> {
 	return negative(error, { success: false, error, tmp_dir: null });
 }
 
-function sortedStrings(values: readonly string[]): string[] {
-	return [...values].sort();
-}
-
 function sortedInstalledSkills(skills: readonly AregSkillxInstalledSkill[]): AregSkillxInstalledSkill[] {
 	return skills
-		.map((skill) => ({ ...skill, relativeFiles: sortedStrings(skill.relativeFiles) }))
+		.map((skill) => ({ ...skill, relativeFiles: sortStrings(skill.relativeFiles) }))
 		.sort((left, right) => left.name.localeCompare(right.name));
 }

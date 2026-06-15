@@ -1,5 +1,5 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
-import { createAregCliContext, type AregCliContext } from "../../src/context.ts";
+import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregCheckProjectInspectionGateway,
 	type FakeAregCheckProjectInspectionGatewayOptions,
@@ -7,8 +7,6 @@ import {
 	type FakeAregGithubGatewayOptions,
 	FakeAregHostGateway,
 	type FakeAregHostGatewayOptions,
-	FakeAregNpxSkillsGateway,
-	type FakeAregNpxSkillsGatewayOptions,
 	FakeAregSkillxWorkspaceGateway,
 	type FakeAregSkillxWorkspaceGatewayOptions,
 } from "../../src/fake-gateways.ts";
@@ -17,7 +15,6 @@ export interface ScenarioRunOptions {
 	context?: AregCliContext | undefined;
 	host?: FakeAregHostGatewayOptions | undefined;
 	github?: FakeAregGithubGatewayOptions | undefined;
-	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions | undefined;
 	projectInspection?: FakeAregCheckProjectInspectionGatewayOptions | undefined;
 	cwd?: string | undefined;
@@ -35,15 +32,14 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const env = options.env ?? { PATH: "/fake/bin" };
-	const context = options.context ?? createAregCliContext({
+	const context = options.context ?? {
 		host: new FakeAregHostGateway(options.host),
 		github: new FakeAregGithubGateway(options.github),
-		npxSkills: new FakeAregNpxSkillsGateway(options.npxSkills),
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
 		projectInspection: new FakeAregCheckProjectInspectionGateway(options.projectInspection),
 		cwd,
 		env,
-	});
+	} satisfies AregCliContext;
 	const deps: CliDeps = {
 		context,
 		cwd,

@@ -30,18 +30,18 @@ describe("areg check lockfile parser", () => {
 	});
 
 	test.each([
-		[[], "root must be an object"],
-		[{ skills: {} }, "$.version is required and must be 1"],
-		[{ version: true, skills: {} }, "$.version must be 1"],
-		[{ version: 2, skills: {} }, "$.version must be 1"],
-		[{ version: 1 }, "$.skills is required and must be an object"],
-		[{ version: 1, skills: [] }, "$.skills must be an object"],
-		[{ version: 1, skills: { pytest: [] } }, "$.skills.pytest must be an object"],
-		[{ version: 1, skills: { pytest: { sourceType: "github", computedHash: VALID_HASH } } }, "$.skills.pytest.source is required and must be a string"],
-		[{ version: 1, skills: { pytest: entry({ sourceType: 1 }) } }, "$.skills.pytest.sourceType must be a string"],
-		[{ version: 1, skills: { pytest: entry({ sourceType: "npm" }) } }, "$.skills.pytest.sourceType must be one of"],
-		[{ version: 1, skills: { pytest: entry({ computedHash: 1 }) } }, "$.skills.pytest.computedHash must be a string"],
-		[{ version: 1, skills: { pytest: entry({ skillPath: 1 }) } }, "$.skills.pytest.skillPath must be a string"],
+		[[], "$: Invalid input: expected object, received array"],
+		[{ skills: {} }, "$.version: Invalid input: expected 1"],
+		[{ version: true, skills: {} }, "$.version: Invalid input: expected 1"],
+		[{ version: 2, skills: {} }, "$.version: Invalid input: expected 1"],
+		[{ version: 1 }, "$.skills: Invalid input: expected record, received undefined"],
+		[{ version: 1, skills: [] }, "$.skills: Invalid input: expected record, received array"],
+		[{ version: 1, skills: { pytest: [] } }, "$.skills.pytest: Invalid input: expected object, received array"],
+		[{ version: 1, skills: { pytest: { sourceType: "github", computedHash: VALID_HASH } } }, "$.skills.pytest.source: Invalid input: expected string, received undefined"],
+		[{ version: 1, skills: { pytest: entry({ sourceType: 1 }) } }, "$.skills.pytest.sourceType: Invalid option: expected one of"],
+		[{ version: 1, skills: { pytest: entry({ sourceType: "npm" }) } }, "$.skills.pytest.sourceType: Invalid option: expected one of"],
+		[{ version: 1, skills: { pytest: entry({ computedHash: 1 }) } }, "$.skills.pytest.computedHash: Invalid input: expected string, received number"],
+		[{ version: 1, skills: { pytest: entry({ skillPath: 1 }) } }, "$.skills.pytest.skillPath: Invalid input: expected string, received number"],
 	])("rejects malformed shape %#", (data, expected) => {
 		const result = parseLockfileData(data);
 

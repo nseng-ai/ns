@@ -9,7 +9,6 @@ import type {
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
-	AregGitRootResult,
 	AregHostGateway,
 	AregHostToolName,
 	AregNpxSkillsAddRequest,
@@ -81,23 +80,18 @@ export class FakeAregCheckProjectInspectionGateway implements AregCheckProjectIn
 	}
 }
 
-export type FakeAregHostOperation =
-	| { type: "check-tool"; tool: AregHostToolName; cwd: string }
-	| { type: "resolve-git-root"; cwd: string };
+export type FakeAregHostOperation = { type: "check-tool"; tool: AregHostToolName; cwd: string };
 
 export interface FakeAregHostGatewayOptions {
 	tools?: Partial<Record<AregHostToolName, string | null>> | undefined;
-	gitRoot?: string | null | AregErrorInfo | undefined;
 }
 
 export class FakeAregHostGateway implements AregHostGateway {
 	private readonly tools: ReadonlyMap<AregHostToolName, string | null>;
-	private readonly gitRoot: string | null | AregErrorInfo;
 	private readonly log: FakeAregHostOperation[] = [];
 
 	constructor(options: FakeAregHostGatewayOptions = {}) {
 		this.tools = new Map(Object.entries(options.tools ?? {}) as Array<[AregHostToolName, string | null]>);
-		this.gitRoot = copyGitRootOption(options.gitRoot);
 	}
 
 	async checkTool(options: { tool: AregHostToolName; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregToolCheckResult> {
@@ -105,13 +99,6 @@ export class FakeAregHostGateway implements AregHostGateway {
 		const path = this.tools.get(options.tool);
 		if (path === null) return { type: "missing", tool: options.tool, message: `Required host tool is missing: ${options.tool}` };
 		return { type: "found", tool: options.tool, path: path ?? `/fake/bin/${options.tool}` };
-	}
-
-	async resolveGitRoot(options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<AregGitRootResult> {
-		this.log.push({ type: "resolve-git-root", cwd: options.cwd });
-		if (this.gitRoot === null) return { type: "not-a-git-repo", message: `Not inside a git repository: ${options.cwd}` };
-		if (typeof this.gitRoot === "string") return { type: "found", repoRoot: this.gitRoot };
-		return { type: "error", error: copyErrorInfo(this.gitRoot) };
 	}
 
 	operations(): readonly FakeAregHostOperation[] {
@@ -150,17 +137,14 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<AregNpxSkillsAddRequest, "env">;
 
 export interface FakeAregNpxSkillsGatewayOptions {
-	installedSkillNames?: readonly string[] | undefined;
 	failure?: AregErrorInfo | undefined;
 }
 
 export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
-	private readonly installedSkillNames: readonly string[];
 	private readonly failure: AregErrorInfo | undefined;
 	private readonly log: FakeAregNpxSkillsOperation[] = [];
 
 	constructor(options: FakeAregNpxSkillsGatewayOptions = {}) {
-		this.installedSkillNames = [...(options.installedSkillNames ?? [])];
 		this.failure = options.failure === undefined ? undefined : copyErrorInfo(options.failure);
 	}
 
@@ -173,7 +157,7 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 			cwd: request.cwd,
 		});
 		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
-		return { type: "ok", installedSkillNames: [...this.installedSkillNames] };
+		return { type: "ok" };
 	}
 
 	operations(): readonly FakeAregNpxSkillsOperation[] {
@@ -289,12 +273,6 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 		hasClaude: directory.hasClaude,
 		claudeText: directory.claudeText,
 	};
-}
-
-function copyGitRootOption(value: string | null | AregErrorInfo | undefined): string | null | AregErrorInfo {
-	if (value === undefined) return "/repo";
-	if (value === null || typeof value === "string") return value;
-	return copyErrorInfo(value);
 }
 
 function copyGithubState(value: readonly string[] | "missing" | "auth-error" | AregErrorInfo): readonly string[] | "missing" | "auth-error" | AregErrorInfo {

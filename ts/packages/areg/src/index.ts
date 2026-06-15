@@ -1,5 +1,5 @@
 export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
-export { createAregCliContext, createRealAregContext, type AregCliContext, type AregCliContextDeps } from "./context.ts";
+export { createRealAregContext, type AregCliContext } from "./context.ts";
 export type {
 	AregCheckPairingDirectory,
 	AregCheckPathState,
@@ -11,7 +11,6 @@ export type {
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
-	AregGitRootResult,
 	AregHostGateway,
 	AregHostToolName,
 	AregNpxSkillsAddRequest,

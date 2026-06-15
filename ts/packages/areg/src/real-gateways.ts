@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, lstat, mkdtemp, readdir, readFile, readlink, realpath, rm, stat } from "node:fs/promises";
+import { access, lstat, mkdtemp, readdir, readFile, readlink, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -11,6 +11,7 @@ import {
 	stripTerminalEscapes,
 	type CommandRunner,
 } from "@asdl/core/exec";
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 
 import type {
 	AregCheckPairingDirectory,
@@ -23,7 +24,6 @@ import type {
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
-	AregGitRootResult,
 	AregHostGateway,
 	AregHostToolName,
 	AregNpxSkillsAddRequest,
@@ -36,6 +36,7 @@ import type {
 	AregSkillxWorkspaceGateway,
 	AregToolCheckResult,
 } from "./gateways.ts";
+import { sortStrings, uniqueSortedStrings } from "./sort.ts";
 
 const COMMAND_TIMEOUT_MS = 60_000;
 
@@ -54,18 +55,6 @@ export class RealAregHostGateway implements AregHostGateway {
 			if (await isExecutable(candidate)) return { type: "found", tool: options.tool, path: candidate };
 		}
 		return { type: "missing", tool: options.tool, message: `Required host tool is missing: ${options.tool}` };
-	}
-
-	async resolveGitRoot(options: { cwd: string; env: NodeJS.ProcessEnv }): Promise<AregGitRootResult> {
-		const args = ["-C", options.cwd, "rev-parse", "--show-toplevel"];
-		const result = await this.runner("git", args, { cwd: options.cwd, env: options.env, timeout: COMMAND_TIMEOUT_MS });
-		if (result.code === 0) return { type: "found", repoRoot: result.stdout.trim() };
-		if (result.startupError !== undefined) {
-			return { type: "error", error: errorInfo("git-startup-failed", formatCommandStartupFailure("git failed", formatCommand("git", args), result.startupError)) };
-		}
-		const output = `${result.stdout}\n${result.stderr}`.toLowerCase();
-		if (output.includes("not a git repository")) return { type: "not-a-git-repo", message: `Not inside a git repository: ${options.cwd}` };
-		return { type: "error", error: errorInfo("git-failed", formatCommandFailure("git failed", formatCommand("git", args), result)) };
 	}
 }
 
@@ -105,7 +94,7 @@ export class RealAregNpxSkillsGateway implements AregNpxSkillsGateway {
 		const args = buildNpxSkillsAddArgs(request);
 		const displayCommand = formatCommand("npx", args);
 		const result = await this.runner("npx", args, { cwd: request.cwd, env: request.env, timeout: COMMAND_TIMEOUT_MS });
-		if (result.code === 0) return { type: "ok", installedSkillNames: [] };
+		if (result.code === 0) return { type: "ok" };
 		if (result.startupError !== undefined) {
 			return { type: "error", error: errorInfo("npx-startup-failed", formatCommandStartupFailure("npx skills add failed", displayCommand, result.startupError), displayCommand) };
 		}
@@ -155,7 +144,7 @@ export class RealAregCheckProjectInspectionGateway implements AregCheckProjectIn
 		const skillsDirectoryNames = await listChildNames(path.join(projectDir, "skills"));
 		const agentsSkillNames = await listChildNames(path.join(projectDir, ".agents", "skills"));
 		const claudeSkillNames = await listChildNames(path.join(projectDir, ".claude", "skills"));
-		const allSkillNames = sortedStrings([...skillNames, ...skillsDirectoryNames, ...agentsSkillNames, ...claudeSkillNames]);
+		const allSkillNames = uniqueSortedStrings([...skillNames, ...skillsDirectoryNames, ...agentsSkillNames, ...claudeSkillNames]);
 		return {
 			projectDir,
 			projectPathState,
@@ -188,16 +177,16 @@ export function buildNpxSkillsAddArgs(request: AregNpxSkillsAddRequest): string[
 
 async function inspectInstalledSkills(workspaceRoot: string, requestedSkillName: string | undefined): Promise<{ type: "ok"; installedSkills: AregSkillxInstalledSkill[] } | { type: "error"; error: AregErrorInfo }> {
 	const skillsRoot = path.join(workspaceRoot, ".agents", "skills");
-	const skillsRootState = await directoryState(skillsRoot);
-	if (skillsRootState !== "directory") return inspectError("skillx-no-skills", "No skills were installed");
+	const skillsRootState = await inspectPath(skillsRoot);
+	if (skillsRootState.type !== "directory") return { type: "error", error: errorInfo("skillx-no-skills", "No skills were installed") };
 	if (requestedSkillName !== undefined) {
 		const inspected = await inspectOneSkill(skillsRoot, requestedSkillName);
 		if (inspected.type === "error") return inspected;
 		return { type: "ok", installedSkills: [inspected.skill] };
 	}
 	const entries = await readdir(skillsRoot, { withFileTypes: true });
-	const skillNames = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort((left, right) => left.localeCompare(right));
-	if (skillNames.length === 0) return inspectError("skillx-no-skills", "No skills were installed");
+	const skillNames = sortStrings(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name));
+	if (skillNames.length === 0) return { type: "error", error: errorInfo("skillx-no-skills", "No skills were installed") };
 	const installedSkills: AregSkillxInstalledSkill[] = [];
 	for (const skillName of skillNames) {
 		const inspected = await inspectOneSkill(skillsRoot, skillName);
@@ -209,11 +198,11 @@ async function inspectInstalledSkills(workspaceRoot: string, requestedSkillName:
 
 async function inspectOneSkill(skillsRoot: string, skillName: string): Promise<{ type: "ok"; skill: AregSkillxInstalledSkill } | { type: "error"; error: AregErrorInfo }> {
 	const directory = path.join(skillsRoot, skillName);
-	const directoryKind = await directoryState(directory);
-	if (directoryKind !== "directory") return inspectError("skillx-skill-missing", `Skill '${skillName}' was not found in installed skills`);
+	const directoryKind = await inspectPath(directory);
+	if (directoryKind.type !== "directory") return { type: "error", error: errorInfo("skillx-skill-missing", `Skill '${skillName}' was not found in installed skills`) };
 	const skillFile = path.join(directory, "SKILL.md");
-	const fileKind = await fileState(skillFile);
-	if (fileKind !== "file") return inspectError("skillx-skill-malformed", `Installed skill '${skillName}' is missing SKILL.md`);
+	const fileKind = await inspectPath(skillFile);
+	if (fileKind.type !== "file") return { type: "error", error: errorInfo("skillx-skill-malformed", `Installed skill '${skillName}' is missing SKILL.md`) };
 	return { type: "ok", skill: { name: skillName, directory, skillFile, relativeFiles: await listRelativeFiles(directory) } };
 }
 
@@ -233,38 +222,38 @@ async function listRelativeFiles(root: string): Promise<string[]> {
 		}
 	}
 	await visit(root, "");
-	return files.sort();
+	return sortStrings(files);
 }
 
 async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperationResult> {
 	if (!path.basename(workspaceRoot).startsWith("skillx.")) {
-		return operationError("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`);
+		return { ok: false, error: errorInfo("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`) };
 	}
 	let info;
 	try {
 		info = await lstat(workspaceRoot);
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return operationError("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`);
-		return operationError("skillx-cleanup-stat-failed", `Could not inspect workspace: ${errorMessage(error)}`);
+		if (isNodeErrorCode(error, "ENOENT")) return { ok: false, error: errorInfo("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`) };
+		return { ok: false, error: errorInfo("skillx-cleanup-stat-failed", `Could not inspect workspace: ${formatErrorMessage(error)}`) };
 	}
-	if (info.isSymbolicLink()) return operationError("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`);
-	if (!info.isDirectory()) return operationError("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`);
+	if (info.isSymbolicLink()) return { ok: false, error: errorInfo("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`) };
+	if (!info.isDirectory()) return { ok: false, error: errorInfo("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`) };
 	let resolvedWorkspace: string;
 	let resolvedTemp: string;
 	try {
 		resolvedWorkspace = await realpath(workspaceRoot);
 		resolvedTemp = await realpath(os.tmpdir());
 	} catch (error) {
-		return operationError("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${errorMessage(error)}`);
+		return { ok: false, error: errorInfo("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${formatErrorMessage(error)}`) };
 	}
 	if (!isPathAtOrBelow(resolvedWorkspace, resolvedTemp)) {
-		return operationError("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`);
+		return { ok: false, error: errorInfo("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`) };
 	}
 	try {
 		await rm(resolvedWorkspace, { recursive: true });
 		return { ok: true };
 	} catch (error) {
-		return operationError("skillx-cleanup-remove-failed", `Could not remove workspace: ${errorMessage(error)}`);
+		return { ok: false, error: errorInfo("skillx-cleanup-remove-failed", `Could not remove workspace: ${formatErrorMessage(error)}`) };
 	}
 }
 
@@ -303,7 +292,7 @@ async function inspectTextFile(candidate: string): Promise<AregCheckTextFileStat
 	try {
 		return { type: "file", text: await readFile(candidate, "utf8") };
 	} catch (error) {
-		return { type: "unreadable", message: errorMessage(error) };
+		return { type: "unreadable", message: formatErrorMessage(error) };
 	}
 }
 
@@ -312,7 +301,7 @@ async function listChildNames(directory: string): Promise<string[]> {
 		const info = await lstat(directory);
 		if (!info.isDirectory()) return [];
 		const entries = await readdir(directory);
-		return entries.filter((entry) => entry !== ".DS_Store").sort((left, right) => left.localeCompare(right));
+		return sortStrings(entries.filter((entry) => entry !== ".DS_Store"));
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
 		return [];
@@ -325,7 +314,7 @@ function extractLockfileSkillNames(text: string): string[] {
 		if (!isRecord(data)) return [];
 		const skills = data.skills;
 		if (!isRecord(skills)) return [];
-		return Object.keys(skills).sort((left, right) => left.localeCompare(right));
+		return sortStrings(Object.keys(skills));
 	} catch {
 		return [];
 	}
@@ -343,7 +332,7 @@ async function readLocallyExcludedSkillNames(projectDir: string): Promise<string
 			if (line.startsWith(prefix)) names.add(line.slice(prefix.length));
 		}
 	}
-	return [...names].sort((left, right) => left.localeCompare(right));
+	return sortStrings([...names]);
 }
 
 async function inspectPairingDirectories(projectDir: string): Promise<AregCheckPairingDirectory[]> {
@@ -362,11 +351,7 @@ async function inspectPairingDirectories(projectDir: string): Promise<AregCheckP
 		if (hasAgents || hasClaude) {
 			results.push({ relativeDir, hasAgents, hasClaude, claudeText: claude.type === "file" ? claude.text : undefined });
 		}
-		const subdirs = entries
-			.filter((entry) => entry.isDirectory())
-			.map((entry) => entry.name)
-			.filter((name) => ![".venv", ".git", "node_modules"].includes(name))
-			.sort((left, right) => left.localeCompare(right));
+		const subdirs = sortStrings(entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).filter((name) => ![".venv", ".git", "node_modules"].includes(name)));
 		for (const name of subdirs) {
 			const childRelative = relativeDir.length === 0 ? name : `${relativeDir}/${name}`;
 			if (childRelative === ".agents/skills" || childRelative === ".claude/skills") continue;
@@ -377,13 +362,6 @@ async function inspectPairingDirectories(projectDir: string): Promise<AregCheckP
 	return results;
 }
 
-function sortedStrings(values: readonly string[]): string[] {
-	return [...new Set(values)].sort((left, right) => left.localeCompare(right));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 async function isExecutable(candidate: string): Promise<boolean> {
 	try {
@@ -391,26 +369,6 @@ async function isExecutable(candidate: string): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
-	}
-}
-
-async function directoryState(candidate: string): Promise<"directory" | "missing" | "other"> {
-	try {
-		const info = await stat(candidate);
-		return info.isDirectory() ? "directory" : "other";
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return "missing";
-		return "other";
-	}
-}
-
-async function fileState(candidate: string): Promise<"file" | "missing" | "other"> {
-	try {
-		const info = await stat(candidate);
-		return info.isFile() ? "file" : "other";
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return "missing";
-		return "other";
 	}
 }
 
@@ -422,17 +380,6 @@ async function removeWorkspaceQuietly(workspaceRoot: string): Promise<void> {
 	}
 }
 
-function buildOperationError(code: string, message: string): AregErrorInfo {
-	return { code, message };
-}
-
-function inspectError(code: string, message: string): { type: "error"; error: AregErrorInfo } {
-	return { type: "error", error: buildOperationError(code, message) };
-}
-
-function operationError(code: string, message: string): AregOperationResult {
-	return { ok: false, error: buildOperationError(code, message) };
-}
 
 function errorInfo(code: string, message: string, displayCommand?: string | undefined): AregErrorInfo {
 	return displayCommand === undefined ? { code, message } : { code, message, displayCommand };
@@ -445,8 +392,4 @@ function isPathAtOrBelow(candidate: string, root: string): boolean {
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

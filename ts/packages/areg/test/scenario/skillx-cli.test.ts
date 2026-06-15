@@ -1,11 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { createAregCliContext } from "../../src/context.ts";
+import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregCheckProjectInspectionGateway,
 	FakeAregGithubGateway,
 	FakeAregHostGateway,
-	FakeAregNpxSkillsGateway,
 	FakeAregSkillxWorkspaceGateway,
 } from "../../src/fake-gateways.ts";
 import type { AregSkillxInstalledSkill } from "../../src/gateways.ts";
@@ -99,15 +98,14 @@ describe("areg exec skillx CLI", () => {
 			workspaceRoot: "/tmp/skillx.fake-1",
 			installedSkills: [skill("beta", ["SKILL.md"]), skill("alpha", ["SKILL.md"])],
 		});
-		const context = createAregCliContext({
+		const context = {
 			host: new FakeAregHostGateway(),
 			github: new FakeAregGithubGateway(),
-			npxSkills: new FakeAregNpxSkillsGateway(),
 			skillxWorkspace: workspace,
 			projectInspection: new FakeAregCheckProjectInspectionGateway(),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
-		});
+		} satisfies AregCliContext;
 		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--format", "json"], { context });
 
 		expect(await run.exit).toBe(0);
@@ -130,15 +128,14 @@ describe("areg exec skillx CLI", () => {
 
 	test("fetch cleans up when requested skill is absent after install", async () => {
 		const workspace = new FakeAregSkillxWorkspaceGateway({ workspaceRoot: "/tmp/skillx.fake-1", installedSkills: [skill("other", ["SKILL.md"])] });
-		const context = createAregCliContext({
+		const context = {
 			host: new FakeAregHostGateway(),
 			github: new FakeAregGithubGateway(),
-			npxSkills: new FakeAregNpxSkillsGateway(),
 			skillxWorkspace: workspace,
 			projectInspection: new FakeAregCheckProjectInspectionGateway(),
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
-		});
+		} satisfies AregCliContext;
 		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], { context });
 
 		expect(await run.exit).toBe(1);

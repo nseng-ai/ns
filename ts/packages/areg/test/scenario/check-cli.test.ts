@@ -67,7 +67,7 @@ describe("areg check CLI", () => {
 	test("missing and malformed lockfiles are command errors with accepted messages", async () => {
 		const missing = runScenario(["check"], { projectInspection: project({ lockfile: { type: "missing" } }) });
 		expect(await missing.exit).toBe(1);
-		expect(missing.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this a areg project?");
+		expect(missing.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
 
 		const malformed = runScenario(["check"], { projectInspection: project({ lockfile: "{" }) });
 		expect(await malformed.exit).toBe(1);
