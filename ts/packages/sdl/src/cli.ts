@@ -97,7 +97,7 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 
 	const cwd = deps.cwd ?? injectedContext?.cwd ?? process.cwd();
 	const env = deps.env ?? injectedContext?.env ?? process.env;
-	const commandCatalog = await loadSdlCommandCatalog({ cwd, env, homeDir: deps.homeDir ?? env.HOME });
+	const commandCatalog = await loadSdlCommandCatalog({ cwd, homeDir: deps.homeDir ?? env.HOME });
 	const selectedCommandName = requestedCommandName(args);
 	const selectedCandidate = selectedCommandName === undefined ? undefined : commandCatalog.candidates.get(selectedCommandName);
 	const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
