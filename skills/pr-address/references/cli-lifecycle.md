@@ -30,7 +30,20 @@ pr-address exec record-batch-checkpoint \
   --commit-sha abc1234 \
   --evidence-file checkpoint-evidence.json \
   --format json
+
+# For no-code pre-existing/already-addressed batches:
+pr-address exec record-batch-checkpoint \
+  --pr-number 630 \
+  --batch-id pre_existing \
+  --no-code-change \
+  --evidence-file checkpoint-evidence.json \
+  --format json
 ```
+
+Use exactly one code-change mode: `--commit-sha <sha>` for batches that changed
+files, or `--no-code-change` for batches that intentionally did not create a
+commit. `--no-code-change --commit-sha ...` is rejected, and omitting both for a
+code-changing batch is rejected.
 
 Use `--harness-session-id <id>` only as a manual/debug override for payload
 session lookup.
@@ -69,7 +82,8 @@ The command resolves:
   has review-thread items
 - latest PR/batch `resolution.summary.json` artifact when the build artifact has
   `payload_ready == true`
-- `changed_files` from `--commit-sha` through the git gateway
+- `changed_files` from `--commit-sha` through the git gateway, or `[]` for
+  `--no-code-change`
 
 The exact artifacts used are reported under `data.resolved_inputs`:
 
@@ -97,8 +111,8 @@ review-thread work or when the resolved build has no ready payload.
 | `payload_path`         | Source payload path from the plan, if any                                       |
 | `checkpoint_reference` | Managed PR/batch checkpoint artifact reference                                  |
 | `resolved_inputs`      | Exact session plan/build/resolution artifact references used                    |
-| `commit_sha`           | Trimmed batch commit SHA                                                        |
-| `changed_files`        | Git-derived changed-file evidence for `--commit-sha`                            |
+| `commit_sha`           | Trimmed batch commit SHA, or `null` for `--no-code-change`                      |
+| `changed_files`        | Git-derived changed-file evidence for `--commit-sha`, or `[]` for no-code       |
 | `validation_commands`  | Validated command evidence from the evidence file                               |
 | `selected_items`       | Compact selected plan item identities and summaries                             |
 | `thread_summary`       | Thread counts plus resolved, failed, skipped, and explicitly skipped thread IDs |

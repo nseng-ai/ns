@@ -177,6 +177,15 @@ When running in an asdl checkout, also read `.asdl/prompts/subagent-launch.md`
 before launching a payload-aware summarizer/subagent. That policy describes how
 to pass payload paths and locators without pasting raw payload JSON.
 
+Tiny-feedback fast path: when the manifest has at most five required feedback
+items total and they are short bot/outdated/mechanical comments with no
+human-sensitive ambiguity, the parent may use `read-feedback-details` for the
+needed bodies/items and classify directly from artifact-backed details. Still
+start from the generated scaffold, preserve deterministic fields, validate with
+`validate-feedback-classification`, and plan with `plan-feedback`. If any item is
+human-authored, long, ambiguous, cross-file, or validation fails for semantic
+reasons, use the delegated classifier/escalation path instead.
+
 Preferred classification path:
 
 1. For ordinary bounded classification, launch a focused payload-aware runner
@@ -221,9 +230,12 @@ Fallback path when no subagent/separate subagent or helper is available:
   { "payload_path": "<payload-path>", "json_pointers": ["<locator-json-pointer>"] }
   ```
 
-- Inspect `data.selected_payload_reference.payload_path` plus each returned
-  `artifact_json_pointer` for exact body text. Do not paste the selected values
-  into the main transcript unless strictly necessary.
+- In compact stdout, find the selected-detail summary artifact under
+  `data.artifacts.produced[]` with `kind: "selected-feedback-details"`; in full
+  stdout, use `data.selected_payload_reference`. Open that artifact's
+  `payload_path` and resolve each returned `artifact_json_pointer` for exact
+  body text. Do not paste the selected values into the main transcript unless
+  strictly necessary.
 - Use `read-feedback-detail` only for exact one-off body/item lookup or explicit
   debugging, because it returns the selected value inline.
 - Stop if targeted lookup still leaves insufficient evidence. Do not switch to
@@ -244,31 +256,10 @@ pr-address exec validate-feedback-classification \
 ```
 
 Successful `--pr-number` validation automatically persists the classification
-artifact for `plan-feedback --pr-number`. Manual/debug split inputs remain
-supported:
-
-```bash
-pr-address exec validate-feedback-classification \
-  --manifest-file manifest.json \
-  --classification-file classification.json \
-  --format json
-
-pr-address exec validate-feedback-classification \
-  --manifest-json '<prepare-run data json>' \
-  --classification-json '<classification packet json>' \
-  --format json
-```
-
-Legacy wrapper stdin remains a compatibility fallback:
-
-```bash
-printf '%s' '{"manifest":{...},"classification":{...}}' \
-  | pr-address exec validate-feedback-classification --format json
-```
-
-For legacy wrapper/split modes, persistence is still explicit; add
-`--persist-session` only when a later session-mode command must resolve the
-classification artifact from the payload session.
+artifact for `plan-feedback --pr-number`. `validate-feedback-classification` is
+session-only at the manifest boundary; removed legacy inputs such as
+`--manifest-json`, `--manifest-file`, `--payload-json`, and `--persist-session`
+are usage errors.
 
 Validation outcomes:
 
@@ -303,22 +294,26 @@ locally, retry/escalate only for incomplete or ambiguous semantic judgments, the
 re-run validation and planning. If it exits `2`, treat it as malformed workflow
 input and stop.
 
-The returned plan, not hand-grouped scratch notes, drives execution:
+The returned plan, not hand-grouped scratch notes, drives execution. In compact
+stdout, open the plan artifact from `data.details.plan_reference` or
+`data.artifacts.produced[]` with `kind: "plan"` before reading `batches`; full
+stdout includes `data.batches` inline.
 
-- `data.batches` is ordered as `pre_existing`, `local`, `single_file`,
+- Plan `batches` are ordered as `pre_existing`, `local`, `single_file`,
   `cross_cutting`, then `complex`, omitting empty groups.
 - `approval_required` is false for `pre_existing`, `local`, and `single_file`;
   true for `cross_cutting` and `complex`.
-- `data.informational` explicitly lists informational reviews, review threads,
+- Plan `informational` explicitly lists informational reviews, review threads,
   and discussion comments.
 - Informational review threads have `user_decision_required: true` and allowed
   decisions `act`, `dismiss`, or `skip`; ask the user per item.
 - Informational reviews and discussion comments are summarized explicitly; they
   do not hide unresolved review threads.
 
-Display a compact plan from `data.batches` and `data.informational`, including
-item location, one-line summary, approval/user-decision requirements, and
-whether the evidence came from a review, review thread, or discussion comment.
+Display a compact plan from the full plan (`batches` and `informational`),
+including item location, one-line summary, approval/user-decision requirements,
+and whether the evidence came from a review, review thread, or discussion
+comment.
 
 ### 4. Execute approved batches
 
@@ -411,7 +406,12 @@ commit, `mode=pre_existing` for moved/restructured pre-existing comments,
 `mode=planned` only when the user/operator explicitly accepts provenance-backed
 deferral to an existing local branch or PR. Planned mode requires a non-empty
 message and validated provenance; do not use it for vague promises. Provenance
-is only valid for `mode=planned`. In batch payloads, planned items reject only
+is only valid for `mode=planned`. For pre-existing resolutions, use a decision
+like `{ "thread_id": "...", "action": "resolve", "mode": "pre_existing" }`;
+if generated optional fields are present, `message` and `commit_sha` must be
+null/empty and `provenance` must be null. Non-empty `message`, non-empty
+`commit_sha`, or non-null provenance is invalid for `mode: "pre_existing"`.
+In batch payloads, planned items reject only
 item-level `commit_sha`; a top-level batch `commit_sha` may be present for fixed
 items in the same payload and is ignored by planned items. Treat any captured
 branch HEAD OID or PR state in the reply as a batch-start snapshot, not a live
@@ -428,8 +428,9 @@ Inspect the builder result:
   GitHub.
 
 After committing the batch and after any relevant GitHub mutation helper has
-returned, run `record-batch-checkpoint` with the `plan-feedback` output,
-selected `batch_id`, batch commit SHA when files changed, changed-file list,
+returned, run `record-batch-checkpoint` with the session-resolved plan,
+selected `batch_id`, `--commit-sha <sha>` for code-changing batches or
+`--no-code-change` for no-code pre-existing/already-addressed batches,
 validation command evidence, any `build-resolve-thread-batch-payload` result,
 any `resolve-thread-batch` result, and explicit PR-level review or discussion
 comment outcomes. Use repository-relative forward-slash paths in
@@ -468,15 +469,14 @@ pr-address exec get-feedback <pr_number> \
   --include-resolved \
   --format json
 
-# Put the final get-feedback data object and all record-batch-checkpoint data
-# objects into a finalization JSON file, then run:
+# Session-resolved finalization reads the latest feedback, plan, and checkpoint artifacts:
 pr-address exec finalize-run \
-  --payload-file pr-address-finalization.json \
+  --pr-number <pr_number> \
   --format json
 ```
 
-Use the `data` object from final `get-feedback`, not the Clinkr envelope. Include
-each `data` object returned by `record-batch-checkpoint` in `checkpoints`.
+Use the `data` object from final `get-feedback`, not the Clinkr envelope, only
+when debugging older composed payload flows; normal finalization is session-only.
 
 If `finalize-run` exits 1 or returns `data.ready_to_stop == false`, do not claim
 the PR-address run is complete. Report the helper's unresolved unskipped

@@ -24,7 +24,6 @@ const PARITY_OPERATIONS = [
 
 	"read-feedback-detail",
 	"read-feedback-details",
-	"record-batch-checkpoint",
 	"reply-to-discussion",
 	"reply-to-review",
 	"resolve-thread-batch",
@@ -42,7 +41,7 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 // TypeScript-owned operations with no current Python parity contract. This
 // includes helpers whose harness-session input contract intentionally diverged
 // from the captured Python fixtures.
-const TS_ONLY_OPERATIONS = ["get-feedback", "map-branch-prs", "prepare-run", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep"] as const;
+const TS_ONLY_OPERATIONS = ["get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep"] as const;
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");

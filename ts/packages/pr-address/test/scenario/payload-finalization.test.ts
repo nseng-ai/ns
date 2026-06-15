@@ -24,6 +24,13 @@ async function loadBuildFixture(): Promise<{ plan: Record<string, unknown>; deci
 	};
 }
 
+async function loadPreExistingFixture(): Promise<{ plan: Record<string, unknown>; decisions: unknown }> {
+	return JSON.parse(await readFile(join(GOLDEN_V1_ROOT, "build-resolve-thread-batch-payload/valid-pre-existing/input.json"), "utf8")) as {
+		plan: Record<string, unknown>;
+		decisions: unknown;
+	};
+}
+
 describe("managed payload/finalization CLI operations", () => {
 	test("build-resolve-thread-batch-payload resolves the latest PR plan and writes a build artifact", async () => {
 		const buildInput = await loadBuildFixture();
@@ -151,6 +158,69 @@ describe("managed payload/finalization CLI operations", () => {
 		expect(finalizeData.ready_to_stop).toBe(true);
 		expect(finalizeData.resolved_inputs).toMatchObject({ plan: { descriptor: "pr-address-pr-42-plan" }, feedback: { descriptor: "pr-address-pr-42-feedback" } });
 		expect(finalizeData.resolved_inputs.checkpoints).toHaveLength(1);
+	});
+
+	test("record-batch-checkpoint accepts explicit no-code checkpoints without a commit SHA", async () => {
+		const input = await loadPreExistingFixture();
+		const tempDir = await makeTempDir("pr-address-payload-finalization-");
+		const evidencePath = join(tempDir, "checkpoint-evidence.json");
+		await writeFile(
+			evidencePath,
+			JSON.stringify({
+				non_thread_outcomes: [{ source_kind: "review", review_id: "R_pre", action: "no_reply_needed", summary: "Already handled by existing work." }],
+			}),
+			"utf8",
+		);
+		const env = { PATH: "/fake/bin", ASDL_PAYLOAD_ROOT: "/payload-root", HARNESS_SESSION_ID: "sess-1" };
+		const payloadStoreFactory = new InMemoryPayloadStoreFactory({ clock: fixedClock("2026-06-10T12:00:00Z") });
+		const store = expectOk(await payloadStoreFactory.fromEnvironment({ env }));
+		const plan = { ...input.plan, batches: ((input.plan.batches as unknown[]) ?? []).filter((batch) => (batch as { batch_id?: string }).batch_id === "pre_existing") };
+		expectOk(await store.writeJsonArtifact({ descriptor: prArtifactDescriptor({ prNumber: 42, kind: "plan" }), role: "summary", payload: plan }));
+
+		const checkpointRun = runScenario(
+			[
+				"exec",
+				"record-batch-checkpoint",
+				"--pr-number",
+				"42",
+				"--batch-id",
+				"pre_existing",
+				"--no-code-change",
+				"--evidence-file",
+				evidencePath,
+				"--format",
+				"json",
+				"--stdout-mode",
+				"full",
+			],
+			{ cwd: REPO_ROOT, env, payloadStoreFactory },
+		);
+		expect(await checkpointRun.exit, checkpointRun.stdout.join("")).toBe(0);
+		const checkpointData = JSON.parse(checkpointRun.stdout.join("")).data;
+		expect(checkpointData.commit_sha).toBeNull();
+		expect(checkpointData.changed_files).toEqual([]);
+		expect(checkpointData.checkpoint_reference).toMatchObject({ descriptor: "pr-address-pr-42-batch-pre_existing-checkpoint", role: "summary" });
+
+		const conflictRun = runScenario(
+			[
+				"exec",
+				"record-batch-checkpoint",
+				"--pr-number",
+				"42",
+				"--batch-id",
+				"pre_existing",
+				"--no-code-change",
+				"--commit-sha",
+				"abc123",
+				"--evidence-file",
+				evidencePath,
+				"--format",
+				"json",
+			],
+			{ cwd: REPO_ROOT, env, payloadStoreFactory },
+		);
+		expect(await conflictRun.exit).toBe(2);
+		expect(JSON.parse(conflictRun.stdout.join("")).message).toContain("--no-code-change cannot be combined with --commit-sha");
 	});
 
 	test("finalize-run reports missing planned-batch checkpoint evidence", async () => {

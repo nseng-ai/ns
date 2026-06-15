@@ -806,6 +806,7 @@ export const prepareRunPayloadManifestInputSchema = z.object({
 	found: z.boolean(),
 	current_branch: z.string().nullable().optional(),
 	number: z.number().int().nullable().optional(),
+	pr_number: z.number().int().nullable().optional(),
 	title: z.string().nullable().optional(),
 	url: z.string().nullable().optional(),
 	head_ref_name: z.string().nullable().optional(),
@@ -861,6 +862,7 @@ export interface PrepareRunPayloadManifest {
 	found: boolean;
 	current_branch: string | null;
 	number: number | null;
+	pr_number: number | null;
 	title: string | null;
 	url: string | null;
 	head_ref_name: string | null;
@@ -899,6 +901,7 @@ export function buildPrepareRunPayloadManifest(input: PrepareRunPayloadManifestI
 		found: input.found,
 		current_branch: input.current_branch ?? null,
 		number: input.number ?? null,
+		pr_number: input.pr_number ?? input.number ?? null,
 		title: input.title ?? null,
 		url: input.url ?? null,
 		head_ref_name: input.head_ref_name ?? null,

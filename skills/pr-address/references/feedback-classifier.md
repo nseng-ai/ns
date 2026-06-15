@@ -206,11 +206,10 @@ explicit per-ID records with `informational_reason`.
 
 The parent skill validates the compact manifest and parent-generated packet with
 `pr-address exec validate-feedback-classification` before showing an execution
-plan. Prefer session mode (`--pr-number` with `--classification-file`) so the
-manifest is resolved from the payload session and the validated classification is
-persisted automatically for planning. Split inputs (`--manifest-file` /
-`--classification-file` or the matching `--*-json` options) and legacy wrapper
-JSON remain supported for manual/debug paths.
+plan. Use session mode (`--pr-number` with `--classification-file` or
+`--classification-json`) so the manifest is resolved from the payload session and
+the validated classification is persisted automatically for planning. Removed
+manifest/payload split inputs are usage errors on the current CLI.
 
 If validation returns `exit_code: 1`, inspect `data.counts` and `data.errors`.
 The parent fixes translation, schema, and scaffold-preservation mistakes locally:

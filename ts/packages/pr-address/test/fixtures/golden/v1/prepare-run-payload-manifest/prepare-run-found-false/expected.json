@@ -29,5 +29,6 @@
     "No PR found."
   ],
   "error": "no PR found",
-  "returncode": 1
+  "returncode": 1,
+  "pr_number": null
 }

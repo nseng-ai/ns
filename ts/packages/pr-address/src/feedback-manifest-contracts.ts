@@ -83,6 +83,7 @@ export const prepareRunManifestSchema = z.looseObject({
 	payload_reference: payloadReferenceSchema,
 	found: z.boolean(),
 	number: z.number().int().nullable().default(null),
+	pr_number: z.number().int().nullable().default(null),
 	reviews: z.array(reviewManifestItemSchema).default([]),
 	review_threads: z.array(threadManifestItemSchema).default([]),
 	discussion_comments: z.array(discussionCommentManifestItemSchema).default([]),

@@ -166,5 +166,6 @@
   "restructured_files": [],
   "warnings": [],
   "error": null,
-  "returncode": null
+  "returncode": null,
+  "pr_number": 42
 }

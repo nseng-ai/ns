@@ -29,7 +29,13 @@ compact payload manifest by default.
 | `payload_mode`          | no       | `payload` by default; pass `--payload-mode inline` only for debugging/migration               |
 | `harness_session_id`    | payload  | Optional manual/debug override; normally supplied by the harness through `HARNESS_SESSION_ID` |
 
-**Default payload output fields (under `data`):**
+**Default payload output fields:** compact stdout uses the shared digest
+shape. The raw full output is under `data.artifacts.full_output`; when a PR is
+found, `data.artifacts.produced[]` includes `kind: "manifest"` for the
+PR-scoped manifest summary consumed by `classification-template --pr-number`.
+The compact manifest is also mirrored under `data.details.manifest`.
+
+Manifest fields:
 
 | Field                  | Description                                                                    |
 | ---------------------- | ------------------------------------------------------------------------------ |
@@ -37,7 +43,7 @@ compact payload manifest by default.
 | `payload_reference`    | Store-owned payload metadata, including `payload_path`, `session_id`, and size |
 | `found`                | Whether a PR was found for the current branch                                  |
 | `current_branch`       | Branch name                                                                    |
-| `number`               | PR number                                                                      |
+| `number` / `pr_number` | PR number (`pr_number` is present for session artifact compatibility)          |
 | `title`                | PR title                                                                       |
 | `url`                  | PR URL                                                                         |
 | `head_ref_name`        | PR head branch                                                                 |
@@ -368,20 +374,23 @@ Allowed pointer families are the same as `read-feedback-detail`:
 - `/data/discussion_comments/<n>`
 - `/data/discussion_comments/<n>/body`
 
-**Output fields (under `data`):**
+**Output fields (under `data`):** compact mode uses the shared digest shape.
+Open `data.artifacts.produced[]` with `kind: "selected-feedback-details"` for
+the `.summary.json` artifact containing selected values. Full stdout includes
+`selected_payload_reference` inline for the same artifact.
 
 | Field                        | Description                                                                                                         |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `payload_path`               | Echo of the raw payload path                                                                                        |
-| `selected_payload_reference` | Store-owned reference for the `.summary.json` artifact containing selected values                                   |
+| `selected_payload_reference` | Full stdout only: store-owned reference for the `.summary.json` artifact containing selected values                 |
 | `details`                    | One compact entry per requested pointer: source pointer, detail kind, artifact pointer, value kind, and char counts |
 | `counts`                     | Requested/selected counts split into body-value and item-value totals                                               |
 | `resolved_inputs`            | Only for PR-number mode: `feedback` is the exact raw payload artifact resolved from the session                     |
 
 The stdout JSON intentionally omits selected body text and full selected item
-objects. To inspect a selected value, read
-`data.selected_payload_reference.payload_path` and resolve that detail's
-`artifact_json_pointer` (for example `/details/0/value`) inside the artifact.
+objects. To inspect a selected value, read the selected-feedback-details
+artifact's `payload_path` and resolve that detail's `artifact_json_pointer` (for
+example `/details/0/value`) inside the artifact.
 
 **Artifact shape:**
 
