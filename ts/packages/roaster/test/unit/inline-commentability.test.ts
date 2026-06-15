@@ -5,7 +5,7 @@ import type { PRChangedFile, ReviewFinding } from "../../src/models.ts";
 
 describe("commentableRightSideLines", () => {
 	test("includes added and context lines but excludes deleted lines", () => {
-		const lines = commentableRightSideLines("@@ -1,3 +1,3 @@\n context\n-old\n+new\n");
+		const lines = commentableRightSideLines("@@ -1,2 +1,2 @@\n context\n-old\n+new\n");
 
 		expect([...lines]).toEqual([1, 2]);
 	});

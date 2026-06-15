@@ -45,7 +45,22 @@ describe("RealLocalDiffGateway", () => {
 		}
 		expect(execApi.calls()[0]).toMatchObject({
 			command: "git",
-			args: ["diff", "--no-ext-diff", "origin/main...HEAD", "--", ".", ":(exclude,glob).agents/skills/**/*.py"],
+			args: [
+				"-c",
+				"diff.noprefix=false",
+				"-c",
+				"diff.mnemonicPrefix=false",
+				"-c",
+				"diff.srcPrefix=a/",
+				"-c",
+				"diff.dstPrefix=b/",
+				"diff",
+				"--no-ext-diff",
+				"origin/main...HEAD",
+				"--",
+				".",
+				":(exclude,glob).agents/skills/**/*.py",
+			],
 		});
 	});
 
@@ -62,10 +77,24 @@ describe("RealLocalDiffGateway", () => {
 			expect(result.error.type).toBe("git_diff_failed");
 			expect(result.error.message).toContain("fatal");
 		}
-		expect(execApi.calls()[0]?.args).toEqual(["diff", "--no-ext-diff", "origin/trunk...HEAD"]);
+		expect(execApi.calls()[0]?.args).toEqual([
+			"-c",
+			"diff.noprefix=false",
+			"-c",
+			"diff.mnemonicPrefix=false",
+			"-c",
+			"diff.srcPrefix=a/",
+			"-c",
+			"diff.dstPrefix=b/",
+			"diff",
+			"--no-ext-diff",
+			"origin/trunk...HEAD",
+		]);
 	});
 
 	test("formats display commands for diagnostics", () => {
-		expect(formatGitDiffDisplayCommand({ baseRef: "main", excludeGlobs: ["vendor/**/*.ts"] })).toBe("git diff --no-ext-diff origin/main...HEAD -- . ':(exclude,glob)vendor/**/*.ts'");
+		expect(formatGitDiffDisplayCommand({ baseRef: "main", excludeGlobs: ["vendor/**/*.ts"] })).toBe(
+			"git -c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.srcPrefix=a/ -c diff.dstPrefix=b/ diff --no-ext-diff origin/main...HEAD -- . ':(exclude,glob)vendor/**/*.ts'",
+		);
 	});
 });

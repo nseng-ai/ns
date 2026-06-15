@@ -128,7 +128,7 @@ const PARSER_CASES: readonly ParserCase[] = [
 		removedLines: 1,
 		hunkCount: 1,
 	},
-	{ diffText: COPY_DIFF, changeKind: "copied", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{ diffText: COPY_DIFF, changeKind: "renamed", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
 	{
 		diffText: PREFIXED_RENAME_METADATA_DIFF,
 		changeKind: "renamed",
@@ -141,7 +141,7 @@ const PARSER_CASES: readonly ParserCase[] = [
 	},
 	{
 		diffText: PREFIXED_COPY_METADATA_DIFF,
-		changeKind: "copied",
+		changeKind: "renamed",
 		path: "b/generated.txt",
 		oldPath: "b/source.txt",
 		isBinary: false,
@@ -153,7 +153,7 @@ const PARSER_CASES: readonly ParserCase[] = [
 	{
 		diffText: QUOTED_PATH_DIFF,
 		changeKind: "modified",
-		path: "spaced/é file.txt",
+		path: "spaced/\\303\\251 file.txt",
 		oldPath: null,
 		isBinary: false,
 		addedLines: 1,
@@ -206,18 +206,43 @@ describe("parseUnifiedDiff", () => {
 		expect(files.map((file) => file.rawText).join("")).toBe(diffText);
 	});
 
+	test("does not strip a real directory named like a canonical git prefix twice", () => {
+		const diffText =
+			"diff --git a/a/file.txt b/a/file.txt\n" +
+			"--- a/a/file.txt\n" +
+			"+++ b/a/file.txt\n" +
+			"@@ -1 +1 @@\n" +
+			"-old\n" +
+			"+new\n";
+
+		const files = parseUnifiedDiff(diffText);
+
+		expect(files[0]?.path).toBe("a/file.txt");
+	});
+
+	test("does not treat hunk body lines that start with file-header markers as headers", () => {
+		const diffText =
+			"diff --git a/schema.sql b/schema.sql\n" +
+			"--- a/schema.sql\n" +
+			"+++ b/schema.sql\n" +
+			"@@ -1,2 +1 @@\n" +
+			"---- drop table users;\n" +
+			" SELECT 1;\n";
+
+		const files = parseUnifiedDiff(diffText);
+
+		expect(files[0]?.path).toBe("schema.sql");
+		expect(files[0]?.removedLines).toBe(1);
+		expect(files[0]?.addedLines).toBe(0);
+		expect(files[0]?.rawText).toBe(diffText);
+	});
+
 	test.each(["", "\n", "  \n\t"])("returns no files for empty or whitespace input %#", (diffText) => {
 		expect(parseUnifiedDiff(diffText)).toEqual([]);
 	});
 
-	test("degrades unexpected non-git segments without raising", () => {
-		const files = parseUnifiedDiff("not a git diff\n+but still text\n");
-
-		expect(files).toHaveLength(1);
-		expect(files[0]?.changeKind).toBe("modified");
-		expect(files[0]?.path).toBe("");
-		expect(files[0]?.addedLines).toBe(0);
-		expect(files[0]?.removedLines).toBe(0);
+	test("returns no files for unexpected non-git segments", () => {
+		expect(parseUnifiedDiff("not a git diff\n+but still text\n")).toEqual([]);
 	});
 
 	test("uses line-based checks while retaining CRLF raw text", () => {

@@ -55,7 +55,19 @@ export function roasterExcludeGlobsToGitPathspecs(patterns: readonly string[]): 
 }
 
 export function buildGitDiffArgs(options: GitDiffArgsOptions): readonly string[] {
-	const args = ["diff", "--no-ext-diff", `origin/${options.baseRef}...HEAD`];
+	const args = [
+		"-c",
+		"diff.noprefix=false",
+		"-c",
+		"diff.mnemonicPrefix=false",
+		"-c",
+		"diff.srcPrefix=a/",
+		"-c",
+		"diff.dstPrefix=b/",
+		"diff",
+		"--no-ext-diff",
+		`origin/${options.baseRef}...HEAD`,
+	];
 	const excludeGlobs = options.excludeGlobs ?? [];
 	if (excludeGlobs.length === 0) return args;
 	args.push("--", ".", ...roasterExcludeGlobsToGitPathspecs(excludeGlobs));
