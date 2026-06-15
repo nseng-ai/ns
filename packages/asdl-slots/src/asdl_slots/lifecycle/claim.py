@@ -167,52 +167,91 @@ def _plan_claim_from_main_worktree(
         return _not_current_slot_failure(slots_ctx)
 
     match = inventory.find_by_branch(branch_name)
-    if not isinstance(match, MainWorktreeMatch):
-        return _not_current_slot_failure(slots_ctx)
-    if match.worktree.path != slots_ctx.repo.root:
-        return SlotLifecycleFailure(
-            error_type="branch_in_main_worktree",
-            message=(
-                f"Branch '{branch_name}' is checked out in the main worktree at "
-                f"{match.worktree.path}. Run `slot claim` from that worktree to move it "
-                "into a slot."
+    if isinstance(match, SlotMatch):
+        if match.record.operation is not None:
+            return SlotLifecycleFailure(
+                error_type="branch_in_use",
+                message=slot_operation_message(match.record, action="claiming"),
+            )
+        return ClaimPlan(
+            current=match.record,
+            branch_name=branch_name,
+            source=None,
+            already_current=True,
+        )
+
+    if isinstance(match, MainWorktreeMatch):
+        if match.worktree.path != slots_ctx.repo.root:
+            return SlotLifecycleFailure(
+                error_type="branch_in_main_worktree",
+                message=(
+                    f"Branch '{branch_name}' is checked out in the main worktree at "
+                    f"{match.worktree.path}. Run `slot claim` from that worktree to move it "
+                    "into a slot."
+                ),
+            )
+
+        current_branch = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
+        if isinstance(current_branch, GitCommandFailure):
+            return SlotLifecycleFailure(
+                error_type="current_branch_failed",
+                message=(
+                    f"Failed to determine current branch at {slots_ctx.repo.root}: "
+                    f"{current_branch.message}"
+                ),
+            )
+        if isinstance(current_branch, DetachedHead) or current_branch != branch_name:
+            return _not_current_slot_failure(slots_ctx)
+        if branch_name == slots_ctx.git.get_trunk_branch():
+            return SlotLifecycleFailure(
+                error_type="trunk_in_main_worktree",
+                message=(
+                    f"Branch '{branch_name}' is the trunk branch and is checked out in the "
+                    f"main worktree at {slots_ctx.repo.root}. Refusing to move trunk out of "
+                    "the main worktree; check out a different branch first or claim a branch "
+                    "that is not currently checked out there."
+                ),
+            )
+
+        target = inventory.lowest_available(slots_ctx.git)
+        if target is None:
+            return pool_full_failure(assigned_slot_records(inventory), action="claiming a branch")
+        if slots_ctx.git.has_uncommitted_changes(slots_ctx.repo.root):
+            return SlotLifecycleFailure(
+                error_type="dirty_current_worktree",
+                message=(
+                    f"Current worktree at {slots_ctx.repo.root} has uncommitted changes. "
+                    "Commit or stash before claiming its branch into a slot."
+                ),
+            )
+
+        return ClaimPlan(
+            current=target,
+            branch_name=branch_name,
+            source=None,
+            already_current=False,
+            caller_redirect=plan_current_wt_redirect(
+                slots_ctx.git,
+                cwd=slots_ctx.repo.root,
+                moving_branch=branch_name,
             ),
         )
 
-    current_branch = slots_ctx.git.get_current_branch(slots_ctx.repo.root)
-    if isinstance(current_branch, GitCommandFailure):
+    occupancy = inventory.find_occupancy_by_branch(branch_name)
+    if occupancy is not None:
         return SlotLifecycleFailure(
-            error_type="current_branch_failed",
-            message=(
-                f"Failed to determine current branch at {slots_ctx.repo.root}: "
-                f"{current_branch.message}"
-            ),
+            error_type="branch_in_use",
+            message=_branch_occupancy_message(occupancy),
         )
-    if isinstance(current_branch, DetachedHead) or current_branch != branch_name:
-        return _not_current_slot_failure(slots_ctx)
 
     target = inventory.lowest_available(slots_ctx.git)
     if target is None:
         return pool_full_failure(assigned_slot_records(inventory), action="claiming a branch")
-    if slots_ctx.git.has_uncommitted_changes(slots_ctx.repo.root):
-        return SlotLifecycleFailure(
-            error_type="dirty_current_worktree",
-            message=(
-                f"Current worktree at {slots_ctx.repo.root} has uncommitted changes. "
-                "Commit or stash before claiming its branch into a slot."
-            ),
-        )
-
     return ClaimPlan(
         current=target,
         branch_name=branch_name,
         source=None,
         already_current=False,
-        caller_redirect=plan_current_wt_redirect(
-            slots_ctx.git,
-            cwd=slots_ctx.repo.root,
-            moving_branch=branch_name,
-        ),
     )
 
 
@@ -221,7 +260,7 @@ def _not_current_slot_failure(slots_ctx: SlotsCliContext) -> SlotLifecycleFailur
         error_type="not_current_slot",
         message=(
             "`slot claim` must be run from a managed slot worktree, or from the main "
-            "worktree when moving a branch into the lowest available slot "
+            "worktree to move or claim a branch into the lowest available slot "
             f"(current worktree: {slots_ctx.repo.root})."
         ),
     )

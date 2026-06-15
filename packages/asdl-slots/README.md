@@ -69,22 +69,24 @@ to grow the pool.
 
 ### `slot claim BRANCH`
 
-Moves an existing local branch into the current managed slot worktree.
-If the branch is assigned to another managed slot, `slot claim` detaches
-that source slot at trunk first and then checks out the branch in the
-current slot. If the branch is not checked out anywhere, it checks the
+Moves an existing local branch into a managed slot worktree. From a managed
+slot, if the branch is assigned to another managed slot, `slot claim`
+detaches that source slot at trunk first and then checks out the branch in
+the current slot. If the branch is not checked out anywhere, it checks the
 branch out directly in the current slot.
 
-When run from the main worktree for the branch that is currently checked
-out there, `slot claim BRANCH` moves that branch into the lowest available
-clean detached slot and leaves the main worktree detached or redirected to
-a safe branch.
+From the main worktree, `slot claim BRANCH` can check out an unassigned
+local branch into the lowest available clean detached slot without touching
+the main worktree. If `BRANCH` is the non-trunk branch currently checked out
+in the main worktree, it moves that branch into the lowest available clean
+detached slot and leaves the main worktree detached or redirected to a safe
+branch. If `BRANCH` is already assigned to a managed slot, the command
+succeeds as a no-op for that slot.
 
-`slot claim` must be run from a managed `slot-XX` worktree or from the main
-worktree for its current branch. It refuses when the current slot, source
-slot, or moving main worktree is dirty, when either slot has an operation
-in progress, or when the branch is checked out in a different non-slot
-worktree.
+`slot claim` refuses when asked to move the trunk branch out of the main
+worktree, when the current slot, source slot, or moving main worktree is
+dirty, when either slot has an operation in progress, or when the branch is
+checked out in a different non-slot worktree.
 
 ## Opt-in shell integration
 
