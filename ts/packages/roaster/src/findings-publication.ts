@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto";
-
-import { isRecord } from "@asdl/core";
+import { isRecord, truncatedSha256Digest } from "@asdl/core";
 
 import {
 	inlinePostingStatusSchema,
@@ -152,7 +150,7 @@ export function parseFindingsCommentBody(raw: string): FindingsCommentBodyParseR
 
 export function inlineMarkerForFinding(reviewName: string, finding: ReviewFinding): string {
 	const digestInput = [reviewName, finding.path ?? "", finding.line === null ? "" : String(finding.line), finding.severity, finding.summary, finding.details].join("\0");
-	const digest = createHash("sha256").update(digestInput, "utf8").digest("hex").slice(0, 16);
+	const digest = truncatedSha256Digest(digestInput).slice(0, 16);
 	return `<!-- ${INLINE_MARKER_PREFIX}:${reviewName}:${digest} -->`;
 }
 
