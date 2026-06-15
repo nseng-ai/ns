@@ -30,6 +30,8 @@ The command owns its output and exit code. It does not support --format.`,
 	schema: submitSchema,
 	async run(ctx: SdlContext, request: z.output<typeof submitSchema>) {
 		const runner = createSdlCommandRunner(ctx);
+		const liveOutput = createSubmitLiveOutput(ctx);
+		emitSubmitProgress(liveOutput, "checking worktree and checkpointing pending changes if needed");
 		const checkpoint = await runCheckpointIfPending({
 			cwd: ctx.cwd,
 			env: ctx.env,
@@ -59,7 +61,7 @@ The command owns its output and exit code. It does not support --format.`,
 				git: new RealGitGateway(new SdlCommandExecApi(ctx)),
 				env: ctx.env,
 			},
-			...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
+			...(liveOutput === undefined ? {} : { onOutput: liveOutput }),
 			...(ctx.confirm === undefined
 				? {}
 				: {
@@ -111,6 +113,22 @@ function validateSdlExecCwd(ctx: SdlContext, options: ExecOptions | undefined): 
 		stderr: `SDL command execution is scoped to ${ctx.cwd}; refusing command cwd ${options.cwd}.`,
 		killed: false,
 	};
+}
+
+function createSubmitLiveOutput(ctx: Pick<SdlContext, "onOutput" | "stdout" | "stderr">): ((stream: "stdout" | "stderr", text: string) => void) | undefined {
+	if (ctx.onOutput !== undefined) return ctx.onOutput;
+	if (ctx.stdout === undefined && ctx.stderr === undefined) return undefined;
+	return (stream, text) => {
+		if (stream === "stdout") {
+			ctx.stdout?.(text);
+			return;
+		}
+		ctx.stderr?.(text);
+	};
+}
+
+function emitSubmitProgress(liveOutput: ((stream: "stdout" | "stderr", text: string) => void) | undefined, message: string): void {
+	liveOutput?.("stderr", `sdl submit: ${message}...\n`);
 }
 
 function writeCommandResultOutput(result: { stdout: string; stderr: string }, ctx: Pick<SdlContext, "stdout" | "stderr">): void {
