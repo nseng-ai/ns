@@ -50,6 +50,27 @@ npx skills add dagster-io/asdl-tools --skill pytest --agent codex claude-code -y
 Use the installed `skill-management` skill for add, update, remove, list, and publish workflows.
 `areg update-skills` reads agents from `asdl.toml` first, then falls back to legacy `areg.json` when `[areg].agents` is not configured.
 
+## Skill profiles
+
+Local first-party skills under `skills/<name>/` can be assigned an invocation profile:
+
+```bash
+uv run areg skill profile set normal SKILL...
+uv run areg skill profile set invoke-only SKILL...
+uv run areg skill profile set command-backed SKILL...
+uv run areg skill profile set ambient-only SKILL...
+uv run areg skill profile list
+uv run areg skill profile show SKILL
+```
+
+Profiles are inferred from concrete skill artifacts rather than stored in config. `command-backed` is the compatibility profile for the older command-conversion workflow and still verifies a Pi extension replacement before hiding native `/skill:<name>` in Pi. The legacy commands remain available:
+
+```bash
+uv run areg command convert SKILL...  # same as command-backed
+uv run areg command revert SKILL...   # same as normal
+uv run areg command list
+```
+
 ## Running transient skills
 
 Use the installed `skillx` skill when you want to run a skill from GitHub without permanently installing it. For lower-level agent workflows, `areg` exposes hidden exec helpers:

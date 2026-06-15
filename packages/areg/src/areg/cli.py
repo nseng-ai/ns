@@ -3,7 +3,7 @@ from __future__ import annotations
 import click
 
 from areg.check.runner import check_cmd
-from areg.command import command_group
+from areg.command import command_group, skill_group
 from areg.context import AregContext
 from areg.gateways.environment.real import RealAregEnvironment
 from areg.gateways.gh.real import RealGhCli
@@ -33,6 +33,7 @@ add_runtime_option(main, runtime="python", entry_point="areg.cli:main")
 main.add_command(init_project_cmd)
 main.add_command(check_cmd)
 main.add_command(command_group)
+main.add_command(skill_group)
 main.add_command(exec_group)
 main.add_command(update_skills_cmd)
 

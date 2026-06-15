@@ -56,15 +56,6 @@ class InvokeOnlyCheck(SkillCheck):
             )
 
         pi_excluded = pi_skill_exclusion_present(ctx.project_dir, skill.name)
-        if (state.flag_enabled or state.sidecar_exists) and not pi_excluded:
-            issues.append(
-                SkillIssue(
-                    skill.name,
-                    IssueKind.COMMAND_CONVERTED_MISSING_PI_EXCLUSION,
-                    f".pi/settings.json missing -skills/{skill.name} for command-converted skill",
-                )
-            )
-
         replacement = verify_pi_replacement(ctx.project_dir, skill.name)
         if pi_excluded and not replacement.verified:
             expected = (

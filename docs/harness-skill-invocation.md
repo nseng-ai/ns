@@ -63,10 +63,14 @@ Source: `github.com/badlogic/pi-mono`, `packages/coding-agent` (verified against
 - **`.pi/prompts/*.md` prompt templates** (`src/core/prompt-templates.ts`): loaded from `.pi/prompts/` and `~/.pi/agent/prompts/`. **Non-recursive — no subdirectory namespacing** (name = basename, so `.pi/prompts/objective-close.md` → `/objective-close`, never `/objective:close`). Symlinks supported; frontmatter `description` + `argument-hint`. **Zero ambient cost** — only expanded when a human types `/name`. Not useful for our case: flat-only and would double-surface against `/skill:name`.
 - **Namespaced `/ns:cmd` in Pi** requires a hand-written TypeScript extension (`pi.registerCommand` in `.pi/extensions/*.ts`), out of scope for file-based projection.
 
-## Implications for `areg` command conversion
+## Implications for `areg` skill profiles
 
-1. **Root coupling is real but manageable.** Codex and Pi both read `.agents/skills/` and it cannot be diverged by symlinks (same-path readers see the same thing). Pi can now force-exclude a discovered skill with `-skills/<name>` while Codex ignores that Pi setting. Only Claude Code reads a separate root (`.claude/`).
-2. **Command conversion is a three-artifact lifecycle plus replacement verification:** add `disable-model-invocation: true` to `SKILL.md`, write `agents/openai.yaml` with `allow_implicit_invocation: false`, and add `.pi/settings.json` `"-skills/<name>"`. Before writing those artifacts, `areg command convert` verifies that a replacement Pi extension command exists so hiding `/skill:<name>` does not remove the user's invocable Pi surface.
-3. **Replacement Pi commands must read backing skills directly.** A command-converted skill may be hidden from `pi.getCommands()`, so specialized and generic `/ns:cmd` extensions read `skills/<name>/SKILL.md` from the repo instead of expanding ambient `skill:<name>` registrations.
+1. **Root coupling is real but manageable.** Codex and Pi both read `.agents/skills/` and it cannot be diverged by symlinks (same-path readers see the same thing). Pi can force-exclude a discovered skill with `-skills/<name>` while Codex ignores that Pi setting. Only Claude Code reads a separate root (`.claude/`).
+2. **Profiles map to concrete artifacts, not desired-state config:**
+   - `normal` removes managed invocation artifacts.
+   - `invoke-only` adds `disable-model-invocation: true` and Codex `agents/openai.yaml`, but leaves native direct invocation available.
+   - `command-backed` is the old command-conversion lifecycle: add `disable-model-invocation: true`, write `agents/openai.yaml`, and add `.pi/settings.json` `"-skills/<name>"` after verifying that a replacement Pi extension command exists.
+   - `ambient-only` removes explicit-only artifacts, adds `user-invocable: false`, and reports Pi/Codex native direct-invocation disabling as not enforced.
+3. **Replacement Pi commands must read backing skills directly.** A command-backed skill may be hidden from `pi.getCommands()`, so specialized and generic `/ns:cmd` extensions read `skills/<name>/SKILL.md` from the repo instead of expanding ambient `skill:<name>` registrations.
 4. **Namespacing (`/ns:cmd`) is extension-owned in Pi.** Pi cannot file-namespace prompts or skills; repo-local TypeScript extensions register namespaced commands and either keep richer specialized behavior or fall back to generic backing-skill command wrappers.
-5. **Codex ambient cost is unavoidable.** The only mechanism that would make converted commands zero-ambient *and* model-invocable on Codex is a deferred index (`areg commands run <query>`), not any per-harness flag.
+5. **Codex ambient cost is unavoidable for invoke-only and command-backed skills.** The only mechanism that would make converted commands zero-ambient *and* model-invocable on Codex is a deferred index (`areg commands run <query>`), not any per-harness flag.
