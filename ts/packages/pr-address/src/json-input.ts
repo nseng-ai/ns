@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { isRecord } from "@asdl/core";
+import { formatErrorMessage, isRecord } from "@asdl/core";
 import type { PayloadArtifactStore, PayloadErrorType } from "./payload-store.ts";
 
 export interface JsonInputError {
@@ -25,6 +25,13 @@ export interface ReadJsonInputTextOptions {
 
 export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
 	schema: z.ZodType<T>;
+}
+
+export interface LoadJsonFileWithSchemaOptions<T> {
+	filePath: string;
+	schema: z.ZodType<T>;
+	commandName: string;
+	fileOptionName: string;
 }
 
 export async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<JsonInputResult<string>> {
@@ -243,6 +250,23 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 		jsonDescription: `${options.commandName} ${options.inputDescription}`,
 		schemaDescription: `${options.commandName} ${options.inputDescription}`,
 	});
+}
+
+export async function loadJsonFileWithSchema<T>(options: LoadJsonFileWithSchemaOptions<T>): Promise<{ type: "ok"; value: T } | { type: "error"; errorType: string; message: string }> {
+	let text: string;
+	try {
+		text = await readFile(options.filePath, "utf8");
+	} catch (error) {
+		return { type: "error", errorType: "invalid_request", message: `${options.commandName} ${options.fileOptionName} must point to an existing JSON file: ${options.filePath} (${formatErrorMessage(error)})` };
+	}
+	const parsed = parseJsonWithSchema({
+		text,
+		schema: options.schema,
+		jsonDescription: `${options.commandName} ${options.fileOptionName}`,
+		schemaDescription: `${options.commandName} ${options.fileOptionName}`,
+	});
+	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
+	return { type: "ok", value: parsed.value };
 }
 
 export interface LoadJsonRecordOptions extends ReadJsonInputTextOptions {}

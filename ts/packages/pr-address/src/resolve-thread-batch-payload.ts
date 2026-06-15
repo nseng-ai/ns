@@ -1,8 +1,6 @@
-import { readFile } from "node:fs/promises";
-
 import { z } from "zod";
 
-import { formatErrorMessage, isRecord } from "@asdl/core";
+import { isRecord } from "@asdl/core";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import {
@@ -11,7 +9,7 @@ import {
 	type FeedbackPlanBatch,
 	type FeedbackPlanConsumer as FeedbackPlan,
 } from "./feedback-plan-contracts.ts";
-import { parseJsonWithSchema } from "./json-input.ts";
+import { loadJsonFileWithSchema } from "./json-input.ts";
 import { isSafeSegment, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { prBatchArtifactDescriptor } from "./session-artifacts.ts";
 import { resolveResolveThreadBuildPlanSessionInput } from "./session-inputs.ts";
@@ -184,20 +182,7 @@ function compactBuildResolveThreadBatchPayloadResult(
 }
 
 export async function loadDecisionsFile<T>(filePath: string, schema: z.ZodType<T>, commandName: string): Promise<{ type: "ok"; value: T } | { type: "error"; errorType: string; message: string }> {
-	let text: string;
-	try {
-		text = await readFile(filePath, "utf8");
-	} catch (error) {
-		return { type: "error", errorType: "invalid_request", message: `${commandName} --decisions-file must point to an existing JSON file: ${filePath} (${formatErrorMessage(error)})` };
-	}
-	const parsed = parseJsonWithSchema({
-		text,
-		schema,
-		jsonDescription: `${commandName} --decisions-file`,
-		schemaDescription: `${commandName} --decisions-file`,
-	});
-	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
-	return { type: "ok", value: parsed.value };
+	return await loadJsonFileWithSchema({ filePath, schema, commandName, fileOptionName: "--decisions-file" });
 }
 
 export function threadResolutionBuildArtifact(options: {
