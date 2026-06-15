@@ -7,7 +7,7 @@ import {
 	type StackMapCommandOptions,
 	type StackMapCommandOutput,
 } from "../../src/stack-map-model-loader.ts";
-import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-renderer.ts";
+import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor, interpretStackMapKey, printableCharacterFromStackMapKey } from "../../src/stack-map-renderer.ts";
 import {
 	buildVisibleStackMapRows,
 	choicesForCmuxActivationPlan,
@@ -151,6 +151,12 @@ describe("planStackMapCmuxActivation", () => {
 		expect(choicesForCmuxActivationPlan(choosePlan)).toHaveLength(3);
 		expect(choicesForCmuxActivationPlan(choosePlan).at(-1)).toMatchObject({ type: "open-new", branch: "feature/current" });
 	});
+
+	test("does not activate a selected branch hidden by current filters", () => {
+		const plan = planStackMapCmuxActivation(MODEL, { ...createInitialStackMapState(MODEL), query: "does-not-match" });
+
+		expect(plan).toEqual({ type: "unavailable", reason: "No selected branch is visible under the current scope/query." });
+	});
 });
 
 describe("reduceStackMapState", () => {
@@ -164,6 +170,22 @@ describe("reduceStackMapState", () => {
 
 		expect(moved.mode).toMatchObject({ type: "cmux-choice", selectedIndex: 1 });
 		expect(cancelled.mode).toEqual({ type: "rows" });
+	});
+
+	test("query actions repair selection when possible and keep empty selections inert", () => {
+		const start = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), { type: "start-query" });
+		const childQuery = reduceStackMapState(MODEL, start, { type: "append-query", value: "main" });
+		const emptyQuery = reduceStackMapState(MODEL, childQuery, { type: "append-query", value: "-missing" });
+		const accepted = reduceStackMapState(MODEL, emptyQuery, { type: "accept-query" });
+		const cleared = reduceStackMapState(MODEL, accepted, { type: "clear-query" });
+
+		expect(start.mode).toEqual({ type: "query" });
+		expect(childQuery.selectedBranch).toBe("main");
+		expect(buildVisibleStackMapRows(MODEL, emptyQuery)).toHaveLength(0);
+		expect(emptyQuery.selectedBranch).toBe("main");
+		expect(accepted.mode).toEqual({ type: "rows" });
+		expect(cleared.query).toBe("");
+		expect(cleared.mode).toEqual({ type: "rows" });
 	});
 });
 
@@ -239,7 +261,7 @@ describe("buildVisibleStackMapRows", () => {
 		expect(rows.some((row) => row.topo.includes("○"))).toBe(false);
 	});
 
-	test("cmux filter includes the whole matching lane and hides unrelated lanes", () => {
+	test("cmux scope includes live cmux-tab lanes and excludes slot-only branches", () => {
 		const model: StackMapModel = {
 			title: "stack map",
 			diagnostics: [],
@@ -249,14 +271,78 @@ describe("buildVisibleStackMapRows", () => {
 				children: [
 					{ name: "a-parent" },
 					{ name: "b-parent", children: [{ name: "b-child", slots: [{ branch: "b-child", slotName: "slot-02", status: "assigned" }] }] },
+					{ name: "c-parent", children: [{ name: "c-child", cmuxTabs: [cmuxTarget("surface:3")] }] },
 				],
 			},
 		};
 
-		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), filter: "cmux" });
+		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), scope: "cmux" });
 
-		expect(rows.map((row) => row.branch.name)).toEqual(["b-child", "b-parent", "main"]);
+		expect(rows.map((row) => row.branch.name)).toEqual(["c-child", "c-parent", "main"]);
 		expect(rows.map((row) => row.topo)).toEqual(["◯", "◯", "◯"]);
+	});
+
+	test("branch-name query preserves ancestors and trunk but hides unrelated siblings", () => {
+		const model: StackMapModel = {
+			title: "stack map",
+			diagnostics: [],
+			currentBranch: "a-parent",
+			trunk: {
+				name: "main",
+				children: [
+					{ name: "a-parent", children: [{ name: "needle-child" }, { name: "other-child" }] },
+					{ name: "z-parent", children: [{ name: "z-child" }] },
+				],
+			},
+		};
+
+		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), query: " NEEDLE " });
+
+		expect(rows.map((row) => row.branch.name)).toEqual(["needle-child", "a-parent", "main"]);
+	});
+
+	test("scope and query compose before topology context is added", () => {
+		const matchingTab = cmuxTarget("surface:4");
+		const model: StackMapModel = {
+			title: "stack map",
+			diagnostics: [],
+			currentBranch: "feature/current",
+			trunk: {
+				name: "main",
+				children: [
+					{ name: "feature/query-hit-without-tab" },
+					{ name: "feature/query-hit-with-tab", cmuxTabs: [matchingTab] },
+					{ name: "feature/tab-without-query", cmuxTabs: [cmuxTarget("surface:5")] },
+				],
+			},
+		};
+
+		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), scope: "cmux", query: "hit-with-tab" });
+
+		expect(rows.map((row) => row.branch.name)).toEqual(["feature/query-hit-with-tab", "main"]);
+	});
+});
+
+describe("interpretStackMapKey", () => {
+	test("maps row-mode keys to semantic intents", () => {
+		const state = createInitialStackMapState(MODEL);
+
+		expect(interpretStackMapKey(state, { name: "/", sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
+		expect(interpretStackMapKey(state, { sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
+		expect(interpretStackMapKey(state, { name: "o", sequence: "o" })).toEqual({ type: "action", action: { type: "toggle-scope" } });
+		expect(interpretStackMapKey(state, { name: "c", sequence: "c" })).toEqual({ type: "activate-cmux" });
+		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({ type: "quit" });
+	});
+
+	test("query mode consumes printable shortcuts as text", () => {
+		const state = { ...createInitialStackMapState(MODEL), mode: { type: "query" as const }, query: "fea" };
+
+		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({ type: "action", action: { type: "append-query", value: "q" } });
+		expect(interpretStackMapKey(state, { name: "backspace", sequence: "\x7F" })).toEqual({ type: "action", action: { type: "delete-query-char" } });
+		expect(interpretStackMapKey(state, { name: "enter", sequence: "\r" })).toEqual({ type: "action", action: { type: "accept-query" } });
+		expect(interpretStackMapKey(state, { name: "escape", sequence: "\x1B" })).toEqual({ type: "action", action: { type: "clear-query" } });
+		expect(printableCharacterFromStackMapKey({ sequence: " " })).toBe(" ");
+		expect(printableCharacterFromStackMapKey({ ctrl: true, sequence: "a" })).toBeUndefined();
 	});
 });
 
@@ -272,8 +358,10 @@ describe("renderStackMapFrame", () => {
 		expect(header).toContain("TOPO");
 		expect(header).toContain("  BRANCH");
 		expect(header).not.toContain("TOPO │ BRANCH");
-		expect(frame).toContain("c cmux");
+		expect(frame).toContain("State: scope=all; visibleBranches=3; selected=feature/current");
+		expect(frame).toContain("/ filter  c cmux  o all/cmux");
 		expect(frame).not.toContain("? hide/show");
+		expect(frame).not.toContain(`filter${"="}all`);
 		expect(trunkLine ?? "").toMatch(/^\s*◯\s+main/);
 		expect(trunkLine).toContain(" │ repo");
 		expect(frame).not.toContain("◯─┘");
@@ -281,6 +369,15 @@ describe("renderStackMapFrame", () => {
 		expect(frame).not.toContain("│ main");
 		expect(tableLines.length).toBe(4);
 		expect(tableLines.map(tableSeparatorIndexes)).toEqual(tableLines.map(() => tableSeparatorIndexes(header ?? "")));
+	});
+
+	test("renders query mode and empty-result feedback", () => {
+		const frame = renderStackMapFrame(MODEL, { ...createInitialStackMapState(MODEL), query: "missing", mode: { type: "query" } });
+
+		expect(frame).toContain("No branches match the current scope/query.");
+		expect(frame).toContain('State: scope=all; query="missing"; visibleBranches=0; selected=<none>');
+		expect(frame).toContain("Action: c unavailable; no visible branch is selected");
+		expect(frame).toContain("Filter: type branch text  Backspace edit  Enter accept  Esc clear");
 	});
 });
 

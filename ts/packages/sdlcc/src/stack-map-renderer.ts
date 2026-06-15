@@ -10,6 +10,7 @@ import {
 	planStackMapCmuxActivation,
 	reduceStackMapState,
 	renderStackMapFrame,
+	type StackMapAction,
 	type StackMapCmuxActivationPlan,
 	type StackMapCmuxChoice,
 	type StackMapCmuxTabTarget,
@@ -47,6 +48,20 @@ interface SlotCheckoutTarget {
 	readonly branchName: string;
 	readonly worktreePath: string;
 }
+
+export interface StackMapKeyInput {
+	readonly name?: string | undefined;
+	readonly sequence?: string | undefined;
+	readonly ctrl?: boolean | undefined;
+	readonly meta?: boolean | undefined;
+}
+
+export type StackMapKeyIntent =
+	| { readonly type: "none" }
+	| { readonly type: "quit" }
+	| { readonly type: "activate-cmux" }
+	| { readonly type: "activate-choice" }
+	| { readonly type: "action"; readonly action: StackMapAction };
 
 export async function startStackMapTui(options: StartStackMapTuiOptions): Promise<void> {
 	const model = options.model;
@@ -164,32 +179,22 @@ async function handleStackMapKey(options: {
 }): Promise<void> {
 	const { model, key } = options;
 	const state = options.getState();
-	if (key.ctrl || key.meta) return;
-	if (key.name === "q") {
-		options.renderer?.destroy();
-		return;
-	}
-	if (key.name === "escape") {
-		if (state.mode.type === "cmux-choice") {
-			options.setState(reduceStackMapState(model, state, { type: "cancel-choice" }));
-			return;
-		}
+	const intent = interpretStackMapKey(state, key);
+	if (intent.type === "none") return;
+	if (intent.type === "quit") {
 		options.renderer?.destroy();
 		return;
 	}
 	if (options.isActivating) return;
-
-	if (state.mode.type === "cmux-choice") {
-		await handleChooserKey(options);
+	if (intent.type === "action") {
+		options.setState(reduceStackMapState(model, state, intent.action));
 		return;
 	}
-
-	const nextState = reduceFromRowsKey(model, state, key);
-	if (nextState !== state) {
-		options.setState(nextState);
+	if (intent.type === "activate-choice") {
+		if (state.mode.type === "cmux-choice") await executeChoice(options, state.mode.choices[state.mode.selectedIndex]);
 		return;
 	}
-	if (key.name !== "c") return;
+	if (intent.type !== "activate-cmux") return;
 
 	const plan = planStackMapCmuxActivation(model, state);
 	if (plan.type === "choose-tab") {
@@ -199,52 +204,73 @@ async function handleStackMapKey(options: {
 	await executeActivationPlan(options, plan);
 }
 
-async function handleChooserKey(options: {
-	readonly model: StackMapModel;
-	readonly getState: () => StackMapState;
-	readonly setState: (state: StackMapState) => void;
-	readonly key: KeyEvent;
-	readonly renderer: CliRenderer | undefined;
-	readonly activationExecutor: StackMapCmuxActivationExecutor;
-	readonly isActivating: boolean;
-	readonly setActivating: (value: boolean) => void;
-}): Promise<void> {
-	const state = options.getState();
-	if (state.mode.type !== "cmux-choice") return;
+export function interpretStackMapKey(state: StackMapState, key: StackMapKeyInput): StackMapKeyIntent {
+	if (key.ctrl || key.meta) return { type: "none" };
+	const keyName = key.name ?? printableCharacterFromStackMapKey(key);
 
-	switch (options.key.name) {
+	if (state.mode.type === "cmux-choice") {
+		switch (keyName) {
+			case "up":
+			case "k":
+				return { type: "action", action: { type: "move-choice", delta: -1 } };
+			case "down":
+			case "j":
+				return { type: "action", action: { type: "move-choice", delta: 1 } };
+			case "enter":
+			case "return":
+				return { type: "activate-choice" };
+			case "escape":
+				return { type: "action", action: { type: "cancel-choice" } };
+			case "q":
+				return { type: "quit" };
+			default:
+				return { type: "none" };
+		}
+	}
+
+	if (state.mode.type === "query") {
+		switch (keyName) {
+			case "backspace":
+				return { type: "action", action: { type: "delete-query-char" } };
+			case "enter":
+			case "return":
+				return { type: "action", action: { type: "accept-query" } };
+			case "escape":
+				return { type: "action", action: { type: "clear-query" } };
+			default: {
+				const value = printableCharacterFromStackMapKey(key);
+				return value === undefined ? { type: "none" } : { type: "action", action: { type: "append-query", value } };
+			}
+		}
+	}
+
+	switch (keyName) {
 		case "up":
 		case "k":
-			options.setState(reduceStackMapState(options.model, state, { type: "move-choice", delta: -1 }));
-			return;
+			return { type: "action", action: { type: "move-selection", delta: -1 } };
 		case "down":
 		case "j":
-			options.setState(reduceStackMapState(options.model, state, { type: "move-choice", delta: 1 }));
-			return;
-		case "enter":
-		case "return":
-			await executeChoice(options, state.mode.choices[state.mode.selectedIndex]);
-			return;
+			return { type: "action", action: { type: "move-selection", delta: 1 } };
+		case "o":
+			return { type: "action", action: { type: "toggle-scope" } };
+		case "/":
+			return { type: "action", action: { type: "start-query" } };
+		case "c":
+			return { type: "activate-cmux" };
+		case "q":
+		case "escape":
+			return { type: "quit" };
+		default:
+			return { type: "none" };
 	}
 }
 
-function reduceFromRowsKey(
-	model: StackMapModel,
-	state: StackMapState,
-	key: KeyEvent,
-): StackMapState {
-	switch (key.name) {
-		case "up":
-		case "k":
-			return reduceStackMapState(model, state, { type: "move-selection", delta: -1 });
-		case "down":
-		case "j":
-			return reduceStackMapState(model, state, { type: "move-selection", delta: 1 });
-		case "o":
-			return reduceStackMapState(model, state, { type: "toggle-filter" });
-		default:
-			return state;
-	}
+export function printableCharacterFromStackMapKey(key: StackMapKeyInput): string | undefined {
+	if (key.ctrl || key.meta) return undefined;
+	const sequence = key.sequence;
+	if (sequence === undefined || [...sequence].length !== 1) return undefined;
+	if (sequence < " " || sequence === "\x7F") return undefined;
+	return sequence;
 }
 
 async function executeChoice(options: {

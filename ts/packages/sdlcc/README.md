@@ -32,9 +32,16 @@ Keys:
 
 - `↑`/`k`: previous branch
 - `↓`/`j`: next branch
-- `c`: cmux action for the selected branch
-- `o`: toggle all branches vs. cmux-only rows
-- `q` or `Esc`: exit
+- `/`: enter branch-name filter mode
+- text in filter mode: narrow rows by case-insensitive branch-name substring
+- `Backspace` in filter mode: edit the query
+- `Enter` in filter mode: accept the query and return to row navigation
+- `Esc` in filter mode: clear the query and return to row navigation; press `Esc` again from rows to exit
+- `c`: cmux action for the selected visible branch
+- `o`: toggle all branches vs. live-cmux-tab rows
+- `q` or `Esc` from row navigation: exit
+
+Scope and query compose: a branch is a match only when it satisfies the branch-name query and the active `all`/`cmux` scope. Matching descendants may keep ancestor/trunk rows visible as topology context; when nothing matches, the map shows an empty-state message and `c` is unavailable. The `cmux` scope means live cmux tab evidence only. Slot labels remain metadata in all-branch rows, but a slot assignment by itself does not make a branch pass cmux scope.
 
 `c` uses only strong tab matches: explicit branch metadata or explicit worktree/cwd metadata that maps through slot rows. Workspace titles, tab titles, descriptions, tty names, and visual labels such as `π - slot-05` are diagnostic only and are intentionally not activation targets.
 
