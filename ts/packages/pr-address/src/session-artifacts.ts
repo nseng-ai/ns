@@ -5,7 +5,6 @@ import { isSafeSegment, payloadError, type JsonPayloadRole, type PayloadArtifact
 
 export type PrArtifactKind = "feedback" | "manifest" | "classification-template" | "classification" | "plan";
 export type PrBatchArtifactKind = "resolve-build" | "resolution" | "checkpoint";
-export type StackArtifactKind = "prep" | "plan" | "thread-state";
 
 export interface ResolvedSessionArtifact<T = unknown> {
 	reference: PayloadReference;
@@ -26,10 +25,6 @@ export function prArtifactDescriptor(options: { prNumber: number; kind: PrArtifa
 
 export function prBatchArtifactDescriptor(options: { prNumber: number; batchId: string; kind: PrBatchArtifactKind }): string {
 	return `pr-address-pr-${positivePrNumber(options.prNumber)}-batch-${safeBatchId(options.batchId)}-${options.kind}`;
-}
-
-export function stackArtifactDescriptor(kind: StackArtifactKind): string {
-	return `pr-address-stack-${kind}`;
 }
 
 export async function resolveLatestJsonSessionArtifact<T = unknown>(options: {

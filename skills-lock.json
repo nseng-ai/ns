@@ -294,11 +294,6 @@
       "sourceType": "local",
       "computedHash": "baa9a4fa29c889e3f1bfe718cf8bc94033408f74280473899f19d772121e8cd9"
     },
-    "stack-address": {
-      "source": "skills/stack-address",
-      "sourceType": "local",
-      "computedHash": "a3f4ccdd0f34ee1b55ee621cf1940e71c97d45ffce04febb605c166caf6c0a2e"
-    },
     "thermo-nuclear-code-quality-review": {
       "source": "cursor/plugins",
       "sourceType": "github",

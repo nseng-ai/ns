@@ -26,7 +26,6 @@ import {
 	feedbackPlanReviewInformationalItemSchema,
 	feedbackPlanThreadActionItemSchema,
 	feedbackPlanThreadInformationalItemSchema,
-	feedbackPlanVoidedThreadItemSchema,
 	feedbackPlanningValidationErrorSchema,
 	feedbackPlanningValidationResultSchema,
 	informationalReasonSchema,
@@ -44,7 +43,6 @@ import {
 	type FeedbackPlanReviewInformationalItem,
 	type FeedbackPlanThreadActionItem,
 	type FeedbackPlanThreadInformationalItem,
-	type FeedbackPlanVoidedThreadItem,
 	type InformationalReason,
 	type PlanSourceKind,
 } from "./feedback-plan-contracts.ts";
@@ -55,7 +53,6 @@ export const classificationLocatorSchema = z.looseObject({
 });
 
 const classificationDispositionSchema = z.enum(["actionable", "informational"]);
-const threadClassificationDispositionSchema = z.enum(["actionable", "informational", "voided_by_stack_work"]);
 
 const classifiedReviewSchema = z.looseObject({
 	review_id: z.string(),
@@ -75,7 +72,7 @@ const classifiedThreadCommentSchema = z.looseObject({
 
 const classifiedThreadSchema = z.looseObject({
 	thread_id: z.string(),
-	disposition: threadClassificationDispositionSchema,
+	disposition: classificationDispositionSchema,
 	thread_item_pointer: z.string(),
 	covered_comments: z.array(classifiedThreadCommentSchema).default([]),
 	summary: z.string(),
@@ -104,8 +101,6 @@ const classificationPacketSchema = z.looseObject({
 });
 
 type ClassificationDisposition = z.infer<typeof classificationDispositionSchema>;
-type ThreadClassificationDisposition = z.infer<typeof threadClassificationDispositionSchema>;
-type AnyClassificationDisposition = ClassificationDisposition | ThreadClassificationDisposition;
 type ManifestKind = FeedbackManifestKind;
 type ValidationItemKind = "review" | "review_thread" | "thread_comment" | "discussion_comment" | "packet";
 type ClassificationBodyLocatorRef = z.infer<typeof classificationLocatorSchema>;
@@ -220,18 +215,11 @@ interface ClassificationValidationArtifacts {
 	classificationPacket: FeedbackClassificationPacket | null;
 }
 
-export interface FeedbackClassificationValidationOptions {
-	allowVoidedByStackWork?: boolean;
+export function validateFeedbackClassification(input: { manifest: unknown; classification: unknown }): FeedbackClassificationValidationResult {
+	return validateClassificationArtifacts(input).validation;
 }
 
-export function validateFeedbackClassification(
-	input: { manifest: unknown; classification: unknown },
-	options: FeedbackClassificationValidationOptions = {},
-): FeedbackClassificationValidationResult {
-	return validateClassificationArtifacts(input, options).validation;
-}
-
-function validateClassificationArtifacts(input: { manifest: unknown; classification: unknown }, options: FeedbackClassificationValidationOptions = {}): ClassificationValidationArtifacts {
+function validateClassificationArtifacts(input: { manifest: unknown; classification: unknown }): ClassificationValidationArtifacts {
 	const { view, kind, errors: manifestErrors } = buildFeedbackManifestView(input.manifest);
 	const { packet, errors: packetErrors } = classificationPacket(input.classification);
 	const counts = validationCounts(view, packet);
@@ -241,7 +229,7 @@ function validateClassificationArtifacts(input: { manifest: unknown; classificat
 		errors.push(...validateReviews(view, packet));
 		errors.push(...validateThreads(view, packet));
 		errors.push(...validateDiscussionComments(view, packet));
-		errors.push(...validateItemSemantics(packet, options));
+		errors.push(...validateItemSemantics(packet));
 	}
 
 	const validation: FeedbackClassificationValidationResult = {
@@ -472,7 +460,7 @@ function bodyLocatorErrors(options: {
 	return errors;
 }
 
-function validateItemSemantics(packet: FeedbackClassificationPacket, options: FeedbackClassificationValidationOptions): FeedbackClassificationValidationError[] {
+function validateItemSemantics(packet: FeedbackClassificationPacket): FeedbackClassificationValidationError[] {
 	const errors: FeedbackClassificationValidationError[] = [];
 	packet.reviews.forEach((item, index) => {
 		errors.push(
@@ -486,7 +474,6 @@ function validateItemSemantics(packet: FeedbackClassificationPacket, options: Fe
 				kind: "review",
 				identifier: item.review_id,
 				pathPrefix: `classification.reviews[${index}]`,
-				allowVoidedByStackWork: options.allowVoidedByStackWork === true,
 			}),
 		);
 	});
@@ -502,7 +489,6 @@ function validateItemSemantics(packet: FeedbackClassificationPacket, options: Fe
 				kind: "review_thread",
 				identifier: item.thread_id,
 				pathPrefix: `classification.review_threads[${index}]`,
-				allowVoidedByStackWork: options.allowVoidedByStackWork === true,
 			}),
 		);
 	});
@@ -519,7 +505,6 @@ function validateItemSemantics(packet: FeedbackClassificationPacket, options: Fe
 				identifier: item.comment_id,
 				pathPrefix: `classification.discussion_comments[${index}]`,
 				needsReply: item.needs_reply,
-				allowVoidedByStackWork: options.allowVoidedByStackWork === true,
 			}),
 		);
 	});
@@ -527,7 +512,7 @@ function validateItemSemantics(packet: FeedbackClassificationPacket, options: Fe
 }
 
 function itemSemanticErrors(options: {
-	disposition: AnyClassificationDisposition;
+	disposition: ClassificationDisposition;
 	summary: string;
 	actionSummary: string | null;
 	complexity: ActionComplexity | null;
@@ -537,7 +522,6 @@ function itemSemanticErrors(options: {
 	identifier: string | number;
 	pathPrefix: string;
 	needsReply?: boolean | undefined;
-	allowVoidedByStackWork: boolean;
 }): FeedbackClassificationValidationError[] {
 	const errors: FeedbackClassificationValidationError[] = [];
 	if (options.summary.trim() === "") {
@@ -549,64 +533,6 @@ function itemSemanticErrors(options: {
 			path: `${options.pathPrefix}.summary`,
 		});
 	}
-	if (options.disposition === "voided_by_stack_work") {
-		if (!options.allowVoidedByStackWork) {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `Review thread ${options.identifier} uses disposition='voided_by_stack_work', which is only valid in stack-feedback planning.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.disposition`,
-			});
-		}
-		if (options.kind !== "review_thread") {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `${kindLabel(options.kind)} ${options.identifier} must not use disposition='voided_by_stack_work'.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.disposition`,
-			});
-		}
-		if (options.actionSummary === null || options.actionSummary.trim() === "") {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `Voided stack review thread ${options.identifier} requires action_summary.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.action_summary`,
-			});
-		}
-		if (options.complexity !== null) {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `Voided stack review thread ${options.identifier} must not include complexity.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.complexity`,
-			});
-		}
-		if (options.informationalReason !== null) {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `Voided stack review thread ${options.identifier} must not include informational_reason.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.informational_reason`,
-			});
-		}
-		if (options.preExisting) {
-			errors.push({
-				code: "invalid_voided_by_stack_work",
-				message: `Voided stack review thread ${options.identifier} must not be pre_existing.`,
-				kind: options.kind,
-				identifier: options.identifier,
-				path: `${options.pathPrefix}.pre_existing`,
-			});
-		}
-		return errors;
-	}
-
 	if (options.disposition === "actionable") {
 		if (options.actionSummary === null || options.actionSummary.trim() === "") {
 			errors.push({
@@ -749,7 +675,7 @@ function kindLabel(kind: ValidationItemKind): string {
 	return kind.replaceAll("_", " ");
 }
 
-type FeedbackPlanItem = FeedbackPlanActionItem | FeedbackPlanInformationalItem | FeedbackPlanVoidedThreadItem;
+type FeedbackPlanItem = FeedbackPlanActionItem | FeedbackPlanInformationalItem;
 
 interface PlanSourceItemFields {
 	review_id?: string | null;
@@ -777,8 +703,8 @@ interface ClassifiedLookup {
 	comments: Map<number, ClassifiedDiscussionCommentItem>;
 }
 
-export function planFeedback(input: { manifest: unknown; classification: unknown }, options: FeedbackClassificationValidationOptions = {}): FeedbackPlanningResult {
-	const artifacts = validateClassificationArtifacts(input, options);
+export function planFeedback(input: { manifest: unknown; classification: unknown }): FeedbackPlanningResult {
+	const artifacts = validateClassificationArtifacts(input);
 	const validation = artifacts.validation;
 	if (!validation.valid) {
 		return {
@@ -800,7 +726,7 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 
 	const view = artifacts.manifestView;
 	const lookup = classifiedLookup(artifacts.classificationPacket);
-	const { actions, informational, voidedByStackWork } = partitionPlanItems(view, lookup);
+	const { actions, informational } = partitionPlanItems(view, lookup);
 	const batches = batchesForActions(actions);
 	return feedbackPlanResultSchema.parse({
 		valid: true,
@@ -811,7 +737,6 @@ export function planFeedback(input: { manifest: unknown; classification: unknown
 		counts: planCounts(actions, informational, batches),
 		batches,
 		informational,
-		...(voidedByStackWork.length > 0 ? { voided_by_stack_work: voidedByStackWork } : {}),
 		warnings: planningWarnings(view),
 	});
 }
@@ -827,13 +752,11 @@ function classifiedLookup(packet: FeedbackClassificationPacket): ClassifiedLooku
 interface PlanPartition {
 	actions: FeedbackPlanActionItem[];
 	informational: FeedbackPlanInformationalItem[];
-	voidedByStackWork: FeedbackPlanVoidedThreadItem[];
 }
 
 function partitionPlanItems(view: FeedbackManifestView, classified: ClassifiedLookup): PlanPartition {
 	const actions: FeedbackPlanActionItem[] = [];
 	const informational: FeedbackPlanInformationalItem[] = [];
-	const voidedByStackWork: FeedbackPlanVoidedThreadItem[] = [];
 	for (const review of view.reviews) {
 		const item = classified.reviews.get(review.id);
 		if (item?.disposition === "actionable") actions.push(reviewActionItem(review, item));
@@ -843,14 +766,13 @@ function partitionPlanItems(view: FeedbackManifestView, classified: ClassifiedLo
 		const item = classified.threads.get(thread.thread_id);
 		if (item?.disposition === "actionable") actions.push(threadActionItem(thread, item));
 		else if (item?.disposition === "informational") informational.push(threadInformationalItem(thread, item));
-		else if (item?.disposition === "voided_by_stack_work") voidedByStackWork.push(threadVoidedByStackWorkItem(thread, item));
 	}
 	for (const comment of view.discussionComments) {
 		const item = classified.comments.get(comment.comment_id);
 		if (item?.disposition === "actionable") actions.push(discussionActionItem(comment, item));
 		else if (item?.disposition === "informational") informational.push(discussionInformationalItem(comment, item));
 	}
-	return { actions, informational, voidedByStackWork };
+	return { actions, informational };
 }
 
 function reviewSourceFields(review: ReviewManifestItem): PlanSourceItemFields {
@@ -939,15 +861,6 @@ function threadInformationalItem(thread: ThreadManifestItem, item: ClassifiedThr
 		informational_reason: item.informational_reason,
 		user_decision_required: true,
 		allowed_decisions: [...INFORMATIONAL_THREAD_DECISIONS],
-	});
-}
-
-function threadVoidedByStackWorkItem(thread: ThreadManifestItem, item: ClassifiedThreadItem): FeedbackPlanVoidedThreadItem {
-	return feedbackPlanVoidedThreadItemSchema.parse({
-		...planSourceItemBase("review_thread", item.summary, threadSourceFields(thread, item)),
-		source_kind: "review_thread",
-		action_summary: item.action_summary,
-		complexity: null,
 	});
 }
 

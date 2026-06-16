@@ -81,45 +81,4 @@ describe("canonical feedback contracts", () => {
 		expect(locator.item_pointer).toBeNull();
 	});
 
-	test("voided_by_stack_work is rejected by default and accepted for stack planning", async () => {
-		const input = asWrapperInput(await readJson(join(GOLDEN_V1_ROOT, "validate-feedback-classification/valid-all-source-kinds-mixed-dispositions/input.json")));
-		const classification = structuredClone(input.classification) as {
-			review_threads: Array<{ disposition: string; summary: string; action_summary: string; complexity?: string | null; informational_reason?: string | null; pre_existing?: boolean }>;
-		};
-		classification.review_threads[0] = {
-			...classification.review_threads[0],
-			disposition: "voided_by_stack_work",
-			summary: "Thread was addressed by later stack work.",
-			action_summary: "Already addressed by later stack work: the stack tip now shares the parser path.",
-			complexity: null,
-			informational_reason: null,
-			pre_existing: false,
-		};
-		const stackInput = { manifest: input.manifest, classification };
-
-		const defaultValidation = validateFeedbackClassification(stackInput);
-		expect(defaultValidation.valid).toBe(false);
-		expect(defaultValidation.errors).toContainEqual(
-			expect.objectContaining({
-				code: "invalid_voided_by_stack_work",
-				message: "Review thread T1 uses disposition='voided_by_stack_work', which is only valid in stack-feedback planning.",
-			}),
-		);
-		expect(planFeedback(stackInput).valid).toBe(false);
-
-		const stackValidation = validateFeedbackClassification(stackInput, { allowVoidedByStackWork: true });
-		expect(stackValidation.valid).toBe(true);
-		const stackPlan = planFeedback(stackInput, { allowVoidedByStackWork: true });
-		expect(stackPlan.valid).toBe(true);
-		expect(stackPlan.voided_by_stack_work).toEqual([
-			expect.objectContaining({
-				source_kind: "review_thread",
-				thread_id: "T1",
-				action_summary: "Already addressed by later stack work: the stack tip now shares the parser path.",
-				complexity: null,
-			}),
-		]);
-		expect(stackPlan.batches.flatMap((batch) => batch.items).some((item) => item.thread_id === "T1")).toBe(false);
-		expect(stackPlan.informational.some((item) => item.thread_id === "T1")).toBe(false);
-	});
 });

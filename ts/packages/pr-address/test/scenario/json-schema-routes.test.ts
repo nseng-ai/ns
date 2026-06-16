@@ -11,24 +11,18 @@ import { runScenario } from "../support/run-scenario.ts";
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 
 // Operations whose schema documents are locked against captured schema contract
-// fixtures. Fixture input schemas for stack-feedback-diff-current,
-// build-stack-resolve-thread-payloads, and build-resolve-thread-batch-payload
-// additionally carry TypeScript-owned option fields (payload_file and artifact
-// reference options) that intentionally extend the operation contract.
+// fixtures. The build-resolve-thread-batch-payload fixture input schema
+// additionally carries TypeScript-owned option fields that intentionally extend
+// the operation contract.
 const CONTRACT_LOCKED_OPERATIONS = [
 	"build-resolve-thread-batch-payload",
-	"build-stack-resolve-thread-payloads",
 	"finalize-run",
-
 	"read-feedback-detail",
 	"read-feedback-details",
 	"reply-to-discussion",
 	"reply-to-review",
 	"resolve-thread-batch",
 	"resolve-thread-with-reply",
-	"stack-feedback-diff-current",
-
-	"summarize-feedback",
 ] as const;
 
 // The classification trio shipped TypeScript-owned schema documents before this
@@ -38,7 +32,7 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 
 // TypeScript-owned operations that are checked by exact captured fixtures rather
 // than the structural contract comparator.
-const TS_ONLY_OPERATIONS = ["download-feedback", "get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep", "stack-feedback-thread-state"] as const;
+const TS_ONLY_OPERATIONS = ["download-feedback", "get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint"] as const;
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");

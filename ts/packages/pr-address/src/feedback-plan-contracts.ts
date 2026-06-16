@@ -3,7 +3,6 @@ import { z } from "zod";
 import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
 
 export const ACTION_COMPLEXITIES = ["pre_existing", "local", "single_file", "cross_cutting", "complex"] as const;
-export const VOIDED_BY_STACK_WORK_BATCH_ID = "voided_by_stack_work";
 /** Complexities whose plan batches require explicit approval before execution. */
 export const APPROVAL_REQUIRED_COMPLEXITIES: ReadonlySet<ActionComplexity> = new Set(["cross_cutting", "complex"]);
 export const INFORMATIONAL_THREAD_DECISIONS = ["act", "dismiss", "skip"] as const;
@@ -69,12 +68,6 @@ const planInformationalItemFields = {
 	allowed_decisions: z.array(informationalThreadDecisionSchema).default([]),
 } as const;
 
-const planVoidedThreadItemFields = {
-	...planItemCommonFields,
-	action_summary: z.string(),
-	complexity: z.null().default(null),
-} as const;
-
 export const feedbackPlanReviewActionItemSchema = z.looseObject({
 	source_kind: z.literal("review"),
 	...planActionItemFields,
@@ -116,11 +109,6 @@ export const feedbackPlanInformationalItemSchema = z.discriminatedUnion("source_
 	feedbackPlanThreadInformationalItemSchema,
 	feedbackPlanDiscussionInformationalItemSchema,
 ]);
-
-export const feedbackPlanVoidedThreadItemSchema = z.looseObject({
-	source_kind: z.literal("review_thread"),
-	...planVoidedThreadItemFields,
-});
 
 export const feedbackPlanBatchSchema = z.looseObject({
 	batch_id: z.string(),
@@ -179,7 +167,6 @@ export const feedbackPlanResultSchema = z.looseObject({
 	counts: feedbackPlanCountsSchema.nullable(),
 	batches: z.array(feedbackPlanBatchSchema),
 	informational: z.array(feedbackPlanInformationalItemSchema),
-	voided_by_stack_work: z.array(feedbackPlanVoidedThreadItemSchema).optional(),
 	warnings: z.array(z.string()),
 });
 
@@ -192,7 +179,6 @@ export const feedbackPlanConsumerSchema = z.looseObject({
 	counts: feedbackPlanCountsSchema.nullable().optional(),
 	batches: z.array(feedbackPlanBatchSchema).default([]),
 	informational: z.array(feedbackPlanInformationalItemSchema).default([]),
-	voided_by_stack_work: z.array(feedbackPlanVoidedThreadItemSchema).default([]),
 	warnings: z.array(z.string()).default([]),
 });
 
@@ -210,7 +196,6 @@ export type FeedbackPlanReviewInformationalItem = z.infer<typeof feedbackPlanRev
 export type FeedbackPlanThreadInformationalItem = z.infer<typeof feedbackPlanThreadInformationalItemSchema>;
 export type FeedbackPlanDiscussionInformationalItem = z.infer<typeof feedbackPlanDiscussionInformationalItemSchema>;
 export type FeedbackPlanInformationalItem = z.infer<typeof feedbackPlanInformationalItemSchema>;
-export type FeedbackPlanVoidedThreadItem = z.infer<typeof feedbackPlanVoidedThreadItemSchema>;
 export type FeedbackPlanBatch = z.infer<typeof feedbackPlanBatchSchema>;
 export type FeedbackPlanningValidationResult = z.infer<typeof feedbackPlanningValidationResultSchema>;
 export type FeedbackPlanCounts = z.infer<typeof feedbackPlanCountsSchema>;

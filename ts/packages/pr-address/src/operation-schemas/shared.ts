@@ -18,7 +18,6 @@ export const stdoutModeRequestShape = {
 // --- shared enums -----------------------------------------------------------
 
 export const prReviewStateSchema = z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
-export const prStateSchema = z.enum(["OPEN", "CLOSED", "MERGED"]);
 export const resolutionReplyModeSchema = z.enum(["fixed", "pre_existing", "explained", "planned"]);
 export const detailKindSchema = z.enum([
 	"review",
@@ -138,15 +137,6 @@ export const compactOperationResultSchema = z.looseObject({
 export const payloadJsonOrFileRequestSchema = z.object({
 	payload_json: nullableStringSchema.optional(),
 	payload_file: nullableStringSchema.optional(),
-});
-
-export const stackFeedbackDiffCurrentRequestSchema = z.object({
-	harness_session_id: nullableStringSchema.optional(),
-	stdout_mode: stdoutModeDocSchema.optional(),
-});
-
-export const buildStackResolveThreadPayloadsRequestSchema = payloadJsonOrFileRequestSchema.extend({
-	stack_plan_reference: nullableStringSchema.optional(),
 });
 
 export function schemaDocument(requestSchema: z.ZodType, resultSchema: z.ZodType): JsonSchemaDocument {

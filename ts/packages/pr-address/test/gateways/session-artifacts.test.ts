@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { PayloadStore, type PayloadClock, type PayloadResult } from "../../src/payload-store.ts";
-import { prArtifactDescriptor, prBatchArtifactDescriptor, resolveLatestJsonSessionArtifact, stackArtifactDescriptor } from "../../src/session-artifacts.ts";
+import { prArtifactDescriptor, prBatchArtifactDescriptor, resolveLatestJsonSessionArtifact } from "../../src/session-artifacts.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeTempDir = useTempDirs();
@@ -38,8 +38,6 @@ describe("session artifact descriptors", () => {
 		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "resolve-build" })).toBe("pr-address-pr-1427-batch-batch-1-resolve-build");
 		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "resolution" })).toBe("pr-address-pr-1427-batch-batch-1-resolution");
 		expect(prBatchArtifactDescriptor({ prNumber: 1427, batchId: "batch-1", kind: "checkpoint" })).toBe("pr-address-pr-1427-batch-batch-1-checkpoint");
-		expect(stackArtifactDescriptor("prep")).toBe("pr-address-stack-prep");
-		expect(stackArtifactDescriptor("plan")).toBe("pr-address-stack-plan");
 	});
 
 	test("rejects invalid PR numbers loudly", () => {

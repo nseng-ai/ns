@@ -10,13 +10,6 @@ import { replyToDiscussionOperation, replyToReviewOperation, resolveThreadBatchO
 import { prepareRunOperation } from "./prepare-run.ts";
 import { readFeedbackDetailOperation, readFeedbackDetailsOperation } from "./read-feedback-detail.ts";
 import { buildResolveThreadBatchPayloadOperation } from "./resolve-thread-batch-payload.ts";
-import { stackFeedbackDiffCurrentOperation } from "./stack-feedback-diff-current.ts";
-import { stackFeedbackPlanOperation } from "./stack-feedback-plan.ts";
-import { stackFeedbackPreflightOperation } from "./stack-feedback-preflight.ts";
-import { stackFeedbackPrepOperation } from "./stack-feedback-prep.ts";
-import { stackFeedbackThreadStateOperation } from "./stack-feedback-thread-state.ts";
-import { buildStackResolveThreadPayloadsOperation } from "./stack-resolve-thread-payloads.ts";
-import { summarizeFeedbackOperation } from "./summarize-feedback.ts";
 
 /**
  * The single exec operation table, alphabetical so commander help matches
@@ -25,7 +18,6 @@ import { summarizeFeedbackOperation } from "./summarize-feedback.ts";
  */
 export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	buildResolveThreadBatchPayloadOperation,
-	buildStackResolveThreadPayloadsOperation,
 	classificationTemplateOperation,
 	downloadFeedbackOperation,
 	finalizeRunOperation,
@@ -40,12 +32,6 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	replyToReviewOperation,
 	resolveThreadBatchOperation,
 	resolveThreadWithReplyOperation,
-	stackFeedbackDiffCurrentOperation,
-	stackFeedbackPlanOperation,
-	stackFeedbackPreflightOperation,
-	stackFeedbackPrepOperation,
-	stackFeedbackThreadStateOperation,
-	summarizeFeedbackOperation,
 	validateFeedbackClassificationOperation,
 ];
 
