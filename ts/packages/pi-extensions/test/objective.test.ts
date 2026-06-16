@@ -1190,6 +1190,16 @@ Use the selected Objective.
 		}
 	});
 
+	test("objective:next fallback prompt requires a work-left estimate", async () => {
+		const result = await runObjectiveCommand("objective:next", "bravo");
+
+		result.pi.assertDone();
+		expect(result.pi.sentUserMessages[0]).toContain("include a best-effort work-left estimate");
+		expect(result.pi.sentUserMessages[0]).toContain("semantic steps or slices, not calendar time");
+		expect(result.pi.sentUserMessages[0]).toContain("until Objective completion");
+		expect(result.pi.sentUserMessages[0]).toContain("until the next discovery or decision step");
+	});
+
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
 		const result = await runObjectiveCommand("objective:update", "bravo");
 

@@ -287,12 +287,13 @@ Contract:
 - Read `objective.md`, `roadmap.md`, and relevant updates.
 - Apply the **Tracking Gate** before recommending next work or offering execution.
 - Prefer next work that clarifies active assumptions or de-risks unresolved risks when that is the smallest coherent step.
+- Include a best-effort work-left estimate as remaining semantic steps/slices, not calendar time. If the remaining path is clear, estimate work until Objective completion; otherwise estimate work until the next discovery or decision step where additional work can be identified.
 - If the Tracking Gate indicates likely unrecorded progress, ask whether to run `objective-update` for the same selected objective before recommending or executing next work. If the user confirms or explicitly preauthorized update-and-continue, perform that update, reread the objective and repo evidence, then continue `objective-next`; otherwise stop without a recommendation or execution offer.
 - Direct execution offers require explicit Objective prose policy, such as `## Runner Policy` plus enough `## Definition of Progress` guidance, or row-level `Policy:` prose that clearly permits direct execution for the selected slice.
 - Do not infer execution permission from roadmap concreteness alone. If policy is missing or incomplete, recommend only and include a policy-upgrade note.
 - When policy says to steer first, ask one concrete question or recommend a planning/grilling/readback step instead of executing.
 - When policy allows direct execution, present an inline execution preview and wait for explicit affirmative confirmation before material action.
-- The preview should state selected slug, policy basis, bounded scope, likely files/areas, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy or confirmed preview scope.
+- The preview should state selected slug, policy basis, bounded scope, likely files/areas, the best-effort work-left estimate, how the work will be left, validation, external systems or write-capable actions, stop/ask conditions, Objective tracking expectations, and PR submission status. PR submission, publishing, deployment, write APIs, and other external writes require explicit Runner Policy or confirmed preview scope.
 - Do not use hidden ledgers, task files, private queues, Branch Memory run state, alternate Objective stores, or new Objective lifecycle states.
 - In recommendation-only or steer-first paths, do not mutate files except through an explicit `objective-update` handoff. In confirmed execution, mutate only within the confirmed preview scope and write Objective tracking only for meaningful impact.
 
