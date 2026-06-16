@@ -77,7 +77,7 @@ export async function buildObjectiveListResult(
 		});
 		if (attribution.type === "git-error") return attribution;
 		updatedBranchesBySlug = attribution.value.updatedBranchesBySlug;
-		isUpdatedBranchesTruncated = attribution.value.truncated;
+		isUpdatedBranchesTruncated = attribution.value.isTruncated;
 	}
 
 	const records: ObjectiveListRenderRecord[] = [];
