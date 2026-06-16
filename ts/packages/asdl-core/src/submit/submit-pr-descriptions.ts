@@ -19,6 +19,7 @@ export async function generateSubmitPrDescriptions(input: {
 	prDescription: SubmitPrDescriptionOptions;
 	prLinks: readonly SubmitPrLink[];
 	prewrittenMetadata?: readonly PreparedSubmitPrMetadata[];
+	onProgress?: (message: string) => void;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];
 	const prewritten: SubmitPrLink[] = [];
@@ -27,11 +28,18 @@ export async function generateSubmitPrDescriptions(input: {
 	const prewrittenByBranch = new Map((input.prewrittenMetadata ?? []).map((metadata) => [metadata.branch, metadata]));
 	let generation: Extract<PrDescriptionGenerationResolution, { ok: true }> | undefined;
 
+	if (input.prLinks.length === 0) {
+		input.onProgress?.("no PR links available for description generation");
+	} else {
+		input.onProgress?.(`preparing descriptions for ${formatCount(input.prLinks.length, "PR")}`);
+	}
+
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
-	for (const link of input.prLinks) {
+	for (const [index, link] of input.prLinks.entries()) {
 		const number = prNumberFromLink(link);
 		if (number === undefined) continue;
 
+		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
 			failures.push({ link, number, reason: viewed.error.message });
@@ -40,6 +48,7 @@ export async function generateSubmitPrDescriptions(input: {
 
 		const prewrittenMetadata = prewrittenByBranch.get(viewed.value.headRefName);
 		if (prewrittenMetadata !== undefined) {
+			input.onProgress?.(`validating prewritten metadata for PR #${number}`);
 			const reconciled = await reconcilePrewrittenPr({
 				cwd: input.cwd,
 				githubPr: input.prDescription.githubPr,
@@ -48,6 +57,7 @@ export async function generateSubmitPrDescriptions(input: {
 				title: viewed.value.title,
 				body: viewed.value.body,
 				prewrittenMetadata,
+				...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 			});
 			if (reconciled.kind === "matched") {
 				prewritten.push(link);
@@ -59,6 +69,7 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
+		input.onProgress?.(`loading PR #${number} commit messages`);
 		const decision = await decidePrBodyOverwrite({
 			pr: viewed.value,
 			cwd: input.cwd,
@@ -69,6 +80,9 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
+		if (generation === undefined) {
+			input.onProgress?.("resolving PR description prompt and model");
+		}
 		const resolvedGeneration = generation ?? await resolvePrDescriptionGeneration({
 			cwd: input.cwd,
 			env: input.prDescription.env,
@@ -87,8 +101,10 @@ export async function generateSubmitPrDescriptions(input: {
 			textGeneration: input.prDescription.textGeneration,
 			git: input.prDescription.git,
 			generation,
+			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 		if (applied.ok) {
+			input.onProgress?.(`finished PR #${number} description`);
 			generated.push(link);
 		} else {
 			failures.push({ link, number, reason: applied.error });
@@ -124,11 +140,13 @@ async function reconcilePrewrittenPr(input: {
 	title: string;
 	body: string;
 	prewrittenMetadata: PreparedSubmitPrMetadata;
+	onProgress?: (message: string) => void;
 }): Promise<{ kind: "matched" } | { kind: "updated" } | { kind: "failed"; failure: PrDescriptionFailure }> {
 	if (prMetadataMatches(input.title, input.body, input.prewrittenMetadata)) {
 		return { kind: "matched" };
 	}
 
+	input.onProgress?.(`updating PR #${input.number} with prewritten metadata`);
 	const edited = await input.githubPr.editPr({
 		cwd: input.cwd,
 		number: input.number,
@@ -153,6 +171,10 @@ function prMetadataMatches(title: string, body: string, metadata: PreparedSubmit
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
 	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
+}
+
+function formatCount(count: number, noun: string): string {
+	return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 export function formatPrLinkTextRow(link: SubmitPrLink): string {

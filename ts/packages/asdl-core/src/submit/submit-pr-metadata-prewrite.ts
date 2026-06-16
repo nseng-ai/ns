@@ -15,8 +15,11 @@ const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const COMMAND_TIMEOUT_MS = 60_000;
 const MODIFY_TIMEOUT_MS = 600_000;
 
+export type SubmitMetadataProgressListener = (message: string) => void;
+
 export interface SubmitMetadataCommandParams {
 	cwd: string;
+	onProgress?: SubmitMetadataProgressListener;
 }
 
 export interface SubmitStackInspection {
@@ -80,8 +83,10 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			return err({ code: "submit_stack_current_unknown", message: "Graphite stack inspection did not identify the current branch." });
 		}
 
+		params.onProgress?.(formatStackBranchMetadataProgress(parsedLog.branches.length));
 		const branches: SubmitStackBranch[] = [];
-		for (const branch of parsedLog.branches) {
+		for (const [index, branch] of parsedLog.branches.entries()) {
+			params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${parsedLog.branches.length})`);
 			const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], params.cwd, COMMAND_TIMEOUT_MS);
 			const infoError = commandError("gt", [...GT_BRANCH_INFO_BASE_ARGS, branch], info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
 			if (infoError !== undefined) return err(infoError);
@@ -98,6 +103,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 				continue;
 			}
 
+			params.onProgress?.(`reading local commits and diff for ${branch}`);
 			const commitMessages = await this.readBranchCommitMessages(params.cwd, parentBranch, branch);
 			if (!commitMessages.ok) return commitMessages;
 			const diff = await this.readBranchDiff(params.cwd, parentBranch, branch);
@@ -169,8 +175,10 @@ export async function prepareSubmitPrMetadata(input: {
 	gateway: SubmitMetadataGateway;
 	git: GitGateway;
 	textGeneration: TextGenerationGateway;
+	onProgress?: SubmitMetadataProgressListener;
 }): Promise<SubmitPrMetadataPrewriteResult> {
-	const inspected = await input.gateway.inspectSubmitStack({ cwd: input.cwd });
+	input.onProgress?.("inspecting Graphite stack before metadata preparation");
+	const inspected = await input.gateway.inspectSubmitStack({ cwd: input.cwd, ...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }) });
 	if (!inspected.ok) {
 		return { kind: "failed", error: inspected.error.message, amendedBranches: [] };
 	}
@@ -179,7 +187,9 @@ export async function prepareSubmitPrMetadata(input: {
 	const newBranches = inspected.value.branches.filter(
 		(branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.commitMessages.length === 1 && amendableBranches.has(branch.branch),
 	);
+	input.onProgress?.(formatMetadataPreparationDiscoveryProgress(inspected.value.branches.length, newBranches.length));
 	if (newBranches.length === 0) {
+		input.onProgress?.("no pre-submit PR metadata changes needed");
 		return { kind: "prepared", prepared: [] };
 	}
 
@@ -189,6 +199,7 @@ export async function prepareSubmitPrMetadata(input: {
 		git: input.git,
 		textGeneration: input.textGeneration,
 		branches: newBranches,
+		...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 	});
 	if (generated.kind === "failed") {
 		return { ...generated, amendedBranches: [] };
@@ -197,13 +208,15 @@ export async function prepareSubmitPrMetadata(input: {
 		return { kind: "prepared", prepared: [] };
 	}
 
+	input.onProgress?.("checking clean worktree before metadata amendment");
 	const clean = await input.gateway.ensureCleanWorktree({ cwd: input.cwd });
 	if (!clean.ok) {
 		return { kind: "failed", error: clean.error.message, amendedBranches: [] };
 	}
 
 	const amendedBranches: string[] = [];
-	for (const metadata of generated.prepared) {
+	for (const [index, metadata] of generated.prepared.entries()) {
+		input.onProgress?.(`amending local PR metadata commit for ${metadata.branch} (${index + 1}/${generated.prepared.length})`);
 		const amended = await input.gateway.amendBranchMetadataCommit({
 			cwd: input.cwd,
 			currentBranch: inspected.value.currentBranch,
@@ -221,6 +234,7 @@ export async function prepareSubmitPrMetadata(input: {
 		amendedBranches.push(metadata.branch);
 	}
 
+	input.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
 	return { kind: "prepared", prepared: generated.prepared };
 }
 
@@ -230,6 +244,7 @@ async function generateMetadataForBranches(input: {
 	git: GitGateway;
 	textGeneration: TextGenerationGateway;
 	branches: readonly SubmitStackNewBranch[];
+	onProgress?: SubmitMetadataProgressListener;
 }): Promise<{ kind: "prepared"; prepared: PreparedSubmitPrMetadata[] } | { kind: "failed"; error: string; exitCode?: number }> {
 	const generation = await resolvePrDescriptionGeneration({ env: input.env, cwd: input.cwd, git: input.git });
 	if (!generation.ok) {
@@ -237,7 +252,8 @@ async function generateMetadataForBranches(input: {
 	}
 
 	const prepared: PreparedSubmitPrMetadata[] = [];
-	for (const branch of input.branches) {
+	for (const [index, branch] of input.branches.entries()) {
+		input.onProgress?.(`generating initial PR metadata for ${branch.branch} (${index + 1}/${input.branches.length})`);
 		const currentTitle = branch.commitMessages[0]?.headline ?? branch.branch;
 		const generated = await preparePrDescription({
 			textGeneration: input.textGeneration,
@@ -251,6 +267,7 @@ async function generateMetadataForBranches(input: {
 				commitMessages: branch.commitMessages,
 				diff: branch.diff,
 			},
+			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
 		});
 		if (!generated.ok) {
 			return { kind: "failed", error: `Could not generate initial PR metadata for ${branch.branch}: ${generated.error}` };
@@ -280,6 +297,22 @@ function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string
 
 function commandError(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
 	return commandFailure({ command, args, result, code, message });
+}
+
+function formatStackBranchMetadataProgress(branchCount: number): string {
+	return `inspecting Graphite stack branch metadata for ${formatBranchCount(branchCount, "branch")}`;
+}
+
+function formatMetadataPreparationDiscoveryProgress(totalBranchCount: number, newBranchCount: number): string {
+	return `found ${formatBranchCount(totalBranchCount, "stack branch")}; ${formatBranchCount(newBranchCount, "new single-commit branch")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
+}
+
+function formatPreparedMetadataProgress(branchCount: number): string {
+	return `prepared pre-submit PR metadata for ${formatBranchCount(branchCount, "branch")}`;
+}
+
+function formatBranchCount(count: number, singularBranchPhrase: string): string {
+	return `${count} ${singularBranchPhrase}${count === 1 ? "" : "es"}`;
 }
 
 function parseExistingPrFromBranchInfo(output: string, branch: string): GatewayResult<SubmitPrLink | undefined> {

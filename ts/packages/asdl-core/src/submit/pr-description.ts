@@ -253,6 +253,7 @@ export async function preparePrDescription(input: {
 	modelRef: string;
 	promptText: string;
 	context: PrDescriptionPromptContext;
+	onProgress?: (message: string) => void;
 }): Promise<PreparedPrDescription> {
 	const firstPrompt = buildPrDescriptionUserPrompt(input.context);
 	const prepared = await prepareRepairedText({
@@ -266,6 +267,19 @@ export async function preparePrDescription(input: {
 		},
 		buildRepairPrompt: ({ initialPrompt, previousDraft, feedback }) =>
 			`${initialPrompt}\n## previous invalid draft\n\n${previousDraft.trim()}\n\n## validation feedback\n\n${feedback}\n\nRewrite the PR title and body so it satisfies every validation rule. Return only the corrected PR title and body.\n`,
+		onProgress: (event) => {
+			switch (event.type) {
+				case "attempt_started":
+					input.onProgress?.(`requesting PR description from model (attempt ${event.attempt}/${event.maxAttempts})`);
+					break;
+				case "attempt_waiting":
+					input.onProgress?.(`still waiting for PR description from model (attempt ${event.attempt}/${event.maxAttempts}, ${formatElapsedSeconds(event.elapsedMs)} elapsed)`);
+					break;
+				case "attempt_invalid":
+					input.onProgress?.("PR description model output failed validation; requesting repair");
+					break;
+			}
+		},
 	});
 	if (!prepared.ok) return prepared;
 	return {
@@ -289,6 +303,10 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 		headRatio: 0.7,
 		buildMarker: (omittedChars) => `\n[... TRUNCATED ${omittedChars} chars ...]\n`,
 	});
+}
+
+function formatElapsedSeconds(elapsedMs: number): string {
+	return `${Math.floor(elapsedMs / 1_000)}s`;
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {

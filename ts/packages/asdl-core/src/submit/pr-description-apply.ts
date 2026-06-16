@@ -17,6 +17,7 @@ export interface PrDescriptionApplyOptions {
 	textGeneration: TextGenerationGateway;
 	git: GitGateway;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
+	onProgress?: (message: string) => void;
 }
 
 export type GeneratedPrDescriptionResult =
@@ -50,6 +51,7 @@ export async function generatePrDescriptionForPr(
 		return generation;
 	}
 
+	options.onProgress?.(`reading PR #${pr.number} diff`);
 	const diff = await options.githubPr.getPrDiff({ cwd: options.cwd, number: pr.number });
 	if (!diff.ok) {
 		return { ok: false, error: diff.error.message };
@@ -69,6 +71,7 @@ export async function generatePrDescriptionForPr(
 			commitMessages: commits,
 			diff: diff.value,
 		},
+		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
 	if (!prepared.ok) {
 		return { ok: false, error: prepared.error };
@@ -84,6 +87,7 @@ export async function applyGeneratedDescription(
 	const prepared = await generatePrDescriptionForPr(pr, commits, options);
 	if (!prepared.ok) return prepared;
 
+	options.onProgress?.(`updating PR #${pr.number} description`);
 	const edited = await options.githubPr.editPr({
 		cwd: options.cwd,
 		number: pr.number,
