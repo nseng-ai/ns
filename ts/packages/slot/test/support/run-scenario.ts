@@ -1,5 +1,6 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
+import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotGitGateway, type FakeSlotGitGatewayOptions } from "../../src/gateways/fakes/git.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
@@ -31,6 +32,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		repo,
 		git,
 		storage,
+		clipboard: new FakeClipboardGateway(),
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
