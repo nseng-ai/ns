@@ -95,9 +95,9 @@ async function archiveObjective(
 				direction,
 				sourcePath: movePaths.relativeSource,
 				destinationPath: movePaths.relativeDestination,
-				sourceExists: false,
-				destinationExists,
-				moved: false,
+				hasSource: false,
+				hasDestination: destinationExists,
+				wasMoved: false,
 			}),
 		};
 	}
@@ -111,9 +111,9 @@ async function archiveObjective(
 				direction,
 				sourcePath: movePaths.relativeSource,
 				destinationPath: movePaths.relativeDestination,
-				sourceExists: true,
-				destinationExists,
-				moved: false,
+				hasSource: true,
+				hasDestination: destinationExists,
+				wasMoved: false,
 			}),
 		};
 	}
@@ -127,9 +127,9 @@ async function archiveObjective(
 				direction,
 				sourcePath: movePaths.relativeSource,
 				destinationPath: movePaths.relativeDestination,
-				sourceExists: true,
-				destinationExists: true,
-				moved: false,
+				hasSource: true,
+				hasDestination: true,
+				wasMoved: false,
 			}),
 		};
 	}
@@ -145,9 +145,9 @@ async function archiveObjective(
 			direction,
 			sourcePath: movePaths.relativeSource,
 			destinationPath: movePaths.relativeDestination,
-			sourceExists: false,
-			destinationExists: true,
-			moved: true,
+			hasSource: false,
+			hasDestination: true,
+			wasMoved: true,
 		}),
 	};
 }
@@ -173,9 +173,9 @@ function archiveResult(options: {
 	direction: ObjectiveArchiveDirection;
 	sourcePath: string;
 	destinationPath: string;
-	sourceExists: boolean;
-	destinationExists: boolean;
-	moved: boolean;
+	hasSource: boolean;
+	hasDestination: boolean;
+	wasMoved: boolean;
 }): ArchiveObjectiveResult {
 	return {
 		status: options.status,
@@ -184,9 +184,9 @@ function archiveResult(options: {
 		direction: options.direction,
 		source_path: options.sourcePath,
 		destination_path: options.destinationPath,
-		source_exists: options.sourceExists,
-		destination_exists: options.destinationExists,
-		moved: options.moved,
+		source_exists: options.hasSource,
+		destination_exists: options.hasDestination,
+		moved: options.wasMoved,
 	};
 }
 
