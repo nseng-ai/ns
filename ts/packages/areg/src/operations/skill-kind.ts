@@ -15,6 +15,8 @@ import type {
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
+import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
+import { applyProjectMutationPlan } from "./project-mutations.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
 const INFERRED_SKILL_INVOCATION_KINDS = [...SKILL_INVOCATION_KINDS, "mixed", "inconsistent"] as const;
@@ -273,7 +275,10 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 			skillResults.push({ skill: plan.value.skill, operations: plan.value.operations.map((operation) => toApplyOperationResult(operation, false, false)) });
 			continue;
 		}
-		const applyResult = await applySkillKindPlan(ctx, projectDir, {
+		const applyResult = await applyProjectMutationPlan({
+			ctx,
+			projectDir,
+			policy: "skill-kind",
 			writes: plannedWrites(plan.value),
 			deletes: plannedDeletes(plan.value),
 			removeEmptyDirs: plannedRemoveEmptyDirs(plan.value),
@@ -437,20 +442,14 @@ async function inspectResolvedProject(ctx: AregCliContext, requestPath: string):
 }
 
 async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPath: string): Promise<SkillKindProjectInspection> {
-	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
-	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir: base.projectDir, env: ctx.env });
-	const inventory = await ctx.project.inspectSkillNameInventory({ projectDir: base.projectDir, env: ctx.env });
-	const skills: AregSkillKindSkillInspection[] = [];
-	for (const skillName of inventory.localSkillKindNames) {
-		skills.push(await ctx.project.inspectLocalSkill({ projectDir: base.projectDir, skillName, env: ctx.env }));
-	}
+	const facts = await collectProjectInspectionFacts(ctx, projectPath);
 	return {
-		projectDir: base.projectDir,
-		projectPathState: base.projectPathState,
-		piDir: piArtifacts.piDir,
-		piSettings: piArtifacts.piSettings,
-		genericReplacement: piArtifacts.genericReplacement,
-		skills,
+		projectDir: facts.projectDir,
+		projectPathState: facts.projectPathState,
+		piDir: facts.piDir,
+		piSettings: facts.piSettings,
+		genericReplacement: facts.genericReplacement,
+		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
 	};
 }
 
@@ -538,56 +537,6 @@ function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {
 function deletionPrompt(plan: SkillKindApplyPlan): string {
 	const paths = plan.operations.filter((operation) => operation.type === "delete" || operation.type === "remove_empty_dir").map((operation) => `- ${operation.relativePath}`).join("\n");
 	return `Apply ${plan.kind} to ${plan.skill} will delete managed artifacts:\n${paths}\nContinue?`;
-}
-
-async function applySkillKindPlan(
-	ctx: AregCliContext,
-	projectDir: string,
-	plan: {
-		writes: readonly AregSkillKindTextWritePlan[];
-		deletes: readonly AregSkillKindDeletePlan[];
-		removeEmptyDirs: readonly AregSkillKindRemoveEmptyDirPlan[];
-	},
-): Promise<{ ok: true; writtenRelativePaths: readonly string[]; deletedRelativePaths: readonly string[]; removedEmptyDirRelativePaths: readonly string[] } | { ok: false; error: { code: string; message: string; displayCommand?: string | undefined } }> {
-	const writtenRelativePaths: string[] = [];
-	const deletedRelativePaths: string[] = [];
-	const removedEmptyDirRelativePaths: string[] = [];
-	for (const write of plan.writes) {
-		const result = await ctx.project.writeTextFile({
-			projectDir,
-			relativePath: write.relativePath,
-			content: write.content,
-			description: write.description,
-			createParent: write.createParent,
-			policy: "skill-kind",
-			env: ctx.env,
-		});
-		if (!result.ok) return result;
-		writtenRelativePaths.push(write.relativePath);
-	}
-	for (const deletePlan of plan.deletes) {
-		const result = await ctx.project.deleteFile({
-			projectDir,
-			relativePath: deletePlan.relativePath,
-			description: deletePlan.description,
-			policy: "skill-kind",
-			env: ctx.env,
-		});
-		if (!result.ok) return result;
-		deletedRelativePaths.push(deletePlan.relativePath);
-	}
-	for (const removePlan of plan.removeEmptyDirs) {
-		const result = await ctx.project.removeEmptyDir({
-			projectDir,
-			relativePath: removePlan.relativePath,
-			description: removePlan.description,
-			policy: "skill-kind",
-			env: ctx.env,
-		});
-		if (!result.ok) return result;
-		if (result.removed) removedEmptyDirRelativePaths.push(removePlan.relativePath);
-	}
-	return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths };
 }
 
 function plannedWrites(plan: SkillKindApplyPlan): readonly AregSkillKindTextWritePlan[] {

@@ -8,6 +8,7 @@ import { sortStrings, uniqueSortedStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
+import { collectCheckSkillInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
 	"invalid_lock_hash",
@@ -285,28 +286,27 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 }
 
 async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: string): Promise<CheckProjectInspection> {
-	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
-	const inventory = await ctx.project.inspectSkillNameInventory({ projectDir: base.projectDir, env: ctx.env });
-	const excludedSkillNames = await ctx.project.readLocallyExcludedSkillNames({ projectDir: base.projectDir, env: ctx.env });
-	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir: base.projectDir, env: ctx.env });
-	const lockfileResult = parseInspectedLockfile(base);
+	const facts = await collectProjectInspectionFacts(ctx, projectPath);
+	const excludedSkillNames = await ctx.project.readLocallyExcludedSkillNames({ projectDir: facts.projectDir, env: ctx.env });
+	const lockfileResult = parseInspectedLockfile(facts);
 	const lockfileSkillNames = lockfileResult.type === "ok" ? lockfileResult.lockfile.skills.map((skill) => skill.name) : [];
-	const skillNames = uniqueSortedStrings([...lockfileSkillNames, ...inventory.skillsDirectoryNames, ...inventory.agentsSkillNames, ...inventory.claudeSkillNames]);
-	const skills: AregCheckSkillInspection[] = [];
-	for (const skillName of skillNames) {
-		skills.push(await ctx.project.inspectCheckSkill({ projectDir: base.projectDir, skillName, env: ctx.env }));
-	}
+	const skillNames = uniqueSortedStrings([
+		...lockfileSkillNames,
+		...facts.skillInventory.skillsDirectoryNames,
+		...facts.skillInventory.agentsSkillNames,
+		...facts.skillInventory.claudeSkillNames,
+	]);
 	return {
-		projectDir: base.projectDir,
-		projectPathState: base.projectPathState,
-		lockfile: base.lockfile,
-		skillsDirectoryNames: inventory.skillsDirectoryNames,
-		agentsSkillNames: inventory.agentsSkillNames,
+		projectDir: facts.projectDir,
+		projectPathState: facts.projectPathState,
+		lockfile: facts.lockfile,
+		skillsDirectoryNames: facts.skillInventory.skillsDirectoryNames,
+		agentsSkillNames: facts.skillInventory.agentsSkillNames,
 		excludedSkillNames,
-		piSettings: piArtifacts.piSettings,
-		genericReplacement: piArtifacts.genericReplacement,
-		skills,
-		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: base.projectDir, env: ctx.env }),
+		piSettings: facts.piSettings,
+		genericReplacement: facts.genericReplacement,
+		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
+		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: facts.projectDir, env: ctx.env }),
 	};
 }
 

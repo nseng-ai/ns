@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregErrorInfo, AregInitTextFileState, AregInitTextWritePlan } from "../gateways.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
+import { applyProjectMutationPlan } from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 
@@ -126,7 +127,7 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	});
 	if (install.type === "error") return failure("skill_install_failed", `npx skills add failed: ${install.error.message}`);
 
-	const apply = await applyInitTextPlan(ctx, inspection.projectDir, textPlan.writes);
+	const apply = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes });
 	if (!apply.ok) return failure("write_failed", apply.error.message);
 
 	return ok({
@@ -187,28 +188,6 @@ export function claudeBlock(options: { includeAgentsRef: boolean }): string {
 	if (options.includeAgentsRef) lines.push("@AGENTS.md", "");
 	lines.push(CLAUDE_NOTE, CLAUDE_BLOCK_END);
 	return lines.join("\n");
-}
-
-async function applyInitTextPlan(
-	ctx: AregCliContext,
-	projectDir: string,
-	writes: readonly AregInitTextWritePlan[],
-): Promise<{ ok: true; writtenRelativePaths: readonly string[] } | { ok: false; error: AregErrorInfo }> {
-	const writtenRelativePaths: string[] = [];
-	for (const write of writes) {
-		const result = await ctx.project.writeTextFile({
-			projectDir,
-			relativePath: write.relativePath,
-			content: write.content,
-			description: write.description,
-			createParent: write.createParent,
-			policy: "init",
-			env: ctx.env,
-		});
-		if (!result.ok) return result;
-		writtenRelativePaths.push(write.relativePath);
-	}
-	return { ok: true, writtenRelativePaths };
 }
 
 async function buildInitTextPlan(
