@@ -83,7 +83,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			return err({ code: "submit_stack_current_unknown", message: "Graphite stack inspection did not identify the current branch." });
 		}
 
-		params.onProgress?.(`inspecting Graphite stack branch metadata for ${formatBranchCount(parsedLog.branches.length, "branch")}`);
+		params.onProgress?.(formatStackBranchMetadataProgress(parsedLog.branches.length));
 		const branches: SubmitStackBranch[] = [];
 		for (const [index, branch] of parsedLog.branches.entries()) {
 			params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${parsedLog.branches.length})`);
@@ -187,9 +187,7 @@ export async function prepareSubmitPrMetadata(input: {
 	const newBranches = inspected.value.branches.filter(
 		(branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.commitMessages.length === 1 && amendableBranches.has(branch.branch),
 	);
-	input.onProgress?.(
-		`found ${formatBranchCount(inspected.value.branches.length, "stack branch")}; ${formatBranchCount(newBranches.length, "new single-commit branch")} ${newBranches.length === 1 ? "needs" : "need"} initial PR metadata`,
-	);
+	input.onProgress?.(formatMetadataPreparationDiscoveryProgress(inspected.value.branches.length, newBranches.length));
 	if (newBranches.length === 0) {
 		input.onProgress?.("no pre-submit PR metadata changes needed");
 		return { kind: "prepared", prepared: [] };
@@ -236,7 +234,7 @@ export async function prepareSubmitPrMetadata(input: {
 		amendedBranches.push(metadata.branch);
 	}
 
-	input.onProgress?.(`prepared pre-submit PR metadata for ${formatBranchCount(generated.prepared.length, "branch")}`);
+	input.onProgress?.(formatPreparedMetadataProgress(generated.prepared.length));
 	return { kind: "prepared", prepared: generated.prepared };
 }
 
@@ -299,6 +297,18 @@ function findAmendableBranchNames(inspection: SubmitStackInspection): Set<string
 
 function commandError(command: string, args: readonly string[], result: ExecResult, code: string, message: string): ErrorInfo | undefined {
 	return commandFailure({ command, args, result, code, message });
+}
+
+function formatStackBranchMetadataProgress(branchCount: number): string {
+	return `inspecting Graphite stack branch metadata for ${formatBranchCount(branchCount, "branch")}`;
+}
+
+function formatMetadataPreparationDiscoveryProgress(totalBranchCount: number, newBranchCount: number): string {
+	return `found ${formatBranchCount(totalBranchCount, "stack branch")}; ${formatBranchCount(newBranchCount, "new single-commit branch")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
+}
+
+function formatPreparedMetadataProgress(branchCount: number): string {
+	return `prepared pre-submit PR metadata for ${formatBranchCount(branchCount, "branch")}`;
 }
 
 function formatBranchCount(count: number, singularBranchPhrase: string): string {
