@@ -145,7 +145,7 @@ async function compactGetFeedbackResult(
 }
 
 function isInlineFeedbackResult(value: unknown): value is GetFeedbackInlineResult {
-	return typeof value === "object" && value !== null && "pr_number" in value && "reviews" in value && "review_threads" in value && "discussion_comments" in value;
+	return typeof value === "object" && value !== null && "payload_mode" in value && value.payload_mode === "inline";
 }
 
 function feedbackCounts(snapshot: FeedbackSnapshot): Record<string, number> {
