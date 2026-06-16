@@ -54,21 +54,23 @@ function createContext(cwd: string): CommandContext {
 async function createOverrideProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-pi-override-"));
 	tempDirs.push(directory);
-	const commandPath = join(directory, ".asdl", "commands", "cp.ts");
-	mkdirSync(dirname(commandPath), { recursive: true });
+	const extensionPath = join(directory, ".asdl", "extensions", "cp-override.ts");
+	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(
-		commandPath,
+		extensionPath,
 		`
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 
-export default defineCommand({
-	name: "cp",
-	description: "Custom checkpoint",
-	async run(ctx) {
-		const result = await ctx.exec("echo", ["pi-custom"]);
-		return ok(result.stdout.trim());
-	},
-});
+export default function extension(api) {
+	api.registerCommand(defineCommand({
+		name: "cp",
+		description: "Custom checkpoint",
+		async run(ctx) {
+			const result = await ctx.exec("echo", ["pi-custom"]);
+			return ok(result.stdout.trim());
+		},
+	}));
+}
 `,
 	);
 	return directory;
@@ -105,7 +107,17 @@ describe("sdl Pi extension", () => {
 		const pi = new FakePi();
 		sdlExtension(pi);
 
-		await commandFor(pi, "sdl:cp").handler("", createContext(cwd));
+		const originalHome = process.env.HOME;
+		process.env.HOME = join(cwd, ".home");
+		try {
+			await commandFor(pi, "sdl:cp").handler("", createContext(cwd));
+		} finally {
+			if (originalHome === undefined) {
+				delete process.env.HOME;
+			} else {
+				process.env.HOME = originalHome;
+			}
+		}
 
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(String(pi.sentMessages[0]?.content)).toContain("pi-custom");

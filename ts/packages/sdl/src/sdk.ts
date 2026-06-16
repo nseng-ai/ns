@@ -6,6 +6,7 @@ import type { TextGenerationGateway } from "./text-generation.ts";
 export type { PositionalSpec } from "@asdl/clinkr/raw";
 export { z } from "zod";
 export type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
+export type { ExtensionAPI, ExtensionFactory } from "./extension-api.ts";
 
 export interface ExecOptions {
 	timeoutMs?: number;
@@ -26,11 +27,11 @@ export type SdlConfirmPrompt = (title: string, message: string) => Promise<boole
 export interface SdlContext {
 	/** Current repository working directory for command-module execution. */
 	cwd: string;
-	/** Environment visible to command modules and shell execution. */
+	/** Environment visible to SDL commands and shell execution. */
 	env: Record<string, string | undefined>;
 	/** Low-level argv execution hook. Project commands own the exact commands they run. */
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
-	/** Raw text-generation capability; command modules own prompts, validation, and repair policy. */
+	/** Raw text-generation capability; SDL commands own prompts, validation, and repair policy. */
 	model: TextGenerationGateway;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
 	stdout?: ((text: string) => void) | undefined;
@@ -38,9 +39,9 @@ export interface SdlContext {
 	stderr?: ((text: string) => void) | undefined;
 	/** Transient live-progress output for UI bridges. */
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
-	/** Optional UI confirmation hook for interactive command modules. */
+	/** Optional UI confirmation hook for interactive SDL commands. */
 	confirm?: SdlConfirmPrompt | undefined;
-	/** Project-local extension bag. Command modules own any values they read from it. */
+	/** Project-local extension bag. SDL commands own any values they read from it. */
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 
