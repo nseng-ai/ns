@@ -34,6 +34,13 @@ export type ParseRunnerSubagentUsageJsonlResult =
 
 type JsonRecord = Record<string, unknown>;
 
+interface StringFieldSearchOptions {
+	record: JsonRecord;
+	message: JsonRecord;
+	usage: JsonRecord;
+	key: string;
+}
+
 const TOKEN_FIELDS = ["input", "output", "cacheRead", "cacheWrite", "totalTokens"] as const;
 
 export function parseRunnerSubagentUsageJsonl(jsonl: string): ParseRunnerSubagentUsageJsonlResult {
@@ -123,21 +130,21 @@ function costFromUsage(usage: JsonRecord): RunnerSubagentUsageCostTotals {
 
 function modelRefFromRecord(record: JsonRecord, message: JsonRecord, usage: JsonRecord): RunnerSubagentUsageModelRef {
 	return {
-		provider: firstStringField(record, message, usage, "provider"),
-		api: firstStringField(record, message, usage, "api"),
-		model: firstStringField(record, message, usage, "model"),
+		provider: firstStringField({ record, message, usage, key: "provider" }),
+		api: firstStringField({ record, message, usage, key: "api" }),
+		model: firstStringField({ record, message, usage, key: "model" }),
 	};
 }
 
-function firstStringField(record: JsonRecord, message: JsonRecord, usage: JsonRecord, key: string): string | null {
-	const direct = stringField(message, key) ?? stringField(record, key) ?? stringField(usage, key);
+function firstStringField(options: StringFieldSearchOptions): string | null {
+	const direct = stringField(options.message, options.key) ?? stringField(options.record, options.key) ?? stringField(options.usage, options.key);
 	if (direct !== null) return direct;
 
-	for (const container of [message, record, usage]) {
+	for (const container of [options.message, options.record, options.usage]) {
 		for (const nestedKey of ["modelInfo", "model_info", "modelRef", "model_ref"]) {
 			const nested = mappingField(container, nestedKey);
 			if (nested === null) continue;
-			const nestedValue = stringField(nested, key);
+			const nestedValue = stringField(nested, options.key);
 			if (nestedValue !== null) return nestedValue;
 		}
 	}
