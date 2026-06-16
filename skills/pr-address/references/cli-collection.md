@@ -1,72 +1,34 @@
-# Collection helpers
+# Download helpers
 
-## `prepare-run`
-
-Used by `/code:pr-feedback-watch` to discover the current PR and seed the payload session.
-
-```bash
-pr-address exec prepare-run \
-  --harness-session-id "$HARNESS_SESSION_ID" \
-  --format json
-```
-
-Common flags:
-
-- `--include-all-threads`
-- `--include-empty-reviews`
-- `--payload-mode inline|payload`
-- `--stdout-mode full|compact`
-
-## `get-feedback`
-
-Collect raw feedback for a known PR number and store a session payload artifact.
-
-```bash
-pr-address exec get-feedback <pr-number> --format json
-pr-address exec get-feedback <pr-number> --include-resolved --format json
-```
+`pr-address` is retained only as read-only feedback-download plumbing while the old addressing workflow is deleted.
 
 ## `download-feedback`
 
-Read-only Markdown feedback download used by `/pr:download-feedback` and `/pr:download-stack-feedback`.
+Download one PR's current feedback as Markdown for agent triage.
 
 ```bash
 pr-address exec download-feedback --pr-number <pr-number> --format json
 ```
 
-The result includes `markdown` for editor prefill. It is triage-only and does not start the addressing pipeline.
+If the current branch has an open PR, callers may omit `--pr-number`:
 
-## `map-branch-prs`
+```bash
+pr-address exec download-feedback --format json
+```
 
-Map branch names to open PRs for the Pi stack download prompt.
+The result includes `markdown` for editor/session prefill plus target/count metadata. It does not start an addressing run, create payload artifacts, validate classifications, plan batches, or mutate GitHub.
+
+## Stack download support
+
+`/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. During the transition, `map-branch-prs` may remain as minimal branch-to-PR lookup plumbing:
 
 ```bash
 slot gt exec stack-branches --format json \
   | pr-address exec map-branch-prs --format json
 ```
 
-Callers may also pass `--branches-json <json>`.
+The stack command should then call `download-feedback` once per discovered PR. Do not route stack feedback through the retired stack-address or payload-session workflows.
 
-## `classification-template`
+## Retired helpers
 
-Build the classification packet skeleton from the latest collected manifest.
-
-```bash
-pr-address exec classification-template --pr-number <pr-number> --format json
-```
-
-## Detail lookup
-
-Use detail helpers when the compact manifest points to a body or item that needs expansion.
-
-```bash
-pr-address exec read-feedback-detail \
-  --pr-number <pr-number> \
-  --json-pointer /data/review_threads/0/comments/0/body \
-  --format json
-
-pr-address exec read-feedback-details \
-  --pr-number <pr-number> \
-  --selection-json '<json>' \
-  --format json
-```
+The following historical helpers are obsolete and scheduled for deletion: `prepare-run`, `get-feedback` payload modes, `classification-template`, `validate-feedback-classification`, `plan-feedback`, `read-feedback-detail`, `read-feedback-details`, resolver-payload builders, mutation helpers, checkpoints, and finalization.

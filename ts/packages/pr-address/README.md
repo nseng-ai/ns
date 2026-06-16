@@ -1,25 +1,17 @@
 # @asdl/pr-address
 
-TypeScript implementation of the public `pr-address` standalone CLI.
+Transitional TypeScript package for the `pr-address` standalone CLI.
 
-This package owns the package boundary and direct Node CLI entrypoint for `pr-address`. Every `pr-address exec ...` operation — including argv parsing, usage errors, and every `--json-schema` route — executes in TypeScript. Genuinely unknown `pr-address exec <operation>` names are rejected by clinkr as raw stderr exit-2 usage errors, the same as any other unknown command.
+`pr-address` is being reduced to a tiny read-only feedback downloader. The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, GitHub mutation orchestration, checkpoints, finalization, and detail lookup — is retired and scheduled for deletion.
 
-## Operations
+## Retained contract
 
-Invocation is TypeScript-first: the `pr-address` shim on `PATH` executes `node ts/packages/pr-address/src/cli.ts` from the enclosing asdl checkout when invoked inside one, and from the installing checkout everywhere else (see "Distribution" below).
+The retained foundation is:
 
-TypeScript-managed local `exec` operation execution:
+- `pr-address exec download-feedback [--pr-number <number>] --format json`
+- minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback` while that Pi command still shells out to this package
 
-- Classification and planning: `classification-template`, `validate-feedback-classification`, `plan-feedback`
-- Payload/finalization helpers: `build-resolve-thread-batch-payload`, `finalize-run`
-- Read-only GitHub fetch helpers: `get-feedback` in both inline and default payload-artifact modes, `download-feedback`, and `map-branch-prs`
-- Payload detail helpers: `read-feedback-detail`, `read-feedback-details`
-- Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
-- Composite run preparation: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection)
-- Mutation helpers: `resolve-thread-with-reply`, `resolve-thread-batch`, `reply-to-review`, `reply-to-discussion`
-- JSON Schema documents: `--json-schema` for every exec operation is served by TypeScript (`src/operation-schemas/index.ts`) and exact-compared against generated fixtures (`test/fixtures/json-schemas/`)
-
-Argv usage errors (unknown/missing options, excess arguments, non-integer values, invalid `--payload-mode`/`--stdout-mode`/`--format` choices) are rendered by commander in TypeScript as raw stderr exit-2 errors.
+The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub.
 
 ## Distribution
 
@@ -27,31 +19,14 @@ Argv usage errors (unknown/missing options, excess arguments, non-integer values
 
 - **Install**: `just install-pr-address` renders the shared TypeScript source CLI shim template to `~/.local/bin/pr-address`, baking in the installing checkout's path as the canonical fallback.
 - **Dispatch**: inside an asdl checkout (any worktree), the shim runs that checkout's `ts/packages/pr-address/src/cli.ts`, so each worktree exercises its own code. Everywhere else it runs the baked canonical checkout's sources.
-- **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`). The shim fails with a clear message when either checkout is unusable.
-- **Rollback**: run the independently published `asdl-pr-address` package manually via `uvx --from asdl-pr-address==0.1.1 pr-address`. That release lives on PyPI and is unrelated to the in-repo TypeScript sources.
-
-Shim dispatch behavior is covered by `test/wrapper/pr-address-shim.test.ts`.
+- **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 
 ## Local usage
 
-From the repo root:
-
 ```bash
 node ts/packages/pr-address/src/cli.ts --help
-pr-address --help  # via the installed shim, dispatches to this checkout
-pr-address exec prepare-run --harness-session-id pr-address-demo --format json
+pr-address exec download-feedback --pr-number <pr-number> --format json
 ```
-
-Validate classification JSON without creating repo scratch files:
-
-```bash
-printf '%s' "$CLASSIFICATION_JSON" \
-  | pr-address exec validate-feedback-classification \
-      --pr-number <pr-number> \
-      --format json
-```
-
-`validate-feedback-classification --classification-file <path>` hard-fails when `<path>` resolves inside the current git worktree. Use stdin, `--classification-json`, or a file outside the worktree.
 
 ## Validation
 
@@ -66,7 +41,3 @@ Broader workspace validation:
 pnpm --dir ts run check
 pnpm --dir ts run test
 ```
-
-## Distribution decisions
-
-Public distribution is decided: `pr-address` is a PATH shim over checkout sources; `@asdl/pr-address` is not published to npm.

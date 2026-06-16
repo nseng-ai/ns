@@ -1,176 +1,72 @@
-# pr-address Strangler Rewrite — Salvage the Core, Isolate the Orchestration
+# pr-address Strangler Rewrite — Delete the Workflow Engine, Keep the Downloader
 
 ## Thesis
 
-`pr-address` has hill-climbed into ~13.7k LOC of source, 22 `exec` commands, and
-~2k lines of skill prose the agent executes by hand. The actual capability is
-small: fetch a PR's feedback, decide what to do with each item without dropping
-any, make changes, reply-and-resolve threads honestly with approval gating on the
-risky ones, and verify nothing was left behind — never pushing. Yet roughly half
-the source is payload-store / session machinery whose only job is to keep big
-feedback blobs out of the agent's context window, and that machinery has leaked
-into the domain model the agent must reason about (sessions, payload paths, JSON
-pointers, locators, roles, compact/full digests).
+`pr-address` grew into a large workflow engine for addressing PR review feedback: payload sessions, classification templates, planning, resolver payloads, GitHub mutation helpers, checkpoints, finalization, detail lookup, and stack-address orchestration. That implementation is now the wrong foundation.
 
-The durable strategy is **strangler-on-salvage**, not a from-scratch rewrite and
-not an in-place refactor. The codebase splits into three trust zones, made
-obvious and compiler-checkable by an enforced import-direction boundary:
+The useful retained capability is much smaller: fetch current GitHub PR feedback as agent-readable Markdown. The active strategy is deletion-first: keep `pr-address` only as a tiny read-only downloader package/CLI around `download-feedback`, plus minimal branch-to-PR plumbing while `/pr:download-stack-feedback` still needs it. Delete the old addressing workflow engine and rebuild any future workflow from the two download surfaces:
 
-- **core/** (GOOD) — salvaged, golden-tested domain leaves: gateways, feedback
-  collection/normalization, reply formatting + resolution modes, the
-  classify-exactly-once cardinality check, and the classification heuristics.
-- **legacy/** (BAD) — the old orchestration + payload store, frozen and being
-  strangled. Done = this directory is deletable.
-- **app/** (NEW) — the `PrAddressRunEngine`/RunKernel façade and small verb set,
-  grown bit-by-bit on `core/` only.
+- `/pr:download-feedback`
+- `/pr:download-stack-feedback`
 
-This Objective is the **first read-only strangler slice**: stand up the
-three-zone layout with an enforced import boundary, define the new RunEngine
-boundary, carve the trusted core out (using the compiler to find the seams), and
-prove the new surface end-to-end with the read-only primitives (`feedback`,
-`details`, `status`). The target agent interface is the six-verb shape
-(`feedback`, `details`, `plan`, `batch`, `status`, `reply`), but each primitive
-should get its own thin end-to-end strangler slice instead of one big cutover.
-This Objective implements only the read-only slice. The dangerous mutation parity
-work, full shim cutover, and deletion of `legacy/` are deliberately follow-up
-Objectives.
-
-Current rebaseline evidence: branch `pr-address-stack-feedback-pruning` shrinks
-`pr-address` to a retained single-PR workflow by removing the stack-oriented
-helper surface and most of the stack-address skill prose. That branch also
-removes the previously landed `src/app` RunEngine façade, `src/legacy` marker,
-import-boundary guardrail, and app-contract guardrail instead of continuing the
-three-zone strangler shape. If that branch lands, the clean `core/` carve still
-survives, but the `app/`/`legacy/` isolation strategy is not the current trunk
-state and must be revalidated before further implementation.
+This supersedes both earlier directions: the three-zone `src/{core,legacy,app}` RunEngine strangler and the older roaster-backed `pr-address` wrapper plan. `/code:pr-feedback-watch` may remain only if retargeted to watch/download/inject feedback through the download-feedback foundation; it must not preserve payload-session, classification/planning, mutation, checkpoint, or finalization semantics.
 
 ## Scope
 
-- Establish a `src/{core,legacy,app}` zone layout in `ts/packages/pr-address`.
-- Add an enforced import-direction boundary (lint/static test rule): `core/`
-  imports neither `legacy/` nor `app/`; `app/` imports only `core/`; `legacy/` is
-  frozen.
-- Introduce `PrAddressRunEngine`/RunKernel in `app/` as the only new
-  orchestration vocabulary. Its public target verbs are `feedback`, `details`,
-  `plan`, `batch`, `status`, and `reply`; this first read-only strangler slice
-  implements `feedback`, `details`, and `status` first.
-- Carve cleanly-salvageable leaves into `core/` (gateways, feedback collection,
-  summarize/compaction, GitHub/manifest mirror schemas), letting `tsc` surface
-  the exact couplings to cut.
-- Split the mixed files that contain both a trusted leaf and orchestration
-  residue — extract the good function into `core/`, leave the residue in
-  `legacy/`: the classification cardinality check, reply formatting + the four
-  resolution modes, resolve-decision validation, and body-on-demand lookup.
-- `git mv` the remaining orchestration into `legacy/` untouched so the old `exec`
-  surface keeps running.
-- Build the read-only verbs on `app/`/RunEngine over `core/` only: `feedback`
-  (compact item list), `details` (body/detail handle lookup), and `status`
-  (re-fetch GitHub, report unresolved/unskipped threads). Internal durable run
-  state is allowed only behind the RunEngine if it proves useful; agent-visible
-  payload-store/session vocabulary is not allowed in the new contract.
-- Adopt the existing golden/scenario tests as the acceptance spec for carved
-  `core/` modules.
-- Rebaseline the Objective after the single-PR pruning branch: either restore the
-  three-zone `app`/`core`/`legacy` boundary as the intended strangler mechanism,
-  or deliberately replace it with a smaller single-PR-centered isolation plan.
+In scope:
+
+- Rebaseline Objective and public guidance around a download-only `pr-address` contract.
+- Keep `pr-address exec download-feedback` as the retained read-only primitive.
+- Keep minimal branch-to-PR lookup plumbing only as needed for `/pr:download-stack-feedback` until that logic has a better owner.
+- Delete or retire `stack-address` guidance and current user-facing references.
+- Retarget `/code:pr-feedback-watch` to download-feedback-only behavior.
+- Delete old `pr-address` workflow command families and their tests/fixtures/schemas:
+  - payload/session setup and chaining;
+  - `prepare-run` and old payload-mode `get-feedback` workflow behavior;
+  - classification templates and validation;
+  - feedback planning and batching;
+  - payload/detail lookup by JSON pointer;
+  - resolver-payload construction;
+  - GitHub mutation orchestration helpers;
+  - batch checkpoints and finalization ledgers.
+- Preserve enough downloader validation to prove `/pr:download-feedback` and `/pr:download-stack-feedback` remain usable.
 
 ## Non-Goals
 
-- Implementing `plan`, `batch`, or `reply` as production-ready new-surface verbs;
-  mutation parity on real PRs is the dangerous part and remains deferred.
-- Cutting the `pr-address` shim fully over to the new surface.
-- Deleting `legacy/` or collapsing the ~2k lines of skill prose.
-- Changing the classification heuristics in `feedback-classifier.md` — preserved
-  verbatim.
-- Any change to GitHub write behavior; the never-push, commits-stay-local
-  contract is untouched.
+- Do not restore `src/app`, `src/legacy`, RunEngine, or the three-zone strangler architecture.
+- Do not preserve `pr-address` as a lightweight roaster-backed workflow wrapper.
+- Do not rebuild classification, planning, batching, resolver gating, validation, or closeout semantics in this Objective.
+- Do not move the downloader primitive to a new package unless a later explicit decision changes ownership.
+- Do not mutate GitHub from the retained downloader foundation.
+- Do not preserve old command compatibility for its own sake; this repo is private/unreleased and can break old `pr-address` workflow contracts.
 
 ## Completion Criteria
 
-- `src/core`, `src/legacy`, and `src/app` exist, and every current module is
-  assigned to exactly one zone.
-- The import-boundary lint/static test rule is active and green: `core/` has zero
-  imports from `legacy/` or `app/`, and `app/` imports only from `core/`.
-- `app/` contains a `PrAddressRunEngine`/RunKernel boundary whose public contract
-  names only domain verbs, handles, decisions, batches, and status — never
-  payload paths, descriptors, locators, roles, compact/full modes, sessions, or
-  latest-artifact references.
-- The mixed files are split: each salvaged function lives in `core/` with its
-  golden test passing; any still-needed residue remains in `legacy/`.
-- The `feedback` verb returns a compact item list through the RunEngine from
-  `core/` collection with no payload-store / session vocabulary in its output
-  contract.
-- The `details` verb opens one body/detail handle through the RunEngine without
-  exposing filesystem payload protocol.
-- The `status` verb re-fetches GitHub and reports unresolved/unskipped threads
-  while requiring no agent-visible persisted artifact.
-- The old `exec` surface still runs (`legacy/` untouched); nothing is pushed.
-- Evidence: carved-core golden/scenario tests pass, the new
-  `feedback`/`details`/`status` scenario tests pass against in-memory gateways,
-  and the import-boundary lint/static test passes.
+- Current Objective and public guidance state the download-only contract: `pr-address` is retained only as a tiny read-only downloader package/CLI, and the old addressing workflow engine is retired.
+- `/pr:download-feedback` and `/pr:download-stack-feedback` remain usable through `download-feedback` and minimal branch-to-PR plumbing.
+- `/code:pr-feedback-watch`, if retained, is retargeted to download-feedback-only behavior and no longer implies payload-session, classification/planning, mutation, checkpoint, or finalization workflow semantics.
+- Active skill/docs no longer route agents to `stack-address` or old `pr-address` workflow commands for new work.
+- Old `pr-address` workflow command families are deleted or made unreachable: payload/session setup and chaining, detail lookup, classification templates and validation, planning, resolver-payload construction, GitHub mutation orchestration, checkpoints, finalization, obsolete schemas, and tests that only preserve that retired contract.
+- Evidence: retained downloader tests pass, Pi download surfaces pass, and package/workspace validation relevant to touched TypeScript and skill/docs passes.
 
 ## Assumptions and Risks
 
 Assumptions:
 
-- The trusted leaves (collection, reply formatting, modes, cardinality check,
-  classification rules) can be extracted with zero `legacy/` imports. This is
-  proven, not asserted, by the compiler-driven carve — if a leaf won't free
-  cleanly, the failing import *is* the seam to cut, not a dead end.
-- GitHub is a sufficient source of truth for `status`, so a re-fetch can replace
-  the checkpoint/finalize audit trail as the agent-facing final verification
-  protocol.
-- Hidden run state may be useful for performance, batching, or decision history,
-  but only as implementation state behind RunEngine. The run ledger is not the
-  user interface.
-- De-risked: the "never drop a feedback item" thesis depended on collection
-  reading every review thread and comment. The GitHub review-thread query was
-  previously non-paginating (first 100 threads, first 20 comments per thread);
-  paginating both thread and per-thread comment connections closes that
-  under-collection gap, so the carved collection inputs are no longer silently
-  truncated on large PRs.
+- The two download surfaces are the right foundation for future review-feedback work.
+- The `pr-address` package name can remain temporarily without implying workflow-engine ownership, as long as active guidance describes it as downloader-only.
+- Stack feedback download can be preserved with structured stack discovery plus per-PR downloads, without keeping stack-address.
+- Any future addressing workflow should be planned as a new Objective rather than resurrecting the old payload-session machinery.
 
 Risks:
 
-- A leaf assumed "core" may be entangled with `session-inputs`/`payload-store`
-  more deeply than expected, expanding the split work. Mitigation: the compiler
-  surfaces this early; descope a stubborn leaf to `legacy/` rather than forcing
-  it.
-- Mutation parity is the genuinely dangerous behavior (lying to reviewers,
-  dropping threads) and is deliberately out of scope here; the read-only
-  strangler slice must not accidentally couple the new read-only verbs to
-  mutation code paths.
-- A too-thin façade could preserve the old payload/session protocol under new
-  names. Mitigation: completion requires the RunEngine and command outputs to
-  exclude old artifact vocabulary entirely.
-- Two orchestrations coexist for the duration of the read-only strangler slice.
-  This is accepted and time-boxed by the follow-up cutover Objective.
-- A read-only feedback-download capability (`download-feedback`) now exists on
-  the bootstrap/legacy `exec` surface rather than behind the RunEngine. It
-  consumes the carved `core/` collection leaves, so it does not reintroduce
-  payload/session vocabulary into `core/`, but it is a second read-only feedback
-  surface. Mitigation: the planned RunEngine `feedback`/`details` verbs must
-  subsume or replace this command rather than leaving a third surface; do not
-  promote its `harness_session_id`-style input shape into the new app contract.
-- Materialized risk: the single-PR pruning branch removes `src/app/run-engine.ts`,
-  `src/legacy`, the import-boundary static test, the app-contract static test,
-  and shared source-file walker. That invalidates the Objective's previously
-  completed guardrail rows as current-state evidence. Mitigation: do not resume
-  the RunEngine/read-only verb rows until the boundary strategy is explicitly
-  rebaselined and either restored or replaced.
+- Historical Objective records and docs still mention preserving `pr-address` as a wrapper or improving stack-address. Mitigation: current active guidance and Semantic Updates explicitly supersede those records.
+- Deleting old commands may break private habits or scripts. Accepted: the repo is private/unreleased, and the user explicitly chose deletion over compatibility.
+- A tiny downloader package could regrow workflow semantics if future changes add planning or mutation convenience there. Mitigation: keep downloader-only scope explicit and move any rebuilt workflow to a separate Objective.
+- Retargeting `/code:pr-feedback-watch` may be more involved than the docs update. Mitigation: make it a separate roadmap row before deleting package internals it might still call.
 
 ## Open Questions
 
-- What is the minimum hidden RunEngine state, if any, needed for the read-only
-  slice? Resolve empirically during the carve; default to re-fetch and no
-  required inter-call state.
-- What should a stable detail handle look like if it is not a JSON pointer,
-  payload path, or artifact locator?
-- Where exactly to split `classification.ts` and `mutation-operations.ts` — the
-  precise function boundaries are determined by the carve.
-- Should the new verbs live under the existing hidden `exec` group during the
-  read-only strangler slice, or a separate entry point until cutover?
-- After the single-PR pruning branch, is the correct next step to restore the
-  three-zone `app`/`core`/`legacy` plan, or to define a smaller single-PR
-  strangler architecture that treats `download-feedback`, `get-feedback`, and
-  the retained payload/session helpers as the temporary surface to simplify?
+- After the old workflow commands are deleted, should the downloader primitive stay in the tiny `pr-address` package, move into `pi-extensions`, move into roaster, or become a new small package?
+- What future Objective, if any, should rebuild an addressing workflow on top of the download-feedback foundation?
+- Which historical docs should remain as provenance versus be removed or amended because agents might treat them as current instructions?
