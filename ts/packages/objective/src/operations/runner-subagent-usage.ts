@@ -192,16 +192,16 @@ function summaryFromRecords(sessionFile: string, records: readonly RunnerSubagen
 }
 
 function buildAggregate(sessions: readonly RunnerSubagentUsageSummary[]): RunnerSubagentUsageAggregate {
-	let tokens = zeroTokens();
-	let cost = zeroCost();
+	let tokens = zeroRuntimeTokens();
+	let cost = zeroRuntimeCost();
 	let usageResponseCount = 0;
 	let peakObservedTotalTokens: number | null = null;
 	let peakObservedPromptTokens: number | null = null;
 
 	for (const session of sessions) {
 		if (session.status !== "ok") continue;
-		tokens = addTokens(tokens, session.tokens);
-		cost = addCost(cost, session.cost);
+		tokens = addRunnerSubagentUsageTotals(tokens, runtimeTokens(session.tokens));
+		cost = addRunnerSubagentUsageCostTotals(cost, runtimeCost(session.cost));
 		usageResponseCount += session.assistant_response_count;
 		peakObservedTotalTokens = maxOptional(peakObservedTotalTokens, session.peak_observed_total_tokens);
 		peakObservedPromptTokens = maxOptional(peakObservedPromptTokens, session.peak_observed_prompt_tokens);
@@ -211,8 +211,8 @@ function buildAggregate(sessions: readonly RunnerSubagentUsageSummary[]): Runner
 		session_count: sessions.length,
 		ok_session_count: sessions.filter((session) => session.status === "ok").length,
 		usage_response_count: usageResponseCount,
-		tokens,
-		cost,
+		tokens: objectiveTokens(tokens),
+		cost: objectiveCost(cost),
 		peak_observed_total_tokens: peakObservedTotalTokens,
 		peak_observed_prompt_tokens: peakObservedPromptTokens,
 		configured_context_window_tokens: null,
@@ -230,20 +230,12 @@ function emptySummary(
 		error_line: options.errorLine ?? null,
 		assistant_response_count: 0,
 		models: [],
-		tokens: zeroTokens(),
-		cost: zeroCost(),
+		tokens: objectiveTokens(zeroRuntimeTokens()),
+		cost: objectiveCost(zeroRuntimeCost()),
 		peak_observed_total_tokens: null,
 		peak_observed_prompt_tokens: null,
 		configured_context_window_tokens: null,
 	};
-}
-
-function zeroTokens(): RunnerSubagentTokenTotals {
-	return objectiveTokens(zeroRuntimeTokens());
-}
-
-function zeroCost(): RunnerSubagentCostTotals {
-	return objectiveCost(zeroRuntimeCost());
 }
 
 function zeroRuntimeTokens(): RuntimeRunnerSubagentUsageTotals {
@@ -274,23 +266,23 @@ function objectiveCost(cost: RuntimeRunnerSubagentUsageCostTotals): RunnerSubage
 	};
 }
 
-function addTokens(left: RunnerSubagentTokenTotals, right: RunnerSubagentTokenTotals): RunnerSubagentTokenTotals {
+function runtimeTokens(tokens: RunnerSubagentTokenTotals): RuntimeRunnerSubagentUsageTotals {
 	return {
-		input_tokens: left.input_tokens + right.input_tokens,
-		output_tokens: left.output_tokens + right.output_tokens,
-		cache_read_tokens: left.cache_read_tokens + right.cache_read_tokens,
-		cache_write_tokens: left.cache_write_tokens + right.cache_write_tokens,
-		total_tokens: left.total_tokens + right.total_tokens,
+		input: tokens.input_tokens,
+		output: tokens.output_tokens,
+		cacheRead: tokens.cache_read_tokens,
+		cacheWrite: tokens.cache_write_tokens,
+		totalTokens: tokens.total_tokens,
 	};
 }
 
-function addCost(left: RunnerSubagentCostTotals, right: RunnerSubagentCostTotals): RunnerSubagentCostTotals {
+function runtimeCost(cost: RunnerSubagentCostTotals): RuntimeRunnerSubagentUsageCostTotals {
 	return {
-		input_usd: left.input_usd + right.input_usd,
-		output_usd: left.output_usd + right.output_usd,
-		cache_read_usd: left.cache_read_usd + right.cache_read_usd,
-		cache_write_usd: left.cache_write_usd + right.cache_write_usd,
-		total_usd: left.total_usd + right.total_usd,
+		input: cost.input_usd,
+		output: cost.output_usd,
+		cacheRead: cost.cache_read_usd,
+		cacheWrite: cost.cache_write_usd,
+		total: cost.total_usd,
 	};
 }
 

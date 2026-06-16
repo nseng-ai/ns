@@ -1,6 +1,6 @@
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { FakeObjectiveGitFactsGateway } from "../../src/fake-git-facts.ts";
 import { FakeObjectiveStorageGateway } from "../../src/fake-storage.ts";
 import { ObjectiveStorage, type ObjectiveStorageGateway } from "../../src/storage.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
@@ -14,7 +14,7 @@ function contextFor(gateway: ObjectiveStorageGateway): ObjectiveCliContext {
 		repoRoot: "/repo",
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(gateway),
-		gitFacts: new FakeObjectiveGitFactsGateway(),
+		git: new InMemoryGitGateway(),
 	};
 }
 

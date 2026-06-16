@@ -1,7 +1,7 @@
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/context.ts";
-import { FakeObjectiveGitFactsGateway } from "../../src/fake-git-facts.ts";
 import { FakeObjectiveStorageGateway, type FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
 import { legacyListCandidatesMachine, renderListCandidates, runListCandidates } from "../../src/operations/list-candidates.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
@@ -24,7 +24,7 @@ describe("objective list-candidates operation", () => {
 				],
 			},
 		});
-		expect(ctx.gitFacts.hasUncommittedChangesUnderCalls).toEqual([]);
+		expect(ctx.git.hasUncommittedChangesUnderCalls).toEqual([]);
 	});
 
 	test("renders TSV rows and legacy machine shape used by Pi autocomplete consumers", async () => {
@@ -49,7 +49,7 @@ describe("objective list-candidates operation", () => {
 });
 
 interface FakeObjectiveCliContext extends ObjectiveCliContext {
-	gitFacts: FakeObjectiveGitFactsGateway;
+	git: InMemoryGitGateway;
 }
 
 function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeObjectiveCliContext {
@@ -59,6 +59,6 @@ function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeO
 		repoRoot: "/repo",
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
-		gitFacts: new FakeObjectiveGitFactsGateway(),
+		git: new InMemoryGitGateway(),
 	};
 }

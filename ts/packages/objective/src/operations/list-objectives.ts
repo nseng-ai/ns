@@ -1,6 +1,8 @@
 import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
+import type { GitGateway } from "@asdl/core/git";
+
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath, type ObjectiveRecordStatus, type ObjectiveStorage } from "../storage.ts";
 
@@ -71,7 +73,7 @@ export async function buildObjectiveListResult(
 	let updatedBranchesBySlug: ReadonlyMap<string, readonly string[]> = new Map();
 	let isUpdatedBranchesTruncated = false;
 	if (includeBranchAttribution) {
-		const attribution = await buildObjectiveBranchAttribution(ctx.gitFacts, {
+		const attribution = await buildObjectiveBranchAttribution(ctx.git, {
 			repoRoot: ctx.repoRoot,
 			trunkBranch: ctx.trunkBranch,
 			slugs: new Set(filtered.map((record) => record.slug)),
@@ -85,7 +87,7 @@ export async function buildObjectiveListResult(
 	for (const record of filtered) {
 		const built = await buildObjectiveListRecord({
 			storage: ctx.storage,
-			gitFacts: ctx.gitFacts,
+			git: ctx.git,
 			repoRoot: ctx.repoRoot,
 			slug: record.slug,
 			status: record.status,
@@ -186,7 +188,7 @@ export function latestUpdateIsoFromUpdateNames(updateNames: readonly string[]): 
 
 interface BuildObjectiveListRecordOptions {
 	storage: ObjectiveStorage;
-	gitFacts: ObjectiveCliContext["gitFacts"];
+	git: GitGateway;
 	repoRoot: string;
 	slug: string;
 	status: ObjectiveRecordStatus;
@@ -201,7 +203,7 @@ async function buildObjectiveListRecord(options: BuildObjectiveListRecordOptions
 	const relativePath = activeRecordRelativePath(options.slug);
 	const updates = await options.storage.listUpdateFiles(relativePath);
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
-	const dirty = await options.gitFacts.hasUncommittedChangesUnder({ repoRoot: options.repoRoot, relativePath });
+	const dirty = await options.git.hasUncommittedChangesUnder({ cwd: options.repoRoot, relativePath });
 	if (!dirty.ok) return { type: "git-error", error: dirty.error };
 	return {
 		type: "ok",

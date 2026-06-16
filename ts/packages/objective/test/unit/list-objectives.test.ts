@@ -1,6 +1,6 @@
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { FakeObjectiveGitFactsGateway } from "../../src/fake-git-facts.ts";
 import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
 import { latestUpdateIsoFromUpdateNames, matchesStatusFilter } from "../../src/operations/list-objectives.ts";
 
@@ -29,8 +29,8 @@ describe("objective list helpers", () => {
 	});
 
 	test("fake-backed branch attribution prefilters branches and attributes active objective slugs", async () => {
-		const git = new FakeObjectiveGitFactsGateway({
-			branches: [
+		const git = new InMemoryGitGateway({
+			localBranchTips: [
 				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
 				{ name: "feat/older", headIso: "2026-05-02T00:00:00Z" },
 				{ name: "feat/newer", headIso: "2026-05-03T00:00:00Z" },
@@ -42,9 +42,9 @@ describe("objective list helpers", () => {
 				"feat/older|.asdl/objectives": "older-tree",
 				"feat/same-tree|.asdl/objectives": "trunk-tree",
 			},
-			pathTouches: {
-				"master..feat/newer|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }],
-				"master..feat/older|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"] }],
+			changedPaths: {
+				"master..feat/newer|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+				"master..feat/older|.asdl/objectives": [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"],
 			},
 		});
 
@@ -57,6 +57,6 @@ describe("objective list helpers", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual(["feat/newer", "feat/older"]);
-		expect(git.pathTouchesUnderCalls.map((call) => call.revisionRange)).toEqual(["master..feat/newer", "master..feat/older"]);
+		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master..feat/newer", "master..feat/older"]);
 	});
 });
