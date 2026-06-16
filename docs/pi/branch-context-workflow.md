@@ -84,6 +84,8 @@ Key: <branch-context-slug>.md
 Branch: <target-implementation-branch>
 ```
 
+The attached Branch Memory entry is the implementation branch identity. Branch names captured inside saved-plan provenance are forensic context and can become stale after explicit target-branch overrides, branch reuse, or branch renames; they should not be treated as executor STOP gates by themselves.
+
 ## Start or resume implementation in one Pi command
 
 Pi users can run `/branch-context:upstack-impl-session` after saving a plan. The command resolves a Saved plan, creates or reuses a branch with attached branch context, checks out the target branch, starts a new Pi session, and sends `/branch-context:impl`.
