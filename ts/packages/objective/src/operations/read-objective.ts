@@ -119,20 +119,20 @@ async function readObjective(
 	slug: string | undefined,
 ): Promise<{ type: "ok"; value: ReadObjectiveCommandResult } | { type: "storage-error"; error: { code: string; message: string } }> {
 	const root = activeRootRelativePath();
-	const rootExists = await storage.activeRootExists();
-	if (!rootExists.ok) return { type: "storage-error", error: rootExists.error };
+	const rootPresence = await storage.activeRootExists();
+	if (!rootPresence.ok) return { type: "storage-error", error: rootPresence.error };
 
 	if (slug === undefined) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "missing_slug", error: "missing_slug", root, slug: null, path: null, rootExists: rootExists.value }),
+			value: emptyResult({ status: "missing_slug", error: "missing_slug", root, slug: null, path: null, hasRoot: rootPresence.value }),
 		};
 	}
 
 	if (!isValidObjectiveSlug(slug)) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "invalid_slug", error: "invalid_slug", root, slug: null, path: null, rootExists: rootExists.value }),
+			value: emptyResult({ status: "invalid_slug", error: "invalid_slug", root, slug: null, path: null, hasRoot: rootPresence.value }),
 		};
 	}
 
@@ -142,7 +142,7 @@ async function readObjective(
 	if (!exists.value) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "not_found", error: "not_found", root, slug, path: relativePath, rootExists: rootExists.value }),
+			value: emptyResult({ status: "not_found", error: "not_found", root, slug, path: relativePath, hasRoot: rootPresence.value }),
 		};
 	}
 
@@ -154,7 +154,7 @@ async function readObjective(
 		status: "ok",
 		error: null,
 		root_path: root,
-		root_exists: rootExists.value,
+		root_exists: rootPresence.value,
 		slug,
 		path: relativePath,
 		exists: true,
@@ -187,13 +187,13 @@ function emptyResult(options: {
 	root: string;
 	slug: string | null;
 	path: string | null;
-	rootExists: boolean;
+	hasRoot: boolean;
 }): ReadObjectiveResult {
 	return {
 		status: options.status,
 		error: options.error,
 		root_path: options.root,
-		root_exists: options.rootExists,
+		root_exists: options.hasRoot,
 		slug: options.slug,
 		path: options.path,
 		exists: false,
