@@ -23,6 +23,7 @@ Use when no explicit execution policy exists, policy is stale/incomplete, policy
 
 - Recommend the next useful semantic step.
 - Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
+- Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
 - If policy is missing or incomplete and execution was requested, include a concise policy-upgrade note: adding durable `## Definition of Progress` and `## Runner Policy` prose enables future execution offers.
 - Do not offer a one-time confirmation that bypasses missing durable policy.
 - Do not mutate files except through an explicit `objective-update` handoff.
@@ -32,6 +33,7 @@ Use when no explicit execution policy exists, policy is stale/incomplete, policy
 Use when Objective policy or row-level notes say human judgment, planning, terminology, scope choice, or risk acceptance is needed before execution.
 
 - Ask one concrete next question, or recommend a planning/grilling/readback step.
+- Include a best-effort work-left estimate to the steering/discovery point where additional work can be identified; if the path to completion is already clear, estimate remaining semantic steps/slices until completion instead. Do not estimate calendar time.
 - Quote or summarize the policy basis for steering first.
 - Do not execute or mutate files except through an explicit `objective-update` handoff.
 
@@ -47,6 +49,7 @@ The preview must include:
 - policy basis: quote or summarize the Runner Policy and row-level `Policy:` that permits execution;
 - bounded scope/slice;
 - inline plan and likely files or areas;
+- best-effort work-left estimate, either remaining semantic steps/slices until Objective completion or remaining work until the next discovery/decision point; do not estimate calendar time;
 - how the work will be left, defaulting to local edits unless branch/commit creation was explicitly requested;
 - validation expected before keeping work;
 - external systems or write-capable actions, with PR submission, publishing, deployment, and write APIs out of scope unless explicit policy or confirmation includes them;

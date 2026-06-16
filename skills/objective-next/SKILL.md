@@ -5,7 +5,7 @@ description: "Command: objective-next"
 
 # objective-next
 
-Recommend the next useful work for an active Objective. When explicit Objective policy allows it, route to confirmed-execution guidance before offering execution. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing.
+Recommend the next useful work for an active Objective. When explicit Objective policy allows it, route to confirmed-execution guidance before offering execution. If stale tracking blocks the recommendation, request an explicit `objective-update` handoff for the same Objective before continuing. Always include a best-effort work-left estimate as remaining semantic steps, not calendar time.
 
 Part of the Objective skill family. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, and safety boundaries; this step remains self-contained for its own happy path.
 
@@ -58,9 +58,10 @@ Normal next-work recommendations do not require loading confirmed-execution guid
 3. Apply the Tracking Gate. If it triggers and the user confirms or preauthorized update-and-continue, perform the `objective-update` handoff for this same Objective, then restart from step 2 with refreshed files/evidence.
 4. Load conditional references only when their routing conditions apply.
 5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
-6. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
-7. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
-8. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
+6. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
+7. Recommend only semantic Objective work; do not select generic validation-only rows such as `just`, tests, waiting for CI, or full repo validation unless validation/test/CI behavior or a non-routine validation investigation is itself the deliverable.
+8. If only routine validation-only non-parked rows remain, say no substantive Objective work remains. Suggest running ordinary validation outside the roadmap, then using `objective-update` to record evidence and/or `objective-close` if completion criteria are satisfied.
+9. If no active or planned semantic work remains, say the Objective may be ready for `objective-close` instead of inventing work.
 
 ## Recommend-only output
 
@@ -68,6 +69,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 
 - Recommend the next useful semantic step.
 - Explain the narrative or roadmap basis, likely files/areas, active assumption or risk exercised, and completion evidence to record afterward.
+- Include a best-effort work-left estimate: either remaining semantic steps/slices until Objective completion, or remaining work until the next discovery/decision step that will reveal additional work. Do not estimate calendar time.
 - If execution was requested but policy is missing or incomplete, include a concise policy-upgrade note: adding durable `## Definition of Progress` and `## Runner Policy` prose enables future execution offers.
 - Do not offer a one-time confirmation that bypasses missing durable policy.
 - Do not mutate files except through an explicit `objective-update` handoff.
