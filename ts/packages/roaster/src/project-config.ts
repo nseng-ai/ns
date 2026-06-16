@@ -1,3 +1,4 @@
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { parse as parseToml } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {
@@ -31,7 +32,7 @@ export function parseRoasterProjectConfigToml(source: string, pathLabel?: string
 	try {
 		data = parseToml(source);
 	} catch (error) {
-		return failure("invalid_toml", formatMessage(`Invalid TOML: ${formatError(error)}`, pathLabel));
+		return failure("invalid_toml", formatMessage(`Invalid TOML: ${formatErrorMessage(error)}`, pathLabel));
 	}
 
 	if (!isRecord(data)) return { type: "ok", config: EMPTY_CONFIG };
@@ -115,15 +116,7 @@ function failure(code: ProjectConfigErrorCode, message: string): { readonly type
 	return { type: "error", error: { code, message } };
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function formatMessage(message: string, pathLabel: string | undefined): string {
 	if (pathLabel === undefined) return message;
 	return `${pathLabel}: ${message}`;
-}
-
-function formatError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

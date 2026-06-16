@@ -94,16 +94,16 @@ export interface FakeReviewCatalogGatewayOptions {
 }
 
 export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
-	private readonly reviewSourcesByKey = new Map<string, string>();
-	private readonly reviewSourceFailuresByKey = new Map<string, ReviewCatalogFailure>();
+	private readonly reviewSourcesByKey: Map<string, string>;
+	private readonly reviewSourceFailuresByKey: Map<string, ReviewCatalogFailure>;
 	private readonly reviewKeys: readonly string[] | null;
 	private readonly listReviewKeysFailure: ReviewCatalogFailure | null;
 	private readonly reviewsDirValue: string;
 	private readonly requestedReviewKeysInternal: string[] = [];
 
 	constructor(options: FakeReviewCatalogGatewayOptions = {}) {
-		copyEntries(options.reviewSourcesByKey, this.reviewSourcesByKey);
-		copyEntries(options.reviewSourceFailuresByKey, this.reviewSourceFailuresByKey);
+		this.reviewSourcesByKey = mapFromEntries(options.reviewSourcesByKey);
+		this.reviewSourceFailuresByKey = mapFromEntries(options.reviewSourceFailuresByKey);
 		this.reviewKeys = options.reviewKeys === undefined ? null : [...options.reviewKeys];
 		this.listReviewKeysFailure = options.listReviewKeysFailure ?? null;
 		this.reviewsDirValue = options.reviewsDir ?? "/repo/reviews";
@@ -190,13 +190,10 @@ function error(errorValue: ReviewCatalogFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
 }
 
-function copyEntries<T>(source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined, target: Map<string, T>): void {
-	if (source instanceof Map) {
-		for (const [key, value] of source.entries()) target.set(key, value);
-		return;
-	}
-	if (source === undefined) return;
-	for (const [key, value] of Object.entries(source)) target.set(key, value);
+function mapFromEntries<T>(source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined): Map<string, T> {
+	if (source === undefined) return new Map();
+	if (source instanceof Map) return new Map(source);
+	return new Map(Object.entries(source));
 }
 
 function isMissingFileError(caught: unknown): boolean {

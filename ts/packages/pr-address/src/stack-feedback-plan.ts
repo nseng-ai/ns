@@ -167,7 +167,7 @@ function mergedStackPlanResult(options: {
 	const batches = mergedBatches(options.prPlans);
 	const informational = mergedInformational(options.prPlans);
 	const triageIndex = buildStackDiscussionTriageIndex(options.prep);
-	const actionItems = batches.filter((batch) => batch.batch_id !== VOIDED_BY_STACK_WORK_BATCH_ID).flatMap((batch) => batch.items);
+	const actionItems = actionBatches(batches).flatMap((batch) => batch.items);
 	const voidedByStackWorkItems = batches.find((batch) => batch.batch_id === VOIDED_BY_STACK_WORK_BATCH_ID)?.items.length ?? 0;
 	return {
 		valid: true,
@@ -197,12 +197,7 @@ function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[]
 		for (const item of plan.voided_by_stack_work ?? []) voidedItems.push(voidedByStackWorkItem(prResult, item));
 	}
 	if (voidedItems.length > 0) {
-		batches.push({
-			batch_id: VOIDED_BY_STACK_WORK_BATCH_ID,
-			complexity: VOIDED_BY_STACK_WORK_BATCH_ID,
-			approval_required: false,
-			items: voidedItems,
-		});
+		batches.push(stackFeedbackPlanBatch({ batchId: VOIDED_BY_STACK_WORK_BATCH_ID, complexity: VOIDED_BY_STACK_WORK_BATCH_ID, approvalRequired: false, items: voidedItems }));
 	}
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items: StackFeedbackPlanItem[] = [];
@@ -213,53 +208,55 @@ function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[]
 			}
 		}
 		if (items.length > 0) {
-			batches.push({ batch_id: complexity, complexity, approval_required: APPROVAL_REQUIRED_COMPLEXITIES.has(complexity), items });
+			batches.push(stackFeedbackPlanBatch({ batchId: complexity, complexity, approvalRequired: APPROVAL_REQUIRED_COMPLEXITIES.has(complexity), items }));
 		}
 	}
 	return batches;
 }
 
+function stackFeedbackPlanBatch(options: {
+	readonly batchId: string;
+	readonly complexity: string;
+	readonly approvalRequired: boolean;
+	readonly items: StackFeedbackPlanItem[];
+}): StackFeedbackPlanBatch {
+	return { batch_id: options.batchId, complexity: options.complexity, approval_required: options.approvalRequired, items: options.items };
+}
+
 function actionItem(prResult: StackFeedbackPrepPrResultInput, sourceBatch: FeedbackPlanBatch, item: FeedbackPlanActionItem): StackFeedbackPlanItem {
-	return {
-		pr_number: prResult.pr_number,
-		branch: prResult.branch,
-		title: prResult.title,
-		url: prResult.url,
-		source_batch_id: sourceBatch.batch_id,
-		source_kind: item.source_kind,
-		summary: item.summary,
-		action_summary: item.action_summary,
+	return stackFeedbackPlanItem(prResult, item, {
+		sourceBatchId: sourceBatch.batch_id,
 		complexity: item.complexity,
-		approval_required: sourceBatch.approval_required,
-		review_id: item.review_id,
-		review_state: item.review_state,
-		submitted_at: item.submitted_at,
-		thread_id: item.thread_id,
-		discussion_comment_id: item.discussion_comment_id,
-		covered_comment_ids: [...item.covered_comment_ids],
-		body_locator: item.body_locator,
-		thread_item_pointer: item.thread_item_pointer,
-		path: item.path,
-		line: item.line,
-		start_line: item.start_line,
-		is_outdated: item.is_outdated,
-		author: item.author,
-		needs_reply: item.needs_reply,
-	};
+		approvalRequired: sourceBatch.approval_required,
+		needsReply: item.needs_reply,
+	});
 }
 
 function voidedByStackWorkItem(prResult: StackFeedbackPrepPrResultInput, item: FeedbackPlanVoidedThreadItem): StackFeedbackPlanItem {
+	return stackFeedbackPlanItem(prResult, item, {
+		sourceBatchId: VOIDED_BY_STACK_WORK_BATCH_ID,
+		complexity: VOIDED_BY_STACK_WORK_BATCH_ID,
+		approvalRequired: false,
+		needsReply: null,
+	});
+}
+
+function stackFeedbackPlanItem(
+	prResult: StackFeedbackPrepPrResultInput,
+	item: FeedbackPlanActionItem | FeedbackPlanVoidedThreadItem,
+	overrides: { readonly sourceBatchId: string; readonly complexity: string; readonly approvalRequired: boolean; readonly needsReply: boolean | null },
+): StackFeedbackPlanItem {
 	return {
 		pr_number: prResult.pr_number,
 		branch: prResult.branch,
 		title: prResult.title,
 		url: prResult.url,
-		source_batch_id: VOIDED_BY_STACK_WORK_BATCH_ID,
+		source_batch_id: overrides.sourceBatchId,
 		source_kind: item.source_kind,
 		summary: item.summary,
 		action_summary: item.action_summary,
-		complexity: VOIDED_BY_STACK_WORK_BATCH_ID,
-		approval_required: false,
+		complexity: overrides.complexity,
+		approval_required: overrides.approvalRequired,
 		review_id: item.review_id,
 		review_state: item.review_state,
 		submitted_at: item.submitted_at,
@@ -273,7 +270,7 @@ function voidedByStackWorkItem(prResult: StackFeedbackPrepPrResultInput, item: F
 		start_line: item.start_line,
 		is_outdated: item.is_outdated,
 		author: item.author,
-		needs_reply: null,
+		needs_reply: overrides.needsReply,
 	};
 }
 
@@ -342,13 +339,17 @@ function discussionTriageKey(prNumber: number, discussionCommentId: number): str
 	return `${prNumber}\u0000${discussionCommentId}`;
 }
 
+function actionBatches(batches: readonly StackFeedbackPlanBatch[]): readonly StackFeedbackPlanBatch[] {
+	return batches.filter((batch) => batch.batch_id !== VOIDED_BY_STACK_WORK_BATCH_ID);
+}
+
 function decisionDocket(
 	triageIndex: StackDiscussionTriageIndex,
 	batches: readonly StackFeedbackPlanBatch[],
 	informational: readonly StackFeedbackPlanInformationalItem[],
 ): StackFeedbackDecisionDocketItem[] {
 	const docket: StackFeedbackDecisionDocketItem[] = [];
-	for (const batch of batches) {
+	for (const batch of actionBatches(batches)) {
 		for (const item of batch.items) {
 			if (item.approval_required) {
 				docket.push(actionDecision(item, "approval_required_action"));
