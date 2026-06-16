@@ -86,8 +86,8 @@ This Objective is execution-friendly for `objective-stack-impl` after a preview 
 - **Diff-cap/coverage math:** off-by-one or budget-accounting bugs in the per-file/total token caps would change which files reach the model. Mitigation: extracted as pure functions with direct unit tests; the green PR workflow also emitted input coverage from a real `review run`.
 - **CI cutover ordering:** de-risked for the implementation path: the workflow has been flipped to the TS CLI path, a real PR workflow run was green, and this deletion branch removes the Python package only after that evidence. Remaining closeout risk is documentation drift, not runtime CI fallback.
 - **Config/format parity:** `asdl.toml [roaster.diff]` exclude globs must convert to git pathspec excludes identically, or excluded paths could leak into model input. Mitigation: port and directly test the pathspec conversion. Current evidence shows the TS config/review-definition parsers have been hardened to reuse shared primitive guards and error formatting, and the full TS roaster package test/check suite passes.
-- **Documentation drift:** the runtime/build/test deletion is complete in this branch, but broader documentation still mentions Python-era surfaces or package paths in places such as `AGENTS.md`, `CONTEXT-MAP.md`, and docs-site installation text. Treat that as remaining Objective closeout work before archiving or closing the port.
-- **Publication contract regression:** post-cutover review feedback found that `roaster review run --format json` currently serializes findings in two places and the publication commands parse roaster-owned JSON with lenient dual-shape/casing guesses. This is now an active Objective risk, not merely style cleanup: finish the saved hard-break plan by making the review-run result camelCase with one findings home, strict-parsing the owned producer contracts, cleaning up the harness fake helper, and splitting `harness.ts` by its tested concern seams before considering the port closeout-ready.
+- **Documentation drift:** de-risked by closeout cleanup. Non-ADR roaster install/onboarding/domain-map references now describe the TypeScript standalone CLI, `just install-roaster`, and `ts/packages/roaster` context boundary instead of the deleted Python package/install/plugin surfaces. ADR files were intentionally left unchanged per closeout scope.
+- **Publication contract regression:** de-risked by closeout hardening. `roaster review run --format json` now returns one strict camelCase result object with one findings home; publication parsing accepts the exact roaster-owned success contract and bare inline-posting result; old nested/snake_case success shapes are rejected in tests; `FakeHarnessGateway` uses the shared record/map helper; and the harness concern seams are split into prompt, diff-cap, output, and gateway modules.
 
 ## Open Questions
 
@@ -96,6 +96,14 @@ Resolved during prework (evidence + detail in `prework/01-architecture-and-modul
 - **YAML parser:** `yaml` (eemeli) v2.x — already transitive in the TS lockfile; `js-yaml` is absent. Parse, then validate the mapping with Zod. **TOML:** `smol-toml` confirmed (direct dep of `areg`, locked 1.6.1). **Token heuristic:** `Math.ceil([...text].length / 4)` — must count Unicode code points (not UTF-16 units) to match Python's `estimate_tokens`.
 - **Plugin mounting:** there is no TS analog of `asdl.plugins`; every TS package ships standalone-CLI-only. The TS roaster ships standalone-only (the plugin item stays parked); `cli/plugin.py` has nothing to port.
 - **GitHub API mechanism:** `gh` CLI shelled through an injected exec runner, REST endpoints via `gh api --paginate` / `--input -`, mirroring the Python real-gateway helpers. A fresh 5-method roaster-local gateway (see `prework/04`); not shared with asdl-core.
+
+## Closure
+
+Outcome: completed. The TypeScript `@asdl/roaster` package has replaced the deleted Python roaster implementation for the intended CI PR-diff findings slice. The CLI parity, hidden exec publication commands, workflow cutover, real-PR workflow evidence, Python package deletion, publication-contract hard break, harness decomposition, install helper, and non-ADR documentation closeout are all landed in this Objective's branch history or current closeout diff.
+
+Key evidence: the TS roaster package and full TS workspace test/check gates passed; docs and Markdown formatting checks passed; stale-reference greps no longer show active Python-era roaster install/package/plugin claims outside valid TS paths, generic Python plugin documentation, or excluded ADRs; and the earlier green GitHub Actions run `27610014374` proved the TS workflow path end to end before Python deletion.
+
+Caveat: the parked TS plugin-mounting decision remains intentionally out of active scope. It does not block closure because the Objective resolved that TS roaster ships standalone-only unless a separate product decision revives plugin mounting.
 
 ## Prework
 

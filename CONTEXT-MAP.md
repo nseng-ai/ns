@@ -28,7 +28,6 @@ Current checkout facts:
 ### Planned Python package contexts
 
 - `packages/areg/CONTEXT.md` — agent-resource bootstrap and skill workflow vocabulary: `areg init`, `areg check`, `update-skills`, `skillx`, target agents, managed instruction blocks, installed skill directories, lockfile source types, skill metadata/issues, and transient skill fetch/cleanup. Current source has a narrow `asdl-core.project_config` dependency plus external `gh` and `npx skills` boundaries.
-- `packages/roaster/CONTEXT.md` — CI PR-diff findings vocabulary: `Roaster`, review definitions, Claude Code review execution, review catalogs/sources, findings, inline commentability, severity, frontmatter, findings comments, and inline finding posting.
 - `packages/asdl-slots/CONTEXT.md` — worktree slot vocabulary: slot records/inventory/status, repo context, slot GC/init/resize plans, shell directive files, explicit `slot gt` operations, and downstack-only stack release.
 - `packages/asdl-objectives/CONTEXT.md` — Objective CLI package vocabulary, including Objective records/statuses, archive/unarchive, checked-in Markdown storage, hidden `exec` commands, and checkout-local list behavior.
 - `packages/packagechk/CONTEXT.md` — standalone package-name availability and claimability vocabulary for PyPI/npm checks, registry results, name normalization/validation, claim project specs, publish gateways, and parked Homebrew support.
@@ -37,6 +36,7 @@ Current checkout facts:
 
 ### Planned TypeScript package context
 
+- `ts/packages/roaster/CONTEXT.md` — CI PR-diff findings vocabulary for `@asdl/roaster`: `Roaster`, review definitions, Claude Code review execution, review catalogs/sources, findings, inline commentability, severity, frontmatter, findings comments, inline finding posting, hidden `exec` publication commands, and the TS standalone CLI boundary.
 - `ts/packages/asdl-dev/CONTEXT.md` — private repo-local developer CLI vocabulary for the flat command table, `preview-url`, `cp`, `submit`, command-runner boundaries, Vercel preview URL resolution, checkpoint-message generation/validation, Graphite dry-run/restack/current-PR verification, and Pi text-generation gateway boundaries.
 
 ### Explicitly out of scope for now
@@ -57,7 +57,7 @@ These are current map seeds, not final readback output. Package-context phases s
 - **areg → asdl-core.project_config + external `gh`/`npx skills`**: `areg` reads shared project config from `asdl-core`, but its skill-management work is bounded by external GitHub and `npx skills` command surfaces.
 - **@asdl/brmem → @asdl/core + @asdl/clinkr**: brmem uses TypeScript Git helpers and Clinkr command vocabulary to expose branch-scoped text storage.
 - **@asdl/handoff → @asdl/brmem CLI + @asdl/core.git + @asdl/clinkr**: handoff artifacts use Branch Memory storage through the public `brmem` CLI while presenting a user-facing handoff inventory and garbage-collection model.
-- **roaster → asdl-core.gh + asdl-core.git + asdl-core.project_config + asdl-core.clinkr/plugin**: roaster consumes GitHub PR types, local-diff/git facts, shared project config, and Clinkr/plugin mounting.
+- **@asdl/roaster → @asdl/clinkr + @asdl/core exec/Git/stdin/GitHub CLI helpers + project config + @pierre/diffs**: the TypeScript standalone roaster consumes Clinkr command vocabulary, shared TS execution/Git/stdin/GitHub CLI helpers, project configuration, and the published `@pierre/diffs` parser; it does not expose a Python `asdl.plugins` subgroup unless that surface is deliberately revived.
 - **asdl-slots → asdl-core.git + asdl-core.gh + asdl-core.gt + asdl-core.clinkr/console/plugin**: slots owns worktree slot lifecycle while cross-referencing Git worktree/branch/ref facts, GitHub PR state, and explicit `slot gt` Graphite operations.
 - **asdl-objectives → asdl-core.git + asdl-core.clinkr + asdl-core.console/format/plugin**: Objective CLI inventory uses Git path-touch facts for checkout-local list metadata. Do not reintroduce `asdl-objectives → brmem` as a storage edge.
 - **packagechk → external package registries**: packagechk is standalone/no-`asdl-core`; it owns package-name availability/claimability checks at registry and publish-gateway boundaries.

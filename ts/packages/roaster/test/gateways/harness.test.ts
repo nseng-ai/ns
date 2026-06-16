@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
-import { buildClaudeDiffFindingsJsonSchema, FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
+import { FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
+import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
 import { createFindingsReview, createLocalDiff, type HarnessReviewRequest, type ReviewExecutionResponse } from "../../src/models.ts";
 
 function request(options: { readonly model?: string; readonly reviewName?: string; readonly diffText?: string } = {}): HarnessReviewRequest {
@@ -75,6 +76,16 @@ describe("FakeHarnessGateway", () => {
 		if (second.type === "ok") {
 			expect(second.value.payload.findings).toHaveLength(1);
 		}
+	});
+
+	test("accepts configured results from Map input", async () => {
+		const configured: ReviewExecutionResponse = { payload: createFindingsReview([{ path: "src/app.ts", line: 1, severity: "info", summary: "A", details: "B" }]), usage: null, inputCoverage: null };
+		const gateway = new FakeHarnessGateway({ resultsByReviewName: new Map([["custom", { type: "ok", value: configured }]]) });
+
+		const result = await gateway.runReview(request({ reviewName: "custom" }), { cwd: "/repo" });
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") expect(result.value.payload.findings).toHaveLength(1);
 	});
 });
 

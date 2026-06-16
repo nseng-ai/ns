@@ -17,7 +17,6 @@ import {
 	reviewListRequestSchema,
 	reviewListResultSchema,
 	reviewRunRequestSchema,
-	reviewRunResultSchema,
 	runFormatFindingsComment,
 	runPostFindingsComment,
 	runPostInlineFindings,
@@ -25,6 +24,7 @@ import {
 	runReviewList,
 	type RoasterCliContext,
 } from "./operations/cli-operations.ts";
+import { reviewRunResultSchema } from "./models.ts";
 
 const VERSION = "0.1.0";
 

@@ -29,13 +29,15 @@ function findingsEnvelope(findings: readonly Record<string, unknown>[]): string 
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			review_name: "dignified-python",
-			review_path: "/repo/reviews/dignified-python.md",
+			reviewName: "dignified-python",
+			reviewPath: "/repo/reviews/dignified-python.md",
 			model: "sonnet",
-			base_ref: "master",
-			payload: { format: "findings", count: findings.length, findings },
+			baseRef: "master",
+			format: "findings",
+			count: findings.length,
+			findings,
 			usage: null,
-			input_coverage: null,
+			inputCoverage: null,
 		},
 	});
 }
@@ -138,7 +140,7 @@ describe("roaster exec CLI", () => {
 	});
 
 	test("format-findings-comment includes inline result file status", async () => {
-		const inlineStatus = JSON.stringify({ postedCount: 1, skippedDuplicateCount: 2, fallbackOnlyCount: 3, apiError: "validation failed" });
+		const inlineStatus = JSON.stringify({ postedCount: 1, skippedDuplicateCount: 2, fallbackOnlyCount: 3, apiError: "validation failed", fallbackOnly: [] });
 		const path = `/tmp/roaster-inline-status-${process.pid}-${Math.random()}.json`;
 		await import("node:fs/promises").then((fs) => fs.writeFile(path, inlineStatus, "utf8"));
 		const run = await runRoaster(["exec", "format-findings-comment", "--inline-result-file", path], { stdin: findingsEnvelope([inlineFinding]) });

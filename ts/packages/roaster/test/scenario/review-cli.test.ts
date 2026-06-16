@@ -136,10 +136,15 @@ describe("roaster review CLI", () => {
 		expect(run.exitCode).toBe(0);
 		expect(run.stderr).toContain("resolved model=opus base_ref=master changed_paths=1");
 		const data = JSON.parse(run.stdout).data;
-		expect(data.review_name).toBe(REVIEW_KEY);
+		expect(data.reviewName).toBe(REVIEW_KEY);
+		expect(data.reviewPath).toBe("/repo/reviews/dignified-python.md");
+		expect(data.baseRef).toBe("master");
 		expect(data.model).toBe("opus");
+		expect(data.inputCoverage).toBeNull();
 		expect(data.findings[0].summary).toBe("Avoid print");
-		expect(data.payload.findings[0].summary).toBe("Avoid print");
+		expect(data.payload).toBeUndefined();
+		expect(data.review_name).toBeUndefined();
+		expect(data.base_ref).toBeUndefined();
 	});
 
 	test("review run uses default model and fails when no model is available", async () => {

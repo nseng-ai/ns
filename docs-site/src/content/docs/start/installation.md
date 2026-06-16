@@ -5,25 +5,29 @@ sidebar:
   order: 2
 ---
 
-asdl tools are independently adoptable Python CLIs. Install the tool you need;
-you do not have to adopt the whole suite first.
+asdl tools are independently adoptable CLIs. Install the tool you need; you do
+not have to adopt the whole suite first.
 
 ## Standalone tools
 
+Python package tools can be installed with `uv tool install`:
+
 ```bash
 uv tool install asdl-slots
-uv tool install brmem
 uv tool install aretro
 uv tool install asdl-objectives
-uv tool install roaster
 ```
 
-Each package provides its own console script, such as `slot`, `brmem`, or
-`roaster`.
+TypeScript tools are installed from an asdl checkout with source shims. These
+require Node 24 or newer:
 
-`pr-address` is a TypeScript tool. Install it from an asdl checkout with
-`just install-pr-address`, which places a `pr-address` shim on your `PATH`
-(it requires Node 24 or newer).
+```bash
+just install-pr-address
+just install-roaster
+```
+
+Each tool provides its own console script, such as `slot`, `objective`,
+`pr-address`, or `roaster`.
 
 ## Umbrella command
 

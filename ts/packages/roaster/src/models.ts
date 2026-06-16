@@ -149,18 +149,21 @@ export const reviewExecutionResponseSchema = z
 	.strict();
 export type ReviewExecutionResponse = z.infer<typeof reviewExecutionResponseSchema>;
 
-export const reviewRunSuccessSchema = z
+export const reviewRunResultSchema = z
 	.object({
 		reviewName: nonBlankStringSchema,
 		reviewPath: nonBlankStringSchema,
 		model: nonBlankStringSchema,
-		baseRef: nonBlankStringSchema.nullable(),
-		payload: findingsReviewSchema,
+		baseRef: nonBlankStringSchema,
+		format: z.literal("findings"),
+		count: nonNegativeIntegerSchema,
+		findings: z.array(reviewFindingSchema),
 		usage: reviewUsageSchema.nullable(),
 		inputCoverage: reviewInputCoverageSchema.nullable(),
 	})
-	.strict();
-export type ReviewRunSuccess = z.infer<typeof reviewRunSuccessSchema>;
+	.strict()
+	.refine((value) => value.count === value.findings.length, { message: "count must equal findings length", path: ["count"] });
+export type ReviewRunResult = z.infer<typeof reviewRunResultSchema>;
 
 export const prChangedFileSchema = z
 	.object({
@@ -247,6 +250,13 @@ export const inlinePostingEventSchema = z
 	})
 	.strict();
 export type InlinePostingEvent = z.infer<typeof inlinePostingEventSchema>;
+
+export const postInlineFindingsResultSchema = inlinePostingStatusSchema
+	.extend({
+		fallbackOnly: z.array(fallbackOnlyFindingSchema),
+	})
+	.strict();
+export type PostInlineFindingsResult = z.infer<typeof postInlineFindingsResultSchema>;
 
 export function createFindingsReview(findings: readonly ReviewFinding[]): FindingsReview {
 	const review = { format: "findings" as const, findings: [...findings], count: findings.length };
