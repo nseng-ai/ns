@@ -36,6 +36,40 @@ This is a **clean break**: we target functional parity, not byte-level continuit
 - The Python `packages/roaster` is deleted with no remaining references in build config, CI, or docs.
 - Evidence: targeted package tests and relevant repo checks pass; one CI run on a real PR demonstrates the end-to-end flow.
 
+## Definition of Progress
+
+Progress is keepable when it moves the TS roaster closer to replacing the Python CI slice without re-expanding roaster's product surface. A useful implementation slice should do at least one of the following:
+
+- expose a remaining CI command path in the TS CLI with the same stdin/stdout/JSON-envelope contract the workflow needs;
+- connect already-ported pure modules and gateways into user-facing orchestration without bypassing their fake-driven seams;
+- reduce a named Objective risk with targeted tests, scenario coverage, or an explicit compatibility decision;
+- prepare the CI cutover in a way that can be reviewed before deleting Python.
+
+Do not keep changes that:
+
+- revive non-CI roaster behavior, local roast orchestration, prose review mode, or public harness commands;
+- couple roaster to Graphite, Branch Memory, hidden Objective state, or shared PR gateways outside the scope described here;
+- delete the Python package or flip the workflow before the TS CLI path is demonstrably ready;
+- depend on live Claude Code or GitHub writes for ordinary unit/scenario confidence when a fake or scripted gateway can prove the contract.
+
+Useful evidence includes:
+
+- roaster package check/test results and focused scenario tests for the command paths touched;
+- exact CI-wire contract evidence for `review list`, `review run`, and hidden `exec` commands when those surfaces change;
+- Objective updates that describe semantic progress, remaining risks, and whether the next stack should continue at CLI parity, CI cutover, or deletion.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-stack-impl` after a preview and explicit user confirmation.
+
+- Direct execution is allowed for a confirmed stack of 1 to 3 independently reviewable PRs that advance adjacent non-parked roadmap rows or coherent sub-slices of the CLI parity row.
+- The parent runner may propose more than one roadmap item in a single execution preview when the items form a clear dependency chain, for example `review list` discovery → `review run` orchestration → hidden `exec` command wiring. It may also propose another stack after the current stack is validated and the Objective is updated.
+- Slice boundaries should be chosen by review thesis: discovery/listing, run orchestration, exec posting pipeline, workflow cutover, and Python deletion are separate default theses unless a smaller or larger grouping is easier to review.
+- Steer or ask first before changing the GitHub Actions workflow, performing live GitHub writes, invoking real Claude Code as a required gate, deleting `packages/roaster`, or changing cross-package CLI/runtime conventions outside roaster's immediate needs.
+- Work may add or edit TS source, tests, package metadata, workflow files, and Objective tracking files needed for the confirmed slice. Leave PR submission to an explicit user request.
+- Validation before keeping work should include focused roaster tests for changed behavior and `pnpm --dir ts --filter @asdl/roaster run check` or an equivalent TS check path when practical; broader `just` validation is useful before cutover/deletion but is not required for every small slice.
+- After meaningful progress, run `objective-update` for `roaster-typescript-port` before continuing to a materially new stack or claiming the Objective is ready for closure.
+
 ## Assumptions and Risks
 
 **Assumptions**
