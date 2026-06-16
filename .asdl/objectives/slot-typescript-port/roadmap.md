@@ -39,7 +39,7 @@
     after preview. Ask before any change to `slot-NN` naming, `~/.slots` paths, or pool bounds.
   - Evidence: scaffolded package, pure-core unit tests, `list` scenario tests, and a Semantic Update.
 
-- [ ] Port pool lifecycle: `init` and `resize`.
+- [x] Port pool lifecycle: `init` and `resize`.
   - Preserve 1..99 bounds and `invalid_size`, `pool_already_initialized` refusal, gap-filling grow
     order, shrink-from-highest, and the multi-offender `resize_unsafe` refusal (assigned / dirty /
     operation-in-progress), plus `~/.slots` metadata-dir creation.
