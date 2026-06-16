@@ -38,7 +38,7 @@ const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-
 
 // TypeScript-owned operations that are checked by exact captured fixtures rather
 // than the structural contract comparator.
-const TS_ONLY_OPERATIONS = ["get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep", "stack-feedback-thread-state"] as const;
+const TS_ONLY_OPERATIONS = ["download-feedback", "get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep", "stack-feedback-thread-state"] as const;
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");

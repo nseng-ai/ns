@@ -54,6 +54,40 @@ export const mapBranchPrsResultSchema = z.object({
 
 // --- read-only collection operations -------------------------------------------
 
+export const downloadFeedbackRequestSchema = z.object({
+	pr_number: z.int().optional(),
+	include_resolved: z.boolean().optional(),
+	include_automation: z.boolean().optional(),
+	include_empty_reviews: z.boolean().optional(),
+	harness_session_id: nullableStringSchema.optional(),
+});
+
+const downloadFeedbackTargetSchema = z.object({
+	kind: z.literal("github_pr"),
+	pr_number: nullableIntSchema,
+	branch: nullableStringSchema,
+	title: nullableStringSchema,
+	url: nullableStringSchema,
+	head_ref_name: nullableStringSchema,
+	base_ref_name: nullableStringSchema,
+});
+
+const downloadFeedbackCountsSchema = z.object({
+	included_review_threads: z.int(),
+	included_reviews: z.int(),
+	included_discussion_comments: z.int(),
+	excluded_resolved_threads: z.int(),
+	excluded_empty_reviews: z.int(),
+	excluded_automation_comments: z.int(),
+});
+
+export const downloadFeedbackResultSchema = z.object({
+	found: z.boolean(),
+	target: downloadFeedbackTargetSchema,
+	counts: downloadFeedbackCountsSchema,
+	markdown: z.string(),
+});
+
 export const getFeedbackRequestSchema = stdoutModeRequestSchema.extend({
 	pr_number: z.int(),
 	include_resolved: z.boolean().optional(),

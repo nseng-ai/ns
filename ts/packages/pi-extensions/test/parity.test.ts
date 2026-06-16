@@ -11,6 +11,7 @@ import { registerGrillUiExtension } from "../src/grill-ui.ts";
 import handoffExtension from "../src/handoff.ts";
 import modelShortcutExtension from "../src/model-shortcuts.ts";
 import objectiveExtension from "../src/objective.ts";
+import prExtension from "../src/pr.ts";
 import { comparePiSurfaceParity, formatParityComparisonFailure, type LivePiSurface } from "../src/parity-check.ts";
 import { PI_EXTENSION_PARITY_RECORDS } from "../src/parity-registry.ts";
 import { definePiSurfaceParity } from "../src/parity.ts";
@@ -97,6 +98,7 @@ function collectLivePiExtensionSurfaces(): LivePiSurface[] {
 	registerWithFakeHost(pi, handoffExtension);
 	registerWithFakeHost(pi, modelShortcutExtension);
 	registerWithFakeHost(pi, objectiveExtension);
+	registerWithFakeHost(pi, prExtension);
 	registerWithFakeHost(pi, sdlExtension);
 	registerWithFakeHost(pi, worktreeStatusExtension);
 
