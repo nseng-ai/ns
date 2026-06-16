@@ -5,10 +5,11 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregPathState, AregTextFileState } from "../gateways.ts";
 import { sortStrings, uniqueSortedStrings } from "../sort.ts";
+import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
-import { isPiSettingsPathError, parsePiSettings } from "./pi-settings.ts";
+import { parsePiSettings } from "./pi-settings.ts";
 import { collectCheckSkillInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
@@ -101,7 +102,7 @@ export async function runCheck(ctx: AregCliContext, request: CheckRequest): Prom
 	const hasLocalSkills = lockfileResult.value.skills.some((skill) => skill.sourceType === "local");
 	const piSettings = hasLocalSkills ? parsePiSettings(inspection.piDir, inspection.piSettings) : { ok: true as const, value: { exclusions: [] } };
 	if (!piSettings.ok) {
-		if (!isPiSettingsPathError(piSettings.error)) return failure("pi_settings_invalid", piSettings.error.message);
+		if (!isPathStateError(piSettings.error)) return failure("pi_settings_invalid", piSettings.error.message);
 		const report = piSettingsPathFailureReport(inspection.projectDir, piSettings.error.message);
 		return shellNegative(formatCheckReport(report), report);
 	}

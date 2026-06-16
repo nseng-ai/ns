@@ -5,6 +5,10 @@ import type { AregPathState, AregTextFileState } from "../gateways.ts";
 type NonUsableTextFileState = Exclude<AregTextFileState, { type: "file" } | { type: "missing" }>;
 type NonUsableDirectoryState = Exclude<AregPathState, { type: "directory" } | { type: "missing" }>;
 
+export function isPathStateError(error: { code: string }): boolean {
+	return error.code === "path_symlink" || error.code === "path_not_file" || error.code === "path_not_directory";
+}
+
 export function validateOptionalDirectoryState(options: {
 	pathLabel: string;
 	state: AregPathState;

@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
-import { err, type Result } from "@asdl/core/result";
-=======
 import { failure, negative, ok, shellNegative, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
-import { resultErr, type Result } from "@asdl/core/result";
->>>>>>> a0de96702 ([cp] add shell-negative exits)
+import { err, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -18,9 +13,10 @@ import type {
 	AregSkillKindTextWritePlan,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
+import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
-import { isPiSettingsPathError, parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
+import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
 
@@ -293,7 +289,7 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 }
 
 function skillKindRecordsFailure<T>(error: { code: string; message: string }, shellNegativeData: T): ClinkrExit<T> {
-	if (isPiSettingsPathError(error)) return shellNegative(error.message, shellNegativeData);
+	if (isPathStateError(error)) return shellNegative(error.message, shellNegativeData);
 	return failure("skill_records_invalid", error.message);
 }
 
