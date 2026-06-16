@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
-    "check": "pnpm --recursive --if-present run check",
+    "check": "pnpm --recursive --workspace-concurrency=2 --if-present run check",
     "asdl-dev": "node packages/asdl-dev/src/cli.ts"
   },
   "devDependencies": {
