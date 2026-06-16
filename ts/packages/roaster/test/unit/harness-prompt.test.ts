@@ -1,12 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	assembleReviewPrompt,
-	buildClaudeDiffFindingsJsonSchema,
-	isClaudeCodeSupportedModel,
-	renderPromptFence,
-	systemPromptFindings,
-} from "../../src/gateways/harness.ts";
+import { isClaudeCodeSupportedModel } from "../../src/gateways/harness.ts";
+import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
+import { assembleReviewPrompt, renderPromptFence, systemPromptFindings } from "../../src/gateways/harness-prompt.ts";
 import { createLocalDiff, type ReviewDefinition } from "../../src/models.ts";
 
 const reviewDefinition: ReviewDefinition = {

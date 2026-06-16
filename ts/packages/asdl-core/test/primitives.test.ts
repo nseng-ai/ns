@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatErrorMessage, isRecord, truncatedSha256Digest } from "../src/primitives.ts";
+import { formatErrorMessage, formatZodError, formatZodIssue, isRecord, truncatedSha256Digest } from "../src/primitives.ts";
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {
@@ -28,6 +28,32 @@ describe("formatErrorMessage", () => {
 	test("stringifies non-Error values", () => {
 		expect(formatErrorMessage("boom")).toBe("boom");
 		expect(formatErrorMessage(123)).toBe("123");
+	});
+});
+
+describe("formatZodIssue", () => {
+	test("formats root and dotted paths", () => {
+		expect(formatZodIssue({ path: [], message: "Required" })).toBe("<root>: Required");
+		expect(formatZodIssue({ path: ["skills", "pytest", "source"], message: "Expected string" })).toBe("skills.pytest.source: Expected string");
+	});
+
+	test("supports JSONPath-style labels and fallback text", () => {
+		expect(formatZodIssue({ path: [], message: "Required" }, { rootPath: "$", pathPrefix: "$." })).toBe("$: Required");
+		expect(formatZodIssue({ path: ["version"], message: "Expected 1" }, { rootPath: "$", pathPrefix: "$." })).toBe("$.version: Expected 1");
+		expect(formatZodIssue(undefined, { fallback: "invalid lockfile" })).toBe("invalid lockfile");
+	});
+});
+
+describe("formatZodError", () => {
+	test("formats all issues with a semicolon separator", () => {
+		expect(
+			formatZodError({
+				issues: [
+					{ path: [], message: "Required" },
+					{ path: ["count"], message: "Expected number" },
+				],
+			}),
+		).toBe("<root>: Required; count: Expected number");
 	});
 });
 

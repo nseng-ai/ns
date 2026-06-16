@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface ClinkrOkExit<T> {
 	type: "ok";
 	data: T;
@@ -32,6 +34,13 @@ export interface MachineEnvelope {
 export interface ClinkrExitCodeOptions {
 	shellExitCode?: boolean | undefined;
 }
+
+export const machineEnvelopeSchema = z.strictObject({
+	exit_code: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+	error_type: z.string().optional(),
+	message: z.string().optional(),
+	data: z.unknown().optional(),
+});
 
 export function ok<T>(data: T): ClinkrOkExit<T> {
 	return { type: "ok", data };

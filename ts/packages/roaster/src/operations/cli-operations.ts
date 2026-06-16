@@ -19,16 +19,12 @@ import {
 } from "../findings-publication.ts";
 import { classifyInlineFindings } from "../inline-commentability.ts";
 import {
-	inlineFallbackReasonValues,
-	inlinePostingStatusSchema,
-	reviewExecutionResponseSchema,
-	reviewFindingSchema,
-	reviewInputCoverageSchema,
-	reviewUsageSchema,
+	postInlineFindingsResultSchema,
+	reviewRunResultSchema,
 	type InlinePostingStatus,
+	type PostInlineFindingsResult,
 	type ReviewExecutionResponse,
-	type ReviewFinding,
-	type ReviewInputCoverage,
+	type ReviewRunResult,
 	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
@@ -74,39 +70,10 @@ export const reviewRunRequestSchema = z.object({
 	base_ref: z.string().optional().describe("Base ref for the local diff."),
 });
 
-export const findingsPayloadSchema = z.object({
-	format: z.literal("findings"),
-	findings: z.array(reviewFindingSchema),
-	count: z.int().min(0),
-});
-
-export const reviewRunResultSchema = z.object({
-	review_name: nonBlankStringSchema,
-	review_path: nonBlankStringSchema,
-	model: nonBlankStringSchema,
-	base_ref: nonBlankStringSchema,
-	format: z.literal("findings"),
-	count: z.int().min(0),
-	findings: z.array(reviewFindingSchema),
-	payload: findingsPayloadSchema,
-	usage: reviewUsageSchema.nullable(),
-	input_coverage: reviewInputCoverageSchema.nullable(),
-});
-
 export type ReviewRunRequest = z.infer<typeof reviewRunRequestSchema>;
-export type ReviewRunResult = z.infer<typeof reviewRunResultSchema>;
 
 export const postInlineFindingsRequestSchema = z.object({
 	pr_number: z.int().positive().describe("Pull request number."),
-});
-
-export const inlinePostingEventSchema = z.object({
-	finding: reviewFindingSchema,
-	reason: z.enum(inlineFallbackReasonValues),
-});
-
-export const postInlineFindingsResultSchema = inlinePostingStatusSchema.extend({
-	fallbackOnly: z.array(inlinePostingEventSchema),
 });
 
 export const formatFindingsCommentRequestSchema = z.object({
@@ -188,9 +155,9 @@ export async function runReviewByKey(ctx: RoasterCliContext, request: ReviewRunR
 
 export function renderReviewRun(result: ReviewRunResult): string {
 	const lines = [
-		`Reviewer: ${result.review_name}`,
+		`Reviewer: ${result.reviewName}`,
 		`Model: ${result.model}`,
-		`Base ref: ${result.base_ref}`,
+		`Base ref: ${result.baseRef}`,
 		`Findings: ${result.count}`,
 	];
 	for (const finding of result.findings) {
@@ -323,16 +290,15 @@ async function loadDefinitions(ctx: RoasterCliContext, keys: readonly string[]):
 
 function reviewRunResult(reviewName: string, reviewPath: string, model: string, baseRef: string, response: ReviewExecutionResponse): ReviewRunResult {
 	return reviewRunResultSchema.parse({
-		review_name: reviewName,
-		review_path: reviewPath,
+		reviewName,
+		reviewPath,
 		model,
-		base_ref: baseRef,
+		baseRef,
 		format: response.payload.format,
 		count: response.payload.count,
 		findings: response.payload.findings,
-		payload: response.payload,
 		usage: response.usage,
-		input_coverage: response.inputCoverage,
+		inputCoverage: response.inputCoverage,
 	});
 }
 
@@ -350,9 +316,7 @@ function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 	return failure(error.type, failureMessage(error));
 }
 
-interface InlineResult extends InlinePostingStatus {
-	readonly fallbackOnly: readonly { readonly finding: ReviewFinding; readonly reason: (typeof inlineFallbackReasonValues)[number] }[];
-}
+type InlineResult = PostInlineFindingsResult;
 
 function emptyInlineResult(): InlineResult {
 	return { postedCount: 0, skippedDuplicateCount: 0, fallbackOnlyCount: 0, apiError: null, fallbackOnly: [] };

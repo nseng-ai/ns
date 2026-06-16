@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { parseClaudeCodeReviewOutput } from "../../src/gateways/harness.ts";
+import { parseClaudeCodeReviewOutput } from "../../src/gateways/harness-output.ts";
 import type { ReviewInputCoverage } from "../../src/models.ts";
 
 const coverage: ReviewInputCoverage = {

@@ -8,6 +8,7 @@ import {
 	inlineClassificationResultSchema,
 	inlinePostingStatusSchema,
 	localDiffSchema,
+	postInlineFindingsResultSchema,
 	prChangedFileSchema,
 	prDiscussionCommentSchema,
 	prInlineCommentInputSchema,
@@ -16,7 +17,7 @@ import {
 	reviewFindingSchema,
 	reviewExecutionResponseSchema,
 	reviewInputCoverageSchema,
-	reviewRunSuccessSchema,
+	reviewRunResultSchema,
 	reviewUsageSchema,
 	reviewUsageTotalInputTokens,
 } from "../../src/models.ts";
@@ -124,19 +125,22 @@ describe("roaster domain schemas", () => {
 		expect(response.payload.count).toBe(0);
 	});
 
-	test("validates future review run success envelope", () => {
-		const payload = createFindingsReview([]);
-		const envelope = reviewRunSuccessSchema.parse({
+	test("validates review run result contract", () => {
+		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
 			reviewPath: "reviews/typescript-style.md",
 			model: "haiku",
 			baseRef: "main",
-			payload,
+			format: "findings",
+			count: 0,
+			findings: [],
 			usage: null,
 			inputCoverage: null,
 		});
 
-		expect(envelope.payload.count).toBe(0);
+		expect(result.count).toBe(0);
+		expect(() => reviewRunResultSchema.parse({ ...result, count: 1 })).toThrow();
+		expect(() => reviewRunResultSchema.parse({ ...result, payload: createFindingsReview([]) })).toThrow();
 	});
 });
 
@@ -158,5 +162,6 @@ describe("GitHub and publication schemas", () => {
 			}).inlineable,
 		).toHaveLength(1);
 		expect(inlinePostingStatusSchema.parse({ postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 1, apiError: null }).postedCount).toBe(1);
+		expect(postInlineFindingsResultSchema.parse({ postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 1, apiError: null, fallbackOnly: [] }).fallbackOnly).toEqual([]);
 	});
 });

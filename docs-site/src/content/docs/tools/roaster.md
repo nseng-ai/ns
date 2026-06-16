@@ -20,11 +20,14 @@ output are explicit artifacts. `roaster` keeps the mechanical publication surfac
 
 ## Install
 
+From an asdl checkout, install the TypeScript source shim:
+
 ```bash
-uv tool install roaster
+just install-roaster
 roaster --help
-asdl roaster --help
 ```
+
+For local development without installing the shim, use `pnpm --dir ts exec roaster ...`.
 
 ## Common commands
 

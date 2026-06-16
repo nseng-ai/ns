@@ -4,6 +4,7 @@ import {
 	envelopeJsonText,
 	exitCodeForExit,
 	failure,
+	machineEnvelopeSchema,
 	negative,
 	ok,
 	toMachineEnvelope,
@@ -86,6 +87,14 @@ describe("toMachineEnvelope", () => {
 			message: "branch not found",
 		});
 		expect(Object.keys(envelope)).toEqual(["exit_code", "error_type", "message"]);
+	});
+});
+
+describe("machineEnvelopeSchema", () => {
+	test("accepts the machine envelopes emitted by clinkr exits", () => {
+		expect(machineEnvelopeSchema.parse(toMachineEnvelope(ok({ value: 1 })))).toEqual({ exit_code: 0, data: { value: 1 } });
+		expect(machineEnvelopeSchema.parse(toMachineEnvelope(negative("nothing to do")))).toEqual({ exit_code: 0, message: "nothing to do" });
+		expect(machineEnvelopeSchema.parse(toMachineEnvelope(failure("boom", "bad")))).toEqual({ exit_code: 2, error_type: "boom", message: "bad" });
 	});
 });
 

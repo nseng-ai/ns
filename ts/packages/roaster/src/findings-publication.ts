@@ -1,9 +1,10 @@
-import { isRecord, truncatedSha256Digest } from "@asdl/core";
+import { machineEnvelopeSchema } from "@asdl/clinkr";
+import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
+import { z } from "zod";
 
 import {
-	inlinePostingStatusSchema,
-	reviewFindingSchema,
-	reviewInputCoverageSchema,
+	postInlineFindingsResultSchema,
+	reviewRunResultSchema,
 	type InlinePostingStatus,
 	type ReviewFinding,
 	type ReviewInputCoverage,
@@ -15,6 +16,20 @@ const ACTIVITY_LOG_HEADING = "### Activity Log";
 const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
 const FOOTER = "_Posted by roaster. This comment is informational and does not block the check._";
+
+const reviewRunSuccessEnvelopeSchema = machineEnvelopeSchema.extend({
+	exit_code: z.literal(0),
+	data: reviewRunResultSchema,
+	error_type: z.undefined().optional(),
+	message: z.undefined().optional(),
+});
+
+const reviewRunFailureEnvelopeSchema = machineEnvelopeSchema.extend({
+	exit_code: z.union([z.literal(1), z.literal(2)]),
+	error_type: z.string().trim().min(1),
+	message: z.string(),
+	data: z.undefined().optional(),
+});
 
 const SEVERITY_LABELS = {
 	error: "⛔ error",
@@ -59,74 +74,59 @@ export type FindingsCommentBodyParseResult = { readonly type: "ok"; readonly par
 export function parseFindingsPayloadResult(raw: string, options: { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } = {}): FindingsPayloadParseResult {
 	const fallbackReviewName = options.fallbackReviewName ?? "unknown";
 	const fallbackBaseRef = options.fallbackBaseRef ?? "unknown";
-	const data = parseJsonObject(raw);
+	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
-	if (!("exit_code" in data.value)) return payloadError("expected a clinkr envelope with top-level 'exit_code'");
+	if (!machineEnvelopeSchema.safeParse(data.value).success) return payloadError("expected a clinkr machine envelope");
 
-	if (data.value.exit_code !== 0) {
-		const inner = isRecord(data.value.data) ? data.value.data : {};
+	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
+	if (success.success) {
 		return {
 			type: "ok",
 			payload: {
-				reviewName: coerceString(inner.review_name ?? inner.reviewName, fallbackReviewName),
-				baseRef: coerceString(inner.base_ref ?? inner.baseRef, fallbackBaseRef),
-				count: 0,
-				findings: [],
-				inputCoverage: null,
-				errorType: coerceString(data.value.error_type ?? data.value.errorType, "unknown"),
-				errorMessage: coerceString(data.value.message, ""),
+				reviewName: success.data.data.reviewName,
+				baseRef: success.data.data.baseRef,
+				count: success.data.data.count,
+				findings: success.data.data.findings,
+				inputCoverage: success.data.data.inputCoverage,
+				errorType: null,
+				errorMessage: null,
 			},
 		};
 	}
 
-	if (!isRecord(data.value.data)) return payloadError("`data` must be an object when `exit_code` is 0");
-	const inner = data.value.data;
-	const payloadInput = isRecord(inner.payload) ? inner.payload : inner;
-	const rawFindings = payloadInput.findings;
-	if (rawFindings !== undefined && !Array.isArray(rawFindings)) return payloadError("`findings` must be a list when present");
-
-	const findings: ReviewFinding[] = [];
-	for (const [index, item] of (rawFindings ?? []).entries()) {
-		const parsed = reviewFindingSchema.safeParse(item);
-		if (!parsed.success) return payloadError(`finding #${index}: ${parsed.error.message}`);
-		findings.push(parsed.data);
+	const failure = reviewRunFailureEnvelopeSchema.safeParse(data.value);
+	if (failure.success) {
+		return {
+			type: "ok",
+			payload: {
+				reviewName: fallbackReviewName,
+				baseRef: fallbackBaseRef,
+				count: 0,
+				findings: [],
+				inputCoverage: null,
+				errorType: failure.data.error_type,
+				errorMessage: failure.data.message,
+			},
+		};
 	}
 
-	const coverageInput = inner.inputCoverage ?? inner.input_coverage;
-	let inputCoverage: ReviewInputCoverage | null = null;
-	if (coverageInput !== undefined && coverageInput !== null) {
-		const parsedCoverage = reviewInputCoverageSchema.safeParse(coverageInput);
-		if (!parsedCoverage.success) return payloadError(`inputCoverage: ${parsedCoverage.error.message}`);
-		inputCoverage = parsedCoverage.data;
-	}
-
-	return {
-		type: "ok",
-		payload: {
-			reviewName: coerceString(inner.reviewName ?? inner.review_name, fallbackReviewName),
-			baseRef: coerceString(inner.baseRef ?? inner.base_ref, fallbackBaseRef),
-			count: typeof payloadInput.count === "number" && Number.isInteger(payloadInput.count) ? payloadInput.count : findings.length,
-			findings,
-			inputCoverage,
-			errorType: null,
-			errorMessage: null,
-		},
-	};
+	return payloadError(`invalid review-run envelope: ${formatZodError(success.error)}`);
 }
 
 export function parseInlinePostingStatusResult(raw: string): InlinePostingStatusParseResult {
-	const data = parseJsonObject(raw);
+	const data = parseJson(raw);
 	if (data.type === "error") return inlineStatusError(data.message);
-	const statusData = isRecord(data.value.data) ? data.value.data : data.value;
-	const normalized = {
-		postedCount: fieldValue(statusData, "postedCount", "posted_count"),
-		skippedDuplicateCount: fieldValue(statusData, "skippedDuplicateCount", "skipped_duplicate_count"),
-		fallbackOnlyCount: fieldValue(statusData, "fallbackOnlyCount", "fallback_only_count"),
-		apiError: fieldValue(statusData, "apiError", "api_error"),
+	const parsed = postInlineFindingsResultSchema.safeParse(data.value);
+	if (!parsed.success) return inlineStatusError(formatZodError(parsed.error));
+	return {
+		type: "ok",
+		status: {
+			postedCount: parsed.data.postedCount,
+			skippedDuplicateCount: parsed.data.skippedDuplicateCount,
+			fallbackOnlyCount: parsed.data.fallbackOnlyCount,
+			apiError: parsed.data.apiError,
+		},
 	};
-	const parsed = inlinePostingStatusSchema.safeParse(normalized);
-	if (!parsed.success) return inlineStatusError(parsed.error.message);
-	return { type: "ok", status: parsed.data };
 }
 
 export function renderFindingsComment(payload: FindingsPayload, options: { readonly inlineStatus?: InlinePostingStatus | null | undefined } = {}): string {
@@ -266,26 +266,14 @@ function stripActivityLog(body: string): string {
 	return headingIndex === -1 ? body : lines.slice(0, headingIndex).join("\n");
 }
 
-type JsonObjectResult = { readonly type: "ok"; readonly value: Readonly<Record<string, unknown>> } | { readonly type: "error"; readonly message: string };
+type JsonResult = { readonly type: "ok"; readonly value: unknown } | { readonly type: "error"; readonly message: string };
 
-function parseJsonObject(raw: string): JsonObjectResult {
-	let parsed: unknown;
+function parseJson(raw: string): JsonResult {
 	try {
-		parsed = JSON.parse(raw);
+		return { type: "ok", value: JSON.parse(raw) };
 	} catch (caught) {
 		return { type: "error", message: `input is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}` };
 	}
-	if (!isRecord(parsed)) return { type: "error", message: `expected a JSON object at top level, got ${typeof parsed}` };
-	return { type: "ok", value: parsed };
-}
-
-function coerceString(value: unknown, fallback: string): string {
-	return typeof value === "string" && value !== "" ? value : fallback;
-}
-
-function fieldValue(record: Readonly<Record<string, unknown>>, primary: string, secondary: string): unknown {
-	if (Object.hasOwn(record, primary)) return record[primary];
-	return record[secondary];
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {

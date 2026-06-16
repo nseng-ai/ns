@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { MAX_PROMPT_DIFF_FILE_TOKENS, MAX_PROMPT_DIFF_TOKENS, promptSizedDiff } from "../../src/gateways/harness.ts";
+import { MAX_PROMPT_DIFF_FILE_TOKENS, MAX_PROMPT_DIFF_TOKENS, promptSizedDiff } from "../../src/gateways/harness-diff-cap.ts";
 import { createLocalDiff, type LocalDiff } from "../../src/models.ts";
 
 function diffFile(path: string, estimatedTokens: number, rawText = `diff --git a/${path} b/${path}\n+change\n`) {

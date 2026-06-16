@@ -8,6 +8,36 @@ export function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+export interface ZodIssueLike {
+	readonly path: readonly unknown[];
+	readonly message: string;
+}
+
+export interface ZodErrorLike {
+	readonly issues: readonly ZodIssueLike[];
+}
+
+export interface FormatZodIssueOptions {
+	readonly rootPath?: string;
+	readonly pathPrefix?: string;
+	readonly fallback?: string;
+}
+
+export interface FormatZodErrorOptions extends FormatZodIssueOptions {
+	readonly issueSeparator?: string;
+}
+
+export function formatZodIssue(issue: ZodIssueLike | undefined, options: FormatZodIssueOptions = {}): string {
+	if (issue === undefined) return options.fallback ?? "invalid value";
+	const path = issue.path.length === 0 ? (options.rootPath ?? "<root>") : `${options.pathPrefix ?? ""}${issue.path.map((segment) => String(segment)).join(".")}`;
+	return `${path}: ${issue.message}`;
+}
+
+export function formatZodError(error: ZodErrorLike, options: FormatZodErrorOptions = {}): string {
+	if (error.issues.length === 0) return formatZodIssue(undefined, options);
+	return error.issues.map((issue) => formatZodIssue(issue, options)).join(options.issueSeparator ?? "; ");
+}
+
 export function truncatedSha256Digest(value: string): string {
 	return createHash("sha256").update(value, "utf8").digest("hex").slice(0, 32);
 }
