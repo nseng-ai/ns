@@ -52,7 +52,7 @@ The command owns its output and exit code. It does not support --format.`,
 			cwd: ctx.cwd,
 			githubPr,
 			generation,
-			force: true,
+			shouldForce: true,
 		});
 		if (decision.kind === "failed") {
 			ctx.stderr?.(ensureTrailingNewline(decision.error));

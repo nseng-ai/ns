@@ -38,7 +38,7 @@ export async function decidePrBodyOverwrite(params: {
 	cwd: string;
 	githubPr: GithubPrGateway;
 	generation: Extract<PrDescriptionGenerationResolution, { ok: true }>;
-	force?: boolean;
+	shouldForce?: boolean;
 }): Promise<PrBodyOverwriteDecision> {
 	const patchId = await params.githubPr.stablePatchIdForPr({ cwd: params.cwd, number: params.pr.number });
 	if (!patchId.ok) {
@@ -51,7 +51,7 @@ export async function decidePrBodyOverwrite(params: {
 		generator: PR_DESCRIPTION_GENERATOR_VERSION,
 	};
 	const parsedRegion = parseManagedGeneratedRegion(params.pr.body);
-	if (params.force !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
+	if (params.shouldForce !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
 		return { kind: "skip", patchId: patchId.value };
 	}
 
