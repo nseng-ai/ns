@@ -3,18 +3,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlConfirmPrompt, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
+import type { SdlConfirmPrompt, TextGenerationResult } from "@asdl/sdl/sdk";
 
-interface ScriptedExecResponse {
-	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: Partial<ExecResult>;
-}
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: ExecOptions | undefined;
-}
+import { formattedExecCalls, runCliWithFakes, ScriptedSdlTestContext, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
 type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 
@@ -27,78 +18,23 @@ interface TestState {
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/asdl-tools/1517";
 
-class ScriptedSubmitContext implements SdlContext {
-	readonly cwd: string;
-	readonly env: Record<string, string | undefined>;
-	readonly execCalls: ExecCall[] = [];
-	readonly modelCalls: TextGenerationRequest[] = [];
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
-	confirm?: SdlConfirmPrompt | undefined;
-	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: ScriptedTextGenerationResult[];
-
-	constructor(state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined> } = {}) {
-		this.cwd = options.cwd ?? "/work";
-		this.env = options.env ?? {};
-		this.execResponses = [...(state.exec ?? successfulSubmitResponses())];
-		this.modelResults = [...(state.textGeneration ?? [{ ok: true, text: defaultPrDescriptionText() }])];
-		this.confirm = state.confirm;
-	}
-
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		const call = { command, args: [...args], options };
-		this.execCalls.push(call);
-		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
-		if (index === -1) {
-			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
-		}
-		const [response] = this.execResponses.splice(index, 1);
-		if (response === undefined) {
-			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
-		}
-		const result = execResult(response.result);
-		options?.onStdout?.(result.stdout);
-		options?.onStderr?.(result.stderr);
-		return result;
-	}
-
-	readonly model = {
-		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
-			this.modelCalls.push({ ...request });
-			return await (this.modelResults.shift() ?? { ok: true, text: defaultPrDescriptionText() });
-		},
-	};
+function createSubmitContext(state: TestState = {}): ScriptedSdlTestContext {
+	return new ScriptedSdlTestContext(state, {
+		execResponses: successfulSubmitResponses,
+		textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
+		missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
+	});
 }
 
 function runWithFakes(args: readonly string[], state: TestState = {}) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
-	const context = new ScriptedSubmitContext(state);
-	return {
-		context,
-		stdout,
-		stderr,
-		liveOutput,
-		exit: runCli(args, {
-			context,
-			cwd: context.cwd,
-			homeDir: join(context.cwd, ".home"),
-			env: context.env,
-			stdout: (text) => {
-				stdout.push(text);
-			},
-			stderr: (text) => {
-				stderr.push(text);
-			},
-			onOutput: (stream, text) => {
-				liveOutput.push({ stream, text });
-			},
-			...(state.confirm === undefined ? {} : { confirm: state.confirm }),
-		}),
-	};
+	return runCliWithFakes(
+		{ args, state },
+		{
+			execResponses: successfulSubmitResponses,
+			textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
+			missingTextGenerationResult: () => ({ ok: true, text: defaultPrDescriptionText() }),
+		},
+	);
 }
 
 function cleanCheckpointResponses(): ScriptedExecResponse[] {
@@ -155,30 +91,6 @@ function commitsJson(): string {
 
 function defaultPrDescriptionText(): string {
 	return "Generated PR\n\nGenerated body";
-}
-
-function execResult(result: Partial<ExecResult> = {}): ExecResult {
-	return {
-		code: result.code ?? 0,
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
-	};
-}
-
-function responseMatches(match: ScriptedExecResponse["match"], call: ExecCall): boolean {
-	const display = formatExecCall(call);
-	if (typeof match === "string") return match === display;
-	if (match instanceof RegExp) return match.test(display);
-	return match(call);
-}
-
-function formatExecCall(call: ExecCall): string {
-	return [call.command, ...call.args].join(" ");
-}
-
-function formattedExecCalls(context: ScriptedSubmitContext): string[] {
-	return context.execCalls.map(formatExecCall);
 }
 
 describe("sdl submit CLI", () => {
@@ -303,7 +215,7 @@ describe("sdl submit CLI", () => {
 	test("direct CLI output gets live submit progress without an injected live-output hook", async () => {
 		const stdout: string[] = [];
 		const stderr: string[] = [];
-		const context = new ScriptedSubmitContext();
+		const context = createSubmitContext();
 
 		expect(await runCli(["submit"], {
 			context,
@@ -449,7 +361,7 @@ describe("sdl submit CLI", () => {
 		const stderr: string[] = [];
 		const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 		const confirmations: string[] = [];
-		const context = new ScriptedSubmitContext({
+		const context = createSubmitContext({
 			exec: [
 				...cleanCheckpointResponses(),
 				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stdout: "restack required before submit\n" } },
