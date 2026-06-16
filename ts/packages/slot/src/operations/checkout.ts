@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
 import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
-import { buildNavigationResultFields } from "../navigation-result.ts";
+import { buildNavigationResultFields, renderNavigationFooter, writeNavigationCdDirective } from "../navigation-result.ts";
 import { extractSlotNumber } from "../naming.ts";
 
 export const checkoutRequestSchema = z.object({
@@ -42,6 +42,7 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 		? await checkoutCurrent(ctx)
 		: await checkoutBranch(ctx, request.branch_name ?? "", { shouldCreateBranch: request.new, base: request.base ?? null });
 	if (lifecycleResult.type === "failure") return failure(lifecycleResult.failure.error_type, lifecycleResult.failure.message);
+	await writeNavigationCdDirective(ctx, lifecycleResult.outcome.worktree_path);
 	const navigation = await buildNavigationResultFields(ctx, { worktreePath: lifecycleResult.outcome.worktree_path, shouldSkipClipboard: !request.clipboard });
 	return ok({ ...lifecycleResult.outcome, ...navigation });
 }
@@ -58,9 +59,6 @@ export function renderCheckout(result: CheckoutResult): string {
 	} else {
 		lines.push(`Checked out ${result.slot_name} -> ${result.branch_name}`);
 	}
-	lines.push(result.cd_command);
-	if (!result.clipboard_skipped) {
-		lines.push(result.clipboard_copied ? "Copied cd command to clipboard." : `Clipboard unavailable (${result.clipboard_failure_detail ?? "pbcopy failed"})`);
-	}
+	lines.push(...renderNavigationFooter(result));
 	return lines.join("\n");
 }

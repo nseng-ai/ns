@@ -27,8 +27,6 @@ export interface WorktreeOccupancy {
 
 export interface GitCommandFailure {
 	message: string;
-	returncode: number | null;
-	errorType?: string | undefined;
 }
 
 export type CurrentBranchResult =
@@ -51,7 +49,6 @@ export interface SlotGitGateway {
 	getCurrentBranch(cwd: string): Promise<CurrentBranchResult>;
 	getPreviousBranch(cwd: string): Promise<string | null>;
 	branchExists(branch: string): Promise<boolean>;
-	listLocalBranches(): Promise<readonly string[]>;
 	createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null>;
 	checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null>;
 	detachHead(cwd: string, ref: string): Promise<GitCommandFailure | null>;
@@ -129,7 +126,7 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		}
 		const text = `${result.stderr}\n${result.stdout}`.toLowerCase();
 		if (text.includes("not a symbolic ref") || text.includes("not currently on a branch")) return { type: "detached" };
-		return { type: "failure", failure: failureFromResult(result, "current_branch_failed") };
+		return { type: "failure", failure: failureFromResult(result) };
 	}
 
 	async getPreviousBranch(cwd: string): Promise<string | null> {
@@ -145,26 +142,20 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		return result.isOk;
 	}
 
-	async listLocalBranches(): Promise<readonly string[]> {
-		const result = await this.git(["for-each-ref", "--format=%(refname:short)", "refs/heads/"], this.cwd, { allowFailure: true });
-		if (!result.isOk) return [];
-		return result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-	}
-
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
 		const flag = options.shouldForce ? ["-f"] : [];
 		const result = await this.git(["branch", ...flag, branch, startPoint], this.cwd, { allowFailure: true });
-		return result.isOk ? null : failureFromResult(result, "branch_create_failed");
+		return result.isOk ? null : failureFromResult(result);
 	}
 
 	async checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null> {
 		const result = await this.git(["checkout", branch], cwd, { allowFailure: true });
-		return result.isOk ? null : failureFromResult(result, "checkout_failed");
+		return result.isOk ? null : failureFromResult(result);
 	}
 
 	async detachHead(cwd: string, ref: string): Promise<GitCommandFailure | null> {
 		const result = await this.git(["checkout", "--detach", ref], cwd, { allowFailure: true });
-		return result.isOk ? null : failureFromResult(result, "detach_failed");
+		return result.isOk ? null : failureFromResult(result);
 	}
 
 	async addDetachedWorktree(path: string, ref: string): Promise<void> {
@@ -208,9 +199,9 @@ interface CommandResult {
 	killed: boolean;
 }
 
-function failureFromResult(result: CommandResult, errorType?: string): GitCommandFailure {
+function failureFromResult(result: CommandResult): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
-	return { message: output, returncode: result.code, ...(errorType === undefined ? {} : { errorType }) };
+	return { message: output };
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {

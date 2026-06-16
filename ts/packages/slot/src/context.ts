@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
-import { discoverRepoOrSentinel, type RepoDiscoveryResult } from "./repo-context.ts";
+import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } from "./repo-context.ts";
 
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
@@ -14,8 +14,10 @@ export interface SlotCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
-	isMachineMode: boolean;
+	shouldWriteCdDirective: boolean;
 }
+
+export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 
 export async function createRealSlotContext(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
@@ -30,6 +32,6 @@ export async function createRealSlotContext(options: { cwd: string; env?: NodeJS
 		cwd: options.cwd,
 		env,
 		slotsRoot,
-		isMachineMode: false,
+		shouldWriteCdDirective: true,
 	};
 }
