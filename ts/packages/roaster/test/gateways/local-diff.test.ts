@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { ScriptedCommandExecApi } from "@asdl/core/testing";
+
 import { FakeLocalDiffGateway, formatGitDiffDisplayCommand, RealLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { createLocalDiff } from "../../src/models.ts";
-import { ScriptedCommandExecApi, StaticGitGateway } from "../support/fake-roaster-context.ts";
 
 const SAMPLE_DIFF =
 	"diff --git a/src/app.ts b/src/app.ts\n" +
@@ -35,7 +37,7 @@ describe("RealLocalDiffGateway", () => {
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(join(repoRoot, "asdl.toml"), '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n', "utf8");
 		const execApi = new ScriptedCommandExecApi([{ stdout: SAMPLE_DIFF }]);
-		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new StaticGitGateway({ repoRoot, trunkBranch: "trunk" }) });
+		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }) });
 
 		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
 
@@ -69,7 +71,7 @@ describe("RealLocalDiffGateway", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });
 		const execApi = new ScriptedCommandExecApi([{ stderr: "fatal: bad revision", code: 128 }]);
-		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new StaticGitGateway({ repoRoot, trunkBranch: "trunk" }) });
+		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new InMemoryGitGateway({ repoRoot, trunkBranch: "trunk" }) });
 
 		const result = await gateway.loadDiff({ cwd: repoRoot });
 

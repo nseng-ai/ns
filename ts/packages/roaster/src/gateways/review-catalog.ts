@@ -1,8 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
-import { type GitGateway, RealGitGateway } from "@asdl/core/git";
 import { NodeCommandExecApi } from "@asdl/core/exec";
+import { type GitGateway, RealGitGateway } from "@asdl/core/git";
+import { mapFromRecordOrMap } from "@asdl/core/primitives";
 
 import type { ReviewCatalogFailure, RoasterResult } from "../failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";
@@ -103,8 +104,8 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 	private readonly requestedReviewKeysInternal: string[] = [];
 
 	constructor(options: FakeReviewCatalogGatewayOptions = {}) {
-		this.reviewSourcesByKey = mapFromEntries(options.reviewSourcesByKey);
-		this.reviewSourceFailuresByKey = mapFromEntries(options.reviewSourceFailuresByKey);
+		this.reviewSourcesByKey = mapFromRecordOrMap(options.reviewSourcesByKey);
+		this.reviewSourceFailuresByKey = mapFromRecordOrMap(options.reviewSourceFailuresByKey);
 		this.reviewKeys = options.reviewKeys === undefined ? null : [...options.reviewKeys];
 		this.listReviewKeysFailure = options.listReviewKeysFailure ?? null;
 		this.reviewsDirValue = options.reviewsDir ?? "/repo/reviews";
@@ -189,11 +190,5 @@ async function directoryStatus(path: string): Promise<PathStatus> {
 
 function error(errorValue: ReviewCatalogFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
-}
-
-function mapFromEntries<T>(source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined): Map<string, T> {
-	if (source === undefined) return new Map();
-	if (source instanceof Map) return new Map(source);
-	return new Map(Object.entries(source));
 }
 

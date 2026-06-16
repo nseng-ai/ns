@@ -58,7 +58,7 @@ function inspectJson(): string {
 
 describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 	test("uses vercel command and githubCommitRef metadata only", async () => {
-		const runner = new ScriptedCommandRunner([step("vercel", listArgs(), deploymentListJson())]);
+		const runner = new ScriptedCommandRunner([step("vercel", listArgs(), { stdout: deploymentListJson() })]);
 		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["vercel", "pnpm"]) });
 
 		const result = await gateway.listReadyPreviewDeployments({
@@ -91,7 +91,7 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 	});
 
 	test("falls back to pnpm dlx vercel@latest when vercel is unavailable", async () => {
-		const runner = new ScriptedCommandRunner([step("pnpm", ["dlx", "vercel@latest", ...listArgs()], JSON.stringify({ deployments: [] }))]);
+		const runner = new ScriptedCommandRunner([step("pnpm", ["dlx", "vercel@latest", ...listArgs()], { stdout: JSON.stringify({ deployments: [] }) })]);
 		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["pnpm"]) });
 
 		expect(await gateway.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" })).toEqual({
@@ -115,7 +115,7 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 	});
 
 	test("maps command failures with structured details", async () => {
-		const runner = new ScriptedCommandRunner([step("vercel", listArgs(), "", 1, "auth failed")]);
+		const runner = new ScriptedCommandRunner([step("vercel", listArgs(), { exitCode: 1, stderr: "auth failed" })]);
 		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		const result = await gateway.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" });
@@ -130,7 +130,7 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 	});
 
 	test("maps malformed JSON and invalid shapes", async () => {
-		const malformed = new ScriptedCommandRunner([step("vercel", listArgs(), "not json")]);
+		const malformed = new ScriptedCommandRunner([step("vercel", listArgs(), { stdout: "not json" })]);
 		const malformedGateway = new RealVercelDeploymentGateway({ runner: malformed.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		const malformedResult = await malformedGateway.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" });
@@ -139,7 +139,7 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 		expect(malformedResult.error.code).toBe("vercel_json_parse_error");
 		malformed.assertDone();
 
-		const invalid = new ScriptedCommandRunner([step("vercel", listArgs(), JSON.stringify({ deployments: {} }))]);
+		const invalid = new ScriptedCommandRunner([step("vercel", listArgs(), { stdout: JSON.stringify({ deployments: {} }) })]);
 		const invalidGateway = new RealVercelDeploymentGateway({ runner: invalid.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		const invalidResult = await invalidGateway.listReadyPreviewDeployments({ project: "asdl-tools", scope: "schrockns-projects", branch: "feature/demo", cwd: "/repo" });
@@ -156,7 +156,7 @@ describe("RealVercelDeploymentGateway listReadyPreviewDeployments", () => {
 
 describe("RealVercelDeploymentGateway inspectDeployment", () => {
 	test("uses vercel inspect with normalized https URL", async () => {
-		const runner = new ScriptedCommandRunner([step("vercel", inspectArgs(), inspectJson())]);
+		const runner = new ScriptedCommandRunner([step("vercel", inspectArgs(), { stdout: inspectJson() })]);
 		const gateway = new RealVercelDeploymentGateway({ runner: runner.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		expect(await gateway.inspectDeployment({ url: "immutable.vercel.app", scope: "schrockns-projects", cwd: "/repo" })).toEqual({
@@ -172,7 +172,7 @@ describe("RealVercelDeploymentGateway inspectDeployment", () => {
 	});
 
 	test("maps inspect command failure and shape errors", async () => {
-		const failed = new ScriptedCommandRunner([step("vercel", inspectArgs(), "", 1, "missing deployment")]);
+		const failed = new ScriptedCommandRunner([step("vercel", inspectArgs(), { exitCode: 1, stderr: "missing deployment" })]);
 		const failedGateway = new RealVercelDeploymentGateway({ runner: failed.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		const failedResult = await failedGateway.inspectDeployment({ url: "immutable.vercel.app", scope: "schrockns-projects", cwd: "/repo" });
@@ -181,7 +181,7 @@ describe("RealVercelDeploymentGateway inspectDeployment", () => {
 		expect(failedResult.error).toMatchObject({ code: "vercel_inspect_failed", details: { stderr: "missing deployment" } });
 		failed.assertDone();
 
-		const invalid = new ScriptedCommandRunner([step("vercel", inspectArgs(), JSON.stringify({ id: "dpl_abc123" }))]);
+		const invalid = new ScriptedCommandRunner([step("vercel", inspectArgs(), { stdout: JSON.stringify({ id: "dpl_abc123" }) })]);
 		const invalidGateway = new RealVercelDeploymentGateway({ runner: invalid.runner, resolveCommand: resolverWith(["vercel"]) });
 
 		expect(await invalidGateway.inspectDeployment({ url: "immutable.vercel.app", scope: "schrockns-projects", cwd: "/repo" })).toEqual({

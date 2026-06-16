@@ -3,8 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
+
 import { FakeReviewCatalogGateway, RealReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
-import { StaticGitGateway } from "../support/fake-roaster-context.ts";
 
 describe("FakeReviewCatalogGateway", () => {
 	test("lists configured keys, loads sources, and records requests", async () => {
@@ -36,7 +37,7 @@ describe("RealReviewCatalogGateway", () => {
 		await writeFile(join(repoRoot, "reviews", "typescript-style.md"), "ts", "utf8");
 		await writeFile(join(repoRoot, "reviews", "nested", "python.md"), "py", "utf8");
 		await writeFile(join(repoRoot, "reviews", "README.txt"), "ignored", "utf8");
-		const gateway = new RealReviewCatalogGateway({ gitGateway: new StaticGitGateway({ repoRoot }) });
+		const gateway = new RealReviewCatalogGateway({ gitGateway: new InMemoryGitGateway({ repoRoot }) });
 
 		const result = await gateway.listReviewKeys({ cwd: repoRoot });
 
@@ -47,7 +48,7 @@ describe("RealReviewCatalogGateway", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-load-"));
 		await mkdir(join(repoRoot, "reviews"), { recursive: true });
 		await writeFile(join(repoRoot, "reviews", "typescript-style.md"), "review source", "utf8");
-		const gateway = new RealReviewCatalogGateway({ gitGateway: new StaticGitGateway({ repoRoot }) });
+		const gateway = new RealReviewCatalogGateway({ gitGateway: new InMemoryGitGateway({ repoRoot }) });
 
 		const result = await gateway.loadReviewSource({ cwd: repoRoot, key: " typescript-style " });
 
@@ -59,7 +60,7 @@ describe("RealReviewCatalogGateway", () => {
 	});
 
 	test.each(["", "/absolute", "../escape", "nested/../escape"])("rejects invalid key %#", async (key) => {
-		const gateway = new RealReviewCatalogGateway({ gitGateway: new StaticGitGateway({ repoRoot: "/repo" }) });
+		const gateway = new RealReviewCatalogGateway({ gitGateway: new InMemoryGitGateway({ repoRoot: "/repo" }) });
 
 		const result = await gateway.loadReviewSource({ cwd: "/repo", key });
 
@@ -69,7 +70,7 @@ describe("RealReviewCatalogGateway", () => {
 
 	test("reports missing reviews directory and missing definitions", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-missing-"));
-		const gateway = new RealReviewCatalogGateway({ gitGateway: new StaticGitGateway({ repoRoot }) });
+		const gateway = new RealReviewCatalogGateway({ gitGateway: new InMemoryGitGateway({ repoRoot }) });
 
 		const catalog = await gateway.listReviewKeys({ cwd: repoRoot });
 		expect(catalog.type).toBe("error");

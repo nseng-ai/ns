@@ -1,14 +1,10 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-import { formatCommand, type CommandExecApi, type ExecOptions } from "@asdl/core/exec";
+import type { CommandExecApi } from "@asdl/core/exec";
+import { runGitHubCli } from "@asdl/core/github-cli";
+import { withTemporaryJsonFile } from "@asdl/core/temp-files";
 import { z } from "zod";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../failures.ts";
 import type { PRChangedFile, PRDiscussionComment, PRInlineCommentInput, PRReviewComment } from "../models.ts";
-
-const GH_TIMEOUT_MS = 30_000;
 
 const ghAuthorSchema = z.union([z.string(), z.object({ login: z.string().default("") }).loose(), z.null()]);
 const ghChangedFileSchema = z
@@ -86,15 +82,18 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 	}
 
 	async createPrReview(prNumber: number, comments: readonly PRInlineCommentInput[], options: GitHubGatewayOptions): Promise<RoasterResult<void>> {
-		const input = await writeJsonInput({ event: "COMMENT", comments: comments.map((comment) => ({ path: comment.path, line: comment.line, body: comment.body })) });
-		try {
-			const args = ["api", "--method", "POST", `repos/{owner}/{repo}/pulls/${prNumber}/reviews`, "--input", input.path];
-			const result = await this.runGh(args, options);
-			if (result.type === "error") return result;
-			return { type: "ok", value: undefined };
-		} finally {
-			await input.cleanup();
-		}
+		return await withTemporaryJsonFile(
+			{
+				prefix: "roaster-gh-",
+				value: { event: "COMMENT", comments: comments.map((comment) => ({ path: comment.path, line: comment.line, body: comment.body })) },
+			},
+			async (inputPath) => {
+				const args = ["api", "--method", "POST", `repos/{owner}/{repo}/pulls/${prNumber}/reviews`, "--input", inputPath];
+				const result = await this.runGh(args, options);
+				if (result.type === "error") return result;
+				return { type: "ok", value: undefined };
+			},
+		);
 	}
 
 	async findPrDiscussionCommentByMarker(options: FindPrDiscussionCommentByMarkerOptions): Promise<RoasterResult<PRDiscussionComment | null>> {
@@ -132,14 +131,19 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 	}
 
 	private async runGh(args: readonly string[], options: GitHubGatewayOptions): Promise<RoasterResult<{ readonly stdout: string }>> {
-		let result;
-		try {
-			result = await this.execApi.exec("gh", [...args], ghExecOptions(options));
-		} catch (caught) {
-			return error({ type: "github_cli_failed", message: caught instanceof Error ? caught.message : String(caught), command: ["gh", ...args], stderr: "", code: null });
+		const run = await runGitHubCli({
+			runner: (command, commandArgs, execOptions) => this.execApi.exec(command, [...commandArgs], execOptions),
+			args,
+			cwd: options.cwd,
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		});
+		if (run.type === "startup_error") {
+			return error({ type: "github_cli_failed", message: run.message, command: run.command, stderr: "", code: null });
 		}
+		const result = run.result;
 		if (result.code !== 0 || result.killed) {
-			return error({ type: "github_cli_failed", message: result.stderr.trim() || `GitHub CLI command failed: ${formatCommand("gh", args)}`, command: ["gh", ...args], stderr: result.stderr, code: result.code });
+			return error({ type: "github_cli_failed", message: result.stderr.trim() || `GitHub CLI command failed: ${run.displayCommand}`, command: run.command, stderr: result.stderr, code: result.code });
 		}
 		return { type: "ok", value: { stdout: result.stdout } };
 	}
@@ -244,32 +248,6 @@ function numericId(value: string | number | undefined): number {
 		if (Number.isInteger(numeric)) return numeric;
 	}
 	return 0;
-}
-
-interface JsonInputFile {
-	readonly path: string;
-	cleanup(): Promise<void>;
-}
-
-async function writeJsonInput(value: unknown): Promise<JsonInputFile> {
-	const directory = await mkdtemp(join(tmpdir(), "roaster-gh-"));
-	const path = join(directory, "input.json");
-	await writeFile(path, JSON.stringify(value), "utf8");
-	return {
-		path,
-		async cleanup() {
-			await rm(directory, { recursive: true, force: true });
-		},
-	};
-}
-
-function ghExecOptions(options: GitHubGatewayOptions): ExecOptions {
-	return {
-		cwd: options.cwd,
-		timeout: GH_TIMEOUT_MS,
-		...(options.env === undefined ? {} : { env: options.env }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	};
 }
 
 function error(errorValue: GitHubGatewayFailure): RoasterResult<never> {
