@@ -273,12 +273,13 @@ async function waitForSentUserMessage(pi: FakePi): Promise<void> {
 }
 
 async function waitForCondition(condition: () => boolean): Promise<void> {
-	for (let attempt = 0; attempt < 100; attempt += 1) {
+	const deadline = Date.now() + 1_000;
+	while (Date.now() < deadline) {
 		if (condition()) {
 			return;
 		}
 		await new Promise<void>((resolve) => {
-			setImmediate(resolve);
+			setTimeout(resolve, 1);
 		});
 	}
 	throw new Error("timed out waiting for condition");
