@@ -1,6 +1,4 @@
-import { z } from "zod";
-
-import type { MachineEnvelope } from "../exit.ts";
+import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
 import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
 
@@ -44,12 +42,7 @@ export async function runForTest<TContext>(
 	return { exitCode, stdout: capture.stdout(), stderr: capture.stderr() };
 }
 
-export const machineEnvelopeSchema = z.strictObject({
-	exit_code: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-	error_type: z.string().optional(),
-	message: z.string().optional(),
-	data: z.unknown().optional(),
-});
+export { machineEnvelopeSchema } from "../exit.ts";
 
 export function parseEnvelope(stdout: string): MachineEnvelope {
 	return machineEnvelopeSchema.parse(JSON.parse(stdout)) as MachineEnvelope;

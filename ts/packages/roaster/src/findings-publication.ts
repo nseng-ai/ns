@@ -1,3 +1,4 @@
+import { machineEnvelopeSchema } from "@asdl/clinkr";
 import { truncatedSha256Digest } from "@asdl/core";
 import { z } from "zod";
 
@@ -16,22 +17,19 @@ const ACTIVITY_LOG_CAP = 10;
 const OMITTED_INPUT_FILES_RENDER_LIMIT = 10;
 const FOOTER = "_Posted by roaster. This comment is informational and does not block the check._";
 
-const reviewRunSuccessEnvelopeSchema = z
-	.object({
-		exit_code: z.literal(0),
-		data: reviewRunResultSchema,
-	})
-	.strict();
+const reviewRunSuccessEnvelopeSchema = machineEnvelopeSchema.extend({
+	exit_code: z.literal(0),
+	data: reviewRunResultSchema,
+	error_type: z.undefined().optional(),
+	message: z.undefined().optional(),
+});
 
-const reviewRunFailureEnvelopeSchema = z
-	.object({
-		exit_code: z.int().refine((value) => value !== 0, { message: "exit_code must be nonzero" }),
-		error_type: z.string().trim().min(1),
-		message: z.string(),
-	})
-	.strict();
-
-const clinkrEnvelopeMarkerSchema = z.object({ exit_code: z.unknown() }).passthrough();
+const reviewRunFailureEnvelopeSchema = machineEnvelopeSchema.extend({
+	exit_code: z.union([z.literal(1), z.literal(2)]),
+	error_type: z.string().trim().min(1),
+	message: z.string(),
+	data: z.undefined().optional(),
+});
 
 const SEVERITY_LABELS = {
 	error: "⛔ error",
@@ -78,7 +76,7 @@ export function parseFindingsPayloadResult(raw: string, options: { readonly fall
 	const fallbackBaseRef = options.fallbackBaseRef ?? "unknown";
 	const data = parseJson(raw);
 	if (data.type === "error") return payloadError(data.message);
-	if (!clinkrEnvelopeMarkerSchema.safeParse(data.value).success) return payloadError("expected a clinkr envelope with top-level 'exit_code'");
+	if (!machineEnvelopeSchema.safeParse(data.value).success) return payloadError("expected a clinkr machine envelope");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
 	if (success.success) {
