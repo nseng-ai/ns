@@ -19,6 +19,8 @@ import type {
 } from "../src/cmux/types.ts";
 import type { SkillCommandInfo } from "@asdl/pi-extension-runtime/skill-expansion";
 
+export { brmemCheckJson } from "@asdl/core/testing";
+
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";
 export const BRANCH = "cmux-summary-hooks";

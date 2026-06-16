@@ -23,6 +23,7 @@ import {
 	SOURCE_BRANCH,
 	START_POINT,
 	WORKTREE,
+	brmemCheckJson,
 	brmemPutJson,
 	dispatchValidationScript,
 	gitCurrentBranchStep,
@@ -254,7 +255,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
 				headStep(),
 				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
-				step("brmem", ["check", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--format", "json"], { code: 1 }),
+				step("brmem", ["check", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--format", "json"], { stdout: brmemCheckJson(false) }),
 				gitCurrentBranchStep(),
 				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
 				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
@@ -362,7 +363,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 1 }),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: brmemCheckJson(false) }),
 				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
 					stdout: dispatchPromptPutJson(stagedPromptFile),
 				}),
@@ -407,7 +408,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 0 }),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: brmemCheckJson(true) }),
 			],
 		});
 		registerCccSlotDispatchPromptCommand(pi);
@@ -433,7 +434,7 @@ describe("CCC cmux command suite", () => {
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("git", ["branch", BRANCH, "HEAD"], {}),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
-				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 1 }),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: brmemCheckJson(false) }),
 				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
 					code: 2,
 					stderr: "cannot write entry\n",

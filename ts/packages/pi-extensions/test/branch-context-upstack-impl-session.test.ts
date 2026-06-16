@@ -20,6 +20,7 @@ import {
 	ROOT,
 	SOURCE_BRANCH,
 	attachedPlan,
+	brmemCheckEnvelope,
 	brmemListAttachedPlansStep,
 	createBranchContextOperationFakes,
 	createContext,
@@ -104,7 +105,7 @@ describe("branch-context-upstack-impl-session", () => {
 	test("branch-context:upstack-impl-session reuses one session-created attached plan when the local plan store is missing", async () => {
 		const events: string[] = [];
 		const pi = new FakePi([
-			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(true) }),
 			gitCheckoutStep(IMPL_BRANCH),
 		], events);
 		const fakes = createBranchContextOperationFakes({
@@ -141,7 +142,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session reuses a non-default session-created attached plan", async () => {
 		const pi = new FakePi([
-			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(true) }),
 			gitCheckoutStep(IMPL_BRANCH),
 		]);
 		const fakes = createBranchContextOperationFakes({
@@ -219,7 +220,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session dry-run includes non-default keys in the follow-up flow", async () => {
 		const pi = new FakePi([
-			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(true) }),
 		]);
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile() {
@@ -332,7 +333,7 @@ describe("branch-context-upstack-impl-session", () => {
 	test("branch-context:upstack-impl-session falls through to the current branch when the session candidate fails verification", async () => {
 		const currentBranch = "branch-contexts/current-target";
 		const pi = new FakePi([
-			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 1 }),
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(false) }),
 			gitCurrentBranchStep(currentBranch),
 			brmemListAttachedPlansStep(currentBranch, [{ key: PLAN_KEY }]),
 			gitCheckoutStep(currentBranch),
@@ -370,7 +371,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session aggregates session and current-branch failures into one error", async () => {
 		const pi = new FakePi([
-			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 1 }),
+			step("brmem", ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(false) }),
 			gitCurrentBranchStep(SOURCE_BRANCH, { stdout: "" }),
 		]);
 		const fakes = createBranchContextOperationFakes({
@@ -440,7 +441,7 @@ describe("branch-context-upstack-impl-session", () => {
 
 	test("branch-context:upstack-impl-session reports keyed cancellation recovery", async () => {
 		const pi = new FakePi([
-			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { code: 0 }),
+			step("brmem", ["check", CUSTOM_PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", IMPL_BRANCH, "--format", "json"], { stdout: brmemCheckEnvelope(true) }),
 			gitCheckoutStep(IMPL_BRANCH),
 		]);
 		const fakes = createBranchContextOperationFakes({

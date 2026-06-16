@@ -158,10 +158,10 @@ describe("in-memory branch-context brmem gateway", () => {
 });
 
 describe("real branch-context brmem gateway command protocol", () => {
-	test("maps attachment presence check exit codes", async () => {
+	test("maps attachment presence check output", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["check", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"]),
-			step("brmem", ["check", "missing.md", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 1 }),
+			step("brmem", ["check", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope({ present: true }) }),
+			step("brmem", ["check", "missing.md", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope({ present: false }) }),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 

@@ -25,6 +25,8 @@ import {
 	type ToolDefinition,
 } from "../src/branch-context-extension.ts";
 
+export { brmemCheckJson as brmemCheckEnvelope } from "@asdl/core/testing";
+
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../..");
 export const ROOT = "/repo";

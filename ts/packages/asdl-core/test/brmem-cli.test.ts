@@ -264,7 +264,7 @@ describe("checkBrmemEntry", () => {
 
 	test("returns present with the exact command protocol, default timeout, and signal", async () => {
 		const signal = new AbortController().signal;
-		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0 })]);
+		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: true }) })]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator, signal });
 
@@ -273,7 +273,16 @@ describe("checkBrmemEntry", () => {
 		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: DEFAULT_BRMEM_TIMEOUT_MS, signal });
 	});
 
-	test("returns absent for exit code 1", async () => {
+	test("returns absent for present false check output", async () => {
+		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: false }) })]);
+
+		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
+
+		gateway.assertDone();
+		expect(result).toEqual({ type: "absent" });
+	});
+
+	test("returns absent for legacy exit code 1", async () => {
 		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 1 })]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });

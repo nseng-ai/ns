@@ -135,6 +135,10 @@ export function startupErrorStep(command: string, args: readonly string[], start
 	return { command, args: [...args], exitCode: 127, startupError };
 }
 
+export function brmemCheckJson(present: boolean): string {
+	return JSON.stringify({ exit_code: 0, data: { present } });
+}
+
 export function describeNodeRuntimeCliEntrypoint(options: NodeRuntimeCliEntrypointOptions): void {
 	const workspaceRoot = fileURLToPath(options.workspaceRoot);
 

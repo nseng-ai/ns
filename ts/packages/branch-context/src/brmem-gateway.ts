@@ -1,8 +1,10 @@
 import {
 	brmemCommandFailure,
 	checkBrmemEntry,
+	parseBrmemMachineEnvelopeData,
 	parseBrmemPutData,
 	putBrmemEntryFromFile,
+	requireBrmemStringFields,
 	runAvailableBrmemCommand,
 	type BrmemCommandErrorInfo,
 	type BrmemCommandResult,
@@ -13,7 +15,6 @@ import { MAX_ERROR_CHARS, tailText, type CommandExecApi } from "@asdl/core/exec"
 import { isRecord } from "@asdl/core/primitives";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
-import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 
 export interface BrmemCwdParams {
 	cwd: string;
@@ -154,10 +155,7 @@ export class RealBranchContextBrmemGateway implements BranchContextBrmemGateway 
 export { parseBrmemPutData };
 
 export function parseBrmemListEntries(stdout: string, expected: { namespace: string; branch: string }): AttachedPlanEntry[] {
-	const data = parseMachineEnvelopeData(stdout, {
-		label: "brmem list JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
-	});
+	const data = parseBrmemMachineEnvelopeData(stdout, "brmem list JSON");
 
 	const entries = data.entries;
 	if (!Array.isArray(entries)) {
@@ -168,29 +166,14 @@ export function parseBrmemListEntries(stdout: string, expected: { namespace: str
 }
 
 export function parseBrmemGetContent(stdout: string, expected: { namespace: string; branch: string; key: string }): BrmemGetContent {
-	const data = parseMachineEnvelopeData(stdout, {
-		label: "brmem get JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 },
+	const data = parseBrmemMachineEnvelopeData(stdout, "brmem get JSON");
+	const fields = requireBrmemStringFields(data, ["namespace", "key", "branch", "content", "ref_name"], {
+		commandName: "brmem get",
+		stdout,
 	});
 
-	const namespace = data.namespace;
-	const key = data.key;
-	const branch = data.branch;
-	const content = data.content;
-	const refName = data.ref_name;
-	if (
-		typeof namespace !== "string" ||
-		typeof key !== "string" ||
-		typeof branch !== "string" ||
-		typeof content !== "string" ||
-		typeof refName !== "string"
-	) {
-		throw malformedBrmemEnvelope(
-			"brmem get",
-			stdout,
-			"expected string fields data.namespace, data.key, data.branch, data.content, and data.ref_name",
-		);
-	}
+	const { namespace, key, branch, content } = fields;
+	const refName = fields.ref_name;
 
 	const mismatches = expectedMismatches({ namespace, branch, key }, expected);
 	if (mismatches.length > 0) {
@@ -210,17 +193,13 @@ function parseListEntry(
 		throw malformedBrmemEnvelope("brmem list", stdout, `expected data.entries[${index}] object`);
 	}
 
-	const namespace = value.namespace;
-	const key = value.key;
-	const branch = value.branch;
-	const refName = value.ref_name;
-	if (typeof namespace !== "string" || typeof key !== "string" || typeof branch !== "string" || typeof refName !== "string") {
-		throw malformedBrmemEnvelope(
-			"brmem list",
-			stdout,
-			`expected string fields data.entries[${index}].namespace, key, branch, and ref_name`,
-		);
-	}
+	const fields = requireBrmemStringFields(value, ["namespace", "key", "branch", "ref_name"], {
+		commandName: "brmem list",
+		stdout,
+		pathPrefix: `data.entries[${index}]`,
+	});
+	const { namespace, key, branch } = fields;
+	const refName = fields.ref_name;
 
 	const mismatches = expectedMismatches({ namespace, branch }, expected);
 	if (mismatches.length > 0) {

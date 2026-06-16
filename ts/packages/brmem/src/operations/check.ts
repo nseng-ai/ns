@@ -1,4 +1,4 @@
-import { negative, ok } from "@asdl/clinkr";
+import { ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -16,6 +16,7 @@ export const checkResultSchema = z.object({
 	namespace: z.string(),
 	key: z.string(),
 	branch: z.string(),
+	present: z.boolean(),
 	ref_name: z.string(),
 	target: z.string(),
 	at: z.string().nullable(),
@@ -37,16 +38,13 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	const result = await ctx.gateway.checkEntry({ namespace, key, branch, at: request.at });
 	if (result.type === "error") return gatewayFailure<CheckResult>(result.error);
 	if (result.type === "missing") {
-		const absent = emptyResult({ namespace, key, branch, refName: locator, target, at: request.at });
-		return negative(
-			`not found: Entry Key=${key} Namespace=${namespaceValueLabel(namespace)} Branch=${branch} at ${target}`,
-			absent,
-		);
+		return ok(emptyResult({ namespace, key, branch, refName: locator, target, at: request.at }));
 	}
 	return ok({
 		namespace,
 		key,
 		branch,
+		present: true,
 		ref_name: locator,
 		target,
 		at: request.at ?? null,
@@ -62,6 +60,7 @@ export function renderCheck(result: CheckResult): string {
 		`Namespace: ${namespaceValueLabel(result.namespace)}`,
 		`Entry Key: ${result.key}`,
 		`Branch: ${result.branch}`,
+		`Present: ${result.present ? "yes" : "no"}`,
 		`Entry Locator: ${result.ref_name}`,
 		`Target: ${result.target}`,
 		`Head: ${result.head_sha} (${result.head_date})`,
@@ -83,6 +82,7 @@ function emptyResult(options: {
 		namespace: options.namespace,
 		key: options.key,
 		branch: options.branch,
+		present: false,
 		ref_name: options.refName,
 		target: options.target,
 		at: options.at ?? null,
