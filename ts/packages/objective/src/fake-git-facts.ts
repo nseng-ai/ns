@@ -72,9 +72,10 @@ export class FakeObjectiveGitFactsGateway implements ObjectiveGitFactsGateway {
 		this.treeOidChecks.push({ ...params, refs: [...params.refs] });
 		const values: Record<string, string | null> = {};
 		for (const ref of params.refs) {
-			const value = this.treeOids.get(refPathKey(ref, params.relativePath));
+			const key = refPathKey(ref, params.relativePath);
+			const value = this.treeOids.get(key);
 			if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
-			values[ref] = value ?? `${ref}:${normalizeRelativePath(params.relativePath)}:tree`;
+			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeRelativePath(params.relativePath)}:tree`;
 		}
 		return { ok: true, value: values };
 	}
@@ -122,5 +123,6 @@ function normalizeRefPathKey(key: string): string {
 }
 
 function normalizeRelativePath(path: string): string {
-	return path.replaceAll("\\", "/").replace(/\/+$|^\.\//g, "") || ".";
+	const normalized = path.replaceAll("\\", "/").replace(/\/+$|^\.\//g, "");
+	return normalized === "" ? "." : normalized;
 }

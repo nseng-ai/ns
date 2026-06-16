@@ -4,9 +4,13 @@ import type {
 	GitCwdParams,
 	GitErrorInfo,
 	GitGateway,
+	GitLocalBranchTip,
 	GitOperationResult,
 	GitOptionalResult,
+	GitPathParams,
+	GitRefsPathParams,
 	GitResult,
+	GitRevisionRangePathParams,
 } from "./index.ts";
 
 interface FailureState {
@@ -30,6 +34,12 @@ export interface InMemoryGitGatewayState {
 	localBranchPresenceFailure?: BranchPresenceFailureState | undefined;
 	localBranchPresenceFailures?: Readonly<Record<string, BranchPresenceFailureState>> | undefined;
 	createBranchFailure?: GitErrorInfo | undefined;
+	dirtyPaths?: readonly string[] | undefined;
+	dirtyPathFailures?: Readonly<Record<string, GitErrorInfo>> | undefined;
+	localBranchTips?: readonly (string | GitLocalBranchTip)[] | undefined;
+	localBranchTipsFailure?: GitErrorInfo | undefined;
+	treeOids?: Readonly<Record<string, string | null | GitErrorInfo>> | undefined;
+	changedPaths?: Readonly<Record<string, readonly string[] | GitErrorInfo>> | undefined;
 }
 
 export interface GitCall {
@@ -39,6 +49,18 @@ export interface GitCall {
 
 export interface GitBranchCall extends GitCall {
 	branch: string;
+}
+
+export interface GitPathCall extends GitCall {
+	relativePath: string;
+}
+
+export interface GitRefsPathCall extends GitPathCall {
+	refs: readonly string[];
+}
+
+export interface GitRevisionRangePathCall extends GitPathCall {
+	revisionRange: string;
 }
 
 export class InMemoryGitGateway implements GitGateway {
@@ -53,6 +75,12 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly localBranchPresenceFailure: BranchPresenceFailureState | undefined;
 	private readonly localBranchPresenceFailures: Readonly<Record<string, BranchPresenceFailureState>>;
 	private readonly createBranchFailure: GitErrorInfo | undefined;
+	private readonly dirtyPaths: ReadonlySet<string>;
+	private readonly dirtyPathFailures: Readonly<Record<string, GitErrorInfo>>;
+	private readonly localBranchTipsState: readonly GitLocalBranchTip[];
+	private readonly localBranchTipsFailure: GitErrorInfo | undefined;
+	private readonly treeOids: ReadonlyMap<string, string | null | GitErrorInfo>;
+	private readonly changedPaths: ReadonlyMap<string, readonly string[] | GitErrorInfo>;
 	private readonly repoRootLog: GitCall[] = [];
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
@@ -62,6 +90,10 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly validateBranchRefLog: GitBranchCall[] = [];
 	private readonly localBranchPresenceLog: GitBranchCall[] = [];
 	private readonly createBranchAtHeadLog: GitBranchCall[] = [];
+	private readonly hasUncommittedChangesUnderLog: GitPathCall[] = [];
+	private readonly listLocalBranchTipsLog: GitCall[] = [];
+	private readonly treeOidsAtRefsLog: GitRefsPathCall[] = [];
+	private readonly changedPathsUnderLog: GitRevisionRangePathCall[] = [];
 
 	constructor(state: InMemoryGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -75,6 +107,12 @@ export class InMemoryGitGateway implements GitGateway {
 		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
 		this.localBranchPresenceFailures = { ...(state.localBranchPresenceFailures ?? {}) };
 		this.createBranchFailure = state.createBranchFailure;
+		this.dirtyPaths = new Set((state.dirtyPaths ?? []).map(normalizeRelativePath));
+		this.dirtyPathFailures = Object.fromEntries(Object.entries(state.dirtyPathFailures ?? {}).map(([path, error]) => [normalizeRelativePath(path), { ...error }]));
+		this.localBranchTipsState = (state.localBranchTips ?? []).map(normalizeBranchTip);
+		this.localBranchTipsFailure = state.localBranchTipsFailure;
+		this.treeOids = new Map(Object.entries(state.treeOids ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneTreeOidValue(value)]));
+		this.changedPaths = new Map(Object.entries(state.changedPaths ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneChangedPathsValue(value)]));
 	}
 
 	get repoRootCalls(): readonly GitCall[] {
@@ -111,6 +149,22 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get createBranchAtHeadCalls(): readonly GitBranchCall[] {
 		return copyBranchCalls(this.createBranchAtHeadLog);
+	}
+
+	get hasUncommittedChangesUnderCalls(): readonly GitPathCall[] {
+		return copyPathCalls(this.hasUncommittedChangesUnderLog);
+	}
+
+	get listLocalBranchTipsCalls(): readonly GitCall[] {
+		return copyCalls(this.listLocalBranchTipsLog);
+	}
+
+	get treeOidsAtRefsCalls(): readonly GitRefsPathCall[] {
+		return copyRefsPathCalls(this.treeOidsAtRefsLog);
+	}
+
+	get changedPathsUnderCalls(): readonly GitRevisionRangePathCall[] {
+		return copyRevisionRangePathCalls(this.changedPathsUnderLog);
 	}
 
 	get existingBranches(): readonly string[] {
@@ -190,6 +244,39 @@ export class InMemoryGitGateway implements GitGateway {
 		this.branches.add(params.branch);
 		return { ok: true };
 	}
+
+	async hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>> {
+		this.hasUncommittedChangesUnderLog.push(pathCallFromParams(params));
+		const path = normalizeRelativePath(params.relativePath);
+		const failure = this.dirtyPathFailures[path];
+		if (failure !== undefined) return { ok: false, error: { ...failure } };
+		return { ok: true, value: this.dirtyPaths.has(path) };
+	}
+
+	async listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+		this.listLocalBranchTipsLog.push(callFromParams(params));
+		if (this.localBranchTipsFailure !== undefined) return { ok: false, error: { ...this.localBranchTipsFailure } };
+		return { ok: true, value: this.localBranchTipsState.map((branch) => ({ ...branch })) };
+	}
+
+	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+		this.treeOidsAtRefsLog.push(refsPathCallFromParams(params));
+		const values: Record<string, string | null> = {};
+		for (const ref of params.refs) {
+			const key = refPathKey(ref, params.relativePath);
+			const value = this.treeOids.get(key);
+			if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
+			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeRelativePath(params.relativePath)}:tree`;
+		}
+		return { ok: true, value: values };
+	}
+
+	async changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+		this.changedPathsUnderLog.push(revisionRangePathCallFromParams(params));
+		const value = this.changedPaths.get(refPathKey(params.revisionRange, params.relativePath));
+		if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
+		return { ok: true, value: [...(value ?? [])] };
+	}
 }
 
 function valueResult<T>(state: ValueState<T>, defaultCode: string, defaultMessage: string): GitResult<T> {
@@ -236,10 +323,69 @@ function branchCallFromParams(params: GitBranchParams): GitBranchCall {
 	return { ...callFromParams(params), branch: params.branch };
 }
 
+function pathCallFromParams(params: GitPathParams): GitPathCall {
+	return { ...callFromParams(params), relativePath: params.relativePath };
+}
+
+function refsPathCallFromParams(params: GitRefsPathParams): GitRefsPathCall {
+	return { ...pathCallFromParams(params), refs: [...params.refs] };
+}
+
+function revisionRangePathCallFromParams(params: GitRevisionRangePathParams): GitRevisionRangePathCall {
+	return { ...pathCallFromParams(params), revisionRange: params.revisionRange };
+}
+
+function normalizeBranchTip(value: string | GitLocalBranchTip): GitLocalBranchTip {
+	if (typeof value === "string") return { name: value, headIso: null };
+	return { name: value.name, headIso: value.headIso };
+}
+
+function cloneTreeOidValue(value: string | null | GitErrorInfo): string | null | GitErrorInfo {
+	if (isGitErrorInfo(value)) return { ...value };
+	return value;
+}
+
+function cloneChangedPathsValue(value: readonly string[] | GitErrorInfo): readonly string[] | GitErrorInfo {
+	if (isGitErrorInfo(value)) return { ...value };
+	return [...value];
+}
+
+function isGitErrorInfo(value: unknown): value is GitErrorInfo {
+	return typeof value === "object" && value !== null && "code" in value && "message" in value;
+}
+
+function refPathKey(ref: string, path: string): string {
+	return `${ref}\u0000${normalizeRelativePath(path)}`;
+}
+
+function normalizeRefPathKey(key: string): string {
+	if (key.includes("\u0000")) return key;
+	const [ref, path] = key.split("|", 2);
+	if (ref === undefined || path === undefined) return key;
+	return refPathKey(ref, path);
+}
+
+function normalizeRelativePath(path: string): string {
+	const normalized = path.replaceAll("\\", "/").replace(/\/+$/u, "").replace(/^\.\//u, "");
+	return normalized === "" ? "." : normalized;
+}
+
 function copyCalls(calls: readonly GitCall[]): GitCall[] {
 	return calls.map((call) => ({ ...call }));
 }
 
 function copyBranchCalls(calls: readonly GitBranchCall[]): GitBranchCall[] {
+	return calls.map((call) => ({ ...call }));
+}
+
+function copyPathCalls(calls: readonly GitPathCall[]): GitPathCall[] {
+	return calls.map((call) => ({ ...call }));
+}
+
+function copyRefsPathCalls(calls: readonly GitRefsPathCall[]): GitRefsPathCall[] {
+	return calls.map((call) => ({ ...call, refs: [...call.refs] }));
+}
+
+function copyRevisionRangePathCalls(calls: readonly GitRevisionRangePathCall[]): GitRevisionRangePathCall[] {
 	return calls.map((call) => ({ ...call }));
 }

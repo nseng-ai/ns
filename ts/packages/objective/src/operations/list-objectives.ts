@@ -68,7 +68,7 @@ export async function buildObjectiveListResult(
 	const filtered = inventory.value.records.filter((record) => matchesStatusFilter(record.status, request.status));
 	const includeBranchAttribution = shouldIncludeBranchAttribution(request);
 	let updatedBranchesBySlug: ReadonlyMap<string, readonly string[]> = new Map();
-	let updatedBranchesTruncated = false;
+	let isUpdatedBranchesTruncated = false;
 	if (includeBranchAttribution) {
 		const attribution = await buildObjectiveBranchAttribution(ctx.gitFacts, {
 			repoRoot: ctx.repoRoot,
@@ -77,7 +77,7 @@ export async function buildObjectiveListResult(
 		});
 		if (attribution.type === "git-error") return attribution;
 		updatedBranchesBySlug = attribution.value.updatedBranchesBySlug;
-		updatedBranchesTruncated = attribution.value.truncated;
+		isUpdatedBranchesTruncated = attribution.value.truncated;
 	}
 
 	const records: ObjectiveListRenderRecord[] = [];
@@ -96,7 +96,7 @@ export async function buildObjectiveListResult(
 			status_filter: request.status,
 			names_only: request.names,
 			...(includeBranchAttribution ? { updated_branches_included: true } : {}),
-			...(updatedBranchesTruncated ? { updated_branches_truncated: true } : {}),
+			...(isUpdatedBranchesTruncated ? { updated_branches_truncated: true } : {}),
 			records,
 		},
 	};
@@ -248,9 +248,9 @@ function humanTableHeader(result: ObjectiveListRenderResult): string {
 	return "Objective | Status | Latest update\n--- | --- | ---\n";
 }
 
-function humanRecordRows(record: ObjectiveListRenderRecord, includeUpdatedBranches: boolean): string[] {
+function humanRecordRows(record: ObjectiveListRenderRecord, shouldIncludeUpdatedBranches: boolean): string[] {
 	const core = `${record.slug} | ${statusLabel(record.status)} | ${formatLatestUpdate(record)}`;
-	if (!includeUpdatedBranches) return [`${core}\n`];
+	if (!shouldIncludeUpdatedBranches) return [`${core}\n`];
 	const branches = record.updated_branches ?? [];
 	if (branches.length === 0) return [`${core} | —\n`];
 	return branches.map((branch, index) => {
@@ -270,9 +270,9 @@ function markdownTableSeparator(result: ObjectiveListRenderResult): string {
 	return "| --- | --- | --- |\n";
 }
 
-function markdownRecordRow(record: ObjectiveListRenderRecord, includeUpdatedBranches: boolean): string {
+function markdownRecordRow(record: ObjectiveListRenderRecord, shouldIncludeUpdatedBranches: boolean): string {
 	const cells = [record.slug, statusLabel(record.status), formatLatestUpdate(record)];
-	if (includeUpdatedBranches) cells.push(formatUpdatedBranches(record));
+	if (shouldIncludeUpdatedBranches) cells.push(formatUpdatedBranches(record));
 	return `| ${cells.join(" | ")} |\n`;
 }
 

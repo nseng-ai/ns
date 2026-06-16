@@ -14,7 +14,7 @@ export interface FakeObjectiveRecordOptions {
 	objectiveMd?: string | null | undefined;
 	roadmapMd?: string | null | undefined;
 	updates?: Readonly<Record<string, string>> | undefined;
-	closed?: boolean | undefined;
+	isClosed?: boolean | undefined;
 }
 
 export interface FakeObjectiveStorageGatewayOptions {
@@ -134,7 +134,7 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		for (const [name, content] of Object.entries(record.updates ?? {})) {
 			this.addFile(`${root}/updates/${name}`, content);
 		}
-		if (record.closed === true) this.addFile(`${root}/closed.md`, "closed\n");
+		if (record.isClosed === true) this.addFile(`${root}/closed.md`, "closed\n");
 	}
 
 	addDirectory(path: string): void {

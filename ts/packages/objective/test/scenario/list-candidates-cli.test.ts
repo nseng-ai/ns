@@ -6,7 +6,7 @@ describe("objective exec list-candidates", () => {
 	test("renders active open Objective candidates as slug-status TSV", async () => {
 		const run = runScenario(["exec", "list-candidates"], {
 			fake: {
-				records: [{ slug: "alpha" }, { slug: "bravo", closed: true }, { slug: "charlie" }],
+				records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
 				directories: [".asdl/objective-archive/archived"],
 			},
 		});
@@ -19,7 +19,7 @@ describe("objective exec list-candidates", () => {
 	test("emits only slug and status records in the legacy JSON machine envelope", async () => {
 		const run = runScenario(["exec", "list-candidates", "--format", "json"], {
 			fake: {
-				records: [{ slug: "alpha" }, { slug: "bravo", closed: true }, { slug: "charlie" }],
+				records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
 				directories: [".asdl/objective-archive/archived"],
 			},
 		});
@@ -41,7 +41,7 @@ describe("objective exec list-candidates", () => {
 
 	test("prints no candidate lines when no active open Objective records exist", async () => {
 		const run = runScenario(["exec", "list-candidates"], {
-			fake: { records: [{ slug: "done", closed: true }], directories: [".asdl/objective-archive/archived"] },
+			fake: { records: [{ slug: "done", isClosed: true }], directories: [".asdl/objective-archive/archived"] },
 		});
 
 		expect(await run.exit).toBe(0);
