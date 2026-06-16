@@ -38,6 +38,11 @@ export interface GitGateway {
 	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
 }
 
+export interface GitWorktreePorcelainEntry {
+	path: string;
+	branch: string | null;
+}
+
 interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
@@ -206,4 +211,32 @@ function firstNonEmptyLine(value: string): string | undefined {
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.find((line) => line.length > 0);
+}
+
+export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainEntry[] {
+	const entries: GitWorktreePorcelainEntry[] = [];
+	let current: GitWorktreePorcelainEntry | null = null;
+
+	function pushCurrent(): void {
+		if (current !== null) entries.push(current);
+		current = null;
+	}
+
+	for (const line of stdout.split("\n")) {
+		if (line.length === 0) {
+			pushCurrent();
+			continue;
+		}
+		if (line.startsWith("worktree ")) {
+			pushCurrent();
+			current = { path: line.slice("worktree ".length), branch: null };
+			continue;
+		}
+		if (current !== null && line.startsWith("branch ")) {
+			const ref = line.slice("branch ".length);
+			current = { ...current, branch: ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref };
+		}
+	}
+	pushCurrent();
+	return entries;
 }

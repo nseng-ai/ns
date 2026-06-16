@@ -2,6 +2,7 @@ import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { formatCommand } from "@asdl/core/exec";
+import { parseGitWorktreePorcelain } from "@asdl/core/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
@@ -54,29 +55,7 @@ export async function loadWorktrees(pi: LandStackExtensionAPI, repoRoot: string)
 }
 
 export function parseWorktreeList(output: string): WorktreeEntry[] {
-	const entries: WorktreeEntry[] = [];
-	let current: WorktreeEntry | undefined;
-
-	const pushCurrent = () => {
-		if (current?.path) {
-			entries.push(current);
-		}
-	};
-
-	for (const line of output.split("\n")) {
-		if (line.startsWith("worktree ")) {
-			pushCurrent();
-			current = { path: line.slice("worktree ".length).trim() };
-			continue;
-		}
-		if (!current) continue;
-		if (line.startsWith("branch ")) {
-			const ref = line.slice("branch ".length).trim();
-			current.branch = ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
-		}
-	}
-	pushCurrent();
-	return entries;
+	return parseGitWorktreePorcelain(output).map((entry) => (entry.branch === null ? { path: entry.path } : { path: entry.path, branch: entry.branch }));
 }
 
 export function isManagedSlotPath(path: string): boolean {

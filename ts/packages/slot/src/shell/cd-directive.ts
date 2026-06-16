@@ -14,6 +14,12 @@ export interface CdDirectiveFilesystem {
 	writeFile(path: string, content: string): Promise<void>;
 }
 
+export interface CdDirectiveOptions {
+	isEnabled?: boolean | undefined;
+	env?: NodeJS.ProcessEnv | undefined;
+	filesystem?: CdDirectiveFilesystem | undefined;
+}
+
 export class RealCdDirectiveFilesystem implements CdDirectiveFilesystem {
 	async parentDirExists(path: string): Promise<boolean> {
 		return existsSync(dirname(path));
@@ -30,12 +36,9 @@ export function activeCdDirectivePath(env: NodeJS.ProcessEnv = process.env): str
 	return path;
 }
 
-export async function writeCdDirectiveIfActive(
-	destination: string,
-	options: { enabled?: boolean | undefined; env?: NodeJS.ProcessEnv | undefined; filesystem?: CdDirectiveFilesystem | undefined } = {},
-): Promise<CdDirectiveResult> {
+export async function writeCdDirectiveIfActive(destination: string, options: CdDirectiveOptions = {}): Promise<CdDirectiveResult> {
 	const directivePath = activeCdDirectivePath(options.env ?? process.env);
-	if (options.enabled === false || directivePath === null) return { status: "inactive", path: directivePath };
+	if (options.isEnabled === false || directivePath === null) return { status: "inactive", path: directivePath };
 	const filesystem = options.filesystem ?? new RealCdDirectiveFilesystem();
 	if (!(await filesystem.parentDirExists(directivePath))) {
 		return { status: "failed", path: directivePath, error: `parent directory does not exist: ${dirname(directivePath)}` };
