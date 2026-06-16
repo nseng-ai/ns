@@ -53,7 +53,7 @@ An SDL package subpath that exists so ASDL workspace packages can share primitiv
 *Avoid*: plugin API, public SDK, command-author import path.
 
 **Default SDL command**:
-A built-in SDL command implementation used when no global or project SDL command entry overrides it. Current examples include `changes`, `cp`, and `submit`, all defined through the built-in command table.
+A built-in SDL command implementation used when no global or project SDL command entry overrides it. Current examples include `changes`, `cp`, `submit`, and `regenerate-pr`, all defined through the built-in command table.
 *Avoid*: project override, mandatory plugin, external command entry.
 
 **Project override**:
@@ -61,7 +61,7 @@ A repo-local `.asdl/extensions` command entry or manifest descriptor that replac
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior, such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit`. The mirror is an adapter over SDL, not a separate implementation.
+A `/sdl:<name>` Pi command that delegates to the corresponding `sdl <name>` CLI behavior, such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit`. Nested code-lifecycle mirrors such as `/sdl:code:regenerate-pr` may delegate to an SDL command without registering a flat `/sdl:<name>` mirror. The mirror is an adapter over SDL, not a separate implementation.
 *Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/sdl:*` registration.
 
 **Hard cutover**:

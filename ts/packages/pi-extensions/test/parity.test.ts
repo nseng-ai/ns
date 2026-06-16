@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import asdlDevExtension from "../src/asdl-dev-extension.ts";
 import registerBranchContextExtension from "../src/branch-context-extension.ts";
 import claudeExtension from "../src/claude.ts";
 import codeWorkflowsExtension from "../src/code-workflows.ts";
@@ -87,7 +86,6 @@ class FakePiSurfaceHost {
 function collectLivePiExtensionSurfaces(): LivePiSurface[] {
 	const pi = new FakePiSurfaceHost();
 
-	registerWithFakeHost(pi, asdlDevExtension);
 	registerWithFakeHost(pi, registerBranchContextWithFakeHostOptions);
 	registerWithFakeHost(pi, claudeExtension);
 	registerWithFakeHost(pi, codeWorkflowsExtension);

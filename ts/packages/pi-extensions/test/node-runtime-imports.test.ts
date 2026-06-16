@@ -4,12 +4,10 @@ import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../", import.meta.url));
-const ASDL_DEV_PACKAGE_ROOT = fileURLToPath(new URL("../../asdl-dev/", import.meta.url));
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../ccc/", import.meta.url));
 const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../sdl/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = [
-	".pi/extensions/asdl-dev.ts",
 	".pi/extensions/ccc.ts",
 	".pi/extensions/claude.ts",
 	".pi/extensions/code.ts",
@@ -32,7 +30,6 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@asdl/branch-context",
 	"@asdl/plans",
 	"@asdl/sdl/cli",
-	"asdl-dev/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
@@ -41,8 +38,6 @@ const CCC_WORKSPACE_IMPORTS = [
 	"@asdl/plans",
 	"@asdl/sdl/checkpoint-flow",
 ] as const;
-
-const ASDL_DEV_EXPORT_IMPORTS = ["asdl-dev/cli", "asdl-dev/context", "asdl-dev/text-generation"] as const;
 
 const SDL_EXPORT_IMPORTS = [
 	"@asdl/sdl/checkpoint",
@@ -80,7 +75,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 6 package specifiers");
+		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
 	test("ccc package imports representative cross-package dependencies under Node", () => {
@@ -91,16 +86,6 @@ describe("Node runtime import smoke", () => {
 
 		expectSuccessfulNodeRun(result);
 		expect(result.stdout).toContain("imported 4 package specifiers");
-	});
-
-	test("asdl-dev package imports every declared export subpath under Node", () => {
-		const result = runNodeEval({
-			cwd: ASDL_DEV_PACKAGE_ROOT,
-			source: buildPackageImportScript(ASDL_DEV_EXPORT_IMPORTS),
-		});
-
-		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain("imported 3 package specifiers");
 	});
 
 	test("sdl package imports every declared export subpath under Node", () => {

@@ -93,6 +93,7 @@ describe("sdl cp CLI help and parsing", () => {
 		expect(listSdlCommands()).toEqual([
 			{ name: "changes", description: "Summarize outstanding worktree changes without committing." },
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
+			{ name: "regenerate-pr", description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt." },
 			{
 				name: "submit",
 				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",

@@ -1,5 +1,6 @@
 import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
+import { defaultRegeneratePrCommand } from "./default-commands/regenerate-pr.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
 import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
 import {
@@ -67,6 +68,11 @@ The command owns human stdout/stderr, has no alternate output-format flag, and d
 
 Environment:
   ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
+	},
+	"regenerate-pr": {
+		command: defaultRegeneratePrCommand,
+		summary: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+		description: defaultRegeneratePrCommand.description,
 	},
 	submit: {
 		command: defaultSubmitCommand,

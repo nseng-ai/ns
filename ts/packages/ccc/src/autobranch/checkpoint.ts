@@ -10,7 +10,7 @@ import { selectCheckpointModelRef } from "@asdl/sdl/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 
-export async function prepareCheckpointMessageWithAsdlDev(
+export async function prepareAutobranchCheckpointMessage(
 	snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	env: Record<string, string | undefined>,
 ): Promise<PreparedCheckpointMessage> {
@@ -22,7 +22,7 @@ export async function prepareCheckpointMessageWithAsdlDev(
 	});
 }
 
-export async function commitPreparedCheckpointMessageWithAsdlDev(
+export async function commitAutobranchCheckpointMessage(
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>,
 	cwd: string,
 	message: string,

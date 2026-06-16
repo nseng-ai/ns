@@ -10,9 +10,9 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 
 import {
-	commitPreparedCheckpointMessageWithAsdlDev,
-	prepareCheckpointMessageWithAsdlDev,
-} from "./autobranch/asdl-dev-checkpoint.ts";
+	commitAutobranchCheckpointMessage,
+	prepareAutobranchCheckpointMessage,
+} from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 
@@ -106,11 +106,11 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, cwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd, timeout, env: ctx.env }),
-		prepareCheckpointMessage: autobranch.prepareCheckpointMessage ?? ((snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot, ctx.env)),
+		prepareCheckpointMessage: autobranch.prepareCheckpointMessage ?? ((snapshot) => prepareAutobranchCheckpointMessage(snapshot, ctx.env)),
 		commitPreparedCheckpointMessage:
 			autobranch.commitPreparedCheckpointMessage ??
 			((message) =>
-				commitPreparedCheckpointMessageWithAsdlDev(
+				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) => ctx.commands.exec(command, commandArgs, { cwd: commandCwd, timeout, env: ctx.env }),
 					ctx.cwd,
 					message,

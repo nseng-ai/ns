@@ -36,7 +36,7 @@ export function formatSubmitSuccessText(
 }
 
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
-	const lines = ["gt submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `asdl-dev pr-regen` if needed."];
+	const lines = ["gt submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed."];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
 		lines.push("", "Recent output:", outputTail);

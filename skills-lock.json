@@ -106,11 +106,6 @@
       "sourceType": "local",
       "computedHash": "a1d58290263dcbee8b86f5305a0846708048dea8ca47e81595aa77390aaa6eb0"
     },
-    "dev-preview-url": {
-      "source": "skills/dev-preview-url",
-      "sourceType": "local",
-      "computedHash": "765ca2f5bcb9c47e02ec9b5160683350ab595397e32df13797a38ca2bdcabddd"
-    },
     "dignified-python": {
       "source": "skills/dignified-python",
       "sourceType": "local",

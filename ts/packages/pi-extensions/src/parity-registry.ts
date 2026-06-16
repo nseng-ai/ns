@@ -1,4 +1,3 @@
-import { asdlDevCodeExtensionParity, asdlDevExtensionParity } from "./asdl-dev-extension.ts";
 import { autobranchParity } from "./autobranch.ts";
 import { autoslotParity } from "./autoslot.ts";
 import { branchContextExtensionParity } from "./branch-context-extension.ts";
@@ -17,8 +16,6 @@ import { sdlExtensionParity } from "./sdl-extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 
 export const PI_EXTENSION_PARITY_RECORDS = [
-	...asdlDevExtensionParity,
-	...asdlDevCodeExtensionParity,
 	...autobranchParity,
 	...autoslotParity,
 	...branchContextExtensionParity,
