@@ -1063,7 +1063,12 @@ function isErrnoCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
 }
 
-
 export function singleQuotedRepr(value: string): string {
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+}
+
+export function tupleRepr(values: ReadonlyArray<string | number>): string {
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
+	if (parts.length === 1) return `(${parts[0]},)`;
+	return `(${parts.join(", ")})`;
 }

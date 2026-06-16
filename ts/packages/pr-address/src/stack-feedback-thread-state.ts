@@ -5,7 +5,7 @@ import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadArtifactReference, type JsonInputResult } from "./json-input.ts";
-import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
@@ -201,14 +201,4 @@ function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): st
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
 	if (duplicateBranches.length > 0) return `stack-feedback-thread-state stack contains duplicate branches: ${tupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-function singleQuotedRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function tupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

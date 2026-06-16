@@ -13,7 +13,7 @@ import {
 	type FeedbackPlanInformationalItem,
 	type FeedbackPlanVoidedThreadItem,
 } from "./feedback-plan-contracts.ts";
-import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import {
 	type DecisionKind,
 	type StackFeedbackAutomationDiscussionSummary,
@@ -475,14 +475,4 @@ function compactInformationalSummary(informational: readonly StackFeedbackPlanIn
 function validationPrNumberOrFallback(validationPrNumber: number | null, fallbackPrNumber: number): number {
 	if (validationPrNumber === null || validationPrNumber === 0) return fallbackPrNumber;
 	return validationPrNumber;
-}
-
-function singleQuotedRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function tupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

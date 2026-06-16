@@ -11,6 +11,7 @@ import {
 	createNodePayloadStoreFactory,
 	readJsonPayloadArtifact,
 	resolveJsonPointer as resolvePayloadJsonPointer,
+	singleQuotedRepr,
 	type PayloadArtifactStore,
 	type PayloadClock,
 	type PayloadReference,
@@ -497,8 +498,4 @@ function detailKindForPointer(pointer: string): DetailKind | null {
 		if (item.pattern.test(pointer)) return item.detailKind;
 	}
 	return null;
-}
-
-function singleQuotedRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }

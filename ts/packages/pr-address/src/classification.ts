@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { isRecord } from "@asdl/core";
 import { duplicateValues } from "./duplicate-values.ts";
+import { singleQuotedRepr } from "./payload-store.ts";
 import type { classificationTemplateResultDocSchema } from "./operation-schemas/classification.ts";
 import {
 	getFeedbackManifestSchema,
@@ -462,7 +463,7 @@ function bodyLocatorErrors(options: {
 	if (options.actual.item_pointer !== options.expectedItemPointer) {
 		errors.push({
 			code: "invalid_locator",
-			message: `${kindLabel(options.codeKind)} ${options.identifier} body item pointer does not match manifest: expected ${singleQuotedRepr(options.expectedItemPointer)}, got ${singleQuotedRepr(options.actual.item_pointer)}`,
+			message: `${kindLabel(options.codeKind)} ${options.identifier} body item pointer does not match manifest: expected ${nullableSingleQuotedRepr(options.expectedItemPointer)}, got ${nullableSingleQuotedRepr(options.actual.item_pointer)}`,
 			kind: options.codeKind,
 			identifier: options.identifier,
 			path: `${options.pathPrefix}.item_pointer`,
@@ -1121,7 +1122,7 @@ function classificationLocatorRef(locator: BodyLocator): { json_pointer: string;
 	};
 }
 
-function singleQuotedRepr(value: string | null): string {
+function nullableSingleQuotedRepr(value: string | null): string {
 	if (value === null) return "None";
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+	return singleQuotedRepr(value);
 }

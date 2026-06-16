@@ -6,7 +6,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
-import type { PayloadArtifactStore } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore } from "./payload-store.ts";
 import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput, type StackFeedbackPrepResult } from "./stack-feedback-prep-contracts.ts";
 import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-prep-core.ts";
 
@@ -117,15 +117,4 @@ function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): st
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
 	if (duplicateBranches.length > 0) return `stack-feedback-prep stack contains duplicate branches: ${tupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-
-function singleQuotedRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function tupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }
