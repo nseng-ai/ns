@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
-import type { Result } from "@asdl/core/result";
+import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -333,7 +333,7 @@ function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content:
 }
 
 function malformedManagedBlock<T>(pathLabel: string): Result<T> {
-	return { ok: false, error: { code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` } };
+	return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
 }
 
 function appendTomlSection(content: string, section: string): string {
