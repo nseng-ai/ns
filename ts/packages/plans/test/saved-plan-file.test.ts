@@ -3,7 +3,19 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import type { GitBranchParams, GitBranchPresenceResult, GitCwdParams, GitGateway, GitOperationResult, GitOptionalResult, GitResult } from "@asdl/core/git";
+import type {
+	GitBranchParams,
+	GitBranchPresenceResult,
+	GitCwdParams,
+	GitGateway,
+	GitLocalBranchTip,
+	GitOperationResult,
+	GitOptionalResult,
+	GitPathParams,
+	GitRefsPathParams,
+	GitResult,
+	GitRevisionRangePathParams,
+} from "@asdl/core/git";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
@@ -180,6 +192,26 @@ class FakeGitGateway implements GitGateway {
 	async createBranchAtHead(_params: GitBranchParams): Promise<GitOperationResult> {
 		this.calls.push("createBranchAtHead");
 		return { ok: true };
+	}
+
+	async hasUncommittedChangesUnder(_params: GitPathParams): Promise<GitResult<boolean>> {
+		this.calls.push("hasUncommittedChangesUnder");
+		return { ok: true, value: false };
+	}
+
+	async listLocalBranchTips(_params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+		this.calls.push("listLocalBranchTips");
+		return { ok: true, value: [] };
+	}
+
+	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+		this.calls.push("treeOidsAtRefs");
+		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
+	}
+
+	async changedPathsUnder(_params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+		this.calls.push("changedPathsUnder");
+		return { ok: true, value: [] };
 	}
 }
 

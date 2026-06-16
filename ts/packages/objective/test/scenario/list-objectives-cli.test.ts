@@ -25,7 +25,7 @@ describe("objective list", () => {
 			fake: {
 				records: [
 					{ slug: "open-one", updates: { "2026-06-15T223520Z-typescript-package-read-objective.md": "# Update\n" } },
-					{ slug: "closed-one", closed: true, updates: { "2026-06-14T210415Z-closed.md": "# Closed\n" } },
+					{ slug: "closed-one", isClosed: true, updates: { "2026-06-14T210415Z-closed.md": "# Closed\n" } },
 				],
 			},
 		});
@@ -52,7 +52,7 @@ describe("objective list", () => {
 
 	test("filters open closed and all active-root records while omitting archive-root records", async () => {
 		const fake = {
-			records: [{ slug: "alpha" }, { slug: "done", closed: true }],
+			records: [{ slug: "alpha" }, { slug: "done", isClosed: true }],
 			directories: [".asdl/objective-archive/archived"],
 		};
 		const open = runScenario(["list", "--minimal", "--format", "json", "--status", "open"], { fake });
@@ -89,7 +89,7 @@ describe("objective list", () => {
 
 	test("names-only output emits filtered slug lines without headings", async () => {
 		const run = runScenario(["list", "--names", "--status", "all"], {
-			fake: { records: [{ slug: "alpha" }, { slug: "beta", closed: true }] },
+			fake: { records: [{ slug: "alpha" }, { slug: "beta", isClosed: true }] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -102,7 +102,7 @@ describe("objective list", () => {
 			fake: {
 				records: [
 					{ slug: "alpha", updates: { "2026-06-08-1723-node-runtime-compatibility-hardened.md": "# Update\n" } },
-					{ slug: "done", closed: true },
+					{ slug: "done", isClosed: true },
 				],
 			},
 		});
@@ -156,7 +156,7 @@ describe("objective list", () => {
 
 	test("default JSON human and Markdown include branch attribution rows", async () => {
 		const fake = {
-			records: [{ slug: "alpha" }, { slug: "beta" }, { slug: "closed-one", closed: true }],
+			records: [{ slug: "alpha" }, { slug: "beta" }, { slug: "closed-one", isClosed: true }],
 		};
 		const git = {
 			branches: [
