@@ -12,7 +12,12 @@ export function validateOptionalDirectoryState(options: {
 	symlinkSubject?: string | undefined;
 }): PlanResult<undefined> {
 	if (options.state.type === "missing" || options.state.type === "directory") return { type: "ok", value: undefined };
-	return rejectDirectoryState(options.pathLabel, options.state, options.action, options.symlinkSubject);
+	return rejectDirectoryState({
+		pathLabel: options.pathLabel,
+		state: options.state,
+		action: options.action,
+		symlinkSubject: options.symlinkSubject,
+	});
 }
 
 export function rejectTextState<T>(options: {
@@ -32,7 +37,12 @@ export function rejectTextState<T>(options: {
 	return { type: "error", message: `${options.pathLabel} exists but is not a file.` };
 }
 
-function rejectDirectoryState<T>(pathLabel: string, state: NonUsableDirectoryState, action: string, symlinkSubject: string | undefined): PlanResult<T> {
-	if (state.type === "symlink") return { type: "error", message: `${symlinkSubject ?? pathLabel} is a symlink; refusing to ${action}.` };
-	return { type: "error", message: `${pathLabel} exists but is not a directory.` };
+function rejectDirectoryState<T>(options: {
+	pathLabel: string;
+	state: NonUsableDirectoryState;
+	action: string;
+	symlinkSubject?: string | undefined;
+}): PlanResult<T> {
+	if (options.state.type === "symlink") return { type: "error", message: `${options.symlinkSubject ?? options.pathLabel} is a symlink; refusing to ${options.action}.` };
+	return { type: "error", message: `${options.pathLabel} exists but is not a directory.` };
 }
