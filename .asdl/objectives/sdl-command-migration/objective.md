@@ -117,3 +117,21 @@ Risks:
 - Should `pr-address`, `stack-address`, or `pr-feedback-watch` remain standalone review workflows, receive SDL wrappers outside `/sdl:code:*`, or eventually become SDL review commands directly?
 - Should changelog updates and verification/fix workflows join SDL later, or remain outside the initial lifecycle migration backlog? `preview-url` is currently excluded from `/sdl:code:*` as dev/deployment tooling.
 - When command implementations depend on Graphite, slots, or CCC internals, what docs should explain the boundary between SDL public command ownership and lower-package orchestration ownership?
+
+## Closure
+
+Closed as completed on branch `nested-sdl-code-aliases` after the SDL code-lifecycle hard cutover landed and was submitted as PR #1665.
+
+Key evidence:
+
+- The SDL project-specific extension model, command loading behavior, and documentation baseline are complete.
+- `submit`, `changes`, checkpoint, and the full settled Pi-first `/sdl:code:*` lifecycle taxonomy are implemented with hard cutovers away from old `/code:*` lifecycle surfaces.
+- `/sdl:code:autobranch`, `/sdl:code:autoslot`, `/sdl:code:land`, `/sdl:code:push`, and `/sdl:code:regenerate-pr` replaced `/code:autobranch`, `/code:autoslot`, `/code:land`, `/code:push`, and `/code:pr-regen` without compatibility aliases.
+- The roadmap's active work rows are all complete; remaining nested SDL CLI taxonomy, preview URL migration, changelog/release prep, verification/fix workflows, and compatibility-alias policy notes are parked future scope rather than closure blockers.
+- Validation for the final hard-cutover slice passed: `pnpm --dir ts run check`, `pnpm --dir ts run test`, `just dprint-check`, and `git diff --check`.
+
+Caveats and follow-ups:
+
+- `/sdl:code:regenerate-pr` still delegates to the remaining `asdl-dev pr-regen` lower implementation; that is accepted as a lower-implementation ownership seam for this Objective, not a blocker to closing the SDL command-surface migration.
+- A separate follow-up should plan removal of as much remaining `asdl-dev` code as can now be retired.
+- Review workflow taxonomy remains separate: `pr-feedback-watch` stays outside `/sdl:code:*` until a future review-workflow decision.
