@@ -35,6 +35,15 @@ This Objective implements only the read-only slice. The dangerous mutation parit
 work, full shim cutover, and deletion of `legacy/` are deliberately follow-up
 Objectives.
 
+Current rebaseline evidence: branch `pr-address-stack-feedback-pruning` shrinks
+`pr-address` to a retained single-PR workflow by removing the stack-oriented
+helper surface and most of the stack-address skill prose. That branch also
+removes the previously landed `src/app` RunEngine façade, `src/legacy` marker,
+import-boundary guardrail, and app-contract guardrail instead of continuing the
+three-zone strangler shape. If that branch lands, the clean `core/` carve still
+survives, but the `app/`/`legacy/` isolation strategy is not the current trunk
+state and must be revalidated before further implementation.
+
 ## Scope
 
 - Establish a `src/{core,legacy,app}` zone layout in `ts/packages/pr-address`.
@@ -61,6 +70,9 @@ Objectives.
   payload-store/session vocabulary is not allowed in the new contract.
 - Adopt the existing golden/scenario tests as the acceptance spec for carved
   `core/` modules.
+- Rebaseline the Objective after the single-PR pruning branch: either restore the
+  three-zone `app`/`core`/`legacy` boundary as the intended strangler mechanism,
+  or deliberately replace it with a smaller single-PR-centered isolation plan.
 
 ## Non-Goals
 
@@ -140,6 +152,12 @@ Risks:
   surface. Mitigation: the planned RunEngine `feedback`/`details` verbs must
   subsume or replace this command rather than leaving a third surface; do not
   promote its `harness_session_id`-style input shape into the new app contract.
+- Materialized risk: the single-PR pruning branch removes `src/app/run-engine.ts`,
+  `src/legacy`, the import-boundary static test, the app-contract static test,
+  and shared source-file walker. That invalidates the Objective's previously
+  completed guardrail rows as current-state evidence. Mitigation: do not resume
+  the RunEngine/read-only verb rows until the boundary strategy is explicitly
+  rebaselined and either restored or replaced.
 
 ## Open Questions
 
@@ -152,3 +170,7 @@ Risks:
   precise function boundaries are determined by the carve.
 - Should the new verbs live under the existing hidden `exec` group during the
   read-only strangler slice, or a separate entry point until cutover?
+- After the single-PR pruning branch, is the correct next step to restore the
+  three-zone `app`/`core`/`legacy` plan, or to define a smaller single-PR
+  strangler architecture that treats `download-feedback`, `get-feedback`, and
+  the retained payload/session helpers as the temporary surface to simplify?
