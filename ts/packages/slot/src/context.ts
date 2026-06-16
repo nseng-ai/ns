@@ -14,6 +14,7 @@ export interface SlotCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
+	isMachineMode: boolean;
 }
 
 export async function createRealSlotContext(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }): Promise<SlotCliContext> {
@@ -29,5 +30,6 @@ export async function createRealSlotContext(options: { cwd: string; env?: NodeJS
 		cwd: options.cwd,
 		env,
 		slotsRoot,
+		isMachineMode: false,
 	};
 }

@@ -1,10 +1,13 @@
 import { resolve } from "node:path";
 
-import type { SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
+import type { BranchCreateOptions, CurrentBranchResult, GitCommandFailure, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
 
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
-	| { type: "remove-worktree"; path: string };
+	| { type: "remove-worktree"; path: string }
+	| { type: "create-branch"; branch: string; startPoint: string; force: boolean }
+	| { type: "checkout-branch"; path: string; branch: string }
+	| { type: "detach-head"; path: string; ref: string };
 
 export interface FakeSlotGitGatewayOptions {
 	existingPaths?: readonly string[] | undefined;
@@ -14,6 +17,12 @@ export interface FakeSlotGitGatewayOptions {
 	branchOccupancies?: readonly WorktreeOccupancy[] | undefined;
 	dirtyPaths?: readonly string[] | undefined;
 	trunkBranch?: string | undefined;
+	localBranches?: readonly string[] | undefined;
+	previousBranches?: Readonly<Record<string, string | null>> | undefined;
+	currentBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
+	checkoutFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
+	detachFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
+	createBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 }
 
 export class FakeSlotGitGateway implements SlotGitGateway {
@@ -24,6 +33,12 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 	private readonly branchOccupancies: WorktreeOccupancy[];
 	private readonly dirtyPaths: ReadonlySet<string>;
 	private readonly trunkBranch: string;
+	private readonly localBranches: Set<string>;
+	private readonly previousBranches: Map<string, string | null>;
+	private readonly currentBranchFailures: Readonly<Record<string, GitCommandFailure>>;
+	private readonly checkoutFailures: Readonly<Record<string, GitCommandFailure>>;
+	private readonly detachFailures: Readonly<Record<string, GitCommandFailure>>;
+	private readonly createBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly log: FakeSlotGitOperation[] = [];
 
 	constructor(options: FakeSlotGitGatewayOptions = {}) {
@@ -34,10 +49,17 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		this.branchOccupancies = (options.branchOccupancies ?? this.worktrees.flatMap((worktree) => worktree.branch === null ? [] : [{ path: worktree.path, branch: worktree.branch, operation: "checked-out" }])).map(copyOccupancy);
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
 		this.trunkBranch = options.trunkBranch ?? "master";
+		this.localBranches = new Set(options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch));
+		this.previousBranches = new Map(Object.entries(options.previousBranches ?? {}));
+		this.currentBranchFailures = options.currentBranchFailures ?? {};
+		this.checkoutFailures = options.checkoutFailures ?? {};
+		this.detachFailures = options.detachFailures ?? {};
+		this.createBranchFailures = options.createBranchFailures ?? {};
 	}
 
 	async pathExists(path: string): Promise<boolean> {
-		return this.existingPaths.has(path) || this.existingPaths.has(resolve(path));
+		const normalized = resolve(path);
+		return this.existingPaths.has(path) || this.existingPaths.has(normalized) || this.worktrees.some((worktree) => resolve(worktree.path) === normalized);
 	}
 
 	async getGitCommonDir(_cwd: string): Promise<string | null> {
@@ -64,6 +86,57 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		return this.trunkBranch;
 	}
 
+	async getCurrentBranch(cwd: string): Promise<CurrentBranchResult> {
+		const failure = this.currentBranchFailures[cwd];
+		if (failure !== undefined) return { type: "failure", failure: { ...failure } };
+		const worktree = this.worktrees.find((candidate) => candidate.path === cwd) ?? null;
+		if (worktree?.branch === undefined || worktree.branch === null) return { type: "detached" };
+		return { type: "branch", branch: worktree.branch };
+	}
+
+	async getPreviousBranch(cwd: string): Promise<string | null> {
+		return this.previousBranches.get(cwd) ?? null;
+	}
+
+	async branchExists(branch: string): Promise<boolean> {
+		return this.localBranches.has(branch);
+	}
+
+	async listLocalBranches(): Promise<readonly string[]> {
+		return [...this.localBranches].sort();
+	}
+
+	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
+		this.log.push({ type: "create-branch", branch, startPoint, force: options.force });
+		const failure = this.createBranchFailures[branch];
+		if (failure !== undefined) return { ...failure };
+		this.localBranches.add(branch);
+		return null;
+	}
+
+	async checkoutBranch(path: string, branch: string): Promise<GitCommandFailure | null> {
+		this.log.push({ type: "checkout-branch", path, branch });
+		const failure = this.checkoutFailures[path] ?? this.checkoutFailures[`${path}:${branch}`];
+		if (failure !== undefined) return { ...failure };
+		const worktree = this.ensureWorktree(path);
+		this.previousBranches.set(path, worktree.branch);
+		worktree.branch = branch;
+		this.localBranches.add(branch);
+		this.setCheckedOutOccupancy(path, branch);
+		return null;
+	}
+
+	async detachHead(path: string, ref: string): Promise<GitCommandFailure | null> {
+		this.log.push({ type: "detach-head", path, ref });
+		const failure = this.detachFailures[path] ?? this.detachFailures[`${path}:${ref}`];
+		if (failure !== undefined) return { ...failure };
+		const worktree = this.ensureWorktree(path);
+		this.previousBranches.set(path, worktree.branch);
+		worktree.branch = null;
+		this.removeOccupancyAt(path);
+		return null;
+	}
+
 	async addDetachedWorktree(path: string, ref: string): Promise<void> {
 		this.log.push({ type: "add-detached-worktree", path, ref });
 		this.worktrees.push({ path, branch: null });
@@ -73,10 +146,30 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		this.log.push({ type: "remove-worktree", path });
 		const index = this.worktrees.findIndex((worktree) => worktree.path === path);
 		if (index !== -1) this.worktrees.splice(index, 1);
+		this.removeOccupancyAt(path);
 	}
 
 	operations(): readonly FakeSlotGitOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
+	}
+
+	private ensureWorktree(path: string): WorktreeInfo {
+		let worktree = this.worktrees.find((candidate) => candidate.path === path);
+		if (worktree === undefined) {
+			worktree = { path, branch: null };
+			this.worktrees.push(worktree);
+		}
+		return worktree;
+	}
+
+	private removeOccupancyAt(path: string): void {
+		const index = this.branchOccupancies.findIndex((occupancy) => occupancy.path === path);
+		if (index !== -1) this.branchOccupancies.splice(index, 1);
+	}
+
+	private setCheckedOutOccupancy(path: string, branch: string): void {
+		this.removeOccupancyAt(path);
+		this.branchOccupancies.push({ path, branch, operation: "checked-out" });
 	}
 }
 
@@ -86,4 +179,12 @@ function copyWorktree(worktree: WorktreeInfo): WorktreeInfo {
 
 function copyOccupancy(occupancy: WorktreeOccupancy): WorktreeOccupancy {
 	return { path: occupancy.path, branch: occupancy.branch, operation: occupancy.operation };
+}
+
+function deriveLocalBranches(worktrees: readonly WorktreeInfo[], trunkBranch: string): readonly string[] {
+	const branches = new Set<string>([trunkBranch]);
+	for (const worktree of worktrees) {
+		if (worktree.branch !== null) branches.add(worktree.branch);
+	}
+	return [...branches];
 }

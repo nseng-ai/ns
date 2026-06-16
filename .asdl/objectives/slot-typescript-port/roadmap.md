@@ -47,7 +47,7 @@
     changing bounds, allocation order, or safety refusals.
   - Evidence: scenario + real-git tests for init/resize grow/shrink/refusal, and a Semantic Update.
 
-- [ ] Port allocation/movement: `checkout`/`co` and `claim`.
+- [x] Port allocation/movement: `checkout`/`co` and `claim`.
   - Preserve `checkout` plan semantics (`ReuseAssignment`, `BranchInMainWorktree`, `BranchInUse`,
     `AssignToSlot`, `PoolFull`), `-b NEW [BASE]` creation, `--current` redirect planning
     (reflog-previous / trunk / detach strategies), `pool_full`/`branch_in_use`/`branch_missing`/
