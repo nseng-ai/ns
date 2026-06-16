@@ -75,6 +75,7 @@ export interface CliCommandExtensionSpec {
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
 	env?: Record<string, string | undefined>;
+	piCommandAliases?: Readonly<Record<string, string>>;
 	piCommandNameForCommand?: (command: CliCommandInfo) => string;
 }
 
@@ -529,7 +530,7 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 }
 
 function piCommandNameForCommand(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
-	return spec.piCommandNameForCommand?.(command) ?? `${spec.piNamespace}:${command.name}`;
+	return spec.piCommandAliases?.[command.name] ?? spec.piCommandNameForCommand?.(command) ?? `${spec.piNamespace}:${command.name}`;
 }
 
 function isCliUsageError(details: CliCommandOutputDetails): boolean {
@@ -874,6 +875,9 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 	}
 	if (spec.piNamespace.trim() === "") {
 		throw new Error(`CLI command extension for ${spec.cliName} requires a non-empty piNamespace.`);
+	}
+	if (spec.piCommandAliases !== undefined && spec.piCommandNameForCommand !== undefined) {
+		throw new Error(`CLI command extension for ${spec.cliName} cannot configure both piCommandAliases and piCommandNameForCommand.`);
 	}
 
 	const seenNames = new Set<string>();

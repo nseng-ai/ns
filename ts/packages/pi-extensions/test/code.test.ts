@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import asdlDevExtension from "../src/asdl-dev-extension.ts";
-import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/cli-command-extension.ts";
 import codeExtension from "../src/code.ts";
 
 interface RegisteredCommand {
@@ -38,74 +37,32 @@ class FakePi {
 }
 
 describe("code extension registration", () => {
-	test("consolidates codebase and source-control commands under code without legacy aliases", () => {
+	test("keeps only review-feedback watch under code after SDL code-lifecycle cutover", () => {
 		const pi = new FakePi();
 		codeExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual([
-			"code:pr-regen",
-			"code:push",
-			"code:autobranch",
-			"code:autoslot",
-			"code:land",
-			"code:pr-feedback-watch",
-		]);
-		expect(pi.commands.has("cp")).toBe(false);
-		expect(pi.commands.has("autobranch")).toBe(false);
-		expect(pi.commands.has("autoslot")).toBe(false);
-		expect(pi.commands.has("changes")).toBe(false);
-		expect(pi.commands.has("code:changes")).toBe(false);
-		expect(pi.commands.has("summary")).toBe(false);
-		expect(pi.commands.has("submit")).toBe(false);
-		expect(pi.commands.has("push")).toBe(false);
-		expect(pi.commands.has("gh:land")).toBe(false);
-		expect(pi.commands.has("gt:land-stack")).toBe(false);
+		expect([...pi.commands.keys()]).toEqual(["code:pr-feedback-watch"]);
+		expect(pi.commands.has("code:pr-regen")).toBe(false);
+		expect(pi.commands.has("code:push")).toBe(false);
+		expect(pi.commands.has("code:autobranch")).toBe(false);
+		expect(pi.commands.has("code:autoslot")).toBe(false);
+		expect(pi.commands.has("code:land")).toBe(false);
 		expect(pi.commands.has("code:land-stack")).toBe(false);
-		expect(pi.commands.has("land")).toBe(false);
-		expect(pi.commands.has("land-stack")).toBe(false);
-		const oldCommandPrefix = "dev";
-		for (const command of ["cp", "changes", "autobranch", "submit", "push", "pr-regen", "land", "land-stack"]) {
-			expect(pi.commands.has(`${oldCommandPrefix}:${command}`)).toBe(false);
-		}
+		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
-		expect(pi.commands.get("code:pr-regen")?.description).toBe(
-			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
-		);
-		expect(pi.commands.get("code:push")?.description).toContain("already-committed");
-		expect(pi.commands.get("code:push")?.description).toContain("git push");
-		expect(pi.commands.get("code:autobranch")?.description).toBe(
-			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
-		);
-		expect(pi.commands.get("code:autoslot")?.description).toContain("managed slot worktree");
-		expect(pi.commands.get("code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
-		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
-		expect(pi.messageRenderers.has(["dev", "changes", "summary"].join("-"))).toBe(false);
-		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
-		expect(pi.messageRenderers.has("land-command-stream")).toBe(true);
 	});
 
-	test("asdl-dev mirrors are split between code and dev namespaces when project-local extensions are loaded together", () => {
+	test("asdl-dev mirrors remain split away from code namespace", () => {
 		const pi = new FakePi();
 
 		codeExtension(pi);
 		asdlDevExtension(pi);
 
-		expect(pi.commandNames.filter((name) => name === "code:cp")).toEqual([]);
-		expect(pi.commandNames.filter((name) => name === "code:submit")).toEqual([]);
-		expect(pi.commandNames.filter((name) => name === "code:pr-regen")).toEqual(["code:pr-regen"]);
-		expect(pi.commandNames.filter((name) => name === "dev:cp")).toEqual([]);
-		expect(pi.commandNames.filter((name) => name === "dev:submit")).toEqual([]);
-		expect(pi.commandNames.filter((name) => name === "dev:pr-regen")).toEqual([]);
-		expect(pi.commandNames).toEqual([
-			"code:pr-regen",
-			"code:push",
-			"code:autobranch",
-			"code:autoslot",
-			"code:land",
-			"code:pr-feedback-watch",
-			"dev:preview-url",
-		]);
+		expect(pi.commandNames).toEqual(["code:pr-feedback-watch", "dev:preview-url"]);
+		expect(pi.commands.has("code:pr-regen")).toBe(false);
+		expect(pi.commands.has("dev:pr-regen")).toBe(false);
+		expect(pi.commands.has("dev:preview-url")).toBe(true);
 	});
 });

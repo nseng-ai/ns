@@ -305,7 +305,7 @@ export function formatFailure(failure: LandStackFailure, landed: readonly Landed
 		for (const chunk of landedChunks) {
 			lines.push(`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`);
 		}
-		lines.push("", "Fix the reported issue, then rerun /code:land from the desired branch. Already-landed PRs will not be retried automatically.");
+		lines.push("", "Fix the reported issue, then rerun /sdl:code:land from the desired branch. Already-landed PRs will not be retried automatically.");
 	} else if (landed.length > 0) {
 		lines.push("", "Already landed:");
 		for (const entry of landed) {

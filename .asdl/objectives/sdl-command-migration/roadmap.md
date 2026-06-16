@@ -22,25 +22,25 @@
   - Policy: direct execution after preview.
   - Evidence: planning audit selected `/sdl:code:changes`, `/sdl:code:checkpoint`, `/sdl:code:submit`, `/sdl:code:autobranch`, `/sdl:code:autoslot`, `/sdl:code:land`, `/sdl:code:push`, and `/sdl:code:regenerate-pr` as the target project-local Pi family. Existing flat `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` stay primary alongside nested names. Existing `/code:autobranch`, `/code:autoslot`, `/code:land`, `/code:push`, and `/code:pr-regen` should be removed at cutover. `pr-feedback-watch` is excluded as review workflow, and `preview-url` is excluded as dev/deployment tooling.
 
-- [ ] Build the `/sdl:code:*` family as the project-local SDL example extension and API driver.
+- [x] Build the `/sdl:code:*` family as the project-local SDL example extension and API driver.
   - Policy: direct execution after preview; steer first if the slice changes the public SDL extension API or Pi command taxonomy beyond the settled names.
-  - Evidence: command entries exercise the SDL extension API for discovery, selected loading, schemas/options, Pi command presentation, parity metadata, skill linkage, and lower-package orchestration boundaries without turning SDL into the implementation owner for CCC internals. A good first slice proves nested Pi registration for existing SDL commands (`changes`, `checkpoint`, `submit`) without destabilizing their flat primary mirrors; later slices should use `autobranch`, `autoslot`, `land`, `push`, and `regenerate-pr` to prove option parsing, confirmation hooks, live output, mutation safety, and CCC delegation seams.
+  - Evidence: PR #1665 added nested `/sdl:code:changes`, `/sdl:code:checkpoint`, and `/sdl:code:submit` Pi aliases over existing SDL commands without destabilizing the flat `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` mirrors. The follow-up hard-cutover adds `/sdl:code:autobranch`, `/sdl:code:autoslot`, `/sdl:code:land`, `/sdl:code:push`, and `/sdl:code:regenerate-pr`, with parity metadata and tests proving the full settled Pi family and absence of old lifecycle `/code:*` registrations. Hybrid commands keep lower CCC or Pi implementation ownership while SDL owns the public code-lifecycle name.
 
-- [ ] Migrate branch/worktree creation flows: `autobranch` and `autoslot`.
+- [x] Migrate branch/worktree creation flows: `autobranch` and `autoslot`.
   - Policy: direct execution after preview for code/docs/tests; ask before executing commands that mutate real branches, stashes, Graphite state, or slot worktrees.
-  - Evidence: `/sdl:code:autobranch` replaces `/code:autobranch`; `/sdl:code:autoslot` replaces `/code:autoslot`; old code surfaces are deleted; Graphite/slot safety checks remain covered by tests; docs record why autoslot is a project-specific SDL lifecycle extension.
+  - Evidence: `/sdl:code:autobranch` replaces `/code:autobranch`; `/sdl:code:autoslot` replaces `/code:autoslot`; old code surfaces are deleted; Graphite/slot safety checks remain covered by existing CCC tests and updated Pi registration tests; docs/context record why these are SDL code-lifecycle surfaces with lower CCC orchestration ownership.
 
-- [ ] Migrate landing and push flows under SDL.
+- [x] Migrate landing and push flows under SDL.
   - Policy: direct execution after preview for implementation; ask before running any actual push, merge, landing, or GitHub mutation.
-  - Evidence: `/sdl:code:land` exposes the existing landing core through SDL reachability; `/sdl:code:push` replaces the guarded push helper; old `/code:land` and `/code:push` surfaces are removed when replacements land.
+  - Evidence: `/sdl:code:land` exposes the existing landing core through SDL code-lifecycle reachability; `/sdl:code:push` replaces the guarded push helper; old `/code:land` and `/code:push` surfaces are removed. CCC landing tests and Pi push tests now assert the `/sdl:code:*` surfaces and user-facing rerun guidance.
 
-- [ ] Migrate PR metadata regeneration as a code lifecycle command and disposition review-feedback workflows separately.
+- [x] Migrate PR metadata regeneration as a code lifecycle command and disposition review-feedback workflows separately.
   - Policy: steer first before choosing any review command taxonomy or replacing standalone product CLIs.
-  - Evidence: `/sdl:code:regenerate-pr` replaces `/code:pr-regen` after the SDL extension API supports the needed command shape. `pr-feedback-watch` is excluded from `/sdl:code:*` as review workflow; later work decides whether `pr-address`, `stack-address`, and `pr-feedback-watch` remain standalone CLIs/skills or become separate SDL review commands.
+  - Evidence: `/sdl:code:regenerate-pr` replaces `/code:pr-regen` while delegating to the remaining `asdl-dev pr-regen` implementation. `pr-feedback-watch` remains the only project-owned `/code:*` surface and is excluded from `/sdl:code:*` as review workflow; later work decides whether `pr-address`, `stack-address`, and `pr-feedback-watch` remain standalone CLIs/skills or become separate SDL review commands.
 
-- [ ] Retire stale `code`/`asdl-dev` vocabulary from durable docs, skills, parity metadata, and tests as slices migrate.
+- [x] Retire stale `code`/`asdl-dev` vocabulary from durable docs, skills, parity metadata, and tests as slices migrate.
   - Policy: direct execution after preview.
-  - Evidence: source searches for each migrated command show no stale durable user-facing references to the old command names except historical Objective updates or deliberately documented migration notes; parity metadata and Pi command tests assert the `/sdl:*` surface and absence of the old `/code:*` mirror.
+  - Evidence: source searches for migrated lifecycle command surfaces show remaining old-name hits are historical Objective notes, absence assertions, or explicit no-alias documentation. Parity metadata, Pi command tests, docs, and package context now assert `/sdl:code:*` surfaces and old `/code:*` lifecycle absence.
 
 ## Parked
 

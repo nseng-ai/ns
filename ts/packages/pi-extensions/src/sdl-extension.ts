@@ -1,10 +1,22 @@
 import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 
-import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
+import { asdlDevCodeExtension } from "./asdl-dev-extension.ts";
+import autobranchExtension from "./autobranch.ts";
+import autoslotExtension from "./autoslot.ts";
+import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI as CliExtensionAPI } from "./cli-command-extension.ts";
+import landExtension from "./land.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import pushExtension from "./push.ts";
+
+export type ExtensionAPI = CliExtensionAPI &
+	Parameters<typeof asdlDevCodeExtension>[0] &
+	Parameters<typeof autobranchExtension>[0] &
+	Parameters<typeof autoslotExtension>[0] &
+	Parameters<typeof landExtension>[0] &
+	Parameters<typeof pushExtension>[0];
 
 const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
-const SDL_CODE_PI_COMMAND_NAMES = {
+const SDL_CODE_PI_COMMAND_ALIASES = {
 	changes: "sdl:code:changes",
 	cp: "sdl:code:checkpoint",
 	submit: "sdl:code:submit",
@@ -95,17 +107,14 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 		cliName: "sdl",
 		piNamespace: "sdl",
 		commands,
-		piCommandNameForCommand: (command) => sdlCodePiCommandName(command),
+		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
 		runCli,
 	});
-}
-
-function sdlCodePiCommandName(command: SdlCommandInfo): string {
-	const piCommandName = SDL_CODE_PI_COMMAND_NAMES[command.name as keyof typeof SDL_CODE_PI_COMMAND_NAMES];
-	if (piCommandName === undefined) {
-		throw new Error(`Missing SDL code Pi command alias for ${command.name}`);
-	}
-	return piCommandName;
+	autobranchExtension(pi);
+	autoslotExtension(pi);
+	landExtension(pi);
+	pushExtension(pi);
+	asdlDevCodeExtension(pi);
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {

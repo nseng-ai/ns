@@ -35,7 +35,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = 
 	"objective-update": "objective:update",
 	"pi-grill-ui": "pi:grill-me",
 	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "code:autobranch",
+	"code-autobranch": "sdl:code:autobranch",
 	"code-checkpoint": "sdl:code:checkpoint",
 	"code-just-fix": "code:just-fix",
 	"code-submit": "sdl:code:submit",

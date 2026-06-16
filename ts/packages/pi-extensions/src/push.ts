@@ -1,9 +1,9 @@
 import { definePiSurfaceParity } from "./parity.ts";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
 
-const COMMAND_NAME = "code:push";
+const COMMAND_NAME = "sdl:code:push";
 const PUSH_TIMEOUT_MS = 2 * 60 * 1000;
-export const PUSH_OUTPUT_MESSAGE_TYPE = "code-push-output";
+export const PUSH_OUTPUT_MESSAGE_TYPE = "sdl-code-push-output";
 
 export const pushParity = definePiSurfaceParity([
 	{
@@ -11,11 +11,11 @@ export const pushParity = definePiSurfaceParity([
 		surface: COMMAND_NAME,
 		workflow: "Push already-committed work from the current branch",
 		parity: "PARTIAL",
-		trackedGap: "cross-harness-parity roadmap: decide whether code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
+		trackedGap: "cross-harness-parity roadmap: decide whether /sdl:code:push needs a thin skill documenting clean-worktree git push or should be treated as primitive git usage.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "push",
-		notes: "Pi command adds a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",
+		notes: "Pi command exposes the SDL code-lifecycle surface with a clean-worktree guard and message rendering around git push; non-Pi agents can run git status and git push directly, but no installed skill owns the guarded workflow yet.",
 	},
 ] as const);
 
@@ -89,10 +89,10 @@ export default function pushExtension(pi: ExtensionAPI): void {
 
 export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">, ctx: CommandContext, args: string): Promise<boolean> {
 	if (args.trim().length > 0) {
-		const content = "`/code:push` does not accept arguments. Run `/code:push` with no text after the command.";
+		const content = "`/sdl:code:push` does not accept arguments. Run `/sdl:code:push` with no text after the command.";
 		emitPushMessage(pi, ctx, {
 			content,
-			headline: "`/code:push` does not accept arguments.",
+			headline: "`/sdl:code:push` does not accept arguments.",
 			level: "error",
 			details: {
 				command: COMMAND_NAME,
@@ -110,7 +110,7 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 	const statusResult = await pi.exec("git", ["status", "--porcelain"], { cwd: ctx.cwd });
 	if (!pushSucceeded(statusResult)) {
 		const content = formatPushEvidence({
-			intro: "Could not inspect the worktree status. `/code:push` did not run `git push`.",
+			intro: "Could not inspect the worktree status. `/sdl:code:push` did not run `git push`.",
 			command: "git status --porcelain",
 			cwd: ctx.cwd,
 			result: statusResult,
@@ -118,7 +118,7 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 		});
 		emitPushMessage(pi, ctx, {
 			content,
-			headline: "Could not inspect worktree status for `/code:push`.",
+			headline: "Could not inspect worktree status for `/sdl:code:push`.",
 			level: "error",
 			details: buildDetails({ args: ["status", "--porcelain"], cwd: ctx.cwd, phase: "status", level: "error", result: statusResult }),
 		});
@@ -129,7 +129,7 @@ export async function runCodePush(pi: Pick<ExtensionAPI, "exec" | "sendMessage">
 		const content = formatDirtyWorktreeMessage(ctx.cwd, statusResult.stdout);
 		emitPushMessage(pi, ctx, {
 			content,
-			headline: "`/code:push` requires a clean worktree.",
+			headline: "`/sdl:code:push` requires a clean worktree.",
 			level: "warning",
 			details: buildDetails({ args: ["status", "--porcelain"], cwd: ctx.cwd, phase: "dirty", level: "warning", result: statusResult }),
 		});
@@ -212,7 +212,7 @@ export function formatPushEvidence(options: FormatPushEvidenceOptions): string {
 
 function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
 	return [
-		"`/code:push` requires a clean worktree and did not run `git push`.",
+		"`/sdl:code:push` requires a clean worktree and did not run `git push`.",
 		"Commit or stash outstanding changes first, or use `/sdl:submit` if you want the normal checkpoint/submit flow.",
 		`Command: git status --porcelain`,
 		`Cwd: ${cwd}`,
