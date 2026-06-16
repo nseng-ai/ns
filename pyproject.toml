@@ -4,7 +4,6 @@ members = [
   "packages/asdl-dispatcher",
   "packages/asdl-objectives",
   "packages/aretro",
-  "packages/roaster",
   "packages/asdl-slots",
   "packages/packagechk",
   "packages/vibechk",
@@ -15,7 +14,6 @@ asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
 asdl-objectives = { workspace = true }
 aretro = { workspace = true }
-roaster = { workspace = true }
 asdl-slots = { workspace = true }
 packagechk = { workspace = true }
 vibechk = { workspace = true }
@@ -53,7 +51,6 @@ dev = [
   "asdl-dispatcher",
   "asdl-objectives",
   "aretro",
-  "roaster",
   "asdl-slots",
   "packagechk",
   "vibechk",
@@ -76,7 +73,6 @@ src = [
   "packages/asdl-dispatcher/src",
   "packages/asdl-objectives/src",
   "packages/aretro/src",
-  "packages/roaster/src",
   "packages/asdl-slots/src",
   "packages/packagechk/src",
   "packages/vibechk/src",
@@ -100,7 +96,6 @@ known-first-party = [
   "asdl_dispatcher",
   "asdl_objectives",
   "aretro",
-  "roaster",
   "asdl_slots",
   "packagechk",
   "vibechk",
@@ -126,7 +121,6 @@ testpaths = [
   "packages/asdl-dispatcher/tests",
   "packages/asdl-objectives/tests",
   "packages/aretro/tests",
-  "packages/roaster/tests",
   "packages/asdl-slots/tests",
   "packages/packagechk/tests",
   "packages/vibechk/tests",
