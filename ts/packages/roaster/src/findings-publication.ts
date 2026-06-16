@@ -81,7 +81,8 @@ export function parseFindingsPayloadResult(raw: string, options: { readonly fall
 
 	if (!isRecord(data.value.data)) return payloadError("`data` must be an object when `exit_code` is 0");
 	const inner = data.value.data;
-	const rawFindings = inner.findings;
+	const payloadInput = isRecord(inner.payload) ? inner.payload : inner;
+	const rawFindings = payloadInput.findings;
 	if (rawFindings !== undefined && !Array.isArray(rawFindings)) return payloadError("`findings` must be a list when present");
 
 	const findings: ReviewFinding[] = [];
@@ -93,7 +94,7 @@ export function parseFindingsPayloadResult(raw: string, options: { readonly fall
 
 	const coverageInput = inner.inputCoverage ?? inner.input_coverage;
 	let inputCoverage: ReviewInputCoverage | null = null;
-	if (coverageInput !== undefined) {
+	if (coverageInput !== undefined && coverageInput !== null) {
 		const parsedCoverage = reviewInputCoverageSchema.safeParse(coverageInput);
 		if (!parsedCoverage.success) return payloadError(`inputCoverage: ${parsedCoverage.error.message}`);
 		inputCoverage = parsedCoverage.data;
@@ -104,7 +105,7 @@ export function parseFindingsPayloadResult(raw: string, options: { readonly fall
 		payload: {
 			reviewName: coerceString(inner.reviewName ?? inner.review_name, fallbackReviewName),
 			baseRef: coerceString(inner.baseRef ?? inner.base_ref, fallbackBaseRef),
-			count: typeof inner.count === "number" && Number.isInteger(inner.count) ? inner.count : findings.length,
+			count: typeof payloadInput.count === "number" && Number.isInteger(payloadInput.count) ? payloadInput.count : findings.length,
 			findings,
 			inputCoverage,
 			errorType: null,
@@ -117,7 +118,13 @@ export function parseInlinePostingStatusResult(raw: string): InlinePostingStatus
 	const data = parseJsonObject(raw);
 	if (data.type === "error") return inlineStatusError(data.message);
 	const statusData = isRecord(data.value.data) ? data.value.data : data.value;
-	const parsed = inlinePostingStatusSchema.safeParse(statusData);
+	const normalized = {
+		postedCount: fieldValue(statusData, "postedCount", "posted_count"),
+		skippedDuplicateCount: fieldValue(statusData, "skippedDuplicateCount", "skipped_duplicate_count"),
+		fallbackOnlyCount: fieldValue(statusData, "fallbackOnlyCount", "fallback_only_count"),
+		apiError: fieldValue(statusData, "apiError", "api_error"),
+	};
+	const parsed = inlinePostingStatusSchema.safeParse(normalized);
 	if (!parsed.success) return inlineStatusError(parsed.error.message);
 	return { type: "ok", status: parsed.data };
 }
@@ -274,6 +281,11 @@ function parseJsonObject(raw: string): JsonObjectResult {
 
 function coerceString(value: unknown, fallback: string): string {
 	return typeof value === "string" && value !== "" ? value : fallback;
+}
+
+function fieldValue(record: Readonly<Record<string, unknown>>, primary: string, secondary: string): unknown {
+	if (Object.hasOwn(record, primary)) return record[primary];
+	return record[secondary];
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {
