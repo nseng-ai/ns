@@ -72,7 +72,7 @@ interface LoadedLevelCandidate {
 	source: ExtensionSourceInfo;
 }
 
-const SOURCE_LEVEL_ORDER = { "built-in": 0, global: 1, project: 2 } as const satisfies Record<ExtensionSourceLevel, number>;
+const ORDERED_SOURCE_LEVELS = ["built-in", "global", "project"] as const satisfies readonly ExtensionSourceLevel[];
 
 export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOptions): Promise<SdlCommandCatalog> {
 	const diagnostics: ExtensionDiagnostic[] = [];
@@ -82,14 +82,15 @@ export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOption
 	const projectCandidates = loadRootCandidates({ level: "project", rootDir: join(options.cwd, ".asdl", "extensions") });
 	diagnostics.push(...globalCandidates.diagnostics, ...projectCandidates.diagnostics);
 
-	const levels: readonly (readonly [ExtensionSourceLevel, readonly ExtensionCommandCandidate[]])[] = [
-		["built-in", builtInCandidates],
-		["global", globalCandidates.candidates],
-		["project", projectCandidates.candidates],
-	];
+	const candidatesByLevel = {
+		"built-in": builtInCandidates,
+		global: globalCandidates.candidates,
+		project: projectCandidates.candidates,
+	} satisfies Record<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>;
 
 	const merged = new Map<string, LoadedLevelCandidate>();
-	for (const [level, levelCandidates] of levels) {
+	for (const level of ORDERED_SOURCE_LEVELS) {
+		const levelCandidates = candidatesByLevel[level];
 		const validation = validateLevelCandidates(level, levelCandidates);
 		diagnostics.push(...validation.diagnostics);
 		for (const candidate of validation.candidates) {
@@ -182,20 +183,22 @@ export function hasExtensionErrors(diagnostics: readonly ExtensionDiagnostic[]):
 }
 
 export function formatExtensionErrorDiagnostics(diagnostics: readonly ExtensionDiagnostic[]): string {
-	return diagnostics
-		.filter((diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error")
-		.map((diagnostic) => diagnostic.message)
-		.join("\n");
+	return formatExtensionDiagnosticMessages(diagnostics.filter((diagnostic): diagnostic is ExtensionErrorDiagnostic => diagnostic.severity === "error"));
 }
 
 export function formatExtensionWarningDiagnostics(diagnostics: readonly ExtensionErrorDiagnostic[]): string {
-	return diagnostics.map((diagnostic) => `Warning: ${diagnostic.message}`).join("\n");
+	return formatExtensionDiagnosticMessages(diagnostics, { prefix: "Warning: " });
+}
+
+function formatExtensionDiagnosticMessages(diagnostics: readonly ExtensionErrorDiagnostic[], options: { prefix?: string | undefined } = {}): string {
+	const prefix = options.prefix ?? "";
+	return diagnostics.map((diagnostic) => `${prefix}${diagnostic.message}`).join("\n");
 }
 
 function isFatalForSelectedCandidate(diagnostic: ExtensionErrorDiagnostic, selectedCandidate: ExtensionCommandCandidate | undefined): boolean {
 	if (selectedCandidate === undefined) return true;
 	if (diagnostic.sourceLevel === undefined) return true;
-	return SOURCE_LEVEL_ORDER[diagnostic.sourceLevel] >= SOURCE_LEVEL_ORDER[selectedCandidate.source.level];
+	return sourceLevelRank(diagnostic.sourceLevel) >= sourceLevelRank(selectedCandidate.source.level);
 }
 
 function loadRootCandidates(options: { level: "global" | "project"; rootDir: string }): { diagnostics: readonly ExtensionDiagnostic[]; candidates: readonly ExtensionCommandCandidate[] } {
@@ -237,10 +240,15 @@ function validateLevelCandidates(
 		validated.push({ name: candidate.name, candidate, source: candidate.source });
 	}
 
-	const counts = groupCandidatesByName(validated);
-	const duplicateNames = new Set([...counts.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
+	const candidatesByName = new Map<string, readonly LoadedLevelCandidate[]>();
+	for (const candidate of validated) {
+		const existing = candidatesByName.get(candidate.name) ?? [];
+		candidatesByName.set(candidate.name, [...existing, candidate]);
+	}
+
+	const duplicateNames = new Set([...candidatesByName.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
 	for (const name of duplicateNames) {
-		const matches = counts.get(name) ?? [];
+		const matches = candidatesByName.get(name) ?? [];
 		diagnostics.push({
 			severity: "error",
 			code: "extension_command_duplicate_in_level",
@@ -252,13 +260,12 @@ function validateLevelCandidates(
 	return { candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)), diagnostics };
 }
 
-function groupCandidatesByName(candidates: readonly LoadedLevelCandidate[]): ReadonlyMap<string, readonly LoadedLevelCandidate[]> {
-	const counts = new Map<string, readonly LoadedLevelCandidate[]>();
-	for (const candidate of candidates) {
-		const existing = counts.get(candidate.name) ?? [];
-		counts.set(candidate.name, [...existing, candidate]);
+function sourceLevelRank(level: ExtensionSourceLevel): number {
+	const rank = ORDERED_SOURCE_LEVELS.indexOf(level);
+	if (rank === -1) {
+		throw new Error(`Missing SDL extension source-level order for ${level}.`);
 	}
-	return counts;
+	return rank;
 }
 
 function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {

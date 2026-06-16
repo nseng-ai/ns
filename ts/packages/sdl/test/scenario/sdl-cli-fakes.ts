@@ -1,7 +1,9 @@
 import { join } from "node:path";
 
 import { runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
+import type { ExecOptions, ExecResult, SdlConfirmPrompt, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
+
+export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
@@ -16,7 +18,8 @@ export interface ExecCall {
 
 export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
-	textGeneration?: readonly TextGenerationResult[];
+	textGeneration?: readonly ScriptedTextGenerationResult[];
+	confirm?: SdlConfirmPrompt | undefined;
 }
 
 export interface RunWithFakesOptions {
@@ -29,7 +32,8 @@ export interface RunWithFakesOptions {
 
 export interface RunWithFakesDefaults {
 	execResponses: () => readonly ScriptedExecResponse[];
-	textGenerationResults: () => readonly TextGenerationResult[];
+	textGenerationResults: () => readonly ScriptedTextGenerationResult[];
+	missingTextGenerationResult?: (() => TextGenerationResult) | undefined;
 }
 
 interface ScriptedSdlTestContextOptions extends RunWithFakesDefaults {
@@ -42,14 +46,21 @@ export class ScriptedSdlTestContext implements SdlContext {
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
 	readonly modelCalls: TextGenerationRequest[] = [];
+	stdout?: ((text: string) => void) | undefined;
+	stderr?: ((text: string) => void) | undefined;
+	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
+	confirm?: SdlConfirmPrompt | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: TextGenerationResult[];
+	private readonly modelResults: ScriptedTextGenerationResult[];
+	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
 
 	constructor(state: TestState = {}, options: ScriptedSdlTestContextOptions) {
 		this.cwd = options.cwd ?? "/work";
 		this.env = options.env ?? {};
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.modelResults = [...(state.textGeneration ?? options.textGenerationResults())];
+		this.missingTextGenerationResult = options.missingTextGenerationResult;
+		this.confirm = state.confirm;
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
@@ -63,13 +74,16 @@ export class ScriptedSdlTestContext implements SdlContext {
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
 		}
-		return execResult(response.result);
+		const result = execResult(response.result);
+		options?.onStdout?.(result.stdout);
+		options?.onStderr?.(result.stderr);
+		return result;
 	}
 
 	readonly model = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.modelCalls.push({ ...request });
-			return this.modelResults.shift() ?? { ok: false, error: "missing scripted text result" };
+			return await (this.modelResults.shift() ?? this.missingTextGenerationResult?.() ?? { ok: false, error: "missing scripted text result" });
 		},
 	};
 }
@@ -77,16 +91,19 @@ export class ScriptedSdlTestContext implements SdlContext {
 export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithFakesDefaults) {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
+	const liveOutput: Array<{ stream: "stdout" | "stderr"; text: string }> = [];
 	const context = new ScriptedSdlTestContext(options.state, {
 		cwd: options.cwd,
 		env: options.env,
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,
+		missingTextGenerationResult: defaults.missingTextGenerationResult,
 	});
 	return {
 		context,
 		stdout,
 		stderr,
+		liveOutput,
 		exit: runCli(options.args, {
 			context,
 			cwd: context.cwd,
@@ -98,6 +115,10 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			stderr: (text) => {
 				stderr.push(text);
 			},
+			onOutput: (stream, text) => {
+				liveOutput.push({ stream, text });
+			},
+			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 		}),
 	};
 }
