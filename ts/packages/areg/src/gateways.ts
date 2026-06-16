@@ -80,14 +80,14 @@ export interface AregSkillxWorkspaceGateway {
 	cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult>;
 }
 
-export type AregCheckPathState =
+export type AregPathState =
 	| { type: "missing" }
 	| { type: "file" }
 	| { type: "directory" }
 	| { type: "symlink"; target: string }
 	| { type: "other" };
 
-export type AregCheckTextFileState =
+export type AregTextFileState =
 	| { type: "missing" }
 	| { type: "file"; text: string }
 	| { type: "directory" }
@@ -95,14 +95,23 @@ export type AregCheckTextFileState =
 	| { type: "other" }
 	| { type: "unreadable"; message: string };
 
+export type AregCheckPathState = AregPathState;
+export type AregCheckTextFileState = AregTextFileState;
+export type AregInitPathState = AregPathState;
+export type AregInitTextFileState = AregTextFileState;
+export type AregUpdatePathState = AregPathState;
+export type AregUpdateTextFileState = AregTextFileState;
+export type AregSkillKindPathState = AregPathState;
+export type AregSkillKindTextFileState = AregTextFileState;
+
 export interface AregCheckSkillInspection {
 	name: string;
-	skillsPath: AregCheckPathState;
-	agentsPath: AregCheckPathState;
-	claudePath: AregCheckPathState;
-	localSkillMd: AregCheckTextFileState;
-	remoteSkillMd: AregCheckTextFileState;
-	openaiPolicy: AregCheckTextFileState;
+	skillsPath: AregPathState;
+	agentsPath: AregPathState;
+	claudePath: AregPathState;
+	localSkillMd: AregTextFileState;
+	remoteSkillMd: AregTextFileState;
+	openaiPolicy: AregTextFileState;
 }
 
 export interface AregCheckPairingDirectory {
@@ -112,44 +121,125 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string | undefined;
 }
 
-export interface AregCheckProjectInspectionResult {
-	projectDir: string;
-	projectPathState: AregCheckPathState;
-	lockfile: AregCheckTextFileState;
-	skillsDirectoryNames: readonly string[];
-	agentsSkillNames: readonly string[];
-	excludedSkillNames: readonly string[];
-	piSettings: AregCheckTextFileState;
-	genericReplacement: {
-		hasAdapter: boolean;
-		hasPackageModule: boolean;
-	};
-	skills: readonly AregCheckSkillInspection[];
-	pairingDirectories: readonly AregCheckPairingDirectory[];
+export interface AregSkillKindSkillInspection {
+	name: string;
+	skillDir: AregPathState;
+	skillMd: AregTextFileState;
+	openaiPolicy: AregTextFileState;
 }
 
-export interface AregCheckProjectInspectionRequest {
+export interface AregGenericReplacementInspection {
+	hasAdapter: boolean;
+	hasPackageModule: boolean;
+}
+
+export interface AregProjectInspectionRequest {
 	cwd: string;
 	projectPath: string;
 	env: NodeJS.ProcessEnv;
 }
 
-export interface AregCheckProjectInspectionGateway {
-	inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult>;
+export interface AregProjectDirRequest {
+	projectDir: string;
+	env: NodeJS.ProcessEnv;
 }
 
-export type AregInitPathState = AregCheckPathState;
-export type AregInitTextFileState = AregCheckTextFileState;
-
-export interface AregInitProjectInspectionResult {
+export interface AregSkillInspectionRequest {
 	projectDir: string;
-	targetPathState: AregInitPathState;
-	agentsMd: AregInitTextFileState;
-	claudeMd: AregInitTextFileState;
-	asdlToml: AregInitTextFileState;
-	aregJson: AregInitTextFileState;
-	claudeDir: AregInitPathState;
-	claudeSettings: AregInitTextFileState;
+	skillName: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregProjectBaseInspection {
+	projectDir: string;
+	projectPathState: AregPathState;
+	lockfile: AregTextFileState;
+	asdlToml: AregTextFileState;
+	aregJson: AregTextFileState;
+}
+
+export interface AregInstructionFilesInspection {
+	agentsMd: AregTextFileState;
+	claudeMd: AregTextFileState;
+	claudeDir: AregPathState;
+	claudeSettings: AregTextFileState;
+}
+
+export interface AregPiArtifactsInspection {
+	piDir: AregPathState;
+	piSettings: AregTextFileState;
+	genericReplacement: AregGenericReplacementInspection;
+}
+
+export interface AregSkillNameInventory {
+	skillsDirectoryNames: readonly string[];
+	agentsSkillNames: readonly string[];
+	claudeSkillNames: readonly string[];
+	localSkillKindNames: readonly string[];
+}
+
+export interface AregSkillKindResolveRequest {
+	projectDir: string;
+	spec: string;
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+}
+
+export type AregSkillKindResolveResult = { type: "ok"; skillName: string } | { type: "error"; error: AregErrorInfo };
+
+export type AregProjectMutationPolicy = "init" | "skill-kind";
+
+export interface AregProjectTextWriteRequest {
+	projectDir: string;
+	relativePath: string;
+	content: string;
+	description: string;
+	createParent: boolean;
+	policy: AregProjectMutationPolicy;
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregProjectFileDeleteRequest {
+	projectDir: string;
+	relativePath: string;
+	description: string;
+	policy: "skill-kind";
+	env: NodeJS.ProcessEnv;
+}
+
+export interface AregProjectRemoveEmptyDirRequest {
+	projectDir: string;
+	relativePath: string;
+	description: string;
+	policy: "skill-kind";
+	env: NodeJS.ProcessEnv;
+}
+
+export type AregProjectMutationResult = { ok: true } | { ok: false; error: AregErrorInfo };
+export type AregProjectRemoveEmptyDirResult = { ok: true; removed: boolean } | { ok: false; error: AregErrorInfo };
+
+/**
+ * Areg's project-resource gateway.
+ *
+ * This is intentionally domain-oriented: it exposes named areg project facts and
+ * project-scoped safe mutation primitives, not a generic filesystem API. Add new
+ * reads here only when they represent stable areg project concepts, and route new
+ * writes/deletes through project-scoped primitives with an explicit policy. Do not
+ * add an unrestricted filesystem gateway to areg as a convenience for operation code.
+ */
+export interface AregProjectGateway {
+	inspectProjectBase(request: AregProjectInspectionRequest): Promise<AregProjectBaseInspection>;
+	inspectInstructionFiles(request: AregProjectDirRequest): Promise<AregInstructionFilesInspection>;
+	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
+	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
+	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
+	inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
+	inspectPairingDirectories(request: AregProjectDirRequest): Promise<readonly AregCheckPairingDirectory[]>;
+	readLocallyExcludedSkillNames(request: AregProjectDirRequest): Promise<readonly string[]>;
+	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
+	writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
+	deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
+	removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult>;
 }
 
 export interface AregInitTextWritePlan {
@@ -157,56 +247,6 @@ export interface AregInitTextWritePlan {
 	content: string;
 	description: string;
 	createParent: boolean;
-}
-
-export type AregInitApplyResult = { ok: true; writtenRelativePaths: readonly string[] } | { ok: false; error: AregErrorInfo };
-
-export interface AregInitProjectInspectionRequest {
-	cwd: string;
-	target: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export interface AregInitTextWritePlanRequest {
-	projectDir: string;
-	writes: readonly AregInitTextWritePlan[];
-	env: NodeJS.ProcessEnv;
-}
-
-export interface AregInitProjectGateway {
-	inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult>;
-	applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult>;
-}
-
-export type AregUpdatePathState = AregCheckPathState;
-export type AregUpdateTextFileState = AregCheckTextFileState;
-
-export interface AregUpdateProjectInspectionRequest {
-	cwd: string;
-	projectPath: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export interface AregUpdateProjectInspectionResult {
-	projectDir: string;
-	projectPathState: AregUpdatePathState;
-	lockfile: AregUpdateTextFileState;
-	asdlToml: AregUpdateTextFileState;
-	aregJson: AregUpdateTextFileState;
-}
-
-export interface AregUpdateProjectGateway {
-	inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult>;
-}
-
-export type AregSkillKindPathState = AregCheckPathState;
-export type AregSkillKindTextFileState = AregCheckTextFileState;
-
-export interface AregSkillKindSkillInspection {
-	name: string;
-	skillDir: AregSkillKindPathState;
-	skillMd: AregSkillKindTextFileState;
-	openaiPolicy: AregSkillKindTextFileState;
 }
 
 export interface AregSkillKindTextWritePlan {
@@ -224,49 +264,4 @@ export interface AregSkillKindDeletePlan {
 export interface AregSkillKindRemoveEmptyDirPlan {
 	relativePath: string;
 	description: string;
-}
-
-export interface AregSkillKindApplyPlanRequest {
-	projectDir: string;
-	writes: readonly AregSkillKindTextWritePlan[];
-	deletes: readonly AregSkillKindDeletePlan[];
-	removeEmptyDirs: readonly AregSkillKindRemoveEmptyDirPlan[];
-	env: NodeJS.ProcessEnv;
-}
-
-export type AregSkillKindApplyPlanResult =
-	| { ok: true; writtenRelativePaths: readonly string[]; deletedRelativePaths: readonly string[]; removedEmptyDirRelativePaths: readonly string[] }
-	| { ok: false; error: AregErrorInfo };
-
-export interface AregSkillKindProjectInspectionRequest {
-	cwd: string;
-	projectPath: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export interface AregSkillKindProjectInspectionResult {
-	projectDir: string;
-	projectPathState: AregSkillKindPathState;
-	piDir: AregSkillKindPathState;
-	piSettings: AregSkillKindTextFileState;
-	genericReplacement: {
-		hasAdapter: boolean;
-		hasPackageModule: boolean;
-	};
-	skills: readonly AregSkillKindSkillInspection[];
-}
-
-export interface AregSkillKindResolveRequest {
-	projectDir: string;
-	spec: string;
-	cwd: string;
-	env: NodeJS.ProcessEnv;
-}
-
-export type AregSkillKindResolveResult = { type: "ok"; skillName: string } | { type: "error"; error: AregErrorInfo };
-
-export interface AregSkillKindProjectGateway {
-	inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult>;
-	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
-	applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult>;
 }

@@ -42,7 +42,7 @@ type SelectedUpdate = z.infer<typeof selectedUpdateSchema>;
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 
 export async function runUpdateSkills(ctx: AregCliContext, request: UpdateSkillsRequest): Promise<ClinkrExit<UpdateSkillsResult>> {
-	const inspection = await ctx.updateProject.inspectProjectForUpdate({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
+	const inspection = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
 	if (inspection.projectPathState.type !== "directory") {
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}

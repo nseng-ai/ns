@@ -1,104 +1,272 @@
 import type {
 	AregCheckPairingDirectory,
-	AregCheckPathState,
-	AregCheckProjectInspectionGateway,
-	AregCheckProjectInspectionRequest,
-	AregCheckProjectInspectionResult,
 	AregCheckSkillInspection,
-	AregCheckTextFileState,
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
 	AregHostGateway,
 	AregHostToolName,
-	AregInitApplyResult,
-	AregInitPathState,
-	AregInitProjectGateway,
-	AregInitProjectInspectionRequest,
-	AregInitProjectInspectionResult,
-	AregInitTextFileState,
-	AregInitTextWritePlanRequest,
 	AregNpxSkillsAddRequest,
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
+	AregPathState,
+	AregProjectBaseInspection,
+	AregProjectDirRequest,
+	AregProjectFileDeleteRequest,
+	AregProjectGateway,
+	AregProjectInspectionRequest,
+	AregProjectMutationResult,
+	AregProjectRemoveEmptyDirRequest,
+	AregProjectRemoveEmptyDirResult,
+	AregProjectTextWriteRequest,
 	AregPromptGateway,
-	AregSkillxInstallRequest,
-	AregSkillxInstallResult,
-	AregSkillxInstalledSkill,
-	AregSkillKindApplyPlanRequest,
-	AregSkillKindApplyPlanResult,
-	AregSkillKindProjectGateway,
-	AregSkillKindProjectInspectionRequest,
-	AregSkillKindProjectInspectionResult,
+	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
-	AregSkillKindTextFileState,
+	AregSkillxInstallRequest,
+	AregSkillxInstallResult,
+	AregSkillxInstalledSkill,
 	AregSkillxWorkspaceCleanupRequest,
 	AregSkillxWorkspaceGateway,
+	AregTextFileState,
 	AregToolCheckResult,
-	AregUpdatePathState,
-	AregUpdateProjectGateway,
-	AregUpdateProjectInspectionRequest,
-	AregUpdateProjectInspectionResult,
-	AregUpdateTextFileState,
 } from "./gateways.ts";
 
-export type FakeAregCheckProjectInspectionOperation = { type: "inspect-project-for-check"; cwd: string; projectPath: string };
+export type FakeAregProjectOperation =
+	| { type: "inspect-project-base"; cwd: string; projectPath: string }
+	| { type: "inspect-instruction-files"; projectDir: string }
+	| { type: "inspect-pi-artifacts"; projectDir: string }
+	| { type: "inspect-skill-name-inventory"; projectDir: string }
+	| { type: "inspect-check-skill"; projectDir: string; skillName: string }
+	| { type: "inspect-local-skill"; projectDir: string; skillName: string }
+	| { type: "inspect-pairing-directories"; projectDir: string }
+	| { type: "read-locally-excluded-skill-names"; projectDir: string }
+	| { type: "resolve-local-skill-spec"; projectDir: string; spec: string; cwd: string }
+	| ({ type: "write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
+	| ({ type: "delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
+	| ({ type: "remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">);
 
 export interface FakeAregCheckSkillOptions {
 	name: string;
-	skillsPath?: AregCheckPathState | undefined;
-	agentsPath?: AregCheckPathState | undefined;
-	claudePath?: AregCheckPathState | undefined;
-	localSkillMd?: AregCheckTextFileState | undefined;
-	remoteSkillMd?: AregCheckTextFileState | undefined;
-	openaiPolicy?: AregCheckTextFileState | undefined;
+	skillsPath?: AregPathState | undefined;
+	agentsPath?: AregPathState | undefined;
+	claudePath?: AregPathState | undefined;
+	localSkillMd?: AregTextFileState | string | undefined;
+	remoteSkillMd?: AregTextFileState | string | undefined;
+	openaiPolicy?: AregTextFileState | string | undefined;
 }
 
-export interface FakeAregCheckProjectInspectionGatewayOptions {
+export interface FakeAregSkillKindSkillOptions {
+	name: string;
+	skillDir?: AregPathState | undefined;
+	skillMd?: AregTextFileState | string | undefined;
+	openaiPolicy?: AregTextFileState | string | undefined;
+}
+
+export interface FakeAregProjectGatewayOptions {
 	projectDir?: string | undefined;
-	projectPathState?: AregCheckPathState | undefined;
-	lockfile?: AregCheckTextFileState | object | string | undefined;
+	projectPathState?: AregPathState | undefined;
+	targetPathState?: AregPathState | undefined;
+	lockfile?: AregTextFileState | object | string | undefined;
+	asdlToml?: AregTextFileState | string | undefined;
+	aregJson?: AregTextFileState | object | string | undefined;
+	agentsMd?: AregTextFileState | string | undefined;
+	claudeMd?: AregTextFileState | string | undefined;
+	claudeDir?: AregPathState | undefined;
+	claudeSettings?: AregTextFileState | string | undefined;
+	piDir?: AregPathState | undefined;
+	piSettings?: AregTextFileState | object | string | undefined;
+	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
 	skillsDirectoryNames?: readonly string[] | undefined;
 	agentsSkillNames?: readonly string[] | undefined;
+	claudeSkillNames?: readonly string[] | undefined;
 	excludedSkillNames?: readonly string[] | undefined;
-	piSettings?: AregCheckTextFileState | object | string | undefined;
-	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
-	skills?: readonly FakeAregCheckSkillOptions[] | undefined;
+	checkSkills?: readonly FakeAregCheckSkillOptions[] | undefined;
+	localSkills?: readonly FakeAregSkillKindSkillOptions[] | undefined;
 	pairingDirectories?: readonly AregCheckPairingDirectory[] | undefined;
+	resolveFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
+	mutationFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
+	applyFailure?: AregErrorInfo | undefined;
 }
 
-export class FakeAregCheckProjectInspectionGateway implements AregCheckProjectInspectionGateway {
-	private readonly result: AregCheckProjectInspectionResult;
-	private readonly log: FakeAregCheckProjectInspectionOperation[] = [];
+export class FakeAregProjectGateway implements AregProjectGateway {
+	private readonly projectDir: string;
+	private readonly projectPathState: AregPathState;
+	private readonly files: Map<string, AregTextFileState>;
+	private readonly claudeDir: AregPathState;
+	private readonly piDir: AregPathState;
+	private readonly genericReplacement: { hasAdapter: boolean; hasPackageModule: boolean };
+	private readonly skillsDirectoryNames: readonly string[];
+	private readonly agentsSkillNames: readonly string[];
+	private readonly claudeSkillNames: readonly string[];
+	private readonly excludedSkillNames: readonly string[];
+	private readonly checkSkills: AregCheckSkillInspection[];
+	private readonly localSkills: AregSkillKindSkillInspection[];
+	private readonly pairingDirectories: readonly AregCheckPairingDirectory[];
+	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
+	private readonly mutationFailures: ReadonlyMap<string, AregErrorInfo>;
+	private readonly log: FakeAregProjectOperation[] = [];
 
-	constructor(options: FakeAregCheckProjectInspectionGatewayOptions = {}) {
-		this.result = {
-			projectDir: options.projectDir ?? "/repo",
-			projectPathState: copyPathState(options.projectPathState ?? { type: "directory" }),
-			lockfile: normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} }),
-			skillsDirectoryNames: [...(options.skillsDirectoryNames ?? [])],
-			agentsSkillNames: [...(options.agentsSkillNames ?? [])],
-			excludedSkillNames: [...(options.excludedSkillNames ?? [])],
-			piSettings: normalizeTextFileState(options.piSettings ?? { type: "missing" }),
-			genericReplacement: {
-				hasAdapter: options.genericReplacement?.hasAdapter ?? false,
-				hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
-			},
-			skills: (options.skills ?? []).map(copyFakeCheckSkill),
-			pairingDirectories: (options.pairingDirectories ?? []).map(copyPairingDirectory),
+	constructor(options: FakeAregProjectGatewayOptions = {}) {
+		this.projectDir = options.projectDir ?? "/repo";
+		this.projectPathState = copyPathState(options.projectPathState ?? options.targetPathState ?? { type: "directory" });
+		this.files = new Map([
+			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
+			["asdl.toml", normalizeTextFileState(options.asdlToml ?? { type: "missing" })],
+			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
+			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
+			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
+			[".claude/settings.local.json", normalizeTextFileState(options.claudeSettings ?? { type: "missing" })],
+			[".pi/settings.json", normalizeTextFileState(options.piSettings ?? { type: "missing" })],
+		]);
+		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
+		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
+		this.genericReplacement = {
+			hasAdapter: options.genericReplacement?.hasAdapter ?? false,
+			hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
+		};
+		this.skillsDirectoryNames = [...(options.skillsDirectoryNames ?? [])];
+		this.agentsSkillNames = [...(options.agentsSkillNames ?? [])];
+		this.claudeSkillNames = [...(options.claudeSkillNames ?? [])];
+		this.excludedSkillNames = [...(options.excludedSkillNames ?? [])];
+		this.checkSkills = (options.checkSkills ?? []).map(copyFakeCheckSkill);
+		this.localSkills = (options.localSkills ?? []).map(copyFakeSkillKindSkill);
+		this.pairingDirectories = (options.pairingDirectories ?? []).map(copyPairingDirectory);
+		this.resolveFailures = new Map(Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+		const mutationFailures = options.applyFailure === undefined ? options.mutationFailures : { ...(options.mutationFailures ?? {}), "*": options.applyFailure };
+		this.mutationFailures = new Map(Object.entries(mutationFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+	}
+
+	async inspectProjectBase(request: AregProjectInspectionRequest): Promise<AregProjectBaseInspection> {
+		this.log.push({ type: "inspect-project-base", cwd: request.cwd, projectPath: request.projectPath });
+		return {
+			projectDir: this.projectDir,
+			projectPathState: copyPathState(this.projectPathState),
+			lockfile: this.fileState("skills-lock.json"),
+			asdlToml: this.fileState("asdl.toml"),
+			aregJson: this.fileState("areg.json"),
 		};
 	}
 
-	async inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult> {
-		this.log.push({ type: "inspect-project-for-check", cwd: request.cwd, projectPath: request.projectPath });
-		return copyCheckProjectInspectionResult(this.result);
+	async inspectInstructionFiles(request: AregProjectDirRequest) {
+		this.log.push({ type: "inspect-instruction-files", projectDir: request.projectDir });
+		return {
+			agentsMd: this.fileState("AGENTS.md"),
+			claudeMd: this.fileState("CLAUDE.md"),
+			claudeDir: copyPathState(this.claudeDir),
+			claudeSettings: this.fileState(".claude/settings.local.json"),
+		};
 	}
 
-	operations(): readonly FakeAregCheckProjectInspectionOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
+	async inspectPiArtifacts(request: AregProjectDirRequest) {
+		this.log.push({ type: "inspect-pi-artifacts", projectDir: request.projectDir });
+		return {
+			piDir: copyPathState(this.piDir),
+			piSettings: this.fileState(".pi/settings.json"),
+			genericReplacement: { ...this.genericReplacement },
+		};
+	}
+
+	async inspectSkillNameInventory(request: AregProjectDirRequest) {
+		this.log.push({ type: "inspect-skill-name-inventory", projectDir: request.projectDir });
+		return {
+			skillsDirectoryNames: [...this.skillsDirectoryNames],
+			agentsSkillNames: [...this.agentsSkillNames],
+			claudeSkillNames: [...this.claudeSkillNames],
+			localSkillKindNames: this.localSkills.map((skill) => skill.name),
+		};
+	}
+
+	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
+		this.log.push({ type: "inspect-check-skill", projectDir: request.projectDir, skillName: request.skillName });
+		const skill = this.checkSkills.find((candidate) => candidate.name === request.skillName);
+		return skill === undefined ? missingCheckSkill(request.skillName) : copyCheckSkill(skill);
+	}
+
+	async inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection> {
+		this.log.push({ type: "inspect-local-skill", projectDir: request.projectDir, skillName: request.skillName });
+		const skill = this.localSkills.find((candidate) => candidate.name === request.skillName);
+		return skill === undefined ? missingLocalSkill(request.skillName) : copySkillKindSkill(skill);
+	}
+
+	async inspectPairingDirectories(request: AregProjectDirRequest): Promise<readonly AregCheckPairingDirectory[]> {
+		this.log.push({ type: "inspect-pairing-directories", projectDir: request.projectDir });
+		return this.pairingDirectories.map(copyPairingDirectory);
+	}
+
+	async readLocallyExcludedSkillNames(request: AregProjectDirRequest): Promise<readonly string[]> {
+		this.log.push({ type: "read-locally-excluded-skill-names", projectDir: request.projectDir });
+		return [...this.excludedSkillNames];
+	}
+
+	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
+		this.log.push({ type: "resolve-local-skill-spec", projectDir: request.projectDir, spec: request.spec, cwd: request.cwd });
+		const failure = this.resolveFailures.get(request.spec);
+		if (failure !== undefined) return { type: "error", error: copyErrorInfo(failure) };
+		const skillName = fakeResolveSkillName(request.spec);
+		const skill = this.localSkills.find((candidate) => candidate.name === skillName);
+		if (skill === undefined) return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
+		if (skill.skillDir.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-dir", message: `skills/${skillName} is a symlink but should be a real directory (canonical source)` } };
+		if (skill.skillDir.type !== "directory") return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
+		if (skill.skillMd.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-md", message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)` } };
+		if (skill.skillMd.type !== "file") return { type: "error", error: { code: "skill-kind-missing-skill-md", message: `skills/${skillName}/SKILL.md does not exist` } };
+		return { type: "ok", skillName };
+	}
+
+	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "write-text-file",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			content: request.content,
+			description: request.description,
+			createParent: request.createParent,
+			policy: request.policy,
+		});
+		const failure = this.mutationFailure(request.relativePath);
+		if (failure !== undefined) return { ok: false, error: failure };
+		this.files.set(request.relativePath, { type: "file", text: request.content });
+		const skill = skillForRelativePath(this.localSkills, request.relativePath);
+		if (skill !== undefined && request.relativePath.endsWith("/SKILL.md")) skill.skillMd = { type: "file", text: request.content };
+		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "file", text: request.content };
+		return { ok: true };
+	}
+
+	async deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
+		this.log.push({ type: "delete-file", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+		const failure = this.mutationFailure(request.relativePath);
+		if (failure !== undefined) return { ok: false, error: failure };
+		this.files.set(request.relativePath, { type: "missing" });
+		const skill = skillForRelativePath(this.localSkills, request.relativePath);
+		if (skill !== undefined && request.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "missing" };
+		return { ok: true };
+	}
+
+	async removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult> {
+		this.log.push({ type: "remove-empty-dir", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+		const failure = this.mutationFailure(request.relativePath);
+		if (failure !== undefined) return { ok: false, error: failure };
+		return { ok: true, removed: true };
+	}
+
+	text(relativePath: string): string | undefined {
+		const state = this.files.get(relativePath);
+		return state?.type === "file" ? state.text : undefined;
+	}
+
+	operations(): readonly FakeAregProjectOperation[] {
+		return this.log.map(copyProjectOperation);
+	}
+
+	private fileState(relativePath: string): AregTextFileState {
+		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
+	}
+
+	private mutationFailure(relativePath: string): AregErrorInfo | undefined {
+		const failure = this.mutationFailures.get(relativePath) ?? this.mutationFailures.get("*");
+		return failure === undefined ? undefined : copyErrorInfo(failure);
 	}
 }
 
@@ -192,153 +360,6 @@ export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
 	}
 }
 
-export type FakeAregUpdateOperation = { type: "inspect-project-for-update"; cwd: string; projectPath: string };
-
-export interface FakeAregUpdateProjectGatewayOptions {
-	projectDir?: string | undefined;
-	projectPathState?: AregUpdatePathState | undefined;
-	lockfile?: AregUpdateTextFileState | object | string | undefined;
-	asdlToml?: AregUpdateTextFileState | string | undefined;
-	aregJson?: AregUpdateTextFileState | object | string | undefined;
-}
-
-export class FakeAregUpdateProjectGateway implements AregUpdateProjectGateway {
-	private readonly result: AregUpdateProjectInspectionResult;
-	private readonly log: FakeAregUpdateOperation[] = [];
-
-	constructor(options: FakeAregUpdateProjectGatewayOptions = {}) {
-		this.result = {
-			projectDir: options.projectDir ?? "/repo",
-			projectPathState: copyPathState(options.projectPathState ?? { type: "directory" }),
-			lockfile: normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} }),
-			asdlToml: normalizeTextFileState(options.asdlToml ?? { type: "missing" }),
-			aregJson: normalizeTextFileState(options.aregJson ?? { type: "missing" }),
-		};
-	}
-
-	async inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult> {
-		this.log.push({ type: "inspect-project-for-update", cwd: request.cwd, projectPath: request.projectPath });
-		return copyUpdateProjectInspectionResult(this.result);
-	}
-
-	operations(): readonly FakeAregUpdateOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
-export type FakeAregSkillKindOperation =
-	| ({ type: "inspect-project-for-skill-kinds" } & Omit<AregSkillKindProjectInspectionRequest, "env">)
-	| ({ type: "resolve-local-skill-spec" } & Omit<AregSkillKindResolveRequest, "env">)
-	| ({ type: "apply-skill-kind-plan" } & Omit<AregSkillKindApplyPlanRequest, "env">);
-
-export interface FakeAregSkillKindSkillOptions {
-	name: string;
-	skillDir?: AregCheckPathState | undefined;
-	skillMd?: AregSkillKindTextFileState | string | undefined;
-	openaiPolicy?: AregSkillKindTextFileState | string | undefined;
-}
-
-export interface FakeAregSkillKindProjectGatewayOptions {
-	projectDir?: string | undefined;
-	projectPathState?: AregCheckPathState | undefined;
-	piDir?: AregCheckPathState | undefined;
-	piSettings?: AregSkillKindTextFileState | object | string | undefined;
-	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
-	skills?: readonly FakeAregSkillKindSkillOptions[] | undefined;
-	resolveFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
-}
-
-export class FakeAregSkillKindProjectGateway implements AregSkillKindProjectGateway {
-	private readonly projectDir: string;
-	private readonly projectPathState: AregCheckPathState;
-	private readonly piDir: AregCheckPathState;
-	private piSettings: AregSkillKindTextFileState;
-	private readonly genericReplacement: { hasAdapter: boolean; hasPackageModule: boolean };
-	private readonly skills: AregSkillKindSkillInspection[];
-	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
-	private readonly log: FakeAregSkillKindOperation[] = [];
-
-	constructor(options: FakeAregSkillKindProjectGatewayOptions = {}) {
-		this.projectDir = options.projectDir ?? "/repo";
-		this.projectPathState = copyPathState(options.projectPathState ?? { type: "directory" });
-		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
-		this.piSettings = normalizeTextFileState(options.piSettings ?? { type: "missing" });
-		this.genericReplacement = {
-			hasAdapter: options.genericReplacement?.hasAdapter ?? false,
-			hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
-		};
-		this.skills = (options.skills ?? []).map(copyFakeSkillKindSkill);
-		this.resolveFailures = new Map(Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
-	}
-
-	async inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult> {
-		this.log.push({ type: "inspect-project-for-skill-kinds", cwd: request.cwd, projectPath: request.projectPath });
-		return {
-			projectDir: this.projectDir,
-			projectPathState: copyPathState(this.projectPathState),
-			piDir: copyPathState(this.piDir),
-			piSettings: copyTextFileState(this.piSettings),
-			genericReplacement: { ...this.genericReplacement },
-			skills: this.skills.map(copySkillKindSkill),
-		};
-	}
-
-	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
-		this.log.push({ type: "resolve-local-skill-spec", projectDir: request.projectDir, spec: request.spec, cwd: request.cwd });
-		const failure = this.resolveFailures.get(request.spec);
-		if (failure !== undefined) return { type: "error", error: copyErrorInfo(failure) };
-		const skillName = fakeResolveSkillName(request.spec);
-		const skill = this.skills.find((candidate) => candidate.name === skillName);
-		if (skill === undefined) return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
-		if (skill.skillDir.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-dir", message: `skills/${skillName} is a symlink but should be a real directory (canonical source)` } };
-		if (skill.skillDir.type !== "directory") return { type: "error", error: { code: "skill-kind-missing-skill", message: `Local skill not found: ${request.spec}` } };
-		if (skill.skillMd.type === "symlink") return { type: "error", error: { code: "skill-kind-symlink-skill-md", message: `skills/${skillName}/SKILL.md is a symlink but should be a real file (canonical source)` } };
-		if (skill.skillMd.type !== "file") return { type: "error", error: { code: "skill-kind-missing-skill-md", message: `skills/${skillName}/SKILL.md does not exist` } };
-		return { type: "ok", skillName };
-	}
-
-	async applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult> {
-		this.log.push({
-			type: "apply-skill-kind-plan",
-			projectDir: request.projectDir,
-			writes: request.writes.map((write) => ({ ...write })),
-			deletes: request.deletes.map((deletePlan) => ({ ...deletePlan })),
-			removeEmptyDirs: request.removeEmptyDirs.map((removePlan) => ({ ...removePlan })),
-		});
-		const writtenRelativePaths: string[] = [];
-		const deletedRelativePaths: string[] = [];
-		const removedEmptyDirRelativePaths: string[] = [];
-		for (const write of request.writes) {
-			if (write.relativePath === ".pi/settings.json") {
-				this.piSettings = { type: "file", text: write.content };
-				writtenRelativePaths.push(write.relativePath);
-				continue;
-			}
-			const skill = skillForRelativePath(this.skills, write.relativePath);
-			if (skill === undefined) return { ok: false, error: { code: "skill-kind-fake-missing-skill", message: `No fake skill owns ${write.relativePath}` } };
-			if (write.relativePath.endsWith("/SKILL.md")) skill.skillMd = { type: "file", text: write.content };
-			else if (write.relativePath.endsWith("/agents/openai.yaml")) skill.openaiPolicy = { type: "file", text: write.content };
-			else return { ok: false, error: { code: "skill-kind-fake-unsupported-write", message: `Unsupported fake write: ${write.relativePath}` } };
-			writtenRelativePaths.push(write.relativePath);
-		}
-		for (const deletePlan of request.deletes) {
-			const skill = skillForRelativePath(this.skills, deletePlan.relativePath);
-			if (skill === undefined) return { ok: false, error: { code: "skill-kind-fake-missing-skill", message: `No fake skill owns ${deletePlan.relativePath}` } };
-			if (!deletePlan.relativePath.endsWith("/agents/openai.yaml")) return { ok: false, error: { code: "skill-kind-fake-unsupported-delete", message: `Unsupported fake delete: ${deletePlan.relativePath}` } };
-			skill.openaiPolicy = { type: "missing" };
-			deletedRelativePaths.push(deletePlan.relativePath);
-		}
-		for (const removePlan of request.removeEmptyDirs) {
-			removedEmptyDirRelativePaths.push(removePlan.relativePath);
-		}
-		return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths };
-	}
-
-	operations(): readonly FakeAregSkillKindOperation[] {
-		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
 export type FakeAregPromptOperation = { type: "confirm"; message: string; defaultValue: boolean; response: boolean };
 
 export interface FakeAregPromptGatewayOptions {
@@ -364,91 +385,6 @@ export class FakeAregPromptGateway implements AregPromptGateway {
 
 	operations(): readonly FakeAregPromptOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
-	}
-}
-
-export type FakeAregInitOperation =
-	| ({ type: "inspect-project-for-init" } & Omit<AregInitProjectInspectionRequest, "env">)
-	| ({ type: "apply-text-write-plan" } & Omit<AregInitTextWritePlanRequest, "env">);
-
-export interface FakeAregInitProjectGatewayOptions {
-	projectDir?: string | undefined;
-	targetPathState?: AregInitPathState | undefined;
-	agentsMd?: AregInitTextFileState | string | undefined;
-	claudeMd?: AregInitTextFileState | string | undefined;
-	asdlToml?: AregInitTextFileState | string | undefined;
-	aregJson?: AregInitTextFileState | object | string | undefined;
-	claudeDir?: AregInitPathState | undefined;
-	claudeSettings?: AregInitTextFileState | string | undefined;
-	applyFailure?: AregErrorInfo | undefined;
-}
-
-export class FakeAregInitProjectGateway implements AregInitProjectGateway {
-	private readonly projectDir: string;
-	private readonly targetPathState: AregInitPathState;
-	private readonly files: Map<string, AregInitTextFileState>;
-	private readonly claudeDir: AregInitPathState;
-	private readonly applyFailure: AregErrorInfo | undefined;
-	private readonly log: FakeAregInitOperation[] = [];
-
-	constructor(options: FakeAregInitProjectGatewayOptions = {}) {
-		this.projectDir = options.projectDir ?? "/repo";
-		this.targetPathState = copyPathState(options.targetPathState ?? { type: "directory" });
-		this.files = new Map([
-			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
-			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
-			["asdl.toml", normalizeTextFileState(options.asdlToml ?? { type: "missing" })],
-			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
-			[".claude/settings.local.json", normalizeTextFileState(options.claudeSettings ?? { type: "missing" })],
-		]);
-		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
-		this.applyFailure = options.applyFailure === undefined ? undefined : copyErrorInfo(options.applyFailure);
-	}
-
-	async inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult> {
-		this.log.push({ type: "inspect-project-for-init", cwd: request.cwd, target: request.target });
-		return {
-			projectDir: this.projectDir,
-			targetPathState: copyPathState(this.targetPathState),
-			agentsMd: this.fileState("AGENTS.md"),
-			claudeMd: this.fileState("CLAUDE.md"),
-			asdlToml: this.fileState("asdl.toml"),
-			aregJson: this.fileState("areg.json"),
-			claudeDir: copyPathState(this.claudeDir),
-			claudeSettings: this.fileState(".claude/settings.local.json"),
-		};
-	}
-
-	async applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult> {
-		this.log.push({
-			type: "apply-text-write-plan",
-			projectDir: request.projectDir,
-			writes: request.writes.map((write) => ({ ...write })),
-		});
-		if (this.applyFailure !== undefined) return { ok: false, error: copyErrorInfo(this.applyFailure) };
-		const writtenRelativePaths: string[] = [];
-		for (const write of request.writes) {
-			this.files.set(write.relativePath, { type: "file", text: write.content });
-			writtenRelativePaths.push(write.relativePath);
-		}
-		return { ok: true, writtenRelativePaths };
-	}
-
-	text(relativePath: "asdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json" | "areg.json"): string | undefined {
-		const state = this.files.get(relativePath);
-		return state?.type === "file" ? state.text : undefined;
-	}
-
-	operations(): readonly FakeAregInitOperation[] {
-		return this.log.map((operation) =>
-			operation.type === "apply-text-write-plan"
-				? { ...operation, writes: operation.writes.map((write) => ({ ...write })) }
-				: { ...operation },
-		);
-	}
-
-	private fileState(relativePath: string): AregInitTextFileState {
-		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
 	}
 }
 
@@ -504,29 +440,17 @@ function failureKey(sourceRepo: string, skillNames: readonly string[]): string {
 	return `${sourceRepo}:${skillNames.join(",")}`;
 }
 
-function copyCheckProjectInspectionResult(result: AregCheckProjectInspectionResult): AregCheckProjectInspectionResult {
-	return {
-		projectDir: result.projectDir,
-		projectPathState: copyPathState(result.projectPathState),
-		lockfile: copyTextFileState(result.lockfile),
-		skillsDirectoryNames: [...result.skillsDirectoryNames],
-		agentsSkillNames: [...result.agentsSkillNames],
-		excludedSkillNames: [...result.excludedSkillNames],
-		piSettings: copyTextFileState(result.piSettings),
-		genericReplacement: { ...result.genericReplacement },
-		skills: result.skills.map(copyCheckSkill),
-		pairingDirectories: result.pairingDirectories.map(copyPairingDirectory),
-	};
-}
-
-function copyUpdateProjectInspectionResult(result: AregUpdateProjectInspectionResult): AregUpdateProjectInspectionResult {
-	return {
-		projectDir: result.projectDir,
-		projectPathState: copyPathState(result.projectPathState),
-		lockfile: copyTextFileState(result.lockfile),
-		asdlToml: copyTextFileState(result.asdlToml),
-		aregJson: copyTextFileState(result.aregJson),
-	};
+function copyProjectOperation(operation: FakeAregProjectOperation): FakeAregProjectOperation {
+	switch (operation.type) {
+		case "write-text-file":
+			return { ...operation };
+		case "delete-file":
+			return { ...operation };
+		case "remove-empty-dir":
+			return { ...operation };
+		default:
+			return { ...operation };
+	}
 }
 
 function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillInspection {
@@ -535,9 +459,9 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 		skillsPath: copyPathState(skill.skillsPath ?? { type: "missing" }),
 		agentsPath: copyPathState(skill.agentsPath ?? { type: "missing" }),
 		claudePath: copyPathState(skill.claudePath ?? { type: "missing" }),
-		localSkillMd: copyTextFileState(skill.localSkillMd ?? { type: "missing" }),
-		remoteSkillMd: copyTextFileState(skill.remoteSkillMd ?? { type: "missing" }),
-		openaiPolicy: copyTextFileState(skill.openaiPolicy ?? { type: "missing" }),
+		localSkillMd: normalizeTextFileState(skill.localSkillMd ?? { type: "missing" }),
+		remoteSkillMd: normalizeTextFileState(skill.remoteSkillMd ?? { type: "missing" }),
+		openaiPolicy: normalizeTextFileState(skill.openaiPolicy ?? { type: "missing" }),
 	};
 }
 
@@ -550,6 +474,18 @@ function copyFakeSkillKindSkill(skill: FakeAregSkillKindSkillOptions): AregSkill
 	};
 }
 
+function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspection {
+	return {
+		name: skill.name,
+		skillsPath: copyPathState(skill.skillsPath),
+		agentsPath: copyPathState(skill.agentsPath),
+		claudePath: copyPathState(skill.claudePath),
+		localSkillMd: copyTextFileState(skill.localSkillMd),
+		remoteSkillMd: copyTextFileState(skill.remoteSkillMd),
+		openaiPolicy: copyTextFileState(skill.openaiPolicy),
+	};
+}
+
 function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindSkillInspection {
 	return {
 		name: skill.name,
@@ -557,6 +493,16 @@ function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindS
 		skillMd: copyTextFileState(skill.skillMd),
 		openaiPolicy: copyTextFileState(skill.openaiPolicy),
 	};
+}
+
+function missingCheckSkill(name: string): AregCheckSkillInspection {
+	const missing = { type: "missing" as const };
+	return { name, skillsPath: missing, agentsPath: missing, claudePath: missing, localSkillMd: missing, remoteSkillMd: missing, openaiPolicy: missing };
+}
+
+function missingLocalSkill(name: string): AregSkillKindSkillInspection {
+	const missing = { type: "missing" as const };
+	return { name, skillDir: missing, skillMd: missing, openaiPolicy: missing };
 }
 
 function fakeResolveSkillName(spec: string): string {
@@ -577,29 +523,17 @@ function skillForRelativePath(skills: readonly AregSkillKindSkillInspection[], r
 	return skills.find((skill) => skill.name === skillName);
 }
 
-function copyCheckSkill(skill: AregCheckSkillInspection): AregCheckSkillInspection {
-	return {
-		name: skill.name,
-		skillsPath: copyPathState(skill.skillsPath),
-		agentsPath: copyPathState(skill.agentsPath),
-		claudePath: copyPathState(skill.claudePath),
-		localSkillMd: copyTextFileState(skill.localSkillMd),
-		remoteSkillMd: copyTextFileState(skill.remoteSkillMd),
-		openaiPolicy: copyTextFileState(skill.openaiPolicy),
-	};
-}
-
-function normalizeTextFileState(value: AregCheckTextFileState | object | string): AregCheckTextFileState {
+function normalizeTextFileState(value: AregTextFileState | object | string): AregTextFileState {
 	if (typeof value === "string") return { type: "file", text: value };
-	if ("type" in value) return copyTextFileState(value as AregCheckTextFileState);
+	if ("type" in value) return copyTextFileState(value as AregTextFileState);
 	return { type: "file", text: `${JSON.stringify(value, null, 2)}\n` };
 }
 
-function copyTextFileState(state: AregCheckTextFileState): AregCheckTextFileState {
+function copyTextFileState(state: AregTextFileState): AregTextFileState {
 	return { ...state };
 }
 
-function copyPathState(state: AregCheckPathState): AregCheckPathState {
+function copyPathState(state: AregPathState): AregPathState {
 	return { ...state };
 }
 

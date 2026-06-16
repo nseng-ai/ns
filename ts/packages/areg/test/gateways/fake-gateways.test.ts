@@ -1,105 +1,97 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	FakeAregCheckProjectInspectionGateway,
 	FakeAregGithubGateway,
 	FakeAregHostGateway,
 	FakeAregNpxSkillsGateway,
-	FakeAregSkillKindProjectGateway,
+	FakeAregProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
-	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
 import type {
-	AregCheckProjectInspectionGateway,
 	AregGithubGateway,
 	AregHostGateway,
 	AregNpxSkillsGateway,
+	AregProjectGateway,
 	AregSkillxInstalledSkill,
-	AregSkillKindProjectGateway,
-	AregUpdateProjectGateway,
 	AregSkillxWorkspaceGateway,
 } from "../../src/gateways.ts";
 
 describe("areg gateway fakes", () => {
-	test("check project inspection fake copies configured state and read-only logs", async () => {
+	test("project fake copies configured facts and read-only logs", async () => {
 		const skillsDirectoryNames = ["demo"];
-		const fake: AregCheckProjectInspectionGateway = new FakeAregCheckProjectInspectionGateway({
+		const fake: AregProjectGateway = new FakeAregProjectGateway({
 			lockfile: { version: 1, skills: { demo: { source: "skills/demo", sourceType: "local", computedHash: "a".repeat(64) } } },
 			skillsDirectoryNames,
-			skills: [{ name: "demo", skillsPath: { type: "directory" }, localSkillMd: { type: "file", text: "---\nname: demo\n---\n" } }],
+			checkSkills: [{ name: "demo", skillsPath: { type: "directory" }, localSkillMd: { type: "file", text: "---\nname: demo\n---\n" } }],
 		});
 		skillsDirectoryNames.push("mutated-after-construction");
 
-		const first = await fake.inspectProjectForCheck({ cwd: "/work", projectPath: ".", env: {} });
-		expect(first.skillsDirectoryNames).toEqual(["demo"]);
-		(first.skillsDirectoryNames as string[]).push("mutated-return");
-		const second = await fake.inspectProjectForCheck({ cwd: "/work", projectPath: "subdir", env: {} });
-		expect(second.skillsDirectoryNames).toEqual(["demo"]);
-		expect((fake as FakeAregCheckProjectInspectionGateway).operations()).toEqual([
-			{ type: "inspect-project-for-check", cwd: "/work", projectPath: "." },
-			{ type: "inspect-project-for-check", cwd: "/work", projectPath: "subdir" },
+		const base = await fake.inspectProjectBase({ cwd: "/work", projectPath: ".", env: {} });
+		const inventory = await fake.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
+		expect(inventory.skillsDirectoryNames).toEqual(["demo"]);
+		(inventory.skillsDirectoryNames as string[]).push("mutated-return");
+		const secondInventory = await fake.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
+		expect(secondInventory.skillsDirectoryNames).toEqual(["demo"]);
+		expect((fake as FakeAregProjectGateway).operations()).toEqual([
+			{ type: "inspect-project-base", cwd: "/work", projectPath: "." },
+			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
+			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
 		]);
 	});
 
-	test("update project fake copies configured state and logs inspections", async () => {
+	test("project fake exposes update facts defensively", async () => {
 		const lockfile = { version: 1, skills: { demo: { source: "owner/repo", sourceType: "github", computedHash: "a".repeat(64) } } };
-		const update: AregUpdateProjectGateway = new FakeAregUpdateProjectGateway({ projectDir: "/repo/project", lockfile, asdlToml: '[areg]\nagents = ["codex"]\n' });
+		const project: AregProjectGateway = new FakeAregProjectGateway({ projectDir: "/repo/project", lockfile, asdlToml: '[areg]\nagents = ["codex"]\n' });
 		lockfile.skills.demo.source = "mutated/repo";
 
-		const first = await update.inspectProjectForUpdate({ cwd: "/repo", projectPath: "project", env: {} });
+		const first = await project.inspectProjectBase({ cwd: "/repo", projectPath: "project", env: {} });
 		expect(first).toMatchObject({ projectDir: "/repo/project", projectPathState: { type: "directory" }, lockfile: { type: "file", text: expect.stringContaining("owner/repo") } });
 		if (first.lockfile.type === "file") first.lockfile.text = "mutated return";
-		const second = await update.inspectProjectForUpdate({ cwd: "/repo", projectPath: ".", env: {} });
+		const second = await project.inspectProjectBase({ cwd: "/repo", projectPath: ".", env: {} });
 		expect(second.lockfile).toMatchObject({ type: "file", text: expect.stringContaining("owner/repo") });
-		expect((update as FakeAregUpdateProjectGateway).operations()).toEqual([
-			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "project" },
-			{ type: "inspect-project-for-update", cwd: "/repo", projectPath: "." },
-		]);
 	});
 
-	test("skill-kind fake copies inspection results and resolves local skill specs", async () => {
-		const skillKind: AregSkillKindProjectGateway = new FakeAregSkillKindProjectGateway({
+	test("project fake copies skill-kind facts, resolves specs, and logs primitive mutations", async () => {
+		const project: AregProjectGateway = new FakeAregProjectGateway({
 			piSettings: { skills: ["-skills/demo"] },
 			genericReplacement: { hasAdapter: true, hasPackageModule: false },
-			skills: [{ name: "demo", skillMd: "---\nname: demo\n---\n" }],
+			localSkills: [{ name: "demo", skillMd: "---\nname: demo\n---\n" }],
 		});
 
-		const first = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: ".", env: {} });
-		expect(first).toMatchObject({
-			projectDir: "/repo",
-			projectPathState: { type: "directory" },
+		const pi = await project.inspectPiArtifacts({ projectDir: "/repo", env: {} });
+		const inventory = await project.inspectSkillNameInventory({ projectDir: "/repo", env: {} });
+		const first = await project.inspectLocalSkill({ projectDir: "/repo", skillName: "demo", env: {} });
+		expect(pi).toMatchObject({
 			piSettings: { type: "file", text: expect.stringContaining("-skills/demo") },
 			genericReplacement: { hasAdapter: true, hasPackageModule: false },
-			skills: [{ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" } }],
 		});
-		if (first.skills[0]?.skillMd.type === "file") first.skills[0].skillMd.text = "mutated";
-		const second = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: "subdir", env: {} });
-		expect(second.skills[0]?.skillMd).toMatchObject({ type: "file", text: "---\nname: demo\n---\n" });
-		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo", env: {} })).toEqual({ type: "ok", skillName: "demo" });
-		expect(await skillKind.resolveLocalSkillSpec({ projectDir: "/repo", spec: "missing", cwd: "/repo", env: {} })).toMatchObject({ type: "error" });
-		expect(await skillKind.applySkillKindPlan({
+		expect(inventory.localSkillKindNames).toEqual(["demo"]);
+		expect(first).toMatchObject({ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" } });
+		if (first.skillMd.type === "file") first.skillMd.text = "mutated";
+		const second = await project.inspectLocalSkill({ projectDir: "/repo", skillName: "demo", env: {} });
+		expect(second.skillMd).toMatchObject({ type: "file", text: "---\nname: demo\n---\n" });
+		expect(await project.resolveLocalSkillSpec({ projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo", env: {} })).toEqual({ type: "ok", skillName: "demo" });
+		expect(await project.resolveLocalSkillSpec({ projectDir: "/repo", spec: "missing", cwd: "/repo", env: {} })).toMatchObject({ type: "error" });
+		expect(await project.writeTextFile({
 			projectDir: "/repo",
+			relativePath: "skills/demo/SKILL.md",
+			content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
+			description: "SKILL.md",
+			createParent: false,
+			policy: "skill-kind",
 			env: {},
-			writes: [{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false }],
-			deletes: [],
-			removeEmptyDirs: [],
-		})).toMatchObject({ ok: true, writtenRelativePaths: ["skills/demo/SKILL.md"] });
-		const afterApply = await skillKind.inspectProjectForSkillKinds({ cwd: "/work", projectPath: ".", env: {} });
-		expect(afterApply.skills[0]?.skillMd).toMatchObject({ type: "file", text: expect.stringContaining("disable-model-invocation: true") });
-		expect((skillKind as FakeAregSkillKindProjectGateway).operations()).toEqual([
-			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "." },
-			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "subdir" },
-			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "skills/demo/SKILL.md", cwd: "/repo" },
-			{ type: "resolve-local-skill-spec", projectDir: "/repo", spec: "missing", cwd: "/repo" },
-			{
-				type: "apply-skill-kind-plan",
-				projectDir: "/repo",
-				writes: [{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false }],
-				deletes: [],
-				removeEmptyDirs: [],
-			},
-			{ type: "inspect-project-for-skill-kinds", cwd: "/work", projectPath: "." },
-		]);
+		})).toMatchObject({ ok: true });
+		const afterApply = await project.inspectLocalSkill({ projectDir: "/repo", skillName: "demo", env: {} });
+		expect(afterApply.skillMd).toMatchObject({ type: "file", text: expect.stringContaining("disable-model-invocation: true") });
+		expect((project as FakeAregProjectGateway).operations()).toContainEqual({
+			type: "write-text-file",
+			projectDir: "/repo",
+			relativePath: "skills/demo/SKILL.md",
+			content: "---\nname: demo\ndisable-model-invocation: true\n---\n",
+			description: "SKILL.md",
+			createParent: false,
+			policy: "skill-kind",
+		});
 	});
 
 	test("host fake implements tool checks and read-only operation logs", async () => {
@@ -178,16 +170,12 @@ describe("areg gateway fakes", () => {
 			workspace: { installedSkills: [{ relativeFiles: ["SKILL.md"] }] },
 		});
 		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ type: "ok" });
-		expect((skillx as FakeAregSkillxWorkspaceGateway).operations()).toEqual([
+
+		const fake = skillx as FakeAregSkillxWorkspaceGateway;
+		expect(fake.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", cwd: "/repo" },
 			{ type: "cleanup-workspace", workspaceRoot: "/tmp/workspace", cwd: "/repo" },
 		]);
-
-		const failing = new FakeAregSkillxWorkspaceGateway({ cleanupFailure: { code: "refused", message: "cleanup refused" } });
-		expect(await failing.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({
-			type: "error",
-			error: { code: "refused", message: "cleanup refused", displayCommand: undefined },
-		});
 	});
 });

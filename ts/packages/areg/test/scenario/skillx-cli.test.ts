@@ -3,15 +3,12 @@ import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
 import {
-	FakeAregCheckProjectInspectionGateway,
 	FakeAregGithubGateway,
 	FakeAregHostGateway,
-	FakeAregInitProjectGateway,
 	FakeAregNpxSkillsGateway,
+	FakeAregProjectGateway,
 	FakeAregPromptGateway,
-	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
-	FakeAregUpdateProjectGateway,
 } from "../../src/fake-gateways.ts";
 import type { AregSkillxInstalledSkill } from "../../src/gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
@@ -193,13 +190,10 @@ function skillxContext(workspace: FakeAregSkillxWorkspaceGateway): AregCliContex
 		host: new FakeAregHostGateway(),
 		github: new FakeAregGithubGateway(),
 		skillxWorkspace: workspace,
-		projectInspection: new FakeAregCheckProjectInspectionGateway(),
+		project: new FakeAregProjectGateway(),
 		git: new InMemoryGitGateway(),
 		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt: new FakeAregPromptGateway(),
-		initProject: new FakeAregInitProjectGateway(),
-		updateProject: new FakeAregUpdateProjectGateway(),
-		skillKindProject: new FakeAregSkillKindProjectGateway(),
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};

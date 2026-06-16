@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { FakeAregCheckProjectInspectionGatewayOptions, FakeAregCheckSkillOptions } from "../../src/fake-gateways.ts";
+import type { FakeAregProjectGatewayOptions, FakeAregCheckSkillOptions } from "../../src/fake-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const VALID_LOCAL_HASH = "a".repeat(64);
@@ -37,14 +37,14 @@ function remoteSkill(name: string, options: Partial<FakeAregCheckSkillOptions> =
 	};
 }
 
-function project(options: FakeAregCheckProjectInspectionGatewayOptions): FakeAregCheckProjectInspectionGatewayOptions {
+function project(options: FakeAregProjectGatewayOptions): FakeAregProjectGatewayOptions {
 	return { projectDir: "/repo", ...options };
 }
 
 describe("areg check CLI", () => {
 	test("succeeds for a representative local project and renders exact human success", async () => {
 		const run = runScenario(["check", "--path", "."], {
-			projectInspection: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, skills: [localSkill("demo")] }),
+			project: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, checkSkills: [localSkill("demo")] }),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -54,7 +54,7 @@ describe("areg check CLI", () => {
 
 	test("success JSON uses a Clinkr envelope with structured check data", async () => {
 		const run = runScenario(["check", "--format", "json"], {
-			projectInspection: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, skills: [localSkill("demo")] }),
+			project: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, checkSkills: [localSkill("demo")] }),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -65,20 +65,20 @@ describe("areg check CLI", () => {
 	});
 
 	test("missing and malformed lockfiles are command errors with accepted messages", async () => {
-		const missing = runScenario(["check"], { projectInspection: project({ lockfile: { type: "missing" } }) });
+		const missing = runScenario(["check"], { project: project({ lockfile: { type: "missing" } }) });
 		expect(await missing.exit).toBe(2);
 		expect(missing.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
 
-		const malformed = runScenario(["check"], { projectInspection: project({ lockfile: "{" }) });
+		const malformed = runScenario(["check"], { project: project({ lockfile: "{" }) });
 		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("Invalid JSON in skills-lock.json:");
 	});
 
 	test("reports invalid hashes with Python issue codes in JSON", async () => {
 		const run = runScenario(["check", "--format", "json"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { demo: localEntry("demo", "PENDING_REGEN"), short: localEntry("short", "abc123") } },
-				skills: [localSkill("demo"), localSkill("short")],
+				checkSkills: [localSkill("demo"), localSkill("short")],
 			}),
 		});
 
@@ -93,9 +93,9 @@ describe("areg check CLI", () => {
 
 	test("reports representative local and remote layout failures", async () => {
 		const run = runScenario(["check"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { local: localEntry("local"), remote: remoteEntry() } },
-				skills: [
+				checkSkills: [
 					localSkill("local", { skillsPath: { type: "missing" }, agentsPath: { type: "directory" } }),
 					remoteSkill("remote", { agentsPath: { type: "symlink", target: "../../skills/remote" }, skillsPath: { type: "directory" } }),
 				],
@@ -113,9 +113,9 @@ describe("areg check CLI", () => {
 	test("reports SKILL.md frontmatter and invoke-only conversion failures", async () => {
 		const longDescription = "x".repeat(1025);
 		const run = runScenario(["check"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { bad: localEntry("bad"), invoke: localEntry("invoke"), sidecar: localEntry("sidecar") } },
-				skills: [
+				checkSkills: [
 					localSkill("bad", { localSkillMd: { type: "file", text: `---\nname: bad\ndescription: \"${longDescription}\"\n---\n` } }),
 					localSkill("invoke", { localSkillMd: { type: "file", text: "---\nname: invoke\ndisable-model-invocation: true\n---\n" } }),
 					localSkill("sidecar", { openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" } }),
@@ -133,10 +133,10 @@ describe("areg check CLI", () => {
 
 	test("malformed Pi settings are hard command errors when local skills need conversion checks", async () => {
 		const run = runScenario(["check"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
 				piSettings: "not json",
-				skills: [localSkill("demo")],
+				checkSkills: [localSkill("demo")],
 			}),
 		});
 
@@ -146,10 +146,10 @@ describe("areg check CLI", () => {
 
 	test("reports missing Pi replacement for excluded derived skills", async () => {
 		const run = runScenario(["check"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				piSettings: { skills: ["-skills/custom-command"] },
-				skills: [localSkill("custom-command")],
+				checkSkills: [localSkill("custom-command")],
 			}),
 		});
 
@@ -159,11 +159,11 @@ describe("areg check CLI", () => {
 
 	test("reports orphan, dangling, and AGENTS/CLAUDE pairing failures", async () => {
 		const run = runScenario(["check"], {
-			projectInspection: project({
+			project: project({
 				lockfile: { version: 1, skills: { ghost: remoteEntry() } },
 				skillsDirectoryNames: ["orphan-local"],
 				agentsSkillNames: ["orphan-remote"],
-				skills: [],
+				checkSkills: [],
 				pairingDirectories: [
 					{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "missing ref" },
 					{ relativeDir: "pkg", hasAgents: false, hasClaude: true, claudeText: "@AGENTS.md" },

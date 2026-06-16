@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregErrorInfo, AregInitTextFileState, AregInitTextWritePlan } from "../gateways.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
+import { applyProjectMutationPlan } from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 
@@ -91,9 +92,11 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	const tool = await ctx.host.checkTool({ tool: "npx", cwd: ctx.cwd, env: ctx.env });
 	if (tool.type === "missing") return failure("missing_tool", tool.message);
 
-	const inspection = await ctx.initProject.inspectProjectForInit({ cwd: ctx.cwd, target: request.target, env: ctx.env });
-	if (inspection.targetPathState.type === "missing") return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
-	if (inspection.targetPathState.type !== "directory") return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
+	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath: request.target, env: ctx.env });
+	const instructionFiles = await ctx.project.inspectInstructionFiles({ projectDir: base.projectDir, env: ctx.env });
+	const inspection = { ...base, ...instructionFiles };
+	if (inspection.projectPathState.type === "missing") return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
+	if (inspection.projectPathState.type !== "directory") return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
 
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: inspection.projectDir });
 	if (repoRoot.type === "error") return failure("git_error", repoRoot.error.message);
@@ -124,7 +127,7 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	});
 	if (install.type === "error") return failure("skill_install_failed", `npx skills add failed: ${install.error.message}`);
 
-	const apply = await ctx.initProject.applyTextWritePlan({ projectDir: inspection.projectDir, writes: textPlan.writes, env: ctx.env });
+	const apply = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes });
 	if (!apply.ok) return failure("write_failed", apply.error.message);
 
 	return ok({

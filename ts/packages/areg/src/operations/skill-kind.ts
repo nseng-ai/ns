@@ -1,13 +1,12 @@
-import path from "node:path";
-
 import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type {
+	AregGenericReplacementInspection,
+	AregPathState,
 	AregSkillKindDeletePlan,
-	AregSkillKindProjectInspectionResult,
 	AregSkillKindRemoveEmptyDirPlan,
 	AregSkillKindSkillInspection,
 	AregSkillKindTextFileState,
@@ -16,6 +15,8 @@ import type {
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
+import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
+import { applyProjectMutationPlan } from "./project-mutations.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
 const INFERRED_SKILL_INVOCATION_KINDS = [...SKILL_INVOCATION_KINDS, "mixed", "inconsistent"] as const;
@@ -66,7 +67,16 @@ type FrontmatterInspection = SkillFrontmatterData;
 
 interface ResolvedProjectInspection {
 	projectDir: string;
-	inspection: AregSkillKindProjectInspectionResult;
+	inspection: SkillKindProjectInspection;
+}
+
+interface SkillKindProjectInspection {
+	projectDir: string;
+	projectPathState: AregPathState;
+	piDir: AregPathState;
+	piSettings: AregSkillKindTextFileState;
+	genericReplacement: AregGenericReplacementInspection;
+	skills: readonly AregSkillKindSkillInspection[];
 }
 
 interface PiSettingsData {
@@ -234,7 +244,7 @@ export async function runSkillKindList(ctx: AregCliContext, request: SkillKindLi
 export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindShowRequest): Promise<ClinkrExit<SkillKindShowResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
-	const resolvedSkill = await ctx.skillKindProject.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
+	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
 	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
 	if (records.type === "error") return failure("skill_records_invalid", records.message);
@@ -253,7 +263,7 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 	for (const spec of request.skills) {
 		const resolved = await inspectResolvedProject(ctx, projectDir);
 		if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
-		const resolvedSkill = await ctx.skillKindProject.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
+		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
 		if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 		const plan = buildSkillKindApplyPlan(resolved.value.inspection, resolvedSkill.skillName, request.kind);
 		if (plan.type === "error") return failure("skill_plan_failed", plan.message);
@@ -265,12 +275,13 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 			skillResults.push({ skill: plan.value.skill, operations: plan.value.operations.map((operation) => toApplyOperationResult(operation, false, false)) });
 			continue;
 		}
-		const applyResult = await ctx.skillKindProject.applySkillKindPlan({
+		const applyResult = await applyProjectMutationPlan({
+			ctx,
 			projectDir,
+			policy: "skill-kind",
 			writes: plannedWrites(plan.value),
 			deletes: plannedDeletes(plan.value),
 			removeEmptyDirs: plannedRemoveEmptyDirs(plan.value),
-			env: ctx.env,
 		});
 		if (!applyResult.ok) return failure("write_failed", applyResult.error.message);
 		skillResults.push({
@@ -375,7 +386,7 @@ export function inferSkillKindRecord(options: {
 	};
 }
 
-function buildSkillKindRecords(inspection: AregSkillKindProjectInspectionResult): { type: "ok"; value: readonly SkillKindRecord[] } | { type: "error"; message: string } {
+function buildSkillKindRecords(inspection: SkillKindProjectInspection): { type: "ok"; value: readonly SkillKindRecord[] } | { type: "error"; message: string } {
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (piSettings.type === "error") return piSettings;
 	const records: SkillKindRecord[] = [];
@@ -397,7 +408,7 @@ function buildSkillKindRecords(inspection: AregSkillKindProjectInspectionResult)
 	return { type: "ok", value: records };
 }
 
-function buildSkillKindApplyPlan(inspection: AregSkillKindProjectInspectionResult, skillName: string, kind: SkillInvocationKind): { type: "ok"; value: SkillKindApplyPlan } | { type: "error"; message: string } {
+function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillName: string, kind: SkillInvocationKind): { type: "ok"; value: SkillKindApplyPlan } | { type: "error"; message: string } {
 	const skill = inspection.skills.find((candidate) => candidate.name === skillName);
 	if (skill === undefined) return { type: "error", message: `Local skill not found: ${skillName}` };
 	const readiness = validateInspectableSkill(skill);
@@ -419,15 +430,27 @@ function buildSkillKindApplyPlan(inspection: AregSkillKindProjectInspectionResul
 }
 
 async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
-	const targetInspection = await ctx.skillKindProject.inspectProjectForSkillKinds({ cwd: ctx.cwd, projectPath: requestPath, env: ctx.env });
+	const targetInspection = await collectSkillKindProjectInspection(ctx, requestPath);
 	if (targetInspection.projectPathState.type === "missing") return { type: "error", message: `Target ${targetInspection.projectDir} does not exist.`, projectDir: targetInspection.projectDir };
 	if (targetInspection.projectPathState.type !== "directory") return { type: "error", message: `${targetInspection.projectDir} is not a directory.`, projectDir: targetInspection.projectDir };
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
 	if (repoRoot.type === "error") return { type: "error", message: repoRoot.error.message, projectDir: targetInspection.projectDir };
 	if (repoRoot.type === "missing") return { type: "error", message: `No Git root found containing ${targetInspection.projectDir}.`, projectDir: targetInspection.projectDir };
 	if (repoRoot.value === targetInspection.projectDir) return { type: "ok", value: { projectDir: targetInspection.projectDir, inspection: targetInspection } };
-	const rootInspection = await ctx.skillKindProject.inspectProjectForSkillKinds({ cwd: ctx.cwd, projectPath: repoRoot.value, env: ctx.env });
+	const rootInspection = await collectSkillKindProjectInspection(ctx, repoRoot.value);
 	return { type: "ok", value: { projectDir: repoRoot.value, inspection: rootInspection } };
+}
+
+async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPath: string): Promise<SkillKindProjectInspection> {
+	const facts = await collectProjectInspectionFacts(ctx, projectPath);
+	return {
+		projectDir: facts.projectDir,
+		projectPathState: facts.projectPathState,
+		piDir: facts.piDir,
+		piSettings: facts.piSettings,
+		genericReplacement: facts.genericReplacement,
+		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
+	};
 }
 
 function validateInspectableSkill(skill: AregSkillKindSkillInspection): { type: "ok" } | { type: "error"; message: string } {

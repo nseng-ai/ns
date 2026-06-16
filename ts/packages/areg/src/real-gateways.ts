@@ -16,48 +16,40 @@ import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 
 import type {
 	AregCheckPairingDirectory,
-	AregCheckPathState,
-	AregCheckProjectInspectionGateway,
-	AregCheckProjectInspectionRequest,
-	AregCheckProjectInspectionResult,
 	AregCheckSkillInspection,
-	AregCheckTextFileState,
 	AregErrorInfo,
 	AregGithubGateway,
 	AregGithubSkillListResult,
 	AregHostGateway,
 	AregHostToolName,
-	AregInitApplyResult,
-	AregInitProjectGateway,
-	AregInitProjectInspectionRequest,
-	AregInitProjectInspectionResult,
-	AregInitTextWritePlan,
-	AregInitTextWritePlanRequest,
 	AregNpxSkillsAddRequest,
 	AregNpxSkillsAddResult,
 	AregNpxSkillsGateway,
 	AregOperationResult,
+	AregPathState,
+	AregProjectFileDeleteRequest,
+	AregProjectGateway,
+	AregProjectMutationResult,
+	AregProjectRemoveEmptyDirRequest,
+	AregProjectRemoveEmptyDirResult,
+	AregProjectTextWriteRequest,
 	AregPromptGateway,
+	AregSkillInspectionRequest,
+	AregSkillKindResolveRequest,
+	AregSkillKindResolveResult,
+	AregSkillKindSkillInspection,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
-	AregSkillKindApplyPlanRequest,
-	AregSkillKindApplyPlanResult,
-	AregSkillKindProjectGateway,
-	AregSkillKindProjectInspectionRequest,
-	AregSkillKindProjectInspectionResult,
-	AregSkillKindResolveRequest,
-	AregSkillKindSkillInspection,
-	AregSkillKindResolveResult,
 	AregSkillxWorkspaceGateway,
+	AregTextFileState,
 	AregToolCheckResult,
-	AregUpdateProjectGateway,
-	AregUpdateProjectInspectionRequest,
-	AregUpdateProjectInspectionResult,
 } from "./gateways.ts";
-import { sortStrings, uniqueSortedStrings } from "./sort.ts";
+import { sortStrings } from "./sort.ts";
 
 const COMMAND_TIMEOUT_MS = 60_000;
+const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
+const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH = "ts/packages/pi-extensions/src/backing-skill-commands.ts";
 
 interface ResolveAllowedTargetOptions {
 	projectRoot: string;
@@ -204,52 +196,8 @@ export class RealAregPromptGateway implements AregPromptGateway {
 	}
 }
 
-export class RealAregInitProjectGateway implements AregInitProjectGateway {
-	async inspectProjectForInit(request: AregInitProjectInspectionRequest): Promise<AregInitProjectInspectionResult> {
-		const projectDir = path.resolve(request.cwd, request.target);
-		return {
-			projectDir,
-			targetPathState: await inspectPath(projectDir),
-			agentsMd: await inspectTextFile(path.join(projectDir, "AGENTS.md")),
-			claudeMd: await inspectTextFile(path.join(projectDir, "CLAUDE.md")),
-			asdlToml: await inspectTextFile(path.join(projectDir, "asdl.toml")),
-			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
-			claudeDir: await inspectPath(path.join(projectDir, ".claude")),
-			claudeSettings: await inspectTextFile(path.join(projectDir, ".claude", "settings.local.json")),
-		};
-	}
-
-	async applyTextWritePlan(request: AregInitTextWritePlanRequest): Promise<AregInitApplyResult> {
-		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
-		const writtenRelativePaths: string[] = [];
-		for (const write of request.writes) {
-			const target = resolveAllowedInitTarget(projectRoot.value, write);
-			if (target.type === "error") return { ok: false, error: target.error };
-			const validation = await validateInitWriteTarget(target.value, projectRoot.value, write);
-			if (!validation.ok) return validation;
-			if (write.createParent) {
-				try {
-					await mkdir(path.dirname(target.value), { recursive: true });
-				} catch (error) {
-					return { ok: false, error: errorInfo("init-parent-create-failed", `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
-				}
-				const revalidation = await validateInitWriteTarget(target.value, projectRoot.value, write);
-				if (!revalidation.ok) return revalidation;
-			}
-			try {
-				await writeFile(target.value, write.content, "utf8");
-				writtenRelativePaths.push(write.relativePath);
-			} catch (error) {
-				return { ok: false, error: errorInfo("init-write-failed", `Failed to write ${write.description} at ${target.value}: ${formatErrorMessage(error)}`) };
-			}
-		}
-		return { ok: true, writtenRelativePaths };
-	}
-}
-
-export class RealAregUpdateProjectGateway implements AregUpdateProjectGateway {
-	async inspectProjectForUpdate(request: AregUpdateProjectInspectionRequest): Promise<AregUpdateProjectInspectionResult> {
+export class RealAregProjectGateway implements AregProjectGateway {
+	async inspectProjectBase(request: { cwd: string; projectPath: string; env: NodeJS.ProcessEnv }) {
 		const projectDir = path.resolve(request.cwd, request.projectPath);
 		return {
 			projectDir,
@@ -259,23 +207,47 @@ export class RealAregUpdateProjectGateway implements AregUpdateProjectGateway {
 			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
 		};
 	}
-}
 
-export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGateway {
-	async inspectProjectForSkillKinds(request: AregSkillKindProjectInspectionRequest): Promise<AregSkillKindProjectInspectionResult> {
-		const projectDir = path.resolve(request.cwd, request.projectPath);
-		const skillNames = await listLocalSkillKindNames(projectDir);
+	async inspectInstructionFiles(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
 		return {
-			projectDir,
-			projectPathState: await inspectPath(projectDir),
-			piDir: await inspectPath(path.join(projectDir, ".pi")),
-			piSettings: await inspectTextFile(path.join(projectDir, ".pi", "settings.json")),
-			genericReplacement: {
-				hasAdapter: (await inspectTextFile(path.join(projectDir, ".pi", "extensions", "backing-skill-commands.ts"))).type === "file",
-				hasPackageModule: (await inspectTextFile(path.join(projectDir, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"))).type === "file",
-			},
-			skills: await inspectSkillKindSkills(projectDir, skillNames),
+			agentsMd: await inspectTextFile(path.join(request.projectDir, "AGENTS.md")),
+			claudeMd: await inspectTextFile(path.join(request.projectDir, "CLAUDE.md")),
+			claudeDir: await inspectPath(path.join(request.projectDir, ".claude")),
+			claudeSettings: await inspectTextFile(path.join(request.projectDir, ".claude", "settings.local.json")),
 		};
+	}
+
+	async inspectPiArtifacts(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
+		return {
+			piDir: await inspectPath(path.join(request.projectDir, ".pi")),
+			piSettings: await inspectTextFile(path.join(request.projectDir, ".pi", "settings.json")),
+			genericReplacement: await inspectGenericReplacement(request.projectDir),
+		};
+	}
+
+	async inspectSkillNameInventory(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
+		return {
+			skillsDirectoryNames: await listChildNames(path.join(request.projectDir, "skills")),
+			agentsSkillNames: await listChildNames(path.join(request.projectDir, ".agents", "skills")),
+			claudeSkillNames: await listChildNames(path.join(request.projectDir, ".claude", "skills")),
+			localSkillKindNames: await listLocalSkillKindNames(request.projectDir),
+		};
+	}
+
+	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
+		return inspectCheckSkill(request.projectDir, request.skillName);
+	}
+
+	async inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection> {
+		return inspectSkillKindSkill(request.projectDir, request.skillName);
+	}
+
+	async inspectPairingDirectories(request: { projectDir: string; env: NodeJS.ProcessEnv }): Promise<readonly AregCheckPairingDirectory[]> {
+		return await inspectPairingDirectories(request.projectDir);
+	}
+
+	async readLocallyExcludedSkillNames(request: { projectDir: string; env: NodeJS.ProcessEnv }): Promise<readonly string[]> {
+		return await readLocallyExcludedSkillNames(request.projectDir);
 	}
 
 	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
@@ -292,90 +264,68 @@ export class RealAregSkillKindProjectGateway implements AregSkillKindProjectGate
 		return { type: "ok", skillName: resolved.skillName };
 	}
 
-	async applySkillKindPlan(request: AregSkillKindApplyPlanRequest): Promise<AregSkillKindApplyPlanResult> {
+	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
 		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
-		const writtenRelativePaths: string[] = [];
-		const deletedRelativePaths: string[] = [];
-		const removedEmptyDirRelativePaths: string[] = [];
-		for (const write of request.writes) {
-			const target = resolveAllowedSkillKindTarget(projectRoot.value, write.relativePath, write.description);
-			if (target.type === "error") return { ok: false, error: target.error };
-			const validation = await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: write.createParent, description: write.description });
-			if (!validation.ok) return validation;
-			if (write.createParent) {
-				try {
-					await mkdir(path.dirname(target.value), { recursive: true });
-				} catch (error) {
-					return { ok: false, error: errorInfo("skill-kind-parent-create-failed", `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
-				}
-				const revalidation = await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: write.createParent, description: write.description });
-				if (!revalidation.ok) return revalidation;
-			}
+		const target = request.policy === "init"
+			? resolveAllowedInitTarget(projectRoot.value, request)
+			: resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		if (target.type === "error") return { ok: false, error: target.error };
+		const validation = request.policy === "init"
+			? await validateInitWriteTarget(target.value, projectRoot.value, request)
+			: await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: request.createParent, description: request.description });
+		if (!validation.ok) return validation;
+		if (request.createParent) {
 			try {
-				await writeFile(target.value, write.content, "utf8");
-				writtenRelativePaths.push(write.relativePath);
+				await mkdir(path.dirname(target.value), { recursive: true });
 			} catch (error) {
-				return { ok: false, error: errorInfo("skill-kind-write-failed", `Failed to write ${write.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+				const code = request.policy === "init" ? "init-parent-create-failed" : "skill-kind-parent-create-failed";
+				return { ok: false, error: errorInfo(code, `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
 			}
+			const revalidation = request.policy === "init"
+				? await validateInitWriteTarget(target.value, projectRoot.value, request)
+				: await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: request.createParent, description: request.description });
+			if (!revalidation.ok) return revalidation;
 		}
-		for (const deletePlan of request.deletes) {
-			const target = resolveAllowedSkillKindTarget(projectRoot.value, deletePlan.relativePath, deletePlan.description);
-			if (target.type === "error") return { ok: false, error: target.error };
-			const validation = await validateSkillKindDeleteTarget(target.value, projectRoot.value, deletePlan.description);
-			if (!validation.ok) return validation;
-			try {
-				await rm(target.value);
-				deletedRelativePaths.push(deletePlan.relativePath);
-			} catch (error) {
-				return { ok: false, error: errorInfo("skill-kind-delete-failed", `Failed to delete ${deletePlan.description} at ${target.value}: ${formatErrorMessage(error)}`) };
-			}
+		try {
+			await writeFile(target.value, request.content, "utf8");
+			return { ok: true };
+		} catch (error) {
+			const code = request.policy === "init" ? "init-write-failed" : "skill-kind-write-failed";
+			return { ok: false, error: errorInfo(code, `Failed to write ${request.description} at ${target.value}: ${formatErrorMessage(error)}`) };
 		}
-		for (const removePlan of request.removeEmptyDirs) {
-			const target = resolveAllowedSkillKindTarget(projectRoot.value, removePlan.relativePath, removePlan.description);
-			if (target.type === "error") return { ok: false, error: target.error };
-			const validation = await validateSkillKindRemoveDirTarget(target.value, projectRoot.value, removePlan.description);
-			if (!validation.ok) return validation;
-			if (validation.exists) {
-				try {
-					await rmdir(target.value);
-					removedEmptyDirRelativePaths.push(removePlan.relativePath);
-				} catch (error) {
-					if (!isNodeErrorCode(error, "ENOTEMPTY")) {
-						return { ok: false, error: errorInfo("skill-kind-remove-dir-failed", `Failed to remove ${removePlan.description} at ${target.value}: ${formatErrorMessage(error)}`) };
-					}
-				}
-			}
-		}
-		return { ok: true, writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths };
 	}
-}
 
-export class RealAregCheckProjectInspectionGateway implements AregCheckProjectInspectionGateway {
-	async inspectProjectForCheck(request: AregCheckProjectInspectionRequest): Promise<AregCheckProjectInspectionResult> {
-		const projectDir = path.resolve(request.cwd, request.projectPath);
-		const projectPathState = await inspectPath(projectDir);
-		const lockfile = await inspectTextFile(path.join(projectDir, "skills-lock.json"));
-		const skillNames = lockfile.type === "file" ? extractLockfileSkillNames(lockfile.text) : [];
-		const skillsDirectoryNames = await listChildNames(path.join(projectDir, "skills"));
-		const agentsSkillNames = await listChildNames(path.join(projectDir, ".agents", "skills"));
-		const claudeSkillNames = await listChildNames(path.join(projectDir, ".claude", "skills"));
-		const allSkillNames = uniqueSortedStrings([...skillNames, ...skillsDirectoryNames, ...agentsSkillNames, ...claudeSkillNames]);
-		return {
-			projectDir,
-			projectPathState,
-			lockfile,
-			skillsDirectoryNames,
-			agentsSkillNames,
-			excludedSkillNames: await readLocallyExcludedSkillNames(projectDir),
-			piSettings: await inspectTextFile(path.join(projectDir, ".pi", "settings.json")),
-			genericReplacement: {
-				hasAdapter: (await inspectTextFile(path.join(projectDir, ".pi", "extensions", "backing-skill-commands.ts"))).type === "file",
-				hasPackageModule: (await inspectTextFile(path.join(projectDir, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"))).type === "file",
-			},
-			skills: await inspectSkills(projectDir, allSkillNames),
-			pairingDirectories: await inspectPairingDirectories(projectDir),
-		};
+	async deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
+		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
+		const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		if (target.type === "error") return { ok: false, error: target.error };
+		const validation = await validateSkillKindDeleteTarget(target.value, projectRoot.value, request.description);
+		if (!validation.ok) return validation;
+		try {
+			await rm(target.value);
+			return { ok: true };
+		} catch (error) {
+			return { ok: false, error: errorInfo("skill-kind-delete-failed", `Failed to delete ${request.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+		}
+	}
+
+	async removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult> {
+		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
+		const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		if (target.type === "error") return { ok: false, error: target.error };
+		const validation = await validateSkillKindRemoveDirTarget(target.value, projectRoot.value, request.description);
+		if (!validation.ok) return validation;
+		if (!validation.exists) return { ok: true, removed: false };
+		try {
+			await rmdir(target.value);
+			return { ok: true, removed: true };
+		} catch (error) {
+			if (isNodeErrorCode(error, "ENOTEMPTY")) return { ok: true, removed: false };
+			return { ok: false, error: errorInfo("skill-kind-remove-dir-failed", `Failed to remove ${request.description} at ${target.value}: ${formatErrorMessage(error)}`) };
+		}
 	}
 }
 
@@ -475,18 +425,20 @@ async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperat
 
 async function inspectSkills(projectDir: string, skillNames: readonly string[]): Promise<AregCheckSkillInspection[]> {
 	const inspected: AregCheckSkillInspection[] = [];
-	for (const name of skillNames) {
-		inspected.push({
-			name,
-			skillsPath: await inspectPath(path.join(projectDir, "skills", name)),
-			agentsPath: await inspectPath(path.join(projectDir, ".agents", "skills", name)),
-			claudePath: await inspectPath(path.join(projectDir, ".claude", "skills", name)),
-			localSkillMd: await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md")),
-			remoteSkillMd: await inspectTextFile(path.join(projectDir, ".agents", "skills", name, "SKILL.md")),
-			openaiPolicy: await inspectTextFile(path.join(projectDir, "skills", name, "agents", "openai.yaml")),
-		});
-	}
+	for (const name of skillNames) inspected.push(await inspectCheckSkill(projectDir, name));
 	return inspected;
+}
+
+async function inspectCheckSkill(projectDir: string, name: string): Promise<AregCheckSkillInspection> {
+	return {
+		name,
+		skillsPath: await inspectPath(path.join(projectDir, "skills", name)),
+		agentsPath: await inspectPath(path.join(projectDir, ".agents", "skills", name)),
+		claudePath: await inspectPath(path.join(projectDir, ".claude", "skills", name)),
+		localSkillMd: await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md")),
+		remoteSkillMd: await inspectTextFile(path.join(projectDir, ".agents", "skills", name, "SKILL.md")),
+		openaiPolicy: await inspectTextFile(path.join(projectDir, "skills", name, "agents", "openai.yaml")),
+	};
 }
 
 async function listLocalSkillKindNames(projectDir: string): Promise<string[]> {
@@ -510,15 +462,17 @@ async function listLocalSkillKindNames(projectDir: string): Promise<string[]> {
 
 async function inspectSkillKindSkills(projectDir: string, skillNames: readonly string[]): Promise<readonly AregSkillKindSkillInspection[]> {
 	const inspected: AregSkillKindSkillInspection[] = [];
-	for (const name of skillNames) {
-		inspected.push({
-			name,
-			skillDir: await inspectPath(path.join(projectDir, "skills", name)),
-			skillMd: await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md")),
-			openaiPolicy: await inspectTextFile(path.join(projectDir, "skills", name, "agents", "openai.yaml")),
-		});
-	}
+	for (const name of skillNames) inspected.push(await inspectSkillKindSkill(projectDir, name));
 	return inspected;
+}
+
+async function inspectSkillKindSkill(projectDir: string, name: string): Promise<AregSkillKindSkillInspection> {
+	return {
+		name,
+		skillDir: await inspectPath(path.join(projectDir, "skills", name)),
+		skillMd: await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md")),
+		openaiPolicy: await inspectTextFile(path.join(projectDir, "skills", name, "agents", "openai.yaml")),
+	};
 }
 
 async function resolveSkillKindSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
@@ -564,7 +518,7 @@ function isPathLikeSkillSpec(spec: string): boolean {
 	return path.isAbsolute(spec) || spec.includes("/") || spec.includes("\\") || spec.endsWith("SKILL.md");
 }
 
-async function inspectPath(candidate: string): Promise<AregCheckPathState> {
+async function inspectPath(candidate: string): Promise<AregPathState> {
 	try {
 		const info = await lstat(candidate);
 		if (info.isSymbolicLink()) return { type: "symlink", target: await readlink(candidate) };
@@ -577,7 +531,7 @@ async function inspectPath(candidate: string): Promise<AregCheckPathState> {
 	}
 }
 
-async function inspectTextFile(candidate: string): Promise<AregCheckTextFileState> {
+async function inspectTextFile(candidate: string): Promise<AregTextFileState> {
 	const pathState = await inspectPath(candidate);
 	if (pathState.type === "missing" || pathState.type === "directory" || pathState.type === "symlink" || pathState.type === "other") return pathState;
 	try {
@@ -585,6 +539,13 @@ async function inspectTextFile(candidate: string): Promise<AregCheckTextFileStat
 	} catch (error) {
 		return { type: "unreadable", message: formatErrorMessage(error) };
 	}
+}
+
+async function inspectGenericReplacement(projectDir: string): Promise<{ hasAdapter: boolean; hasPackageModule: boolean }> {
+	return {
+		hasAdapter: (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH))).type === "file",
+		hasPackageModule: (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH))).type === "file",
+	};
 }
 
 async function listChildNames(directory: string): Promise<string[]> {
@@ -682,7 +643,7 @@ async function resolveExistingDirectory(candidate: string, description: string):
 	}
 }
 
-function resolveAllowedInitTarget(projectRoot: string, write: AregInitTextWritePlan): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
+function resolveAllowedInitTarget(projectRoot: string, write: { relativePath: string }): { type: "ok"; value: string } | { type: "error"; error: AregErrorInfo } {
 	return resolveAllowedProjectTarget({
 		projectRoot,
 		relativePath: write.relativePath,
@@ -738,7 +699,7 @@ function isAllowedSkillKindRelativePath(relativePath: string): boolean {
 		|| parts.length === 3 && parts[0] === "skills" && parts[2] === "agents";
 }
 
-async function validateInitWriteTarget(target: string, projectRoot: string, write: AregInitTextWritePlan): Promise<WriteTargetValidationResult> {
+async function validateInitWriteTarget(target: string, projectRoot: string, write: { description: string; createParent: boolean }): Promise<WriteTargetValidationResult> {
 	return await validateTextWriteTarget({
 		target,
 		projectRoot,

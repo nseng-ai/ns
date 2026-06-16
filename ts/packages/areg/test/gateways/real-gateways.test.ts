@@ -8,14 +8,11 @@ import { describe, expect, test } from "vitest";
 import type { AregNpxSkillsAddRequest, AregNpxSkillsAddResult, AregNpxSkillsGateway } from "../../src/gateways.ts";
 import {
 	buildNpxSkillsAddArgs,
-	RealAregCheckProjectInspectionGateway,
 	RealAregGithubGateway,
 	RealAregHostGateway,
-	RealAregInitProjectGateway,
 	RealAregNpxSkillsGateway,
-	RealAregSkillKindProjectGateway,
+	RealAregProjectGateway,
 	RealAregSkillxWorkspaceGateway,
-	RealAregUpdateProjectGateway,
 } from "../../src/real-gateways.ts";
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
@@ -39,20 +36,25 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, ".agents", "skills", "ignored"), { recursive: true });
 			await writeFile(path.join(project, ".agents", "skills", "ignored", "CLAUDE.md"), "# ignored\n");
 
-			const result = await new RealAregCheckProjectInspectionGateway().inspectProjectForCheck({ cwd: root, projectPath: "project", env: {} });
+			const gateway = new RealAregProjectGateway();
+			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
+			const inventory = await gateway.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
+			const excludedSkillNames = await gateway.readLocallyExcludedSkillNames({ projectDir: base.projectDir, env: {} });
+			const skill = await gateway.inspectCheckSkill({ projectDir: base.projectDir, skillName: "demo", env: {} });
+			const pairingDirectories = await gateway.inspectPairingDirectories({ projectDir: base.projectDir, env: {} });
 
-			expect(result.projectDir).toBe(project);
-			expect(result.lockfile).toMatchObject({ type: "file" });
-			expect(result.excludedSkillNames).toEqual(["local-only"]);
-			expect(result.skillsDirectoryNames).toEqual(["demo"]);
-			expect(result.agentsSkillNames).toEqual(["demo", "ignored"]);
-			expect(result.skills[0]).toMatchObject({
+			expect(base.projectDir).toBe(project);
+			expect(base.lockfile).toMatchObject({ type: "file" });
+			expect(excludedSkillNames).toEqual(["local-only"]);
+			expect(inventory.skillsDirectoryNames).toEqual(["demo"]);
+			expect(inventory.agentsSkillNames).toEqual(["demo", "ignored"]);
+			expect(skill).toMatchObject({
 				name: "demo",
 				agentsPath: { type: "symlink", target: "../../skills/demo" },
 				claudePath: { type: "symlink", target: "../../.agents/skills/demo" },
 				openaiPolicy: { type: "file", text: "policy:\n" },
 			});
-			expect(result.pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
+			expect(pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -74,17 +76,20 @@ describe("real areg gateways", () => {
 			await writeFile(path.join(project, "ts", "packages", "pi-extensions", "src", "backing-skill-commands.ts"), "export {};\n");
 			await symlink(path.join("..", "..", "skills", "demo"), path.join(project, ".agents", "skills", "demo"));
 
-			const gateway = new RealAregSkillKindProjectGateway();
-			const result = await gateway.inspectProjectForSkillKinds({ cwd: root, projectPath: "project", env: {} });
+			const gateway = new RealAregProjectGateway();
+			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
+			const piArtifacts = await gateway.inspectPiArtifacts({ projectDir: base.projectDir, env: {} });
+			const inventory = await gateway.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
+			const skill = await gateway.inspectLocalSkill({ projectDir: base.projectDir, skillName: "demo", env: {} });
 
-			expect(result).toMatchObject({
-				projectDir: project,
-				projectPathState: { type: "directory" },
+			expect(base).toMatchObject({ projectDir: project, projectPathState: { type: "directory" } });
+			expect(piArtifacts).toMatchObject({
 				piDir: { type: "directory" },
 				piSettings: { type: "file", text: JSON.stringify({ skills: ["-skills/demo"] }) },
 				genericReplacement: { hasAdapter: true, hasPackageModule: true },
-				skills: [{ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" }, openaiPolicy: { type: "file" } }],
 			});
+			expect(inventory.localSkillKindNames).toEqual(["demo"]);
+			expect(skill).toMatchObject({ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" }, openaiPolicy: { type: "file" } });
 			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, ".agents", "skills", "demo"), cwd: project, env: {} })).toEqual({ type: "ok", skillName: "demo" });
 			expect(await gateway.resolveLocalSkillSpec({ projectDir: project, spec: path.join(project, "skills", "demo", "README.md"), cwd: project, env: {} })).toMatchObject({ type: "error", error: { code: "skill-kind-nested-spec" } });
 		} finally {
@@ -98,37 +103,20 @@ describe("real areg gateways", () => {
 			const project = path.join(root, "project");
 			await mkdir(path.join(project, "skills", "demo"), { recursive: true });
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
-			const gateway = new RealAregSkillKindProjectGateway();
+			const gateway = new RealAregProjectGateway();
 
-			const applied = await gateway.applySkillKindPlan({
-				projectDir: project,
-				env: {},
-				writes: [
-					{ relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false },
-					{ relativePath: "skills/demo/agents/openai.yaml", content: "policy:\n  allow_implicit_invocation: false\n", description: "Codex openai.yaml", createParent: true },
-					{ relativePath: ".pi/settings.json", content: "{\n  \"skills\": [\n    \"-skills/demo\"\n  ]\n}\n", description: "Pi settings", createParent: true },
-				],
-				deletes: [],
-				removeEmptyDirs: [],
-			});
+			const firstWrite = await gateway.writeTextFile({ projectDir: project, relativePath: "skills/demo/SKILL.md", content: "---\nname: demo\ndisable-model-invocation: true\n---\n", description: "SKILL.md", createParent: false, policy: "skill-kind", env: {} });
+			const secondWrite = await gateway.writeTextFile({ projectDir: project, relativePath: "skills/demo/agents/openai.yaml", content: "policy:\n  allow_implicit_invocation: false\n", description: "Codex openai.yaml", createParent: true, policy: "skill-kind", env: {} });
+			const thirdWrite = await gateway.writeTextFile({ projectDir: project, relativePath: ".pi/settings.json", content: "{\n  \"skills\": [\n    \"-skills/demo\"\n  ]\n}\n", description: "Pi settings", createParent: true, policy: "skill-kind", env: {} });
 
-			expect(applied).toEqual({
-				ok: true,
-				writtenRelativePaths: ["skills/demo/SKILL.md", "skills/demo/agents/openai.yaml", ".pi/settings.json"],
-				deletedRelativePaths: [],
-				removedEmptyDirRelativePaths: [],
-			});
+			expect([firstWrite, secondWrite, thirdWrite]).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
 			expect(await readFile(path.join(project, "skills", "demo", "SKILL.md"), "utf8")).toContain("disable-model-invocation: true");
 			expect(await readFile(path.join(project, ".pi", "settings.json"), "utf8")).toContain("-skills/demo");
 
-			const removed = await gateway.applySkillKindPlan({
-				projectDir: project,
-				env: {},
-				writes: [],
-				deletes: [{ relativePath: "skills/demo/agents/openai.yaml", description: "Codex openai.yaml" }],
-				removeEmptyDirs: [{ relativePath: "skills/demo/agents", description: "empty skill agents directory" }],
-			});
-			expect(removed).toEqual({ ok: true, writtenRelativePaths: [], deletedRelativePaths: ["skills/demo/agents/openai.yaml"], removedEmptyDirRelativePaths: ["skills/demo/agents"] });
+			const deleted = await gateway.deleteFile({ projectDir: project, relativePath: "skills/demo/agents/openai.yaml", description: "Codex openai.yaml", policy: "skill-kind", env: {} });
+			const removed = await gateway.removeEmptyDir({ projectDir: project, relativePath: "skills/demo/agents", description: "empty skill agents directory", policy: "skill-kind", env: {} });
+			expect(deleted).toEqual({ ok: true });
+			expect(removed).toEqual({ ok: true, removed: true });
 			await expect(lstat(path.join(project, "skills", "demo", "agents"))).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -143,7 +131,7 @@ describe("real areg gateways", () => {
 			await writeFile(path.join(project, "skills-lock.json"), JSON.stringify({ version: 1, skills: {} }));
 			await writeFile(path.join(project, "asdl.toml"), '[areg]\nagents = ["codex"]\n');
 
-			const result = await new RealAregUpdateProjectGateway().inspectProjectForUpdate({ cwd: root, projectPath: "project", env: {} });
+			const result = await new RealAregProjectGateway().inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
 
 			expect(result).toMatchObject({
 				projectDir: project,
@@ -287,13 +275,14 @@ describe("real areg gateways", () => {
 			await symlink("outside.md", path.join(project, "CLAUDE.md"));
 			await mkdir(path.join(project, ".claude"));
 			await writeFile(path.join(project, ".claude", "settings.local.json"), "custom\n");
-			const gateway = new RealAregInitProjectGateway();
+			const gateway = new RealAregProjectGateway();
 
-			const inspection = await gateway.inspectProjectForInit({ cwd: root, target: "project", env: {} });
+			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
+			const inspection = await gateway.inspectInstructionFiles({ projectDir: base.projectDir, env: {} });
 
-			expect(inspection).toMatchObject({
+			expect({ ...base, ...inspection }).toMatchObject({
 				projectDir: project,
-				targetPathState: { type: "directory" },
+				projectPathState: { type: "directory" },
 				agentsMd: { type: "file", text: "# Agents\n" },
 				claudeMd: { type: "symlink", target: "outside.md" },
 				claudeSettings: { type: "file", text: "custom\n" },
@@ -310,27 +299,28 @@ describe("real areg gateways", () => {
 			const outside = path.join(root, "outside");
 			await mkdir(project);
 			await mkdir(outside);
-			const gateway = new RealAregInitProjectGateway();
+			const gateway = new RealAregProjectGateway();
 
-			const refused = await gateway.applyTextWritePlan({
+			const refused = await gateway.writeTextFile({
 				projectDir: project,
+				relativePath: "../escape",
+				content: "bad",
+				description: "bad",
+				createParent: false,
+				policy: "init",
 				env: {},
-				writes: [
-					{
-						relativePath: "../escape" as "AGENTS.md",
-						content: "bad",
-						description: "bad",
-						createParent: false,
-					},
-				],
 			});
 			expect(refused).toMatchObject({ ok: false, error: { code: "init-write-target-refused" } });
 
 			await symlink(outside, path.join(project, ".claude"), "dir");
-			const symlinkedParent = await gateway.applyTextWritePlan({
+			const symlinkedParent = await gateway.writeTextFile({
 				projectDir: project,
+				relativePath: ".claude/settings.local.json",
+				content: "{}\n",
+				description: "settings.local.json",
+				createParent: true,
+				policy: "init",
 				env: {},
-				writes: [{ relativePath: ".claude/settings.local.json", content: "{}\n", description: "settings.local.json", createParent: true }],
 			});
 			expect(symlinkedParent).toMatchObject({ ok: false, error: { code: "init-parent-symlink" } });
 			await expect(lstat(path.join(outside, "settings.local.json"))).rejects.toMatchObject({ code: "ENOENT" });
@@ -344,15 +334,19 @@ describe("real areg gateways", () => {
 		try {
 			const project = path.join(root, "project");
 			await mkdir(project);
-			const gateway = new RealAregInitProjectGateway();
+			const gateway = new RealAregProjectGateway();
 
-			const result = await gateway.applyTextWritePlan({
+			const result = await gateway.writeTextFile({
 				projectDir: project,
+				relativePath: ".claude/settings.local.json",
+				content: "{}\n",
+				description: "settings.local.json",
+				createParent: true,
+				policy: "init",
 				env: {},
-				writes: [{ relativePath: ".claude/settings.local.json", content: "{}\n", description: "settings.local.json", createParent: true }],
 			});
 
-			expect(result).toEqual({ ok: true, writtenRelativePaths: [".claude/settings.local.json"] });
+			expect(result).toEqual({ ok: true });
 			expect(await lstat(path.join(project, ".claude", "settings.local.json"))).toMatchObject({});
 		} finally {
 			await rm(root, { recursive: true, force: true });
