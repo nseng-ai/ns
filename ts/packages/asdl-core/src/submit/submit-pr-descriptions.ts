@@ -103,14 +103,19 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
-		const applied = await applyGeneratedDescription(viewed.value, decision.commits, decision.metadata, {
-			cwd: input.cwd,
-			env: input.prDescription.env,
-			githubPr: input.prDescription.githubPr,
-			textGeneration: input.prDescription.textGeneration,
-			git: input.prDescription.git,
-			generation,
-			...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+		const applied = await applyGeneratedDescription({
+			pr: viewed.value,
+			commits: decision.commits,
+			metadata: decision.metadata,
+			options: {
+				cwd: input.cwd,
+				env: input.prDescription.env,
+				githubPr: input.prDescription.githubPr,
+				textGeneration: input.prDescription.textGeneration,
+				git: input.prDescription.git,
+				generation,
+				...(input.onProgress === undefined ? {} : { onProgress: input.onProgress }),
+			},
 		});
 		if (applied.ok) {
 			input.onProgress?.(`finished PR #${number} description`);
