@@ -66,12 +66,6 @@ interface LoadSdlCommandCatalogOptions {
 	homeDir?: string | undefined;
 }
 
-interface LoadedLevelCandidate {
-	name: string;
-	candidate: ExtensionCommandCandidate;
-	source: ExtensionSourceInfo;
-}
-
 const ORDERED_SOURCE_LEVELS = ["built-in", "global", "project"] as const satisfies readonly ExtensionSourceLevel[];
 
 export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOptions): Promise<SdlCommandCatalog> {
@@ -88,7 +82,7 @@ export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOption
 		project: projectCandidates.candidates,
 	} satisfies Record<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>;
 
-	const merged = new Map<string, LoadedLevelCandidate>();
+	const merged = new Map<string, ExtensionCommandCandidate>();
 	for (const level of ORDERED_SOURCE_LEVELS) {
 		const levelCandidates = candidatesByLevel[level];
 		const validation = validateLevelCandidates(level, levelCandidates);
@@ -111,8 +105,8 @@ export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOption
 
 	const sortedCandidates = [...merged.values()].sort((left, right) => left.name.localeCompare(right.name));
 	return {
-		candidates: new Map(sortedCandidates.map((candidate) => [candidate.name, candidate.candidate])),
-		commandInfos: sortedCandidates.map(({ candidate }) => ({ name: candidate.name, description: candidate.description, fullDescription: candidate.fullDescription })),
+		candidates: new Map(sortedCandidates.map((candidate) => [candidate.name, candidate])),
+		commandInfos: sortedCandidates.map((candidate) => ({ name: candidate.name, description: candidate.description, fullDescription: candidate.fullDescription })),
 		diagnostics,
 	};
 }
@@ -222,9 +216,9 @@ function externalCandidateForLevel(command: DiscoveredExtensionCommand, level: "
 function validateLevelCandidates(
 	level: ExtensionSourceLevel,
 	candidates: readonly ExtensionCommandCandidate[],
-): { candidates: readonly LoadedLevelCandidate[]; diagnostics: readonly ExtensionDiagnostic[] } {
+): { candidates: readonly ExtensionCommandCandidate[]; diagnostics: readonly ExtensionDiagnostic[] } {
 	const diagnostics: ExtensionDiagnostic[] = [];
-	const validated: LoadedLevelCandidate[] = [];
+	const validated: ExtensionCommandCandidate[] = [];
 	for (const candidate of candidates) {
 		if (!SDL_COMMAND_NAME_PATTERN.test(candidate.name)) {
 			diagnostics.push({
@@ -237,10 +231,10 @@ function validateLevelCandidates(
 			});
 			continue;
 		}
-		validated.push({ name: candidate.name, candidate, source: candidate.source });
+		validated.push(candidate);
 	}
 
-	const candidatesByName = new Map<string, readonly LoadedLevelCandidate[]>();
+	const candidatesByName = new Map<string, readonly ExtensionCommandCandidate[]>();
 	for (const candidate of validated) {
 		const existing = candidatesByName.get(candidate.name) ?? [];
 		candidatesByName.set(candidate.name, [...existing, candidate]);

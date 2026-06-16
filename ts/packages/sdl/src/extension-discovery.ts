@@ -2,7 +2,6 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
 import { isPathInside, isRecord } from "@asdl/core/primitives";
-import { z } from "zod";
 
 import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError, type SdlCommandCandidate } from "./command-registry.ts";
 
@@ -27,18 +26,6 @@ export interface ExtensionDiscoveryResult {
 	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
 }
 
-const manifestCommandStringSchema = z.string().refine((value) => value.trim() !== "");
-
-const manifestCommandEntrySchema = z.object({
-	name: manifestCommandStringSchema,
-	description: manifestCommandStringSchema,
-	entry: manifestCommandStringSchema,
-	fullDescription: manifestCommandStringSchema.optional(),
-});
-
-type ManifestCommandEntry = z.infer<typeof manifestCommandEntrySchema> & { fullDescription: string };
-type ManifestCommandField = keyof z.infer<typeof manifestCommandEntrySchema>;
-
 interface ParsedManifestCommandEntryFields {
 	name: string | undefined;
 	description: string | undefined;
@@ -46,13 +33,19 @@ interface ParsedManifestCommandEntryFields {
 	fullDescription: string | undefined;
 }
 
-const MANIFEST_COMMAND_FIELD_ORDER = ["name", "description", "entry", "fullDescription"] as const satisfies readonly ManifestCommandField[];
-const MANIFEST_COMMAND_FIELD_DIAGNOSTICS = {
-	name: { field: "name", code: "extension_manifest_command_name_missing" },
-	description: { field: "description", code: "extension_manifest_command_description_missing" },
-	entry: { field: "entry", code: "extension_manifest_command_entry_missing" },
-	fullDescription: { field: "fullDescription", code: "extension_manifest_command_full_description_invalid" },
-} as const satisfies Record<ManifestCommandField, { field: string; code: string }>;
+interface ManifestCommandFieldSpec {
+	key: keyof ParsedManifestCommandEntryFields;
+	diagnosticField: string;
+	code: ExtensionDiscoveryDiagnostic["code"];
+	required: boolean;
+}
+
+const MANIFEST_COMMAND_FIELDS = [
+	{ key: "name", diagnosticField: "name", code: "extension_manifest_command_name_missing", required: true },
+	{ key: "description", diagnosticField: "description", code: "extension_manifest_command_description_missing", required: true },
+	{ key: "entry", diagnosticField: "entry", code: "extension_manifest_command_entry_missing", required: true },
+	{ key: "fullDescription", diagnosticField: "fullDescription", code: "extension_manifest_command_full_description_invalid", required: false },
+] as const satisfies readonly ManifestCommandFieldSpec[];
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -298,40 +291,40 @@ function parseManifestCommandEntry(options: {
 	packageJsonPath: string;
 }): { entry: ParsedManifestCommandEntryFields; diagnostics: readonly ExtensionDiscoveryDiagnostic[]; commandName: string | undefined } {
 	const commandName = readNonEmptyString(options.entry.name);
-	const parsed = manifestCommandEntrySchema.safeParse(options.entry);
-	if (parsed.success) {
-		return {
-			entry: { ...parsed.data, fullDescription: parsed.data.fullDescription ?? parsed.data.description },
-			diagnostics: [],
-			commandName,
-		};
-	}
+	const fields: ParsedManifestCommandEntryFields = {
+		name: undefined,
+		description: undefined,
+		entry: undefined,
+		fullDescription: undefined,
+	};
+	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
 
-	const invalidFields = new Set(parsed.error.issues.map((issue) => issue.path[0]).filter(isManifestCommandField));
-	return {
-		entry: {
-			name: readNonEmptyString(options.entry.name),
-			description: readNonEmptyString(options.entry.description),
-			entry: readNonEmptyString(options.entry.entry),
-			fullDescription: options.entry.fullDescription === undefined ? readNonEmptyString(options.entry.description) : readNonEmptyString(options.entry.fullDescription),
-		},
-		diagnostics: MANIFEST_COMMAND_FIELD_ORDER.filter((field) => invalidFields.has(field)).map((field) => {
-			const fieldDiagnostic = MANIFEST_COMMAND_FIELD_DIAGNOSTICS[field];
-			return diagnostic(fieldDiagnostic.code, `Extension manifest command ${fieldDiagnostic.field} must be a non-empty string: ${options.packageJsonPath}.`, {
+	for (const field of MANIFEST_COMMAND_FIELDS) {
+		const rawValue = options.entry[field.key];
+		if (!field.required && rawValue === undefined) continue;
+
+		const parsedValue = readNonEmptyString(rawValue);
+		if (parsedValue !== undefined) {
+			fields[field.key] = parsedValue;
+			continue;
+		}
+		diagnostics.push(
+			diagnostic(field.code, `Extension manifest command ${field.diagnosticField} must be a non-empty string: ${options.packageJsonPath}.`, {
 				path: options.packageJsonPath,
 				commandName,
-			});
-		}),
-		commandName,
-	};
+			}),
+		);
+	}
+
+	if (options.entry.fullDescription === undefined) {
+		fields.fullDescription = fields.description;
+	}
+
+	return { entry: fields, diagnostics, commandName };
 }
 
 function readNonEmptyString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() !== "" ? value : undefined;
-}
-
-function isManifestCommandField(value: unknown): value is ManifestCommandField {
-	return typeof value === "string" && Object.hasOwn(MANIFEST_COMMAND_FIELD_DIAGNOSTICS, value);
 }
 
 function buildCommand(options: {

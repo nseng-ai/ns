@@ -6,24 +6,8 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { GENERATED_BODY_MARKER } from "@asdl/core/submit";
-import { runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
 
-interface ScriptedExecResponse {
-	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: Partial<ExecResult>;
-}
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: ExecOptions | undefined;
-}
-
-interface TestState {
-	exec?: readonly ScriptedExecResponse[];
-	textGeneration?: readonly TextGenerationResult[];
-}
+import { formattedExecCalls, runCliWithFakes, type ScriptedExecResponse, type TestState } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const generatedText = `Improve PR descriptions
@@ -35,69 +19,15 @@ This regenerates the PR title and body with the asdl-owned prompt.
 - Adds title generation
 - Adds guarded body updates`;
 
-class ScriptedRegeneratePrContext implements SdlContext {
-	readonly cwd: string;
-	readonly env: Record<string, string | undefined>;
-	readonly execCalls: ExecCall[] = [];
-	readonly modelCalls: TextGenerationRequest[] = [];
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: TextGenerationResult[];
-
-	constructor(state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined> } = {}) {
-		this.cwd = options.cwd ?? "/work";
-		this.env = options.env ?? {};
-		this.execResponses = [...(state.exec ?? successfulRegeneratePrResponses())];
-		this.modelResults = [...(state.textGeneration ?? [{ ok: true, text: generatedText }])];
-	}
-
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		const call = { command, args: [...args], options };
-		this.execCalls.push(call);
-		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
-		if (index === -1) {
-			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
-		}
-		const [response] = this.execResponses.splice(index, 1);
-		if (response === undefined) {
-			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
-		}
-		const result = execResult(response.result);
-		options?.onStdout?.(result.stdout);
-		options?.onStderr?.(result.stderr);
-		return result;
-	}
-
-	readonly model = {
-		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
-			this.modelCalls.push({ ...request });
-			return this.modelResults.shift() ?? { ok: true, text: generatedText };
-		},
-	};
-}
-
 function runWithFakes(args: readonly string[], state: TestState = {}, options: { env?: Record<string, string | undefined> } = {}) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const context = new ScriptedRegeneratePrContext(state, options.env === undefined ? {} : { env: options.env });
-	return {
-		context,
-		stdout,
-		stderr,
-		exit: runCli(args, {
-			context,
-			cwd: context.cwd,
-			homeDir: join(context.cwd, ".home"),
-			env: context.env,
-			stdout: (text) => {
-				stdout.push(text);
-			},
-			stderr: (text) => {
-				stderr.push(text);
-			},
-		}),
-	};
+	return runCliWithFakes(
+		{ args, state, env: options.env },
+		{
+			execResponses: successfulRegeneratePrResponses,
+			textGenerationResults: () => [{ ok: true, text: generatedText }],
+			missingTextGenerationResult: () => ({ ok: true, text: generatedText }),
+		},
+	);
 }
 
 function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
@@ -123,30 +53,6 @@ function prJson(options: { body: string; title?: string } = { body: "" }): strin
 
 function commitsJson(): string {
 	return JSON.stringify({ commits: [{ messageHeadline: "Add regenerate-pr", messageBody: "Body from commit" }] });
-}
-
-function execResult(result: Partial<ExecResult> = {}): ExecResult {
-	return {
-		code: result.code ?? 0,
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
-	};
-}
-
-function responseMatches(match: ScriptedExecResponse["match"], call: ExecCall): boolean {
-	const display = formatExecCall(call);
-	if (typeof match === "string") return match === display;
-	if (match instanceof RegExp) return match.test(display);
-	return match(call);
-}
-
-function formatExecCall(call: ExecCall): string {
-	return [call.command, ...call.args].join(" ");
-}
-
-function formattedExecCalls(context: ScriptedRegeneratePrContext): string[] {
-	return context.execCalls.map(formatExecCall);
 }
 
 describe("sdl regenerate-pr CLI", () => {
