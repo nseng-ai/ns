@@ -112,7 +112,7 @@ describe("raw-exit escape hatch", () => {
 	});
 
 	describe("leaf help", () => {
-		test("raw command help shows schema options and --json-schema, no --format", async () => {
+		test("raw command help shows schema options and --json-schema, no rendered-command flags", async () => {
 			const group = new ClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
@@ -127,9 +127,10 @@ describe("raw-exit escape hatch", () => {
 			expect(run.stdout).toContain("--value");
 			expect(run.stdout).toContain("--json-schema");
 			expect(run.stdout).not.toContain("--format");
+			expect(run.stdout).not.toContain("--shell-exit-code");
 		});
 
-		test("normal command help shows --format", async () => {
+		test("normal command help shows rendered-command flags", async () => {
 			const group = new ClinkrGroup<null>({ name: "test" });
 			group.command({
 				name: "act",
@@ -140,6 +141,7 @@ describe("raw-exit escape hatch", () => {
 			const run = await runForTest(group, ["act", "--help"], { context: null });
 			expect(run.exitCode).toBe(0);
 			expect(run.stdout).toContain("--format");
+			expect(run.stdout).toContain("--shell-exit-code");
 		});
 	});
 
@@ -255,7 +257,7 @@ describe("raw-exit escape hatch", () => {
 			expect(normalRun.stdout).toContain("value");
 		});
 
-		test("raw command does not accept --format, normal does", async () => {
+		test("raw command does not accept rendered-command flags, normal does", async () => {
 			const group = new ClinkrGroup<null>({ name: "test" });
 			group.command(
 				rawCommand({
@@ -272,6 +274,9 @@ describe("raw-exit escape hatch", () => {
 			const rawRun = await runForTest(group, ["raw-act", "--format", "json"], { context: null });
 			expect(rawRun.exitCode).toBe(2);
 			expect(rawRun.stderr).toContain("unknown option");
+			const rawShellFlagRun = await runForTest(group, ["raw-act", "--shell-exit-code"], { context: null });
+			expect(rawShellFlagRun.exitCode).toBe(2);
+			expect(rawShellFlagRun.stderr).toContain("unknown option");
 
 			const normalRun = await runForTest(group, ["normal-act", "--format", "json"], {
 				context: null,

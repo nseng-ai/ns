@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -85,34 +85,34 @@ interface ManagedMarkers {
 export async function runInit(ctx: AregCliContext, request: InitRequest): Promise<ClinkrExit<InitResult>> {
 	const noAppend = !request.append;
 	if (request.yes && noAppend) {
-		return negative("--yes and --no-append cannot be used together.", emptyInitResult());
+		return failure("invalid_request", "--yes and --no-append cannot be used together.");
 	}
 
 	const tool = await ctx.host.checkTool({ tool: "npx", cwd: ctx.cwd, env: ctx.env });
-	if (tool.type === "missing") return negative(tool.message, emptyInitResult());
+	if (tool.type === "missing") return failure("missing_tool", tool.message);
 
 	const inspection = await ctx.initProject.inspectProjectForInit({ cwd: ctx.cwd, target: request.target, env: ctx.env });
-	if (inspection.targetPathState.type === "missing") return negative(`Target ${inspection.projectDir} does not exist.`, emptyInitResult(inspection.projectDir));
-	if (inspection.targetPathState.type !== "directory") return negative(`${inspection.projectDir} is not a directory.`, emptyInitResult(inspection.projectDir));
+	if (inspection.targetPathState.type === "missing") return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
+	if (inspection.targetPathState.type !== "directory") return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
 
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: inspection.projectDir });
-	if (repoRoot.type === "error") return negative(repoRoot.error.message, emptyInitResult(inspection.projectDir));
+	if (repoRoot.type === "error") return failure("git_error", repoRoot.error.message);
 	if (repoRoot.type === "missing") {
-		return negative(`Target ${inspection.projectDir} must be a Git worktree root. Run git init first.`, emptyInitResult(inspection.projectDir));
+		return failure("invalid_project", `Target ${inspection.projectDir} must be a Git worktree root. Run git init first.`);
 	}
 	if (repoRoot.value !== inspection.projectDir) {
-		return negative(
+		return failure(
+			"invalid_project",
 			`Target ${inspection.projectDir} is inside a Git worktree but is not the root. Run areg init ${repoRoot.value} instead.`,
-			emptyInitResult(inspection.projectDir),
 		);
 	}
 
 	const agentsResult = resolveProjectAgents({ explicitAgents: request.agent, asdlToml: inspection.asdlToml, aregJson: inspection.aregJson });
-	if (agentsResult.type === "error") return negative(agentsResult.message, emptyInitResult(inspection.projectDir));
+	if (agentsResult.type === "error") return failure("agent_resolution_failed", agentsResult.message);
 	const agents = agentsResult.value;
 
 	const planResult = await buildInitTextPlan(ctx, inspection, { agents, yes: request.yes, noAppend });
-	if (planResult.type === "error") return negative(planResult.message, emptyInitResult(inspection.projectDir, agents));
+	if (planResult.type === "error") return failure("write_plan_failed", planResult.message);
 	const textPlan = planResult.value;
 
 	const install = await ctx.npxSkills.addSkills({
@@ -122,10 +122,10 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 		cwd: inspection.projectDir,
 		env: ctx.env,
 	});
-	if (install.type === "error") return negative(`npx skills add failed: ${install.error.message}`, emptyInitResult(inspection.projectDir, agents));
+	if (install.type === "error") return failure("skill_install_failed", `npx skills add failed: ${install.error.message}`);
 
 	const apply = await ctx.initProject.applyTextWritePlan({ projectDir: inspection.projectDir, writes: textPlan.writes, env: ctx.env });
-	if (!apply.ok) return negative(apply.error.message, emptyInitResult(inspection.projectDir, agents));
+	if (!apply.ok) return failure("write_failed", apply.error.message);
 
 	return ok({
 		project_dir: inspection.projectDir,
@@ -383,17 +383,6 @@ function countOccurrences(content: string, needle: string): number {
 		count += 1;
 		start = index + needle.length;
 	}
-}
-
-function emptyInitResult(projectDir = "", agents: readonly string[] = []): InitResult {
-	return {
-		project_dir: projectDir,
-		agents: [...agents],
-		bootstrap_repo: BOOTSTRAP_REPO,
-		bootstrap_skills: [...BOOTSTRAP_SKILLS],
-		written_files: [],
-		skipped_files: [],
-	};
 }
 
 export function errorInfo(code: string, message: string, displayCommand?: string | undefined): AregErrorInfo {

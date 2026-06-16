@@ -73,8 +73,8 @@ describe("renderHuman", () => {
 	test("is not called for the negative channel", async () => {
 		const { group, renderCalls } = buildGroup("negative");
 		const run = await runForTest(group, ["act"], { context: null });
-		expect(run.exitCode).toBe(1);
-		expect(run.stderr).toBe("none\n");
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("none\n");
 		expect(renderCalls()).toBe(0);
 	});
 
@@ -134,8 +134,8 @@ describe("renderMarkdown", () => {
 			shouldIncludeMarkdown: true,
 		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
-		expect(run.exitCode).toBe(1);
-		expect(run.stderr).toBe("none\n");
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("none\n");
 		expect(markdownCalls()).toBe(0);
 	});
 

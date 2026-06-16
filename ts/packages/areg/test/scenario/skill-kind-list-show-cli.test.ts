@@ -110,11 +110,11 @@ describe("areg skill list/show CLI", () => {
 
 	test("fails when frontmatter or target project are invalid", async () => {
 		const malformed = runScenario(["skill", "list"], { skillKindProject: { skills: [skill("bad", "# missing frontmatter\n")] } });
-		expect(await malformed.exit).toBe(1);
+		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("missing opening frontmatter delimiter");
 
 		const missingPath = runScenario(["skill", "list", "--path", "missing"], { skillKindProject: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
-		expect(await missingPath.exit).toBe(1);
+		expect(await missingPath.exit).toBe(2);
 		expect(missingPath.stderr.join("")).toContain("Target /repo/missing does not exist.");
 	});
 });

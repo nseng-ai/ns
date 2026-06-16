@@ -235,7 +235,7 @@ describe("managed payload/finalization CLI operations", () => {
 
 		const run = runScenario(["exec", "finalize-run", "--pr-number", "42", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const data = JSON.parse(run.stdout.join("")).data;
 		expect(data.ready_to_stop).toBe(false);
 		expect(data.errors.map((error: { code: string; batch_id: string }) => [error.code, error.batch_id])).toContainEqual(["missing_checkpoint_evidence", "second_batch"]);

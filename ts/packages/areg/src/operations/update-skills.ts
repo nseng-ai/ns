@@ -1,4 +1,4 @@
-import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -44,25 +44,25 @@ type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 export async function runUpdateSkills(ctx: AregCliContext, request: UpdateSkillsRequest): Promise<ClinkrExit<UpdateSkillsResult>> {
 	const inspection = await ctx.updateProject.inspectProjectForUpdate({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
 	if (inspection.projectPathState.type !== "directory") {
-		return negative(`${inspection.projectDir} is not a directory`, emptyReport(inspection.projectDir, request.dry_run, false));
+		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
 
 	const lockfileResult = parseInspectedLockfile(inspection);
-	if (lockfileResult.type === "error") return negative(lockfileResult.message, emptyReport(inspection.projectDir, request.dry_run, false));
+	if (lockfileResult.type === "error") return failure("lockfile_invalid", lockfileResult.message);
 
 	const selection = selectGithubUpdates(lockfileResult.lockfile.skills, request);
-	if (selection.type === "error") return negative(selection.message, emptyReport(inspection.projectDir, request.dry_run, false));
+	if (selection.type === "error") return failure("invalid_selection", selection.message);
 	const selectedUpdates = selection.updates;
 
 	if (selectedUpdates.length === 0) return ok(emptyReport(inspection.projectDir, request.dry_run, true));
 
 	const agentsResult = resolveProjectAgents({ explicitAgents: request.agent, asdlToml: inspection.asdlToml, aregJson: inspection.aregJson });
-	if (agentsResult.type === "error") return negative(agentsResult.message, report({ ok: false, projectDir: inspection.projectDir, agents: [], dryRun: request.dry_run, selectedUpdates, attemptedUpdates: [] }));
+	if (agentsResult.type === "error") return failure("agent_resolution_failed", agentsResult.message);
 	const agents = agentsResult.value;
 
 	if (!request.dry_run) {
 		const npx = await ctx.host.checkTool({ tool: "npx", cwd: inspection.projectDir, env: ctx.env });
-		if (npx.type === "missing") return negative(npx.message, report({ ok: false, projectDir: inspection.projectDir, agents, dryRun: false, selectedUpdates, attemptedUpdates: [] }));
+		if (npx.type === "missing") return failure("missing_tool", npx.message);
 	}
 
 	const attemptedUpdates: AttemptedUpdate[] = [];
@@ -80,7 +80,7 @@ export async function runUpdateSkills(ctx: AregCliContext, request: UpdateSkills
 	}
 
 	const finalReport = report({ projectDir: inspection.projectDir, agents, dryRun: request.dry_run, selectedUpdates, attemptedUpdates });
-	if (finalReport.failure_count > 0) return negative(formatFailureMessage(finalReport), finalReport);
+	if (finalReport.failure_count > 0) return failure("skill_update_failed", formatFailureMessage(finalReport));
 	return ok(finalReport);
 }
 

@@ -40,8 +40,12 @@ describe("exitCodeForExit", () => {
 		expect(exitCodeForExit(ok({ value: 1 }))).toBe(0);
 	});
 
-	test("negative maps to 1", () => {
-		expect(exitCodeForExit(negative("nothing to do"))).toBe(1);
+	test("negative maps to 0 by default", () => {
+		expect(exitCodeForExit(negative("nothing to do"))).toBe(0);
+	});
+
+	test("negative maps to 1 in shell exit code mode", () => {
+		expect(exitCodeForExit(negative("nothing to do"), { shellExitCode: true })).toBe(1);
 	});
 
 	test("failure maps to 2", () => {
@@ -57,8 +61,14 @@ describe("toMachineEnvelope", () => {
 		expect(Object.keys(envelope)).toEqual(["exit_code", "data"]);
 	});
 
-	test("negative envelope without data omits the data key", () => {
+	test("negative envelope without data omits the data key and exits 0 by default", () => {
 		const envelope = toMachineEnvelope(negative("no plans found"));
+		expect(envelope).toEqual({ exit_code: 0, message: "no plans found" });
+		expect(Object.keys(envelope)).toEqual(["exit_code", "message"]);
+	});
+
+	test("negative envelope uses exit_code 1 in shell exit code mode", () => {
+		const envelope = toMachineEnvelope(negative("no plans found"), { shellExitCode: true });
 		expect(envelope).toEqual({ exit_code: 1, message: "no plans found" });
 		expect(Object.keys(envelope)).toEqual(["exit_code", "message"]);
 	});

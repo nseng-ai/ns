@@ -112,7 +112,7 @@ describe("resolve-thread-batch drift guard", () => {
 		);
 		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", reference.payload_path, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github, env, payloadStoreFactory });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const envelope = JSON.parse(run.stdout.join("")) as { data: unknown };
 		const parseResult = resolveThreadBatchResultSchema.safeParse(envelope.data);
 		expect(parseResult.success, "resolveThreadBatchResultSchema should parse partial scenario data").toBe(true);

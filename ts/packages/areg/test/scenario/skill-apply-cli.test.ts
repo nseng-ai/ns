@@ -41,7 +41,7 @@ describe("areg skill apply CLI", () => {
 	test("command-backed missing replacement fails before mutation", async () => {
 		const run = runScenario(["skill", "apply", "command-backed", "demo-skill"], { skillKindProject: { skills: [skill("demo-skill")] } });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("would hide /skill:demo-skill in Pi");
 		expect(run.stdout.join("")).toBe("");
 	});
@@ -52,8 +52,8 @@ describe("areg skill apply CLI", () => {
 			skillKindProject: { skills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
 			prompt: { responses: [false] },
 		});
-		expect(await declined.exit).toBe(1);
-		expect(declined.stderr.join("")).toContain("Declined to apply normal to demo.");
+		expect(await declined.exit).toBe(0);
+		expect(declined.stdout.join("")).toContain("Declined to apply normal to demo.");
 
 		const accepted = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
 			skillKindProject: { skills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
@@ -68,7 +68,7 @@ describe("areg skill apply CLI", () => {
 			skillKindProject: { skills: [skill("demo", "---\nname: demo\n---\n", { openaiPolicy: "custom: true\n" })] },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("non-managed content");
 	});
 
@@ -77,7 +77,7 @@ describe("areg skill apply CLI", () => {
 			skillKindProject: { skills: [skill("demo", "---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n")] },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain('skills/demo/SKILL.md duplicate frontmatter key: "disable-model-invocation"');
 		expect(run.stdout.join("")).toBe("");
 	});

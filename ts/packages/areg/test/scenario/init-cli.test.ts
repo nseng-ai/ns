@@ -144,7 +144,7 @@ describe("areg init CLI", () => {
 	test("malformed managed markers fail before npx and writes", async () => {
 		const run = runInit([], { initProject: { agentsMd: "<!-- areg:skills:start -->\nold\n" } });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("malformed areg-managed block");
 		expect(run.npxSkills.operations()).toEqual([]);
 		expect(run.initProject.text("asdl.toml")).toBeUndefined();
@@ -159,24 +159,24 @@ describe("areg init CLI", () => {
 
 	test("preflight and npx failures do not apply planned writes", async () => {
 		const conflict = runInit(["--yes", "--no-append"]);
-		expect(await conflict.exit).toBe(1);
+		expect(await conflict.exit).toBe(2);
 		expect(conflict.npxSkills.operations()).toEqual([]);
 		expect(conflict.initProject.operations()).toEqual([]);
 
 		const npxFail = runInit([], { npxSkills: { failure: { code: "boom", message: "boom" } } });
-		expect(await npxFail.exit).toBe(1);
+		expect(await npxFail.exit).toBe(2);
 		expect(npxFail.stderr.join("")).toContain("npx skills add failed: boom");
 		expect(npxFail.initProject.text("asdl.toml")).toBeUndefined();
 	});
 
 	test("rejects non-Git directories and Git subdirectories", async () => {
 		const missingGit = runInit([], { git: { optionalRepoRoot: { type: "missing" } } });
-		expect(await missingGit.exit).toBe(1);
+		expect(await missingGit.exit).toBe(2);
 		expect(missingGit.stderr.join("")).toContain("Run git init first");
 		expect(missingGit.npxSkills.operations()).toEqual([]);
 
 		const subdir = runInit([], { initProject: { projectDir: "/repo/subdir" }, git: { optionalRepoRoot: "/repo" } });
-		expect(await subdir.exit).toBe(1);
+		expect(await subdir.exit).toBe(2);
 		expect(subdir.stderr.join("")).toContain("is inside a Git worktree but is not the root");
 	});
 
