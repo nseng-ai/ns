@@ -38,10 +38,10 @@ function parsePierreDiffFiles(diffText: string): readonly FileDiffMetadata[] {
 }
 
 function diffFileFromPierre(metadata: FileDiffMetadata, rawText: string): DiffFile {
-	const changeKind = changeKindFromPierre(metadata);
+	const changeKind = changeKindFromPierre(metadata, rawText);
 	return {
 		path: metadata.name,
-		oldPath: changeKind === "renamed" ? (metadata.prevName ?? null) : null,
+		oldPath: changeKind === "renamed" || changeKind === "copied" ? (metadata.prevName ?? null) : null,
 		changeKind,
 		rawText,
 		isBinary: isBinaryPatch(rawText),
@@ -53,7 +53,7 @@ function diffFileFromPierre(metadata: FileDiffMetadata, rawText: string): DiffFi
 	};
 }
 
-function changeKindFromPierre(metadata: FileDiffMetadata): DiffChangeKind {
+function changeKindFromPierre(metadata: FileDiffMetadata, rawText: string): DiffChangeKind {
 	switch (metadata.type) {
 		case "new":
 			return "added";
@@ -61,10 +61,15 @@ function changeKindFromPierre(metadata: FileDiffMetadata): DiffChangeKind {
 			return "deleted";
 		case "rename-pure":
 		case "rename-changed":
-			return "renamed";
+			return isCopiedPatch(rawText) ? "copied" : "renamed";
 		case "change":
 			return "modified";
 	}
+}
+
+function isCopiedPatch(rawText: string): boolean {
+	// @pierre/diffs 1.2.10 reports Git copy metadata as rename-*; preserve roaster's copied kind from raw headers.
+	return /^copy from .+$/mu.test(rawText) && /^copy to .+$/mu.test(rawText);
 }
 
 function diffSegments(diffText: string): readonly string[] {

@@ -8,6 +8,9 @@ import { parseUnifiedDiff } from "../diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../failures.ts";
 import { createLocalDiff, type LocalDiff } from "../models.ts";
 import { buildGitDiffArgs, parseRoasterProjectConfigToml } from "../project-config.ts";
+import { isMissingFileError } from "./filesystem-errors.ts";
+
+const GIT_TIMEOUT_MS = 10_000;
 
 export interface LoadDiffOptions {
 	readonly cwd: string;
@@ -135,13 +138,10 @@ function error(errorValue: LocalDiffFailure): RoasterResult<never> {
 	return { type: "error", error: errorValue };
 }
 
-function isMissingFileError(caught: unknown): boolean {
-	return typeof caught === "object" && caught !== null && "code" in caught && caught.code === "ENOENT";
-}
-
-function execOptions(cwd: string, options: LoadDiffOptions): { cwd: string; env?: NodeJS.ProcessEnv; signal?: AbortSignal } {
+function execOptions(cwd: string, options: LoadDiffOptions): { cwd: string; env?: NodeJS.ProcessEnv; signal?: AbortSignal; timeout: number } {
 	return {
 		cwd,
+		timeout: GIT_TIMEOUT_MS,
 		...(options.env === undefined ? {} : { env: options.env }),
 		...(options.signal === undefined ? {} : { signal: options.signal }),
 	};

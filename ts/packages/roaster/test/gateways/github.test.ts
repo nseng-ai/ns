@@ -22,7 +22,7 @@ describe("FakeRoasterGitHubGateway", () => {
 		const inlineComments: readonly PRInlineCommentInput[] = [{ path: "src/app.ts", line: 1, body: "inline" }];
 		expect((await gateway.createPrReview(7, inlineComments, { cwd: "/repo" })).type).toBe("ok");
 		expect(gateway.createdReviews()).toEqual([{ prNumber: 7, comments: inlineComments }]);
-		expect(await gateway.findPrDiscussionCommentByMarker(7, "<!-- roaster:review -->", "github-actions[bot]", { cwd: "/repo" })).toEqual({ type: "ok", value: { id: 10, body: "<!-- roaster:review -->\nold" } });
+		expect(await gateway.findPrDiscussionCommentByMarker({ prNumber: 7, marker: "<!-- roaster:review -->", authorLogin: "github-actions[bot]", cwd: "/repo" })).toEqual({ type: "ok", value: { id: 10, body: "<!-- roaster:review -->\nold" } });
 		const added = await gateway.addPrDiscussionComment(7, "new", { cwd: "/repo" });
 		expect(added.type).toBe("ok");
 		if (added.type === "ok") expect(await gateway.updatePrDiscussionComment(added.value.id, "updated", { cwd: "/repo" })).toEqual({ type: "ok", value: { id: added.value.id, body: "updated" } });
@@ -71,7 +71,7 @@ describe("RealRoasterGitHubGateway", () => {
 		]);
 		const gateway = new RealRoasterGitHubGateway(execApi);
 
-		const result = await gateway.findPrDiscussionCommentByMarker(12, "<!-- roaster:review -->", "github-actions[bot]", { cwd: "/repo" });
+		const result = await gateway.findPrDiscussionCommentByMarker({ prNumber: 12, marker: "<!-- roaster:review -->", authorLogin: "github-actions[bot]", cwd: "/repo" });
 
 		expect(result).toEqual({ type: "ok", value: { id: 2, body: "prefix <!-- roaster:review -->" } });
 		expect(execApi.calls()[0]?.args).toEqual(["api", "--paginate", "repos/{owner}/{repo}/issues/12/comments"]);

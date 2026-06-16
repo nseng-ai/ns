@@ -59,6 +59,19 @@ const COPY_DIFF =
 	"copy from template.py\n" +
 	"copy to generated.py\n";
 
+const COPY_WITH_CONTENT_DIFF =
+	"diff --git a/template.py b/generated.py\n" +
+	"similarity index 88%\n" +
+	"copy from template.py\n" +
+	"copy to generated.py\n" +
+	"index 1111111..2222222 100644\n" +
+	"--- a/template.py\n" +
+	"+++ b/generated.py\n" +
+	"@@ -1 +1,2 @@\n" +
+	"-old\n" +
+	"+new\n" +
+	"+extra\n";
+
 const PREFIXED_RENAME_METADATA_DIFF =
 	"diff --git a/a/foo.txt b/a/bar.txt\n" +
 	"similarity index 100%\n" +
@@ -128,7 +141,17 @@ const PARSER_CASES: readonly ParserCase[] = [
 		removedLines: 1,
 		hunkCount: 1,
 	},
-	{ diffText: COPY_DIFF, changeKind: "renamed", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{ diffText: COPY_DIFF, changeKind: "copied", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{
+		diffText: COPY_WITH_CONTENT_DIFF,
+		changeKind: "copied",
+		path: "generated.py",
+		oldPath: "template.py",
+		isBinary: false,
+		addedLines: 2,
+		removedLines: 1,
+		hunkCount: 1,
+	},
 	{
 		diffText: PREFIXED_RENAME_METADATA_DIFF,
 		changeKind: "renamed",
@@ -141,7 +164,7 @@ const PARSER_CASES: readonly ParserCase[] = [
 	},
 	{
 		diffText: PREFIXED_COPY_METADATA_DIFF,
-		changeKind: "renamed",
+		changeKind: "copied",
 		path: "b/generated.txt",
 		oldPath: "b/source.txt",
 		isBinary: false,
