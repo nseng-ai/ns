@@ -3,16 +3,13 @@ import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
 import {
-	FakeAregCheckProjectInspectionGateway,
 	FakeAregGithubGateway,
 	FakeAregHostGateway,
-	FakeAregInitProjectGateway,
 	FakeAregNpxSkillsGateway,
+	FakeAregProjectGateway,
+	type FakeAregProjectGatewayOptions,
 	FakeAregPromptGateway,
-	FakeAregSkillKindProjectGateway,
 	FakeAregSkillxWorkspaceGateway,
-	FakeAregUpdateProjectGateway,
-	type FakeAregUpdateProjectGatewayOptions,
 } from "../../src/fake-gateways.ts";
 import type { AregErrorInfo } from "../../src/gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
@@ -20,7 +17,7 @@ import { runScenario } from "../support/run-scenario.ts";
 const HASH = "a".repeat(64);
 
 interface UpdateHarnessOptions {
-	updateProject?: FakeAregUpdateProjectGatewayOptions | undefined;
+	project?: FakeAregProjectGatewayOptions | undefined;
 	npxFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
 	npxFailure?: AregErrorInfo | undefined;
 	npxMissing?: boolean | undefined;
@@ -32,30 +29,27 @@ interface UpdateRun {
 	stderr: string[];
 	host: FakeAregHostGateway;
 	npxSkills: FakeAregNpxSkillsGateway;
-	updateProject: FakeAregUpdateProjectGateway;
+	projectGateway: FakeAregProjectGateway;
 }
 
 function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}): UpdateRun {
 	const host = new FakeAregHostGateway({ tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" } });
 	const npxSkills = new FakeAregNpxSkillsGateway({ failure: options.npxFailure, failures: options.npxFailures });
 	const defaultUpdateProject = { lockfile: lockfile({ beta: github("other/repo"), alpha: github("owner/repo") }) };
-	const updateProject = new FakeAregUpdateProjectGateway({ ...defaultUpdateProject, ...options.updateProject });
+	const projectGateway = new FakeAregProjectGateway({ ...defaultUpdateProject, ...options.project });
 	const context: AregCliContext = {
 		host,
 		github: new FakeAregGithubGateway(),
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(),
-		projectInspection: new FakeAregCheckProjectInspectionGateway(),
+		project: projectGateway,
 		git: new InMemoryGitGateway(),
 		npxSkills,
 		prompt: new FakeAregPromptGateway(),
-		initProject: new FakeAregInitProjectGateway(),
-		updateProject,
-		skillKindProject: new FakeAregSkillKindProjectGateway(),
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};
 	const run = runScenario(["update-skills", ...args], { context });
-	return { ...run, host, npxSkills, updateProject };
+	return { ...run, host, npxSkills, projectGateway };
 }
 
 function lockfile(skills: Record<string, object>): object {
@@ -72,7 +66,7 @@ function local(name: string): object {
 
 describe("areg update-skills CLI", () => {
 	test("updates GitHub-sourced skills one at a time in sorted skill order", async () => {
-		const run = runUpdate([], { updateProject: { projectDir: "/repo/project", lockfile: lockfile({ zeta: github("owner/z"), local: local("local"), alpha: github("owner/a") }) } });
+		const run = runUpdate([], { project: { projectDir: "/repo/project", lockfile: lockfile({ zeta: github("owner/z"), local: local("local"), alpha: github("owner/a") }) } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
@@ -103,7 +97,7 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("no match succeeds without resolving invalid config or checking npx", async () => {
-		const run = runUpdate([], { updateProject: { lockfile: lockfile({ local: local("local") }), asdlToml: "[areg]\nagents = [1]\n" }, npxMissing: true });
+		const run = runUpdate([], { project: { lockfile: lockfile({ local: local("local") }), asdlToml: "[areg]\nagents = [1]\n" }, npxMissing: true });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("No github-sourced skills match. Nothing to update.\n");
@@ -122,30 +116,30 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("resolves agents from config precedence and explicit overrides", async () => {
-		const asdl = runUpdate([], { updateProject: { asdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } } });
+		const asdl = runUpdate([], { project: { asdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } } });
 		expect(await asdl.exit).toBe(0);
 		expect(asdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
 
-		const legacy = runUpdate([], { updateProject: { aregJson: { agents: ["legacy"] } } });
+		const legacy = runUpdate([], { project: { aregJson: { agents: ["legacy"] } } });
 		expect(await legacy.exit).toBe(0);
 		expect(legacy.npxSkills.operations()[0]?.targetAgents).toEqual(["legacy"]);
 
-		const explicit = runUpdate(["--agent", "claude-code"], { updateProject: { aregJson: "not json" } });
+		const explicit = runUpdate(["--agent", "claude-code"], { project: { aregJson: "not json" } });
 		expect(await explicit.exit).toBe(0);
 		expect(explicit.npxSkills.operations()[0]?.targetAgents).toEqual(["claude-code"]);
 	});
 
 	test("selected updates fail on invalid config, missing lockfile, malformed lockfile, and missing npx before calls", async () => {
-		const invalidConfig = runUpdate([], { updateProject: { asdlToml: "[areg]\nagents = [1]\n" } });
+		const invalidConfig = runUpdate([], { project: { asdlToml: "[areg]\nagents = [1]\n" } });
 		expect(await invalidConfig.exit).toBe(2);
 		expect(invalidConfig.stderr.join("")).toContain("asdl.toml [areg].agents must be a non-empty string list");
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 
-		const missingLockfile = runUpdate([], { updateProject: { lockfile: { type: "missing" } } });
+		const missingLockfile = runUpdate([], { project: { lockfile: { type: "missing" } } });
 		expect(await missingLockfile.exit).toBe(2);
 		expect(missingLockfile.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
 
-		const malformed = runUpdate([], { updateProject: { lockfile: "{" } });
+		const malformed = runUpdate([], { project: { lockfile: "{" } });
 		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("Invalid JSON in skills-lock.json:");
 

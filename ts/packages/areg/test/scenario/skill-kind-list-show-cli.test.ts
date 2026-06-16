@@ -13,7 +13,7 @@ function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}
 
 describe("areg skill list/show CLI", () => {
 	test("list reports no local skills", async () => {
-		const run = runScenario(["skill", "list"], { skillKindProject: { skills: [] } });
+		const run = runScenario(["skill", "list"], { project: { localSkills: [] } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("No local skills found.\n");
@@ -22,10 +22,10 @@ describe("areg skill list/show CLI", () => {
 
 	test("list reports clean and diagnostic inferred kinds in human output", async () => {
 		const run = runScenario(["skill", "list"], {
-			skillKindProject: {
+			project: {
 				piSettings: { skills: ["-skills/command-skill", "-skills/broken"] },
 				genericReplacement: { hasAdapter: true, hasPackageModule: true },
-				skills: [
+				localSkills: [
 					skill("normal", BASE_SKILL),
 					skill("invoke", INVOKE_ONLY_SKILL, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
 					skill("command-skill", "---\nname: command-skill\ndisable-model-invocation: true\n---\n", { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
@@ -47,7 +47,7 @@ describe("areg skill list/show CLI", () => {
 	});
 
 	test("list JSON uses snake_case boundary fields", async () => {
-		const run = runScenario(["skill", "list", "--format", "json"], { skillKindProject: { skills: [skill("demo-skill")] } });
+		const run = runScenario(["skill", "list", "--format", "json"], { project: { localSkills: [skill("demo-skill")] } });
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({
@@ -80,9 +80,9 @@ describe("areg skill list/show CLI", () => {
 
 	test("show resolves one skill and renders required labels", async () => {
 		const run = runScenario(["skill", "show", "branch-context-from-plan"], {
-			skillKindProject: {
+			project: {
 				piSettings: { skills: ["-skills/branch-context-from-plan"] },
-				skills: [
+				localSkills: [
 					skill("branch-context-from-plan", "---\nname: branch-context-from-plan\ndisable-model-invocation: true\n---\n", {
 						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
 					}),
@@ -109,11 +109,11 @@ describe("areg skill list/show CLI", () => {
 	});
 
 	test("fails when frontmatter or target project are invalid", async () => {
-		const malformed = runScenario(["skill", "list"], { skillKindProject: { skills: [skill("bad", "# missing frontmatter\n")] } });
+		const malformed = runScenario(["skill", "list"], { project: { localSkills: [skill("bad", "# missing frontmatter\n")] } });
 		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("missing opening frontmatter delimiter");
 
-		const missingPath = runScenario(["skill", "list", "--path", "missing"], { skillKindProject: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
+		const missingPath = runScenario(["skill", "list", "--path", "missing"], { project: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
 		expect(await missingPath.exit).toBe(2);
 		expect(missingPath.stderr.join("")).toContain("Target /repo/missing does not exist.");
 	});

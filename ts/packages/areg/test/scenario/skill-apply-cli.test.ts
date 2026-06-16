@@ -9,7 +9,7 @@ function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}
 
 describe("areg skill apply CLI", () => {
 	test("apply invoke-only writes frontmatter and Codex sidecar", async () => {
-		const run = runScenario(["skill", "apply", "invoke-only", "demo"], { skillKindProject: { skills: [skill("demo")] } });
+		const run = runScenario(["skill", "apply", "invoke-only", "demo"], { project: { localSkills: [skill("demo")] } });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
@@ -23,9 +23,9 @@ describe("areg skill apply CLI", () => {
 
 	test("dry-run plans command-backed without writing or prompting", async () => {
 		const run = runScenario(["skill", "apply", "--dry-run", "command-backed", "demo-skill"], {
-			skillKindProject: {
+			project: {
 				genericReplacement: { hasAdapter: true, hasPackageModule: true },
-				skills: [skill("demo-skill")],
+				localSkills: [skill("demo-skill")],
 			},
 			prompt: { responses: [false] },
 		});
@@ -39,7 +39,7 @@ describe("areg skill apply CLI", () => {
 	});
 
 	test("command-backed missing replacement fails before mutation", async () => {
-		const run = runScenario(["skill", "apply", "command-backed", "demo-skill"], { skillKindProject: { skills: [skill("demo-skill")] } });
+		const run = runScenario(["skill", "apply", "command-backed", "demo-skill"], { project: { localSkills: [skill("demo-skill")] } });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("would hide /skill:demo-skill in Pi");
@@ -49,14 +49,14 @@ describe("areg skill apply CLI", () => {
 	test("normal requires confirmation before deleting managed artifacts", async () => {
 		const managed = "---\nname: demo\ndisable-model-invocation: true\n---\n";
 		const declined = runScenario(["skill", "apply", "normal", "demo"], {
-			skillKindProject: { skills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
+			project: { localSkills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
 			prompt: { responses: [false] },
 		});
 		expect(await declined.exit).toBe(0);
 		expect(declined.stdout.join("")).toContain("Declined to apply normal to demo.");
 
 		const accepted = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
-			skillKindProject: { skills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
+			project: { localSkills: [skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" })] },
 		});
 		expect(await accepted.exit).toBe(0);
 		expect(accepted.stdout.join("")).toContain("Deleted skills/demo/agents/openai.yaml");
@@ -65,7 +65,7 @@ describe("areg skill apply CLI", () => {
 
 	test("apply rejects non-managed sidecar content even with yes", async () => {
 		const run = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
-			skillKindProject: { skills: [skill("demo", "---\nname: demo\n---\n", { openaiPolicy: "custom: true\n" })] },
+			project: { localSkills: [skill("demo", "---\nname: demo\n---\n", { openaiPolicy: "custom: true\n" })] },
 		});
 
 		expect(await run.exit).toBe(2);
@@ -74,7 +74,7 @@ describe("areg skill apply CLI", () => {
 
 	test("apply rejects duplicate SKILL.md frontmatter keys before writing", async () => {
 		const run = runScenario(["skill", "apply", "invoke-only", "demo"], {
-			skillKindProject: { skills: [skill("demo", "---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n")] },
+			project: { localSkills: [skill("demo", "---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n")] },
 		});
 
 		expect(await run.exit).toBe(2);

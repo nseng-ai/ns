@@ -3,24 +3,18 @@ import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AregCliContext } from "../../src/context.ts";
 import {
-	FakeAregCheckProjectInspectionGateway,
-	type FakeAregCheckProjectInspectionGatewayOptions,
 	FakeAregGithubGateway,
 	type FakeAregGithubGatewayOptions,
 	FakeAregHostGateway,
 	type FakeAregHostGatewayOptions,
-	FakeAregInitProjectGateway,
-	type FakeAregInitProjectGatewayOptions,
 	FakeAregNpxSkillsGateway,
 	type FakeAregNpxSkillsGatewayOptions,
+	FakeAregProjectGateway,
+	type FakeAregProjectGatewayOptions,
 	FakeAregPromptGateway,
 	type FakeAregPromptGatewayOptions,
-	FakeAregSkillKindProjectGateway,
-	type FakeAregSkillKindProjectGatewayOptions,
 	FakeAregSkillxWorkspaceGateway,
 	type FakeAregSkillxWorkspaceGatewayOptions,
-	FakeAregUpdateProjectGateway,
-	type FakeAregUpdateProjectGatewayOptions,
 } from "../../src/fake-gateways.ts";
 
 export interface ScenarioRunOptions {
@@ -28,13 +22,10 @@ export interface ScenarioRunOptions {
 	host?: FakeAregHostGatewayOptions | undefined;
 	github?: FakeAregGithubGatewayOptions | undefined;
 	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions | undefined;
-	projectInspection?: FakeAregCheckProjectInspectionGatewayOptions | undefined;
+	project?: FakeAregProjectGatewayOptions | undefined;
 	git?: InMemoryGitGatewayState | undefined;
 	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	prompt?: FakeAregPromptGatewayOptions | undefined;
-	initProject?: FakeAregInitProjectGatewayOptions | undefined;
-	updateProject?: FakeAregUpdateProjectGatewayOptions | undefined;
-	skillKindProject?: FakeAregSkillKindProjectGatewayOptions | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 }
@@ -55,13 +46,10 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		host: new FakeAregHostGateway(options.host),
 		github: new FakeAregGithubGateway(options.github),
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
-		projectInspection: new FakeAregCheckProjectInspectionGateway(options.projectInspection),
+		project: new FakeAregProjectGateway(options.project),
 		git: new InMemoryGitGateway(options.git),
 		npxSkills,
 		prompt: new FakeAregPromptGateway(options.prompt),
-		initProject: new FakeAregInitProjectGateway(options.initProject),
-		updateProject: new FakeAregUpdateProjectGateway(options.updateProject),
-		skillKindProject: new FakeAregSkillKindProjectGateway(options.skillKindProject),
 		cwd,
 		env,
 	} satisfies AregCliContext;

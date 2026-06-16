@@ -3,8 +3,8 @@ import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregCheckProjectInspectionResult, AregCheckSkillInspection, AregCheckTextFileState } from "../gateways.ts";
-import { sortStrings } from "../sort.ts";
+import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregTextFileState } from "../gateways.ts";
+import { sortStrings, uniqueSortedStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
@@ -72,8 +72,21 @@ export const checkResultSchema = checkReportSchema;
 export type CheckRequest = z.infer<typeof checkRequestSchema>;
 export type CheckReport = z.infer<typeof checkReportSchema>;
 
+interface CheckProjectInspection {
+	projectDir: string;
+	projectPathState: { type: string };
+	lockfile: AregTextFileState;
+	skillsDirectoryNames: readonly string[];
+	agentsSkillNames: readonly string[];
+	excludedSkillNames: readonly string[];
+	piSettings: AregTextFileState;
+	genericReplacement: AregGenericReplacementInspection;
+	skills: readonly AregCheckSkillInspection[];
+	pairingDirectories: readonly AregCheckPairingDirectory[];
+}
+
 export async function runCheck(ctx: AregCliContext, request: CheckRequest): Promise<ClinkrExit<CheckReport>> {
-	const inspection = await ctx.projectInspection.inspectProjectForCheck({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
+	const inspection = await collectCheckProjectInspection(ctx, request.path);
 	if (inspection.projectPathState.type !== "directory") {
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
@@ -93,7 +106,7 @@ export function renderCheck(report: CheckReport): string {
 	return formatCheckReport(report);
 }
 
-export function buildCheckReport(inspection: AregCheckProjectInspectionResult, lockfile: SkillsLockfile, piExclusions: readonly string[] = []): CheckReport {
+export function buildCheckReport(inspection: CheckProjectInspection, lockfile: SkillsLockfile, piExclusions: readonly string[] = []): CheckReport {
 	const issues: CheckIssue[] = [];
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	for (const entry of lockfile.skills) {
@@ -197,7 +210,7 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 interface CheckInvokeOnlyOptions {
 	entry: LockfileSkill;
 	inspected: AregCheckSkillInspection;
-	inspection: AregCheckProjectInspectionResult;
+	inspection: CheckProjectInspection;
 	piExclusions: readonly string[];
 }
 
@@ -235,7 +248,7 @@ function checkLockfileHashes(lockfile: SkillsLockfile): CheckIssue[] {
 	return issues;
 }
 
-function checkOrphansAndDangling(lockfile: SkillsLockfile, inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+function checkOrphansAndDangling(lockfile: SkillsLockfile, inspection: CheckProjectInspection): CheckIssue[] {
 	const lockNames = new Set(lockfile.skills.map((skill) => skill.name));
 	const excluded = new Set(inspection.excludedSkillNames);
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
@@ -255,7 +268,7 @@ function checkOrphansAndDangling(lockfile: SkillsLockfile, inspection: AregCheck
 	return issues;
 }
 
-function checkPairing(inspection: AregCheckProjectInspectionResult): CheckIssue[] {
+function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 	const issues: CheckIssue[] = [];
 	for (const directory of inspection.pairingDirectories) {
 		const agentsRel = directory.relativeDir.length === 0 ? "AGENTS.md" : `${directory.relativeDir}/AGENTS.md`;
@@ -271,7 +284,33 @@ function checkPairing(inspection: AregCheckProjectInspectionResult): CheckIssue[
 	return issues;
 }
 
-function parsePiExclusions(settings: AregCheckTextFileState): { type: "ok"; exclusions: readonly string[] } | { type: "error"; message: string } {
+async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: string): Promise<CheckProjectInspection> {
+	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
+	const inventory = await ctx.project.inspectSkillNameInventory({ projectDir: base.projectDir, env: ctx.env });
+	const excludedSkillNames = await ctx.project.readLocallyExcludedSkillNames({ projectDir: base.projectDir, env: ctx.env });
+	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir: base.projectDir, env: ctx.env });
+	const lockfileResult = parseInspectedLockfile(base);
+	const lockfileSkillNames = lockfileResult.type === "ok" ? lockfileResult.lockfile.skills.map((skill) => skill.name) : [];
+	const skillNames = uniqueSortedStrings([...lockfileSkillNames, ...inventory.skillsDirectoryNames, ...inventory.agentsSkillNames, ...inventory.claudeSkillNames]);
+	const skills: AregCheckSkillInspection[] = [];
+	for (const skillName of skillNames) {
+		skills.push(await ctx.project.inspectCheckSkill({ projectDir: base.projectDir, skillName, env: ctx.env }));
+	}
+	return {
+		projectDir: base.projectDir,
+		projectPathState: base.projectPathState,
+		lockfile: base.lockfile,
+		skillsDirectoryNames: inventory.skillsDirectoryNames,
+		agentsSkillNames: inventory.agentsSkillNames,
+		excludedSkillNames,
+		piSettings: piArtifacts.piSettings,
+		genericReplacement: piArtifacts.genericReplacement,
+		skills,
+		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: base.projectDir, env: ctx.env }),
+	};
+}
+
+function parsePiExclusions(settings: AregTextFileState): { type: "ok"; exclusions: readonly string[] } | { type: "error"; message: string } {
 	if (settings.type === "missing") return { type: "ok", exclusions: [] };
 	if (settings.type !== "file") return { type: "ok", exclusions: [] };
 	let data: unknown;
@@ -286,7 +325,7 @@ function parsePiExclusions(settings: AregCheckTextFileState): { type: "ok"; excl
 	return { type: "ok", exclusions: data.skills };
 }
 
-function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInspectionResult): { verified: boolean; surface?: string | undefined } {
+function verifyPiReplacement(skillName: string, inspection: CheckProjectInspection): { verified: boolean; surface?: string | undefined } {
 	return verifyPiReplacementFromFacts(skillName, inspection.genericReplacement);
 }
 
