@@ -27,6 +27,8 @@ export interface WorktreeOccupancy {
 
 export interface GitCommandFailure {
 	message: string;
+	returncode?: number | null | undefined;
+	errorType?: string | undefined;
 }
 
 export type CurrentBranchResult =
@@ -35,6 +37,10 @@ export type CurrentBranchResult =
 	| { type: "failure"; failure: GitCommandFailure };
 
 export interface BranchCreateOptions {
+	shouldForce: boolean;
+}
+
+export interface BranchDeleteOptions {
 	shouldForce: boolean;
 }
 
@@ -50,6 +56,7 @@ export interface SlotGitGateway {
 	getPreviousBranch(cwd: string): Promise<string | null>;
 	branchExists(branch: string): Promise<boolean>;
 	createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null>;
+	deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null>;
 	checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null>;
 	detachHead(cwd: string, ref: string): Promise<GitCommandFailure | null>;
 	addDetachedWorktree(path: string, ref: string): Promise<void>;
@@ -148,6 +155,12 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		return result.isOk ? null : failureFromResult(result);
 	}
 
+	async deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null> {
+		const flag = options.shouldForce ? "-D" : "-d";
+		const result = await this.git(["branch", flag, branch], this.cwd, { allowFailure: true });
+		return result.isOk ? null : failureFromResult(result, "delete_branch_failed");
+	}
+
 	async checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null> {
 		const result = await this.git(["checkout", branch], cwd, { allowFailure: true });
 		return result.isOk ? null : failureFromResult(result);
@@ -199,9 +212,9 @@ interface CommandResult {
 	killed: boolean;
 }
 
-function failureFromResult(result: CommandResult): GitCommandFailure {
+function failureFromResult(result: CommandResult, errorType?: string): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
-	return { message: output };
+	return { message: output, returncode: result.code, ...(errorType === undefined ? {} : { errorType }) };
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {

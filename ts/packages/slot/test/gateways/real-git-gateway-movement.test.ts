@@ -23,6 +23,9 @@ describe("RealSlotGitGateway movement methods", () => {
 		expect(await gateway.branchExists("feature/a")).toBe(false);
 		expect(await gateway.createBranch("feature/a", "HEAD", { shouldForce: false })).toBeNull();
 		expect(await gateway.branchExists("feature/a")).toBe(true);
+		expect(await gateway.createBranch("feature/delete-me", "HEAD", { shouldForce: false })).toBeNull();
+		expect(await gateway.deleteLocalBranch("feature/delete-me", { shouldForce: true })).toBeNull();
+		expect(await gateway.branchExists("feature/delete-me")).toBe(false);
 		expect(await gateway.getCurrentBranch(root)).toEqual({ type: "branch", branch: "master" });
 		expect(await gateway.checkoutBranch(root, "feature/a")).toBeNull();
 		expect(await gateway.getPreviousBranch(root)).toBe("master");

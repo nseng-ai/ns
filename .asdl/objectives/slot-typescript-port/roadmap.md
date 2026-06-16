@@ -57,7 +57,7 @@
   - Evidence: scenario + real-git tests including `--current` redirect branches, and a Semantic
     Update.
 
-- [ ] Port release: `free` and `gc`.
+- [x] Port release: `free` and `gc`.
   - Preserve `free` multi-selector resolution (`-n`/`-w`/`-b`/`-c`/`--all`), dedup-in-order,
     `--dry-run`, `-y/--yes` (required in JSON when `--all`), partial-failure messaging, and the
     `--all` PR-close + local-branch-delete cleanup. Preserve `gc` sweep classification
@@ -65,7 +65,9 @@
     `--delete-branches`, and cleanup-error counting. Use the fake PR gateway.
   - Policy: directly executable after preview with fakes. Ask before changing cleanup or
     confirmation semantics. PR operations run only against fakes during validation.
-  - Evidence: scenario tests for free/gc including `--all`/dry-run/cleanup, and a Semantic Update.
+  - Evidence: TypeScript free/gc release slice implemented with fake PR gateway, real gh adapter
+    behind command-exec tests, selector/dry-run/confirmation/cleanup/GC classification scenarios,
+    plus `pnpm --dir ts/packages/slot run test` and `pnpm --dir ts/packages/slot run check` passing.
 
 - [ ] Port the Graphite subgroup: `slot gt up|down|free-stack` and hidden `slot gt exec
       stack-branches|stack-map-branches`.
