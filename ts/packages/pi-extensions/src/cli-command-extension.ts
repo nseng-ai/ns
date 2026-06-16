@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatElapsedMs } from "@asdl/core/time-format";
 import { customMessageText, truncateDisplayLine, type CustomMessageContent } from "./terminal-presentation.ts";
-import { formatElapsedMs } from "./time-format.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "ASDL_PI_CLI_TRACE";

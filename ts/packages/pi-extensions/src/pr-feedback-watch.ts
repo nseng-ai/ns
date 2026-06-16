@@ -1,11 +1,11 @@
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
+import { formatElapsedMs } from "@asdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
 import type { SendMessageOptions, SendUserMessageOptions } from "./message-delivery.ts";
 import { definePiSurfaceParity } from "./parity.ts";
-import { formatElapsedMs } from "./time-format.ts";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "code:pr-feedback-watch";
 
