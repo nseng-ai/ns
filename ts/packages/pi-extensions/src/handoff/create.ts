@@ -1,12 +1,10 @@
-import { formatErrorMessage } from "@asdl/core/primitives";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
 
 import {
 	CREATE_HANDOFF_FALLBACK,
-	CREATE_HANDOFF_SKILL_NAME,
 	createHandoffStartMessage,
-	expandHandoffSkill,
 	fencedBlock,
+	realHandoffCreateSkillLoader,
 	resolveCreateFocus,
 	type HandoffStartMessages,
 } from "./shared.ts";
@@ -49,13 +47,9 @@ export async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string,
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
-	let skillReadError: string | undefined;
-	try {
-		skill = await expandHandoffSkill(ctx.cwd, CREATE_HANDOFF_SKILL_NAME);
-	} catch (error) {
-		skillReadError = formatErrorMessage(error);
-	}
+	const loadedSkill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(ctx.cwd);
+	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
+	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
 
 	if (ctx.hasUI) {
 		ctx.ui.notify(createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES, skill, skillReadError), skill ? "info" : "warning");
