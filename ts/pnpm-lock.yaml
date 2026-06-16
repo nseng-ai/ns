@@ -168,6 +168,9 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
+      '@asdl/pi-extension-runtime':
+        specifier: workspace:*
+        version: link:../pi-extension-runtime
       zod:
         specifier: ^4.4.3
         version: 4.4.3

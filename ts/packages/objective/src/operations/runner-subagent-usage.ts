@@ -1,6 +1,14 @@
 import { readFile, stat } from "node:fs/promises";
 
 import { negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import {
+	addRunnerSubagentUsageCostTotals,
+	addRunnerSubagentUsageTotals,
+	parseRunnerSubagentUsageJsonl,
+	type RunnerSubagentUsageCostTotals as RuntimeRunnerSubagentUsageCostTotals,
+	type RunnerSubagentUsageRecord,
+	type RunnerSubagentUsageTotals as RuntimeRunnerSubagentUsageTotals,
+} from "@asdl/pi-extension-runtime/runner-subagent-usage";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -73,8 +81,6 @@ export type RunnerSubagentUsageAggregate = z.infer<typeof runnerSubagentUsageAgg
 export type RunnerSubagentUsageResult = z.infer<typeof runnerSubagentUsageResultSchema>;
 export type RunnerSubagentUsageRequest = z.infer<typeof runnerSubagentUsageRequestSchema>;
 
-type JsonRecord = Record<string, unknown>;
-
 export async function runRunnerSubagentUsage(
 	_ctx: ObjectiveCliContext,
 	request: RunnerSubagentUsageRequest,
@@ -112,20 +118,12 @@ export async function summarizeRunnerSubagentSessionFile(sessionFile: string): P
 		return emptySummary(sessionFile, { status: "read_error", error: errorMessage(error) });
 	}
 
-	const records: JsonRecord[] = [];
-	const lines = content.split(/\r?\n/u);
-	for (const [index, line] of lines.entries()) {
-		if (line.trim() === "") continue;
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(line);
-		} catch (error) {
-			return emptySummary(sessionFile, { status: "invalid_json", error: `invalid JSON: ${jsonParseErrorMessage(error)}`, errorLine: index + 1 });
-		}
-		if (isJsonRecord(parsed)) records.push(parsed);
+	const parsed = parseRunnerSubagentUsageJsonl(content);
+	if (parsed.type === "invalid-json") {
+		return emptySummary(sessionFile, { status: "invalid_json", error: `invalid JSON: ${parsed.message}`, errorLine: parsed.line });
 	}
 
-	return summaryFromRecords(sessionFile, records);
+	return summaryFromRecords(sessionFile, parsed.records);
 }
 
 export function renderRunnerSubagentUsageMarkdown(result: RunnerSubagentUsageResult): string {
@@ -155,49 +153,38 @@ export function legacyRunnerSubagentUsageMachine(exit: ClinkrExit<RunnerSubagent
 	return legacyMachine(exit);
 }
 
-function summaryFromRecords(sessionFile: string, records: readonly JsonRecord[]): RunnerSubagentUsageSummary {
-	let tokens = zeroTokens();
-	let cost = zeroCost();
-	let assistantResponseCount = 0;
+function summaryFromRecords(sessionFile: string, records: readonly RunnerSubagentUsageRecord[]): RunnerSubagentUsageSummary {
+	if (records.length === 0) return emptySummary(sessionFile, { status: "no_usage", error: "no assistant usage records found" });
+
+	let tokens = zeroRuntimeTokens();
+	let cost = zeroRuntimeCost();
 	let peakObservedTotalTokens: number | null = null;
 	let peakObservedPromptTokens: number | null = null;
 	const models: RunnerSubagentModelRef[] = [];
 	const seenModelKeys = new Set<string>();
 
 	for (const record of records) {
-		const message = mappingField(record, "message");
-		if (message === null || message["role"] !== "assistant") continue;
+		tokens = addRunnerSubagentUsageTotals(tokens, record.tokens);
+		cost = addRunnerSubagentUsageCostTotals(cost, record.cost);
+		peakObservedTotalTokens = maxOptional(peakObservedTotalTokens, Math.trunc(record.peakTotalTokens));
+		peakObservedPromptTokens = maxOptional(peakObservedPromptTokens, Math.trunc(record.peakPromptTokens));
 
-		const usage = mappingField(message, "usage");
-		if (usage === null) continue;
-
-		assistantResponseCount += 1;
-		const responseTokens = tokensFromUsage(usage);
-		const responseCost = costFromUsage(usage);
-		tokens = addTokens(tokens, responseTokens);
-		cost = addCost(cost, responseCost);
-		peakObservedTotalTokens = maxOptional(peakObservedTotalTokens, responseTokens.total_tokens);
-		peakObservedPromptTokens = maxOptional(peakObservedPromptTokens, responseTokens.input_tokens + responseTokens.cache_read_tokens + responseTokens.cache_write_tokens);
-
-		const modelRef = modelRefFromRecord(record, message, usage);
-		const modelKey = `${modelRef.provider ?? ""}\u0000${modelRef.api ?? ""}\u0000${modelRef.model ?? ""}`;
-		if ((modelRef.provider !== null || modelRef.api !== null || modelRef.model !== null) && !seenModelKeys.has(modelKey)) {
+		const modelKey = `${record.model.provider ?? ""}\u0000${record.model.api ?? ""}\u0000${record.model.model ?? ""}`;
+		if ((record.model.provider !== null || record.model.api !== null || record.model.model !== null) && !seenModelKeys.has(modelKey)) {
 			seenModelKeys.add(modelKey);
-			models.push(modelRef);
+			models.push(record.model);
 		}
 	}
-
-	if (assistantResponseCount === 0) return emptySummary(sessionFile, { status: "no_usage", error: "no assistant usage records found" });
 
 	return {
 		session_file: sessionFile,
 		status: "ok",
 		error: null,
 		error_line: null,
-		assistant_response_count: assistantResponseCount,
+		assistant_response_count: records.length,
 		models,
-		tokens,
-		cost,
+		tokens: objectiveTokens(tokens),
+		cost: objectiveCost(cost),
 		peak_observed_total_tokens: peakObservedTotalTokens,
 		peak_observed_prompt_tokens: peakObservedPromptTokens,
 		configured_context_window_tokens: null,
@@ -251,91 +238,39 @@ function emptySummary(
 	};
 }
 
-function tokensFromUsage(usage: JsonRecord): RunnerSubagentTokenTotals {
-	return {
-		input_tokens: intField(usage, "input"),
-		output_tokens: intField(usage, "output"),
-		cache_read_tokens: intField(usage, "cacheRead"),
-		cache_write_tokens: intField(usage, "cacheWrite"),
-		total_tokens: intField(usage, "totalTokens"),
-	};
-}
-
-function costFromUsage(usage: JsonRecord): RunnerSubagentCostTotals {
-	const cost = mappingField(usage, "cost") ?? {};
-	return {
-		input_usd: floatField(cost, "input"),
-		output_usd: floatField(cost, "output"),
-		cache_read_usd: floatField(cost, "cacheRead"),
-		cache_write_usd: floatField(cost, "cacheWrite"),
-		total_usd: floatField(cost, "total"),
-	};
-}
-
-function modelRefFromRecord(record: JsonRecord, message: JsonRecord, usage: JsonRecord): RunnerSubagentModelRef {
-	return {
-		provider: firstStringField(record, message, usage, "provider"),
-		api: firstStringField(record, message, usage, "api"),
-		model: firstStringField(record, message, usage, "model"),
-	};
-}
-
-function firstStringField(record: JsonRecord, message: JsonRecord, usage: JsonRecord, key: string): string | null {
-	const direct = stringField(message, key) ?? stringField(record, key) ?? stringField(usage, key);
-	if (direct !== null) return direct;
-
-	for (const container of [message, record, usage]) {
-		for (const nestedKey of ["modelInfo", "model_info", "modelRef", "model_ref"]) {
-			const nested = mappingField(container, nestedKey);
-			if (nested === null) continue;
-			const nestedValue = stringField(nested, key);
-			if (nestedValue !== null) return nestedValue;
-		}
-	}
-	return null;
-}
-
-function mappingField(data: JsonRecord, key: string): JsonRecord | null {
-	const value = data[key];
-	if (!isJsonRecord(value)) return null;
-	return value;
-}
-
-function stringField(data: JsonRecord, key: string): string | null {
-	const value = data[key];
-	if (typeof value === "string" && value.trim() !== "") return value;
-	return null;
-}
-
-function intField(data: JsonRecord, key: string): number {
-	const value = data[key];
-	if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-	return Math.trunc(value);
-}
-
-function floatField(data: JsonRecord, key: string): number {
-	const value = data[key];
-	if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-	return value;
-}
-
 function zeroTokens(): RunnerSubagentTokenTotals {
-	return {
-		input_tokens: 0,
-		output_tokens: 0,
-		cache_read_tokens: 0,
-		cache_write_tokens: 0,
-		total_tokens: 0,
-	};
+	return objectiveTokens(zeroRuntimeTokens());
 }
 
 function zeroCost(): RunnerSubagentCostTotals {
+	return objectiveCost(zeroRuntimeCost());
+}
+
+function zeroRuntimeTokens(): RuntimeRunnerSubagentUsageTotals {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0 };
+}
+
+function zeroRuntimeCost(): RuntimeRunnerSubagentUsageCostTotals {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+}
+
+function objectiveTokens(tokens: RuntimeRunnerSubagentUsageTotals): RunnerSubagentTokenTotals {
 	return {
-		input_usd: 0,
-		output_usd: 0,
-		cache_read_usd: 0,
-		cache_write_usd: 0,
-		total_usd: 0,
+		input_tokens: Math.trunc(tokens.input),
+		output_tokens: Math.trunc(tokens.output),
+		cache_read_tokens: Math.trunc(tokens.cacheRead),
+		cache_write_tokens: Math.trunc(tokens.cacheWrite),
+		total_tokens: Math.trunc(tokens.totalTokens),
+	};
+}
+
+function objectiveCost(cost: RuntimeRunnerSubagentUsageCostTotals): RunnerSubagentCostTotals {
+	return {
+		input_usd: cost.input,
+		output_usd: cost.output,
+		cache_read_usd: cost.cacheRead,
+		cache_write_usd: cost.cacheWrite,
+		total_usd: cost.total,
 	};
 }
 
@@ -422,16 +357,6 @@ function markdownCell(value: string): string {
 	return value.replaceAll("\n", " ").replaceAll("|", "\\|");
 }
 
-function isJsonRecord(value: unknown): value is JsonRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
-}
-
-function jsonParseErrorMessage(error: unknown): string {
-	if (!(error instanceof SyntaxError)) return errorMessage(error);
-	const [message] = error.message.split(" at ");
-	return message ?? error.message;
 }
