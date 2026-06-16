@@ -75,6 +75,7 @@ export interface CliCommandExtensionSpec {
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
 	env?: Record<string, string | undefined>;
+	piCommandNameForCommand?: (command: CliCommandInfo) => string;
 }
 
 export interface CommandContext {
@@ -154,7 +155,7 @@ export function registerCliCommandExtension(pi: ExtensionAPI, spec: CliCommandEx
 	});
 
 	for (const command of spec.commands) {
-		const piCommandName = `${spec.piNamespace}:${command.name}`;
+		const piCommandName = piCommandNameForCommand(spec, command);
 		pi.registerCommand(piCommandName, {
 			description: `${spec.cliName} ${command.name}: ${command.description}`,
 			handler: async (rawArgs, ctx) => {
@@ -527,6 +528,10 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 	return rawArgs === "" ? `/${piCommandName}` : `/${piCommandName} ${rawArgs}`;
 }
 
+function piCommandNameForCommand(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
+	return spec.piCommandNameForCommand?.(command) ?? `${spec.piNamespace}:${command.name}`;
+}
+
 function isCliUsageError(details: CliCommandOutputDetails): boolean {
 	return details.exitCode === 2 && (details.stderr.startsWith("Error:") || details.stderr.startsWith("error:"));
 }
@@ -872,6 +877,7 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 	}
 
 	const seenNames = new Set<string>();
+	const seenPiCommandNames = new Set<string>();
 	for (const command of spec.commands) {
 		if (command.name.trim() === "") {
 			throw new Error(`CLI command extension for ${spec.cliName} includes an empty command name.`);
@@ -880,5 +886,14 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 			throw new Error(`Duplicate ${spec.cliName} command name: ${command.name}`);
 		}
 		seenNames.add(command.name);
+
+		const piCommandName = piCommandNameForCommand(spec, command);
+		if (piCommandName.trim() === "") {
+			throw new Error(`CLI command extension for ${spec.cliName} resolved an empty Pi command name for ${command.name}.`);
+		}
+		if (seenPiCommandNames.has(piCommandName)) {
+			throw new Error(`Duplicate ${spec.cliName} Pi command name: ${piCommandName}`);
+		}
+		seenPiCommandNames.add(piCommandName);
 	}
 }

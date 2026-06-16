@@ -270,6 +270,30 @@ describe("cli command extension helper", () => {
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
+	test("registers an explicit Pi command name while preserving the CLI argv command name", async () => {
+		const pi = new FakePi();
+		const calls: RunCall[] = [];
+		registerCliCommandExtension(pi, {
+			cliName: "fake-dev",
+			piNamespace: "dev",
+			commands: [{ name: "cp", description: "Create a checkpoint." }],
+			env: { SAMPLE: "1" },
+			piCommandNameForCommand: () => "dev:checkpoint",
+			runCli: (args, deps) => {
+				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
+				deps.stdout("ok\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:checkpoint").handler("--message test", ctx);
+
+		expect([...pi.commands.keys()]).toEqual(["dev:checkpoint"]);
+		expect(calls).toEqual([{ args: ["cp", "--message", "test"], cwd: "/repo", env: { SAMPLE: "1" } }]);
+		expectSingleCliOutputMessage(pi, "ok\n");
+	});
+
 	test("invokes the CLI runner after idle with parsed args, cwd, env, and captured output", async () => {
 		const pi = new FakePi();
 		const order: string[] = [];
@@ -847,6 +871,24 @@ describe("cli command extension helper", () => {
 				],
 			});
 		}).toThrow("Duplicate fake-dev command name: preview-url");
+		expect(pi.commands.size).toBe(0);
+	});
+
+	test("rejects duplicate resolved Pi command names before registering collisions", () => {
+		const pi = new FakePi();
+
+		expect(() => {
+			registerCliCommandExtension(pi, {
+				cliName: "fake-dev",
+				piNamespace: "dev",
+				commands: [
+					{ name: "one", description: "First." },
+					{ name: "two", description: "Second." },
+				],
+				piCommandNameForCommand: () => "dev:same",
+				runCli: () => 0,
+			});
+		}).toThrow("Duplicate fake-dev Pi command name: dev:same");
 		expect(pi.commands.size).toBe(0);
 	});
 });

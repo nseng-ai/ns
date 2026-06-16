@@ -83,14 +83,22 @@ afterEach(() => {
 });
 
 describe("sdl Pi extension", () => {
-	test("exposes SDL commands under the sdl namespace only", () => {
+	test("exposes flat SDL commands first plus nested code-lifecycle aliases", () => {
 		const pi = new FakePi();
 
 		sdlExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["sdl:changes", "sdl:cp", "sdl:submit"]);
+		expect([...pi.commands.keys()]).toEqual([
+			"sdl:changes",
+			"sdl:cp",
+			"sdl:submit",
+			"sdl:code:changes",
+			"sdl:code:checkpoint",
+			"sdl:code:submit",
+		]);
 		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
+		expect(pi.commands.has("code:checkpoint")).toBe(false);
 		expect(pi.commands.has("dev:cp")).toBe(false);
 		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("sdl:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
@@ -98,11 +106,16 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:submit")?.description).toBe(
 			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		);
+		expect(pi.commands.get("sdl:code:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
+		expect(pi.commands.get("sdl:code:checkpoint")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
+		expect(pi.commands.get("sdl:code:submit")?.description).toBe(
+			"sdl submit: Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 	});
 
-	test("runs the shared cp command-entry runner", async () => {
+	test("runs the shared cp command-entry runner through the nested checkpoint alias", async () => {
 		const cwd = await createOverrideProject();
 		const pi = new FakePi();
 		sdlExtension(pi);
@@ -110,7 +123,7 @@ describe("sdl Pi extension", () => {
 		const originalHome = process.env.HOME;
 		process.env.HOME = join(cwd, ".home");
 		try {
-			await commandFor(pi, "sdl:cp").handler("", createContext(cwd));
+			await commandFor(pi, "sdl:code:checkpoint").handler("", createContext(cwd));
 		} finally {
 			if (originalHome === undefined) {
 				delete process.env.HOME;
