@@ -1,9 +1,10 @@
-import { exitCodeForExit, failure, negative, ok, toMachineEnvelope, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath, type ObjectiveRecordStatus, type ObjectiveStorage } from "../storage.ts";
 
+import { legacyMachine } from "./legacy-machine.ts";
 import { buildObjectiveBranchAttribution, MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
@@ -159,8 +160,7 @@ export function renderObjectiveListMarkdown(result: ObjectiveListRenderResult): 
 }
 
 export function legacyObjectiveListMachine(exit: ClinkrExit<ObjectiveListRenderResult>): LegacyMachineOutput {
-	const stripped = stripRenderFields(exit);
-	return { body: toMachineEnvelope(stripped), exitCode: exitCodeForExit(stripped) };
+	return legacyMachine(stripRenderFields(exit));
 }
 
 export function matchesStatusFilter(status: ObjectiveRecordStatus, statusFilter: ObjectiveStatusFilter): boolean {

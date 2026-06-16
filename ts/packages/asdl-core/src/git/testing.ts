@@ -107,8 +107,10 @@ export class InMemoryGitGateway implements GitGateway {
 		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
 		this.localBranchPresenceFailures = { ...(state.localBranchPresenceFailures ?? {}) };
 		this.createBranchFailure = state.createBranchFailure;
-		this.dirtyPaths = new Set((state.dirtyPaths ?? []).map(normalizeRelativePath));
-		this.dirtyPathFailures = Object.fromEntries(Object.entries(state.dirtyPathFailures ?? {}).map(([path, error]) => [normalizeRelativePath(path), { ...error }]));
+		this.dirtyPaths = new Set((state.dirtyPaths ?? []).map(normalizeGitTestingRelativePath));
+		this.dirtyPathFailures = Object.fromEntries(
+			Object.entries(state.dirtyPathFailures ?? {}).map(([path, error]) => [normalizeGitTestingRelativePath(path), { ...error }]),
+		);
 		this.localBranchTipsState = (state.localBranchTips ?? []).map(normalizeBranchTip);
 		this.localBranchTipsFailure = state.localBranchTipsFailure;
 		this.treeOids = new Map(Object.entries(state.treeOids ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneTreeOidValue(value)]));
@@ -247,7 +249,7 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>> {
 		this.hasUncommittedChangesUnderLog.push(pathCallFromParams(params));
-		const path = normalizeRelativePath(params.relativePath);
+		const path = normalizeGitTestingRelativePath(params.relativePath);
 		const failure = this.dirtyPathFailures[path];
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
 		return { ok: true, value: this.dirtyPaths.has(path) };
@@ -266,7 +268,7 @@ export class InMemoryGitGateway implements GitGateway {
 			const key = refPathKey(ref, params.relativePath);
 			const value = this.treeOids.get(key);
 			if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
-			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeRelativePath(params.relativePath)}:tree`;
+			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeGitTestingRelativePath(params.relativePath)}:tree`;
 		}
 		return { ok: true, value: values };
 	}
@@ -355,7 +357,7 @@ function isGitErrorInfo(value: unknown): value is GitErrorInfo {
 }
 
 function refPathKey(ref: string, path: string): string {
-	return `${ref}\u0000${normalizeRelativePath(path)}`;
+	return `${ref}\u0000${normalizeGitTestingRelativePath(path)}`;
 }
 
 function normalizeRefPathKey(key: string): string {
@@ -365,7 +367,7 @@ function normalizeRefPathKey(key: string): string {
 	return refPathKey(ref, path);
 }
 
-function normalizeRelativePath(path: string): string {
+export function normalizeGitTestingRelativePath(path: string): string {
 	const normalized = path.replaceAll("\\", "/").replace(/\/+$/u, "").replace(/^\.\//u, "");
 	return normalized === "" ? "." : normalized;
 }

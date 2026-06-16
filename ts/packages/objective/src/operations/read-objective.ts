@@ -1,7 +1,9 @@
-import { exitCodeForExit, failure, negative, ok, toMachineEnvelope, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { pythonStringRepr } from "./format.ts";
+import { legacyMachine } from "./legacy-machine.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
@@ -110,8 +112,7 @@ export function renderReadObjective(result: ReadObjectiveCommandResult): string 
 }
 
 export function legacyReadObjectiveMachine(exit: ClinkrExit<ReadObjectiveCommandResult>): LegacyMachineOutput {
-	const stripped = stripRenderFields(exit);
-	return { body: toMachineEnvelope(stripped), exitCode: exitCodeForExit(stripped) };
+	return legacyMachine(stripRenderFields(exit));
 }
 
 async function readObjective(
@@ -248,10 +249,6 @@ function factsOnly(result: ReadObjectiveCommandResult): ReadObjectiveResult {
 		updates: [...result.updates],
 		update_count: result.update_count,
 	};
-}
-
-function pythonStringRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }
 
 function removeOneTrailingNewline(value: string): string {

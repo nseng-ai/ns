@@ -1,7 +1,8 @@
-import { exitCodeForExit, failure, ok, toMachineEnvelope, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { legacyMachine } from "./legacy-machine.ts";
 import { matchesStatusFilter } from "./list-objectives.ts";
 
 export const listCandidatesRequestSchema = z.object({});
@@ -39,5 +40,5 @@ export function renderListCandidates(result: ListCandidatesResult): string {
 }
 
 export function legacyListCandidatesMachine(exit: ClinkrExit<ListCandidatesResult>): LegacyMachineOutput {
-	return { body: toMachineEnvelope(exit), exitCode: exitCodeForExit(exit) };
+	return legacyMachine(exit);
 }

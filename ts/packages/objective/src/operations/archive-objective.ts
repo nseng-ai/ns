@@ -2,6 +2,7 @@ import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { pythonStringRepr } from "./format.ts";
 import {
 	archiveEmptyDestinationRelativePath,
 	archiveEmptySourceRelativePath,
@@ -195,6 +196,3 @@ function sourceNotFoundMessage(slug: string, direction: ObjectiveArchiveDirectio
 	return `No ${sourceLabel} Objective record found for slug ${pythonStringRepr(slug)} at ${sourcePath}.`;
 }
 
-function pythonStringRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}

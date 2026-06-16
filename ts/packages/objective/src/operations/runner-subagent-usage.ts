@@ -1,9 +1,10 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { exitCodeForExit, negative, ok, toMachineEnvelope, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import { legacyMachine } from "./legacy-machine.ts";
 
 const runnerSubagentUsageStatusSchema = z.enum(["ok", "missing", "not_file", "invalid_json", "read_error", "no_usage"]);
 
@@ -151,7 +152,7 @@ export function renderRunnerSubagentUsageMarkdown(result: RunnerSubagentUsageRes
 }
 
 export function legacyRunnerSubagentUsageMachine(exit: ClinkrExit<RunnerSubagentUsageResult>): LegacyMachineOutput {
-	return { body: toMachineEnvelope(exit), exitCode: exitCodeForExit(exit) };
+	return legacyMachine(exit);
 }
 
 function summaryFromRecords(sessionFile: string, records: readonly JsonRecord[]): RunnerSubagentUsageSummary {

@@ -8,9 +8,16 @@ export interface ObjectiveBranchAttribution {
 	isTruncated: boolean;
 }
 
+export interface BuildObjectiveBranchAttributionParams {
+	repoRoot: string;
+	trunkBranch: string;
+	slugs: ReadonlySet<string>;
+	maxBranchWalks?: number | undefined;
+}
+
 export async function buildObjectiveBranchAttribution(
 	gitFacts: ObjectiveGitFactsGateway,
-	params: { repoRoot: string; trunkBranch: string; slugs: ReadonlySet<string>; maxBranchWalks?: number | undefined },
+	params: BuildObjectiveBranchAttributionParams,
 ): Promise<{ type: "ok"; value: ObjectiveBranchAttribution } | { type: "git-error"; error: ObjectiveGitErrorInfo }> {
 	if (params.slugs.size === 0) return { type: "ok", value: emptyAttribution(params.slugs) };
 

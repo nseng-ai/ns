@@ -1,3 +1,5 @@
+import { InMemoryGitGateway, normalizeGitTestingRelativePath } from "@asdl/core/git/testing";
+
 import type {
 	ObjectiveGitErrorInfo,
 	ObjectiveGitFactsGateway,
@@ -19,34 +21,38 @@ export interface FakeObjectiveGitFactsGatewayOptions {
 }
 
 export class FakeObjectiveGitFactsGateway implements ObjectiveGitFactsGateway {
-	private readonly dirtyPaths: ReadonlySet<string>;
-	private readonly failures: ReadonlyMap<string, ObjectiveGitErrorInfo>;
-	private readonly branches: readonly ObjectiveLocalBranchTip[];
-	private readonly treeOids: ReadonlyMap<string, string | null | ObjectiveGitErrorInfo>;
+	private readonly git: InMemoryGitGateway;
 	private readonly pathTouches: ReadonlyMap<string, readonly ObjectivePathChangeTouch[] | ObjectiveGitErrorInfo>;
-	private readonly dirtyChecks: ObjectiveRepoPathParams[] = [];
-	private readonly branchTipChecks: ObjectiveRepoParams[] = [];
-	private readonly treeOidChecks: ObjectiveRefsPathParams[] = [];
 	private readonly pathTouchChecks: ObjectiveRevisionRangePathParams[] = [];
 
 	constructor(options: FakeObjectiveGitFactsGatewayOptions = {}) {
-		this.dirtyPaths = new Set((options.dirtyPaths ?? []).map(normalizeRelativePath));
-		this.failures = new Map(Object.entries(options.failures ?? {}).map(([path, error]) => [normalizeRelativePath(path), { ...error }]));
-		this.branches = (options.branches ?? ["master"]).map(normalizeBranchTip);
-		this.treeOids = new Map(Object.entries(options.treeOids ?? {}).map(([key, value]) => [normalizeRefPathKey(key), cloneTreeOidValue(value)]));
+		const failures = options.failures ?? {};
+		const { ["branch-tips"]: branchTipsFailure, ...dirtyPathFailures } = failures;
+		this.git = new InMemoryGitGateway({
+			dirtyPaths: options.dirtyPaths,
+			dirtyPathFailures,
+			localBranchTips: options.branches ?? ["master"],
+			...(branchTipsFailure === undefined ? {} : { localBranchTipsFailure: branchTipsFailure }),
+			treeOids: options.treeOids,
+		});
 		this.pathTouches = new Map(Object.entries(options.pathTouches ?? {}).map(([key, value]) => [normalizeRefPathKey(key), clonePathTouchesValue(value)]));
 	}
 
 	get hasUncommittedChangesUnderCalls(): readonly ObjectiveRepoPathParams[] {
-		return this.dirtyChecks.map((call) => ({ ...call }));
+		return this.git.hasUncommittedChangesUnderCalls.map((call) => ({ repoRoot: call.cwd, relativePath: call.relativePath, ...(call.signal === undefined ? {} : { signal: call.signal }) }));
 	}
 
 	get listLocalBranchTipsCalls(): readonly ObjectiveRepoParams[] {
-		return this.branchTipChecks.map((call) => ({ ...call }));
+		return this.git.listLocalBranchTipsCalls.map((call) => ({ repoRoot: call.cwd, ...(call.signal === undefined ? {} : { signal: call.signal }) }));
 	}
 
 	get treeOidsAtRefsCalls(): readonly ObjectiveRefsPathParams[] {
-		return this.treeOidChecks.map((call) => ({ ...call, refs: [...call.refs] }));
+		return this.git.treeOidsAtRefsCalls.map((call) => ({
+			repoRoot: call.cwd,
+			relativePath: call.relativePath,
+			refs: [...call.refs],
+			...(call.signal === undefined ? {} : { signal: call.signal }),
+		}));
 	}
 
 	get pathTouchesUnderCalls(): readonly ObjectiveRevisionRangePathParams[] {
@@ -54,30 +60,15 @@ export class FakeObjectiveGitFactsGateway implements ObjectiveGitFactsGateway {
 	}
 
 	async hasUncommittedChangesUnder(params: ObjectiveRepoPathParams): Promise<ObjectiveGitResult<boolean>> {
-		this.dirtyChecks.push({ ...params });
-		const path = normalizeRelativePath(params.relativePath);
-		const failure = this.failures.get(path);
-		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		return { ok: true, value: this.dirtyPaths.has(path) };
+		return this.git.hasUncommittedChangesUnder({ cwd: params.repoRoot, relativePath: params.relativePath, signal: params.signal });
 	}
 
 	async listLocalBranchTips(params: ObjectiveRepoParams): Promise<ObjectiveGitResult<readonly ObjectiveLocalBranchTip[]>> {
-		this.branchTipChecks.push({ ...params });
-		const failure = this.failures.get("branch-tips");
-		if (failure !== undefined) return { ok: false, error: { ...failure } };
-		return { ok: true, value: this.branches.map((branch) => ({ ...branch })) };
+		return this.git.listLocalBranchTips({ cwd: params.repoRoot, signal: params.signal });
 	}
 
 	async treeOidsAtRefs(params: ObjectiveRefsPathParams): Promise<ObjectiveGitResult<Readonly<Record<string, string | null>>>> {
-		this.treeOidChecks.push({ ...params, refs: [...params.refs] });
-		const values: Record<string, string | null> = {};
-		for (const ref of params.refs) {
-			const key = refPathKey(ref, params.relativePath);
-			const value = this.treeOids.get(key);
-			if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
-			values[ref] = this.treeOids.has(key) ? (value ?? null) : `${ref}:${normalizeRelativePath(params.relativePath)}:tree`;
-		}
-		return { ok: true, value: values };
+		return this.git.treeOidsAtRefs({ cwd: params.repoRoot, refs: params.refs, relativePath: params.relativePath, signal: params.signal });
 	}
 
 	async pathTouchesUnder(params: ObjectiveRevisionRangePathParams): Promise<ObjectiveGitResult<readonly ObjectivePathChangeTouch[]>> {
@@ -86,16 +77,6 @@ export class FakeObjectiveGitFactsGateway implements ObjectiveGitFactsGateway {
 		if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
 		return { ok: true, value: clonePathTouches(value ?? []) };
 	}
-}
-
-function normalizeBranchTip(value: string | ObjectiveLocalBranchTip): ObjectiveLocalBranchTip {
-	if (typeof value === "string") return { name: value, headIso: null };
-	return { name: value.name, headIso: value.headIso };
-}
-
-function cloneTreeOidValue(value: string | null | ObjectiveGitErrorInfo): string | null | ObjectiveGitErrorInfo {
-	if (isGitErrorInfo(value)) return { ...value };
-	return value;
 }
 
 function clonePathTouchesValue(value: readonly ObjectivePathChangeTouch[] | ObjectiveGitErrorInfo): readonly ObjectivePathChangeTouch[] | ObjectiveGitErrorInfo {
@@ -112,7 +93,7 @@ function isGitErrorInfo(value: unknown): value is ObjectiveGitErrorInfo {
 }
 
 function refPathKey(ref: string, path: string): string {
-	return `${ref}\u0000${normalizeRelativePath(path)}`;
+	return `${ref}\u0000${normalizeGitTestingRelativePath(path)}`;
 }
 
 function normalizeRefPathKey(key: string): string {
@@ -120,9 +101,4 @@ function normalizeRefPathKey(key: string): string {
 	const [ref, path] = key.split("|", 2);
 	if (ref === undefined || path === undefined) return key;
 	return refPathKey(ref, path);
-}
-
-function normalizeRelativePath(path: string): string {
-	const normalized = path.replaceAll("\\", "/").replace(/\/+$|^\.\//g, "");
-	return normalized === "" ? "." : normalized;
 }
