@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
@@ -29,8 +30,8 @@ describe("FakeLocalDiffGateway", () => {
 });
 
 describe("RealLocalDiffGateway", () => {
-	test("uses explicit base ref, config excludes, and parses changed paths", async ({ task }) => {
-		const repoRoot = join(process.cwd(), ".tmp", task.id.replace(/\W/gu, "-"));
+	test("uses explicit base ref, config excludes, and parses changed paths", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-"));
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(join(repoRoot, "asdl.toml"), '[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n', "utf8");
 		const execApi = new ScriptedCommandExecApi([{ stdout: SAMPLE_DIFF }]);
@@ -64,8 +65,8 @@ describe("RealLocalDiffGateway", () => {
 		});
 	});
 
-	test("falls back to trunk branch and reports git diff failures", async ({ task }) => {
-		const repoRoot = join(process.cwd(), ".tmp", `${task.id.replace(/\W/gu, "-")}-failure`);
+	test("falls back to trunk branch and reports git diff failures", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-failure-"));
 		await mkdir(repoRoot, { recursive: true });
 		const execApi = new ScriptedCommandExecApi([{ stderr: "fatal: bad revision", code: 128 }]);
 		const gateway = new RealLocalDiffGateway({ execApi, gitGateway: new StaticGitGateway({ repoRoot, trunkBranch: "trunk" }) });

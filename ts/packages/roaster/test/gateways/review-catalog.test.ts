@@ -30,8 +30,8 @@ describe("FakeReviewCatalogGateway", () => {
 });
 
 describe("RealReviewCatalogGateway", () => {
-	test("discovers markdown review keys recursively in stable order", async ({ task }) => {
-		const repoRoot = join(process.cwd(), ".tmp", task.id.replace(/\W/gu, "-"));
+	test("discovers markdown review keys recursively in stable order", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-"));
 		await mkdir(join(repoRoot, "reviews", "nested"), { recursive: true });
 		await writeFile(join(repoRoot, "reviews", "typescript-style.md"), "ts", "utf8");
 		await writeFile(join(repoRoot, "reviews", "nested", "python.md"), "py", "utf8");
@@ -43,8 +43,8 @@ describe("RealReviewCatalogGateway", () => {
 		expect(result).toEqual({ type: "ok", value: { reviewsDir: join(repoRoot, "reviews"), keys: ["nested/python", "typescript-style"] } });
 	});
 
-	test("loads source for a valid key", async ({ task }) => {
-		const repoRoot = join(process.cwd(), ".tmp", `${task.id.replace(/\W/gu, "-")}-load`);
+	test("loads source for a valid key", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-load-"));
 		await mkdir(join(repoRoot, "reviews"), { recursive: true });
 		await writeFile(join(repoRoot, "reviews", "typescript-style.md"), "review source", "utf8");
 		const gateway = new RealReviewCatalogGateway({ gitGateway: new StaticGitGateway({ repoRoot }) });
