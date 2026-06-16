@@ -8,11 +8,15 @@
       Evidence: `src/core`, `src/app`, and `src/legacy` are materialized with
       marker files, and the package-local import-boundary static test passes as
       part of both targeted and full TypeScript validation.
-- [ ] Define the new `PrAddressRunEngine`/RunKernel façade in `app/`: target
+- [x] Define the new `PrAddressRunEngine`/RunKernel façade in `app/`: target
       verbs are `feedback`, `details`, `plan`, `batch`, `status`, and `reply`,
       while this first read-only strangler slice implements only the read-only
       subset. Preserve the pattern that future primitives get their own thin
       end-to-end strangler slices rather than one big replacement cutover.
+      Evidence: `src/app/run-engine.ts` defines the self-contained façade
+      contract, `test/unit/run-engine-contract.test.ts` covers the verb set,
+      structured detail handles, read-only engine/kernel methods, and banned
+      storage-vocabulary identifiers, and package-local check/test passed.
 - [ ] Carve cleanly-salvageable leaves into `core/` — gateways, feedback
       collection/normalization, summarize/compaction, and the GitHub/manifest
       mirror schemas — until `core/` compiles with zero `legacy/` imports and
