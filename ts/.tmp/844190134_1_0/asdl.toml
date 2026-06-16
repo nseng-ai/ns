@@ -1,2 +1,0 @@
-[roaster.diff]
-exclude = [".agents/skills/**/*.py"]
