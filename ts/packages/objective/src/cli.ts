@@ -7,6 +7,12 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 import {
+	legacyListCandidatesMachine,
+	listCandidatesRequestSchema,
+	renderListCandidates,
+	runListCandidates,
+} from "./operations/list-candidates.ts";
+import {
 	legacyObjectiveListMachine,
 	listObjectivesRequestSchema,
 	renderObjectiveListHuman,
@@ -50,6 +56,14 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		name: "exec",
 		description: "Commands for use by objective skills.",
 		isHidden: true,
+	});
+	execGroup.command({
+		name: "list-candidates",
+		description: "List active Objective slug candidates for shell and agent autocomplete.",
+		schema: listCandidatesRequestSchema,
+		handler: runListCandidates,
+		renderHuman: renderListCandidates,
+		legacyMachine: legacyListCandidatesMachine,
 	});
 	execGroup.command({
 		name: "read-objective",
