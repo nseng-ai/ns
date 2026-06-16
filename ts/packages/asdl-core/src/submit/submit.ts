@@ -310,6 +310,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		gateway: options.metadataGateway,
 		git: options.prDescription.git,
 		textGeneration: options.prDescription.textGeneration,
+		onProgress: (message) => emitSubmitProgress(options, message),
 	});
 	if (prewrite.kind === "failed") {
 		return failure(prewrite.exitCode ?? 1, formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches));
@@ -340,6 +341,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		prDescription: options.prDescription,
 		prLinks,
 		prewrittenMetadata: prewrite.prepared,
+		onProgress: (message) => emitSubmitProgress(options, message),
 	});
 	if (!descriptionResult.ok) {
 		return failure(1, formatPrDescriptionFailureText(prLinks, descriptionResult.failures));

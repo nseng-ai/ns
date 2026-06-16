@@ -133,13 +133,13 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 	];
 }
 
-function prJson(options: { body: string; title?: string } = { body: "" }): string {
+function prJson(options: { body: string; title?: string; headRefName?: string } = { body: "" }): string {
 	return JSON.stringify({
 		number: 123,
 		url: PR_URL,
 		title: options.title ?? "Existing PR title",
 		body: options.body,
-		headRefName: "feature/demo",
+		headRefName: options.headRefName ?? "feature/demo",
 		baseRefName: "main",
 	});
 }
@@ -214,11 +214,58 @@ describe("sdl submit CLI", () => {
 				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
 				{ stream: "stderr", text: "sdl submit: verifying submitted PRs...\n" },
 				{ stream: "stderr", text: "sdl submit: generating or validating PR descriptions...\n" },
+				{ stream: "stderr", text: "sdl submit: preparing descriptions for 1 PR...\n" },
+				{ stream: "stderr", text: "sdl submit: loading PR #123 metadata (1/1)...\n" },
+				{ stream: "stderr", text: "sdl submit: loading PR #123 commit messages...\n" },
+				{ stream: "stderr", text: "sdl submit: resolving PR description prompt and model...\n" },
+				{ stream: "stderr", text: "sdl submit: reading PR #123 diff...\n" },
+				{ stream: "stderr", text: "sdl submit: requesting PR description from model (attempt 1/2)...\n" },
+				{ stream: "stderr", text: "sdl submit: updating PR #123 description...\n" },
+				{ stream: "stderr", text: "sdl submit: finished PR #123 description...\n" },
 			]),
 		);
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
+	});
+
+	test("pre-submit metadata preparation reports progress across large stacks", async () => {
+		const run = runWithFakes(["submit"], {
+			exec: [
+				...cleanCheckpointResponses(),
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ feature/base\n◉ feature/top (current)\n" } },
+				{ match: "gt branch info --no-interactive --branch feature/base", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+				{ match: "gt branch info --no-interactive --branch feature/top", result: { stdout: "Parent: feature/base\n" } },
+				{ match: "git log --format=%B%x00 feature/base..feature/top", result: { stdout: "Add top branch\0" } },
+				{ match: "git diff feature/base..feature/top", result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" } },
+				{ match: "git status --porcelain", result: { stdout: "" } },
+				{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
+				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
+				{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+				{
+					match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
+					result: { stdout: prJson({ title: "Generated PR", body: "Generated body", headRefName: "feature/top" }) },
+				},
+			],
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Prepared initial PR metadata");
+		expect(run.liveOutput).toEqual(
+			expect.arrayContaining([
+				{ stream: "stderr", text: "sdl submit: inspecting Graphite stack before metadata preparation...\n" },
+				{ stream: "stderr", text: "sdl submit: inspecting Graphite stack branch metadata for 2 branches...\n" },
+				{ stream: "stderr", text: "sdl submit: inspecting PR metadata for feature/base (1/2)...\n" },
+				{ stream: "stderr", text: "sdl submit: inspecting PR metadata for feature/top (2/2)...\n" },
+				{ stream: "stderr", text: "sdl submit: reading local commits and diff for feature/top...\n" },
+				{ stream: "stderr", text: "sdl submit: found 2 stack branches; 1 new single-commit branch needs initial PR metadata...\n" },
+				{ stream: "stderr", text: "sdl submit: generating initial PR metadata for feature/top (1/1)...\n" },
+				{ stream: "stderr", text: "sdl submit: checking clean worktree before metadata amendment...\n" },
+				{ stream: "stderr", text: "sdl submit: amending local PR metadata commit for feature/top (1/1)...\n" },
+				{ stream: "stderr", text: "sdl submit: prepared pre-submit PR metadata for 1 branch...\n" },
+			]),
+		);
 	});
 
 	test("direct CLI output gets live submit progress without an injected live-output hook", async () => {

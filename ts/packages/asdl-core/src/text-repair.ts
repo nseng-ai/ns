@@ -2,6 +2,10 @@ const MAX_ATTEMPTS = 2;
 
 export type TextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
 
+export type TextRepairProgressEvent =
+	| { type: "attempt_started"; attempt: number; maxAttempts: number }
+	| { type: "attempt_invalid"; attempt: number; maxAttempts: number; feedback: string };
+
 export type ValidateGeneratedTextResult<T> = { ok: true; value: T } | { ok: false; feedback: string };
 
 export type PrepareRepairedTextResult<T> =
@@ -14,6 +18,7 @@ export interface PrepareRepairedTextOptions<T> {
 	generate: (prompt: string) => Promise<TextGenerationResult>;
 	validate: (text: string) => ValidateGeneratedTextResult<T>;
 	buildRepairPrompt: (input: { initialPrompt: string; previousDraft: string; feedback: string }) => string;
+	onProgress?: (event: TextRepairProgressEvent) => void;
 }
 
 export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions<T>): Promise<PrepareRepairedTextResult<T>> {
@@ -22,6 +27,7 @@ export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions
 	let latestFeedback = "";
 
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+		options.onProgress?.({ type: "attempt_started", attempt, maxAttempts: MAX_ATTEMPTS });
 		const generated = await options.generate(prompt);
 		if (!generated.ok) return { ok: false, error: generated.error };
 
@@ -38,6 +44,7 @@ export async function prepareRepairedText<T>(options: PrepareRepairedTextOptions
 		latestFeedback = validation.feedback;
 		firstFeedback ??= validation.feedback;
 		if (attempt < MAX_ATTEMPTS) {
+			options.onProgress?.({ type: "attempt_invalid", attempt, maxAttempts: MAX_ATTEMPTS, feedback: validation.feedback });
 			prompt = options.buildRepairPrompt({ initialPrompt: options.initialPrompt, previousDraft: generated.text, feedback: validation.feedback });
 		}
 	}
