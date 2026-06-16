@@ -2,6 +2,7 @@ import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult }
 import type { GitGateway } from "../git/index.ts";
 
 import { commandFailure } from "./command-failure.ts";
+import { formatItemCount } from "./format.ts";
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import { preparePrDescription, resolvePrDescriptionGeneration, type PromptSource } from "./pr-description.ts";
@@ -300,19 +301,15 @@ function commandError(command: string, args: readonly string[], result: ExecResu
 }
 
 function formatStackBranchMetadataProgress(branchCount: number): string {
-	return `inspecting Graphite stack branch metadata for ${formatBranchCount(branchCount, "branch")}`;
+	return `inspecting Graphite stack branch metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
 }
 
 function formatMetadataPreparationDiscoveryProgress(totalBranchCount: number, newBranchCount: number): string {
-	return `found ${formatBranchCount(totalBranchCount, "stack branch")}; ${formatBranchCount(newBranchCount, "new single-commit branch")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
+	return `found ${formatItemCount(totalBranchCount, "stack branch", "stack branches")}; ${formatItemCount(newBranchCount, "new single-commit branch", "new single-commit branches")} ${newBranchCount === 1 ? "needs" : "need"} initial PR metadata`;
 }
 
 function formatPreparedMetadataProgress(branchCount: number): string {
-	return `prepared pre-submit PR metadata for ${formatBranchCount(branchCount, "branch")}`;
-}
-
-function formatBranchCount(count: number, singularBranchPhrase: string): string {
-	return `${count} ${singularBranchPhrase}${count === 1 ? "" : "es"}`;
+	return `prepared pre-submit PR metadata for ${formatItemCount(branchCount, "branch", "branches")}`;
 }
 
 function parseExistingPrFromBranchInfo(output: string, branch: string): GatewayResult<SubmitPrLink | undefined> {

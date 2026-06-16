@@ -1,5 +1,6 @@
 import { appendGeneratedMarker, resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./pr-description.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
+import { formatItemCount } from "./format.ts";
 import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
@@ -31,7 +32,7 @@ export async function generateSubmitPrDescriptions(input: {
 	if (input.prLinks.length === 0) {
 		input.onProgress?.("no PR links available for description generation");
 	} else {
-		input.onProgress?.(`preparing descriptions for ${formatCount(input.prLinks.length, "PR")}`);
+		input.onProgress?.(`preparing descriptions for ${formatItemCount(input.prLinks.length, "PR", "PRs")}`);
 	}
 
 	// Intentionally sequential: deterministic output ordering and gentler on gh/API rate limits.
@@ -171,10 +172,6 @@ function prMetadataMatches(title: string, body: string, metadata: PreparedSubmit
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
 	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
-}
-
-function formatCount(count: number, noun: string): string {
-	return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 export function formatPrLinkTextRow(link: SubmitPrLink): string {

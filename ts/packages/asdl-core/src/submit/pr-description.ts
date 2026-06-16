@@ -6,6 +6,7 @@ import type { GitGateway } from "../git/index.ts";
 import { formatErrorMessage } from "../primitives.ts";
 import { truncateTextHeadTail } from "../text-truncation.ts";
 import { prepareRepairedText } from "../text-repair.ts";
+import { formatElapsedMs } from "../time-format.ts";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";
 import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-generation.ts";
@@ -273,7 +274,7 @@ export async function preparePrDescription(input: {
 					input.onProgress?.(`requesting PR description from model (attempt ${event.attempt}/${event.maxAttempts})`);
 					break;
 				case "attempt_waiting":
-					input.onProgress?.(`still waiting for PR description from model (attempt ${event.attempt}/${event.maxAttempts}, ${formatElapsedSeconds(event.elapsedMs)} elapsed)`);
+					input.onProgress?.(`still waiting for PR description from model (attempt ${event.attempt}/${event.maxAttempts}, ${formatElapsedMs(event.elapsedMs)} elapsed)`);
 					break;
 				case "attempt_invalid":
 					input.onProgress?.("PR description model output failed validation; requesting repair");
@@ -303,10 +304,6 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
 		headRatio: 0.7,
 		buildMarker: (omittedChars) => `\n[... TRUNCATED ${omittedChars} chars ...]\n`,
 	});
-}
-
-function formatElapsedSeconds(elapsedMs: number): string {
-	return `${Math.floor(elapsedMs / 1_000)}s`;
 }
 
 function formatPrContextLines(input: PrDescriptionPromptContext): string[] {
