@@ -96,7 +96,7 @@ describe("areg update-skills CLI", () => {
 	test("unknown requested skills fail before npx preflight or update calls", async () => {
 		const run = runUpdate(["--skill", "missing"]);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Skill(s) not found in lockfile (or not github-sourced): missing");
 		expect(run.host.operations()).toEqual([]);
 		expect(run.npxSkills.operations()).toEqual([]);
@@ -137,20 +137,20 @@ describe("areg update-skills CLI", () => {
 
 	test("selected updates fail on invalid config, missing lockfile, malformed lockfile, and missing npx before calls", async () => {
 		const invalidConfig = runUpdate([], { updateProject: { asdlToml: "[areg]\nagents = [1]\n" } });
-		expect(await invalidConfig.exit).toBe(1);
+		expect(await invalidConfig.exit).toBe(2);
 		expect(invalidConfig.stderr.join("")).toContain("asdl.toml [areg].agents must be a non-empty string list");
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 
 		const missingLockfile = runUpdate([], { updateProject: { lockfile: { type: "missing" } } });
-		expect(await missingLockfile.exit).toBe(1);
+		expect(await missingLockfile.exit).toBe(2);
 		expect(missingLockfile.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
 
 		const malformed = runUpdate([], { updateProject: { lockfile: "{" } });
-		expect(await malformed.exit).toBe(1);
+		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("Invalid JSON in skills-lock.json:");
 
 		const noNpx = runUpdate([], { npxMissing: true });
-		expect(await noNpx.exit).toBe(1);
+		expect(await noNpx.exit).toBe(2);
 		expect(noNpx.stderr.join("")).toContain("Required host tool is missing: npx");
 		expect(noNpx.npxSkills.operations()).toEqual([]);
 	});
@@ -158,15 +158,14 @@ describe("areg update-skills CLI", () => {
 	test("partial failures attempt all selected skills and return structured JSON details", async () => {
 		const run = runUpdate(["--format", "json"], { npxFailures: { "owner/repo:alpha": { code: "npx-failed", message: "alpha failed" } } });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.npxSkills.operations().map((operation) => operation.skillNames[0])).toEqual(["alpha", "beta"]);
 		const body = JSON.parse(run.stdout.join(""));
-		expect(body).toMatchObject({ exit_code: 1, message: expect.stringContaining("1 skill(s) failed to update: alpha") });
-		expect(body.data).toMatchObject({ ok: false, failure_count: 1, agents: ["codex", "claude-code"] });
-		expect(body.data.attempted_updates).toEqual([
-			{ skill: "alpha", source: "owner/repo", status: "failed", error: "alpha failed" },
-			{ skill: "beta", source: "other/repo", status: "updated" },
-		]);
+		expect(body).toMatchObject({
+			exit_code: 2,
+			error_type: "skill_update_failed",
+			message: expect.stringContaining("1 skill(s) failed to update: alpha"),
+		});
 	});
 
 	test("success JSON returns the shared report shape", async () => {

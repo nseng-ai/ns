@@ -1,4 +1,4 @@
-import { negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
@@ -75,14 +75,14 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 export async function runCheck(ctx: AregCliContext, request: CheckRequest): Promise<ClinkrExit<CheckReport>> {
 	const inspection = await ctx.projectInspection.inspectProjectForCheck({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
 	if (inspection.projectPathState.type !== "directory") {
-		return negative(`${inspection.projectDir} is not a directory`, emptyReport(inspection.projectDir));
+		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
 	const lockfileResult = parseInspectedLockfile(inspection);
 	if (lockfileResult.type === "error") {
-		return negative(lockfileResult.message, emptyReport(inspection.projectDir));
+		return failure("lockfile_invalid", lockfileResult.message);
 	}
 	const piExclusions = lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local") ? parsePiExclusions(inspection.piSettings) : { type: "ok" as const, exclusions: [] };
-	if (piExclusions.type === "error") return negative(piExclusions.message, emptyReport(inspection.projectDir));
+	if (piExclusions.type === "error") return failure("pi_settings_invalid", piExclusions.message);
 	const report = buildCheckReport(inspection, lockfileResult.lockfile, piExclusions.exclusions);
 	if (report.ok) return ok(report);
 	return negative(formatCheckReport(report), report);
@@ -292,10 +292,6 @@ function verifyPiReplacement(skillName: string, inspection: AregCheckProjectInsp
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {
 	return { skill, code, message };
-}
-
-function emptyReport(projectDir: string): CheckReport {
-	return { ok: false, project_dir: projectDir, issue_count: 0, issues: [] };
 }
 
 function missingSkillInspection(name: string): AregCheckSkillInspection {

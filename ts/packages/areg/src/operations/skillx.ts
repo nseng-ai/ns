@@ -182,14 +182,9 @@ export async function runSkillxList(ctx: AregCliContext, request: SkillxListRequ
 		});
 	}
 	if (result.type === "auth-error") {
-		const error = `Authentication error accessing ${request.repo}`;
-		return negative(error, {
-			success: false,
-			error,
-			hint: "Run 'gh auth status' to check authentication issues",
-		});
+		return failure("github_auth_failed", `Authentication error accessing ${request.repo}`);
 	}
-	return negative(result.error.message, { success: false, error: result.error.message });
+	return failure("github_gateway_failed", result.error.message);
 }
 
 export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRequest): Promise<ClinkrExit<SkillxFetchResult>> {
@@ -201,7 +196,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});
-	if (install.type === "error") return fetchNegative(install.error.message);
+	if (install.type === "error") return failure("skill_install_failed", install.error.message);
 	const workspaceRoot = install.workspace.workspaceRoot;
 	const installedSkills = sortedInstalledSkills(install.workspace.installedSkills);
 	if (installedSkills.length === 0) return fetchNegative("No skills were installed");
@@ -222,8 +217,8 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 	if (selected === undefined) {
 		const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot, cwd: ctx.cwd, env: ctx.env });
 		const base = `Skill '${request.skill}' was not found in installed skills`;
-		const error = cleanup.type === "ok" ? base : `${base}; cleanup failed: ${cleanup.error.message}`;
-		return fetchNegative(error);
+		if (cleanup.type !== "ok") return failure("cleanup_failed", `${base}; cleanup failed: ${cleanup.error.message}`);
+		return fetchNegative(base);
 	}
 	return ok({
 		success: true,
@@ -240,7 +235,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 export async function runSkillxCleanup(ctx: AregCliContext, request: SkillxCleanupRequest): Promise<ClinkrExit<SkillxCleanupResult>> {
 	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir, cwd: ctx.cwd, env: ctx.env });
 	if (cleanup.type === "ok") return ok({ success: true, removed: request.dir });
-	return negative(cleanup.error.message, { success: false, error: cleanup.error.message });
+	return failure("cleanup_failed", cleanup.error.message);
 }
 
 function parseGithubUrl(input: string): z.infer<typeof parseSuccessSchema> | undefined {

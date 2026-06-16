@@ -178,9 +178,10 @@ Important details:
   Namespaces."
 - Each key becomes a relative path under `--output-dir`; for example,
   `notes/session.md` writes `<output-dir>/notes/session.md`.
-- Export fails before writing if no Entries match, the output directory is not a
-  directory, a target already exists, or a target path is unsafe. Pass
-  `--overwrite` only when replacing existing files is intentional.
+- Export returns a normal no-match result before writing if no Entries match.
+  It fails for output directories that are not directories, existing targets,
+  or unsafe target paths. Pass `--overwrite` only when replacing existing files
+  is intentional.
 - Use `--dry-run` to see planned writes without creating directories or files.
 - Add `--format json` when another tool needs the planned/exported paths and
   sizes.

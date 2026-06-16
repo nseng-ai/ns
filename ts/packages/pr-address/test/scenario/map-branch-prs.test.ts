@@ -58,9 +58,9 @@ describe("pr-address exec map-branch-prs", () => {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(1);
+		expect(envelope.exit_code).toBe(0);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
 		expect(envelope.data?.branch_prs.map((entry) => entry.pr_number)).toEqual([11]);
 		expect(envelope.data?.missing_branches).toEqual(["no-such-branch", "feature-merged"]);
@@ -87,9 +87,9 @@ describe("pr-address exec map-branch-prs", () => {
 			github,
 			stdin: JSON.stringify({ branches: ["feature-shared"] }),
 		});
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(1);
+		expect(envelope.exit_code).toBe(0);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
 		expect(envelope.data?.branch_prs).toEqual([]);
 		expect(envelope.data?.ambiguous_branches).toEqual([

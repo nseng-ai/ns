@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
@@ -225,19 +225,19 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 
 export async function runSkillKindList(ctx: AregCliContext, request: SkillKindListRequest): Promise<ClinkrExit<SkillKindListResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
-	if (resolved.type === "error") return negative(resolved.message, emptyListResult(resolved.projectDir));
+	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (records.type === "error") return negative(records.message, emptyListResult(resolved.value.projectDir));
+	if (records.type === "error") return failure("skill_records_invalid", records.message);
 	return ok({ project_dir: resolved.value.projectDir, skills: records.value.map(toSkillKindRecordResult) });
 }
 
 export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindShowRequest): Promise<ClinkrExit<SkillKindShowResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
-	if (resolved.type === "error") return negative(resolved.message, emptyShowResult(resolved.projectDir, request.skill));
+	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const resolvedSkill = await ctx.skillKindProject.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
-	if (resolvedSkill.type === "error") return negative(resolvedSkill.error.message, emptyShowResult(resolved.value.projectDir, request.skill));
+	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (records.type === "error") return negative(records.message, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
+	if (records.type === "error") return failure("skill_records_invalid", records.message);
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
 		return negative(`Local skill not found: ${request.skill}`, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
@@ -247,16 +247,16 @@ export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindSh
 
 export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindApplyRequest): Promise<ClinkrExit<SkillKindApplyResult>> {
 	const firstResolved = await inspectResolvedProject(ctx, request.path);
-	if (firstResolved.type === "error") return negative(firstResolved.message, emptyApplyResult(firstResolved.projectDir, request));
+	if (firstResolved.type === "error") return failure("project_inspection_failed", firstResolved.message);
 	const projectDir = firstResolved.value.projectDir;
 	const skillResults: SkillKindApplyResult["skills"] = [];
 	for (const spec of request.skills) {
 		const resolved = await inspectResolvedProject(ctx, projectDir);
-		if (resolved.type === "error") return negative(resolved.message, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+		if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 		const resolvedSkill = await ctx.skillKindProject.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
-		if (resolvedSkill.type === "error") return negative(resolvedSkill.error.message, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+		if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 		const plan = buildSkillKindApplyPlan(resolved.value.inspection, resolvedSkill.skillName, request.kind);
-		if (plan.type === "error") return negative(plan.message, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+		if (plan.type === "error") return failure("skill_plan_failed", plan.message);
 		if (!request.dry_run && !request.yes && hasDeletionPrompt(plan.value)) {
 			const confirmed = await ctx.prompt.confirm({ message: deletionPrompt(plan.value), defaultValue: false });
 			if (!confirmed) return negative(`Declined to apply ${request.kind} to ${plan.value.skill}.`, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
@@ -272,7 +272,7 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 			removeEmptyDirs: plannedRemoveEmptyDirs(plan.value),
 			env: ctx.env,
 		});
-		if (!applyResult.ok) return negative(applyResult.error.message, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+		if (!applyResult.ok) return failure("write_failed", applyResult.error.message);
 		skillResults.push({
 			skill: plan.value.skill,
 			operations: plan.value.operations.map((operation) => toApplyOperationResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
@@ -642,10 +642,6 @@ function sortSkills(skills: readonly AregSkillKindSkillInspection[]): readonly A
 	return sortStrings([...byName.keys()]).map((name) => byName.get(name)).filter((skill): skill is AregSkillKindSkillInspection => skill !== undefined);
 }
 
-function emptyListResult(projectDir = ""): SkillKindListResult {
-	return { project_dir: projectDir, skills: [] };
-}
-
 function emptyShowResult(projectDir: string, skillName: string): SkillKindShowResult {
 	return {
 		project_dir: projectDir,
@@ -668,6 +664,3 @@ function emptyShowResult(projectDir: string, skillName: string): SkillKindShowRe
 	};
 }
 
-function emptyApplyResult(projectDir: string, request: SkillKindApplyRequest): SkillKindApplyResult {
-	return { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: [] };
-}

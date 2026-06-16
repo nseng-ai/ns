@@ -196,7 +196,7 @@ describe("mutation operations use fake gateways", () => {
 
 		const run = runScenario(["exec", "resolve-thread-batch", "--from-build", artifactPath, "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, env, payloadStoreFactory, github });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const envelope = JSON.parse(run.stdout.join(""));
 		expect(envelope.data.resolved).toBe(1);
 		expect(envelope.data.failed).toBe(1);

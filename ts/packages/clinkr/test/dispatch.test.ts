@@ -39,8 +39,15 @@ describe("human mode", () => {
 		expect(run.stderr).toBe("");
 	});
 
-	test("negative writes the message to stderr and exits 1", async () => {
+	test("negative writes the message to stdout and exits 0 by default", async () => {
 		const run = await runForTest(buildGroup(), ["no"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toBe("nothing to do\n");
+		expect(run.stderr).toBe("");
+	});
+
+	test("negative writes the message to stderr and exits 1 with --shell-exit-code", async () => {
+		const run = await runForTest(buildGroup(), ["no", "--shell-exit-code"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toBe("nothing to do\n");
@@ -62,17 +69,23 @@ describe("json mode", () => {
 		expect(run.stderr).toBe("");
 	});
 
-	test("negative emits the envelope without data and exits 1", async () => {
+	test("negative emits the envelope without data and exits 0 by default", async () => {
 		const run = await runForTest(buildGroup(), ["no", "--format", "json"], { context: null });
+		expect(run.exitCode).toBe(0);
+		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, message: "nothing to do" });
+	});
+
+	test("negative emits the envelope with exit 1 under --shell-exit-code", async () => {
+		const run = await runForTest(buildGroup(), ["no", "--format", "json", "--shell-exit-code"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 1, message: "nothing to do" });
 	});
 
 	test("negative with data includes the data key", async () => {
 		const run = await runForTest(buildGroup(), ["no-data", "--format", "json"], { context: null });
-		expect(run.exitCode).toBe(1);
+		expect(run.exitCode).toBe(0);
 		expect(parseEnvelope(run.stdout)).toEqual({
-			exit_code: 1,
+			exit_code: 0,
 			message: "empty",
 			data: { count: 0 },
 		});

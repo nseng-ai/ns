@@ -28,6 +28,10 @@ export interface MachineEnvelope {
 	data?: unknown;
 }
 
+export interface ClinkrExitCodeOptions {
+	shellExitCode?: boolean | undefined;
+}
+
 export function ok<T>(data: T): ClinkrOkExit<T> {
 	return { type: "ok", data };
 }
@@ -41,25 +45,25 @@ export function failure(errorType: string, message: string): ClinkrFailureExit {
 	return { type: "failure", errorType, message };
 }
 
-export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
+export function exitCodeForExit(exit: ClinkrExit<unknown>, options: ClinkrExitCodeOptions = {}): 0 | 1 | 2 {
 	switch (exit.type) {
 		case "ok":
 			return 0;
 		case "negative":
-			return 1;
+			return options.shellExitCode === true ? 1 : 0;
 		case "failure":
 			return 2;
 	}
 }
 
-export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
+export function toMachineEnvelope(exit: ClinkrExit<unknown>, options: ClinkrExitCodeOptions = {}): MachineEnvelope {
 	// Object-literal key order matches Python's envelope insertion order
 	// (exit_code, error_type, message, data) so serialized output is byte-identical.
 	switch (exit.type) {
 		case "ok":
 			return { exit_code: 0, data: exit.data };
 		case "negative": {
-			const envelope: MachineEnvelope = { exit_code: 1, message: exit.message };
+			const envelope: MachineEnvelope = { exit_code: exitCodeForExit(exit, options), message: exit.message };
 			if (exit.data !== undefined) envelope.data = exit.data;
 			return envelope;
 		}

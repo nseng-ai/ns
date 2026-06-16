@@ -155,6 +155,7 @@ describe("generated help", () => {
 		expect(run.stdout).toContain("the plan name");
 		expect(run.stdout).toContain("max items (default: 10)");
 		expect(run.stdout).toContain("--format <format>");
+		expect(run.stdout).toContain("--shell-exit-code");
 		expect(run.stdout).toContain("--json-schema");
 	});
 });

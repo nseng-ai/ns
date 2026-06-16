@@ -165,8 +165,8 @@ describe("pr-address CLI", () => {
 		const operations = [envelopeOperation()];
 
 		const negativeRun = runScenario(["exec", "envelope", "negative", "--format", "json"], { operations });
-		expect(await negativeRun.exit).toBe(1);
-		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({ exit_code: 1, message: "not valid", data: { valid: false } });
+		expect(await negativeRun.exit).toBe(0);
+		expect(JSON.parse(negativeRun.stdout.join(""))).toEqual({ exit_code: 0, message: "not valid", data: { valid: false } });
 
 		const failureRun = runScenario(["exec", "envelope", "failure", "--format", "json"], { operations });
 		expect(await failureRun.exit).toBe(2);
@@ -192,7 +192,6 @@ describe("pr-address CLI", () => {
 		const prRun = runScenario(["exec", "get-feedback", "123", "--format=json"]);
 		expect(await prRun.exit).toBe(2);
 		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "harness_session_required" });
-
 	});
 });
 

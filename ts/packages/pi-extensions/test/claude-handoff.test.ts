@@ -21,6 +21,7 @@ import {
 	createContext,
 	getRegisteredCommand,
 	getRegisteredTool,
+	legacyMissingCheckStep,
 	skillCommandInfo,
 	step,
 	withTempSkill,
@@ -245,6 +246,11 @@ describe("claude handoff command", () => {
 		{
 			name: "missing handoff",
 			check: checkStep(BRANCH, "fix-auth-flow.md", false),
+			expected: "does not exist",
+		},
+		{
+			name: "legacy shell-mode missing handoff",
+			check: legacyMissingCheckStep(BRANCH, "fix-auth-flow.md"),
 			expected: "does not exist",
 		},
 		{

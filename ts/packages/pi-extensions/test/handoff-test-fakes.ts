@@ -145,12 +145,17 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 }
 
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
-	const payload = exists
-		? { exit_code: 0, data: { key, namespace: "handoff", branch } }
-		: { exit_code: 1, message: `not found: Entry Key=${key} Namespace=handoff Branch=${branch}` };
+	const payload = { exit_code: 0, data: { key, namespace: "handoff", branch, present: exists } };
 	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"], {
-		code: exists ? 0 : 1,
+		code: 0,
 		stdout: `${JSON.stringify(payload)}\n`,
+	});
+}
+
+export function legacyMissingCheckStep(branch: string, key: string): ScriptedExec {
+	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"], {
+		code: 1,
+		stdout: `${JSON.stringify({ exit_code: 1, message: `not found: Entry Key=${key} Namespace=handoff Branch=${branch}` })}\n`,
 	});
 }
 

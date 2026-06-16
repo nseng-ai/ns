@@ -17,6 +17,7 @@ export interface EmitExitOptions<T> {
 	renderHuman?: ((data: T) => string) | undefined;
 	renderMarkdown?: ((data: T) => string) | undefined;
 	legacyMachine?: ((exit: ClinkrExit<T>) => LegacyMachineOutput) | undefined;
+	shellExitCode?: boolean | undefined;
 }
 
 /**
@@ -30,8 +31,9 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			options.io.stdout(`${body}\n`);
 			return legacy.exitCode;
 		}
-		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
-		return exitCodeForExit(exit);
+		const exitCodeOptions = { shellExitCode: options.shellExitCode };
+		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit, exitCodeOptions))}\n`);
+		return exitCodeForExit(exit, exitCodeOptions);
 	}
 	switch (exit.type) {
 		case "ok": {
@@ -39,8 +41,12 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			return 0;
 		}
 		case "negative":
-			options.io.stderr(`${exit.message}\n`);
-			return 1;
+			if (options.shellExitCode === true) {
+				options.io.stderr(`${exit.message}\n`);
+				return 1;
+			}
+			options.io.stdout(`${exit.message}\n`);
+			return 0;
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;

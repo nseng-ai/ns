@@ -124,10 +124,27 @@ export async function checkHandoffExists(pi: ExtensionAPI, cwd: string, branch: 
 		return { type: "failed", message: run.error.message };
 	}
 	const result = run.value.result;
-	if (result.code === 0 && !result.killed) {
-		return { type: "exists" };
+	if (result.killed) {
+		return {
+			type: "failed",
+			message: `brmem check failed before it could verify the handoff.\n\n${formatExecFailure(run.value.displayCommand, result)}`,
+		};
 	}
-	if (result.code === 1 && !result.killed && isBrmemMissingEnvelope(result.stdout)) {
+	if (result.code === 0) {
+		const presence = parseBrmemCheckPresence(result.stdout);
+		switch (presence.type) {
+			case "exists":
+				return { type: "exists" };
+			case "missing":
+				return { type: "missing" };
+			case "invalid":
+				return {
+					type: "failed",
+					message: `brmem check returned malformed JSON before it could verify the handoff.\n\n${presence.message}`,
+				};
+		}
+	}
+	if (result.code === 1 && isBrmemMissingEnvelope(result.stdout)) {
 		return { type: "missing" };
 	}
 	return {
@@ -163,9 +180,24 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
 }
 
+type BrmemCheckPresence = { type: "exists" } | { type: "missing" } | { type: "invalid"; message: string };
+
+function parseBrmemCheckPresence(stdout: string): BrmemCheckPresence {
+	const envelope = parseMachineEnvelopeData(stdout, { label: "brmem check JSON", stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 } });
+	if (envelope.type !== "valid") return { type: "invalid", message: envelope.message };
+	const present = envelope.data.present;
+	if (present === undefined) return { type: "exists" };
+	if (typeof present !== "boolean") {
+		return { type: "invalid", message: "Malformed brmem check JSON: expected boolean field data.present." };
+	}
+	return present ? { type: "exists" } : { type: "missing" };
+}
+
 function isBrmemMissingEnvelope(stdout: string): boolean {
 	const envelope = parseMachineEnvelopeData(stdout, { label: "brmem check JSON", stdoutTail: false });
-	return envelope.type === "failure" && envelope.exitCode === 1;
+	if (envelope.type !== "failure" || envelope.exitCode !== 1) return false;
+	const message = envelope.cliMessage ?? "";
+	return message.startsWith("not found:") && message.includes("Namespace=handoff");
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {

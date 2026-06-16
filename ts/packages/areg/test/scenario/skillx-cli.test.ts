@@ -28,9 +28,9 @@ describe("areg exec skillx CLI", () => {
 	test("parse failure uses Clinkr negative envelope under --format json", async () => {
 		const run = runScenario(["exec", "skillx", "parse", "", "--format", "json"]);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 1,
+			exit_code: 0,
 			message: "Empty input",
 			data: { success: false, error: "Empty input" },
 		});
@@ -53,9 +53,9 @@ describe("areg exec skillx CLI", () => {
 			github: { repos: { "owner/repo": "missing" } },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 1,
+			exit_code: 0,
 			message: "No skills directory found in owner/repo",
 			data: {
 				success: false,
@@ -130,9 +130,9 @@ describe("areg exec skillx CLI", () => {
 		const context = skillxContext(workspace);
 		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], { context });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 1,
+			exit_code: 0,
 			data: { success: false, error: "Skill 'demo' was not found in installed skills", tmp_dir: null },
 		});
 		expect(workspace.operations()).toEqual([
@@ -149,11 +149,11 @@ describe("areg exec skillx CLI", () => {
 		const failRun = runScenario(["exec", "skillx", "cleanup", "--dir", "/tmp/skillx.fake-1", "--format", "json"], {
 			skillxWorkspace: { cleanupFailure: { code: "refused", message: "Refusing cleanup" } },
 		});
-		expect(await failRun.exit).toBe(1);
+		expect(await failRun.exit).toBe(2);
 		expect(JSON.parse(failRun.stdout.join(""))).toEqual({
-			exit_code: 1,
+			exit_code: 2,
+			error_type: "cleanup_failed",
 			message: "Refusing cleanup",
-			data: { success: false, error: "Refusing cleanup" },
 		});
 	});
 });
