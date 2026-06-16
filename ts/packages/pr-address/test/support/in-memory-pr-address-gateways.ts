@@ -19,7 +19,7 @@ import type {
 	RepoContextResult,
 	RestructuredFile,
 	WorkTreeRootResult,
-} from "../../src/gateways.ts";
+} from "../../src/core/gateways.ts";
 import type { PrAddressContext } from "../../src/context.ts";
 import { createNodePayloadStoreFactory } from "../../src/payload-store.ts";
 

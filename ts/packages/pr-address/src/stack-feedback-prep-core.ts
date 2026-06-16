@@ -1,7 +1,8 @@
 import { failure, ok, toMachineEnvelope, type ClinkrFailureExit } from "@asdl/clinkr";
 import { buildFeedbackClassificationTemplate } from "./classification.ts";
-import { type PrAddressExecContext } from "./exec-operation.ts";
-import { buildGetFeedbackManifestFromSnapshot, type FeedbackSnapshot, fetchFeedbackSnapshot } from "./feedback-collection.ts";
+import { fetchFeedbackSnapshot, type FeedbackSnapshot } from "./core/feedback-snapshot.ts";
+import { gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
+import { buildGetFeedbackManifestFromSnapshot } from "./feedback-collection.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import { prArtifactDescriptor, stackArtifactDescriptor } from "./session-artifacts.ts";
@@ -80,13 +81,13 @@ async function fetchStackPrFeedback(options: {
 }): Promise<{ type: "ok"; value: StackPrFeedback } | { type: "error"; exit: ClinkrFailureExit }> {
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: options.github,
+		gatewayOptions: gatewayOptions(options.ctx),
 		prNumber: options.prInput.pr_number,
 		shouldIncludeResolved: options.shouldIncludeResolved,
 		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
 		shouldCountAllReviewThreads: false,
-		ctx: options.ctx,
 	});
-	if (snapshotResult.type === "error") return { type: "error", exit: snapshotResult.exit };
+	if (snapshotResult.type === "failure") return { type: "error", exit: gatewayFailureExit(snapshotResult.message, snapshotResult.failure) };
 	return { type: "ok", value: { snapshot: snapshotResult.snapshot } };
 }
 

@@ -23,10 +23,17 @@
       app contract and import-boundary tests now share the same source-file
       walker from `test/support/source-files.ts`, reducing drift risk between
       the two static guardrails.
-- [ ] Carve cleanly-salvageable leaves into `core/` — gateways, feedback
+- [x] Carve cleanly-salvageable leaves into `core/` — gateways, feedback
       collection/normalization, summarize/compaction, and the GitHub/manifest
       mirror schemas — until `core/` compiles with zero `legacy/` imports and
       their golden/scenario tests stay green.
+      Evidence: `src/core/gateways.ts`, feedback snapshot/summary helpers, and
+      feedback/GitHub manifest mirror schemas now live under `src/core` with
+      root compatibility wrappers for the old exec surface. Old `get-feedback`
+      and `summarize-feedback` semantics stayed green through targeted
+      scenario/gateway tests, package-local check/test, and full TypeScript
+      workspace check/test. Real subprocess adapters, payload/session handling,
+      and command wrappers remain in bootstrap root for later strangler rows.
 - [ ] Split the mixed files, extracting into `core/`: the classify-exactly-once
       cardinality check, reply formatting + the four resolution modes, the
       resolve-decision validation, and body-on-demand lookup; leave any remaining
