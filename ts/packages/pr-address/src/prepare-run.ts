@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { failure, ok, toMachineEnvelope, type ClinkrExit, type ClinkrFailureExit } from "@asdl/clinkr";
-import { defineExecOperation, gatewayFailureDetail, gatewayFailureMessage, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
-import { contestedThreadIds, fetchFeedbackSnapshot } from "./feedback-collection.ts";
+import { contestedThreadIds, fetchFeedbackSnapshot } from "./core/feedback-snapshot.ts";
+import { defineExecOperation, gatewayFailureDetail, gatewayFailureExit, gatewayFailureMessage, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { GatewayFailure, PRDiscussionComment, PRReview, PRReviewThread, PRSummary, PrAddressGitGateway, PrAddressGitHubGateway, RestructuredFile } from "./gateways.ts";
 import { buildPrepareRunPayloadManifest, type PayloadArtifactStore, type PayloadReference, type PrepareRunPayloadManifest } from "./payload-store.ts";
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
@@ -141,13 +141,13 @@ async function prepareFoundRun(options: {
 }): Promise<{ type: "ok"; value: PrepareRunInlineFound } | { type: "error"; exit: ClinkrFailureExit }> {
 	const snapshotResult = await fetchFeedbackSnapshot({
 		gateway: options.github,
+		gatewayOptions: gatewayOptions(options.ctx),
 		prNumber: options.pr.number,
 		shouldIncludeResolved: true,
 		shouldIncludeEmptyReviews: options.shouldIncludeEmptyReviews,
 		shouldCountAllReviewThreads: false,
-		ctx: options.ctx,
 	});
-	if (snapshotResult.type === "error") return snapshotResult;
+	if (snapshotResult.type === "failure") return { type: "error", exit: gatewayFailureExit(snapshotResult.message, snapshotResult.failure) };
 	const snapshot = snapshotResult.snapshot;
 
 	const warnings: string[] = [];
