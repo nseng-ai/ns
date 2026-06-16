@@ -1,6 +1,9 @@
 import type { SlotStorageGateway } from "../storage.ts";
 
-export type FakeSlotStorageOperation = { type: "ensure-dir"; path: string };
+export interface FakeSlotStorageOperation {
+	type: "ensure-dir";
+	path: string;
+}
 
 export class FakeSlotStorageGateway implements SlotStorageGateway {
 	private readonly log: FakeSlotStorageOperation[] = [];
