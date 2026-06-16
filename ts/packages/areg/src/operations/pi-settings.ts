@@ -1,6 +1,7 @@
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
+import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 
 export interface PiSettingsData {
 	text: string | undefined;
@@ -10,11 +11,11 @@ export interface PiSettingsData {
 
 export type ParsePiSettingsResult = { type: "ok"; value: PiSettingsData } | { type: "error"; message: string };
 
-export function parsePiSettings(piDir: Pick<AregPathState, "type">, settings: AregTextFileState): ParsePiSettingsResult {
-	if (piDir.type === "symlink") return { type: "error", message: ".pi is a symlink; refusing to inspect Pi settings." };
+export function parsePiSettings(piDir: AregPathState, settings: AregTextFileState): ParsePiSettingsResult {
+	const piDirectory = validateOptionalDirectoryState({ pathLabel: ".pi", state: piDir, action: "inspect Pi settings" });
+	if (piDirectory.type === "error") return piDirectory;
 	if (settings.type === "missing") return { type: "ok", value: { text: undefined, data: undefined, exclusions: [] } };
-	if (settings.type === "symlink") return { type: "error", message: ".pi/settings.json is a symlink; refusing to inspect Pi settings." };
-	if (settings.type !== "file") return { type: "error", message: ".pi/settings.json exists but is not a file." };
+	if (settings.type !== "file") return rejectTextState({ pathLabel: ".pi/settings.json", state: settings, action: "inspect Pi settings", unreadableMode: "not-file" });
 	let data: unknown;
 	try {
 		data = JSON.parse(settings.text);

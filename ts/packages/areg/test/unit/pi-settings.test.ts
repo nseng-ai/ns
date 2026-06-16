@@ -11,10 +11,15 @@ describe("Pi settings parser", () => {
 	});
 
 	test("refuses symlinked Pi directory", () => {
-		expect(parsePiSettings({ type: "symlink" }, { type: "missing" })).toEqual({
+		expect(parsePiSettings({ type: "symlink", target: "../pi" }, { type: "missing" })).toEqual({
 			type: "error",
 			message: ".pi is a symlink; refusing to inspect Pi settings.",
 		});
+	});
+
+	test("refuses non-directory Pi directory states", () => {
+		expect(parsePiSettings({ type: "file" }, { type: "missing" })).toEqual({ type: "error", message: ".pi exists but is not a directory." });
+		expect(parsePiSettings({ type: "other" }, { type: "missing" })).toEqual({ type: "error", message: ".pi exists but is not a directory." });
 	});
 
 	test("refuses symlinked settings file", () => {

@@ -4,7 +4,8 @@ import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregErrorInfo, AregInitTextFileState, AregInitTextWritePlan } from "../gateways.ts";
+import type { AregErrorInfo, AregInitTextFileState, AregInitTextWritePlan, AregPathState } from "../gateways.ts";
+import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
 
@@ -197,7 +198,7 @@ async function buildInitTextPlan(
 		agentsMd: AregInitTextFileState;
 		claudeMd: AregInitTextFileState;
 		asdlToml: AregInitTextFileState;
-		claudeDir: { type: string; target?: string };
+		claudeDir: AregPathState;
 		claudeSettings: AregInitTextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
@@ -236,7 +237,7 @@ async function buildInitTextPlan(
 
 function planAsdlToml(state: AregInitTextFileState, agents: readonly string[]): PlanResult<AregInitTextWritePlan> {
 	if (state.type === "missing") return { type: "ok", value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
-	if (state.type !== "file") return rejectTextState("asdl.toml", state, "asdl.toml");
+	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	const parsed = parseAsdlAregAgents(state.text, "asdl.toml");
 	if (parsed.type === "error") return parsed;
 	return { type: "ok", value: writePlan("asdl.toml", replaceOrAppendAregSection(state.text, agents), "asdl.toml") };
@@ -283,7 +284,7 @@ async function planManagedBlock(
 	},
 ): Promise<PlanResult<AregInitTextWritePlan | SkippedFile>> {
 	if (input.state.type === "missing") return { type: "ok", value: writePlan(input.path, input.newFileContent, input.path) };
-	if (input.state.type !== "file") return rejectTextState(input.path, input.state, input.path);
+	if (input.state.type !== "file") return rejectTextState({ pathLabel: input.path, state: input.state, description: input.path, action: "manage it" });
 	const bounds = managedBlockBounds(input.state.text, input.markers, input.path);
 	if (bounds.type === "error") return bounds;
 	if (bounds.value === null) {
@@ -312,11 +313,11 @@ function contentWithoutManagedBlock(content: string, markers: ManagedMarkers, pa
 	return { type: "ok", value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}` };
 }
 
-function planSettings(claudeDirState: { type: string; target?: string }, settingsState: AregInitTextFileState): PlanResult<AregInitTextWritePlan | SkippedFile> {
-	if (claudeDirState.type === "symlink") return { type: "error", message: `.claude at .claude is a symlink; refusing to manage it.` };
-	if (claudeDirState.type !== "missing" && claudeDirState.type !== "directory") return { type: "error", message: ".claude exists but is not a directory." };
+function planSettings(claudeDirState: AregPathState, settingsState: AregInitTextFileState): PlanResult<AregInitTextWritePlan | SkippedFile> {
+	const claudeDir = validateOptionalDirectoryState({ pathLabel: ".claude", state: claudeDirState, action: "manage it", symlinkSubject: ".claude at .claude" });
+	if (claudeDir.type === "error") return claudeDir;
 	if (settingsState.type === "missing") return { type: "ok", value: writePlan(".claude/settings.local.json", SETTINGS_LOCAL_JSON, "settings.local.json", true) };
-	if (settingsState.type !== "file") return rejectTextState(".claude/settings.local.json", settingsState, "settings.local.json");
+	if (settingsState.type !== "file") return rejectTextState({ pathLabel: ".claude/settings.local.json", state: settingsState, description: "settings.local.json", action: "manage it" });
 	return { type: "ok", value: { path: ".claude/settings.local.json", reason: "existing settings file is preserved" } };
 }
 
@@ -330,13 +331,6 @@ function isSkippedFile(plan: AregInitTextWritePlan | SkippedFile): plan is Skipp
 
 function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content: string, description: string, createParent = false): AregInitTextWritePlan {
 	return { relativePath, content, description, createParent };
-}
-
-function rejectTextState<T>(pathLabel: string, state: Exclude<AregInitTextFileState, { type: "file" } | { type: "missing" }>, description: string): PlanResult<T> {
-	if (state.type === "symlink") return { type: "error", message: `${description} at ${pathLabel} is a symlink; refusing to manage it.` };
-	if (state.type === "directory") return { type: "error", message: `${pathLabel} exists but is not a file.` };
-	if (state.type === "unreadable") return { type: "error", message: `Failed to read ${pathLabel}: ${state.message}` };
-	return { type: "error", message: `${pathLabel} exists but is not a file.` };
 }
 
 function malformedManagedBlock<T>(pathLabel: string): PlanResult<T> {
