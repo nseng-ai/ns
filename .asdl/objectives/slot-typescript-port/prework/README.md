@@ -20,6 +20,7 @@ re-verified against `shell_integration.py`, `cli/slot/shell.py`, and `cli/slot/c
 | `04-gt-and-gateways-spec.md`             | `slot gt up/down/free-stack` + `gt exec`, the Graphite plumbing boundary, the full gateway/fake split       | 7                |
 | `05-shell-clipboard-integration-spec.md` | cd-directive protocol, zsh/bash rc-block install bytes/markers, clipboard tri-state — the novel-risk slice  | 8                |
 | `06-ts-scaffold-and-cutover.md`          | package.json/tsconfig/cli.ts scaffold, clinkr+asdl-core wiring, `just install-slot` shim, Python retirement | 3, 9, 10         |
+| `07-pr-slicing-and-next-session-plan.md` | Graphite PR boundaries, dependency order, validation targets, and fresh-session pickup checklist            | 3–11             |
 
 ## How to use
 

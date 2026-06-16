@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Inventory the current public `slot` contract.
+- [x] Inventory the current public `slot` contract.
   - Evidence sources: package `README.md`, group registration (`cli/slot/group.py`,
     `cli/slot/gt/group.py`), the outcome dataclasses (`lifecycle/outcomes.py`), the pure core
     (`inventory.py`, `naming.py`, `checkout_planning.py`, `repo_context.py`), shell integration
@@ -17,15 +17,16 @@
   - Policy: read-only inventory and checked-in Objective/doc updates are directly executable.
   - Evidence: `slot-contract-inventory.md` plus a Semantic Update.
 
-- [ ] Author the `prework/` downstream-execution suite.
-  - Produce `prework/README.md` and the six specs (architecture & module map; pure-core & naming;
-    worktree lifecycle; gt & gateways; shell & clipboard integration; ts-scaffold & cutover), each
-    with `file:line` evidence and a TS test checklist distilled from the Python tests.
+- [x] Author the `prework/` downstream-execution suite.
+  - Produce `prework/README.md` and the seven specs (architecture & module map; pure-core & naming;
+    worktree lifecycle; gt & gateways; shell & clipboard integration; ts-scaffold & cutover; PR
+    slicing & next-session plan), each with `file:line` evidence or PR execution guidance and a TS
+    test checklist distilled from the Python tests.
   - Resolve the objective's Open Questions into the README's resolved-decisions list where codebase
     evidence settles them (standalone-only, cd-directive verbatim, rc-block marker parity, clipboard
     reasons, shim distribution).
   - Policy: read-only analysis and checked-in docs are directly executable.
-  - Evidence: `prework/` suite plus a Semantic Update.
+  - Evidence: `prework/` suite, `prework/07-pr-slicing-and-next-session-plan.md`, plus Semantic Updates.
 
 - [ ] Scaffold `ts/packages/slot` and port the pure core + first read-only operation (`list`).
   - Create `package.json` (`@asdl/slot`, bin `slot`, deps `@asdl/clinkr` + `@asdl/core` + `zod`),
