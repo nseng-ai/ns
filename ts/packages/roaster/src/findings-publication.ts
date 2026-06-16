@@ -1,5 +1,5 @@
 import { machineEnvelopeSchema } from "@asdl/clinkr";
-import { truncatedSha256Digest } from "@asdl/core";
+import { formatZodError, truncatedSha256Digest } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import {
@@ -274,10 +274,6 @@ function parseJson(raw: string): JsonResult {
 	} catch (caught) {
 		return { type: "error", message: `input is not valid JSON: ${caught instanceof Error ? caught.message : String(caught)}` };
 	}
-}
-
-function formatZodError(error: z.ZodError): string {
-	return error.issues.map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`).join("; ");
 }
 
 function payloadError(message: string): FindingsPayloadParseResult {

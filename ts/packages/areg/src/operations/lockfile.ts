@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@asdl/core/primitives";
+import { formatErrorMessage, formatZodIssue } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCheckTextFileState } from "../gateways.ts";
@@ -43,7 +43,7 @@ const skillsLockfileSchema: z.ZodType<SkillsLockfileData> = z.object({
 
 export function parseLockfileData(data: unknown): { type: "ok"; lockfile: SkillsLockfile } | { type: "error"; message: string } {
 	const result = skillsLockfileSchema.safeParse(data);
-	if (!result.success) return invalidLockfile(formatZodIssue(result.error.issues[0]));
+	if (!result.success) return invalidLockfile(formatZodIssue(result.error.issues[0], { rootPath: "$", pathPrefix: "$.", fallback: "invalid lockfile" }));
 	const lockfileData = result.data as SkillsLockfileData;
 	const skills: LockfileSkill[] = [];
 	for (const name of sortStrings(Object.keys(lockfileData.skills))) {
@@ -74,10 +74,4 @@ export function parseInspectedLockfile(input: {
 
 function invalidLockfile(reason: string): { type: "error"; message: string } {
 	return { type: "error", message: `Invalid skills-lock.json: ${reason}.` };
-}
-
-function formatZodIssue(issue: z.core.$ZodIssue | undefined): string {
-	if (issue === undefined) return "invalid lockfile";
-	const path = issue.path.length === 0 ? "$" : `$.${issue.path.join(".")}`;
-	return `${path}: ${issue.message}`;
 }
