@@ -1,9 +1,9 @@
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
+import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+
+const SLOT_GIT_TIMEOUT_MS = 10_000;
 
 export interface WorktreeInfo {
 	path: string;
@@ -31,10 +31,12 @@ export interface SlotGitGateway {
 export class RealSlotGitGateway implements SlotGitGateway {
 	private readonly cwd: string;
 	private readonly env: NodeJS.ProcessEnv;
+	private readonly execApi: CommandExecApi;
 
-	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }) {
+	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined }) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
+		this.execApi = options.execApi ?? new NodeCommandExecApi();
 	}
 
 	async pathExists(path: string): Promise<boolean> {
@@ -43,7 +45,7 @@ export class RealSlotGitGateway implements SlotGitGateway {
 
 	async getGitCommonDir(cwd: string): Promise<string | null> {
 		const result = await this.git(["rev-parse", "--git-common-dir"], cwd, { allowFailure: true });
-		if (!result.ok) return null;
+		if (!result.isOk) return null;
 		const raw = result.stdout.trim();
 		if (raw.length === 0) return null;
 		return isAbsolute(raw) ? raw : resolve(cwd, raw);
@@ -68,19 +70,19 @@ export class RealSlotGitGateway implements SlotGitGateway {
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
 		const result = await this.git(["status", "--porcelain"], path, { allowFailure: true });
-		return result.ok && result.stdout.length > 0;
+		return result.isOk && result.stdout.length > 0;
 	}
 
 	async getTrunkBranch(): Promise<string> {
 		const originHead = await this.git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], this.cwd, { allowFailure: true });
-		if (originHead.ok) {
+		if (originHead.isOk) {
 			const trimmed = originHead.stdout.trim();
 			const prefix = "origin/";
 			if (trimmed.startsWith(prefix)) return trimmed.slice(prefix.length);
 		}
 		for (const candidate of ["master", "main"] as const) {
 			const exists = await this.git(["show-ref", "--verify", "--quiet", `refs/heads/${candidate}`], this.cwd, { allowFailure: true });
-			if (exists.ok) return candidate;
+			if (exists.isOk) return candidate;
 		}
 		return "master";
 	}
@@ -94,18 +96,15 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	}
 
 	private async git(args: readonly string[], cwd: string, options: { allowFailure?: boolean | undefined } = {}): Promise<CommandResult> {
-		try {
-			const result = await execFileAsync("git", args, { cwd, env: this.env, encoding: "utf8" });
-			return { ok: true, stdout: result.stdout, stderr: result.stderr };
-		} catch (error) {
-			if (options.allowFailure) return { ok: false, stdout: stdoutFromError(error), stderr: stderrFromError(error) };
-			throw error;
-		}
+		const result = await this.execApi.exec("git", [...args], { cwd, env: this.env, timeout: SLOT_GIT_TIMEOUT_MS });
+		if (result.code === 0 && !result.killed) return { isOk: true, stdout: result.stdout, stderr: result.stderr };
+		if (options.allowFailure) return { isOk: false, stdout: result.stdout, stderr: result.stderr };
+		throw new Error(`git ${args.join(" ")} failed with exit code ${result.code}: ${result.stderr}`);
 	}
 }
 
 interface CommandResult {
-	ok: boolean;
+	isOk: boolean;
 	stdout: string;
 	stderr: string;
 }
