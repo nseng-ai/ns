@@ -253,20 +253,12 @@ function validateLevelCandidates(
 }
 
 function groupCandidatesByName(candidates: readonly LoadedLevelCandidate[]): ReadonlyMap<string, readonly LoadedLevelCandidate[]> {
-	const counts = new Map<string, LoadedLevelCandidate[]>();
+	const counts = new Map<string, readonly LoadedLevelCandidate[]>();
 	for (const candidate of candidates) {
-		appendToMapArray(counts, candidate.name, candidate);
+		const existing = counts.get(candidate.name) ?? [];
+		counts.set(candidate.name, [...existing, candidate]);
 	}
 	return counts;
-}
-
-function appendToMapArray<TKey, TValue>(map: Map<TKey, TValue[]>, key: TKey, value: TValue): void {
-	const existing = map.get(key);
-	if (existing !== undefined) {
-		existing.push(value);
-		return;
-	}
-	map.set(key, [value]);
 }
 
 function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {

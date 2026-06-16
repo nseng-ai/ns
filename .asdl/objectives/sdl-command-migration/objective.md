@@ -19,6 +19,31 @@ The code lifecycle family should now be built up as a project-local SDL example 
 - Update docs and domain language: `ts/packages/sdl/README.md`, SDL context/domain vocabulary (`ts/packages/sdl/CONTEXT.md` or context map entry), Pi docs, skill conventions, and migration guidance should all explain project-specific SDL extensions and the hard-cutover policy.
 - Keep implementation modules in lower/private packages such as `@asdl/ccc` where appropriate, but make SDL the public lifecycle command boundary when a workflow migrates.
 
+## Code Lifecycle Taxonomy
+
+The `/sdl:code:*` family is the project-local Pi command taxonomy for current-checkout, branch, commit, Graphite stack, and PR metadata lifecycle workflows. It is also the practical example extension that should harden the SDL extension API: every command slice should teach something reusable about command contribution, selected loading, request schemas, confirmation hooks, Pi registration/presentation, parity metadata, skill linkage, or lower-orchestration boundaries.
+
+Canonical target mappings:
+
+| Current surface    | Canonical target          | Notes                                                                                                |
+| ------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `/sdl:changes`     | `/sdl:code:changes`       | Flat `/sdl:changes` remains primary because it mirrors the current built-in SDL command.             |
+| `/sdl:cp`          | `/sdl:code:checkpoint`    | Prefer descriptive canonical naming; flat `/sdl:cp` remains primary for the existing SDL command.    |
+| `/sdl:submit`      | `/sdl:code:submit`        | Flat `/sdl:submit` remains primary for the existing mutating SDL command.                            |
+| `/code:autobranch` | `/sdl:code:autobranch`    | Remove the old `/code:*` surface at cutover.                                                         |
+| `/code:autoslot`   | `/sdl:code:autoslot`      | Include as code lifecycle despite slot orchestration because it starts from current code work.       |
+| `/code:land`       | `/sdl:code:land`          | Keep CCC or lower orchestration ownership where appropriate; SDL owns the public lifecycle boundary. |
+| `/code:push`       | `/sdl:code:push`          | Replace the guarded Pi push helper with an SDL-owned lifecycle surface.                              |
+| `/code:pr-regen`   | `/sdl:code:regenerate-pr` | Use the descriptive canonical name; any `pr-regen` spelling is non-canonical if retained at all.     |
+
+The target taxonomy is Pi-first for now. It does not require immediate SDL CLI nesting such as `sdl code checkpoint`; the current CLI may stay flat while the project-local Pi family proves whether nested SDL CLI groups are worth designing later.
+
+Explicit exclusions from `/sdl:code:*`:
+
+- `pr-feedback-watch`: review-monitoring workflow, not a code lifecycle command in this family.
+- `preview-url`: dev/deployment lookup, not source-control lifecycle.
+- `code-workflows` and `code-gh`: skill/reference routers, not lifecycle command capabilities.
+
 ## Non-Goals
 
 - Do not keep long-lived compatibility aliases for migrated `asdl-dev` commands or `/code:*` Pi commands.
@@ -32,6 +57,7 @@ The code lifecycle family should now be built up as a project-local SDL example 
 
 - The SDL docs explicitly state that project-specific SDL extensions are supported and describe how command entries are discovered, authored, tested, and mirrored into Pi.
 - The repo has a general project-specific SDL extension mechanism that is documented and covered by tests beyond the one-off `cp` override precedent.
+- The `/sdl:code:*` project-local Pi command family exists as an example extension surface with tests/parity/docs proving nested Pi registration, CLI delegation or lower-orchestration delegation, request schema handling, confirmation/presentation behavior, and hard-cutover expectations.
 - At least the first hard-cutover command slice lands through SDL with the old `asdl-dev` command and old `/code:*` Pi mirror deleted in the same slice.
 - The command backlog has explicit dispositions: migrated, deliberately parked, or intentionally out of SDL scope, with `/code:autoslot` represented as an SDL migration candidate and `pr-feedback-watch` / `preview-url` excluded from the `/sdl:code:*` code lifecycle family.
 - Pi docs, skill conventions, parity metadata/docs, and relevant skills use `/sdl:*` / `sdl-*` naming for migrated workflows and no longer describe `/code:*` as the durable namespace for those migrated lifecycle commands.
@@ -42,6 +68,7 @@ The code lifecycle family should now be built up as a project-local SDL example 
 Progress is keepable when:
 
 - It clarifies the SDL extension contract or moves one bounded command slice toward SDL ownership without preserving stale aliases.
+- It turns a concrete `/sdl:code:*` command slice into reusable extension API learning rather than a one-off Pi adapter.
 - It deletes or updates old command surfaces in the same slice that introduces the SDL replacement.
 - It updates tests, parity metadata, skills, and docs alongside command-surface changes.
 - It leaves the repo in a locally verifiable state with targeted TypeScript checks/tests and relevant repo checks passing for the touched packages.
@@ -51,6 +78,7 @@ Do not keep changes that:
 - Add a new SDL mirror while leaving an old `asdl-dev` command or `/code:*` surface as an undocumented long-lived alias.
 - Move implementation details into SDL when a lower package such as `@asdl/ccc` should remain the internal orchestration owner and SDL should only be the public lifecycle boundary.
 - Rename commands without updating the user-facing docs, skill names/prose, and parity metadata that agents rely on.
+- Add nested `/sdl:code:*` Pi commands as opaque aliases that do not improve or validate the SDL extension API.
 - Treat project-specific implementation details as a reason to exclude a lifecycle workflow from SDL without a documented decision.
 
 Useful evidence includes targeted scenario tests for the SDL CLI, Pi extension tests proving the new `/sdl:*` surface and absence of the old `/code:*` mirror, package `check`/`test` runs for touched TypeScript packages, dprint for docs/skills, and source searches showing deleted stale names where the slice requires deletion.
@@ -79,6 +107,7 @@ Risks:
 
 - The migration can become a broad namespace churn project unless each slice ties a command move to tests, docs, deletion of the old surface, and concrete SDL extension API learning.
 - Project-specific SDL extensions could blur product boundaries if docs do not distinguish public SDK surface, internal migration exports, built-in SDL commands, and repo-local command modules. De-risked for the general command-loading slice by the SDL README/context baseline plus CLI tests that prove project-only command discovery/loading beyond `cp`; further de-risked for option-bearing commands by the submit hard-cutover's selected-command schema loading, by promoting `submit` into `ts/packages/sdl/src/default-commands/submit.ts`, and by keeping repo-local command modules as an extension path rather than the final home for commands that should ship with SDL itself.
+- The nested Pi taxonomy could become a cosmetic alias layer if it does not force reusable extension API improvements. Mitigate by requiring each `/sdl:code:*` slice to identify the SDL API behavior it proves or extends, such as schema loading, command discovery, confirmation, output presentation, or lower orchestration delegation.
 - Hard cutover may break agent muscle memory and stale docs; source searches and parity metadata updates need to be part of every slice. De-risked for the submit slice by removing the transitional `/code:submit` bridge and `asdl-dev submit` helper/export, renaming the active submit skill to `sdl-submit`, updating Pi docs/parity/push guidance/CCC prompts, and keeping source-search evidence that remaining old-name hits are historical or absence assertions. Further de-risked for the changes slice by replacing `/code:changes` with built-in `sdl changes` and `/sdl:changes`, removing the custom Pi renderer/command implementation, and updating docs/context/parity/tests so old-name hits are absence assertions or migration-away notes.
 - `submit`, `land`, `autobranch`, `autoslot`, and review-feedback flows mutate Git, Graphite, GitHub, or worktree-slot state; moving their public boundary must not weaken existing safety checks.
 - Keeping implementation cores in CCC while exposing SDL commands could create another “shared TypeScript is not shared CLI” gap unless SDL scenario tests and skills prove non-Pi reachability. Partially de-risked for the current `cp` and `changes` surfaces by the SDL scenario fake-harness cleanup, which keeps behavior coverage in SDL while reducing duplicated CLI test plumbing for future command slices.

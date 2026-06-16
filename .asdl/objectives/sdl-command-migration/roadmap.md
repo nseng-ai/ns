@@ -24,7 +24,7 @@
 
 - [ ] Build the `/sdl:code:*` family as the project-local SDL example extension and API driver.
   - Policy: direct execution after preview; steer first if the slice changes the public SDL extension API or Pi command taxonomy beyond the settled names.
-  - Evidence: command entries exercise the SDL extension API for discovery, selected loading, schemas/options, Pi command presentation, parity metadata, skill linkage, and lower-package orchestration boundaries without turning SDL into the implementation owner for CCC internals.
+  - Evidence: command entries exercise the SDL extension API for discovery, selected loading, schemas/options, Pi command presentation, parity metadata, skill linkage, and lower-package orchestration boundaries without turning SDL into the implementation owner for CCC internals. A good first slice proves nested Pi registration for existing SDL commands (`changes`, `checkpoint`, `submit`) without destabilizing their flat primary mirrors; later slices should use `autobranch`, `autoslot`, `land`, `push`, and `regenerate-pr` to prove option parsing, confirmation hooks, live output, mutation safety, and CCC delegation seams.
 
 - [ ] Migrate branch/worktree creation flows: `autobranch` and `autoslot`.
   - Policy: direct execution after preview for code/docs/tests; ask before executing commands that mutate real branches, stashes, Graphite state, or slot worktrees.
