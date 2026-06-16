@@ -1,7 +1,7 @@
 import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
-import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
+import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlExtension, type SdlResult } from "./sdk.ts";
 import {
 	CHANGES_MODEL_ENV,
 	CHECKPOINT_MODEL_ENV,
@@ -83,6 +83,10 @@ const sdlCommandSchema = z.object({
 	run: z.custom<SdlCommand["run"]>((value) => typeof value === "function"),
 });
 
+const sdlExtensionSchema = z.object({
+	commands: z.array(sdlCommandSchema).min(1),
+});
+
 const sdlResultSchema = z.discriminatedUnion("ok", [
 	z.object({ ok: z.literal(true), message: z.string() }),
 	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
@@ -112,22 +116,25 @@ export function commandInfoForLoadedCommand(command: SdlCommand, sourceLevel: Sd
 	return { name: command.name, description: command.description, fullDescription: command.description };
 }
 
-export function validateSdlCommand(
-	command: unknown,
-	expectedName: string,
+export function validateSdlExtensionContribution(
+	contribution: unknown,
+	expectedCommandName: string,
 	sourceLabel: string,
 ): { ok: true; command: SdlCommand } | { ok: false; message: string } {
-	const nameIssue = validateCommandName(command, expectedName);
-	if (nameIssue !== null) {
-		return { ok: false, message: `Invalid ${sourceLabel}: ${nameIssue}` };
-	}
-
-	const parsed = sdlCommandSchema.safeParse(command);
+	const parsed = sdlExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
-		return { ok: false, message: `Invalid ${sourceLabel}: ${formatSdlCommandIssue(parsed.error.issues[0], expectedName)}` };
+		return { ok: false, message: `Invalid SDL extension contribution ${sourceLabel}: ${formatSdlExtensionIssue(parsed.error.issues[0])}` };
 	}
 
-	return { ok: true, command: parsed.data };
+	const command = findCommandEntry(parsed.data, expectedCommandName);
+	if (command === undefined) {
+		return {
+			ok: false,
+			message: `Invalid SDL extension contribution ${sourceLabel}: expected a command entry named "${expectedCommandName}" in commands[].`,
+		};
+	}
+
+	return { ok: true, command };
 }
 
 export async function executeSdlCommand(ctx: SdlContext, command: SdlCommand, request: unknown): Promise<SdlResult> {
@@ -160,39 +167,38 @@ export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function validateCommandName(command: unknown, expectedName: string): string | null {
-	if (typeof command !== "object" || command === null || Array.isArray(command)) {
-		return null;
-	}
-	const candidate = command as { readonly name?: unknown };
-	if (candidate.name !== expectedName) {
-		return commandNameMustBe(expectedName);
-	}
-	return null;
+function findCommandEntry(extension: SdlExtension, expectedName: string): SdlCommand | undefined {
+	return extension.commands.find((command) => command.name === expectedName);
 }
 
-function formatSdlCommandIssue(issue: z.core.$ZodIssue | undefined, expectedName: string): string {
+function formatSdlExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
 	if (issue === undefined || issue.path.length === 0) {
-		return "default export must be a command object created with defineCommand().";
+		return "default export must be an extension object created with defineExtension().";
 	}
-	const field = issue.path[0];
+	if (issue.path[0] !== "commands") {
+		return "default export must be an extension object created with defineExtension().";
+	}
+	if (issue.path.length === 1) {
+		return issue.code === "invalid_type" ? "default export must be an extension object created with defineExtension()." : "SDL extension commands must be a non-empty array.";
+	}
+	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssue(issue)}.`;
+}
+
+function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
+	const field = issue.path[2];
 	if (field === "name") {
-		return commandNameMustBe(expectedName);
+		return "command name must be a string";
 	}
 	if (field === "description") {
-		return "command description must be a string.";
+		return "command description must be a string";
 	}
 	if (field === "schema") {
-		return "command schema must be a Zod object schema from @asdl/sdl/sdk.";
+		return "command schema must be a Zod object schema from @asdl/sdl/sdk";
 	}
 	if (field === "run") {
-		return "command run must be a function.";
+		return "command run must be a function";
 	}
-	return "default export must be a command object created with defineCommand().";
-}
-
-function commandNameMustBe(expectedName: string): string {
-	return `command name must be "${expectedName}".`;
+	return "command entry must include name, description, and run";
 }
 
 function isZodObjectSchema(value: unknown): value is SdlCommandSchema {

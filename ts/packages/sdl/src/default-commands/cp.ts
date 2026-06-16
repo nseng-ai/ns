@@ -1,10 +1,10 @@
 import { createCommitWithPreparedMessage, prepareCheckpointMessage } from "../checkpoint-flow.ts";
 import { formatCheckpointSnapshotError } from "../checkpoint.ts";
 import { loadPendingWorktreeSnapshot } from "../pending-worktree.ts";
-import { defineCommand, failed, ok } from "../sdk.ts";
+import { failed, ok, type SdlCommand } from "../sdk.ts";
 import { selectCheckpointModelRef } from "../text-generation.ts";
 
-export const defaultCpCommand = defineCommand({
+export const defaultCpCommand = {
 	name: "cp",
 	description: "Create a checkpoint commit for the current diff.",
 	async run(ctx) {
@@ -45,4 +45,4 @@ export const defaultCpCommand = defineCommand({
 
 		return ok(`${committed.summary}\n${prepared.message}`);
 	},
-});
+} satisfies SdlCommand;

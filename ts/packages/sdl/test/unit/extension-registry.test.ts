@@ -39,12 +39,14 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineCommand, ok } from "@asdl/sdl/sdk";
+import { defineExtension, ok } from "@asdl/sdl/sdk";
 
-export default defineCommand({
+export default defineExtension({
+	commands: [{
 	name: ${JSON.stringify(name)},
 	description: ${JSON.stringify(`${name} command`)},
 	run() { return ok(${JSON.stringify(message)}); },
+}],
 });
 `;
 }
@@ -80,8 +82,8 @@ describe("extension registry", () => {
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override")).toHaveLength(2);
-		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe("Run SDL extension command 'cp'.");
-		expect(loaded.commandInfos.find((info) => info.name === "greet")?.description).toBe("Run SDL extension command 'greet'.");
+		expect(loaded.commandInfos.find((info) => info.name === "cp")?.description).toBe("Run SDL command entry 'cp'.");
+		expect(loaded.commandInfos.find((info) => info.name === "greet")?.description).toBe("Run SDL command entry 'greet'.");
 
 		const selected = loaded.candidates.get("greet");
 		expect(selected).toBeDefined();
@@ -115,6 +117,48 @@ describe("extension registry", () => {
 		});
 	});
 
+	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
+		const workspace = await createWorkspace();
+		writeProjectManifest(workspace, "pkg", {
+			asdl: {
+				commands: [
+					{ name: "hello", description: "Say hello.", entry: "./src/commands.ts" },
+					{ name: "bye", description: "Say bye.", entry: "./src/commands.ts" },
+				],
+			},
+		});
+		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "commands.ts"), `
+import { defineExtension, ok } from "@asdl/sdl/sdk";
+
+export default defineExtension({
+	commands: [
+		{ name: "hello", description: "Say hello.", run() { return ok("hello"); } },
+		{ name: "bye", description: "Say bye.", run() { return ok("bye"); } },
+	],
+});
+`);
+
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+		expect([...loaded.candidates.keys()]).toEqual(["bye", "changes", "cp", "hello", "submit"]);
+		const selected = loaded.candidates.get("bye");
+		expect(selected).toBeDefined();
+		if (selected === undefined) return;
+		const command = await loadSelectedSdlCommand(selected);
+		expect(command.ok).toBe(true);
+		if (!command.ok) return;
+		const result = await command.command.run({
+			cwd: workspace.cwd,
+			env: {},
+			async exec() {
+				return { code: 0, stdout: "", stderr: "", killed: false };
+			},
+			model: { async generateText() { return { ok: true, text: "" }; } },
+		}, {});
+		expect(result).toEqual({ ok: true, message: "bye" });
+	});
+
 	test("duplicate command names within one source level are errors", async () => {
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
@@ -140,6 +184,6 @@ describe("extension registry", () => {
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;
 		const command = await loadSelectedSdlCommand(selected);
-		expect(command).toMatchObject({ ok: false, diagnostic: { code: "extension_command_import_failed" } });
+		expect(command).toMatchObject({ ok: false, diagnostic: { code: "sdl_extension_contribution_import_failed" } });
 	});
 });

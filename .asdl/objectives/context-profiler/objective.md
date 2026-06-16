@@ -57,7 +57,7 @@ All seven capabilities landed on `master`: deterministic core, LM episode segmen
 Assumptions:
 
 - The prototype on `model-subagents` is a sufficient behavioral reference; no other spec exists or is needed. *(Revised: the interaction design is now recorded durably under "UI design" in Scope, so losing the branch no longer loses the UI lessons; the branch remains the only behavioral/code reference for derivation logic until the deterministic core lands.)* *(Revised again with the deterministic core landed: the production module and its Vitest suite are now the behavioral reference for derivation logic; the prototype branch is historical and no longer load-bearing.)*
-- The `@earendil-works/pi-coding-agent` extension API surface (`ContextEvent`, `SessionEntry`, `modelRegistry`, overlay/TUI primitives) remains the integration surface for the production extension.
+- The `@earendil-works/pi-coding-agent` Pi runtime extension API surface (`ContextEvent`, `SessionEntry`, `modelRegistry`, overlay/TUI primitives) remains the integration surface for the production extension.
 
 Risks:
 

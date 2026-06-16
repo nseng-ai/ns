@@ -44,11 +44,11 @@ describe("extension discovery", () => {
 
 		expect(result.diagnostics).toEqual([]);
 		expect(result.commands.map((command) => [command.kind, command.name, command.description, command.entryPath])).toEqual([
-			["file", "bare", "Run SDL extension command 'bare'.", join(root, "bare.ts")],
-			["dir-index", "dir-js", "Run SDL extension command 'dir-js'.", join(root, "dir-js", "index.js")],
-			["dir-index", "dir-ts", "Run SDL extension command 'dir-ts'.", join(root, "dir-ts", "index.ts")],
+			["file", "bare", "Run SDL command entry 'bare'.", join(root, "bare.ts")],
+			["dir-index", "dir-js", "Run SDL command entry 'dir-js'.", join(root, "dir-js", "index.js")],
+			["dir-index", "dir-ts", "Run SDL command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
 			["package", "custom", "Custom command.", join(root, "package-ext", "src", "index.ts")],
-			["file", "plain", "Run SDL extension command 'plain'.", join(root, "plain.js")],
+			["file", "plain", "Run SDL command entry 'plain'.", join(root, "plain.js")],
 		]);
 	});
 

@@ -31,8 +31,8 @@ This Objective covers a local child-session primitive implemented through Pi's e
 - Treat validated terminal input as the canonical structured payload.
 - Return terminal metadata such as tool name, tool call id, mapped status, and validated input; there is no public terminal `details` contract for the MVP.
 - Use the MVP result taxonomy: `completed`, `blocked`, `stopped-without-terminal`, `cancelled`, `error`, and `protocol-error`.
-- Fail before or at child startup when a terminal capture tool name collides with an existing child tool, to the extent exposed by Pi's extension API.
-- Detect terminal tool calls mixed with sibling tool calls and report `protocol-error` rather than treating the run as success. Preventing sibling execution before side effects is a best-effort goal under the public extension API, not an assumed core guarantee.
+- Fail before or at child startup when a terminal capture tool name collides with an existing child tool, to the extent exposed by Pi's runtime extension API.
+- Detect terminal tool calls mixed with sibling tool calls and report `protocol-error` rather than treating the run as success. Preventing sibling execution before side effects is a best-effort goal under the public Pi runtime extension API, not an assumed core guarantee.
 - Include unit/integration coverage using mocked child process JSONL and no real provider API calls.
 - Document the local helper's function-call mental model, child process architecture, terminal capture semantics, collision rules, protocol-error handling, and limitations.
 

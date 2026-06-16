@@ -50,7 +50,7 @@ This Objective covers the following design and implementation work:
 Assumptions:
 
 - The payload artifact architecture carried forward by `agent-payload-artifacts` is the right architectural base for full log preservation and compact locator manifests; the shared payload artifact store is already shipped, and this Objective can decide how directly to reuse it for command-log capture.
-- A standalone CLI/helper is the right canonical surface because Pi, Claude, Codex, and humans can all invoke it without depending on one harness's extension API.
+- A standalone CLI/helper is the right canonical surface because Pi, Claude, Codex, and humans can all invoke it without depending on one harness's Pi runtime extension API.
 - Deterministic summaries are enough for the common validation loop: the main agent needs outcome evidence, counts, bounded tails, failure excerpts, and log paths more often than it needs semantic interpretation of every line.
 - Agents in the relevant harnesses can read local payload artifact log paths when deeper inspection is needed.
 - The highest-value initial profiles are tests, lint, typecheck, and generic command output; more specialized parsers can be added later.
