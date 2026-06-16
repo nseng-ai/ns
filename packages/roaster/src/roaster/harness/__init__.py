@@ -1,1 +1,0 @@
-"""Harness-specific adapters."""

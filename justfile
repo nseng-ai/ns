@@ -136,5 +136,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package asdl-core --package asdl-dispatcher --package asdl-objectives --package aretro --package roaster --package asdl-slots --package vibechk
+    uv build --package asdl-tools --package asdl-core --package asdl-dispatcher --package asdl-objectives --package aretro --package asdl-slots --package vibechk
     uv publish

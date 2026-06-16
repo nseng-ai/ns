@@ -15,16 +15,6 @@ from asdl_slots.gateway.testing.clipboard import FakeClipboardGateway
 from asdl_slots.gateway.testing.storage import FakeSlotsStorageGateway
 from asdl_slots.repo_context import RepoContext, discover_repo_or_sentinel
 from asdl_tools.cli.plugins import PluginEntryPointSource, discover_plugins
-from roaster.context import RoasterCliContext
-from roaster.gateways.local_diff.fake import FakeLocalDiffGateway
-from roaster.gateways.review_catalog.fake import FakeReviewCatalogGateway
-from roaster.harness.fake import FakeHarnessRuntime
-from roaster.models import (
-    FindingsReview,
-    LocalDiff,
-    ReviewExecutionResponse,
-    ReviewFinding,
-)
 
 
 class FakePluginEntryPoint:
@@ -193,82 +183,3 @@ def test_slots_plugin_integration(tmp_path: Path) -> None:
         "slot-04",
     ]
     assert all(row["status"] == "available" for row in rows)
-
-
-def test_roaster_plugin_integration() -> None:
-    parent = click.Group("test")
-    ep = FakePluginEntryPoint(
-        name="roaster",
-        value="roaster.cli.plugin:build_roaster_plugin",
-    )
-
-    discover_plugins(parent, source=_entry_point_source(ep))
-
-    runner = CliRunner()
-
-    obj = RoasterCliContext(
-        catalog=FakeReviewCatalogGateway(
-            review_sources_by_key={
-                "dignified-python": (
-                    "---\n"
-                    "description: Review Python diffs for style violations.\n"
-                    "default_model: sonnet\n"
-                    "---\n"
-                    "\n"
-                    "Flag concrete issues in the diff.\n"
-                )
-            },
-        ),
-        diff=FakeLocalDiffGateway(
-            default_diff=LocalDiff(
-                base_ref="master",
-                diff_text="diff --git a/app.py b/app.py\n+print('hello')\n",
-            ),
-        ),
-        harness_runtime=FakeHarnessRuntime(
-            default_response=ReviewExecutionResponse(
-                payload=FindingsReview(
-                    findings=(
-                        ReviewFinding.diff_line(
-                            path="app.py",
-                            line=1,
-                            severity="warning",
-                            summary="Avoid print in library code",
-                            details="Use click.echo() or structured logging instead.",
-                        ),
-                    )
-                )
-            ),
-        ),
-        pr_gateway=FakePRGateway(),
-        cwd=Path("/anywhere"),
-    )
-
-    clinkr_obj = build_clinkr_context_object(lambda: obj)
-
-    result = runner.invoke(parent, ["roaster", "--help"])
-    assert result.exit_code == 0, result.output
-    assert "review" in result.output
-    assert "harness" not in result.output
-    assert "stack" not in result.output
-    assert "profile" not in result.output
-
-    result = runner.invoke(
-        parent,
-        ["roaster", "review", "run", "dignified-python"],
-        obj=clinkr_obj,
-    )
-    assert result.exit_code == 0, result.output
-    assert "dignified-python" in result.output
-
-    result = runner.invoke(
-        parent,
-        ["roaster", "review", "run", "dignified-python", "--format", "json"],
-        obj=clinkr_obj,
-    )
-    assert result.exit_code == 0, result.output
-    output = json.loads(result.stdout)
-    assert output["exit_code"] == 0
-    data = output["data"]
-    assert data["count"] == 1
-    assert data["findings"][0]["path"] == "app.py"
