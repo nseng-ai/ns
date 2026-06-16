@@ -1,5 +1,6 @@
+import type { Result } from "@asdl/core/result";
+
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
-import type { OperationResult } from "./operation-result.ts";
 
 type NonUsableTextFileState = Exclude<AregTextFileState, { type: "file" } | { type: "missing" }>;
 type NonUsableDirectoryState = Exclude<AregPathState, { type: "directory" } | { type: "missing" }>;
@@ -9,8 +10,8 @@ export function validateOptionalDirectoryState(options: {
 	state: AregPathState;
 	action: string;
 	symlinkSubject?: string | undefined;
-}): OperationResult<undefined> {
-	if (options.state.type === "missing" || options.state.type === "directory") return { type: "ok", value: undefined };
+}): Result<undefined> {
+	if (options.state.type === "missing" || options.state.type === "directory") return { ok: true, value: undefined };
 	return rejectDirectoryState({
 		pathLabel: options.pathLabel,
 		state: options.state,
@@ -25,15 +26,15 @@ export function rejectTextState<T>(options: {
 	action: string;
 	description?: string | undefined;
 	unreadableMode?: "failed-read" | "not-file" | undefined;
-}): OperationResult<T> {
+}): Result<T> {
 	if (options.state.type === "symlink") {
 		const subject = options.description === undefined ? options.pathLabel : `${options.description} at ${options.pathLabel}`;
-		return { type: "error", message: `${subject} is a symlink; refusing to ${options.action}.` };
+		return { ok: false, error: { code: "path_symlink", message: `${subject} is a symlink; refusing to ${options.action}.` } };
 	}
 	if (options.state.type === "unreadable" && options.unreadableMode !== "not-file") {
-		return { type: "error", message: `Failed to read ${options.pathLabel}: ${options.state.message}` };
+		return { ok: false, error: { code: "path_read_failed", message: `Failed to read ${options.pathLabel}: ${options.state.message}` } };
 	}
-	return { type: "error", message: `${options.pathLabel} exists but is not a file.` };
+	return { ok: false, error: { code: "path_not_file", message: `${options.pathLabel} exists but is not a file.` } };
 }
 
 function rejectDirectoryState<T>(options: {
@@ -41,7 +42,7 @@ function rejectDirectoryState<T>(options: {
 	state: NonUsableDirectoryState;
 	action: string;
 	symlinkSubject?: string | undefined;
-}): OperationResult<T> {
-	if (options.state.type === "symlink") return { type: "error", message: `${options.symlinkSubject ?? options.pathLabel} is a symlink; refusing to ${options.action}.` };
-	return { type: "error", message: `${options.pathLabel} exists but is not a directory.` };
+}): Result<T> {
+	if (options.state.type === "symlink") return { ok: false, error: { code: "path_symlink", message: `${options.symlinkSubject ?? options.pathLabel} is a symlink; refusing to ${options.action}.` } };
+	return { ok: false, error: { code: "path_not_directory", message: `${options.pathLabel} exists but is not a directory.` } };
 }

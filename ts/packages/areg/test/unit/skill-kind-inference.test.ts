@@ -4,7 +4,7 @@ import { inferSkillKindRecord, inspectSkillFrontmatter } from "../../src/operati
 
 function record(skillMd: string, options: { hasCodexSidecar?: boolean; isPiExcluded?: boolean; replacementVerified?: boolean } = {}) {
 	const frontmatter = inspectSkillFrontmatter(skillMd, "SKILL.md");
-	if (frontmatter.type === "error") throw new Error(frontmatter.message);
+	if (!frontmatter.ok) throw new Error(frontmatter.error.message);
 	return inferSkillKindRecord({
 		skillName: "demo-skill",
 		frontmatter: frontmatter.value,

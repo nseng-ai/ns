@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./primitives": "./src/primitives.ts",
+    "./result": "./src/result.ts",
     "./markdown-frontmatter": "./src/markdown-frontmatter.ts",
     "./text-truncation": "./src/text-truncation.ts",
     "./time-format": "./src/time-format.ts",

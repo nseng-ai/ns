@@ -1,6 +1,5 @@
 import { splitMarkdownFrontmatter, stripLineEnding } from "@asdl/core/markdown-frontmatter";
-
-import type { OperationResult } from "./operation-result.ts";
+import { err, type Result } from "@asdl/core/result";
 
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 
@@ -9,7 +8,7 @@ export interface SkillFrontmatterData {
 	keys: ReadonlySet<string>;
 }
 
-export type SkillFrontmatterParseResult = OperationResult<SkillFrontmatterData>;
+export type SkillFrontmatterParseResult = Result<SkillFrontmatterData>;
 
 export type SkillFrontmatterTopLevelLineParseResult =
 	| { type: "key"; key: string; value: string }
@@ -18,8 +17,8 @@ export type SkillFrontmatterTopLevelLineParseResult =
 
 export function parseSkillFrontmatterBlock(text: string): SkillFrontmatterParseResult {
 	const split = splitMarkdownFrontmatter(text);
-	if (split.type === "not_found") return { type: "error", message: "missing opening frontmatter delimiter '---'" };
-	if (split.type === "missing_closing_fence") return { type: "error", message: "missing closing frontmatter delimiter '---'" };
+	if (split.type === "not_found") return err({ code: "frontmatter_missing_opening_delimiter", message: "missing opening frontmatter delimiter '---'" });
+	if (split.type === "missing_closing_fence") return err({ code: "frontmatter_missing_closing_delimiter", message: "missing closing frontmatter delimiter '---'" });
 
 	const lines = split.block.frontmatterLinesWithEndings.map(stripLineEnding);
 	const fields: Record<string, string> = {};
@@ -39,7 +38,7 @@ export function parseSkillFrontmatterBlock(text: string): SkillFrontmatterParseR
 		const parsedLine = parseSkillFrontmatterTopLevelLine(line);
 		if (parsedLine.type === "key") {
 			flushCurrent();
-			if (keys.has(parsedLine.key)) return { type: "error", message: `duplicate frontmatter key: ${JSON.stringify(parsedLine.key)}` };
+			if (keys.has(parsedLine.key)) return err({ code: "frontmatter_duplicate_key", message: `duplicate frontmatter key: ${JSON.stringify(parsedLine.key)}` });
 			currentKey = parsedLine.key;
 			keys.add(currentKey);
 			currentValues = [];
@@ -47,12 +46,12 @@ export function parseSkillFrontmatterBlock(text: string): SkillFrontmatterParseR
 			if (inlineValue.length > 0) currentValues.push(inlineValue);
 			continue;
 		}
-		if (parsedLine.type === "invalid") return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(parsedLine.line)}` };
-		if (currentKey === undefined) return { type: "error", message: `invalid frontmatter line: ${JSON.stringify(line)}` };
+		if (parsedLine.type === "invalid") return err({ code: "frontmatter_invalid_line", message: `invalid frontmatter line: ${JSON.stringify(parsedLine.line)}` });
+		if (currentKey === undefined) return err({ code: "frontmatter_invalid_line", message: `invalid frontmatter line: ${JSON.stringify(line)}` });
 		currentValues.push(line.trim());
 	}
 	flushCurrent();
-	return { type: "ok", value: { fields, keys } };
+	return { ok: true, value: { fields, keys } };
 }
 
 export function parseSkillFrontmatterTopLevelLine(line: string): SkillFrontmatterTopLevelLineParseResult {
@@ -70,16 +69,16 @@ export function isSkillFrontmatterTopLevelKey(line: string, key: string): boolea
 	return parsed.type === "key" && parsed.key === key;
 }
 
-export function transformSkillFrontmatter(text: string, pathLabel: string, desired: Readonly<Record<string, string | undefined>>): OperationResult<string> {
+export function transformSkillFrontmatter(text: string, pathLabel: string, desired: Readonly<Record<string, string | undefined>>): Result<string> {
 	const parsed = parseSkillFrontmatterBlock(text);
-	if (parsed.type === "error") return { type: "error", message: `${pathLabel} ${parsed.message}` };
+	if (!parsed.ok) return { ok: false, error: { ...parsed.error, message: `${pathLabel} ${parsed.error.message}` } };
 
 	const split = splitMarkdownFrontmatter(text);
-	if (split.type !== "found") return { type: "error", message: `${pathLabel} invalid frontmatter bounds` };
+	if (split.type !== "found") return err({ code: "frontmatter_invalid_bounds", message: `${pathLabel} invalid frontmatter bounds` });
 
 	const lines = [...split.block.linesWithEndings];
 	const nameIndex = lines.findIndex((line, index) => index > 0 && index < split.block.closingIndex && isSkillFrontmatterTopLevelKey(line, "name"));
-	if (nameIndex === -1) return { type: "error", message: `${pathLabel} missing name field in frontmatter` };
+	if (nameIndex === -1) return err({ code: "frontmatter_missing_name", message: `${pathLabel} missing name field in frontmatter` });
 
 	const managedKeys = Object.keys(desired);
 	const kept = lines.filter((line, index) => index <= 0 || index >= split.block.closingIndex || !managedKeys.some((key) => isSkillFrontmatterTopLevelKey(line, key)));
@@ -89,5 +88,5 @@ export function transformSkillFrontmatter(text: string, pathLabel: string, desir
 		return value === undefined ? [] : [`${key}: ${value}${split.block.lineEnding}`];
 	});
 	kept.splice(keptNameIndex + 1, 0, ...additions);
-	return { type: "ok", value: kept.join("") };
+	return { ok: true, value: kept.join("") };
 }

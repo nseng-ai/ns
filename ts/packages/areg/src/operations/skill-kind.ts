@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
+import { err, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -13,7 +14,6 @@ import type {
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
-import type { OperationResult } from "./operation-result.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
@@ -232,7 +232,7 @@ export async function runSkillKindList(ctx: AregCliContext, request: SkillKindLi
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (records.type === "error") return failure("skill_records_invalid", records.message);
+	if (!records.ok) return failure("skill_records_invalid", records.error.message);
 	return ok({ project_dir: resolved.value.projectDir, skills: records.value.map(toSkillKindRecordResult) });
 }
 
@@ -242,7 +242,7 @@ export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindSh
 	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
 	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (records.type === "error") return failure("skill_records_invalid", records.message);
+	if (!records.ok) return failure("skill_records_invalid", records.error.message);
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
 		return negative(`Local skill not found: ${request.skill}`, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
@@ -261,13 +261,13 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
 		if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 		const plan = buildSkillKindApplyPlan(resolved.value.inspection, resolvedSkill.skillName, request.kind);
-		if (plan.type === "error") return failure("skill_plan_failed", plan.message);
+		if (!plan.ok) return failure("skill_plan_failed", plan.error.message);
 		if (!request.dry_run && !request.yes && hasDeletionPrompt(plan.value)) {
 			const confirmed = await ctx.prompt.confirm({ message: deletionPrompt(plan.value), defaultValue: false });
 			if (!confirmed) return negative(`Declined to apply ${request.kind} to ${plan.value.skill}.`, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
 		}
 		if (request.dry_run) {
-			skillResults.push({ skill: plan.value.skill, operations: plan.value.operations.map((operation) => toApplyOperationResult(operation, false, false)) });
+			skillResults.push({ skill: plan.value.skill, operations: plan.value.operations.map((operation) => toApplyResult(operation, false, false)) });
 			continue;
 		}
 		const applyResult = await applyProjectMutationPlan({
@@ -281,7 +281,7 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 		if (!applyResult.ok) return failure("write_failed", applyResult.error.message);
 		skillResults.push({
 			skill: plan.value.skill,
-			operations: plan.value.operations.map((operation) => toApplyOperationResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
+			operations: plan.value.operations.map((operation) => toApplyResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
 		});
 	}
 	return ok({ project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
@@ -333,9 +333,9 @@ export function renderSkillKindApply(result: SkillKindApplyResult): string {
 	return lines.join("\n");
 }
 
-export function inspectSkillFrontmatter(text: string, pathLabel: string): OperationResult<FrontmatterInspection> {
+export function inspectSkillFrontmatter(text: string, pathLabel: string): Result<FrontmatterInspection> {
 	const parsed = parseSkillFrontmatterBlock(text);
-	if (parsed.type === "error") return { type: "error", message: `${pathLabel} ${parsed.message}` };
+	if (!parsed.ok) return { ok: false, error: { ...parsed.error, message: `${pathLabel} ${parsed.error.message}` } };
 	return parsed;
 }
 
@@ -381,16 +381,16 @@ export function inferSkillKindRecord(options: {
 	};
 }
 
-function buildSkillKindRecords(inspection: SkillKindProjectInspection): OperationResult<readonly SkillKindRecord[]> {
+function buildSkillKindRecords(inspection: SkillKindProjectInspection): Result<readonly SkillKindRecord[]> {
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
-	if (piSettings.type === "error") return piSettings;
+	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
 	for (const skill of sortSkills(inspection.skills)) {
 		const readiness = validateInspectableSkill(skill);
-		if (readiness.type === "error") return readiness;
-		if (skill.skillMd.type !== "file") return { type: "error", message: `skills/${skill.name}/SKILL.md does not exist` };
+		if (!readiness.ok) return readiness;
+		if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
 		const frontmatter = inspectSkillFrontmatter(skill.skillMd.text, `skills/${skill.name}/SKILL.md`);
-		if (frontmatter.type === "error") return frontmatter;
+		if (!frontmatter.ok) return frontmatter;
 		const replacement = verifyPiReplacement(skill.name, inspection.genericReplacement);
 		records.push(inferSkillKindRecord({
 			skillName: skill.name,
@@ -400,28 +400,28 @@ function buildSkillKindRecords(inspection: SkillKindProjectInspection): Operatio
 			replacement,
 		}));
 	}
-	return { type: "ok", value: records };
+	return { ok: true, value: records };
 }
 
-function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillName: string, kind: SkillInvocationKind): OperationResult<SkillKindApplyPlan> {
+function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillName: string, kind: SkillInvocationKind): Result<SkillKindApplyPlan> {
 	const skill = inspection.skills.find((candidate) => candidate.name === skillName);
-	if (skill === undefined) return { type: "error", message: `Local skill not found: ${skillName}` };
+	if (skill === undefined) return err({ code: "skill_not_found", message: `Local skill not found: ${skillName}` });
 	const readiness = validateInspectableSkill(skill);
-	if (readiness.type === "error") return readiness;
-	if (skill.skillMd.type !== "file") return { type: "error", message: `skills/${skill.name}/SKILL.md does not exist` };
+	if (!readiness.ok) return readiness;
+	if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
 	if (kind === "command-backed") {
 		const replacement = verifyPiReplacement(skill.name, inspection.genericReplacement);
-		if (!replacement.verified) return { type: "error", message: replacementAdvice(skill.name, replacement.surface) };
+		if (!replacement.verified) return err({ code: "skill_not_found", message: replacementAdvice(skill.name, replacement.surface) });
 	}
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
-	if (piSettings.type === "error") return piSettings;
+	if (!piSettings.ok) return piSettings;
 	const frontmatter = planFrontmatterOperation(skill.name, skill.skillMd.text, kind);
-	if (frontmatter.type === "error") return frontmatter;
+	if (!frontmatter.ok) return frontmatter;
 	const sidecar = planSidecarOperations(skill, kind);
-	if (sidecar.type === "error") return sidecar;
+	if (!sidecar.ok) return sidecar;
 	const pi = planPiSettingsOperation(skill.name, kind, piSettings.value);
-	if (pi.type === "error") return pi;
-	return { type: "ok", value: { skill: skill.name, kind, operations: [frontmatter.value, ...sidecar.value, pi.value] } };
+	if (!pi.ok) return pi;
+	return { ok: true, value: { skill: skill.name, kind, operations: [frontmatter.value, ...sidecar.value, pi.value] } };
 }
 
 async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
@@ -448,58 +448,57 @@ async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPat
 	};
 }
 
-function validateInspectableSkill(skill: AregSkillKindSkillInspection): { type: "ok" } | { type: "error"; message: string } {
-	if (skill.skillDir.type === "symlink") return { type: "error", message: `skills/${skill.name} is a symlink but should be a real directory (canonical source)` };
-	if (skill.skillDir.type !== "directory") return { type: "error", message: `Local skill missing canonical source: skills/${skill.name}/ does not exist` };
-	if (skill.skillMd.type === "symlink") return { type: "error", message: `skills/${skill.name}/SKILL.md is a symlink but should be a real file (canonical source)` };
-	if (skill.skillMd.type !== "file") return { type: "error", message: `skills/${skill.name}/SKILL.md does not exist` };
-	return { type: "ok" };
+function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {
+	if (skill.skillDir.type === "symlink") return err({ code: "path_symlink", message: `skills/${skill.name} is a symlink but should be a real directory (canonical source)` });
+	if (skill.skillDir.type !== "directory") return err({ code: "skill_not_found", message: `Local skill missing canonical source: skills/${skill.name}/ does not exist` });
+	if (skill.skillMd.type === "symlink") return err({ code: "path_symlink", message: `skills/${skill.name}/SKILL.md is a symlink but should be a real file (canonical source)` });
+	if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
+	return { ok: true, value: undefined };
 }
 
-
-function planFrontmatterOperation(skillName: string, text: string, kind: SkillInvocationKind): OperationResult<PlannedApplyOperation> {
+function planFrontmatterOperation(skillName: string, text: string, kind: SkillInvocationKind): Result<PlannedApplyOperation> {
 	const relativePath = `skills/${skillName}/SKILL.md`;
 	const transformed = transformSkillFrontmatter(text, relativePath, desiredFrontmatter(kind));
-	if (transformed.type === "error") return transformed;
-	if (transformed.value === text) return { type: "ok", value: { type: "skip", relativePath, description: "SKILL.md", reason: "SKILL.md frontmatter already current" } };
-	return { type: "ok", value: { type: "write", relativePath, description: "SKILL.md", content: transformed.value, createParent: false } };
+	if (!transformed.ok) return transformed;
+	if (transformed.value === text) return { ok: true, value: { type: "skip", relativePath, description: "SKILL.md", reason: "SKILL.md frontmatter already current" } };
+	return { ok: true, value: { type: "write", relativePath, description: "SKILL.md", content: transformed.value, createParent: false } };
 }
 
-function planSidecarOperations(skill: AregSkillKindSkillInspection, kind: SkillInvocationKind): OperationResult<readonly PlannedApplyOperation[]> {
+function planSidecarOperations(skill: AregSkillKindSkillInspection, kind: SkillInvocationKind): Result<readonly PlannedApplyOperation[]> {
 	const relativePath = `skills/${skill.name}/agents/openai.yaml`;
 	const agentsDir = `skills/${skill.name}/agents`;
 	const shouldExist = kind === "invoke-only" || kind === "command-backed";
 	if (shouldExist) {
-		if (skill.openaiPolicy.type === "symlink") return { type: "error", message: `${relativePath} is a symlink; refusing to manage it.` };
+		if (skill.openaiPolicy.type === "symlink") return err({ code: "path_symlink", message: `${relativePath} is a symlink; refusing to manage it.` });
 		if (skill.openaiPolicy.type === "file") {
-			if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY) return { type: "error", message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.` };
-			return { type: "ok", value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml already current" }] };
+			if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY) return err({ code: "non_managed_openai_policy", message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.` });
+			return { ok: true, value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml already current" }] };
 		}
-		if (skill.openaiPolicy.type !== "missing") return { type: "error", message: `${relativePath} exists but is not a file.` };
-		return { type: "ok", value: [{ type: "write", relativePath, description: "Codex openai.yaml", content: MANAGED_OPENAI_POLICY, createParent: true }] };
+		if (skill.openaiPolicy.type !== "missing") return err({ code: "path_not_file", message: `${relativePath} exists but is not a file.` });
+		return { ok: true, value: [{ type: "write", relativePath, description: "Codex openai.yaml", content: MANAGED_OPENAI_POLICY, createParent: true }] };
 	}
-	if (skill.openaiPolicy.type === "missing") return { type: "ok", value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml absent" }] };
-	if (skill.openaiPolicy.type === "symlink") return { type: "error", message: `${relativePath} is a symlink; refusing to delete it.` };
-	if (skill.openaiPolicy.type !== "file") return { type: "error", message: `${relativePath} exists but is not a file.` };
-	if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY) return { type: "error", message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.` };
-	return { type: "ok", value: [
+	if (skill.openaiPolicy.type === "missing") return { ok: true, value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml absent" }] };
+	if (skill.openaiPolicy.type === "symlink") return err({ code: "path_symlink", message: `${relativePath} is a symlink; refusing to delete it.` });
+	if (skill.openaiPolicy.type !== "file") return err({ code: "path_not_file", message: `${relativePath} exists but is not a file.` });
+	if (skill.openaiPolicy.text !== MANAGED_OPENAI_POLICY) return err({ code: "non_managed_openai_policy", message: `${relativePath} exists with non-managed content; resolve it manually before applying ${kind}.` });
+	return { ok: true, value: [
 		{ type: "delete", relativePath, description: "Codex openai.yaml" },
 		{ type: "remove_empty_dir", relativePath: agentsDir, description: "empty skill agents directory" },
 	] };
 }
 
-function planPiSettingsOperation(skillName: string, kind: SkillInvocationKind, settings: PiSettingsData): OperationResult<PlannedApplyOperation> {
+function planPiSettingsOperation(skillName: string, kind: SkillInvocationKind, settings: PiSettingsData): Result<PlannedApplyOperation> {
 	const relativePath = ".pi/settings.json";
 	const entry = `-skills/${skillName}`;
 	const shouldExclude = kind === "command-backed";
 	const currentExclusions = settings.exclusions;
 	const hasEntry = currentExclusions.includes(entry);
-	if (shouldExclude && hasEntry) return { type: "ok", value: { type: "skip", relativePath, description: "Pi settings", reason: `${entry} already present` } };
-	if (!shouldExclude && !hasEntry) return { type: "ok", value: { type: "skip", relativePath, description: "Pi settings", reason: `${entry} absent` } };
+	if (shouldExclude && hasEntry) return { ok: true, value: { type: "skip", relativePath, description: "Pi settings", reason: `${entry} already present` } };
+	if (!shouldExclude && !hasEntry) return { ok: true, value: { type: "skip", relativePath, description: "Pi settings", reason: `${entry} absent` } };
 	const nextData: Record<string, unknown> = settings.data === undefined ? {} : { ...settings.data };
 	const nextSkills = shouldExclude ? [...currentExclusions, entry] : currentExclusions.filter((candidate) => candidate !== entry);
 	nextData.skills = nextSkills;
-	return { type: "ok", value: { type: "write", relativePath, description: "Pi settings", content: `${JSON.stringify(nextData, null, 2)}\n`, createParent: settings.text === undefined } };
+	return { ok: true, value: { type: "write", relativePath, description: "Pi settings", content: `${JSON.stringify(nextData, null, 2)}\n`, createParent: settings.text === undefined } };
 }
 
 function desiredFrontmatter(kind: SkillInvocationKind): Readonly<Record<string, string | undefined>> {
@@ -530,7 +529,7 @@ function plannedRemoveEmptyDirs(plan: SkillKindApplyPlan): readonly AregSkillKin
 	return plan.operations.flatMap((operation) => operation.type === "remove_empty_dir" ? [{ relativePath: operation.relativePath, description: operation.description }] : []);
 }
 
-function toApplyOperationResult(operation: PlannedApplyOperation, didApply: boolean, removedEmptyDir: boolean): SkillKindApplyResult["skills"][number]["operations"][number] {
+function toApplyResult(operation: PlannedApplyOperation, didApply: boolean, removedEmptyDir: boolean): SkillKindApplyResult["skills"][number]["operations"][number] {
 	return {
 		type: operation.type,
 		path: operation.relativePath,
@@ -639,6 +638,7 @@ function presence(value: boolean): "present" | "absent" {
 	return value ? "present" : "absent";
 }
 
+
 function sortSkills(skills: readonly AregSkillKindSkillInspection[]): readonly AregSkillKindSkillInspection[] {
 	const byName = new Map(skills.map((skill) => [skill.name, skill]));
 	return sortStrings([...byName.keys()]).map((name) => byName.get(name)).filter((skill): skill is AregSkillKindSkillInspection => skill !== undefined);
@@ -665,4 +665,3 @@ function emptyShowResult(projectDir: string, skillName: string): SkillKindShowRe
 		},
 	};
 }
-

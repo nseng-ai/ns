@@ -7,25 +7,25 @@ describe("areg check frontmatter parser", () => {
 	test("parses fields, comments, continuations, and quoted values", () => {
 		const result = parseSkillFrontmatterText("---\nname: demo\n# comment\ndescription: \"Command:\n  demo skill\"\n---\nbody\n");
 
-		expect(result).toEqual({ type: "ok", fields: { name: "demo", description: "Command: demo skill" } });
+		expect(result).toEqual({ ok: true, value: { name: "demo", description: "Command: demo skill" } });
 	});
 
 	test("reports durable frontmatter errors", () => {
-		expect(parseSkillFrontmatterText("body\n")).toEqual({ type: "error", message: "missing opening frontmatter delimiter '---'" });
-		expect(parseSkillFrontmatterText("---\nname: demo\n")).toEqual({ type: "error", message: "missing closing frontmatter delimiter '---'" });
-		expect(parseSkillFrontmatterText("---\nnot a key value line\n---\n")).toEqual({ type: "error", message: 'invalid frontmatter line: "not a key value line"' });
+		expect(parseSkillFrontmatterText("body\n")).toMatchObject({ ok: false, error: { message: "missing opening frontmatter delimiter '---'" } });
+		expect(parseSkillFrontmatterText("---\nname: demo\n")).toMatchObject({ ok: false, error: { message: "missing closing frontmatter delimiter '---'" } });
+		expect(parseSkillFrontmatterText("---\nnot a key value line\n---\n")).toMatchObject({ ok: false, error: { message: 'invalid frontmatter line: "not a key value line"' } });
 	});
 
 	test("rejects duplicate top-level keys", () => {
-		expect(parseSkillFrontmatterText("---\nname: demo\nname: other\n---\n")).toEqual({ type: "error", message: 'duplicate frontmatter key: "name"' });
-		expect(parseSkillFrontmatterText("---\nname: demo\ndisable-model-invocation: true\ndisable-model-invocation: false\n---\n")).toEqual({ type: "error", message: 'duplicate frontmatter key: "disable-model-invocation"' });
+		expect(parseSkillFrontmatterText("---\nname: demo\nname: other\n---\n")).toMatchObject({ ok: false, error: { message: 'duplicate frontmatter key: "name"' } });
+		expect(parseSkillFrontmatterText("---\nname: demo\ndisable-model-invocation: true\ndisable-model-invocation: false\n---\n")).toMatchObject({ ok: false, error: { message: 'duplicate frontmatter key: "disable-model-invocation"' } });
 	});
 
 	test("requires exact opening and closing fences", () => {
-		expect(parseSkillFrontmatterText("\n---\nname: demo\n---\n")).toEqual({ type: "error", message: "missing opening frontmatter delimiter '---'" });
-		expect(parseSkillFrontmatterText("--- \nname: demo\n---\n")).toEqual({ type: "error", message: "missing opening frontmatter delimiter '---'" });
-		expect(parseSkillFrontmatterText("---\nname: demo\n ---\n")).toEqual({ type: "error", message: "missing closing frontmatter delimiter '---'" });
-		expect(parseSkillFrontmatterText("---\nname: demo\n--- \n")).toEqual({ type: "error", message: "missing closing frontmatter delimiter '---'" });
+		expect(parseSkillFrontmatterText("\n---\nname: demo\n---\n")).toMatchObject({ ok: false, error: { message: "missing opening frontmatter delimiter '---'" } });
+		expect(parseSkillFrontmatterText("--- \nname: demo\n---\n")).toMatchObject({ ok: false, error: { message: "missing opening frontmatter delimiter '---'" } });
+		expect(parseSkillFrontmatterText("---\nname: demo\n ---\n")).toMatchObject({ ok: false, error: { message: "missing closing frontmatter delimiter '---'" } });
+		expect(parseSkillFrontmatterText("---\nname: demo\n--- \n")).toMatchObject({ ok: false, error: { message: "missing closing frontmatter delimiter '---'" } });
 	});
 });
 
@@ -38,7 +38,7 @@ describe("areg SKILL.md frontmatter transform", () => {
 		);
 
 		expect(transformed).toEqual({
-			type: "ok",
+			ok: true,
 			value: "---\nname: demo\ndisable-model-invocation: true\ndisable-model-invocation-extra: true\nuser-invocable-extra: false\n---\nbody\n",
 		});
 	});
@@ -50,13 +50,13 @@ describe("areg SKILL.md frontmatter transform", () => {
 			{ "disable-model-invocation": "true", "user-invocable": undefined },
 		);
 
-		expect(transformed).toEqual({ type: "ok", value: "---\r\nname: demo\r\ndisable-model-invocation: true\r\n---\r\nbody\r\n" });
+		expect(transformed).toEqual({ ok: true, value: "---\r\nname: demo\r\ndisable-model-invocation: true\r\n---\r\nbody\r\n" });
 	});
 
 	test("rejects duplicate keys before rewriting", () => {
-		expect(transformSkillFrontmatter("---\nname: demo\nname: other\n---\n", "skills/demo/SKILL.md", { "disable-model-invocation": "true" })).toEqual({
-			type: "error",
-			message: 'skills/demo/SKILL.md duplicate frontmatter key: "name"',
+		expect(transformSkillFrontmatter("---\nname: demo\nname: other\n---\n", "skills/demo/SKILL.md", { "disable-model-invocation": "true" })).toMatchObject({
+			ok: false,
+			error: { message: 'skills/demo/SKILL.md duplicate frontmatter key: "name"' },
 		});
 	});
 });

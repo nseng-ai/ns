@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import type { Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -93,13 +94,13 @@ export async function runCheck(ctx: AregCliContext, request: CheckRequest): Prom
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
 	const lockfileResult = parseInspectedLockfile(inspection);
-	if (lockfileResult.type === "error") {
-		return failure("lockfile_invalid", lockfileResult.message);
+	if (!lockfileResult.ok) {
+		return failure("lockfile_invalid", lockfileResult.error.message);
 	}
-	const hasLocalSkills = lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local");
-	const piSettings = hasLocalSkills ? parsePiSettings(inspection.piDir, inspection.piSettings) : { type: "ok" as const, value: { exclusions: [] } };
-	if (piSettings.type === "error") return failure("pi_settings_invalid", piSettings.message);
-	const report = buildCheckReport(inspection, lockfileResult.lockfile, piSettings.value.exclusions);
+	const hasLocalSkills = lockfileResult.value.skills.some((skill) => skill.sourceType === "local");
+	const piSettings = hasLocalSkills ? parsePiSettings(inspection.piDir, inspection.piSettings) : { ok: true as const, value: { exclusions: [] } };
+	if (!piSettings.ok) return failure("pi_settings_invalid", piSettings.error.message);
+	const report = buildCheckReport(inspection, lockfileResult.value, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
 	return negative(formatCheckReport(report), report);
 }
@@ -130,10 +131,10 @@ export function buildCheckReport(inspection: CheckProjectInspection, lockfile: S
 	};
 }
 
-export function parseSkillFrontmatterText(text: string): { type: "ok"; fields: Readonly<Record<string, string>> } | { type: "error"; message: string } {
+export function parseSkillFrontmatterText(text: string): Result<Readonly<Record<string, string>>> {
 	const parsed = parseSkillFrontmatterBlock(text);
-	if (parsed.type === "error") return parsed;
-	return { type: "ok", fields: parsed.value.fields };
+	if (!parsed.ok) return parsed;
+	return { ok: true, value: parsed.value.fields };
 }
 
 export { derivePiReplacementCommand };
@@ -202,8 +203,8 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 	const skillMd = entry.sourceType === "local" ? inspected.localSkillMd : inspected.remoteSkillMd;
 	if (skillMd.type !== "file") return [issue(entry.name, "invalid_skill_md", `${relativePath} does not exist`)];
 	const frontmatter = parseSkillFrontmatterText(skillMd.text);
-	if (frontmatter.type === "error") return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid frontmatter: ${frontmatter.message}`)];
-	const description = frontmatter.fields.description;
+	if (!frontmatter.ok) return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid frontmatter: ${frontmatter.error.message}`)];
+	const description = frontmatter.value.description;
 	if (description !== undefined && description.length > MAX_SKILL_DESCRIPTION_CHARS) {
 		return [issue(entry.name, "invalid_skill_md", `${relativePath} invalid description: exceeds maximum length of 1024 characters (got ${description.length})`)];
 	}
@@ -221,8 +222,8 @@ function checkInvokeOnly(options: CheckInvokeOnlyOptions): CheckIssue[] {
 	const { entry, inspected, inspection, piExclusions } = options;
 	if (inspected.localSkillMd.type !== "file") return [];
 	const frontmatter = parseSkillFrontmatterText(inspected.localSkillMd.text);
-	if (frontmatter.type === "error") return [];
-	const flagEnabled = frontmatter.fields[DISABLE_MODEL_INVOCATION_KEY]?.trim().toLowerCase() === "true";
+	if (!frontmatter.ok) return [];
+	const flagEnabled = frontmatter.value[DISABLE_MODEL_INVOCATION_KEY]?.trim().toLowerCase() === "true";
 	const sidecarExists = inspected.openaiPolicy.type === "file";
 	const issues: CheckIssue[] = [];
 	if (flagEnabled && !sidecarExists) issues.push(issue(entry.name, "invoke_only_missing_openai_policy", `skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`));
@@ -291,7 +292,7 @@ async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: s
 	const facts = await collectProjectInspectionFacts(ctx, projectPath);
 	const excludedSkillNames = await ctx.project.readLocallyExcludedSkillNames({ projectDir: facts.projectDir, env: ctx.env });
 	const lockfileResult = parseInspectedLockfile(facts);
-	const lockfileSkillNames = lockfileResult.type === "ok" ? lockfileResult.lockfile.skills.map((skill) => skill.name) : [];
+	const lockfileSkillNames = lockfileResult.ok ? lockfileResult.value.skills.map((skill) => skill.name) : [];
 	const skillNames = uniqueSortedStrings([
 		...lockfileSkillNames,
 		...facts.skillInventory.skillsDirectoryNames,
