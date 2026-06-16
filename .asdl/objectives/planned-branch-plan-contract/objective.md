@@ -82,3 +82,9 @@ Risks:
 - What evidence threshold justifies Phase 2 CLI push-down of the drift check — drift caught usefully, or the manual check being skipped under context pressure?
 - For split candidate 7, what narrower Objective should own fan-out audit vetting taxonomy if it becomes worth pursuing?
 - For split candidate 10, what narrower Objective-family refinement should own direction-grounding rules if it becomes worth pursuing?
+
+## Closure
+
+Closed by explicit human agreement after the roadmap reached all checked-off rows and the final open completion criterion was satisfied. The Objective triaged all eleven `improve`-borrowed candidates, landed the accepted branch-context plan-contract slices across Saved plan authoring and branch-context implementation guidance, handled pre-contract plans gracefully, preserved harness-neutral wording, and recorded implementation/review/validation evidence in Semantic Updates.
+
+The plan-contract prototype remains intentionally reversible prompt-policy/test surface rather than a storage migration or runtime feature flag. Parked follow-up ideas remain outside this closed Objective: CLI push-down of drift checking if manual excerpt comparison proves useful or starts being skipped, possible fan-out audit vetting taxonomy work, possible Objective-family direction-grounding work, and any future generalization of the protocol to artifacts that first adopt the checkable plan format.
