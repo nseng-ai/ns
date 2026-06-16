@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@asdl/branch-context": "workspace:*",
+    "@asdl/roaster": "workspace:*",
     "@asdl/ccc": "workspace:*",
     "@asdl/plans": "workspace:*",
     "@asdl/sdl": "workspace:*",

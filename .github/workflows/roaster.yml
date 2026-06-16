@@ -28,7 +28,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup-python-uv
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.12.0"
+          cache: pnpm
+          cache-dependency-path: ts/pnpm-lock.yaml
+
+      - name: Install TS workspace dependencies
+        run: pnpm --dir ts install --frozen-lockfile
+
       - id: list
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,7 +52,7 @@ jobs:
           fi
 
           status=0
-          output=$(uv run roaster review list --applicable --base-ref "$BASE_REF" --format json) || status=$?
+          output=$(pnpm --dir ts exec roaster review list --applicable --base-ref "$BASE_REF" --format json) || status=$?
           if [ "$status" -ne 0 ]; then
             printf '%s\n' "$output"
             exit "$status"
@@ -68,11 +79,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: ./.github/actions/setup-python-uv
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.14.0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24.12.0"
+          cache: pnpm
+          cache-dependency-path: ts/pnpm-lock.yaml
+
+      - name: Install TS workspace dependencies
+        run: pnpm --dir ts install --frozen-lockfile
 
       - name: Install claude-code CLI
         run: npm install -g @anthropic-ai/claude-code
@@ -94,7 +112,7 @@ jobs:
           trap 'rm -f "$roaster_output_file" "$inline_result_file"' EXIT
 
           status=0
-          output=$(uv run roaster review run "$REVIEW_KEY" \
+          output=$(pnpm --dir ts exec roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --format json) || status=$?
           printf '%s' "$output" > "$roaster_output_file"
@@ -103,17 +121,17 @@ jobs:
           printf '%s\n' "$output"
           echo "--- end roaster envelope ---"
 
-          uv run roaster exec post-inline-findings \
+          pnpm --dir ts exec roaster exec post-inline-findings \
             --pr-number "$PR_NUMBER" \
             < "$roaster_output_file" \
             > "$inline_result_file"
 
-          uv run roaster exec format-findings-comment \
+          pnpm --dir ts exec roaster exec format-findings-comment \
             --inline-result-file "$inline_result_file" \
             --review-name "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             < "$roaster_output_file" \
-            | uv run roaster exec post-findings-comment \
+            | pnpm --dir ts exec roaster exec post-findings-comment \
                 --pr-number "$PR_NUMBER" \
                 --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 

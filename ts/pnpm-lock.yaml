@@ -22,6 +22,9 @@ importers:
       '@asdl/plans':
         specifier: workspace:*
         version: link:packages/plans
+      '@asdl/roaster':
+        specifier: workspace:*
+        version: link:packages/roaster
       '@asdl/sdl':
         specifier: workspace:*
         version: link:packages/sdl
