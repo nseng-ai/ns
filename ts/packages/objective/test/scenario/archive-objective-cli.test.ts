@@ -25,9 +25,9 @@ function archiveData(options: {
 	direction: "archive" | "unarchive";
 	sourcePath: string;
 	destinationPath: string;
-	sourceExists: boolean;
-	destinationExists: boolean;
-	moved: boolean;
+	hasSource: boolean;
+	hasDestination: boolean;
+	wasMoved: boolean;
 }) {
 	return {
 		status: options.status,
@@ -36,9 +36,9 @@ function archiveData(options: {
 		direction: options.direction,
 		source_path: options.sourcePath,
 		destination_path: options.destinationPath,
-		source_exists: options.sourceExists,
-		destination_exists: options.destinationExists,
-		moved: options.moved,
+		source_exists: options.hasSource,
+		destination_exists: options.hasDestination,
+		moved: options.wasMoved,
 	};
 }
 
@@ -72,9 +72,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives/alpha",
 				destinationPath: ".asdl/objective-archive/alpha",
-				sourceExists: false,
-				destinationExists: true,
-				moved: true,
+				hasSource: false,
+				hasDestination: true,
+				wasMoved: true,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "missing" });
@@ -104,9 +104,9 @@ describe("objective archive", () => {
 				direction: "unarchive",
 				sourcePath: ".asdl/objective-archive/alpha",
 				destinationPath: ".asdl/objectives/alpha",
-				sourceExists: false,
-				destinationExists: true,
-				moved: true,
+				hasSource: false,
+				hasDestination: true,
+				wasMoved: true,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "missing" });
@@ -138,9 +138,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives/ghost",
 				destinationPath: ".asdl/objective-archive/ghost",
-				sourceExists: false,
-				destinationExists: false,
-				moved: false,
+				hasSource: false,
+				hasDestination: false,
+				wasMoved: false,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objective-archive/ghost")).resolves.toEqual({ ok: true, value: "missing" });
@@ -167,9 +167,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives/alpha",
 				destinationPath: ".asdl/objective-archive/alpha",
-				sourceExists: true,
-				destinationExists: true,
-				moved: false,
+				hasSource: true,
+				hasDestination: true,
+				wasMoved: false,
 			}),
 		});
 		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "active sentinel\n" });
@@ -189,9 +189,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives",
 				destinationPath: ".asdl/objective-archive",
-				sourceExists: false,
-				destinationExists: false,
-				moved: false,
+				hasSource: false,
+				hasDestination: false,
+				wasMoved: false,
 			}),
 		});
 
@@ -208,9 +208,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives",
 				destinationPath: ".asdl/objective-archive",
-				sourceExists: false,
-				destinationExists: false,
-				moved: false,
+				hasSource: false,
+				hasDestination: false,
+				wasMoved: false,
 			}),
 		});
 	});
@@ -231,9 +231,9 @@ describe("objective archive", () => {
 				direction: "archive",
 				sourcePath: ".asdl/objectives/alpha",
 				destinationPath: ".asdl/objective-archive/alpha",
-				sourceExists: true,
-				destinationExists: false,
-				moved: false,
+				hasSource: true,
+				hasDestination: false,
+				wasMoved: false,
 			}),
 		});
 	});
