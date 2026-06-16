@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type { AregInitTextFileState, AregInitTextWritePlan, AregPathState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
+import type { OperationResult } from "./operation-result.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
 
@@ -76,8 +77,6 @@ interface InitTextPlan {
 	writes: readonly AregInitTextWritePlan[];
 	skippedFiles: readonly SkippedFile[];
 }
-
-type PlanResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
 
 interface ManagedMarkers {
 	start: string;
@@ -166,7 +165,7 @@ export function replaceOrAppendAregSection(content: string, agents: readonly str
 	return lines.join("");
 }
 
-export function managedBlockBounds(content: string, markers: ManagedMarkers, pathLabel: string): PlanResult<{ start: number; end: number } | null> {
+export function managedBlockBounds(content: string, markers: ManagedMarkers, pathLabel: string): OperationResult<{ start: number; end: number } | null> {
 	const startCount = countOccurrences(content, markers.start);
 	const endCount = countOccurrences(content, markers.end);
 	if (startCount === 0 && endCount === 0) return { type: "ok", value: null };
@@ -202,7 +201,7 @@ async function buildInitTextPlan(
 		claudeSettings: AregInitTextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
-): Promise<PlanResult<InitTextPlan>> {
+): Promise<OperationResult<InitTextPlan>> {
 	const asdl = planAsdlToml(inspection.asdlToml, options.agents);
 	if (asdl.type === "error") return asdl;
 
@@ -235,7 +234,7 @@ async function buildInitTextPlan(
 	};
 }
 
-function planAsdlToml(state: AregInitTextFileState, agents: readonly string[]): PlanResult<AregInitTextWritePlan> {
+function planAsdlToml(state: AregInitTextFileState, agents: readonly string[]): OperationResult<AregInitTextWritePlan> {
 	if (state.type === "missing") return { type: "ok", value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	const parsed = parseAsdlAregAgents(state.text, "asdl.toml");
@@ -248,7 +247,7 @@ async function planClaudeMd(
 	projectDir: string,
 	state: AregInitTextFileState,
 	options: { yes: boolean; noAppend: boolean },
-): Promise<PlanResult<AregInitTextWritePlan | SkippedFile>> {
+): Promise<OperationResult<AregInitTextWritePlan | SkippedFile>> {
 	let includeAgentsRef = true;
 	if (state.type === "file") {
 		const outside = contentWithoutManagedBlock(state.text, { start: CLAUDE_BLOCK_START, end: CLAUDE_BLOCK_END }, "CLAUDE.md");
@@ -282,7 +281,7 @@ async function planManagedBlock(
 		appendPrompt: string;
 		updatePrompt: string;
 	},
-): Promise<PlanResult<AregInitTextWritePlan | SkippedFile>> {
+): Promise<OperationResult<AregInitTextWritePlan | SkippedFile>> {
 	if (input.state.type === "missing") return { type: "ok", value: writePlan(input.path, input.newFileContent, input.path) };
 	if (input.state.type !== "file") return rejectTextState({ pathLabel: input.path, state: input.state, description: input.path, action: "manage it" });
 	const bounds = managedBlockBounds(input.state.text, input.markers, input.path);
@@ -306,14 +305,14 @@ async function planManagedBlock(
 	};
 }
 
-function contentWithoutManagedBlock(content: string, markers: ManagedMarkers, pathLabel: string): PlanResult<string> {
+function contentWithoutManagedBlock(content: string, markers: ManagedMarkers, pathLabel: string): OperationResult<string> {
 	const bounds = managedBlockBounds(content, markers, pathLabel);
 	if (bounds.type === "error") return bounds;
 	if (bounds.value === null) return { type: "ok", value: content };
 	return { type: "ok", value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}` };
 }
 
-function planSettings(claudeDirState: AregPathState, settingsState: AregInitTextFileState): PlanResult<AregInitTextWritePlan | SkippedFile> {
+function planSettings(claudeDirState: AregPathState, settingsState: AregInitTextFileState): OperationResult<AregInitTextWritePlan | SkippedFile> {
 	const claudeDir = validateOptionalDirectoryState({ pathLabel: ".claude", state: claudeDirState, action: "manage it", symlinkSubject: ".claude at .claude" });
 	if (claudeDir.type === "error") return claudeDir;
 	if (settingsState.type === "missing") return { type: "ok", value: writePlan(".claude/settings.local.json", SETTINGS_LOCAL_JSON, "settings.local.json", true) };
@@ -333,7 +332,7 @@ function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content:
 	return { relativePath, content, description, createParent };
 }
 
-function malformedManagedBlock<T>(pathLabel: string): PlanResult<T> {
+function malformedManagedBlock<T>(pathLabel: string): OperationResult<T> {
 	return { type: "error", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` };
 }
 

@@ -2,6 +2,7 @@ import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
+import type { OperationResult } from "./operation-result.ts";
 
 export interface PiSettingsData {
 	text: string | undefined;
@@ -9,7 +10,7 @@ export interface PiSettingsData {
 	exclusions: readonly string[];
 }
 
-export type ParsePiSettingsResult = { type: "ok"; value: PiSettingsData } | { type: "error"; message: string };
+export type ParsePiSettingsResult = OperationResult<PiSettingsData>;
 
 export function parsePiSettings(piDir: AregPathState, settings: AregTextFileState): ParsePiSettingsResult {
 	const piDirectory = validateOptionalDirectoryState({ pathLabel: ".pi", state: piDir, action: "inspect Pi settings" });
