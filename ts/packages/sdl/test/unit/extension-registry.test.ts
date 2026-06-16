@@ -61,7 +61,7 @@ describe("extension registry", () => {
 	test("catalog includes all built-ins from the unified built-in command table", async () => {
 		const workspace = await createWorkspace();
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(["changes", "cp", "submit"]);
@@ -78,7 +78,7 @@ describe("extension registry", () => {
 		writeGlobalExtension(workspace, "greet.ts", commandEntry("greet", "global greet"));
 		writeProjectExtension(workspace, "greet.ts", commandEntry("greet", "project greet"));
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(loaded.diagnostics.filter((diagnostic) => diagnostic.code === "extension_command_override")).toHaveLength(2);
@@ -107,7 +107,7 @@ describe("extension registry", () => {
 		writeProjectManifest(workspace, "pkg", { asdl: { commands: [{ name: "hello", description: "Say hello.", fullDescription: "Say hello with details.", entry: "./src/hello.ts" }] } });
 		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "hello.ts"), "throw new Error('should not import during discovery');\n");
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect(loaded.commandInfos.find((info) => info.name === "hello")).toEqual({
@@ -138,7 +138,7 @@ export default defineExtension({
 });
 `);
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual(["bye", "changes", "cp", "hello", "submit"]);
@@ -165,7 +165,7 @@ export default defineExtension({
 		writeProjectManifest(workspace, "pkg", { asdl: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] } });
 		writeFile(join(workspace.cwd, ".asdl", "extensions", "pkg", "src", "one.ts"), commandEntry("one", "pkg"));
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_duplicate_in_level" }));
@@ -176,7 +176,7 @@ export default defineExtension({
 		writeProjectExtension(workspace, "Bad.ts", commandEntry("Bad", "bad"));
 		writeProjectExtension(workspace, "throws.ts", "throw new Error('boom');\n");
 
-		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, env: {}, homeDir: workspace.homeDir });
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
 		expect(loaded.diagnostics).toContainEqual(expect.objectContaining({ code: "extension_command_name_invalid", commandName: "Bad" }));

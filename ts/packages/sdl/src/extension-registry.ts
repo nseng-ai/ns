@@ -63,7 +63,6 @@ export interface DiagnosticClassification {
 
 interface LoadSdlCommandCatalogOptions {
 	cwd: string;
-	env: Record<string, string | undefined>;
 	homeDir?: string | undefined;
 }
 
@@ -73,29 +72,24 @@ interface LoadedLevelCandidate {
 	source: ExtensionSourceInfo;
 }
 
-const SOURCE_LEVELS = ["built-in", "global", "project"] as const satisfies readonly ExtensionSourceLevel[];
 const SOURCE_LEVEL_ORDER = { "built-in": 0, global: 1, project: 2 } as const satisfies Record<ExtensionSourceLevel, number>;
 
 export async function loadSdlCommandCatalog(options: LoadSdlCommandCatalogOptions): Promise<SdlCommandCatalog> {
-	void options.env;
 	const diagnostics: ExtensionDiagnostic[] = [];
-	let candidatesByLevel = emptyCandidatesByLevel();
-
-	for (const candidate of listBuiltInSdlCommandCandidates()) {
-		candidatesByLevel = addCandidate({ candidatesByLevel, candidate });
-	}
-
+	const builtInCandidates = listBuiltInSdlCommandCandidates();
 	const home = options.homeDir ?? homedir();
 	const globalCandidates = loadRootCandidates({ level: "global", rootDir: join(home, ".asdl", "extensions") });
-	diagnostics.push(...globalCandidates.diagnostics);
-	candidatesByLevel = addCandidates({ candidatesByLevel, candidates: globalCandidates.candidates });
 	const projectCandidates = loadRootCandidates({ level: "project", rootDir: join(options.cwd, ".asdl", "extensions") });
-	diagnostics.push(...projectCandidates.diagnostics);
-	candidatesByLevel = addCandidates({ candidatesByLevel, candidates: projectCandidates.candidates });
+	diagnostics.push(...globalCandidates.diagnostics, ...projectCandidates.diagnostics);
+
+	const levels: readonly (readonly [ExtensionSourceLevel, readonly ExtensionCommandCandidate[]])[] = [
+		["built-in", builtInCandidates],
+		["global", globalCandidates.candidates],
+		["project", projectCandidates.candidates],
+	];
 
 	const merged = new Map<string, LoadedLevelCandidate>();
-	for (const level of SOURCE_LEVELS) {
-		const levelCandidates = candidatesByLevel.get(level) ?? [];
+	for (const [level, levelCandidates] of levels) {
 		const validation = validateLevelCandidates(level, levelCandidates);
 		diagnostics.push(...validation.diagnostics);
 		for (const candidate of validation.candidates) {
@@ -245,7 +239,12 @@ function validateLevelCandidates(
 
 	const counts = new Map<string, LoadedLevelCandidate[]>();
 	for (const candidate of validated) {
-		counts.set(candidate.name, [...(counts.get(candidate.name) ?? []), candidate]);
+		let matches = counts.get(candidate.name);
+		if (matches === undefined) {
+			matches = [];
+			counts.set(candidate.name, matches);
+		}
+		matches.push(candidate);
 	}
 	const duplicateNames = new Set([...counts.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
 	for (const name of duplicateNames) {
@@ -259,31 +258,6 @@ function validateLevelCandidates(
 		});
 	}
 	return { candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)), diagnostics };
-}
-
-function emptyCandidatesByLevel(): Map<ExtensionSourceLevel, ExtensionCommandCandidate[]> {
-	return new Map(SOURCE_LEVELS.map((level) => [level, [] as ExtensionCommandCandidate[]]));
-}
-
-function addCandidates(options: {
-	candidatesByLevel: ReadonlyMap<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>;
-	candidates: readonly ExtensionCommandCandidate[];
-}): Map<ExtensionSourceLevel, ExtensionCommandCandidate[]> {
-	return options.candidates.reduce((candidatesByLevel, candidate) => addCandidate({ candidatesByLevel, candidate }), copyCandidatesByLevel(options.candidatesByLevel));
-}
-
-function addCandidate(options: {
-	candidatesByLevel: ReadonlyMap<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>;
-	candidate: ExtensionCommandCandidate;
-}): Map<ExtensionSourceLevel, ExtensionCommandCandidate[]> {
-	const next = copyCandidatesByLevel(options.candidatesByLevel);
-	const existing = next.get(options.candidate.source.level) ?? [];
-	next.set(options.candidate.source.level, [...existing, options.candidate]);
-	return next;
-}
-
-function copyCandidatesByLevel(candidatesByLevel: ReadonlyMap<ExtensionSourceLevel, readonly ExtensionCommandCandidate[]>): Map<ExtensionSourceLevel, ExtensionCommandCandidate[]> {
-	return new Map(SOURCE_LEVELS.map((level) => [level, [...(candidatesByLevel.get(level) ?? [])]]));
 }
 
 function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {
