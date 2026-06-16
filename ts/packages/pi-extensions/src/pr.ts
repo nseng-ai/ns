@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
-import { parseMachineEnvelopeData } from "./machine-envelope.ts";
+import { parseMachineEnvelopeData, type MachineEnvelopeDataParseResult } from "./machine-envelope.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
@@ -27,6 +27,10 @@ const branchPrEntrySchema = z.looseObject({
 
 const mapBranchPrsDataSchema = z.looseObject({
 	branch_prs: z.array(branchPrEntrySchema),
+});
+
+const markdownDataSchema = z.looseObject({
+	markdown: z.string(),
 });
 
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
@@ -121,24 +125,19 @@ async function runPrDownloadFeedbackCommand(pi: ExtensionAPI, rawArgs: string, c
 	try {
 		const args = ["exec", "download-feedback", ...parsedArgs.args, "--format", "json"];
 		const result = await pi.exec("pr-address", args, { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
-		const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address download-feedback", stdoutTail: { maxLines: 20, maxChars: 2000 } });
-		if (parsed.type === "valid") {
-			const markdown = markdownFromData(parsed.data);
-			if (markdown === undefined) {
-				notify(ctx, "pr-address download-feedback returned no markdown field.", "error");
-				return;
-			}
-			prefillEditor(ctx, markdown, "Downloaded PR feedback into the editor. Review/edit, then press Enter.");
+		const parsed = parseEnvelopeWithSchema({
+			label: "pr-address download-feedback",
+			result,
+			schema: markdownDataSchema,
+			allowFailureData: true,
+		});
+		if (parsed.type === "error") {
+			notify(ctx, parsed.message, "error");
 			return;
 		}
 
-		const negativeMarkdown = markdownFromNegativeEnvelope(result.stdout);
-		if (negativeMarkdown !== undefined) {
-			prefillEditor(ctx, negativeMarkdown, "Downloaded PR feedback report into the editor. Review/edit, then press Enter.");
-			return;
-		}
-
-		notify(ctx, envelopeDetail(parsed, result), "error");
+		const message = result.code === 0 ? "Downloaded PR feedback into the editor. Review/edit, then press Enter." : "Downloaded PR feedback report into the editor. Review/edit, then press Enter.";
+		prefillEditor(ctx, parsed.value.markdown, message);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_FEEDBACK_STATUS_KEY, undefined);
 	}
@@ -219,58 +218,67 @@ function isPositiveIntegerToken(value: string): boolean {
 
 async function loadStackBranches(pi: ExtensionAPI, ctx: ExtensionContext): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
 	const result = await pi.exec("slot", ["gt", "exec", "stack-branches", "--format", "json"], { cwd: ctx.cwd, timeout: STACK_DISCOVERY_TIMEOUT_MS });
-	const parsed = parseMachineEnvelopeData(result.stdout, { label: "slot gt exec stack-branches", stdoutTail: { maxLines: 20, maxChars: 2000 } });
-	if (parsed.type !== "valid") {
-		const negativeBranches = stackBranchesFromNegativeEnvelope(result.stdout);
-		if (negativeBranches !== undefined) return { type: "ok", branches: negativeBranches };
-		return { type: "error", message: envelopeDetail(parsed, result) };
-	}
-	const schemaResult = stackBranchesDataSchema.safeParse(parsed.data);
-	if (!schemaResult.success) return { type: "error", message: schemaError("slot gt exec stack-branches", schemaResult.error) };
-	return { type: "ok", branches: schemaResult.data.branches };
+	const parsed = parseEnvelopeWithSchema({
+		label: "slot gt exec stack-branches",
+		result,
+		schema: stackBranchesDataSchema,
+		allowFailureData: true,
+	});
+	if (parsed.type === "error") return parsed;
+	return { type: "ok", branches: parsed.value.branches };
 }
 
 async function mapStackBranchesToPrs(pi: ExtensionAPI, ctx: ExtensionContext, branches: readonly string[]): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
 	const branchesJson = JSON.stringify({ branches });
 	const result = await pi.exec("pr-address", ["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json", "--stdout-mode", "full"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
-	const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address map-branch-prs", stdoutTail: { maxLines: 20, maxChars: 2000 } });
-	if (parsed.type !== "valid") return { type: "error", message: envelopeDetail(parsed, result) };
-	const schemaResult = mapBranchPrsDataSchema.safeParse(parsed.data);
-	if (!schemaResult.success) return { type: "error", message: schemaError("pr-address map-branch-prs", schemaResult.error) };
-	return { type: "ok", entries: schemaResult.data.branch_prs };
+	const parsed = parseEnvelopeWithSchema({
+		label: "pr-address map-branch-prs",
+		result,
+		schema: mapBranchPrsDataSchema,
+	});
+	if (parsed.type === "error") return parsed;
+	return { type: "ok", entries: parsed.value.branch_prs };
 }
 
 async function downloadFeedbackForPr(pi: ExtensionAPI, ctx: ExtensionContext, entry: BranchPrEntry): Promise<CommandResult<StackFeedbackDownload>> {
 	const result = await pi.exec("pr-address", ["exec", "download-feedback", "--pr-number", String(entry.pr_number), "--format", "json"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
-	const parsed = parseMachineEnvelopeData(result.stdout, { label: `pr-address download-feedback #${entry.pr_number}`, stdoutTail: { maxLines: 20, maxChars: 2000 } });
-	if (parsed.type === "valid") {
-		const markdown = markdownFromData(parsed.data);
-		if (markdown === undefined) return { type: "error", message: `pr-address download-feedback #${entry.pr_number} returned no markdown field.` };
-		return { type: "ok", value: { entry, markdown } };
+	const parsed = parseEnvelopeWithSchema({
+		label: `pr-address download-feedback #${entry.pr_number}`,
+		result,
+		schema: markdownDataSchema,
+		allowFailureData: true,
+	});
+	if (parsed.type === "error") return parsed;
+	return { type: "ok", value: { entry, markdown: parsed.value.markdown } };
+}
+
+interface EnvelopeWithSchemaOptions<T> {
+	label: string;
+	result: ExecResult;
+	schema: z.ZodType<T>;
+	allowFailureData?: boolean | undefined;
+}
+
+function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T> {
+	const parsed = parseMachineEnvelopeData(options.result.stdout, { label: options.label, stdoutTail: { maxLines: 20, maxChars: 2000 } });
+	const data = envelopeData(parsed, options);
+	if (data.type === "error") return data;
+
+	const schemaResult = options.schema.safeParse(data.value);
+	if (!schemaResult.success) return { type: "error", message: schemaError(options.label, schemaResult.error) };
+	return { type: "ok", value: schemaResult.data };
+}
+
+function envelopeData(parsed: MachineEnvelopeDataParseResult, options: EnvelopeWithSchemaOptions<unknown>): CommandResult<Record<string, unknown>> {
+	if (parsed.type === "valid") return { type: "ok", value: parsed.data };
+	if (options.allowFailureData === true) {
+		const failureData = failureEnvelopeData(options.result.stdout);
+		if (failureData !== undefined) return { type: "ok", value: failureData };
 	}
-
-	const negativeMarkdown = markdownFromNegativeEnvelope(result.stdout);
-	if (negativeMarkdown !== undefined) return { type: "ok", value: { entry, markdown: negativeMarkdown } };
-	return { type: "error", message: envelopeDetail(parsed, result) };
+	return { type: "error", message: envelopeDetail(parsed, options.result) };
 }
 
-function markdownFromData(data: Record<string, unknown>): string | undefined {
-	return typeof data.markdown === "string" ? data.markdown : undefined;
-}
-
-function markdownFromNegativeEnvelope(stdout: string): string | undefined {
-	const data = dataFromNegativeEnvelope(stdout);
-	return data === undefined ? undefined : markdownFromData(data);
-}
-
-function stackBranchesFromNegativeEnvelope(stdout: string): string[] | undefined {
-	const data = dataFromNegativeEnvelope(stdout);
-	if (data === undefined) return undefined;
-	const schemaResult = stackBranchesDataSchema.safeParse(data);
-	return schemaResult.success ? schemaResult.data.branches : undefined;
-}
-
-function dataFromNegativeEnvelope(stdout: string): Record<string, unknown> | undefined {
+function failureEnvelopeData(stdout: string): Record<string, unknown> | undefined {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);

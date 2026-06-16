@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { bodyLocatorSchema } from "./feedback-manifest-contracts.ts";
+import { bodyLocatorSchema } from "./core/feedback-manifest-contracts.ts";
 
 export const ACTION_COMPLEXITIES = ["pre_existing", "local", "single_file", "cross_cutting", "complex"] as const;
 /** Complexities whose plan batches require explicit approval before execution. */

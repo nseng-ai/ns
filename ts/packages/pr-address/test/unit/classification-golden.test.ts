@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import { buildPlanFeedbackSchemaDocument, classificationTemplateResultDocSchema } from "../../src/operation-schemas/classification.ts";
 import { buildFeedbackClassificationTemplate, planFeedback, validateFeedbackClassification } from "../../src/classification.ts";
-import { bodyLocatorSchema } from "../../src/feedback-manifest-contracts.ts";
+import { bodyLocatorSchema } from "../../src/core/feedback-manifest-contracts.ts";
 import { feedbackPlanResultSchema } from "../../src/feedback-plan-contracts.ts";
 import { asWrapperInput, GOLDEN_V1_ROOT, goldenCases, readJson } from "../support/golden.ts";
 

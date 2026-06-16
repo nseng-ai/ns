@@ -13,7 +13,7 @@ import {
 	type PrepareRunManifest,
 	type ReviewManifestItem,
 	type ThreadManifestItem,
-} from "./feedback-manifest-contracts.ts";
+} from "./core/feedback-manifest-contracts.ts";
 import {
 	ACTION_COMPLEXITIES,
 	APPROVAL_REQUIRED_COMPLEXITIES,

@@ -5,7 +5,7 @@ import {
 	getFeedbackPayloadManifestSchema,
 	prepareRunInlineResultSchema,
 	prepareRunPayloadManifestSchema,
-} from "./manifest-mirrors.ts";
+} from "../core/operation-schemas/manifest-mirrors.ts";
 import {
 	detailKindSchema,
 	nullableIntSchema,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { payloadReferenceSchema } from "./feedback-manifest-contracts.ts";
+import { payloadReferenceSchema } from "./core/feedback-manifest-contracts.ts";
 import { resolveThreadBatchPayloadSchema, resolveThreadBatchPayloadItemSchema } from "./operation-schemas/payload.ts";
 
 export { resolutionProvenanceInputSchema } from "./operation-schemas/shared.ts";
@@ -8,7 +8,7 @@ export { resolveThreadBatchPayloadSchema, resolveThreadBatchPayloadItemSchema };
 
 export const threadResolutionBuildArtifactSchema = z.object({
 	artifact_kind: z.literal("thread_resolution_build"),
-	source: z.enum(["single_pr", "stack"]),
+	source: z.literal("single_pr"),
 	pr_number: z.number().int(),
 	batch_id: z.string(),
 	commit_sha: z.string().nullable(),
@@ -28,7 +28,7 @@ export const threadResolutionBuildArtifactSchema = z.object({
 
 export const threadResolutionResultArtifactSchema = z.object({
 	artifact_kind: z.literal("thread_resolution_result"),
-	source: z.enum(["single_pr", "stack"]),
+	source: z.literal("single_pr"),
 	pr_number: z.number().int(),
 	batch_id: z.string(),
 	build_reference: payloadReferenceSchema,
