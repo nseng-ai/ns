@@ -13,6 +13,7 @@ import type {
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
+import type { OperationResult } from "./operation-result.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
@@ -332,7 +333,7 @@ export function renderSkillKindApply(result: SkillKindApplyResult): string {
 	return lines.join("\n");
 }
 
-export function inspectSkillFrontmatter(text: string, pathLabel: string): { type: "ok"; value: FrontmatterInspection } | { type: "error"; message: string } {
+export function inspectSkillFrontmatter(text: string, pathLabel: string): OperationResult<FrontmatterInspection> {
 	const parsed = parseSkillFrontmatterBlock(text);
 	if (parsed.type === "error") return { type: "error", message: `${pathLabel} ${parsed.message}` };
 	return parsed;
@@ -380,7 +381,7 @@ export function inferSkillKindRecord(options: {
 	};
 }
 
-function buildSkillKindRecords(inspection: SkillKindProjectInspection): { type: "ok"; value: readonly SkillKindRecord[] } | { type: "error"; message: string } {
+function buildSkillKindRecords(inspection: SkillKindProjectInspection): OperationResult<readonly SkillKindRecord[]> {
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (piSettings.type === "error") return piSettings;
 	const records: SkillKindRecord[] = [];
@@ -402,7 +403,7 @@ function buildSkillKindRecords(inspection: SkillKindProjectInspection): { type: 
 	return { type: "ok", value: records };
 }
 
-function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillName: string, kind: SkillInvocationKind): { type: "ok"; value: SkillKindApplyPlan } | { type: "error"; message: string } {
+function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillName: string, kind: SkillInvocationKind): OperationResult<SkillKindApplyPlan> {
 	const skill = inspection.skills.find((candidate) => candidate.name === skillName);
 	if (skill === undefined) return { type: "error", message: `Local skill not found: ${skillName}` };
 	const readiness = validateInspectableSkill(skill);
@@ -456,7 +457,7 @@ function validateInspectableSkill(skill: AregSkillKindSkillInspection): { type: 
 }
 
 
-function planFrontmatterOperation(skillName: string, text: string, kind: SkillInvocationKind): { type: "ok"; value: PlannedApplyOperation } | { type: "error"; message: string } {
+function planFrontmatterOperation(skillName: string, text: string, kind: SkillInvocationKind): OperationResult<PlannedApplyOperation> {
 	const relativePath = `skills/${skillName}/SKILL.md`;
 	const transformed = transformSkillFrontmatter(text, relativePath, desiredFrontmatter(kind));
 	if (transformed.type === "error") return transformed;
@@ -464,7 +465,7 @@ function planFrontmatterOperation(skillName: string, text: string, kind: SkillIn
 	return { type: "ok", value: { type: "write", relativePath, description: "SKILL.md", content: transformed.value, createParent: false } };
 }
 
-function planSidecarOperations(skill: AregSkillKindSkillInspection, kind: SkillInvocationKind): { type: "ok"; value: readonly PlannedApplyOperation[] } | { type: "error"; message: string } {
+function planSidecarOperations(skill: AregSkillKindSkillInspection, kind: SkillInvocationKind): OperationResult<readonly PlannedApplyOperation[]> {
 	const relativePath = `skills/${skill.name}/agents/openai.yaml`;
 	const agentsDir = `skills/${skill.name}/agents`;
 	const shouldExist = kind === "invoke-only" || kind === "command-backed";
@@ -487,7 +488,7 @@ function planSidecarOperations(skill: AregSkillKindSkillInspection, kind: SkillI
 	] };
 }
 
-function planPiSettingsOperation(skillName: string, kind: SkillInvocationKind, settings: PiSettingsData): { type: "ok"; value: PlannedApplyOperation } | { type: "error"; message: string } {
+function planPiSettingsOperation(skillName: string, kind: SkillInvocationKind, settings: PiSettingsData): OperationResult<PlannedApplyOperation> {
 	const relativePath = ".pi/settings.json";
 	const entry = `-skills/${skillName}`;
 	const shouldExclude = kind === "command-backed";

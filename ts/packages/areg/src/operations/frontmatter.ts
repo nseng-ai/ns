@@ -1,5 +1,7 @@
 import { splitMarkdownFrontmatter, stripLineEnding } from "@asdl/core/markdown-frontmatter";
 
+import type { OperationResult } from "./operation-result.ts";
+
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 
 export interface SkillFrontmatterData {
@@ -7,7 +9,7 @@ export interface SkillFrontmatterData {
 	keys: ReadonlySet<string>;
 }
 
-export type SkillFrontmatterParseResult = { type: "ok"; value: SkillFrontmatterData } | { type: "error"; message: string };
+export type SkillFrontmatterParseResult = OperationResult<SkillFrontmatterData>;
 
 export type SkillFrontmatterTopLevelLineParseResult =
 	| { type: "key"; key: string; value: string }
@@ -68,7 +70,7 @@ export function isSkillFrontmatterTopLevelKey(line: string, key: string): boolea
 	return parsed.type === "key" && parsed.key === key;
 }
 
-export function transformSkillFrontmatter(text: string, pathLabel: string, desired: Readonly<Record<string, string | undefined>>): { type: "ok"; value: string } | { type: "error"; message: string } {
+export function transformSkillFrontmatter(text: string, pathLabel: string, desired: Readonly<Record<string, string | undefined>>): OperationResult<string> {
 	const parsed = parseSkillFrontmatterBlock(text);
 	if (parsed.type === "error") return { type: "error", message: `${pathLabel} ${parsed.message}` };
 

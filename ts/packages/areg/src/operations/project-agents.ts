@@ -3,16 +3,15 @@ import { parse as parseToml } from "smol-toml";
 
 import type { AregInitTextFileState } from "../gateways.ts";
 import { rejectTextState } from "./file-state.ts";
+import type { OperationResult } from "./operation-result.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
-
-type PlanResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
 	asdlToml: AregInitTextFileState;
 	aregJson: AregInitTextFileState;
-}): PlanResult<string[]> {
+}): OperationResult<string[]> {
 	if (input.explicitAgents.length > 0) return { type: "ok", value: [...input.explicitAgents] };
 	const asdlAgents = parseAsdlAregAgentsFromState(input.asdlToml);
 	if (asdlAgents.type === "error") return asdlAgents;
@@ -23,7 +22,7 @@ export function resolveProjectAgents(input: {
 	return { type: "ok", value: [...DEFAULT_AGENTS] };
 }
 
-export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): PlanResult<string[]> {
+export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): OperationResult<string[]> {
 	let data: unknown;
 	try {
 		data = parseToml(text);
@@ -46,7 +45,7 @@ export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Plan
 	return { type: "ok", value: result };
 }
 
-export function parseLegacyAregJsonAgents(text: string): PlanResult<string[]> {
+export function parseLegacyAregJsonAgents(text: string): OperationResult<string[]> {
 	let data: unknown;
 	try {
 		data = JSON.parse(text);
@@ -64,13 +63,13 @@ export function parseLegacyAregJsonAgents(text: string): PlanResult<string[]> {
 	return { type: "ok", value: result };
 }
 
-function parseAsdlAregAgentsFromState(state: AregInitTextFileState): PlanResult<string[]> {
+function parseAsdlAregAgentsFromState(state: AregInitTextFileState): OperationResult<string[]> {
 	if (state.type === "missing") return { type: "ok", value: [] };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	return parseAsdlAregAgents(state.text, "asdl.toml");
 }
 
-function parseLegacyAregJsonAgentsFromState(state: AregInitTextFileState): PlanResult<string[]> {
+function parseLegacyAregJsonAgentsFromState(state: AregInitTextFileState): OperationResult<string[]> {
 	if (state.type === "missing") return { type: "ok", value: [] };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "areg.json", state, description: "areg.json", action: "manage it" });
 	return parseLegacyAregJsonAgents(state.text);
