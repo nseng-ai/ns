@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { sourceFilesUnder } from "../support/source-files.ts";
+import { sourceFilesUnder, staticLocalSpecifiers } from "../support/source-files.ts";
 
 const PACKAGE_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const SOURCE_ROOT = resolve(PACKAGE_ROOT, "src");
@@ -49,7 +49,7 @@ describe("pr-address strangler import boundary", () => {
 			if (!isEnforcedSourceZone(sourceZoneFor(sourceFile))) continue;
 
 			const source = await readFile(sourceFile, "utf8");
-			for (const specifier of extractStaticLocalSpecifiers(source)) {
+			for (const specifier of staticLocalSpecifiers(source)) {
 				const violation = boundaryViolationFor(sourceFile, specifier);
 				if (violation !== undefined) violations.push(violation);
 			}
@@ -74,28 +74,6 @@ function isWithinSourceRoot(sourceRelativePath: string): boolean {
 
 function isEnforcedSourceZone(zone: SourceZone): zone is EnforcedSourceZone {
 	return zone === "core" || zone === "app" || zone === "legacy";
-}
-
-function extractStaticLocalSpecifiers(source: string): string[] {
-	const importFromPattern = /\bimport\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']/g;
-	const exportFromPattern = /\bexport\s+(?:type\s+)?[\s\S]*?\s+from\s+["']([^"']+)["']/g;
-	const dynamicImportPattern = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
-	const specifiers = new Set<string>([
-		...localSpecifiers(source, importFromPattern),
-		...localSpecifiers(source, exportFromPattern),
-		...localSpecifiers(source, dynamicImportPattern),
-	]);
-
-	return [...specifiers].sort();
-}
-
-function localSpecifiers(source: string, pattern: RegExp): string[] {
-	const specifiers: string[] = [];
-	for (const match of source.matchAll(pattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined && specifier.startsWith(".")) specifiers.push(specifier);
-	}
-	return specifiers;
 }
 
 function boundaryViolationFor(importer: string, specifier: string): BoundaryViolation | undefined {

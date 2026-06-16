@@ -1,8 +1,10 @@
-export interface GatewayFailure {
-	stderr: string;
-	stdout: string;
-	returncode: number;
-}
+import type { ErrorInfo, GatewayResult as CoreGatewayResult } from "@asdl/core/submit";
+
+export type GatewayFailure = ErrorInfo & {
+	stderr?: string | undefined;
+	stdout?: string | undefined;
+	returncode?: number | undefined;
+};
 
 export interface PRLookupMiss {
 	type: "miss";
@@ -73,7 +75,7 @@ export interface RestructuredFile {
 	similarity: number | null;
 }
 
-export type GatewayResult<T> = { type: "ok"; value: T } | { type: "failure"; failure: GatewayFailure };
+export type GatewayResult<T> = CoreGatewayResult<T>;
 export type PRLookupResult = { type: "found"; pr: PRSummary } | PRLookupMiss | { type: "failure"; failure: GatewayFailure };
 export type CurrentBranchResult = { type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GatewayFailure };
 export type BranchHeadOidResult = { type: "found"; oid: string } | { type: "missing"; stderr: string; returncode: number } | { type: "failure"; failure: GatewayFailure };

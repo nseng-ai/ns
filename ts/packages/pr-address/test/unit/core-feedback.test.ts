@@ -33,10 +33,10 @@ describe("pr-address core feedback helpers", () => {
 			shouldCountAllReviewThreads: false,
 		});
 
-		expect(result).toEqual({
+		expect(result).toMatchObject({
 			type: "failure",
 			message: "Failed to fetch reviews for PR 42",
-			failure: { stderr: "gh auth failed", stdout: "", returncode: 4 },
+			failure: { message: "gh auth failed", stderr: "gh auth failed", stdout: "", returncode: 4 },
 		});
 	});
 

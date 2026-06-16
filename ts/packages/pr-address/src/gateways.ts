@@ -1,5 +1,6 @@
-import { runCommand } from "@asdl/core/exec";
+import { runCommand, type ExecResult } from "@asdl/core/exec";
 import { GITHUB_CLI_TIMEOUT_MS } from "@asdl/core/github-cli";
+import { commandFailure, err, ok } from "@asdl/core/submit";
 
 import { z } from "zod";
 
@@ -60,6 +61,8 @@ export interface ProcessResult {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
+	command?: string | undefined;
+	args?: readonly string[] | undefined;
 }
 
 export type ProcessRunner = (request: ProcessRequest) => Promise<ProcessResult>;
@@ -203,77 +206,77 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	async listOpenPrs(options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
 		// --limit 1000 caps pathological repos; pr-address stacks are far below this bound.
 		const result = await this.runGh(["pr", "list", "--state", "open", "--json", "number,title,url,headRefName,baseRefName,state", "--limit", "1000"], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseJson(result.stdout, z.array(prSummarySchema));
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: parseResult.value.map(normalizePrSummary) };
+		if (!parseResult.ok) return parseResult;
+		return ok(parseResult.value.map(normalizePrSummary));
 	}
 
 	async getReviews(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
 		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "reviews"], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseJson(result.stdout, z.object({ reviews: z.array(ghReviewSchema).default([]) }).loose());
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: parseResult.value.reviews.map(normalizeReview) };
+		if (!parseResult.ok) return parseResult;
+		return ok(parseResult.value.reviews.map(normalizeReview));
 	}
 
 	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
 		const result = await this.runGh(["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", `number=${prNumber}`, "-f", `query=${reviewThreadsQuery}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadsResponseSchema);
-		if (parseResult.type === "failure") return parseResult;
+		if (!parseResult.ok) return parseResult;
 		const threads = parseResult.value.data.repository.pullRequest.reviewThreads.nodes.flatMap(normalizeReviewThread);
-		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
+		return ok(options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved));
 	}
 
 	async getDiscussionComments(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
 		const result = await this.runGh(["pr", "view", String(prNumber), "--json", "comments"], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseJson(result.stdout, z.object({ comments: z.array(ghDiscussionCommentSchema).default([]) }).loose());
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: parseResult.value.comments.map(normalizeDiscussionComment).filter((comment) => comment.id !== 0) };
+		if (!parseResult.ok) return parseResult;
+		return ok(parseResult.value.comments.map(normalizeDiscussionComment).filter((comment) => comment.id !== 0));
 	}
 
 	async addPrDiscussionComment(prNumber: number, body: string, options: GatewayOptions): Promise<GatewayResult<PRDiscussionComment>> {
 		const result = await this.runGh(["api", "--method", "POST", `repos/{owner}/{repo}/issues/${prNumber}/comments`, "-f", `body=${body}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseJson(result.stdout, ghDiscussionCommentSchema);
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: normalizeDiscussionComment(parseResult.value) };
+		if (!parseResult.ok) return parseResult;
+		return ok(normalizeDiscussionComment(parseResult.value));
 	}
 
 	async addPrDiscussionCommentReaction(commentId: number, reaction: string, options: GatewayOptions): Promise<GatewayResult<Reaction>> {
 		const result = await this.runGh(["api", "--method", "POST", `repos/{owner}/{repo}/issues/comments/${commentId}/reactions`, "-H", "Accept: application/vnd.github+json", "-f", `content=${reaction}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseJson(result.stdout, ghReactionSchema);
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: { id: numericId(parseResult.value.id), comment_id: commentId, content: parseResult.value.content } };
+		if (!parseResult.ok) return parseResult;
+		return ok({ id: numericId(parseResult.value.id), comment_id: commentId, content: parseResult.value.content });
 	}
 
 	async addReviewThreadReply(threadId: string, body: string, options: GatewayOptions): Promise<GatewayResult<PRReviewComment>> {
 		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `body=${body}`, "-f", `query=${addReviewThreadReplyMutation}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ addPullRequestReviewThreadReply: z.object({ comment: ghReviewCommentSchema }) }) }).loose());
-		if (parseResult.type === "failure") return parseResult;
-		return { type: "ok", value: normalizeReviewComment(parseResult.value.data.addPullRequestReviewThreadReply.comment) };
+		if (!parseResult.ok) return parseResult;
+		return ok(normalizeReviewComment(parseResult.value.data.addPullRequestReviewThreadReply.comment));
 	}
 
 	async resolveReviewThread(threadId: string, options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
 		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `query=${resolveReviewThreadMutation}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ resolveReviewThread: z.object({ thread: ghReviewThreadStateSchema }) }) }).loose());
-		if (parseResult.type === "failure") return parseResult;
+		if (!parseResult.ok) return parseResult;
 		const thread = parseResult.value.data.resolveReviewThread.thread;
-		return { type: "ok", value: { thread_id: thread.id, is_resolved: thread.isResolved } };
+		return ok({ thread_id: thread.id, is_resolved: thread.isResolved });
 	}
 
 	async unresolveReviewThread(threadId: string, options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
 		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `query=${unresolveReviewThreadMutation}`], options);
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
 		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ unresolveReviewThread: z.object({ thread: ghReviewThreadStateSchema }) }) }).loose());
-		if (parseResult.type === "failure") return parseResult;
+		if (!parseResult.ok) return parseResult;
 		const thread = parseResult.value.data.unresolveReviewThread.thread;
-		return { type: "ok", value: { thread_id: thread.id, is_resolved: thread.isResolved } };
+		return ok({ thread_id: thread.id, is_resolved: thread.isResolved });
 	}
 
 	private async getPrBySelector(selector: string, options: GatewayOptions): Promise<PRLookupResult> {
@@ -283,7 +286,7 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 			return { type: "failure", failure: failureFromProcess(result) };
 		}
 		const parseResult = parseJson(result.stdout, prSummarySchema);
-		if (parseResult.type === "failure") return parseResult;
+		if (!parseResult.ok) return { type: "failure", failure: parseResult.error };
 		return { type: "found", pr: normalizePrSummary(parseResult.value) };
 	}
 
@@ -335,7 +338,7 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 
 	async getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<CommitChangedFilesResult> {
 		const trimmed = commitSha.trim();
-		if (trimmed === "") return { type: "failure", failure: { stdout: "", stderr: "commit sha must be non-empty", returncode: 2 } };
+		if (trimmed === "") return { type: "failure", failure: failureFromMessage("commit sha must be non-empty", 2) };
 		const result = await this.runProcess({ command: "git", args: ["diff-tree", "--no-commit-id", "--name-only", "-r", trimmed], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
 		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
 		return { type: "ok", files: result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "") };
@@ -343,8 +346,8 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 
 	async getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
 		const result = await this.runProcess({ command: "git", args: ["diff", "--name-status", "-M", "-C", `origin/${baseRefName}...HEAD`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
-		return { type: "ok", value: parseRestructuredFiles(result.stdout) };
+		if (result.exitCode !== 0) return err(failureFromProcess(result));
+		return ok(parseRestructuredFiles(result.stdout));
 	}
 }
 
@@ -354,7 +357,7 @@ export async function runProcess(request: ProcessRequest): Promise<ProcessResult
 		...(request.env === undefined ? {} : { env: request.env }),
 		...(request.timeout === undefined ? {} : { timeout: request.timeout }),
 	});
-	return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code };
+	return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code, command: request.command, args: request.args };
 }
 
 function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): PRSummary {
@@ -439,17 +442,17 @@ function parseJson<T>(text: string, schema: z.ZodType<T>): GatewayResult<T> {
 	try {
 		parsed = JSON.parse(text);
 	} catch (error) {
-		return { type: "failure", failure: { stdout: text, stderr: jsonErrorMessage(error), returncode: 0 } };
+		return err(failureFromParse(text, jsonErrorMessage(error)));
 	}
 	const result = schema.safeParse(parsed);
-	if (!result.success) return { type: "failure", failure: { stdout: text, stderr: z.prettifyError(result.error), returncode: 0 } };
-	return { type: "ok", value: result.data };
+	if (!result.success) return err(failureFromParse(text, z.prettifyError(result.error)));
+	return ok(result.data);
 }
 
 function parseGraphqlJson<T>(text: string, schema: z.ZodType<T>): GatewayResult<T> {
 	const base = parseJson(text, ghGraphqlErrorsSchema);
-	if (base.type === "failure") return base;
-	if (base.value.errors !== undefined && base.value.errors.length > 0) return { type: "failure", failure: { stdout: text, stderr: JSON.stringify(base.value.errors), returncode: 0 } };
+	if (!base.ok) return base;
+	if (base.value.errors !== undefined && base.value.errors.length > 0) return err(failureFromParse(text, JSON.stringify(base.value.errors)));
 	return parseJson(text, schema);
 }
 
@@ -473,7 +476,49 @@ function similarity(status: string): number | null {
 }
 
 function failureFromProcess(result: ProcessResult): GatewayFailure {
-	return { stdout: result.stdout, stderr: result.stderr, returncode: result.exitCode };
+	const stderr = result.stderr.trim();
+	const stdout = result.stdout.trim();
+	const message = stderr || stdout || `process exited with code ${result.exitCode}`;
+	const failure = commandFailure({
+		command: result.command ?? "process",
+		args: result.args ?? [],
+		result: execResultFromProcess(result),
+		code: "process_failed",
+		message,
+	}) ?? { code: "process_failed", message, details: {} };
+	return {
+		...failure,
+		stdout: result.stdout,
+		stderr: result.stderr,
+		returncode: result.exitCode,
+		details: { ...failure.details, stdout: result.stdout, stderr: result.stderr, returncode: result.exitCode },
+	};
+}
+
+function execResultFromProcess(result: ProcessResult): ExecResult {
+	return { stdout: result.stdout, stderr: result.stderr, code: result.exitCode, killed: false };
+}
+
+function failureFromParse(stdout: string, stderr: string): GatewayFailure {
+	return {
+		code: "parse_failed",
+		message: stderr || "failed to parse command output",
+		stdout,
+		stderr,
+		returncode: 0,
+		details: { stdout, stderr, returncode: 0 },
+	};
+}
+
+function failureFromMessage(stderr: string, returncode: number): GatewayFailure {
+	return {
+		code: "process_failed",
+		message: stderr,
+		stdout: "",
+		stderr,
+		returncode,
+		details: { stdout: "", stderr, returncode },
+	};
 }
 
 function jsonErrorMessage(error: unknown): string {

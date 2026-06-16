@@ -24,12 +24,12 @@ export interface FetchFeedbackSnapshotOptions {
 
 export async function fetchFeedbackSnapshot(options: FetchFeedbackSnapshotOptions): Promise<FeedbackSnapshotResult> {
 	const reviewsResult = await options.gateway.getReviews(options.prNumber, options.gatewayOptions);
-	if (reviewsResult.type === "failure") return snapshotFailure(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.failure);
+	if (!reviewsResult.ok) return snapshotFailure(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.error);
 	let countedReviewThreads: readonly PRReviewThread[];
 	let reviewThreads: readonly PRReviewThread[];
 	if (options.shouldCountAllReviewThreads) {
 		const countedResult = await options.gateway.getReviewThreads(options.prNumber, { ...options.gatewayOptions, shouldIncludeResolved: true });
-		if (countedResult.type === "failure") return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.failure);
+		if (!countedResult.ok) return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.error);
 		countedReviewThreads = countedResult.value;
 		reviewThreads = options.shouldIncludeResolved ? countedReviewThreads : countedReviewThreads.filter((thread) => !thread.is_resolved);
 	} else {
@@ -37,12 +37,12 @@ export async function fetchFeedbackSnapshot(options: FetchFeedbackSnapshotOption
 			...options.gatewayOptions,
 			shouldIncludeResolved: options.shouldIncludeResolved,
 		});
-		if (threadsResult.type === "failure") return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.failure);
+		if (!threadsResult.ok) return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.error);
 		reviewThreads = threadsResult.value;
 		countedReviewThreads = reviewThreads;
 	}
 	const commentsResult = await options.gateway.getDiscussionComments(options.prNumber, options.gatewayOptions);
-	if (commentsResult.type === "failure") return snapshotFailure(`Failed to fetch discussion comments for PR ${options.prNumber}`, commentsResult.failure);
+	if (!commentsResult.ok) return snapshotFailure(`Failed to fetch discussion comments for PR ${options.prNumber}`, commentsResult.error);
 	return {
 		type: "ok",
 		snapshot: {

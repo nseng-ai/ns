@@ -42,7 +42,7 @@ describe("RealPrAddressGitHubGateway.getPr", () => {
 		expect(miss).toEqual({ type: "miss", stderr: "no pull requests found for branch", returncode: 1 });
 
 		const failure = await gatewayReturning({ stdout: "partial", stderr: "gh auth failed", exitCode: 4 }).getPr(1157, { cwd: "/repo" });
-		expect(failure).toEqual({ type: "failure", failure: { stdout: "partial", stderr: "gh auth failed", returncode: 4 } });
+		expect(failure).toMatchObject({ type: "failure", failure: { stdout: "partial", stderr: "gh auth failed", returncode: 4 } });
 	});
 });
 
@@ -59,7 +59,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", env, shouldIncludeResolved: true });
 
-		expect(result).toEqual({ type: "ok", value: [] });
+		expect(result).toEqual({ ok: true, value: [] });
 		expect(requests).toEqual([
 			{
 				command: "gh",
@@ -80,7 +80,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
 		expect(result).toEqual({
-			type: "ok",
+			ok: true,
 			value: [
 				{
 					id: "RT_thread1",
@@ -111,8 +111,8 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value[0]?.comments[0]?.author).toBe("");
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value[0]?.comments[0]?.author).toBe("");
 	});
 
 	test("skips thread nodes with a null id", async () => {
@@ -121,8 +121,8 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value.map((thread) => thread.id)).toEqual(["RT_kept"]);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value.map((thread) => thread.id)).toEqual(["RT_kept"]);
 	});
 
 	test("filters resolved threads unless shouldIncludeResolved is set", async () => {
@@ -130,12 +130,12 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 		const stdout = graphqlResponse(nodes);
 
 		const filtered = await gatewayReturning({ stdout, stderr: "", exitCode: 0 }).getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
-		expect(filtered.type).toBe("ok");
-		if (filtered.type === "ok") expect(filtered.value.map((thread) => thread.id)).toEqual(["RT_open"]);
+		expect(filtered.ok).toBe(true);
+		if (filtered.ok) expect(filtered.value.map((thread) => thread.id)).toEqual(["RT_open"]);
 
 		const included = await gatewayReturning({ stdout, stderr: "", exitCode: 0 }).getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: true });
-		expect(included.type).toBe("ok");
-		if (included.type === "ok") expect(included.value.map((thread) => thread.id)).toEqual(["RT_open", "RT_resolved"]);
+		expect(included.ok).toBe(true);
+		if (included.ok) expect(included.value.map((thread) => thread.id)).toEqual(["RT_open", "RT_resolved"]);
 	});
 
 	test("returns ok with an empty list for empty nodes", async () => {
@@ -143,7 +143,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result).toEqual({ type: "ok", value: [] });
+		expect(result).toEqual({ ok: true, value: [] });
 	});
 
 	test("returns failure preserving stdout, stderr, and returncode on non-zero exit", async () => {
@@ -151,7 +151,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result).toEqual({ type: "failure", failure: { stdout: "partial", stderr: "gh: boom", returncode: 2 } });
+		expect(result).toMatchObject({ ok: false, error: { stdout: "partial", stderr: "gh: boom", returncode: 2 } });
 	});
 
 	test("returns failure when the GraphQL body carries errors despite exit 0", async () => {
@@ -161,7 +161,7 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result).toEqual({ type: "failure", failure: { stdout, stderr: JSON.stringify(errors), returncode: 0 } });
+		expect(result).toMatchObject({ ok: false, error: { stdout, stderr: JSON.stringify(errors), returncode: 0 } });
 	});
 
 	test("defaults a missing comments.nodes shape to an empty comment list", async () => {
@@ -170,8 +170,8 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value[0]?.comments).toEqual([]);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value[0]?.comments).toEqual([]);
 	});
 
 	test("drops comments with null or non-numeric ids", async () => {
@@ -180,8 +180,8 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 
 		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
 
-		expect(result.type).toBe("ok");
-		if (result.type === "ok") expect(result.value[0]?.comments.map((comment) => comment.id)).toEqual([7]);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value[0]?.comments.map((comment) => comment.id)).toEqual([7]);
 	});
 });
 

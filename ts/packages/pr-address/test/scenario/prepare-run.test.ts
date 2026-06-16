@@ -63,12 +63,12 @@ function withFullStdout(args: readonly string[]): string[] {
 function gitGatewayFor(variant: GitVariant): InMemoryPrAddressGitGateway {
 	if (variant === "detached") return new InMemoryPrAddressGitGateway({ currentBranch: null });
 	if (variant === "branch-failure") {
-		return new InMemoryPrAddressGitGateway({ currentBranchFailure: { stderr: "fatal: not a git repository\n", stdout: "", returncode: 128 } });
+		return new InMemoryPrAddressGitGateway({ currentBranchFailure: { code: "gateway_failed", message: "fatal: not a git repository", stderr: "fatal: not a git repository\n", stdout: "", returncode: 128 } });
 	}
 	if (variant === "restructured-failure") {
 		return new InMemoryPrAddressGitGateway({
 			currentBranch: "feature",
-			restructuredFilesFailure: { stderr: "fatal: bad revision 'origin/master...HEAD'\n", stdout: "", returncode: 128 },
+			restructuredFilesFailure: { code: "gateway_failed", message: "fatal: bad revision 'origin/master...HEAD'", stderr: "fatal: bad revision 'origin/master...HEAD'\n", stdout: "", returncode: 128 },
 		});
 	}
 	return new InMemoryPrAddressGitGateway({ currentBranch: "feature", restructuredFiles: fixture.gateway.restructured_files });

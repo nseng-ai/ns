@@ -3,9 +3,8 @@ import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
-import * as ts from "typescript";
 
-import { sourceFilesUnder } from "../support/source-files.ts";
+import { identifierTokens, sourceFilesUnder } from "../support/source-files.ts";
 import {
 	PR_ADDRESS_READ_ONLY_VERBS,
 	PR_ADDRESS_TARGET_VERBS,
@@ -95,16 +94,3 @@ describe("pr-address run engine app contract", () => {
 		expect(violations, violations.join("\n")).toHaveLength(0);
 	});
 });
-
-function identifierTokens(source: string): ReadonlySet<string> {
-	const sourceFile = ts.createSourceFile("app-contract.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-	const identifiers = new Set<string>();
-
-	function visit(node: ts.Node): void {
-		if (ts.isIdentifier(node)) identifiers.add(node.text);
-		ts.forEachChild(node, visit);
-	}
-
-	visit(sourceFile);
-	return identifiers;
-}

@@ -55,6 +55,11 @@ function fakePrLookupMissStderr(prNumber: number): string {
 	return `no PR found for PR ${prNumber}`;
 }
 
+function fakeGatewayFailure(stderr: string, returncode: number): GatewayFailure {
+	return { code: "fake_gateway_failure", message: stderr, stdout: "", stderr, returncode, details: { stdout: "", stderr, returncode } };
+}
+
+
 export interface InMemoryGitHubState {
 	prs?: readonly PRSummary[] | undefined;
 	prsByBranch?: ReadonlyMap<string, PRSummary> | Record<string, PRSummary> | undefined;
@@ -161,7 +166,7 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPr(prNumber: number, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
+		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		if (this.missingPrNumbers.has(prNumber)) return prLookupMiss(prNumber);
 		const pr = this.prsByNumber.get(prNumber);
 		if (pr === undefined) return prLookupMiss(prNumber);
@@ -169,66 +174,66 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPrForBranch(branch: string, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailureBranches.has(branch)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
+		if (this.lookupFailureBranches.has(branch)) return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		const pr = this.prsByBranch.get(branch);
 		if (pr === undefined) return lookupMiss();
 		return { type: "found", pr: clone(pr) };
 	}
 
 	async listOpenPrs(_options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
-		if (this.listOpenPrsFailure !== undefined) return { type: "failure", failure: clone(this.listOpenPrsFailure) };
-		return { type: "ok", value: clone([...this.prsByNumber.values()].filter((pr) => pr.state === "OPEN")) };
+		if (this.listOpenPrsFailure !== undefined) return { ok: false, error: clone(this.listOpenPrsFailure) };
+		return { ok: true, value: clone([...this.prsByNumber.values()].filter((pr) => pr.state === "OPEN")) };
 	}
 
 	async getReviews(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
-		if (this.reviewsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
-		return { type: "ok", value: clone(this.reviews.get(prNumber) ?? []) };
+		if (this.reviewsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+		return { ok: true, value: clone(this.reviews.get(prNumber) ?? []) };
 	}
 
 	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
-		if (this.reviewThreadsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
+		if (this.reviewThreadsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		const threads = clone(this.reviewThreads.get(prNumber) ?? []);
-		return { type: "ok", value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
+		return { ok: true, value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
 	}
 
 	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
-		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { type: "failure", failure: { stderr: FAKE_GH_AUTH_FAILED_STDERR, stdout: "", returncode: 4 } };
-		return { type: "ok", value: clone(this.discussionComments.get(prNumber) ?? []) };
+		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+		return { ok: true, value: clone(this.discussionComments.get(prNumber) ?? []) };
 	}
 
 	async addPrDiscussionComment(prNumber: number, body: string, _options: GatewayOptions): Promise<GatewayResult<PRDiscussionComment>> {
 		this.commentCalls.push({ prNumber, body });
 		const id = this.nextDiscussionCommentId;
 		this.nextDiscussionCommentId += 1;
-		return { type: "ok", value: { id, body, author: "github-actions[bot]", url: `https://example.com/comment/${id}` } };
+		return { ok: true, value: { id, body, author: "github-actions[bot]", url: `https://example.com/comment/${id}` } };
 	}
 
 	async addPrDiscussionCommentReaction(commentId: number, reaction: string, _options: GatewayOptions): Promise<GatewayResult<Reaction>> {
-		if (this.reactionFailureCommentIds.has(commentId)) return { type: "failure", failure: { stderr: FAKE_REACTION_FAILED_STDERR, stdout: "", returncode: 1 } };
+		if (this.reactionFailureCommentIds.has(commentId)) return { ok: false, error: fakeGatewayFailure(FAKE_REACTION_FAILED_STDERR, 1) };
 		this.reactionCalls.push({ commentId, reaction });
 		const id = this.nextReactionId;
 		this.nextReactionId += 1;
-		return { type: "ok", value: { id, comment_id: commentId, content: reaction } };
+		return { ok: true, value: { id, comment_id: commentId, content: reaction } };
 	}
 
 	async addReviewThreadReply(threadId: string, body: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewComment>> {
-		if (this.threadReplyFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_REPLY_REJECTED_STDERR, stdout: "", returncode: 1 } };
+		if (this.threadReplyFailureIds.has(threadId)) return { ok: false, error: fakeGatewayFailure(FAKE_THREAD_REPLY_REJECTED_STDERR, 1) };
 		this.threadReplyCalls.push({ threadId, body });
 		const id = this.nextReviewCommentId;
 		this.nextReviewCommentId += 1;
-		return { type: "ok", value: reviewComment({ id, body, author: "github-actions[bot]" }) };
+		return { ok: true, value: reviewComment({ id, body, author: "github-actions[bot]" }) };
 	}
 
 	async resolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		if (this.resolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_RESOLVE_REJECTED_STDERR, stdout: "", returncode: 1 } };
+		if (this.resolveFailureIds.has(threadId)) return { ok: false, error: fakeGatewayFailure(FAKE_THREAD_RESOLVE_REJECTED_STDERR, 1) };
 		this.resolvedIds.push(threadId);
-		return { type: "ok", value: { thread_id: threadId, is_resolved: true } };
+		return { ok: true, value: { thread_id: threadId, is_resolved: true } };
 	}
 
 	async unresolveReviewThread(threadId: string, _options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		if (this.unresolveFailureIds.has(threadId)) return { type: "failure", failure: { stderr: FAKE_THREAD_UNRESOLVE_REJECTED_STDERR, stdout: "", returncode: 1 } };
+		if (this.unresolveFailureIds.has(threadId)) return { ok: false, error: fakeGatewayFailure(FAKE_THREAD_UNRESOLVE_REJECTED_STDERR, 1) };
 		this.unresolvedIds.push(threadId);
-		return { type: "ok", value: { thread_id: threadId, is_resolved: false } };
+		return { ok: true, value: { thread_id: threadId, is_resolved: false } };
 	}
 }
 
@@ -288,8 +293,8 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	}
 
 	async getRestructuredFiles(_baseRefName: string, _options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
-		if (this.restructuredFilesFailure !== undefined) return { type: "failure", failure: clone(this.restructuredFilesFailure) };
-		return { type: "ok", value: clone(this.restructuredFiles) };
+		if (this.restructuredFilesFailure !== undefined) return { ok: false, error: clone(this.restructuredFilesFailure) };
+		return { ok: true, value: clone(this.restructuredFiles) };
 	}
 }
 

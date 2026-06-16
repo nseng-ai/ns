@@ -33,7 +33,13 @@ export function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailur
 }
 
 export function gatewayFailureDetail(gatewayFailure: GatewayFailure): string {
-	return gatewayFailure.stderr ?? gatewayFailure.stdout ?? `exit code ${gatewayFailure.returncode}`;
+	const stderr = typeof gatewayFailure.stderr === "string" ? gatewayFailure.stderr : null;
+	const stdout = typeof gatewayFailure.stdout === "string" ? gatewayFailure.stdout : null;
+	if (stderr !== null && stderr.trim() !== "") return stderr;
+	if (stdout !== null && stdout.trim() !== "") return stdout;
+	if (typeof gatewayFailure.message === "string" && gatewayFailure.message.trim() !== "") return gatewayFailure.message;
+	if (typeof gatewayFailure.returncode === "number") return `exit code ${gatewayFailure.returncode}`;
+	return gatewayFailure.code ?? "gateway failed";
 }
 
 export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
