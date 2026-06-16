@@ -18,17 +18,25 @@
   - Policy: direct execution after preview.
   - Evidence: local working-tree diff against Graphite parent `sdl-submit-built-in-registry-runtime-hooks` adds built-in `sdl changes` under `ts/packages/sdl/src/default-commands/changes.ts`, moves the summary/prompt helpers into SDL-owned modules, registers `/sdl:changes` through the generic SDL Pi bridge, removes the old `/code:changes` command and `code-changes-summary` renderer, and updates SDL/Pi docs, context, parity metadata, and tests. Source-search evidence shows old-surface hits only as no-alias migration notes or absence assertions. Verification: targeted SDL and Pi extension checks/tests passed; full TypeScript check/test passed; docs dprint check passed.
 
+- [x] Audit the code lifecycle command family and settle the target `/sdl:code:*` taxonomy.
+  - Policy: direct execution after preview.
+  - Evidence: planning audit selected `/sdl:code:changes`, `/sdl:code:checkpoint`, `/sdl:code:submit`, `/sdl:code:autobranch`, `/sdl:code:autoslot`, `/sdl:code:land`, `/sdl:code:push`, and `/sdl:code:regenerate-pr` as the target project-local Pi family. Existing flat `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` stay primary alongside nested names. Existing `/code:autobranch`, `/code:autoslot`, `/code:land`, `/code:push`, and `/code:pr-regen` should be removed at cutover. `pr-feedback-watch` is excluded as review workflow, and `preview-url` is excluded as dev/deployment tooling.
+
+- [ ] Build the `/sdl:code:*` family as the project-local SDL example extension and API driver.
+  - Policy: direct execution after preview; steer first if the slice changes the public SDL extension API or Pi command taxonomy beyond the settled names.
+  - Evidence: command entries exercise the SDL extension API for discovery, selected loading, schemas/options, Pi command presentation, parity metadata, skill linkage, and lower-package orchestration boundaries without turning SDL into the implementation owner for CCC internals. A good first slice proves nested Pi registration for existing SDL commands (`changes`, `checkpoint`, `submit`) without destabilizing their flat primary mirrors; later slices should use `autobranch`, `autoslot`, `land`, `push`, and `regenerate-pr` to prove option parsing, confirmation hooks, live output, mutation safety, and CCC delegation seams.
+
 - [ ] Migrate branch/worktree creation flows: `autobranch` and `autoslot`.
   - Policy: direct execution after preview for code/docs/tests; ask before executing commands that mutate real branches, stashes, Graphite state, or slot worktrees.
-  - Evidence: `sdl autobranch` and `/sdl:autobranch` replace `/code:autobranch`; `sdl autoslot` and `/sdl:autoslot` replace `/code:autoslot`; old code surfaces are deleted; Graphite/slot safety checks remain covered by tests; docs record why autoslot is a project-specific SDL lifecycle extension.
+  - Evidence: `/sdl:code:autobranch` replaces `/code:autobranch`; `/sdl:code:autoslot` replaces `/code:autoslot`; old code surfaces are deleted; Graphite/slot safety checks remain covered by tests; docs record why autoslot is a project-specific SDL lifecycle extension.
 
 - [ ] Migrate landing and push flows under SDL.
   - Policy: direct execution after preview for implementation; ask before running any actual push, merge, landing, or GitHub mutation.
-  - Evidence: `sdl land` and `/sdl:land` expose the existing landing core through SDL reachability; `sdl push` and `/sdl:push` either replace the guarded push helper or receive an explicit out-of-scope decision; old `/code:land` and `/code:push` surfaces are removed when replacements land.
+  - Evidence: `/sdl:code:land` exposes the existing landing core through SDL reachability; `/sdl:code:push` replaces the guarded push helper; old `/code:land` and `/code:push` surfaces are removed when replacements land.
 
-- [ ] Migrate or disposition PR metadata and review-feedback lifecycle flows after the extension mechanism is proven.
-  - Policy: steer first before choosing the final review command taxonomy or replacing standalone product CLIs.
-  - Evidence: `pr-regen` is intentionally deferred until after the SDL extension mechanism exists; later work decides and implements SDL ownership for `sdl pr-regen`, `pr-address`, `stack-address`, and `pr-feedback-watch`, or records why a workflow remains a standalone CLI/skill outside SDL.
+- [ ] Migrate PR metadata regeneration as a code lifecycle command and disposition review-feedback workflows separately.
+  - Policy: steer first before choosing any review command taxonomy or replacing standalone product CLIs.
+  - Evidence: `/sdl:code:regenerate-pr` replaces `/code:pr-regen` after the SDL extension API supports the needed command shape. `pr-feedback-watch` is excluded from `/sdl:code:*` as review workflow; later work decides whether `pr-address`, `stack-address`, and `pr-feedback-watch` remain standalone CLIs/skills or become separate SDL review commands.
 
 - [ ] Retire stale `code`/`asdl-dev` vocabulary from durable docs, skills, parity metadata, and tests as slices migrate.
   - Policy: direct execution after preview.
@@ -36,8 +44,8 @@
 
 ## Parked
 
-- [ ] Nested SDL command taxonomy such as `sdl pr regen`, `sdl review address`, or `sdl slot auto`; first pass uses flat names.
-- [ ] `dev:preview-url` / Vercel preview migration; decide later whether preview deployment lookup is part of SDL for this repo.
+- [ ] Nested SDL CLI command taxonomy such as `sdl code checkpoint`, `sdl pr regen`, `sdl review address`, or `sdl slot auto`; the current decision only settles the Pi `/sdl:code:*` taxonomy.
+- [ ] `dev:preview-url` / Vercel preview migration; preview deployment lookup is excluded from `/sdl:code:*`, but a later decision can revisit whether it belongs elsewhere in SDL.
 - [ ] Changelog and release-preparation workflows under SDL.
 - [ ] Verification/fix workflow such as `sdl verify` or `sdl fix`; do not migrate `/just` / `code-just-fix` until there is a clearer SDL contract.
 - [ ] Long-lived compatibility aliases for migrated commands; hard cutover is the default and any exception requires an explicit future decision.

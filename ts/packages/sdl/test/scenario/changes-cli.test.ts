@@ -1,100 +1,23 @@
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands, runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
+import { listSdlCommands } from "@asdl/sdl/cli";
 
 import { formatOutstandingChangesMessage } from "../../src/changes-summary.ts";
 import { validateChangesSummary } from "../../src/changes-model-summary.ts";
 import type { PendingWorktreeSnapshot } from "../../src/pending-worktree.ts";
-
-interface ScriptedExecResponse {
-	match: string | RegExp | ((call: ExecCall) => boolean);
-	result: Partial<ExecResult>;
-}
-
-interface ExecCall {
-	command: string;
-	args: string[];
-	options: ExecOptions | undefined;
-}
-
-interface TestState {
-	exec?: readonly ScriptedExecResponse[];
-	textGeneration?: readonly TextGenerationResult[];
-}
-
-interface RunWithFakesOptions {
-	args: readonly string[];
-	state?: TestState | undefined;
-	cwd?: string | undefined;
-	env?: Record<string, string | undefined> | undefined;
-	homeDir?: string | undefined;
-}
-
-class ScriptedChangesContext implements SdlContext {
-	readonly cwd: string;
-	readonly env: Record<string, string | undefined>;
-	readonly execCalls: ExecCall[] = [];
-	readonly modelCalls: TextGenerationRequest[] = [];
-	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: TextGenerationResult[];
-
-	constructor(state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined> } = {}) {
-		this.cwd = options.cwd ?? "/work";
-		this.env = options.env ?? {};
-		this.execResponses = [...(state.exec ?? dirtySnapshotResponses())];
-		this.modelResults = [...(state.textGeneration ?? [{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" }])];
-	}
-
-	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		const call = { command, args: [...args], options };
-		this.execCalls.push(call);
-		const index = this.execResponses.findIndex((response) => responseMatches(response.match, call));
-		if (index === -1) {
-			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
-		}
-		const [response] = this.execResponses.splice(index, 1);
-		if (response === undefined) {
-			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
-		}
-		return execResult(response.result);
-	}
-
-	readonly model = {
-		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
-			this.modelCalls.push({ ...request });
-			return this.modelResults.shift() ?? { ok: false, error: "missing scripted text result" };
-		},
-	};
-}
+import {
+	formattedExecCalls,
+	parseJsonOutput,
+	runCliWithFakes,
+	type RunWithFakesOptions,
+	type ScriptedExecResponse,
+} from "./sdl-cli-fakes.ts";
 
 function runWithFakes(options: RunWithFakesOptions) {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const contextOptions = {
-		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-		...(options.env === undefined ? {} : { env: options.env }),
-	};
-	const context = new ScriptedChangesContext(options.state, contextOptions);
-	return {
-		context,
-		stdout,
-		stderr,
-		exit: runCli(options.args, {
-			context,
-			cwd: context.cwd,
-			homeDir: options.homeDir ?? join(context.cwd, ".home"),
-			env: context.env,
-			stdout: (text) => {
-				stdout.push(text);
-			},
-			stderr: (text) => {
-				stderr.push(text);
-			},
-		}),
-	};
+	return runCliWithFakes(options, {
+		execResponses: dirtySnapshotResponses,
+		textGenerationResults: () => [{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" }],
+	});
 }
 
 function dirtySnapshotResponses(): ScriptedExecResponse[] {
@@ -115,37 +38,6 @@ function cleanSnapshotResponses(): ScriptedExecResponse[] {
 	];
 }
 
-function execResult(result: Partial<ExecResult> = {}): ExecResult {
-	return {
-		code: result.code ?? 0,
-		stdout: result.stdout ?? "",
-		stderr: result.stderr ?? "",
-		killed: result.killed ?? false,
-	};
-}
-
-function responseMatches(match: ScriptedExecResponse["match"], call: ExecCall): boolean {
-	const display = formatExecCall(call);
-	if (typeof match === "string") return match === display;
-	if (match instanceof RegExp) return match.test(display);
-	return match(call);
-}
-
-function formatExecCall(call: ExecCall): string {
-	return [call.command, ...call.args].join(" ");
-}
-
-function formattedExecCalls(context: ScriptedChangesContext): string[] {
-	return context.execCalls.map(formatExecCall);
-}
-
-function parseJsonOutput(run: { stdout: string[] }): Record<string, unknown> {
-	const value: unknown = JSON.parse(run.stdout.join(""));
-	if (typeof value !== "object" || value === null) {
-		throw new Error("Expected JSON object output.");
-	}
-	return value as Record<string, unknown>;
-}
 
 describe("sdl changes CLI", () => {
 	test("command metadata and help list changes", async () => {

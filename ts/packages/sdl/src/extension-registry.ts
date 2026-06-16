@@ -237,15 +237,7 @@ function validateLevelCandidates(
 		validated.push({ name: candidate.name, candidate, source: candidate.source });
 	}
 
-	const counts = new Map<string, LoadedLevelCandidate[]>();
-	for (const candidate of validated) {
-		let matches = counts.get(candidate.name);
-		if (matches === undefined) {
-			matches = [];
-			counts.set(candidate.name, matches);
-		}
-		matches.push(candidate);
-	}
+	const counts = groupCandidatesByName(validated);
 	const duplicateNames = new Set([...counts.entries()].filter(([, matches]) => matches.length > 1).map(([name]) => name));
 	for (const name of duplicateNames) {
 		const matches = counts.get(name) ?? [];
@@ -258,6 +250,15 @@ function validateLevelCandidates(
 		});
 	}
 	return { candidates: validated.filter((candidate) => !duplicateNames.has(candidate.name)), diagnostics };
+}
+
+function groupCandidatesByName(candidates: readonly LoadedLevelCandidate[]): ReadonlyMap<string, readonly LoadedLevelCandidate[]> {
+	const counts = new Map<string, readonly LoadedLevelCandidate[]>();
+	for (const candidate of candidates) {
+		const existing = counts.get(candidate.name) ?? [];
+		counts.set(candidate.name, [...existing, candidate]);
+	}
+	return counts;
 }
 
 function isBuiltInCandidate(candidate: ExtensionCommandCandidate): candidate is BuiltInSdlCommandCandidate {
