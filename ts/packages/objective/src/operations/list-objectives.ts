@@ -82,7 +82,14 @@ export async function buildObjectiveListResult(
 
 	const records: ObjectiveListRenderRecord[] = [];
 	for (const record of filtered) {
-		const built = await buildObjectiveListRecord(ctx.storage, ctx.gitFacts, ctx.repoRoot, record.slug, record.status, updatedBranchesBySlug.get(record.slug));
+		const built = await buildObjectiveListRecord({
+			storage: ctx.storage,
+			gitFacts: ctx.gitFacts,
+			repoRoot: ctx.repoRoot,
+			slug: record.slug,
+			status: record.status,
+			updatedBranches: updatedBranchesBySlug.get(record.slug),
+		});
 		if (built.type === "storage-error") return built;
 		if (built.type === "git-error") return built;
 		records.push(built.value);
@@ -177,30 +184,32 @@ export function latestUpdateIsoFromUpdateNames(updateNames: readonly string[]): 
 	return candidates[candidates.length - 1]?.iso ?? null;
 }
 
-async function buildObjectiveListRecord(
-	storage: ObjectiveStorage,
-	gitFacts: ObjectiveCliContext["gitFacts"],
-	repoRoot: string,
-	slug: string,
-	status: ObjectiveRecordStatus,
-	updatedBranches: readonly string[] | undefined,
-): Promise<
+interface BuildObjectiveListRecordOptions {
+	storage: ObjectiveStorage;
+	gitFacts: ObjectiveCliContext["gitFacts"];
+	repoRoot: string;
+	slug: string;
+	status: ObjectiveRecordStatus;
+	updatedBranches: readonly string[] | undefined;
+}
+
+async function buildObjectiveListRecord(options: BuildObjectiveListRecordOptions): Promise<
 	| { type: "ok"; value: ObjectiveListRenderRecord }
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
-	const relativePath = activeRecordRelativePath(slug);
-	const updates = await storage.listUpdateFiles(relativePath);
+	const relativePath = activeRecordRelativePath(options.slug);
+	const updates = await options.storage.listUpdateFiles(relativePath);
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
-	const dirty = await gitFacts.hasUncommittedChangesUnder({ repoRoot, relativePath });
+	const dirty = await options.gitFacts.hasUncommittedChangesUnder({ repoRoot: options.repoRoot, relativePath });
 	if (!dirty.ok) return { type: "git-error", error: dirty.error };
 	return {
 		type: "ok",
 		value: {
-			slug,
-			status,
+			slug: options.slug,
+			status: options.status,
 			latest_update_iso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
-			...(updatedBranches === undefined ? {} : { updated_branches: [...updatedBranches] }),
+			...(options.updatedBranches === undefined ? {} : { updated_branches: [...options.updatedBranches] }),
 			has_outstanding_changes: dirty.value,
 		},
 	};

@@ -1,10 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway, type GitRefsPathCall } from "@asdl/core/git/testing";
 
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const BRANCH = "planned-branches/branch-scoped-plan";
+
+interface MutableGitRefsPathCall extends Omit<GitRefsPathCall, "refs"> {
+	refs: string[];
+}
+
+function unsafeMutableRefsPathCalls(calls: readonly GitRefsPathCall[]): MutableGitRefsPathCall[] {
+	return calls as MutableGitRefsPathCall[];
+}
 
 describe("in-memory git gateway", () => {
 	test("returns configured facts and records narrow logs", async () => {
@@ -182,7 +190,7 @@ describe("in-memory git gateway", () => {
 		expect(await git.changedPathsUnder({ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".asdl/objectives" })).toEqual({ ok: false, error: explicitError });
 
 		const treeCalls = git.treeOidsAtRefsCalls;
-		const mutableTreeCalls = treeCalls as unknown as { refs: string[] }[];
+		const mutableTreeCalls = unsafeMutableRefsPathCalls(treeCalls);
 		mutableTreeCalls[0]?.refs.push("mutated");
 
 		expect(treeCalls).toEqual([{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".asdl/objectives" }]);

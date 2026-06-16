@@ -30,6 +30,13 @@ import {
 	renderReadObjective,
 	runReadObjective,
 } from "./operations/read-objective.ts";
+import {
+	legacyRunnerSubagentUsageMachine,
+	renderRunnerSubagentUsageMarkdown,
+	runnerSubagentUsageRequestSchema,
+	runnerSubagentUsageResultSchema,
+	runRunnerSubagentUsage,
+} from "./operations/runner-subagent-usage.ts";
 
 export const VERSION = "0.1.0";
 
@@ -87,6 +94,17 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		renderHuman: renderReadObjective,
 		renderMarkdown: renderReadObjective,
 		legacyMachine: legacyReadObjectiveMachine,
+	});
+	execGroup.command({
+		name: "runner-subagent-usage",
+		description: "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
+		schema: runnerSubagentUsageRequestSchema,
+		resultSchema: runnerSubagentUsageResultSchema,
+		positionals: { session_files: { position: 0 } },
+		handler: runRunnerSubagentUsage,
+		renderHuman: renderRunnerSubagentUsageMarkdown,
+		renderMarkdown: renderRunnerSubagentUsageMarkdown,
+		legacyMachine: legacyRunnerSubagentUsageMachine,
 	});
 	root.group(execGroup);
 	return root;
