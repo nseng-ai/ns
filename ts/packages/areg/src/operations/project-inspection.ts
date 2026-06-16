@@ -38,17 +38,15 @@ export async function collectProjectInspectionFacts(ctx: AregCliContext, project
 }
 
 export async function collectCheckSkillInspections(ctx: AregCliContext, projectDir: string, skillNames: readonly string[]): Promise<readonly AregCheckSkillInspection[]> {
-	const skills: AregCheckSkillInspection[] = [];
-	for (const skillName of skillNames) {
-		skills.push(await ctx.project.inspectCheckSkill({ projectDir, skillName, env: ctx.env }));
-	}
-	return skills;
+	return await collectSkillInspections(skillNames, (skillName) => ctx.project.inspectCheckSkill({ projectDir, skillName, env: ctx.env }));
 }
 
 export async function collectLocalSkillKindInspections(ctx: AregCliContext, projectDir: string, skillNames: readonly string[]): Promise<readonly AregSkillKindSkillInspection[]> {
-	const skills: AregSkillKindSkillInspection[] = [];
-	for (const skillName of skillNames) {
-		skills.push(await ctx.project.inspectLocalSkill({ projectDir, skillName, env: ctx.env }));
-	}
+	return await collectSkillInspections(skillNames, (skillName) => ctx.project.inspectLocalSkill({ projectDir, skillName, env: ctx.env }));
+}
+
+async function collectSkillInspections<T>(skillNames: readonly string[], inspect: (skillName: string) => Promise<T>): Promise<readonly T[]> {
+	const skills: T[] = [];
+	for (const skillName of skillNames) skills.push(await inspect(skillName));
 	return skills;
 }
