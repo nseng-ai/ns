@@ -1,12 +1,28 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { createTempDirTracker, describeNodeRuntimeCliEntrypoint, withTempRepoSkill } from "@asdl/core/testing";
+import { createTempDirTracker, describeNodeRuntimeCliEntrypoint, ScriptedCommandExecApi, ScriptedCommandRunner, step, withTempRepoSkill } from "@asdl/core/testing";
 import { expect, test } from "vitest";
 
 test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof describeNodeRuntimeCliEntrypoint).toBe("function");
 	expect(typeof createTempDirTracker).toBe("function");
 	expect(typeof withTempRepoSkill).toBe("function");
+	expect(typeof ScriptedCommandRunner).toBe("function");
+	expect(typeof ScriptedCommandExecApi).toBe("function");
+	expect(typeof step).toBe("function");
+});
+
+test("scripted command helpers record calls and validate expected steps", async () => {
+	const runner = new ScriptedCommandRunner([step("node", ["--version"], "v1\n")]);
+	const result = await runner.runner("node", ["--version"], { cwd: "/repo" });
+
+	expect(result).toEqual({ stdout: "v1\n", stderr: "", code: 0, killed: false });
+	expect(runner.calls).toEqual([{ command: "node", args: ["--version"], cwd: "/repo" }]);
+	runner.assertDone();
+
+	const execApi = new ScriptedCommandExecApi([{ stdout: "ok" }]);
+	expect(await execApi.exec("gh", ["pr", "view"], { cwd: "/repo" })).toEqual({ stdout: "ok", stderr: "", code: 0, killed: false });
+	expect(execApi.calls()).toEqual([{ command: "gh", args: ["pr", "view"], options: { cwd: "/repo" } }]);
 });
 
 test("temp dir tracker removes tracked directories", async () => {

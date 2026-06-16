@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
 import { FakeRoasterGitHubGateway, RealRoasterGitHubGateway } from "../../src/gateways/github.ts";
 import type { PRChangedFile, PRInlineCommentInput, PRReviewComment } from "../../src/models.ts";
-import { ScriptedCommandExecApi } from "../support/fake-roaster-context.ts";
 
 describe("FakeRoasterGitHubGateway", () => {
 	test("returns configured state, records batched reviews, and manages discussion comments", async () => {

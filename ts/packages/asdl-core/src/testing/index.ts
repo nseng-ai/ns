@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
+import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../exec.ts";
+
 export interface NodeRuntimeCliEntrypointOptions {
 	readonly name: string;
 	readonly workspaceRoot: URL;
@@ -34,6 +36,101 @@ export interface TempRepoSkillOptions {
 	readonly skillName: string;
 	readonly markdown: string;
 	readonly prefix?: string;
+}
+
+export interface RunnerCall {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly cwd?: string | undefined;
+}
+
+export interface ResultFields {
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly exitCode?: number;
+	readonly startupError?: string;
+	readonly killed?: boolean;
+}
+
+export interface ScriptStep extends ResultFields {
+	readonly command: string;
+	readonly args: readonly string[];
+}
+
+export interface ScriptedCommandExecCall {
+	readonly command: string;
+	readonly args: readonly string[];
+	readonly options?: ExecOptions | undefined;
+}
+
+export class ScriptedCommandRunner {
+	private readonly callsInternal: RunnerCall[] = [];
+	private readonly errors: string[] = [];
+	private readonly script: ScriptStep[];
+
+	constructor(script: readonly ScriptStep[]) {
+		this.script = script.map(copyScriptStep);
+	}
+
+	get calls(): readonly RunnerCall[] {
+		return this.callsInternal.map((call) => ({ command: call.command, args: [...call.args], ...(call.cwd === undefined ? {} : { cwd: call.cwd }) }));
+	}
+
+	readonly runner: CommandRunner = async (command, args, options = {}) => {
+		this.callsInternal.push({ command, args: [...args], cwd: options.cwd });
+		const expected = this.script.shift();
+		if (expected === undefined) {
+			const message = `unexpected command: ${command} ${args.join(" ")}`;
+			this.errors.push(message);
+			return result({ exitCode: 99, stderr: message });
+		}
+
+		if (expected.command !== command || !sameArgs(expected.args, args)) {
+			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
+			this.errors.push(message);
+			return result({ exitCode: 99, stderr: message });
+		}
+
+		const commandResult = result(expected);
+		if (commandResult.stdout !== "") {
+			options.onStdout?.(commandResult.stdout);
+		}
+		if (commandResult.stderr !== "") {
+			options.onStderr?.(commandResult.stderr);
+		}
+		return commandResult;
+	};
+
+	assertDone(): void {
+		expect(this.errors).toEqual([]);
+		expect(this.script).toEqual([]);
+	}
+}
+
+export class ScriptedCommandExecApi implements CommandExecApi {
+	private readonly results: ExecResult[];
+	private readonly callsInternal: ScriptedCommandExecCall[] = [];
+
+	constructor(results: readonly Partial<ExecResult>[] = []) {
+		this.results = results.map((fields) => ({ stdout: "", stderr: "", code: 0, killed: false, ...fields }));
+	}
+
+	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+		this.callsInternal.push({ command, args: [...args], ...(options === undefined ? {} : { options: { ...options } }) });
+		return this.results.shift() ?? { stdout: "", stderr: "", code: 0, killed: false };
+	}
+
+	calls(): readonly ScriptedCommandExecCall[] {
+		return this.callsInternal.map((call) => ({ command: call.command, args: [...call.args], ...(call.options === undefined ? {} : { options: { ...call.options } }) }));
+	}
+}
+
+export function step(command: string, args: readonly string[], stdout = "", exitCode = 0, stderr = ""): ScriptStep {
+	return { command, args: [...args], stdout, exitCode, stderr };
+}
+
+export function startupErrorStep(command: string, args: readonly string[], startupError: string): ScriptStep {
+	return { command, args: [...args], exitCode: 127, startupError };
 }
 
 export function describeNodeRuntimeCliEntrypoint(options: NodeRuntimeCliEntrypointOptions): void {
@@ -108,4 +205,22 @@ export async function withTempRepoSkill<T>(options: TempRepoSkillOptions, callba
 	} finally {
 		await rm(repoDir, { recursive: true, force: true });
 	}
+}
+
+function sameArgs(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function result(fields: ResultFields): ExecResult {
+	return {
+		code: fields.exitCode ?? 0,
+		stdout: fields.stdout ?? "",
+		stderr: fields.startupError ?? fields.stderr ?? "",
+		killed: fields.killed === true,
+		...(fields.startupError === undefined ? {} : { startupError: fields.startupError }),
+	};
+}
+
+function copyScriptStep(stepValue: ScriptStep): ScriptStep {
+	return { ...stepValue, args: [...stepValue.args] };
 }

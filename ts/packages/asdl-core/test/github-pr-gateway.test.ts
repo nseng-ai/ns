@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@asdl/core/exec";
 import { RealGithubPrGateway } from "@asdl/core/submit";
-import { ScriptedCommandRunner, step } from "../../asdl-dev/test/support/scripted-command-runner.ts";
+import { ScriptedCommandRunner, step } from "@asdl/core/testing";
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {

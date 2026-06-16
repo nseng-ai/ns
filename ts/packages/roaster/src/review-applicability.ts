@@ -1,3 +1,5 @@
+import { mapFromRecordOrMap } from "@asdl/core/primitives";
+
 export interface ReviewApplicability {
 	readonly include: readonly string[];
 	readonly exclude: readonly string[];
@@ -11,9 +13,9 @@ export function applicableReviewKeys(
 	definitionsByKey: ReadonlyMap<string, ReviewDefinitionWithApplicability> | Readonly<Record<string, ReviewDefinitionWithApplicability>>,
 	options: { readonly changedPaths: readonly string[] },
 ): string[] {
-	const entries = definitionsByKey instanceof Map ? definitionsByKey.entries() : Object.entries(definitionsByKey);
+	const definitions = mapFromRecordOrMap(definitionsByKey);
 	const keys: string[] = [];
-	for (const [key, definition] of entries) {
+	for (const [key, definition] of definitions.entries()) {
 		if (reviewAppliesToPaths(definition.applicability, options.changedPaths)) keys.push(key);
 	}
 	return keys;

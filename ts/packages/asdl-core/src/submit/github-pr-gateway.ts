@@ -1,15 +1,13 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
+import { GITHUB_CLI_TIMEOUT_MS } from "../github-cli.ts";
 import { isRecord } from "../primitives.ts";
+import { withTemporaryFile } from "../temp-files.ts";
 
 import { err, ok, type GatewayResult } from "./result.ts";
 import { commandFailure } from "./command-failure.ts";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
-const VIEW_TIMEOUT_MS = 30_000;
+const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
 const DIFF_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
 
@@ -94,10 +92,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	}
 
 	async editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>> {
-		const tempDir = await mkdtemp(join(tmpdir(), "asdl-dev-pr-body-"));
-		try {
-			const bodyPath = join(tempDir, "body.md");
-			await writeFile(bodyPath, `${params.body}\n`, "utf8");
+		return await withTemporaryFile({ prefix: "asdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` }, async (bodyPath) => {
 			const args = ["pr", "edit", String(params.number), "--title", params.title, "--body-file", bodyPath];
 			const result = await this.runGh(args, params.cwd, EDIT_TIMEOUT_MS);
 			const failure = commandFailure({
@@ -109,9 +104,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			});
 			if (failure !== undefined) return err(failure);
 			return ok(undefined);
-		} finally {
-			await rm(tempDir, { force: true, recursive: true });
-		}
+		});
 	}
 
 	private async viewPrWithArgs(params: { cwd: string; args: string[] }): Promise<GatewayResult<GithubPrDetails>> {

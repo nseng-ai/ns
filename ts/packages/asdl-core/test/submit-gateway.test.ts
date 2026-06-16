@@ -7,7 +7,7 @@ import {
 	RealSubmitMetadataGateway,
 } from "@asdl/core/submit";
 import { RealSubmitGateway } from "@asdl/core/submit";
-import { ScriptedCommandRunner, startupErrorStep, step } from "../../asdl-dev/test/support/scripted-command-runner.ts";
+import { ScriptedCommandRunner, startupErrorStep, step } from "@asdl/core/testing";
 
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {
