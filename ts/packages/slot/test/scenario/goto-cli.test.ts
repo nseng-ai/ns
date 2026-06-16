@@ -23,8 +23,8 @@ describe("slot goto CLI", () => {
 
 	it("returns negative for an unassigned slot", async () => {
 		const run = runScenario(["goto", "-n", "1", "--format", "json"], { git: { worktrees: [slotWorktree("slot-01")] } });
-		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({ message: "slot-01 is not currently assigned. Run `slot list` to see the pool." });
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "slot-01 is not currently assigned. Run `slot list` to see the pool." });
 	});
 
 	it("surfaces operation state", async () => {

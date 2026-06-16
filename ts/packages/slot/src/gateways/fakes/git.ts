@@ -5,7 +5,7 @@ import type { BranchCreateOptions, CurrentBranchResult, GitCommandFailure, SlotG
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
 	| { type: "remove-worktree"; path: string }
-	| { type: "create-branch"; branch: string; startPoint: string; force: boolean }
+	| { type: "create-branch"; branch: string; startPoint: string; shouldForce: boolean }
 	| { type: "checkout-branch"; path: string; branch: string }
 	| { type: "detach-head"; path: string; ref: string };
 
@@ -107,7 +107,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 	}
 
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
-		this.log.push({ type: "create-branch", branch, startPoint, force: options.force });
+		this.log.push({ type: "create-branch", branch, startPoint, shouldForce: options.shouldForce });
 		const failure = this.createBranchFailures[branch];
 		if (failure !== undefined) return { ...failure };
 		this.localBranches.add(branch);

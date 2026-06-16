@@ -1,8 +1,9 @@
 import { Argument, Command, CommanderError, InvalidArgumentError, Option } from "commander";
 import { z } from "zod";
 
-import { emitExit, type ClinkrFormat, type LegacyMachineOutput } from "./emit.ts";
+import { emitExit, type LegacyMachineOutput } from "./emit.ts";
 import type { ClinkrExit } from "./exit.ts";
+import { clinkrFormatFromOption } from "./format.ts";
 import { ClinkrFailure } from "./failure.ts";
 import { createProcessIo, type ClinkrIo } from "./io.ts";
 import { buildJsonSchemaDocument, type JsonSchemaDocument } from "./json-schema.ts";
@@ -295,12 +296,6 @@ function exitCodeForCommanderError(error: CommanderError): number {
 	}
 	// All parse/usage errors exit 2 (Click parity; commander defaults to 1).
 	return 2;
-}
-
-function clinkrFormatFromOption(requestedFormat: unknown): ClinkrFormat {
-	if (requestedFormat === "json") return "json";
-	if (requestedFormat === "markdown" || requestedFormat === "md") return "markdown";
-	return "human";
 }
 
 function buildLeafCommand<TContext>(options: BuildLeafCommandOptions<TContext>): Command {

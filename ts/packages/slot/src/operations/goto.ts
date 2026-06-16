@@ -48,7 +48,7 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 	const record = findBySlot(inventory, slotName);
 	if (record === null || record.branch === null) return negative(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
 	if (!(await ctx.git.pathExists(record.path))) return failure("worktree_missing", `Worktree for ${slotName} is missing at ${record.path}. Run \`slot free --wt ${slotName}\` to clear the stale assignment.`);
-	const navigation = await buildNavigationResultFields(ctx, { worktreePath: record.path, noClipboard: !request.clipboard });
+	const navigation = await buildNavigationResultFields(ctx, { worktreePath: record.path, shouldSkipClipboard: !request.clipboard });
 	return ok({ slot_name: slotName, branch_name: record.branch, operation: record.operation, ...navigation });
 }
 

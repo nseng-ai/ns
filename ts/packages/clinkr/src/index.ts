@@ -26,6 +26,7 @@ export type {
 	MachineEnvelope,
 } from "./exit.ts";
 export { ClinkrFailure } from "./failure.ts";
+export { clinkrFormatFromArgs, clinkrFormatFromOption, isClinkrHumanOutputInvocation } from "./format.ts";
 export { createProcessIo, resolveIo } from "./io.ts";
 export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";
 export { emitExit } from "./emit.ts";

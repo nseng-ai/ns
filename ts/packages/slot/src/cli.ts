@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
@@ -110,22 +110,12 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, isMachineMode: isMachineModeInvocation(args) };
+	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, isMachineMode: !isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 
 function runtimeInfo(): string {
 	return "runtime: typescript\nentry_point: @asdl/slot bin slot -> ts/packages/slot/src/cli.ts\n";
-}
-
-function isMachineModeInvocation(args: readonly string[]): boolean {
-	for (let index = 0; index < args.length; index += 1) {
-		const arg = args[index];
-		if (arg === "--json-schema") return true;
-		if (arg === "--format=json") return true;
-		if (arg === "--format" && args[index + 1] === "json") return true;
-	}
-	return false;
 }
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {

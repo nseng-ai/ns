@@ -10,10 +10,10 @@ export interface NavigationResultFields {
 	clipboard_failure_detail: string | null;
 }
 
-export async function buildNavigationResultFields(ctx: SlotCliContext, options: { worktreePath: string; noClipboard: boolean }): Promise<NavigationResultFields> {
+export async function buildNavigationResultFields(ctx: SlotCliContext, options: { worktreePath: string; shouldSkipClipboard: boolean }): Promise<NavigationResultFields> {
 	await writeCdDirectiveIfActive(options.worktreePath, { env: ctx.env, isEnabled: !ctx.isMachineMode });
 	const cdCommand = `cd ${options.worktreePath}`;
-	if (options.noClipboard) {
+	if (options.shouldSkipClipboard) {
 		return {
 			worktree_path: options.worktreePath,
 			cd_command: cdCommand,

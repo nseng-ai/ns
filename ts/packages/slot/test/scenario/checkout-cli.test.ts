@@ -37,7 +37,7 @@ describe("slot checkout CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { created_branch: true, branch_name: "feature/new" } });
 		expect(run.git.operations()).toEqual([
-			{ type: "create-branch", branch: "feature/new", startPoint: "master", force: false },
+			{ type: "create-branch", branch: "feature/new", startPoint: "master", shouldForce: false },
 			{ type: "checkout-branch", path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/new" },
 		]);
 	});

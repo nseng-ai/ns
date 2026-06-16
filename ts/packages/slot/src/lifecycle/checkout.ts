@@ -18,16 +18,16 @@ export type SlotCheckoutResult = LifecycleResult<SlotCheckoutOutcome>;
 
 type ExecutableCheckoutPlan = Extract<CheckoutPlan, { type: "reuse_assignment" | "branch_in_main_worktree" | "assign_to_slot" }>;
 
-export async function checkoutBranch(ctx: SlotCliContext, branchName: string, options: { newBranch: boolean; base: string | null }): Promise<SlotCheckoutResult> {
+export async function checkoutBranch(ctx: SlotCliContext, branchName: string, options: { shouldCreateBranch: boolean; base: string | null }): Promise<SlotCheckoutResult> {
 	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
 	await ensureSlotsMetadataDir(ctx.repo, ctx.storage);
 
 	const branchExists = await ctx.git.branchExists(branchName);
 	let createdBranch = false;
-	if (options.newBranch) {
+	if (options.shouldCreateBranch) {
 		if (branchExists) return failure("branch_exists", `Branch '${branchName}' already exists. Drop -b to check out the existing branch.`);
 		if (options.base !== null && !(await ctx.git.branchExists(options.base))) return failure("base_missing", `Base branch '${options.base}' does not exist.`);
-		const createFailure = await ctx.git.createBranch(branchName, options.base ?? "HEAD", { force: false });
+		const createFailure = await ctx.git.createBranch(branchName, options.base ?? "HEAD", { shouldForce: false });
 		if (createFailure !== null) return failure("branch_create_failed", `Failed to create branch '${branchName}': ${createFailure.message}`);
 		createdBranch = true;
 	} else if (!branchExists) {

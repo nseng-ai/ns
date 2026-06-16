@@ -1,10 +1,18 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { parseGitWorktreePorcelain } from "@asdl/core/git";
 
 const SLOT_GIT_TIMEOUT_MS = 10_000;
+
+const GIT_OPERATION_MARKERS = [
+	{ operation: "merge", paths: ["MERGE_HEAD"] },
+	{ operation: "cherry-pick", paths: ["CHERRY_PICK_HEAD"] },
+	{ operation: "revert", paths: ["REVERT_HEAD"] },
+	{ operation: "rebase", paths: ["rebase-merge", "rebase-apply"] },
+	{ operation: "bisect", paths: ["BISECT_LOG"] },
+] as const;
 
 export interface WorktreeInfo {
 	path: string;
@@ -29,7 +37,7 @@ export type CurrentBranchResult =
 	| { type: "failure"; failure: GitCommandFailure };
 
 export interface BranchCreateOptions {
-	force: boolean;
+	shouldForce: boolean;
 }
 
 export interface SlotGitGateway {
@@ -86,10 +94,11 @@ export class RealSlotGitGateway implements SlotGitGateway {
 
 	async listBranchOccupancies(): Promise<readonly WorktreeOccupancy[]> {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd);
-		return parseGitWorktreePorcelain(result.stdout).flatMap((worktree) => {
-			if (worktree.branch === null) return [];
-			return [{ path: worktree.path, branch: worktree.branch, operation: worktreeOperation(worktree.path) ?? "checked-out" }];
-		});
+		const occupancies = await Promise.all(parseGitWorktreePorcelain(result.stdout).map(async (worktree) => {
+			if (worktree.branch === null) return null;
+			return { path: worktree.path, branch: worktree.branch, operation: await this.worktreeOperation(worktree.path) ?? "checked-out" };
+		}));
+		return occupancies.filter((occupancy) => occupancy !== null);
 	}
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
@@ -143,7 +152,7 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	}
 
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
-		const flag = options.force ? ["-f"] : [];
+		const flag = options.shouldForce ? ["-f"] : [];
 		const result = await this.git(["branch", ...flag, branch, startPoint], this.cwd, { allowFailure: true });
 		return result.isOk ? null : failureFromResult(result, "branch_create_failed");
 	}
@@ -166,6 +175,23 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		await this.git(["worktree", "remove", path], this.cwd);
 	}
 
+	private async worktreeOperation(worktreePath: string): Promise<string | null> {
+		for (const marker of GIT_OPERATION_MARKERS) {
+			for (const path of marker.paths) {
+				if (await this.gitPathExists(worktreePath, path)) return marker.operation;
+			}
+		}
+		return null;
+	}
+
+	private async gitPathExists(cwd: string, path: string): Promise<boolean> {
+		const result = await this.git(["rev-parse", "--git-path", path], cwd, { allowFailure: true });
+		if (!result.isOk) return false;
+		const rawPath = result.stdout.trim();
+		if (rawPath.length === 0) return false;
+		return existsSync(isAbsolute(rawPath) ? rawPath : resolve(cwd, rawPath));
+	}
+
 	private async git(args: readonly string[], cwd: string, options: { allowFailure?: boolean | undefined } = {}): Promise<CommandResult> {
 		const result = await this.execApi.exec("git", [...args], { cwd, env: this.env, timeout: SLOT_GIT_TIMEOUT_MS });
 		const commandResult = { isOk: result.code === 0 && !result.killed, stdout: result.stdout, stderr: result.stderr, code: result.code, killed: result.killed };
@@ -185,29 +211,6 @@ interface CommandResult {
 function failureFromResult(result: CommandResult, errorType?: string): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
 	return { message: output, returncode: result.code, ...(errorType === undefined ? {} : { errorType }) };
-}
-
-function worktreeOperation(worktreePath: string): string | null {
-	const adminDir = worktreeAdminDir(worktreePath);
-	if (adminDir === null) return null;
-	if (existsSync(resolve(adminDir, "rebase-merge")) || existsSync(resolve(adminDir, "rebase-apply"))) return "rebase";
-	if (existsSync(resolve(adminDir, "BISECT_LOG"))) return "bisect";
-	return null;
-}
-
-function worktreeAdminDir(worktreePath: string): string | null {
-	const gitPath = resolve(worktreePath, ".git");
-	try {
-		const stat = statSync(gitPath);
-		if (stat.isDirectory()) return gitPath;
-		const content = readFileSync(gitPath, "utf8").trim();
-		const prefix = "gitdir: ";
-		if (!content.startsWith(prefix)) return null;
-		const gitDir = content.slice(prefix.length);
-		return isAbsolute(gitDir) ? gitDir : resolve(worktreePath, gitDir);
-	} catch {
-		return null;
-	}
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {

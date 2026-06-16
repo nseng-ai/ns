@@ -24,7 +24,7 @@ interface ClaimPlan {
 	target: SlotRecord;
 	slotCheckoutBranch: string;
 	source: SlotRecord | null;
-	alreadyCurrent: boolean;
+	isAlreadyCurrent: boolean;
 	callerRedirect: CurrentWorktreeRedirect | null;
 	mainRedirect: CurrentWorktreeRedirect | null;
 }
@@ -37,7 +37,7 @@ export async function claimBranch(ctx: SlotCliContext, branchName: string): Prom
 	const planResult = await planClaim(ctx, branchName);
 	if (planResult.type === "failure") return planResult;
 	const plan = planResult.outcome;
-	if (plan.alreadyCurrent) return ok(outcomeFromPlan(ctx, plan));
+	if (plan.isAlreadyCurrent) return ok(outcomeFromPlan(ctx, plan));
 
 	const trunkBranch = await ctx.git.getTrunkBranch();
 	if (plan.source !== null) {
@@ -66,12 +66,12 @@ async function planClaim(ctx: SlotCliContext, branchName: string): Promise<Lifec
 
 	const match = findByBranch(inventory, branchName);
 	if (match?.kind === "slot") {
-		if (match.record.path === current.path) return okPlan({ target: current, slotCheckoutBranch: branchName, source: null, alreadyCurrent: true, callerRedirect: null, mainRedirect: null });
+		if (match.record.path === current.path) return okPlan({ target: current, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: true, callerRedirect: null, mainRedirect: null });
 		const sourceFailure = await sourceSlotFailure(ctx, match.record);
 		if (sourceFailure !== null) return { type: "failure", failure: sourceFailure };
 		const currentFailure = await currentSlotDirtyFailure(ctx, current);
 		if (currentFailure !== null) return { type: "failure", failure: currentFailure };
-		return okPlan({ target: current, slotCheckoutBranch: branchName, source: match.record, alreadyCurrent: false, callerRedirect: null, mainRedirect: null });
+		return okPlan({ target: current, slotCheckoutBranch: branchName, source: match.record, isAlreadyCurrent: false, callerRedirect: null, mainRedirect: null });
 	}
 	if (match?.kind === "main") return failure("branch_in_main_worktree", `Branch '${branchName}' is checked out in the main worktree at ${match.worktree.path}; \`slot claim\` only moves branches from other slots.`);
 
@@ -79,7 +79,7 @@ async function planClaim(ctx: SlotCliContext, branchName: string): Promise<Lifec
 	if (occupancy !== null) return failure("branch_in_use", branchOccupancyMessage(occupancy));
 	const currentFailure = await currentSlotDirtyFailure(ctx, current);
 	if (currentFailure !== null) return { type: "failure", failure: currentFailure };
-	return okPlan({ target: current, slotCheckoutBranch: branchName, source: null, alreadyCurrent: false, callerRedirect: null, mainRedirect: null });
+	return okPlan({ target: current, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: false, callerRedirect: null, mainRedirect: null });
 }
 
 async function planClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInventory, branchName: string): Promise<LifecycleResult<ClaimPlan>> {
@@ -94,7 +94,7 @@ async function planClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInv
 	const match = findByBranch(inventory, branchName);
 	if (match?.kind === "slot") {
 		if (match.record.operation !== null) return failure("branch_in_use", slotOperationMessage(match.record, { action: "claiming" }));
-		return okPlan({ target: match.record, slotCheckoutBranch: branchName, source: null, alreadyCurrent: true, callerRedirect: null, mainRedirect: null });
+		return okPlan({ target: match.record, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: true, callerRedirect: null, mainRedirect: null });
 	}
 	if (match?.kind === "main") {
 		if (match.worktree.path !== ctx.repo.root) return failure("branch_in_main_worktree", `Branch '${branchName}' is checked out in the main worktree at ${match.worktree.path}. Run \`slot claim\` from that worktree to move it into a slot.`);
@@ -105,14 +105,14 @@ async function planClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInv
 		const target = await lowestAvailable(inventory, ctx.git);
 		if (target === null) return { type: "failure", failure: poolFullFailure(assignedSlotRecords(inventory.records), { action: "claiming a branch" }) };
 		if (await ctx.git.hasUncommittedChanges(ctx.repo.root)) return failure("dirty_current_worktree", `Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`);
-		return okPlan({ target, slotCheckoutBranch: branchName, source: null, alreadyCurrent: false, callerRedirect: await planCurrentWtRedirect(ctx.git, { cwd: ctx.repo.root, movingBranch: branchName }), mainRedirect: null });
+		return okPlan({ target, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: false, callerRedirect: await planCurrentWtRedirect(ctx.git, { cwd: ctx.repo.root, movingBranch: branchName }), mainRedirect: null });
 	}
 
 	const occupancy = findOccupancyByBranch(inventory, branchName);
 	if (occupancy !== null) return failure("branch_in_use", branchOccupancyMessage(occupancy));
 	const target = await lowestAvailable(inventory, ctx.git);
 	if (target === null) return { type: "failure", failure: poolFullFailure(assignedSlotRecords(inventory.records), { action: "claiming a branch" }) };
-	return okPlan({ target, slotCheckoutBranch: branchName, source: null, alreadyCurrent: false, callerRedirect: null, mainRedirect: null });
+	return okPlan({ target, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: false, callerRedirect: null, mainRedirect: null });
 }
 
 async function planTrunkClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInventory, trunkBranch: string): Promise<LifecycleResult<ClaimPlan> | null> {
@@ -143,7 +143,7 @@ async function planTrunkClaimFromMainWorktree(ctx: SlotCliContext, inventory: Sl
 		target,
 		slotCheckoutBranch: currentBranch.branch,
 		source,
-		alreadyCurrent: false,
+		isAlreadyCurrent: false,
 		callerRedirect: null,
 		mainRedirect: { action: { type: "checkout_branch", branch: trunkBranch, role: "trunk" }, note: null },
 	});
@@ -188,7 +188,7 @@ function outcomeFromPlan(ctx: SlotCliContext, plan: ClaimPlan): SlotClaimOutcome
 		replaced_branch_name: replacedBranchName,
 		source_slot_name: plan.source?.slotName ?? null,
 		source_worktree_path: plan.source?.path ?? null,
-		already_current: plan.alreadyCurrent,
+		already_current: plan.isAlreadyCurrent,
 		main_worktree_path: mainCheckoutBranch === null ? null : ctx.repo.type === "repo" ? ctx.repo.root : ctx.cwd,
 		main_checkout_branch: mainCheckoutBranch,
 	};

@@ -40,9 +40,9 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 
 	const lifecycleResult = request.current
 		? await checkoutCurrent(ctx)
-		: await checkoutBranch(ctx, request.branch_name ?? "", { newBranch: request.new, base: request.base ?? null });
+		: await checkoutBranch(ctx, request.branch_name ?? "", { shouldCreateBranch: request.new, base: request.base ?? null });
 	if (lifecycleResult.type === "failure") return failure(lifecycleResult.failure.error_type, lifecycleResult.failure.message);
-	const navigation = await buildNavigationResultFields(ctx, { worktreePath: lifecycleResult.outcome.worktree_path, noClipboard: !request.clipboard });
+	const navigation = await buildNavigationResultFields(ctx, { worktreePath: lifecycleResult.outcome.worktree_path, shouldSkipClipboard: !request.clipboard });
 	return ok({ ...lifecycleResult.outcome, ...navigation });
 }
 
