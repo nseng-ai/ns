@@ -1,6 +1,14 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { createTempDirTracker, describeNodeRuntimeCliEntrypoint, ScriptedCommandExecApi, ScriptedCommandRunner, step, withTempRepoSkill } from "@asdl/core/testing";
+import {
+	brmemCheckJson,
+	createTempDirTracker,
+	describeNodeRuntimeCliEntrypoint,
+	ScriptedCommandExecApi,
+	ScriptedCommandRunner,
+	step,
+	withTempRepoSkill,
+} from "@asdl/core/testing";
 import { expect, test } from "vitest";
 
 test("exports testing helpers through the package testing subpath", () => {
@@ -10,6 +18,7 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof ScriptedCommandRunner).toBe("function");
 	expect(typeof ScriptedCommandExecApi).toBe("function");
 	expect(typeof step).toBe("function");
+	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exit_code: 0, data: { present: true } }));
 });
 
 test("scripted command helpers record calls and validate expected steps", async () => {

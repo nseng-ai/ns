@@ -97,8 +97,9 @@ Base Namespace Entries. For `copy`, choose exactly one scope: `--base` or
    contain a `..` segment, contain glob/ref metacharacters, or end a segment
    with `.lock`.
 5. **Treat `put` as an overwrite.** If overwriting is not explicitly desired,
-   preflight with `brmem check <key> ...`. Exit code `0` means present, `1`
-   means absent, `2` means an invalid request or command failure.
+   preflight with `brmem check <key> ...`. `check` exits `0` for both present
+   and absent Entries; inspect the human `Present:` line or JSON
+   `data.present`. Exit code `2` means an invalid request or command failure.
 6. **Keep Entries textual and small.** `put` accepts UTF-8 text, rejects likely
    binary content, and caps Entries at 1 MiB unless `--force` is supplied. Use
    `--force` only when the user explicitly accepts the storage cost/risk.
@@ -194,10 +195,12 @@ brmem check notes/add-cache.md --branch feature/add-cache --format json
 brmem check notes/add-cache.md --namespace scratch --branch feature/add-cache
 ```
 
-Interpret exit codes carefully:
+Interpret results carefully:
 
-- `0`: Entry exists; metadata is available.
-- `1`: Entry is absent; this is a normal negative result, useful before `put`.
+- `0` with `Present: yes` or JSON `data.present: true`: Entry exists; metadata
+  is available.
+- `0` with `Present: no` or JSON `data.present: false`: Entry is absent; this
+  is a normal probe result, useful before `put`.
 - `2`: invalid Namespace/Entry Key/Branch, detached HEAD when branch was
   omitted, or another command failure.
 

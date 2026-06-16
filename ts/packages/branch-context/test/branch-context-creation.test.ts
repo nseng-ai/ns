@@ -13,6 +13,7 @@ import {
 import { createBranchContextContext, type BranchContextContext } from "@asdl/branch-context";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 import type { ExecResult } from "@asdl/core/exec";
+import { brmemCheckJson } from "@asdl/core/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";
@@ -521,7 +522,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(PLAN_SLUG),
 			headStep(),
 			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
-			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 0, stdout: "{}" }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 0, stdout: brmemCheckJson(true) }),
 		]);
 
 		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(

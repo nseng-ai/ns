@@ -94,6 +94,10 @@ export interface BrmemPutData {
 	sourceFile: string;
 }
 
+interface BrmemCheckData {
+	present: boolean;
+}
+
 export interface BrmemEntryLocator {
 	namespace: string;
 	key: string;
@@ -210,7 +214,20 @@ export async function checkBrmemEntry(options: CheckBrmemEntryOptions): Promise<
 		return { type: "error", error: brmemCommandFailure("brmem_check_killed", "brmem check timed out or was killed", run.value) };
 	}
 	if (run.value.result.code === 0) {
-		return { type: "present", displayCommand: run.value.displayCommand };
+		try {
+			const data = parseBrmemCheckData(run.value.result.stdout);
+			if (!data.present) return { type: "absent" };
+			return { type: "present", displayCommand: run.value.displayCommand };
+		} catch (error) {
+			return {
+				type: "error",
+				error: {
+					code: "brmem_malformed_check",
+					message: formatErrorMessage(error),
+					displayCommand: run.value.displayCommand,
+				},
+			};
+		}
 	}
 	if (run.value.result.code === 1) {
 		return { type: "absent" };
@@ -275,30 +292,28 @@ export function brmemCommandFailure(code: string, title: string, run: CompletedB
 	return { code, message: formatCommandFailure(title, run.displayCommand, run.result), displayCommand: run.displayCommand };
 }
 
-export function parseBrmemPutData(stdout: string): BrmemPutData {
-	const data = parseMachineEnvelopeData(stdout, "brmem put JSON");
-	const namespace = data.namespace;
-	const key = data.key;
-	const branch = data.branch;
-	const refName = data.ref_name;
-	const commit = data.commit;
-	const sourceFile = data.source_file;
-	if (
-		typeof namespace !== "string" ||
-		typeof key !== "string" ||
-		typeof branch !== "string" ||
-		typeof refName !== "string" ||
-		typeof commit !== "string" ||
-		typeof sourceFile !== "string"
-	) {
-		throw malformedBrmemEnvelope(
-			"brmem put",
-			stdout,
-			"expected string fields data.namespace, data.key, data.branch, data.ref_name, data.commit, and data.source_file",
-		);
-	}
+function parseBrmemCheckData(stdout: string): BrmemCheckData {
+	const data = parseBrmemMachineEnvelopeData(stdout, "brmem check JSON");
+	const present = readOptionalBrmemBooleanField(data, "present", { commandName: "brmem check", stdout });
+	// Older brmem check JSON did not include a present flag; exit code 0 implied presence.
+	return { present: present ?? true };
+}
 
-	return { namespace, key, branch, refName, commit, sourceFile };
+export function parseBrmemPutData(stdout: string): BrmemPutData {
+	const data = parseBrmemMachineEnvelopeData(stdout, "brmem put JSON");
+	const fields = requireBrmemStringFields(data, ["namespace", "key", "branch", "ref_name", "commit", "source_file"], {
+		commandName: "brmem put",
+		stdout,
+	});
+
+	return {
+		namespace: fields.namespace,
+		key: fields.key,
+		branch: fields.branch,
+		refName: fields.ref_name,
+		commit: fields.commit,
+		sourceFile: fields.source_file,
+	};
 }
 
 export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
@@ -312,7 +327,49 @@ export function formatBrmemUnavailableError(failures: readonly UnavailableBrmemR
 	return new Error(formatBrmemUnavailableMessage(failures));
 }
 
-function parseMachineEnvelopeData(stdout: string, label: string): Record<string, unknown> {
+export interface BrmemFieldParseContext {
+	commandName: string;
+	stdout: string;
+	pathPrefix?: string;
+}
+
+export function readOptionalBrmemBooleanField(
+	data: Record<string, unknown>,
+	field: string,
+	context: BrmemFieldParseContext,
+): boolean | undefined {
+	const value = data[field];
+	if (value === undefined) return undefined;
+	if (typeof value !== "boolean") {
+		throw malformedBrmemEnvelope(context.commandName, context.stdout, `expected boolean field ${fieldPath(context, field)}`);
+	}
+	return value;
+}
+
+export function requireBrmemStringFields<const Field extends string>(
+	data: Record<string, unknown>,
+	fields: readonly Field[],
+	context: BrmemFieldParseContext,
+): Record<Field, string> {
+	const values = {} as Record<Field, string>;
+	const invalidFields: string[] = [];
+	for (const field of fields) {
+		const value = data[field];
+		if (typeof value !== "string") {
+			invalidFields.push(fieldPath(context, field));
+			continue;
+		}
+		values[field] = value;
+	}
+
+	if (invalidFields.length > 0) {
+		throw malformedBrmemEnvelope(context.commandName, context.stdout, `expected string fields ${formatFieldList(invalidFields)}`);
+	}
+
+	return values;
+}
+
+export function parseBrmemMachineEnvelopeData(stdout: string, label: string): Record<string, unknown> {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -341,6 +398,15 @@ function parseMachineEnvelopeData(stdout: string, label: string): Record<string,
 	}
 
 	return data;
+}
+
+function fieldPath(context: BrmemFieldParseContext, field: string): string {
+	return `${context.pathPrefix ?? "data"}.${field}`;
+}
+
+function formatFieldList(fields: readonly string[]): string {
+	if (fields.length <= 1) return fields[0] ?? "";
+	return `${fields.slice(0, -1).join(", ")}, and ${fields[fields.length - 1]}`;
 }
 
 function malformedMachineEnvelope(stdout: string, label: string, reason: string): Error {

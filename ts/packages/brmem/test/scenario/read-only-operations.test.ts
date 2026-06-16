@@ -34,23 +34,23 @@ describe("read-only brmem operations", () => {
 		});
 	});
 
-	it("check present exits 0 with metadata and missing exits 1", async () => {
+	it("check exits 0 with present metadata for found and missing entries", async () => {
 		const present = runScenario(["check", "scratch", "--format", "json"], {
 			fake: { currentBranch: "feat/x", entries: seededEntries },
 		});
 		expect(await present.exit).toBe(0);
 		expect(JSON.parse(present.stdout.join(""))).toMatchObject({
 			exit_code: 0,
-			data: { namespace: "base", key: "scratch", head_sha: "head-base", blob_sha: "blob-base", size_bytes: 12 },
+			data: { namespace: "base", key: "scratch", present: true, head_sha: "head-base", blob_sha: "blob-base", size_bytes: 12 },
 		});
 
 		const missing = runScenario(["check", "missing", "--format", "json"], {
 			fake: { currentBranch: "feat/x", entries: seededEntries },
 		});
-		expect(await missing.exit).toBe(1);
+		expect(await missing.exit).toBe(0);
 		expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
-			exit_code: 1,
-			data: { namespace: "base", key: "missing", head_sha: null, blob_sha: null, size_bytes: null },
+			exit_code: 0,
+			data: { namespace: "base", key: "missing", present: false, head_sha: null, blob_sha: null, size_bytes: null },
 		});
 	});
 
