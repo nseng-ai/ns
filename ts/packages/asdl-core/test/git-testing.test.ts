@@ -23,6 +23,7 @@ describe("in-memory git gateway", () => {
 			trunkBranch: "trunk",
 			originUrl: "git@github.com:Owner/Repo.git\n",
 			headCommit: START_POINT,
+			gitPaths: { "info/exclude": "/work/.git/info/exclude" },
 		});
 
 		expect(await git.repoRoot({ cwd: "/work" })).toEqual({ ok: true, value: ROOT });
@@ -31,12 +32,14 @@ describe("in-memory git gateway", () => {
 		expect(await git.trunkBranch({ cwd: "/work" })).toEqual({ type: "found", value: "trunk" });
 		expect(await git.originUrl({ cwd: "/work" })).toEqual({ type: "found", value: "git@github.com:Owner/Repo.git\n" });
 		expect(await git.headCommit({ cwd: "/work" })).toEqual({ ok: true, value: START_POINT });
+		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toEqual({ ok: true, value: "/work/.git/info/exclude" });
 		expect(git.repoRootCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.optionalRepoRootCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.currentBranchCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.trunkBranchCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.originUrlCalls).toEqual([{ cwd: "/work" }]);
 		expect(git.headCommitCalls).toEqual([{ cwd: "/work" }]);
+		expect(git.gitPathCalls).toEqual([{ cwd: "/work", relativePath: "info/exclude" }]);
 	});
 
 	test("defaults optional repo root to repo root state", async () => {
@@ -103,6 +106,7 @@ describe("in-memory git gateway", () => {
 			trunkBranch: { type: "failure" },
 			originUrl: { type: "missing" },
 			headCommit: { type: "failure" },
+			gitPaths: { "info/exclude": { type: "failure" } },
 			createBranchFailure: { code: "branch_create_failed", message: "Could not create branch." },
 		});
 
@@ -112,8 +116,23 @@ describe("in-memory git gateway", () => {
 		expect(await git.trunkBranch({ cwd: ROOT })).toEqual({ type: "error", error: { code: "trunk_branch_failed", message: "Could not resolve trunk branch." } });
 		expect(await git.originUrl({ cwd: ROOT })).toEqual({ type: "missing" });
 		expect(await git.headCommit({ cwd: ROOT })).toEqual({ ok: false, error: { code: "head_commit_failed", message: "Could not resolve HEAD commit." } });
+		expect(await git.gitPath({ cwd: ROOT, relativePath: "info/exclude" })).toEqual({ ok: false, error: { code: "git_path_failed", message: "Could not resolve git path." } });
 		expect(await git.createBranchAtHead({ cwd: ROOT, branch: BRANCH })).toEqual({ ok: false, error: { code: "branch_create_failed", message: "Could not create branch." } });
 		expect(git.existingBranches).toEqual([]);
+	});
+
+	test("defaults git paths under the configured fake repo git directory", async () => {
+		const git = new InMemoryGitGateway({ repoRoot: "/configured-repo" });
+
+		expect(await git.gitPath({ cwd: ROOT, relativePath: "info/exclude" })).toEqual({ ok: true, value: "/configured-repo/.git/info/exclude" });
+		expect(git.gitPathCalls).toEqual([{ cwd: ROOT, relativePath: "info/exclude" }]);
+	});
+
+	test("defaults git path failures from fake repo root failure", async () => {
+		const git = new InMemoryGitGateway({ repoRoot: { type: "failure" } });
+
+		expect(await git.gitPath({ cwd: ROOT, relativePath: "info/exclude" })).toEqual({ ok: false, error: { code: "git_path_failed", message: "Could not resolve git path." } });
+		expect(git.gitPathCalls).toEqual([{ cwd: ROOT, relativePath: "info/exclude" }]);
 	});
 
 	test("models detached current branch with real-parity error", async () => {

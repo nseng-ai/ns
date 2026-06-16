@@ -29,6 +29,7 @@ export interface InMemoryGitGatewayState {
 	trunkBranch?: OptionalValueState<string> | undefined;
 	originUrl?: OptionalValueState<string> | undefined;
 	headCommit?: ValueState<string> | undefined;
+	gitPaths?: Readonly<Record<string, ValueState<string>>> | undefined;
 	existingBranches?: readonly string[] | undefined;
 	invalidBranchRefs?: readonly string[] | undefined;
 	localBranchPresenceFailure?: BranchPresenceFailureState | undefined;
@@ -70,6 +71,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly trunkBranchState: OptionalValueState<string>;
 	private readonly originUrlState: OptionalValueState<string>;
 	private readonly headCommitState: ValueState<string>;
+	private readonly gitPathStates: Readonly<Record<string, ValueState<string>>>;
 	private readonly branches: Set<string>;
 	private readonly invalidBranchRefs: Set<string>;
 	private readonly localBranchPresenceFailure: BranchPresenceFailureState | undefined;
@@ -87,6 +89,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly trunkBranchLog: GitCall[] = [];
 	private readonly originUrlLog: GitCall[] = [];
 	private readonly headCommitLog: GitCall[] = [];
+	private readonly gitPathLog: GitPathCall[] = [];
 	private readonly validateBranchRefLog: GitBranchCall[] = [];
 	private readonly localBranchPresenceLog: GitBranchCall[] = [];
 	private readonly createBranchAtHeadLog: GitBranchCall[] = [];
@@ -102,6 +105,7 @@ export class InMemoryGitGateway implements GitGateway {
 		this.trunkBranchState = state.trunkBranch ?? "main";
 		this.originUrlState = state.originUrl ?? "git@github.com:Owner/Repo.git\n";
 		this.headCommitState = state.headCommit ?? "0123456789abcdef0123456789abcdef01234567";
+		this.gitPathStates = { ...(state.gitPaths ?? {}) };
 		this.branches = new Set(state.existingBranches ?? []);
 		this.invalidBranchRefs = new Set(state.invalidBranchRefs ?? []);
 		this.localBranchPresenceFailure = state.localBranchPresenceFailure;
@@ -139,6 +143,10 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get headCommitCalls(): readonly GitCall[] {
 		return copyCalls(this.headCommitLog);
+	}
+
+	get gitPathCalls(): readonly GitPathCall[] {
+		return copyPathCalls(this.gitPathLog);
 	}
 
 	get validateBranchRefCalls(): readonly GitBranchCall[] {
@@ -211,6 +219,12 @@ export class InMemoryGitGateway implements GitGateway {
 	async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
 		this.headCommitLog.push(callFromParams(params));
 		return valueResult(this.headCommitState, "head_commit_failed", "Could not resolve HEAD commit.");
+	}
+
+	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
+		this.gitPathLog.push(pathCallFromParams(params));
+		const state = this.gitPathStates[params.relativePath] ?? defaultGitPath(this.repoRootState, params.relativePath);
+		return valueResult(state, "git_path_failed", "Could not resolve git path.");
 	}
 
 	async validateBranchRef(params: GitBranchParams): Promise<GitOperationResult> {
@@ -370,6 +384,11 @@ function normalizeRefPathKey(key: string): string {
 export function normalizeGitTestingRelativePath(path: string): string {
 	const normalized = path.replaceAll("\\", "/").replace(/\/+$/u, "").replace(/^\.\//u, "");
 	return normalized === "" ? "." : normalized;
+}
+
+function defaultGitPath(repoRootState: ValueState<string>, relativePath: string): ValueState<string> {
+	if (isFailureState(repoRootState)) return { type: "failure", error: repoRootState.error };
+	return `${repoRootState}/.git/${relativePath}`;
 }
 
 function copyCalls(calls: readonly GitCall[]): GitCall[] {

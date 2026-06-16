@@ -8,10 +8,12 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
+	NodeCommandExecApi,
 	runCommand,
 	stripTerminalEscapes,
 	type CommandRunner,
 } from "@asdl/core/exec";
+import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 
 import type {
@@ -197,6 +199,12 @@ export class RealAregPromptGateway implements AregPromptGateway {
 }
 
 export class RealAregProjectGateway implements AregProjectGateway {
+	private readonly git: GitGateway;
+
+	constructor(options: { git?: GitGateway | undefined } = {}) {
+		this.git = options.git ?? new RealGitGateway(new NodeCommandExecApi());
+	}
+
 	async inspectProjectBase(request: { cwd: string; projectPath: string; env: NodeJS.ProcessEnv }) {
 		const projectDir = path.resolve(request.cwd, request.projectPath);
 		return {
@@ -247,7 +255,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 	}
 
 	async readLocallyExcludedSkillNames(request: { projectDir: string; env: NodeJS.ProcessEnv }): Promise<readonly string[]> {
-		return await readLocallyExcludedSkillNames(request.projectDir);
+		return await readLocallyExcludedSkillNames({ projectDir: request.projectDir, git: this.git });
 	}
 
 	async resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult> {
@@ -572,8 +580,10 @@ function extractLockfileSkillNames(text: string): string[] {
 	}
 }
 
-async function readLocallyExcludedSkillNames(projectDir: string): Promise<string[]> {
-	const exclude = await inspectTextFile(path.join(projectDir, ".git", "info", "exclude"));
+async function readLocallyExcludedSkillNames(options: { projectDir: string; git: GitGateway }): Promise<string[]> {
+	const gitPath = await options.git.gitPath({ cwd: options.projectDir, relativePath: "info/exclude" });
+	if (!gitPath.ok) return [];
+	const exclude = await inspectTextFile(gitPath.value);
 	if (exclude.type !== "file") return [];
 	const prefixes = [".agents/skills/", ".claude/skills/"];
 	const names = new Set<string>();

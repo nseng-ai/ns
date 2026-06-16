@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@asdl/core/git/testing";
+
 import type { AregNpxSkillsAddRequest, AregNpxSkillsAddResult, AregNpxSkillsGateway } from "../../src/gateways.ts";
 import {
 	buildNpxSkillsAddArgs,
@@ -36,7 +38,8 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, ".agents", "skills", "ignored"), { recursive: true });
 			await writeFile(path.join(project, ".agents", "skills", "ignored", "CLAUDE.md"), "# ignored\n");
 
-			const gateway = new RealAregProjectGateway();
+			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": path.join(project, ".git", "info", "exclude") } });
+			const gateway = new RealAregProjectGateway({ git });
 			const base = await gateway.inspectProjectBase({ cwd: root, projectPath: "project", env: {} });
 			const inventory = await gateway.inspectSkillNameInventory({ projectDir: base.projectDir, env: {} });
 			const excludedSkillNames = await gateway.readLocallyExcludedSkillNames({ projectDir: base.projectDir, env: {} });
@@ -55,6 +58,41 @@ describe("real areg gateways", () => {
 				openaiPolicy: { type: "file", text: "policy:\n" },
 			});
 			expect(pairingDirectories).toEqual([{ relativeDir: "", hasAgents: true, hasClaude: true, claudeText: "# Claude\n\n@AGENTS.md\n" }]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("project gateway reads local skill exclusions from linked worktree git paths", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-linked-exclude."));
+		try {
+			const project = path.join(root, "project");
+			const actualGitDir = path.join(root, "actual-git-dir");
+			const excludePath = path.join(actualGitDir, "info", "exclude");
+			await mkdir(project);
+			await mkdir(path.dirname(excludePath), { recursive: true });
+			await writeFile(path.join(project, ".git"), `gitdir: ${actualGitDir}\n`);
+			await writeFile(excludePath, "# local excludes\n.claude/skills/linked-only\n.agents/skills/agents-only\n\n");
+			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": excludePath } });
+			const gateway = new RealAregProjectGateway({ git });
+
+			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual(["agents-only", "linked-only"]);
+			expect(git.gitPathCalls).toEqual([{ cwd: project, relativePath: "info/exclude" }]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("project gateway treats failed git-path resolution as no local exclusions", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "areg-exclude-failure."));
+		try {
+			const project = path.join(root, "project");
+			await mkdir(project);
+			const git = new InMemoryGitGateway({ gitPaths: { "info/exclude": { type: "failure" } } });
+			const gateway = new RealAregProjectGateway({ git });
+
+			expect(await gateway.readLocallyExcludedSkillNames({ projectDir: project, env: {} })).toEqual([]);
+			expect(git.gitPathCalls).toEqual([{ cwd: project, relativePath: "info/exclude" }]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
