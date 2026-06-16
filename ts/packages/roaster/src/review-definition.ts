@@ -1,9 +1,9 @@
+import { splitMarkdownFrontmatter } from "@asdl/core/markdown-frontmatter";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { parse as parseYaml } from "yaml";
 
 import type { ReviewApplicability } from "./review-applicability.ts";
 
-const FRONTMATTER_FENCE = "---";
 const ALLOWED_FRONTMATTER_KEYS = ["applies_to", "default_model", "description"] as const;
 const ALLOWED_APPLIES_TO_KEYS = ["exclude", "include"] as const;
 
@@ -105,28 +105,14 @@ type FrontmatterSplitResult =
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
 function splitFrontmatter(source: string): FrontmatterSplitResult {
-	const lines = source.split(/\r?\n/u);
-	const firstContentIndex = lines.findIndex((line) => line.trim() !== "");
-	if (firstContentIndex === -1) return failure("empty_source", "Review definition is empty.");
-	if (lines[firstContentIndex]?.trim() !== FRONTMATTER_FENCE) {
-		return failure("missing_open_fence", "Review definition must begin with a `---` frontmatter fence.");
-	}
-
-	let closingIndex: number | null = null;
-	for (let index = firstContentIndex + 1; index < lines.length; index += 1) {
-		if (lines[index]?.trim() === FRONTMATTER_FENCE) {
-			closingIndex = index;
-			break;
-		}
-	}
-	if (closingIndex === null) {
-		return failure("missing_close_fence", "Review definition frontmatter is missing a closing `---` fence.");
-	}
-
+	if (source.trim() === "") return failure("empty_source", "Review definition is empty.");
+	const split = splitMarkdownFrontmatter(source);
+	if (split.type === "not_found") return failure("missing_open_fence", "Review definition must begin with a `---` frontmatter fence.");
+	if (split.type === "missing_closing_fence") return failure("missing_close_fence", "Review definition frontmatter is missing a closing `---` fence.");
 	return {
 		type: "ok",
-		frontmatterText: lines.slice(firstContentIndex + 1, closingIndex).join("\n"),
-		body: lines.slice(closingIndex + 1).join("\n"),
+		frontmatterText: split.block.frontmatterText.replace(/\r\n?/gu, "\n"),
+		body: split.block.body.replace(/\r\n?/gu, "\n"),
 	};
 }
 

@@ -14,7 +14,7 @@ import type {
 	AregSkillKindTextWritePlan,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
-import { parseSkillFrontmatterBlock, type SkillFrontmatterData } from "./frontmatter.ts";
+import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
@@ -500,47 +500,11 @@ function planPiSettingsOperation(skillName: string, kind: SkillInvocationKind, s
 	return { type: "ok", value: { type: "write", relativePath, description: "Pi settings", content: `${JSON.stringify(nextData, null, 2)}\n`, createParent: settings.text === undefined } };
 }
 
-function transformSkillFrontmatter(text: string, pathLabel: string, desired: Readonly<Record<string, string | undefined>>): { type: "ok"; value: string } | { type: "error"; message: string } {
-	const lines = splitLinesKeepEndings(text);
-	if (lines.length === 0 || stripLineEnding(lines[0] ?? "") !== "---") return { type: "error", message: `${pathLabel} missing opening frontmatter delimiter '---'` };
-	const endIndex = lines.findIndex((line, index) => index > 0 && stripLineEnding(line) === "---");
-	if (endIndex === -1) return { type: "error", message: `${pathLabel} missing closing frontmatter delimiter '---'` };
-	const newline = firstLineEnding(text) ?? "\n";
-	const nameIndex = lines.findIndex((line, index) => index > 0 && index < endIndex && isTopLevelKey(line, "name"));
-	if (nameIndex === -1) return { type: "error", message: `${pathLabel} missing name field in frontmatter` };
-	const managedKeys = Object.keys(desired);
-	const kept = lines.filter((line, index) => index <= 0 || index >= endIndex || !managedKeys.some((key) => isTopLevelKey(line, key)));
-	const keptNameIndex = kept.findIndex((line, index) => index > 0 && isTopLevelKey(line, "name"));
-	const additions = managedKeys.flatMap((key) => {
-		const value = desired[key];
-		return value === undefined ? [] : [`${key}: ${value}${newline}`];
-	});
-	kept.splice(keptNameIndex + 1, 0, ...additions);
-	return { type: "ok", value: kept.join("") };
-}
-
 function desiredFrontmatter(kind: SkillInvocationKind): Readonly<Record<string, string | undefined>> {
 	return {
 		[DISABLE_MODEL_INVOCATION_KEY]: kind === "invoke-only" || kind === "command-backed" ? "true" : undefined,
 		[USER_INVOCABLE_KEY]: kind === "ambient-only" ? "false" : undefined,
 	};
-}
-
-function splitLinesKeepEndings(text: string): string[] {
-	if (text.length === 0) return [];
-	return text.match(/.*(?:\r\n|\n|$)/gu)?.filter((line) => line.length > 0) ?? [];
-}
-
-function stripLineEnding(line: string): string {
-	return line.replace(/\r?\n$/u, "");
-}
-
-function firstLineEnding(text: string): "\r\n" | "\n" | undefined {
-	return text.includes("\r\n") ? "\r\n" : text.includes("\n") ? "\n" : undefined;
-}
-
-function isTopLevelKey(line: string, key: string): boolean {
-	return !line.startsWith(" ") && !line.startsWith("\t") && line.startsWith(`${key}:`);
 }
 
 function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {

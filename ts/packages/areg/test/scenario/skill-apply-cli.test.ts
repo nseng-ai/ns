@@ -71,4 +71,14 @@ describe("areg skill apply CLI", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain("non-managed content");
 	});
+
+	test("apply rejects duplicate SKILL.md frontmatter keys before writing", async () => {
+		const run = runScenario(["skill", "apply", "invoke-only", "demo"], {
+			skillKindProject: { skills: [skill("demo", "---\nname: demo\ndisable-model-invocation: false\ndisable-model-invocation: true\n---\n")] },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain('skills/demo/SKILL.md duplicate frontmatter key: "disable-model-invocation"');
+		expect(run.stdout.join("")).toBe("");
+	});
 });
