@@ -1,4 +1,4 @@
-import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, negative, ok, shellNegative, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { GitGateway } from "@asdl/core/git";
@@ -305,6 +305,8 @@ function stripRenderFields(exit: ClinkrExit<ObjectiveListRenderResult>): ClinkrE
 			return ok(factsOnly(exit.data));
 		case "negative":
 			return exit.data === undefined ? negative(exit.message) : negative(exit.message, factsOnly(exit.data));
+		case "shell-negative":
+			return exit.data === undefined ? shellNegative(exit.message) : shellNegative(exit.message, factsOnly(exit.data));
 		case "failure":
 			return exit;
 	}

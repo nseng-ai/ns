@@ -12,6 +12,10 @@ export interface PiSettingsData {
 
 export type ParsePiSettingsResult = Result<PiSettingsData>;
 
+export function isPiSettingsPathError(error: { code: string }): boolean {
+	return error.code === "path_symlink" || error.code === "path_not_file" || error.code === "path_not_directory";
+}
+
 export function parsePiSettings(piDir: AregPathState, settings: AregTextFileState): ParsePiSettingsResult {
 	const piDirectory = validateOptionalDirectoryState({ pathLabel: ".pi", state: piDir, action: "inspect Pi settings" });
 	if (!piDirectory.ok) return piDirectory;

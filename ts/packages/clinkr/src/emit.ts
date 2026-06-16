@@ -46,6 +46,9 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			}
 			options.io.stdout(`${exit.message}\n`);
 			return 0;
+		case "shell-negative":
+			options.io.stderr(`${exit.message}\n`);
+			return 1;
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;

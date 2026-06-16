@@ -1,4 +1,4 @@
-import type { Result } from "@asdl/core/result";
+import { resultErr, type Result } from "@asdl/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 
@@ -29,12 +29,12 @@ export function rejectTextState<T>(options: {
 }): Result<T> {
 	if (options.state.type === "symlink") {
 		const subject = options.description === undefined ? options.pathLabel : `${options.description} at ${options.pathLabel}`;
-		return { ok: false, error: { code: "path_symlink", message: `${subject} is a symlink; refusing to ${options.action}.` } };
+		return resultErr({ code: "path_symlink", message: `${subject} is a symlink; refusing to ${options.action}.` });
 	}
 	if (options.state.type === "unreadable" && options.unreadableMode !== "not-file") {
-		return { ok: false, error: { code: "path_read_failed", message: `Failed to read ${options.pathLabel}: ${options.state.message}` } };
+		return resultErr({ code: "path_read_failed", message: `Failed to read ${options.pathLabel}: ${options.state.message}` });
 	}
-	return { ok: false, error: { code: "path_not_file", message: `${options.pathLabel} exists but is not a file.` } };
+	return resultErr({ code: "path_not_file", message: `${options.pathLabel} exists but is not a file.` });
 }
 
 function rejectDirectoryState<T>(options: {
@@ -43,6 +43,6 @@ function rejectDirectoryState<T>(options: {
 	action: string;
 	symlinkSubject?: string | undefined;
 }): Result<T> {
-	if (options.state.type === "symlink") return { ok: false, error: { code: "path_symlink", message: `${options.symlinkSubject ?? options.pathLabel} is a symlink; refusing to ${options.action}.` } };
-	return { ok: false, error: { code: "path_not_directory", message: `${options.pathLabel} exists but is not a directory.` } };
+	if (options.state.type === "symlink") return resultErr({ code: "path_symlink", message: `${options.symlinkSubject ?? options.pathLabel} is a symlink; refusing to ${options.action}.` });
+	return resultErr({ code: "path_not_directory", message: `${options.pathLabel} exists but is not a directory.` });
 }

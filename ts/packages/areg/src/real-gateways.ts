@@ -15,6 +15,7 @@ import {
 } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
+import { resultErr, resultOk } from "@asdl/core/result";
 
 import type {
 	AregCheckPairingDirectory,
@@ -395,33 +396,33 @@ async function listRelativeFiles(root: string): Promise<string[]> {
 
 async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperationResult> {
 	if (!path.basename(workspaceRoot).startsWith("skillx.")) {
-		return { type: "error", error: errorInfo("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`) };
+		return resultErr(errorInfo("skillx-cleanup-refused", `Refusing to remove non-skillx workspace: ${workspaceRoot}`));
 	}
 	let info;
 	try {
 		info = await lstat(workspaceRoot);
 	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { type: "error", error: errorInfo("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`) };
-		return { type: "error", error: errorInfo("skillx-cleanup-stat-failed", `Could not inspect workspace: ${formatErrorMessage(error)}`) };
+		if (isNodeErrorCode(error, "ENOENT")) return resultErr(errorInfo("skillx-cleanup-missing", `Workspace does not exist: ${workspaceRoot}`));
+		return resultErr(errorInfo("skillx-cleanup-stat-failed", `Could not inspect workspace: ${formatErrorMessage(error)}`));
 	}
-	if (info.isSymbolicLink()) return { type: "error", error: errorInfo("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`) };
-	if (!info.isDirectory()) return { type: "error", error: errorInfo("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`) };
+	if (info.isSymbolicLink()) return resultErr(errorInfo("skillx-cleanup-symlink", `Refusing to remove symlink workspace: ${workspaceRoot}`));
+	if (!info.isDirectory()) return resultErr(errorInfo("skillx-cleanup-not-directory", `Workspace is not a directory: ${workspaceRoot}`));
 	let resolvedWorkspace: string;
 	let resolvedTemp: string;
 	try {
 		resolvedWorkspace = await realpath(workspaceRoot);
 		resolvedTemp = await realpath(os.tmpdir());
 	} catch (error) {
-		return { type: "error", error: errorInfo("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${formatErrorMessage(error)}`) };
+		return resultErr(errorInfo("skillx-cleanup-realpath-failed", `Could not resolve workspace path: ${formatErrorMessage(error)}`));
 	}
 	if (!isPathAtOrBelow(resolvedWorkspace, resolvedTemp)) {
-		return { type: "error", error: errorInfo("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`) };
+		return resultErr(errorInfo("skillx-cleanup-outside-temp", `Refusing to remove workspace outside temp directory: ${workspaceRoot}`));
 	}
 	try {
 		await rm(resolvedWorkspace, { recursive: true });
-		return { type: "ok" };
+		return resultOk(undefined);
 	} catch (error) {
-		return { type: "error", error: errorInfo("skillx-cleanup-remove-failed", `Could not remove workspace: ${formatErrorMessage(error)}`) };
+		return resultErr(errorInfo("skillx-cleanup-remove-failed", `Could not remove workspace: ${formatErrorMessage(error)}`));
 	}
 }
 
