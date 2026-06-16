@@ -1,3 +1,4 @@
+import { formatZodError } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "./cli-command-extension.ts";
@@ -327,8 +328,7 @@ function envelopeDetail(parsed: { message: string }, result: ExecResult): string
 }
 
 function schemaError(label: string, error: z.ZodError): string {
-	const issueText = error.issues.map((issue) => (issue.path.length === 0 ? issue.message : `${issue.path.join(".")}: ${issue.message}`)).join("; ");
-	return `${label} returned unexpected data: ${issueText}`;
+	return `${label} returned unexpected data: ${formatZodError(error, { rootPath: null })}`;
 }
 
 function prefillEditor(ctx: ExtensionContext, markdown: string, message: string): void {
