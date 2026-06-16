@@ -151,16 +151,21 @@ export function formatRestackConflictOutput(output: SubmitCommandOutput, conflic
 
 export function formatReadinessRecheckFailureOutput(output: SubmitCommandOutput): string {
 	return [
-		"Graphite readiness changed after restack. Submission was not attempted, and PR metadata was not prepared.",
-		"Run `gt submit -nps --no-ai --no-interactive --dry-run`, resolve the reported issue, then run `sdl submit` again.",
-		"",
-		"$ gt submit -nps --no-ai --no-interactive --dry-run",
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
+		[
+			"Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
+			"Submission was not attempted. PR metadata was not prepared.",
+		].join("\n"),
+		formatIndentedOutputBlock("Graphite dry-run error:", output.stderr),
+		[
+			"Next steps:",
+			"- Run `gt restack` manually and resolve any conflicts, skipped branches, or stale stack state Graphite reports.",
+			"- Verify readiness: `gt submit -nps --no-ai --no-interactive --dry-run`",
+			"- Then rerun: `sdl submit`",
+		].join("\n"),
+		formatIndentedOutputBlock("Additional dry-run stdout:", output.stdout),
 	]
-		.filter(Boolean)
-		.join("\n");
+		.filter((section): section is string => section !== undefined && section !== "")
+		.join("\n\n");
 }
 
 export function formatRestackFailureOutput(output: SubmitCommandOutput): string {
@@ -299,6 +304,20 @@ function formatBufferedCommandSection(commandDisplay: string, output: SubmitComm
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
 	].join("\n");
+}
+
+function formatIndentedOutputBlock(title: string, output: string): string | undefined {
+	const lines = normalizedOutputLines(output);
+	if (lines.length === 0) return undefined;
+	return [title, ...lines.map((line) => `  ${line}`)].join("\n");
+}
+
+function normalizedOutputLines(output: string): string[] {
+	return stripTerminalEscapes(output)
+		.replace(/\r/g, "\n")
+		.split("\n")
+		.map((line) => line.trimEnd())
+		.filter((line) => line.trim() !== "");
 }
 
 function formatOutputSection(name: "stdout" | "stderr", output: string): string {
