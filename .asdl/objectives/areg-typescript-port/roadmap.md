@@ -29,24 +29,23 @@
   - `areg skill apply` now plans and applies the managed artifact matrix for `normal`, `invoke-only`, `command-backed`, and `ambient-only`, including frontmatter edits, Codex sidecar writes/deletes, Pi settings reconciliation, replacement verification, dry-runs, and deletion confirmation/`--yes` behavior.
   - Added package-local fake and real gateway apply-plan seams with path/symlink safety, plus a minimal Clinkr final-variadic positional extension so `apply <kind> <skill...>` is represented directly.
   - Evidence: branch diff against `skill-invocation-kind/read-only-foundation`; PR #1564 corroborates the same file set; focused `@asdl/areg` and `@asdl/clinkr` checks/tests passed; full TypeScript workspace check/test passed; `just dprint-check` passed.
-- [ ] Triage post-kind review consolidation for Python-removal blockers only.
-  - Inspect the duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams identified by review.
-  - Fix only issues that directly threaten safe TS-default cutover or Python deletion. Park broader architecture cleanup so it does not block removing `packages/areg`.
-  - Keep the completed `areg skill apply|list|show` user surface intact unless a focused follow-up deliberately revises it.
-  - Evidence: local branch review artifacts under `temp-reviews/` identify duplicated inspection gateways, duplicate invocation-convention rules, duplicate Pi/settings parsing, frontmatter/read-write drift, and installed-skill layout deepening opportunities.
-- [ ] Cut over repo-local callers to TypeScript `areg`.
-  - Use the TypeScript workspace/source path as the immediate repo-local invocation model; do not wait on npm-style external distribution.
-  - Update `justfile` `areg-check` and `refresh-skills`, CI setup for the areg-check job, skill/docs caller instructions, and hidden `exec skillx` JSON-envelope guidance so normal repo workflows invoke TS-backed `areg`.
-  - Evidence: `node ts/packages/areg/src/cli.ts --runtime` or equivalent repo-local invocation reports TypeScript; `just areg-check` and docs/skills no longer depend on `uv run areg`.
-- [ ] Remove the Python `areg` implementation and workspace wiring.
-  - Delete `packages/areg`, remove it from the uv workspace/dev dependency/source configuration, remove Python lint/type/test paths and first-party import metadata for `areg`, update lockfiles as needed, and ensure no active docs/tests/skills point at Python-backed `areg`.
-  - Evidence: repo searches show no active `packages/areg` or Python `areg.cli:main` path; Python validation no longer includes `packages/areg/tests`; TypeScript `@asdl/areg` focused and workspace checks pass.
-- [ ] Decide external distribution follow-up after repo-local cutover.
-  - Record whether external installed use should be npm package execution, generated shims, both, or another model. This is no longer a blocker for deleting the Python implementation from the repo.
-  - Evidence: follow-up Objective, parked item, or docs issue captures the external distribution decision without keeping Python alive.
-- [ ] Feed reusable lessons back into the parent migration Objective.
-  - Record any reusable findings about skill-lock parsing, managed project-file mutation, external skill tooling, repo-local TS cutover, or distribution that should affect later capability ports.
-  - Evidence: parent Semantic Update and, if warranted, `porting-playbook.md` changes capture lessons without moving unproven package-local seams into shared foundations.
+- [x] Triage post-kind review consolidation for Python-removal blockers only.
+  - Completed as blocker triage rather than broad architecture cleanup: no review-consolidation issue remained a blocker to TS-default cutover or Python deletion after the flattened `areg skill apply|list|show` surface had package-local safety coverage and the TypeScript gates passed.
+  - Broader consolidation remains parked so it does not keep `packages/areg` alive.
+  - Evidence: Python removal has landed from active paths, `just areg-check` runs TS-backed `areg`, and focused `@asdl/areg` type-check/test passes.
+- [x] Cut over repo-local callers to TypeScript `areg`.
+  - The repo-local invocation model is the TypeScript workspace/source path; external distribution remains follow-up rather than a blocker.
+  - `justfile` `areg-check` and `refresh-skills`, the CI `areg-check` job path through `just`, skill caller instructions, `install-areg`, and hidden `exec skillx` guidance now use TS-backed `areg` or its checkout source invocation.
+  - Evidence: `node ts/packages/areg/src/cli.ts --runtime` reports TypeScript; `just areg-check` invokes `node ts/packages/areg/src/cli.ts check --path ...` and reports `All skills OK.`; repo searches show no active `uv run areg` caller.
+- [x] Remove the Python `areg` implementation and workspace wiring.
+  - `packages/areg` is absent, no tracked files remain under `packages/areg/**`, root `pyproject.toml` no longer lists `packages/areg` in the uv workspace, Python lint/type/test paths no longer include `packages/areg`, and active searches find no `areg.cli:main` path.
+  - Evidence: `rg` finds only durable `asdl-core` project-config support for `[areg]`, TypeScript package metadata/tests, and TS caller docs; focused `@asdl/areg` type-check/test passes.
+- [x] Decide external distribution follow-up after repo-local cutover.
+  - External installed use is deliberately deferred beyond this Objective's repo-local cutover: do not keep Python alive for `uvx areg`, and do not choose npm package execution or generated shims without a later consumer-backed decision.
+  - Evidence: the Objective's parked section carries external installed `areg` distribution beyond repo-local TypeScript invocation as parked work; the immediate install recipe is the repo-local `install-areg` TS shim.
+- [x] Feed reusable lessons back into the parent migration Objective.
+  - Recorded reusable findings about skill-lock parsing, managed project-file mutation, external `npx skills` tooling, hidden `exec skillx` Clinkr envelopes, repo-local TS source/shim cutover, Python deletion sequencing, and parked external distribution in the parent migration Objective.
+  - Evidence: parent Semantic Update `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, parent migration-ledger updates, and `porting-playbook.md` changes capture lessons without moving unproven package-local seams into shared foundations.
 
 ## Parked
 

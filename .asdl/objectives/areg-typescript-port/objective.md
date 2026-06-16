@@ -54,24 +54,29 @@ Assumptions:
 
 - `areg` has enough current strategic value to override the default migration order even though it was previously parked pending evidence.
 - The durable product surface is the standalone `areg` CLI, not an `asdl` plugin or renamed command group.
-- Current Python behavior after the completed nonslop migration and review remediation is the best reference for contract inventory.
-- TypeScript gateway/fake boundaries can preserve the review-remediated safety properties without copying Python module structure directly.
-- The existing TypeScript workspace foundations, especially `@asdl/clinkr` and `@asdl/core` where appropriate, are mostly sufficient for the first slices; the skill-kind apply slice proved one small shared Clinkr extension was warranted for final variadic positionals, while areg-specific mutation seams remain package-local unless reuse is proven.
+- Historical Python behavior after the completed nonslop migration and review remediation was sufficient reference for contract inventory and is no longer an active implementation fallback.
+- TypeScript gateway/fake boundaries preserved the review-remediated safety properties without copying Python module structure directly.
+- The existing TypeScript workspace foundations, especially `@asdl/clinkr` and `@asdl/core` where appropriate, were mostly sufficient; the skill-kind apply slice proved one small shared Clinkr extension was warranted for final variadic positionals, while areg-specific mutation seams remain package-local unless reuse is proven.
 - `npx skills add`, `gh api`, and Git-root/tool checks remain external command boundaries rather than embedded service clients for this port.
 
 Risks:
 
-- Overriding the parent migration order could create ledger drift if the umbrella Objective is not updated early and again at cutover.
-- `areg init` mutates multiple project files and invokes `npx skills`; a direct port could regress the previous review-remediation safety work if planning/mutation and fake-driven gateway seams are not preserved.
-- The hidden `exec skillx` JSON shapes may already be consumed by skills or Pi flows; accidental schema changes could break agent workflows.
+- The prior ledger-drift risk from overriding the parent migration order is resolved: the umbrella Objective now records the completed `areg` cutover and reusable lessons.
+- `areg init` mutates multiple project files and invokes `npx skills`; the TypeScript implementation de-risks this with planning/mutation seams, fake-driven coverage, and real adapter path/symlink revalidation.
+- The hidden `exec skillx` JSON shapes may be consumed by skills or Pi flows; the accepted TypeScript contract is Clinkr JSON envelopes with operation payloads under `data`, and live skill guidance now documents the TS invocation path.
 - The kind system edits local skills, Codex sidecars, and Pi replacement settings, so destructive path, symlink, artifact-inference, and replacement-verification edge cases remain important; the completed apply slice materially de-risks them with package-local planning, real/fake gateway safety tests, dry-run behavior, and deletion confirmation gates.
-- Post-kind review evidence identified drift risk from duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams. This does not invalidate the completed command surface. For ASAP Python removal, treat this as blocker triage only: fix consolidation issues that directly threaten cutover safety, and park broader architecture cleanup rather than blocking deletion.
-- The immediate distribution decision is repo-local TypeScript invocation from the `ts/` workspace. External installed use, npm-style packaging, and Python `uvx areg` replacement remain follow-up distribution questions, not blockers to removing the Python implementation from this repo.
-- Current tests may encode both durable contracts and incidental Click/Python formatting behavior; the inventory must classify parser/help/output differences deliberately.
+- Post-kind review evidence identified drift risk from duplicated skill-artifact inspection, kind/check invariant classification, Pi settings parsing, frontmatter handling, and apply-plan seams. Blocker triage found no issue that needed to keep Python alive; broader architecture cleanup is parked.
+- The immediate distribution decision is repo-local TypeScript invocation from the `ts/` workspace. External installed use, npm-style packaging, and Python `uvx areg` replacement remain follow-up distribution questions, not blockers after Python removal from this repo.
+- Historical Click/Python formatting remains reference/provenance only; active repo-local behavior follows the TypeScript command framework and recorded accepted divergences.
 
 ## Open Questions
 
-- What external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model?
-- Should `areg` keep legacy `areg.json` fallback indefinitely, or should the TS port define a retirement path in favor of `asdl.toml` `[areg].agents`?
-- Which current Click/help/usage-byte behaviors are durable enough to preserve exactly, and which should adopt the TypeScript command framework's standard behavior?
-- After `areg` becomes TS-default, should any reusable skill-lock, project-config, managed-block, or skill-layout validation seams move into shared TypeScript packages, or remain package-local?
+- Parked follow-up: what external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model? This is not a blocker for this Objective's completed repo-local cutover.
+- Parked follow-up: should `areg` keep legacy `areg.json` fallback indefinitely, or should a later cleanup define a retirement path in favor of `asdl.toml` `[areg].agents`?
+- Resolved for this Objective: reusable skill-lock, project-config, managed-block, and skill-layout validation seams remain package-local until a second TypeScript consumer proves extraction.
+
+## Closure
+
+Completed. `areg` is TypeScript-default for repo-local use, its active Python implementation and workspace wiring have been removed, public repo-local callers and skill guidance use the TypeScript path, external installed distribution is parked as follow-up rather than a blocker, and the parent `port-asdl-toolkit-to-typescript` Objective now records the completed out-of-sequence cutover and reusable lessons.
+
+Closure evidence includes the completed roadmap rows, Semantic Update `updates/2026-06-16T010915Z-areg-ts-cutover-python-removal.md` for TS cutover and Python removal, parent Semantic Update `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, and the parent `porting-playbook.md` lessons. Remaining questions are explicitly parked follow-ups, not active non-parked work for this Objective.
