@@ -23,10 +23,10 @@ describe("areg check lockfile parser", () => {
 			},
 		});
 
-		expect(result).toMatchObject({ type: "ok" });
-		if (result.type !== "ok") return;
-		expect(result.lockfile.skills.map((skill) => skill.name)).toEqual(["alpha", "zeta"]);
-		expect(result.lockfile.skills[0]).toMatchObject({ sourceType: "github", skillPath: "skills/alpha" });
+		expect(result).toMatchObject({ ok: true });
+		if (!result.ok) return;
+		expect(result.value.skills.map((skill) => skill.name)).toEqual(["alpha", "zeta"]);
+		expect(result.value.skills[0]).toMatchObject({ sourceType: "github", skillPath: "skills/alpha" });
 	});
 
 	test.each([
@@ -45,9 +45,9 @@ describe("areg check lockfile parser", () => {
 	])("rejects malformed shape %#", (data, expected) => {
 		const result = parseLockfileData(data);
 
-		expect(result).toMatchObject({ type: "error" });
-		if (result.type !== "error") return;
-		expect(result.message).toContain("Invalid skills-lock.json");
-		expect(result.message).toContain(expected);
+		expect(result).toMatchObject({ ok: false });
+		if (result.ok) return;
+		expect(result.error.message).toContain("Invalid skills-lock.json");
+		expect(result.error.message).toContain(expected);
 	});
 });

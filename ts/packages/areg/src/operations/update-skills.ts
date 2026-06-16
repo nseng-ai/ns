@@ -1,4 +1,5 @@
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import type { Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -48,16 +49,16 @@ export async function runUpdateSkills(ctx: AregCliContext, request: UpdateSkills
 	}
 
 	const lockfileResult = parseInspectedLockfile(inspection);
-	if (lockfileResult.type === "error") return failure("lockfile_invalid", lockfileResult.message);
+	if (!lockfileResult.ok) return failure("lockfile_invalid", lockfileResult.error.message);
 
-	const selection = selectGithubUpdates(lockfileResult.lockfile.skills, request);
-	if (selection.type === "error") return failure("invalid_selection", selection.message);
-	const selectedUpdates = selection.updates;
+	const selection = selectGithubUpdates(lockfileResult.value.skills, request);
+	if (!selection.ok) return failure("invalid_selection", selection.error.message);
+	const selectedUpdates = selection.value;
 
 	if (selectedUpdates.length === 0) return ok(emptyReport(inspection.projectDir, request.dry_run, true));
 
 	const agentsResult = resolveProjectAgents({ explicitAgents: request.agent, asdlToml: inspection.asdlToml, aregJson: inspection.aregJson });
-	if (agentsResult.type === "error") return failure("agent_resolution_failed", agentsResult.message);
+	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
 	const agents = agentsResult.value;
 
 	if (!request.dry_run) {
@@ -97,7 +98,7 @@ export function renderUpdateSkills(result: UpdateSkillsResult): string {
 	return lines.join("\n");
 }
 
-function selectGithubUpdates(skills: readonly LockfileSkill[], request: UpdateSkillsRequest): { type: "ok"; updates: readonly SelectedUpdate[] } | { type: "error"; message: string } {
+function selectGithubUpdates(skills: readonly LockfileSkill[], request: UpdateSkillsRequest): Result<readonly SelectedUpdate[]> {
 	const githubEntries = new Map<string, string>();
 	for (const skill of skills) {
 		if (skill.sourceType === "github") githubEntries.set(skill.name, skill.source);
@@ -106,7 +107,7 @@ function selectGithubUpdates(skills: readonly LockfileSkill[], request: UpdateSk
 	const requestedSkills = new Set(request.skill);
 	if (requestedSkills.size > 0) {
 		const unknown = sortStrings([...requestedSkills].filter((skill) => !githubEntries.has(skill)));
-		if (unknown.length > 0) return { type: "error", message: `Skill(s) not found in lockfile (or not github-sourced): ${unknown.join(", ")}` };
+		if (unknown.length > 0) return { ok: false, error: { code: "skill_not_found", message: `Skill(s) not found in lockfile (or not github-sourced): ${unknown.join(", ")}` } };
 	}
 
 	const requestedSources = new Set(request.source);
@@ -118,7 +119,7 @@ function selectGithubUpdates(skills: readonly LockfileSkill[], request: UpdateSk
 		if (requestedSources.size > 0 && !requestedSources.has(source)) continue;
 		updates.push({ skill, source });
 	}
-	return { type: "ok", updates };
+	return { ok: true, value: updates };
 }
 
 function report(input: {
