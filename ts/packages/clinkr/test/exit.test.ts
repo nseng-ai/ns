@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import {
+	buildFailureMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
 	envelopeJsonText,
 	exitCodeForExit,
 	failure,
@@ -52,6 +55,53 @@ describe("exitCodeForExit", () => {
 	test("failure maps to 2", () => {
 		const exit: ClinkrExit<never> = { type: "failure", errorType: "boom", message: "bad" };
 		expect(exitCodeForExit(exit)).toBe(2);
+	});
+});
+
+describe("machineEnvelopeSchema", () => {
+	test("parses representative clinkr envelopes", () => {
+		expect(machineEnvelopeSchema.parse({ exit_code: 0, data: { ok: true } })).toEqual({
+			exit_code: 0,
+			data: { ok: true },
+		});
+		expect(machineEnvelopeSchema.parse({ exit_code: 1, message: "nothing to do" })).toEqual({
+			exit_code: 1,
+			message: "nothing to do",
+		});
+		expect(machineEnvelopeSchema.parse({ exit_code: 2, error_type: "boom", message: "bad" })).toEqual({
+			exit_code: 2,
+			error_type: "boom",
+			message: "bad",
+		});
+	});
+
+	test("rejects noncanonical exit codes", () => {
+		expect(machineEnvelopeSchema.safeParse({ exit_code: 3, message: "noncanonical" }).success).toBe(
+			false,
+		);
+	});
+});
+
+describe("machine envelope schema builders", () => {
+	test("builds strict success envelopes around a data schema", () => {
+		const schema = buildSuccessMachineEnvelopeSchema(z.object({ value: z.number() }));
+
+		expect(schema.parse({ exit_code: 0, data: { value: 1 } })).toEqual({ exit_code: 0, data: { value: 1 } });
+		expect(schema.safeParse({ exit_code: 1, data: { value: 1 } }).success).toBe(false);
+		expect(schema.safeParse({ exit_code: 0, data: { value: "1" } }).success).toBe(false);
+		expect(schema.safeParse({ exit_code: 0, data: { value: 1 }, extra: true }).success).toBe(false);
+	});
+
+	test("builds strict failure envelopes with configurable validation", () => {
+		const schema = buildFailureMachineEnvelopeSchema({
+			errorTypeSchema: z.string().trim().min(1),
+		});
+
+		expect(schema.parse({ exit_code: 2, error_type: "boom", message: "bad" })).toEqual({ exit_code: 2, error_type: "boom", message: "bad" });
+		expect(schema.parse({ exit_code: 1, error_type: "negative", message: "nothing to do" })).toEqual({ exit_code: 1, error_type: "negative", message: "nothing to do" });
+		expect(schema.safeParse({ exit_code: 0, error_type: "boom", message: "bad" }).success).toBe(false);
+		expect(schema.safeParse({ exit_code: 2, error_type: " ", message: "bad" }).success).toBe(false);
+		expect(schema.safeParse({ exit_code: 2, error_type: "boom", message: "bad", data: {} }).success).toBe(false);
 	});
 });
 

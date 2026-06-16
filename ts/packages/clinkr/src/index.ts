@@ -5,8 +5,19 @@ export type {
 	ClinkrHandler,
 	ClinkrRunOptions,
 } from "./group.ts";
-export { envelopeJsonText, exitCodeForExit, failure, machineEnvelopeSchema, negative, ok, toMachineEnvelope } from "./exit.ts";
+export {
+	buildFailureMachineEnvelopeSchema,
+	buildSuccessMachineEnvelopeSchema,
+	envelopeJsonText,
+	exitCodeForExit,
+	failure,
+	machineEnvelopeSchema,
+	negative,
+	ok,
+	toMachineEnvelope,
+} from "./exit.ts";
 export type {
+	BuildFailureMachineEnvelopeSchemaOptions,
 	ClinkrExit,
 	ClinkrExitCodeOptions,
 	ClinkrFailureExit,
