@@ -28,7 +28,7 @@
   - Policy: read-only analysis and checked-in docs are directly executable.
   - Evidence: `prework/` suite, `prework/07-pr-slicing-and-next-session-plan.md`, plus Semantic Updates.
 
-- [ ] Scaffold `ts/packages/slot` and port the pure core + first read-only operation (`list`).
+- [x] Scaffold `ts/packages/slot` and port the pure core + first read-only operation (`list`).
   - Create `package.json` (`@asdl/slot`, bin `slot`, deps `@asdl/clinkr` + `@asdl/core` + `zod`),
     `tsconfig.json`, `cli.ts`, `context.ts`, and the gateway interfaces with in-memory fakes,
     modeled on `ts/packages/brmem` and `ts/packages/areg`.
