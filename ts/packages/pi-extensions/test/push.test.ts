@@ -128,8 +128,8 @@ function sameArgs(left: string[], right: string[]): boolean {
 
 function registeredPushCommand(pi: FakePi): RegisteredCommand {
 	pushExtension(pi);
-	const command = pi.commands.get("code:push");
-	if (command === undefined) throw new Error("expected code:push command");
+	const command = pi.commands.get("sdl:code:push");
+	if (command === undefined) throw new Error("expected sdl:code:push command");
 	return command;
 }
 
@@ -161,19 +161,19 @@ function noopTheme(): { fg(_color: string, text: string): string; bold(text: str
 }
 
 describe("push extension registration", () => {
-	test("registers code:push with an appropriate description and renderer", () => {
+	test("registers sdl:code:push with an appropriate description and renderer", () => {
 		const pi = new FakePi();
 
 		pushExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:push"]);
-		expect(pi.commands.get("code:push")?.description).toContain("git push");
-		expect(pi.commands.get("code:push")?.description).toContain("already-committed");
+		expect([...pi.commands.keys()]).toEqual(["sdl:code:push"]);
+		expect(pi.commands.get("sdl:code:push")?.description).toContain("git push");
+		expect(pi.commands.get("sdl:code:push")?.description).toContain("already-committed");
 		expect(pi.messageRenderers.has(PUSH_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 });
 
-describe("code:push", () => {
+describe("sdl:code:push", () => {
 	test("rejects non-empty args before waiting or executing git", async () => {
 		const pi = new FakePi();
 		const command = registeredPushCommand(pi);
@@ -184,7 +184,7 @@ describe("code:push", () => {
 		pi.assertDone();
 		expect(pi.calls).toEqual([]);
 		expect(waitForIdleCalls()).toBe(0);
-		expect(notifications).toEqual([{ message: "`/code:push` does not accept arguments.", level: "error" }]);
+		expect(notifications).toEqual([{ message: "`/sdl:code:push` does not accept arguments.", level: "error" }]);
 		expect(messageText(pi.sentMessages[0])).toContain("does not accept arguments");
 	});
 
@@ -210,7 +210,7 @@ describe("code:push", () => {
 		pi.assertDone();
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]).toEqual({ command: "git", args: ["status", "--porcelain"], options: { cwd: ROOT } });
-		expect(notifications).toEqual([{ message: "`/code:push` requires a clean worktree.", level: "warning" }]);
+		expect(notifications).toEqual([{ message: "`/sdl:code:push` requires a clean worktree.", level: "warning" }]);
 		const content = messageText(pi.sentMessages[0]);
 		expect(content).toContain("did not run `git push`");
 		expect(content).toContain(" M src/file.ts");
@@ -288,7 +288,7 @@ describe("code:push", () => {
 
 		pi.assertDone();
 		expect(pi.calls).toHaveLength(1);
-		expect(notifications).toEqual([{ message: "Could not inspect worktree status for `/code:push`.", level: "error" }]);
+		expect(notifications).toEqual([{ message: "Could not inspect worktree status for `/sdl:code:push`.", level: "error" }]);
 		expect(messageText(pi.sentMessages[0])).toContain("Could not inspect the worktree status");
 		expect(messageText(pi.sentMessages[0])).toContain("not a git repository");
 	});

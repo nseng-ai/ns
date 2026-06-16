@@ -165,7 +165,7 @@ async function runLand(script: ScriptedExec[], options: { mode?: LandCommandCont
 	const fullScript = options.stack === false ? script : [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
-	const command = pi.commands.get("code:land");
+	const command = pi.commands.get("sdl:code:land");
 	expect(command).toBeDefined();
 	const context = createContext({ mode: options.mode });
 	await command?.handler(options.args ?? "", context.ctx);
@@ -226,14 +226,14 @@ function expectedMergeArgs(options: { number?: number; sha?: string; title?: str
 }
 
 describe("code land command registration", () => {
-	test("registers only the namespaced code:land command", () => {
+	test("registers only the namespaced sdl:code:land command", () => {
 		const pi = new FakePi();
 		registerLandCommand(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:land"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:code:land"]);
 		expect(pi.commands.has("gh:land")).toBe(false);
 		expect(pi.commands.has("land")).toBe(false);
-		const command = pi.commands.get("code:land");
+		const command = pi.commands.get("sdl:code:land");
 		expect(command?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(command?.getArgumentCompletions?.("--")).toEqual([
 			{ value: "--yes", label: "--yes" },

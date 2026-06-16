@@ -33,20 +33,20 @@ The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/cc
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns the repo-opinionated implementation behind it, such as `/objective:stack-impl`, `/code:autobranch`, or unified `/code:land`.
-*Avoid*: compatibility alias, new command taxonomy, evidence that the lower adapter owns the workflow policy.
+A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns the repo-opinionated implementation behind it, such as `/objective:stack-impl`, `/sdl:code:autobranch`, or `/sdl:code:land`.
+*Avoid*: compatibility alias, evidence that the lower adapter owns the workflow policy, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
 The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
 
 **Autobranch orchestration**:
-The CCC-owned implementation behind public `/code:autobranch`, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow.
-*Avoid*: Pi registration adapter, `asdl-dev` checkpoint primitive, plain branch creation helper.
+The CCC-owned implementation behind public `/sdl:code:autobranch`, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow.
+*Avoid*: Pi registration adapter, `asdl-dev` checkpoint primitive, plain branch creation helper, old `/code:autobranch` alias.
 
 **Land orchestration**:
-The CCC-owned implementation behind public unified `/code:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
-*Avoid*: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway.
+The CCC-owned implementation behind public unified `/sdl:code:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+*Avoid*: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Worktree status observability**:
 The CCC-owned operational model and presentation for repository status surfaced through the `worktree-status` Pi renderer: Branch Memory scope summaries, Graphite metadata-derived down/up state, branch-local commit marker, dirty marker, Graphite metadata diagnostics, and PR hyperlink rendering.
@@ -57,15 +57,15 @@ A passive CCC worktree-status fact derived from Graphite's local metadata databa
 *Avoid*: Graphite command gateway, mutation policy, full stack lifecycle owner.
 
 **Autobranch preparation**:
-The deterministic pre-transaction plan for `/code:autobranch`: choose a branch slug/name and collect facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
+The deterministic pre-transaction plan for `/sdl:code:autobranch`: choose a branch slug/name and collect facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
 *Avoid*: branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-The mutating `/code:autobranch` sequence that creates a Graphite branch from dirty worktree changes by stashing, creating the branch, restoring changes, and writing a checkpoint commit.
+The mutating `/sdl:code:autobranch` sequence that creates a Graphite branch from dirty worktree changes by stashing, creating the branch, restoring changes, and writing a checkpoint commit.
 *Avoid*: latest-commit extraction, preparation, reusable checkpoint message generation.
 
 **Latest-commit autobranch transaction**:
-The clean-worktree `/code:autobranch` mutation path that creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
+The clean-worktree `/sdl:code:autobranch` mutation path that creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
 *Avoid*: dirty-worktree stash path, plain `gt create`, landing command.
 
 **Orchestration candidate**:

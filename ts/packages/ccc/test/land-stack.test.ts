@@ -764,7 +764,7 @@ describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
 		expect(expectSuccess(parseArgs("--yes --dry-run --help"))).toEqual({ yes: true, dryRun: true, help: true });
 		expect(expectSuccess(parseArgs("-y -h"))).toEqual({ yes: true, dryRun: false, help: true });
-		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /code:land argument: --wat");
+		expect(expectFailure(parseArgs("--wat")).message).toContain("Unknown /sdl:code:land argument: --wat");
 	});
 
 	test("derives the landing path from Graphite metadata", () => {
@@ -1380,7 +1380,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("Already landed by chunk:");
 		expect(streamText).toContain("Chunk 1 through feature-8");
 		expect(streamText).toContain("Chunk 2 through feature-11: #209 feature-9");
-		expect(streamText).toContain("Fix the reported issue, then rerun /code:land");
+		expect(streamText).toContain("Fix the reported issue, then rerun /sdl:code:land");
 		expect(streamText).toContain("Failed at: #210 feature-10");
 		expect(pi.execCalls.some((call) => call.command === "gh" && sameArgs(call.args, expectedSquashMergeArgs({ number: 211, sha: numberedSha(11), title: "PR 211" })))).toBe(false);
 	});
@@ -2412,7 +2412,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(notifications[0]?.message).toContain("Refusing to land: the stack forks at feature-a.");
 		expect(notifications[0]?.message).toContain("Landing path expects feature-a -> feature-b");
 		expect(notifications[0]?.message).toContain("side (subtree: side -> side-2)");
-		expect(commandMessagesText(messages)).toContain("Land or move the sibling stack first (e.g. gt move --onto main), then rerun /code:land.");
+		expect(commandMessagesText(messages)).toContain("Land or move the sibling stack first (e.g. gt move --onto main), then rerun /sdl:code:land.");
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] !== "trunk")).toBe(false);
 	});
@@ -2432,7 +2432,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		pi.assertDone();
 		expect(notifications[0]?.level).toBe("error");
 		expect(notifications[0]?.message).toContain(
-			"current branch feature-b has 2 children (feature-c, feature-d); /code:land supports at most one descendant chain target.",
+			"current branch feature-b has 2 children (feature-c, feature-d); /sdl:code:land supports at most one descendant chain target.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "gh")).toBe(false);
 	});

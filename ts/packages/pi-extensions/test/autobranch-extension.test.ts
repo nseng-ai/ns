@@ -14,14 +14,14 @@ class FakePi implements ExtensionAPI {
 }
 
 describe("autobranch Pi extension", () => {
-	test("registers the ccc autobranch command under the code namespace", () => {
+	test("registers the ccc autobranch command under the SDL code-lifecycle namespace", () => {
 		const pi = new FakePi();
 
 		autobranchExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(["code:autobranch"]);
+		expect([...pi.commands.keys()]).toEqual(["sdl:code:autobranch"]);
 		expect(pi.commands.has("ccc:autobranch")).toBe(false);
-		expect(pi.commands.get("code:autobranch")?.description).toBe(
+		expect(pi.commands.get("sdl:code:autobranch")?.description).toBe(
 			"ccc autobranch: Create a Graphite branch from dirty worktree changes or the latest unpushed commit.",
 		);
 	});

@@ -1,6 +1,6 @@
 # @asdl/pi-extensions
 
-`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected stable non-`ccc` command implementations such as `/code:autobranch` and unified `/code:land`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
+`@asdl/pi-extensions` is the repo-local engineered TypeScript layer for durable Pi extension behavior in asdl. Pi discovers checked-in project-local adapters under `.pi/extensions/`; adapters delegate stable, risky, reused, or test-worthy behavior to this private package. CCC (`@asdl/ccc`) is the separate private orchestration layer for repo-opinionated command-and-control workflows, owns the `ccc` Pi command prefix for cmux/workspace orchestration, and can own selected SDL code-lifecycle implementations such as `/sdl:code:autobranch` and `/sdl:code:land`. Neutral shared helper contracts live below both packages in `@asdl/pi-extension-runtime`.
 
 ## Language
 
@@ -53,12 +53,12 @@ The public Pi extension registration surface for `/objective:stack-impl`. The co
 *Avoid*: CCC command prefix alias, Objective storage owner, stack orchestration implementation body.
 
 **Autobranch adapter**:
-The public Pi extension registration surface for `/code:autobranch`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@asdl/ccc/autobranch`.
-*Avoid*: preparation owner, transaction owner, new command name, Graphite policy implementation.
+The public Pi extension registration surface for `/sdl:code:autobranch`. The command belongs to the SDL code-lifecycle family and is discovered through `@asdl/pi-extensions`, but dirty-worktree and latest-commit autobranch orchestration is delegated to `@asdl/ccc/autobranch`.
+*Avoid*: preparation owner, transaction owner, old `/code:autobranch` compatibility alias, Graphite policy implementation.
 
 **Land adapter**:
-The public Pi extension registration surface for unified `/code:land`. The command stays in the `code` command family and is discovered through `@asdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@asdl/ccc/land`.
-*Avoid*: PR view/merge policy owner, stack landing policy owner, direct Graphite/GitHub mutation owner, new command alias.
+The public Pi extension registration surface for unified `/sdl:code:land`. The command belongs to the SDL code-lifecycle family and is discovered through `@asdl/pi-extensions`, but Graphite stack-shape dispatch, single-PR fast landing, Graphite/GitHub/slot stack landing orchestration, and failure presentation are delegated to `@asdl/ccc/land`.
+*Avoid*: PR view/merge policy owner, stack landing policy owner, direct Graphite/GitHub mutation owner, old `/code:land` compatibility alias.
 
 **Worktree status adapter**:
 The Pi lifecycle module behind `.pi/extensions/worktree-status.ts`: registers the `worktree-status` renderer, reacts to session/tool/agent/shutdown events, manages active-session cancellation, watches Git/Branch Memory/worktree paths, installs the custom footer, and renders generic cwd/session/model/context/token/cost footer lines while delegating repo-operational status facts and presentation to `@asdl/ccc/worktree-status`.
@@ -161,15 +161,15 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Code command prefix**:
-The Pi slash-command namespace for codebase/source-control management workflows that still belong to the code command family; pending-worktree inspection has moved to `/sdl:changes`, and checkpoint creation has moved to `/sdl:cp`.
+The Pi slash-command namespace for codebase/source-control or review workflows that intentionally remain outside the SDL code-lifecycle family. The current project-owned code-prefix command is `/code:pr-feedback-watch`; migrated lifecycle workflows use primary SDL mirrors under `/sdl:*` or nested code-lifecycle surfaces under `/sdl:code:*`, not `/code:*` compatibility aliases.
 *Avoid*: visibility flag, prototype marker, package prefix, migrated SDL workflow prefix.
 
 **Pending worktree snapshot**:
-A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `/sdl:changes`, `/sdl:cp`, and `/code:autobranch` before presentation or mutation.
+A read-only capture of repository root, current branch, porcelain status, diff, and cleanliness used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes`, `sdl cp` / `/sdl:cp` / `/sdl:code:checkpoint`, and `/sdl:code:autobranch` before presentation or mutation.
 *Avoid*: stash, checkpoint, worktree status renderer.
 
 **Outstanding changes summary**:
-A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
+A read-only presentation of the current pending worktree state, including summary text and status-derived filenames, used by `sdl changes` / `/sdl:changes` / `/sdl:code:changes` before any checkpoint decision. The summary text is drafted through SDL text generation; when the model is unavailable or returns an invalid summary the command hard-errors rather than falling back to a deterministic summary.
 *Avoid*: checkpoint message, diffstat only, worktree status footer, Pi-only changes card.
 
 **Checkpoint message**:
@@ -181,11 +181,11 @@ A git commit created from pending worktree changes using a prepared checkpoint m
 *Avoid*: checkpoint message, stash, branch creation.
 
 **Autobranch preparation**:
-A CCC-owned pre-transaction plan exposed through the `/code:autobranch` adapter: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
+A CCC-owned pre-transaction plan exposed through the `/sdl:code:autobranch` adapter: choose a branch slug/name and collect preflight facts before moving work. Dirty-worktree preparation also prepares a checkpoint message; clean latest-commit preparation inspects trunk/upstream/parent shape and derives a slug from the existing commit message and diff.
 *Avoid*: Pi extension implementation ownership, branch transaction, stash operation, model prompt alone.
 
 **Autobranch transaction**:
-A CCC-owned mutating `/code:autobranch` sequence exposed through the `code` command family. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
+A CCC-owned mutating `/sdl:code:autobranch` sequence exposed through the SDL code-lifecycle family. Dirty mode stashes pending changes, creates the branch, restores the stash, and writes a checkpoint commit; latest-commit mode creates a recovery branch, resets the source branch to the parent, creates the Graphite branch, hard-resets it to the original commit SHA, verifies the SHA, and cleans up recovery evidence.
 *Avoid*: Pi extension implementation ownership, preparation, plain git branch creation, restack.
 
 **Runner subagent**:

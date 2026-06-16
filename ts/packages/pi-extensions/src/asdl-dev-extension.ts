@@ -24,7 +24,7 @@ export const asdlDevExtensionParity = definePiSurfaceParity([
 export const asdlDevCodeExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: "code:pr-regen",
+		surface: "sdl:code:regenerate-pr",
 		workflow: "Regenerate the current branch PR title and description",
 		parity: "FULL",
 		cli: "asdl-dev pr-regen",
@@ -32,7 +32,7 @@ export const asdlDevCodeExtensionParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "asdl-dev-extension",
-		notes: "Pi command delegates to asdl-dev pr-regen; the sdl-submit skill documents the PR description regeneration operation until pr-regen receives its own SDL migration decision.",
+		notes: "Pi command exposes the SDL code-lifecycle surface while delegating to the remaining asdl-dev PR metadata implementation.",
 	},
 ] as const);
 
@@ -48,8 +48,9 @@ export default function asdlDevExtension(pi: ExtensionAPI): void {
 export function asdlDevCodeExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "asdl-dev",
-		piNamespace: "code",
+		piNamespace: "sdl:code",
 		commands: selectAsdlDevCommands(CODE_COMMAND_NAMES),
+		piCommandNameForCommand: () => "sdl:code:regenerate-pr",
 		runCli,
 	});
 }

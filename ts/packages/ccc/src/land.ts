@@ -49,7 +49,7 @@ export interface LandExtensionAPI {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
 }
 
-const COMMAND_NAME = "code:land";
+const COMMAND_NAME = "sdl:code:land";
 const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;

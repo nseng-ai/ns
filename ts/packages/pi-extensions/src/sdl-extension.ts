@@ -1,9 +1,26 @@
 import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 
-import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI } from "./cli-command-extension.ts";
+import { asdlDevCodeExtension } from "./asdl-dev-extension.ts";
+import autobranchExtension from "./autobranch.ts";
+import autoslotExtension from "./autoslot.ts";
+import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI as CliExtensionAPI } from "./cli-command-extension.ts";
+import landExtension from "./land.ts";
 import { definePiSurfaceParity } from "./parity.ts";
+import pushExtension from "./push.ts";
+
+export type ExtensionAPI = CliExtensionAPI &
+	Parameters<typeof asdlDevCodeExtension>[0] &
+	Parameters<typeof autobranchExtension>[0] &
+	Parameters<typeof autoslotExtension>[0] &
+	Parameters<typeof landExtension>[0] &
+	Parameters<typeof pushExtension>[0];
 
 const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
+const SDL_CODE_PI_COMMAND_ALIASES = {
+	changes: "sdl:code:changes",
+	cp: "sdl:code:checkpoint",
+	submit: "sdl:code:submit",
+} as const satisfies Record<(typeof SDL_COMMAND_NAMES)[number], string>;
 
 export const sdlExtensionParity = definePiSurfaceParity([
 	{
@@ -41,15 +58,63 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes: "Pi command delegates to the built-in SDL submit command through registerCliCommandExtension.",
 	},
+	{
+		kind: "command",
+		surface: "sdl:code:changes",
+		workflow: "Nested code-lifecycle alias for outstanding worktree changes",
+		parity: "FULL",
+		cli: "sdl changes",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Nested code-lifecycle Pi alias over sdl changes; flat /sdl:changes remains primary.",
+	},
+	{
+		kind: "command",
+		surface: "sdl:code:checkpoint",
+		workflow: "Nested code-lifecycle alias for checkpoint creation",
+		parity: "FULL",
+		cli: "sdl cp",
+		skill: "code-checkpoint",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Nested code-lifecycle Pi alias over sdl cp; flat /sdl:cp remains primary and no sdl checkpoint CLI command is created.",
+	},
+	{
+		kind: "command",
+		surface: "sdl:code:submit",
+		workflow: "Nested code-lifecycle alias for submitting the current Graphite stack",
+		parity: "FULL",
+		cli: "sdl submit",
+		skill: "sdl-submit",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Nested code-lifecycle Pi alias over sdl submit; flat /sdl:submit remains primary.",
+	},
 ] as const);
 
 export default function sdlExtension(pi: ExtensionAPI): void {
+	const commands = selectSdlCommands(SDL_COMMAND_NAMES);
 	registerCliCommandExtension(pi, {
 		cliName: "sdl",
 		piNamespace: "sdl",
-		commands: selectSdlCommands(SDL_COMMAND_NAMES),
+		commands,
 		runCli,
 	});
+	registerCliCommandExtension(pi, {
+		cliName: "sdl",
+		piNamespace: "sdl",
+		commands,
+		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
+		runCli,
+	});
+	autobranchExtension(pi);
+	autoslotExtension(pi);
+	landExtension(pi);
+	pushExtension(pi);
+	asdlDevCodeExtension(pi);
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {

@@ -49,7 +49,7 @@ export function normalizeCommandFinish(command: string, args: string[], result: 
 	if (deleteBranch && result.code !== 0 && !result.killed && isGtDeleteMissingBranch(result, deleteBranch)) {
 		return { result: { ...result, code: 0 }, note: `branch ${deleteBranch} already absent` };
 	}
-	// /code:land reads Graphite topology from Graphite's metadata database;
+	// /sdl:code:land reads Graphite topology from Graphite's metadata database;
 	// avoid labeling unrelated sqlite3 commands just because the binary matches.
 	if (command === "sqlite3" && result.code === 0 && args.some((arg) => arg.endsWith(GRAPHITE_METADATA_DB_NAME))) {
 		return { result, note: "read Graphite stack topology" };

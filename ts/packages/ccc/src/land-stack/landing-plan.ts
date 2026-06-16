@@ -63,7 +63,7 @@ export async function buildLandingPlan(
 	if (landingManualConflicts.length > 0) {
 		return failure(
 			landStackFailure(formatManualWorktreeConflict(landingManualConflicts), {
-				suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /code:land.",
+				suggestedAction: "Detach those landing-branch worktrees or check out unrelated branches, then rerun /sdl:code:land.",
 			}),
 		);
 	}

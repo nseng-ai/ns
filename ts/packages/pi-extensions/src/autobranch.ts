@@ -8,7 +8,7 @@ export type { ExtensionAPI };
 export const autobranchParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: "code:autobranch",
+		surface: "sdl:code:autobranch",
 		workflow: "Create a Graphite branch from dirty worktree changes or the latest unpushed commit",
 		parity: "FULL",
 		cli: "ccc exec autobranch",
@@ -16,19 +16,19 @@ export const autobranchParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "autobranch",
-		notes: "Pi command delegates to the CCC CLI autobranch operation through registerCliCommandExtension.",
+		notes: "Pi command exposes the SDL code-lifecycle surface while delegating to the CCC CLI autobranch operation through registerCliCommandExtension.",
 	},
 ] as const);
 
 export default function autobranchExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "ccc",
-		piNamespace: "code",
+		piNamespace: "sdl:code",
 		commands: [
 			{
 				name: "autobranch",
 				description: AUTOBRANCH_SUMMARY,
-				startMessage: "Starting /code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
+				startMessage: "Starting /sdl:code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
 			},
 		],
 		runCli: (args, deps) => runCli(["exec", ...args], deps),

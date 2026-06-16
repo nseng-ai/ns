@@ -1,4 +1,4 @@
-export const COMMAND_NAME = "code:land";
+export const COMMAND_NAME = "sdl:code:land";
 export const STATUS_KEY = "land";
 export const COMMAND_STREAM_MESSAGE_TYPE = "land-command-stream";
 

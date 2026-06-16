@@ -10,7 +10,7 @@ import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
 import { checkoutSlot } from "./slot-checkout.ts";
 
-const COMMAND_NAME = "code:autoslot";
+const COMMAND_NAME = "sdl:code:autoslot";
 const STATUS_KEY = "autoslot";
 
 export interface AutobranchCommandContext {
@@ -99,7 +99,7 @@ function parseCreatedBranchName(summary: string): string {
 
 async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandContext, args: ParsedAutobranchArgs): Promise<void> {
 	ctx.ui.notify(
-		"Starting /code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
+		"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
 		"info",
 	);
 	const stopIdleStatus = startIdleWaitStatus(ctx.ui, STATUS_KEY);

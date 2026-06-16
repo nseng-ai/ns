@@ -174,7 +174,7 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 			return failure(
 				landStackFailure(
 					`Graphite metadata parent chain from ${current} ends at ${cursor} without reaching trunk ${trunk}; refusing to land.`,
-					{ suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /code:land.` },
+					{ suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /sdl:code:land.` },
 				),
 			);
 		}
@@ -246,7 +246,7 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 	const lines = violations.map((violation) => {
 		if (violation.expectedChild === undefined) {
 			const childNames = violation.siblings.map((sibling) => sibling.branch);
-			return `Refusing to land: current branch ${violation.forkPoint} has ${childNames.length} children (${childNames.join(", ")}); /code:land supports at most one descendant chain target.`;
+			return `Refusing to land: current branch ${violation.forkPoint} has ${childNames.length} children (${childNames.join(", ")}); /sdl:code:land supports at most one descendant chain target.`;
 		}
 		const siblingText = violation.siblings
 			.map((sibling) => `${sibling.branch} (subtree: ${sibling.subtree.join(" -> ")})`)
@@ -254,6 +254,6 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 		return `Refusing to land: the stack forks at ${violation.forkPoint}. Landing path expects ${violation.forkPoint} -> ${violation.expectedChild}, but ${violation.forkPoint} also has: ${siblingText}.`;
 	});
 	return landStackFailure(lines.join("\n"), {
-		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /code:land.`,
+		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /sdl:code:land.`,
 	});
 }

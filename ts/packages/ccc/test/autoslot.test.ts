@@ -94,15 +94,15 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("autoslot flow", () => {
-	test("registers only /code:autoslot", () => {
+	test("registers only /sdl:code:autoslot", () => {
 		const commands = new Map<string, { description?: string; handler(args: string, ctx: AutobranchCommandContext): Promise<void> | void }>();
 		registerAutoslotCommand({
 			registerCommand: (name, command) => commands.set(name, command),
 			exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 		});
 
-		expect([...commands.keys()]).toEqual(["code:autoslot"]);
-		expect(commands.get("code:autoslot")?.description).toContain("managed slot worktree");
+		expect([...commands.keys()]).toEqual(["sdl:code:autoslot"]);
+		expect(commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
 	});
 
 	test("command reports start before waiting for idle", () => {
@@ -119,8 +119,8 @@ describe("autoslot flow", () => {
 				},
 			});
 
-			const command = commands.get("code:autoslot");
-			if (command === undefined) throw new Error("Expected code:autoslot command to be registered.");
+			const command = commands.get("sdl:code:autoslot");
+			if (command === undefined) throw new Error("Expected sdl:code:autoslot command to be registered.");
 			void command.handler("", {
 				cwd: "/repo",
 				ui: {
@@ -137,7 +137,7 @@ describe("autoslot flow", () => {
 				{
 					level: "info",
 					message:
-						"Starting /code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
+						"Starting /sdl:code:autoslot — runs once Pi finishes its current response, then creates a branch and moves it to a slot. Interrupt Pi to run it now.",
 				},
 			]);
 			// First status is set synchronously, before the await, so the footer is never blank.
