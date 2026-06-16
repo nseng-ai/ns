@@ -201,8 +201,8 @@ async function runRecordBatchCheckpointOperation(ctx: PrAddressExecContext, requ
 		commit_sha: commitSha,
 		changed_files: [...changedFiles.files],
 		validation_commands: evidence.value.validation_commands,
-		thread_payload_build: legacyThreadPayloadBuild(sessionInput.value),
-		thread_resolution_result: legacyThreadResolutionResult(sessionInput.value),
+		thread_payload_build: checkpointThreadPayloadBuild(sessionInput.value),
+		thread_resolution_result: checkpointThreadResolutionResult(sessionInput.value),
 		non_thread_outcomes: evidence.value.non_thread_outcomes,
 	});
 	checkpointResult = { ...checkpointResult, resolved_inputs: sessionInput.value.resolvedInputs };
@@ -243,7 +243,7 @@ function compactRecordBatchCheckpointResult(
 	};
 }
 
-function legacyThreadPayloadBuild(sessionInput: BatchCheckpointSessionInputs): ThreadPayloadBuild | null {
+function checkpointThreadPayloadBuild(sessionInput: BatchCheckpointSessionInputs): ThreadPayloadBuild | null {
 	const artifact = sessionInput.buildArtifact;
 	if (artifact === null) return null;
 	const skippedItems = z.array(skippedItemSchema).safeParse(artifact.build.skipped_items);
@@ -263,7 +263,7 @@ function legacyThreadPayloadBuild(sessionInput: BatchCheckpointSessionInputs): T
 	};
 }
 
-function legacyThreadResolutionResult(sessionInput: BatchCheckpointSessionInputs): ThreadResolutionResult | null {
+function checkpointThreadResolutionResult(sessionInput: BatchCheckpointSessionInputs): ThreadResolutionResult | null {
 	const artifact = sessionInput.resolutionArtifact;
 	if (artifact === null) return null;
 	return { all_succeeded: artifact.result.all_succeeded, results: artifact.result.results };

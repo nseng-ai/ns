@@ -21,7 +21,7 @@ import {
 	type PayloadResult,
 } from "../../src/payload-store.ts";
 
-interface WriteParityFixture {
+interface WriteContractFixture {
 	session_id: string;
 	clock_iso_timestamps: readonly string[];
 	writes: ReadonlyArray<
@@ -33,7 +33,7 @@ interface WriteParityFixture {
 	expected_files: Record<string, string>;
 }
 
-interface ErrorParityFixture {
+interface ErrorContractFixture {
 	document: unknown;
 	cases: ReadonlyArray<{ name: string; error_type: string; message: string }>;
 }
@@ -44,8 +44,8 @@ interface ObservedError {
 }
 
 const FIXTURE_DIR = new URL("../fixtures/payload-store/", import.meta.url);
-const writeParityFixture = (await readJsonFixture("write-parity.json")) as WriteParityFixture;
-const errorParityFixture = (await readJsonFixture("error-parity.json")) as ErrorParityFixture;
+const writeContractFixture = (await readJsonFixture("write-contract.json")) as WriteContractFixture;
+const errorContractFixture = (await readJsonFixture("error-contract.json")) as ErrorContractFixture;
 const isPosix = process.platform !== "win32";
 const makeScopedTempDir = useTempDirs();
 
@@ -115,16 +115,16 @@ async function writeLatestLookupFixture(store: PayloadArtifactStore): Promise<vo
 	expectOk(await store.writeJsonArtifact({ descriptor: "target", role: "summary", payload: { value: 2 } }));
 }
 
-describe("payload store write parity with Python asdl_core.payloads", () => {
+describe("payload store write contract", () => {
 	test("replaying fixture writes produces a byte-identical session tree and references", async () => {
 		const tempDir = await makeTempDir();
 		const root = join(tempDir, "payload-root");
 		const store = expectOk(
-			await PayloadStore.open({ root, sessionId: writeParityFixture.session_id, clock: sequenceClock(writeParityFixture.clock_iso_timestamps) }),
+			await PayloadStore.open({ root, sessionId: writeContractFixture.session_id, clock: sequenceClock(writeContractFixture.clock_iso_timestamps) }),
 		);
 
 		const references: Array<Record<string, unknown>> = [];
-		for (const write of writeParityFixture.writes) {
+		for (const write of writeContractFixture.writes) {
 			const reference =
 				write.kind === "json"
 					? expectOk(await store.writeJsonArtifact({ descriptor: write.descriptor, role: write.role, payload: write.payload }))
@@ -132,26 +132,26 @@ describe("payload store write parity with Python asdl_core.payloads", () => {
 			references.push({ ...reference, payload_path: relative(root, reference.payload_path) });
 		}
 
-		expect(references).toEqual(writeParityFixture.expected_references);
+		expect(references).toEqual(writeContractFixture.expected_references);
 
 		const observed = await listRelativeEntries(root);
-		expect(observed.directories).toEqual([...writeParityFixture.expected_directories]);
-		expect(observed.files).toEqual(Object.keys(writeParityFixture.expected_files).sort());
-		for (const [relativePath, expectedContent] of Object.entries(writeParityFixture.expected_files)) {
+		expect(observed.directories).toEqual([...writeContractFixture.expected_directories]);
+		expect(observed.files).toEqual(Object.keys(writeContractFixture.expected_files).sort());
+		for (const [relativePath, expectedContent] of Object.entries(writeContractFixture.expected_files)) {
 			expect(await readFile(join(root, relativePath), "utf8"), relativePath).toBe(expectedContent);
 		}
 
 		if (isPosix) {
 			expect(await fileMode(root)).toBe(0o700);
-			for (const directory of writeParityFixture.expected_directories) expect(await fileMode(join(root, directory))).toBe(0o700);
-			for (const relativePath of Object.keys(writeParityFixture.expected_files)) expect(await fileMode(join(root, relativePath))).toBe(0o600);
+			for (const directory of writeContractFixture.expected_directories) expect(await fileMode(join(root, directory))).toBe(0o700);
+			for (const relativePath of Object.keys(writeContractFixture.expected_files)) expect(await fileMode(join(root, relativePath))).toBe(0o600);
 		}
 	});
 
 	test("written artifacts round-trip through lookup helpers", async () => {
 		const tempDir = await makeTempDir();
 		const store = expectOk(
-			await PayloadStore.open({ root: join(tempDir, "payload-root"), sessionId: "sess-1", clock: sequenceClock(writeParityFixture.clock_iso_timestamps) }),
+			await PayloadStore.open({ root: join(tempDir, "payload-root"), sessionId: "sess-1", clock: sequenceClock(writeContractFixture.clock_iso_timestamps) }),
 		);
 		const reference = expectOk(await store.writeJsonArtifact({ descriptor: "feedback", role: "raw", payload: { exit_code: 0, data: { text: "café" } } }));
 
@@ -264,12 +264,12 @@ describe("payload store latest JSON artifact lookup", () => {
 	});
 });
 
-describe("payload store error parity with Python asdl_core.payloads", () => {
-	test("error types and messages match the Python fixture", async () => {
+describe("payload store error contract", () => {
+	test("error types and messages match the captured contract fixture", async () => {
 		const root = await makeTempDir();
 		const actualByName = await collectErrorCases(root);
 
-		for (const expectedCase of errorParityFixture.cases) {
+		for (const expectedCase of errorContractFixture.cases) {
 			const actual = actualByName.get(expectedCase.name);
 			expect(actual, expectedCase.name).toBeDefined();
 			if (actual === undefined) continue;
@@ -278,7 +278,7 @@ describe("payload store error parity with Python asdl_core.payloads", () => {
 				expectedCase.name,
 			).toEqual(expectedCase);
 		}
-		expect([...actualByName.keys()].sort()).toEqual(errorParityFixture.cases.map((errorCase) => errorCase.name).sort());
+		expect([...actualByName.keys()].sort()).toEqual(errorContractFixture.cases.map((errorCase) => errorCase.name).sort());
 	});
 });
 
@@ -342,7 +342,7 @@ async function collectErrorCases(root: string): Promise<Map<string, ObservedErro
 		{ name: "pointer_trailing_tilde", pointer: "/~" },
 	];
 	for (const pointerCase of pointerCases) {
-		actualByName.set(pointerCase.name, expectError(resolveJsonPointer(errorParityFixture.document, pointerCase.pointer)));
+		actualByName.set(pointerCase.name, expectError(resolveJsonPointer(errorContractFixture.document, pointerCase.pointer)));
 	}
 
 	return actualByName;

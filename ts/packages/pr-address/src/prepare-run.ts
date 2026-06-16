@@ -79,7 +79,7 @@ export const prepareRunOperation = defineExecOperation({
 });
 
 async function runPrepareRunOperation(ctx: PrAddressExecContext, request: PrepareRunRequest): Promise<ClinkrExit<unknown>> {
-	// Python opens the payload store before any gateway work; preserve that ordering.
+	// Pinned operation order opens the payload store before any gateway work.
 	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
 		const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
@@ -255,12 +255,12 @@ function buildManifest(inlineResult: PrepareRunInlineResult, payloadReference: P
 	});
 }
 
-/** Mirror the Python git gateway's current-branch failure message: stderr or a fixed fallback. */
+/** Preserve the current-branch failure message contract: stderr or a fixed fallback. */
 function gitCommandFailureMessage(failure: GatewayFailure): string {
 	return failure.stderr.trim() || "git failed";
 }
 
-/** Mirror the Python git gateway's restructured-files failure message for warning parity. */
+/** Preserve the restructured-files failure message used in warnings. */
 function restructuredFilesFailureMessage(baseRefName: string, failure: GatewayFailure): string {
 	return `Failed to detect restructured files against origin/${baseRefName}: ${failure.stderr.trim() || "git diff failed"}`;
 }

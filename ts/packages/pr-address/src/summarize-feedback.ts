@@ -20,9 +20,9 @@ const BODY_MARKERS: ReadonlyArray<readonly [marker: string, label: string]> = [
 	["static.graphite.dev", "graphite_static_asset"],
 ];
 
-// Python `str.split()` also treats the ASCII separator controls and NEL as whitespace.
+// Pinned split contract treats the ASCII separator controls and NEL as whitespace.
 const WHITESPACE_RUN = /[\s\u001c-\u001f\u0085]+/u;
-// Python `str.splitlines()` boundaries beyond \r\n handled as alternation below.
+// Pinned split-lines contract handles boundaries beyond \r\n as alternation below.
 const LINE_BOUNDARY = /\r\n|[\n\r\v\f\u001c\u001d\u001e\u0085\u2028\u2029]/u;
 
 interface CompactReviewSummary {
@@ -282,7 +282,7 @@ function firstNonEmptyLineExcerpt(text: string): string | null {
 }
 
 function truncate(text: string, maxChars: number): string {
-	// Python len()/slicing counts code points, so spread the string before measuring.
+	// Count code points, so spread the string before measuring.
 	const characters = [...text];
 	if (characters.length <= maxChars) return text;
 	if (maxChars === 1) return "…";

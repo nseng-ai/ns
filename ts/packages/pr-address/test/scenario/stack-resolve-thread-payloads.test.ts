@@ -214,7 +214,7 @@ describe("build-stack-resolve-thread-payloads session artifact flow", () => {
 		expect(run.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 	});
 
-	test("serves --json-schema from TypeScript without invoking the legacy CLI", async () => {
+	test("serves --json-schema from TypeScript", async () => {
 		const run = runScenario(["exec", "build-stack-resolve-thread-payloads", "--json-schema"]);
 
 		expect(await run.exit).toBe(0);

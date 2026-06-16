@@ -18,7 +18,7 @@ function runWithGithub(args: readonly string[], github: InMemoryPrAddressGitHubG
 }
 
 describe("read-only GitHub-backed operations", () => {
-	test("get-feedback manages inline and payload modes without legacy fallback", async () => {
+	test("get-feedback manages inline and payload modes", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			reviews: {
 				42: [

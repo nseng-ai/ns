@@ -48,7 +48,7 @@ describe("pr-address CLI", () => {
 
 	test("hides the exec subgroup from top-level help while keeping it invocable", async () => {
 		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from
-		// top-level help (Python parity); `pr-address exec --help` still works.
+		// top-level help; `pr-address exec --help` still works.
 		const help = runScenario(["--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).not.toContain("exec");
@@ -86,10 +86,9 @@ describe("pr-address CLI", () => {
 		expect(run.stderr.join("")).toBe("error: unknown command 'totally-unknown-op'\n");
 	});
 
-	test("rejects bogus enum option values as usage errors without the legacy CLI", async () => {
-		// PINNED CLINKR SEMANTICS: value-based fallback is collapsed — bogus
-		// --payload-mode values are strict-enum commander usage errors, not
-		// legacy click rendering.
+	test("rejects bogus enum option values as usage errors", async () => {
+		// PINNED CLINKR SEMANTICS: bogus --payload-mode values are strict-enum
+		// commander usage errors.
 		const run = runScenario(["exec", "get-feedback", "12", "--payload-mode", "bogus", "--format", "json"]);
 
 		expect(await run.exit).toBe(2);
@@ -99,7 +98,7 @@ describe("pr-address CLI", () => {
 		);
 	});
 
-	test("serves managed classification-template schema locally without invoking legacy", async () => {
+	test("serves managed classification-template schema locally", async () => {
 		const run = runScenario(["exec", "classification-template", "--json-schema"]);
 
 		expect(await run.exit).toBe(0);
@@ -179,7 +178,7 @@ describe("pr-address CLI", () => {
 
 	test("strictly rejects non-decimal integer forms through the real CLI path", async () => {
 		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
-		// error (stderr, exit 2), never a machine envelope — click parity.
+		// error (stderr, exit 2), never a machine envelope.
 		for (const value of ["1e2", "0x10", "12.5", "12abc"]) {
 			const prRun = runScenario(["exec", "get-feedback", value, "--format=json"]);
 			expect(await prRun.exit).toBe(2);
@@ -286,7 +285,7 @@ describe("pr-address CLI surface pinning", () => {
 	});
 
 	test("repeated --format flags are last-wins", async () => {
-		// PINNED CLINKR SEMANTICS: commander last-wins, matching the Python CLI
+		// PINNED CLINKR SEMANTICS: commander last-wins
 		// (probed: `--format human --format json` emits the JSON envelope).
 		const json = runScenario(["exec", "envelope", "--format", "human", "--format", "json"], { operations: [envelopeOperation()] });
 		expect(await json.exit).toBe(2);

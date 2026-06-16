@@ -53,7 +53,7 @@ export const getFeedbackOperation = defineExecOperation({
 });
 
 async function runGetFeedbackOperation(ctx: PrAddressExecContext, request: GetFeedbackRequest): Promise<ClinkrExit<unknown>> {
-	// Python opens the payload store before any gateway fetch; preserve that ordering.
+	// Pinned operation order opens the payload store before any gateway fetch.
 	let store: PayloadArtifactStore | undefined;
 	if (request.payload_mode === "payload") {
 		const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });

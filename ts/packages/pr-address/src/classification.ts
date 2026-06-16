@@ -333,7 +333,7 @@ function validateThreads(view: FeedbackManifestView, packet: FeedbackClassificat
 		if (item.thread_item_pointer !== thread.item_pointer) {
 			errors.push({
 				code: "invalid_locator",
-				message: `Review thread ${item.thread_id} item pointer does not match manifest: expected ${pythonRepr(thread.item_pointer)}, got ${pythonRepr(item.thread_item_pointer)}`,
+				message: `Review thread ${item.thread_id} item pointer does not match manifest: expected ${singleQuotedRepr(thread.item_pointer)}, got ${singleQuotedRepr(item.thread_item_pointer)}`,
 				kind: "review_thread",
 				identifier: item.thread_id,
 				path: `classification.review_threads[${index}].thread_item_pointer`,
@@ -453,7 +453,7 @@ function bodyLocatorErrors(options: {
 	if (options.actual.json_pointer !== options.expected) {
 		errors.push({
 			code: "invalid_locator",
-			message: `${kindLabel(options.codeKind)} ${options.identifier} body JSON Pointer does not match manifest: expected ${pythonRepr(options.expected)}, got ${pythonRepr(options.actual.json_pointer)}`,
+			message: `${kindLabel(options.codeKind)} ${options.identifier} body JSON Pointer does not match manifest: expected ${singleQuotedRepr(options.expected)}, got ${singleQuotedRepr(options.actual.json_pointer)}`,
 			kind: options.codeKind,
 			identifier: options.identifier,
 			path: `${options.pathPrefix}.json_pointer`,
@@ -462,7 +462,7 @@ function bodyLocatorErrors(options: {
 	if (options.actual.item_pointer !== options.expectedItemPointer) {
 		errors.push({
 			code: "invalid_locator",
-			message: `${kindLabel(options.codeKind)} ${options.identifier} body item pointer does not match manifest: expected ${pythonRepr(options.expectedItemPointer)}, got ${pythonRepr(options.actual.item_pointer)}`,
+			message: `${kindLabel(options.codeKind)} ${options.identifier} body item pointer does not match manifest: expected ${singleQuotedRepr(options.expectedItemPointer)}, got ${singleQuotedRepr(options.actual.item_pointer)}`,
 			kind: options.codeKind,
 			identifier: options.identifier,
 			path: `${options.pathPrefix}.item_pointer`,
@@ -1121,7 +1121,7 @@ function classificationLocatorRef(locator: BodyLocator): { json_pointer: string;
 	};
 }
 
-function pythonRepr(value: string | null): string {
+function singleQuotedRepr(value: string | null): string {
 	if (value === null) return "None";
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }

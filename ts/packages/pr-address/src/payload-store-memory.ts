@@ -13,7 +13,7 @@ import {
 	payloadError,
 	payloadFilename,
 	payloadTimestamps,
-	pythonRepr,
+	singleQuotedRepr,
 	requireSafeSegment,
 	resolveHarnessSessionId,
 	resolveJsonPointer,
@@ -68,7 +68,7 @@ export class InMemoryPayloadStoreFactory implements PayloadStoreFactory {
 	async open(options: OpenPayloadStoreOptions): Promise<PayloadResult<PayloadArtifactStore>> {
 		if (!isAbsolute(options.root)) return payloadError("payload_root_invalid", `Payload root must be an absolute path: ${options.root}`);
 		if (!isSafeSegment(options.sessionId)) {
-			return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${pythonRepr(options.sessionId)}`);
+			return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${singleQuotedRepr(options.sessionId)}`);
 		}
 		const payloadDir = join(options.root, "sessions", options.sessionId, "payloads");
 		return {
@@ -119,17 +119,17 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 
 	async writeJsonArtifact(options: { descriptor: string; role: JsonPayloadRole; payload: unknown }): Promise<PayloadResult<PayloadReference>> {
 		if (options.role !== "raw" && options.role !== "summary") {
-			throw new Error(`JSON artifact role must be 'raw' or 'summary': ${pythonRepr(String(options.role))}`);
+			throw new Error(`JSON artifact role must be 'raw' or 'summary': ${singleQuotedRepr(String(options.role))}`);
 		}
 		const serialized = serializeJsonPayload(options.payload);
 		if (serialized.type === "error") {
-			return payloadError("payload_write_failed", `Failed to serialize JSON payload for descriptor ${pythonRepr(options.descriptor)}: ${serialized.message}`);
+			return payloadError("payload_write_failed", `Failed to serialize JSON payload for descriptor ${singleQuotedRepr(options.descriptor)}: ${serialized.message}`);
 		}
 		return this.writeArtifact({ descriptor: options.descriptor, role: options.role, extension: "json", contentType: "application/json", text: serialized.text });
 	}
 
 	async writeTextArtifact(options: { descriptor: string; role: LogPayloadRole; text: string }): Promise<PayloadResult<PayloadReference>> {
-		if (options.role !== "log") throw new Error(`Text artifact role must be 'log': ${pythonRepr(String(options.role))}`);
+		if (options.role !== "log") throw new Error(`Text artifact role must be 'log': ${singleQuotedRepr(String(options.role))}`);
 		return this.writeArtifact({ descriptor: options.descriptor, role: options.role, extension: "txt", contentType: "text/plain", text: options.text });
 	}
 
@@ -138,7 +138,7 @@ class InMemoryPayloadStore implements PayloadArtifactStore {
 		if (validated.type === "error") return validated;
 		const allowedRoles = options.allowedRoles ?? DEFAULT_JSON_PAYLOAD_ROLES;
 		if (!allowedRoles.has(validated.value.role)) {
-			return payloadError("payload_lookup_failed", `Payload artifact role ${pythonRepr(validated.value.role)} is not allowed for this lookup: ${options.payloadPath}`);
+			return payloadError("payload_lookup_failed", `Payload artifact role ${singleQuotedRepr(validated.value.role)} is not allowed for this lookup: ${options.payloadPath}`);
 		}
 		if (validated.value.extension !== "json") {
 			return payloadError("payload_lookup_failed", `Payload artifact extension must be json: ${options.payloadPath}`);
@@ -268,7 +268,7 @@ function validateContainedArtifactPathShape(payloadPath: string): PayloadResult<
 	const sessionDir = dirname(payloadDir);
 	const sessionId = basename(sessionDir);
 	if (!isSafeSegment(sessionId)) {
-		return payloadError("payload_lookup_failed", `Payload artifact session id must be a safe segment: ${pythonRepr(sessionId)}`);
+		return payloadError("payload_lookup_failed", `Payload artifact session id must be a safe segment: ${singleQuotedRepr(sessionId)}`);
 	}
 	const sessionsDir = dirname(sessionDir);
 	if (basename(sessionsDir) !== "sessions") {

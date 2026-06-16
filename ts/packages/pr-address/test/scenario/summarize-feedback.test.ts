@@ -38,9 +38,9 @@ function githubGatewayFor(variant: GithubVariant): InMemoryPrAddressGitHubGatewa
 	});
 }
 
-describe("summarize-feedback parity with the Python CLI", () => {
+describe("summarize-feedback golden contract", () => {
 	for (const summarizeCase of fixture.cases) {
-		test(`matches the Python envelope for ${summarizeCase.name}`, async () => {
+		test(`matches the captured envelope for ${summarizeCase.name}`, async () => {
 			const run = runScenario(["exec", ...summarizeCase.args, "--stdout-mode", "full"], { github: githubGatewayFor(summarizeCase.github) });
 
 			expect(await run.exit).toBe(summarizeCase.expected_exit_code);
@@ -50,7 +50,7 @@ describe("summarize-feedback parity with the Python CLI", () => {
 
 	test("requires an integer PR number argument", async () => {
 		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
-		// error (stderr, exit 2), never a machine envelope — click parity.
+		// error (stderr, exit 2), never a machine envelope.
 		const run = runScenario(["exec", "summarize-feedback", "abc", "--format", "json"], { github: githubGatewayFor("default") });
 
 		expect(await run.exit).toBe(2);

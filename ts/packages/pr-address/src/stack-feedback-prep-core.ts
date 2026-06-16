@@ -144,7 +144,7 @@ async function writeStackPrArtifacts(options: {
 	};
 }
 
-/** Mirror the Python `GetFeedbackInlineResult` wire shape used for stack raw artifacts. */
+/** Build the stable inline feedback wire shape used for stack raw artifacts. */
 function inlineFeedbackResult(options: {
 	prNumber: number;
 	reviews: readonly PRReview[];

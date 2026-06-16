@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import type { FeedbackClassificationValidationError, FeedbackClassificationValidationResult } from "./classification.ts";
 import { VOIDED_BY_STACK_WORK_BATCH_ID, feedbackPlanActionItemSchema, feedbackPlanInformationalItemSchema, feedbackPlanVoidedThreadItemSchema } from "./feedback-plan-contracts.ts";
-import type { OperationPayloadField } from "./json-input.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { nullableStringSchema, stackFeedbackPrepResultInputSchema, type StackFeedbackPrepResultInput } from "./stack-feedback-prep-contracts.ts";
 

@@ -118,7 +118,7 @@ describe("stack-feedback-diff-current session inputs", () => {
 		const root = join(await makeTempDir(), "payload-root");
 		await seedSession(root, "stack-session", {
 			plan: stackPlan({ threadId: "PRRT_1" }),
-			prep: { legacy: "prep-only" },
+			prep: { placeholder: "prep-only" },
 		});
 
 		const run = runDiffWithArgs([], "", { env: { ASDL_PAYLOAD_ROOT: root, HARNESS_SESSION_ID: "stack-session" } });

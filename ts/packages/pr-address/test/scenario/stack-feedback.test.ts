@@ -95,10 +95,10 @@ async function expectArtifacts(root: string, artifacts: readonly FixtureArtifact
 	}
 }
 
-function expectNestedCompactEnvelope(actualText: string, expectedLegacyText: string): void {
+function expectNestedCompactEnvelope(actualText: string, expectedCapturedText: string): void {
 	const actual = JSON.parse(actualText) as { data: Record<string, unknown> };
-	const expected = JSON.parse(expectedLegacyText) as { data: Record<string, unknown> };
-	const { operation, counts, artifacts, details: _legacyDuplicateDetails, ...expectedDetails } = expected.data;
+	const expected = JSON.parse(expectedCapturedText) as { data: Record<string, unknown> };
+	const { operation, counts, artifacts, details: _capturedDuplicateDetails, ...expectedDetails } = expected.data;
 	const actualArtifacts = actual.data.artifacts as { full_output?: { descriptor?: string }; produced?: unknown };
 	const expectedArtifacts = artifacts as { produced?: unknown } | undefined;
 	expect(actual.data.operation).toBe(operation);
@@ -119,9 +119,9 @@ function stripPayloadBytes(value: unknown): unknown {
 	return result;
 }
 
-describe("stack-feedback-prep parity with the Python CLI", () => {
+describe("stack-feedback-prep golden contract", () => {
 	for (const prepCase of prepFixture.cases) {
-		test(`matches the Python envelope for ${prepCase.name}`, async () => {
+		test(`matches the captured envelope for ${prepCase.name}`, async () => {
 			const root = prepCase.payload_env === null ? null : await makePayloadRoot();
 			const run = runScenario(["exec", ...withFullStdout(prepCase.args)], {
 				github: fixtureGithubGateway(),
@@ -186,7 +186,7 @@ describe("stack-feedback-prep parity with the Python CLI", () => {
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("error: unknown option '--bogus'\n");
 		// PINNED CLINKR SEMANTICS: unknown options are a raw commander usage
-		// error, never a machine envelope — click parity.
+		// error, never a machine envelope.
 	});
 });
 
@@ -506,13 +506,12 @@ describe("stack-feedback-plan session-only inputs", () => {
 
 describe("stack feedback usage-error guards", () => {
 	// PINNED CLINKR SEMANTICS: bogus --stdout-mode values are strict-enum
-	// commander usage errors handled in TypeScript; the legacy CLI is reserved
-	// for genuinely unknown operation names and is never invoked here.
+	// commander usage errors handled in TypeScript.
 	for (const usageErrorArgs of [
 		["stack-feedback-prep", "--stdout-mode", "bogus"],
 		["stack-feedback-plan", "--stdout-mode", "bogus"],
 	]) {
-		test(`rejects ${usageErrorArgs.join(" ")} without the legacy CLI`, async () => {
+		test(`rejects ${usageErrorArgs.join(" ")} as a usage error`, async () => {
 			const run = runScenario(["exec", ...usageErrorArgs]);
 
 			expect(await run.exit).toBe(2);

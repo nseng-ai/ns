@@ -9,18 +9,18 @@ import { buildOperationSchemaDocument } from "../../src/operation-schemas/index.
  * `input_json_schema` document properties. Each entry MUST have a comment
  * explaining the delta rationale; do not bulk-allowlist.
  */
-const PARITY_DELTAS: Record<string, string[]> = {
+const CONTRACT_DELTAS: Record<string, string[]> = {
 	// Commander treats `--no-code-change` as a negated boolean flag, so the
 	// parse schema uses `code_change` while the published contract documents the
 	// user-facing `no_code_change` request field.
 	"record-batch-checkpoint": ["code_change", "no_code_change"],
 };
 
-describe("pr-address exec operation parse↔doc schema parity", () => {
+describe("pr-address exec operation parse↔document schema contract", () => {
 	test("every exec operation's parse schema keys match published document schema keys (modulo deltas)", () => {
 		for (const operation of EXEC_OPERATIONS) {
 			const { parseKeys, documentKeys } = schemaKeysForOperation(operation.name, operation.schema);
-			const allowedDeltas = new Set(PARITY_DELTAS[operation.name] ?? []);
+			const allowedDeltas = new Set(CONTRACT_DELTAS[operation.name] ?? []);
 
 			// Keys in parseKeys but not in documentKeys (extra surface)
 			const extraParseKeys = [...parseKeys].filter((key) => !documentKeys.has(key) && !allowedDeltas.has(key));
@@ -30,23 +30,23 @@ describe("pr-address exec operation parse↔doc schema parity", () => {
 
 			if (extraParseKeys.length > 0 || missingParseKeys.length > 0) {
 				throw new Error(
-					`${operation.name}: parse↔doc schema parity mismatch (extra: ${extraParseKeys.join(", ") || "-"}; missing: ${missingParseKeys.join(", ") || "-"})`,
+					`${operation.name}: parse↔document schema contract mismatch (extra: ${extraParseKeys.join(", ") || "-"}; missing: ${missingParseKeys.join(", ") || "-"})`,
 				);
 			}
 		}
 	});
 
-	test("PARITY_DELTAS allowlist covers only real deltas", () => {
+	test("CONTRACT_DELTAS allowlist covers only real deltas", () => {
 		// Every allowlisted delta must correspond to a real mismatch; stale allowlist
 		// entries are tech debt that obscure the actual delta surface.
 		for (const operation of EXEC_OPERATIONS) {
 			const { parseKeys, documentKeys } = schemaKeysForOperation(operation.name, operation.schema);
-			const allowedDeltas = PARITY_DELTAS[operation.name] ?? [];
+			const allowedDeltas = CONTRACT_DELTAS[operation.name] ?? [];
 			for (const delta of allowedDeltas) {
 				const isRealDelta =
 					(parseKeys.has(delta) && !documentKeys.has(delta)) || (!parseKeys.has(delta) && documentKeys.has(delta));
 				if (!isRealDelta) {
-					throw new Error(`${operation.name}: PARITY_DELTAS includes stale allowlist entry '${delta}'`);
+					throw new Error(`${operation.name}: CONTRACT_DELTAS includes stale allowlist entry '${delta}'`);
 				}
 			}
 		}

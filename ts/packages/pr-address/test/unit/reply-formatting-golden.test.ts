@@ -30,7 +30,7 @@ function formatGoldenReply(input: unknown): string {
 	throw new Error(`Unsupported reply formatting function: ${functionName}`);
 }
 
-describe("reply formatting TypeScript parity", () => {
+describe("reply formatting golden contract", () => {
 	for (const goldenCase of replyFormattingCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);

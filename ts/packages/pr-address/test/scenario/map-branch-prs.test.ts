@@ -143,7 +143,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
 		// PINNED CLINKR SEMANTICS: excess arguments are a raw commander usage
-		// error (stderr, exit 2), never a machine envelope — click parity.
+		// error (stderr, exit 2), never a machine envelope.
 		const run = runScenario(["exec", "map-branch-prs", "extra", "--format", "json"], { github: stackedGithub() });
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");

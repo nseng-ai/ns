@@ -203,9 +203,8 @@ describe("pr-address exec stack-feedback-preflight", () => {
 	});
 
 	// PINNED CLINKR SEMANTICS: bogus --stdout-mode values are strict-enum
-	// commander usage errors handled in TypeScript; the legacy CLI is reserved
-	// for genuinely unknown operation names and is never invoked here.
-	test("rejects invalid stdout mode without falling back to legacy dispatch", async () => {
+	// commander usage errors handled in TypeScript.
+	test("rejects invalid stdout mode as a usage error", async () => {
 		const root = await makePayloadRoot();
 		const run = runPreflight(["--stdout-mode", "bogus"], { root, github: feedbackGithub(), stdin: JSON.stringify({ branches: ["feature-a"] }) });
 

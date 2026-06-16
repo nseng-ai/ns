@@ -259,7 +259,7 @@ describe("managed payload/finalization CLI operations", () => {
 		expect(run.stderr.join("")).toContain("unknown option '--payload-json'");
 	});
 
-	test("read-feedback-detail reads allowed raw payload pointers without legacy fallback", async () => {
+	test("read-feedback-detail reads allowed raw payload pointers", async () => {
 		const tempDir = await makeTempDir("pr-address-payload-finalization-");
 		const payloadPath = join(tempDir, "20260603t123456z-0001-feedback.raw.json");
 		await writeFile(
