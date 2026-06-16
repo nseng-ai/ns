@@ -59,6 +59,18 @@ const COPY_DIFF =
 	"copy from template.py\n" +
 	"copy to generated.py\n";
 
+const PREFIXED_RENAME_METADATA_DIFF =
+	"diff --git a/a/foo.txt b/a/bar.txt\n" +
+	"similarity index 100%\n" +
+	"rename from a/foo.txt\n" +
+	"rename to a/bar.txt\n";
+
+const PREFIXED_COPY_METADATA_DIFF =
+	"diff --git a/b/source.txt b/b/generated.txt\n" +
+	"similarity index 100%\n" +
+	"copy from b/source.txt\n" +
+	"copy to b/generated.txt\n";
+
 const BINARY_DIFF =
 	"diff --git a/image.png b/image.png\n" +
 	"new file mode 100644\n" +
@@ -69,6 +81,14 @@ const QUOTED_PATH_DIFF =
 	'diff --git "a/spaced/\\303\\251 file.txt" "b/spaced/\\303\\251 file.txt"\n' +
 	'--- "a/spaced/\\303\\251 file.txt"\n' +
 	'+++ "b/spaced/\\303\\251 file.txt"\n' +
+	"@@ -1 +1 @@\n" +
+	"-old\n" +
+	"+new\n";
+
+const QUOTED_EMOJI_PATH_DIFF =
+	'diff --git "a/spaced/😀 file.txt" "b/spaced/😀 file.txt"\n' +
+	'--- "a/spaced/😀 file.txt"\n' +
+	'+++ "b/spaced/😀 file.txt"\n' +
 	"@@ -1 +1 @@\n" +
 	"-old\n" +
 	"+new\n";
@@ -109,11 +129,41 @@ const PARSER_CASES: readonly ParserCase[] = [
 		hunkCount: 1,
 	},
 	{ diffText: COPY_DIFF, changeKind: "copied", path: "generated.py", oldPath: "template.py", isBinary: false, addedLines: 0, removedLines: 0, hunkCount: 0 },
+	{
+		diffText: PREFIXED_RENAME_METADATA_DIFF,
+		changeKind: "renamed",
+		path: "a/bar.txt",
+		oldPath: "a/foo.txt",
+		isBinary: false,
+		addedLines: 0,
+		removedLines: 0,
+		hunkCount: 0,
+	},
+	{
+		diffText: PREFIXED_COPY_METADATA_DIFF,
+		changeKind: "copied",
+		path: "b/generated.txt",
+		oldPath: "b/source.txt",
+		isBinary: false,
+		addedLines: 0,
+		removedLines: 0,
+		hunkCount: 0,
+	},
 	{ diffText: BINARY_DIFF, changeKind: "added", path: "image.png", oldPath: null, isBinary: true, addedLines: 0, removedLines: 0, hunkCount: 0 },
 	{
 		diffText: QUOTED_PATH_DIFF,
 		changeKind: "modified",
 		path: "spaced/é file.txt",
+		oldPath: null,
+		isBinary: false,
+		addedLines: 1,
+		removedLines: 1,
+		hunkCount: 1,
+	},
+	{
+		diffText: QUOTED_EMOJI_PATH_DIFF,
+		changeKind: "modified",
+		path: "spaced/😀 file.txt",
 		oldPath: null,
 		isBinary: false,
 		addedLines: 1,

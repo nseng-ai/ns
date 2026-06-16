@@ -3,16 +3,16 @@ import { Buffer } from "node:buffer";
 export type DiffChangeKind = "added" | "modified" | "deleted" | "renamed" | "copied";
 
 export interface DiffFile {
-	path: string;
-	oldPath: string | null;
-	changeKind: DiffChangeKind;
-	rawText: string;
-	isBinary: boolean;
-	addedLines: number;
-	removedLines: number;
-	hunkCount: number;
-	byteSize: number;
-	estimatedTokens: number;
+	readonly path: string;
+	readonly oldPath: string | null;
+	readonly changeKind: DiffChangeKind;
+	readonly rawText: string;
+	readonly isBinary: boolean;
+	readonly addedLines: number;
+	readonly removedLines: number;
+	readonly hunkCount: number;
+	readonly byteSize: number;
+	readonly estimatedTokens: number;
 }
 
 const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,\d+)? @@/;
@@ -33,12 +33,12 @@ export function estimateTokens(text: string): number {
 	return Math.ceil([...text].length / 4);
 }
 
-export function parseUnifiedDiff(diffText: string): DiffFile[] {
+export function parseUnifiedDiff(diffText: string): readonly DiffFile[] {
 	if (diffText.trim() === "") return [];
 	return diffSegments(diffText).map(parseSegment);
 }
 
-function diffSegments(diffText: string): string[] {
+function diffSegments(diffText: string): readonly string[] {
 	const lines = splitLinesPreserveTerminators(diffText);
 	const segments: string[] = [];
 	let currentLines: string[] = [];
@@ -138,8 +138,8 @@ function pathsFromPatchHeaders(lines: readonly string[]): [string | null, string
 	let oldPath: string | null = null;
 	let newPath: string | null = null;
 	for (const line of lines) {
-		if (line.startsWith("--- ")) oldPath = normalizePrefixedPath(decodePathField(line.slice("--- ".length)));
-		else if (line.startsWith("+++ ")) newPath = normalizePrefixedPath(decodePathField(line.slice("+++ ".length)));
+		if (line.startsWith("--- ")) oldPath = decodePrefixedPathField(line.slice("--- ".length));
+		else if (line.startsWith("+++ ")) newPath = decodePrefixedPathField(line.slice("+++ ".length));
 		if (oldPath !== null && newPath !== null) break;
 	}
 
@@ -156,12 +156,12 @@ function pathsFromDiffHeader(lines: readonly string[]): [string | null, string |
 	const oldToken = tokens[0];
 	const newToken = tokens[1];
 	if (oldToken === undefined || newToken === undefined) return [null, null];
-	return [normalizePrefixedPath(oldToken), normalizePrefixedPath(newToken)];
+	return [normalizeDiffPathToken(oldToken), normalizeDiffPathToken(newToken)];
 }
 
 function metadataValue(lines: readonly string[], prefix: string): string | null {
 	for (const line of lines) {
-		if (line.startsWith(prefix)) return normalizePrefixedPath(decodePathField(line.slice(prefix.length)));
+		if (line.startsWith(prefix)) return decodePathField(line.slice(prefix.length));
 	}
 	return null;
 }
@@ -199,7 +199,11 @@ function hunkMetrics(lines: readonly string[], options: HunkMetricsOptions): Hun
 	return { addedLines, removedLines, hunkCount };
 }
 
-function normalizePrefixedPath(path: string | null): string | null {
+function decodePrefixedPathField(value: string): string | null {
+	return normalizeDiffPathToken(decodePathField(value));
+}
+
+function normalizeDiffPathToken(path: string | null): string | null {
 	if (path === null || path === "/dev/null") return path;
 	if (path.startsWith("a/") || path.startsWith("b/")) return path.slice(2);
 	return path;
@@ -261,8 +265,11 @@ function decodeGitQuotedPath(value: string): string {
 	while (index < inner.length) {
 		const char = inner.charAt(index);
 		if (char !== "\\") {
-			output.push(...Buffer.from(char, "utf8"));
-			index += 1;
+			const codePoint = inner.codePointAt(index);
+			if (codePoint === undefined) break;
+			const charLength = codePoint > 0xffff ? 2 : 1;
+			output.push(...Buffer.from(inner.slice(index, index + charLength), "utf8"));
+			index += charLength;
 			continue;
 		}
 
