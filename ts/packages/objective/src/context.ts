@@ -1,7 +1,6 @@
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
-import { RealObjectiveGitFactsGateway, type ObjectiveGitFactsGateway } from "./git-facts.ts";
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
 
@@ -11,7 +10,7 @@ export interface ObjectiveCliContext {
 	repoRoot: string;
 	trunkBranch: string;
 	storage: ObjectiveStorage;
-	gitFacts: ObjectiveGitFactsGateway;
+	git: GitGateway;
 }
 
 export async function createRealObjectiveContext(
@@ -31,6 +30,6 @@ export async function createRealObjectiveContext(
 		repoRoot,
 		trunkBranch,
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
-		gitFacts: new RealObjectiveGitFactsGateway(git),
+		git,
 	};
 }

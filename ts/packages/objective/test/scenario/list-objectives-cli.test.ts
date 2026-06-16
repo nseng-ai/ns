@@ -159,7 +159,7 @@ describe("objective list", () => {
 			records: [{ slug: "alpha" }, { slug: "beta" }, { slug: "closed-one", isClosed: true }],
 		};
 		const git = {
-			branches: [
+			localBranchTips: [
 				{ name: "master", headIso: "2026-05-01T00:00:00Z" },
 				{ name: "feat/beta", headIso: "2026-05-03T00:00:00Z" },
 				{ name: "feat/alpha", headIso: "2026-05-02T00:00:00Z" },
@@ -171,11 +171,9 @@ describe("objective list", () => {
 				"feat/alpha|.asdl/objectives": "alpha-tree",
 				"feat/same-tree|.asdl/objectives": "trunk-tree",
 			},
-			pathTouches: {
-				"master..feat/beta|.asdl/objectives": [
-					{ paths: [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"] },
-				],
-				"master..feat/alpha|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }],
+			changedPaths: {
+				"master..feat/beta|.asdl/objectives": [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"],
+				"master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
 			},
 		};
 		const json = runScenario(["list", "--format", "json", "--status", "all"], { fake, git });
@@ -213,14 +211,12 @@ describe("objective list", () => {
 			headIso: `2026-05-01T00:${(branchCount - index).toString().padStart(2, "0")}:00Z`,
 		}));
 		const git = {
-			branches: [{ name: "master", headIso: "2026-04-01T00:00:00Z" }, ...branches],
+			localBranchTips: [{ name: "master", headIso: "2026-04-01T00:00:00Z" }, ...branches],
 			treeOids: Object.fromEntries([
 				["master|.asdl/objectives", "trunk-tree"],
 				...branches.map((branch) => [`${branch.name}|.asdl/objectives`, `${branch.name}-tree`]),
 			]),
-			pathTouches: Object.fromEntries(
-				branches.map((branch) => [`master..${branch.name}|.asdl/objectives`, [{ paths: [".asdl/objectives/alpha/objective.md"] }]]),
-			),
+			changedPaths: Object.fromEntries(branches.map((branch) => [`master..${branch.name}|.asdl/objectives`, [".asdl/objectives/alpha/objective.md"]])),
 		};
 		const run = runScenario(["list", "--format", "json"], { fake: { records: [{ slug: "alpha" }] }, git });
 		const human = runScenario(["list"], { fake: { records: [{ slug: "alpha" }] }, git });
@@ -238,9 +234,9 @@ describe("objective list", () => {
 	test("names and minimal modes omit branch attribution fields", async () => {
 		const fake = { records: [{ slug: "alpha" }] };
 		const git = {
-			branches: ["master", "feat/alpha"],
+			localBranchTips: ["master", "feat/alpha"],
 			treeOids: { "master|.asdl/objectives": "trunk-tree", "feat/alpha|.asdl/objectives": "alpha-tree" },
-			pathTouches: { "master..feat/alpha|.asdl/objectives": [{ paths: [".asdl/objectives/alpha/objective.md"] }] },
+			changedPaths: { "master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"] },
 		};
 		const minimal = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
 		const namesJson = runScenario(["list", "--names", "--format", "json"], { fake, git });
@@ -257,7 +253,7 @@ describe("objective list", () => {
 	test("branch attribution git failures return structured failure envelopes", async () => {
 		const run = runScenario(["list", "--format", "json"], {
 			fake: { records: [{ slug: "alpha" }] },
-			git: { failures: { "branch-tips": { code: "git_failed", message: "branch tips failed" } } },
+			git: { localBranchTipsFailure: { code: "git_failed", message: "branch tips failed" } },
 		});
 
 		expect(await run.exit).toBe(2);
