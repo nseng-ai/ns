@@ -7,7 +7,10 @@
       an empty `core/`) so the boundary is enforced before any code moves.
       Evidence: `src/core`, `src/app`, and `src/legacy` are materialized with
       marker files, and the package-local import-boundary static test passes as
-      part of both targeted and full TypeScript validation.
+      part of both targeted and full TypeScript validation. Review hardening
+      later moved the recursive source-file walker shared by this guardrail and
+      the app contract guardrail into test support without changing the enforced
+      import contract.
 - [x] Define the new `PrAddressRunEngine`/RunKernel façade in `app/`: target
       verbs are `feedback`, `details`, `plan`, `batch`, `status`, and `reply`,
       while this first read-only strangler slice implements only the read-only
@@ -16,7 +19,10 @@
       Evidence: `src/app/run-engine.ts` defines the self-contained façade
       contract, `test/unit/run-engine-contract.test.ts` covers the verb set,
       structured detail handles, read-only engine/kernel methods, and banned
-      storage-vocabulary identifiers, and package-local check/test passed.
+      storage-vocabulary identifiers, and package-local check/test passed. The
+      app contract and import-boundary tests now share the same source-file
+      walker from `test/support/source-files.ts`, reducing drift risk between
+      the two static guardrails.
 - [ ] Carve cleanly-salvageable leaves into `core/` — gateways, feedback
       collection/normalization, summarize/compaction, and the GitHub/manifest
       mirror schemas — until `core/` compiles with zero `legacy/` imports and
