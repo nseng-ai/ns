@@ -61,7 +61,7 @@ Assumptions:
 
 Risks:
 
-- Overriding the parent migration order can still create ledger drift until the umbrella Objective records the cutover/removal lessons.
+- The prior ledger-drift risk from overriding the parent migration order is resolved: the umbrella Objective now records the completed `areg` cutover and reusable lessons.
 - `areg init` mutates multiple project files and invokes `npx skills`; the TypeScript implementation de-risks this with planning/mutation seams, fake-driven coverage, and real adapter path/symlink revalidation.
 - The hidden `exec skillx` JSON shapes may be consumed by skills or Pi flows; the accepted TypeScript contract is Clinkr JSON envelopes with operation payloads under `data`, and live skill guidance now documents the TS invocation path.
 - The kind system edits local skills, Codex sidecars, and Pi replacement settings, so destructive path, symlink, artifact-inference, and replacement-verification edge cases remain important; the completed apply slice materially de-risks them with package-local planning, real/fake gateway safety tests, dry-run behavior, and deletion confirmation gates.
@@ -71,6 +71,12 @@ Risks:
 
 ## Open Questions
 
-- What external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model? This is parked follow-up work, not a blocker for this Objective's repo-local cutover.
-- Should `areg` keep legacy `areg.json` fallback indefinitely, or should a later cleanup define a retirement path in favor of `asdl.toml` `[areg].agents`?
-- After `areg` becomes TS-default, should any reusable skill-lock, project-config, managed-block, or skill-layout validation seams move into shared TypeScript packages, or remain package-local?
+- Parked follow-up: what external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model? This is not a blocker for this Objective's completed repo-local cutover.
+- Parked follow-up: should `areg` keep legacy `areg.json` fallback indefinitely, or should a later cleanup define a retirement path in favor of `asdl.toml` `[areg].agents`?
+- Resolved for this Objective: reusable skill-lock, project-config, managed-block, and skill-layout validation seams remain package-local until a second TypeScript consumer proves extraction.
+
+## Closure
+
+Completed. `areg` is TypeScript-default for repo-local use, its active Python implementation and workspace wiring have been removed, public repo-local callers and skill guidance use the TypeScript path, external installed distribution is parked as follow-up rather than a blocker, and the parent `port-asdl-toolkit-to-typescript` Objective now records the completed out-of-sequence cutover and reusable lessons.
+
+Closure evidence includes the completed roadmap rows, Semantic Update `updates/2026-06-16T010915Z-areg-ts-cutover-python-removal.md` for TS cutover and Python removal, parent Semantic Update `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, and the parent `porting-playbook.md` lessons. Remaining questions are explicitly parked follow-ups, not active non-parked work for this Objective.

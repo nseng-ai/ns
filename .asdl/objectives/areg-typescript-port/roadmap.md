@@ -43,9 +43,9 @@
 - [x] Decide external distribution follow-up after repo-local cutover.
   - External installed use is deliberately deferred beyond this Objective's repo-local cutover: do not keep Python alive for `uvx areg`, and do not choose npm package execution or generated shims without a later consumer-backed decision.
   - Evidence: the Objective's parked section carries external installed `areg` distribution beyond repo-local TypeScript invocation as parked work; the immediate install recipe is the repo-local `install-areg` TS shim.
-- [ ] Feed reusable lessons back into the parent migration Objective.
-  - Record any reusable findings about skill-lock parsing, managed project-file mutation, external skill tooling, repo-local TS cutover, or distribution that should affect later capability ports.
-  - Evidence: parent Semantic Update and, if warranted, `porting-playbook.md` changes capture lessons without moving unproven package-local seams into shared foundations.
+- [x] Feed reusable lessons back into the parent migration Objective.
+  - Recorded reusable findings about skill-lock parsing, managed project-file mutation, external `npx skills` tooling, hidden `exec skillx` Clinkr envelopes, repo-local TS source/shim cutover, Python deletion sequencing, and parked external distribution in the parent migration Objective.
+  - Evidence: parent Semantic Update `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, parent migration-ledger updates, and `porting-playbook.md` changes capture lessons without moving unproven package-local seams into shared foundations.
 
 ## Parked
 
