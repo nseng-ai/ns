@@ -235,7 +235,10 @@ export function promptSizedDiff(localDiff: HarnessReviewRequest["target"]["local
 }
 
 export function buildClaudeDiffFindingsJsonSchema(): Record<string, unknown> {
-	return z.toJSONSchema(claudeFindingsPayloadSchema, { io: "output" }) as Record<string, unknown>;
+	const schema = z.toJSONSchema(claudeFindingsPayloadSchema, { io: "output" }) as Record<string, unknown>;
+	// Claude Code accepts draft schema keywords but omits structured_output when the top-level schema URI is present.
+	delete schema.$schema;
+	return schema;
 }
 
 export function buildClaudeCodeArgs(options: { readonly model: string; readonly systemPrompt: string }): string[] {

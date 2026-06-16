@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
 
-import { FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
+import { buildClaudeDiffFindingsJsonSchema, FakeHarnessGateway, RealHarnessGateway } from "../../src/gateways/harness.ts";
 import { createFindingsReview, createLocalDiff, type HarnessReviewRequest, type ReviewExecutionResponse } from "../../src/models.ts";
 
 function request(options: { readonly model?: string; readonly reviewName?: string; readonly diffText?: string } = {}): HarnessReviewRequest {
@@ -102,6 +102,12 @@ describe("RealHarnessGateway", () => {
 		expect(call?.args[6]).toBe("--model");
 		expect(call?.args).toContain("--system-prompt");
 		expect(call?.args).toContain("--json-schema");
+		const schemaArg = call?.args.at((call?.args.indexOf("--json-schema") ?? -2) + 1);
+		expect(schemaArg).toBeDefined();
+		if (schemaArg !== undefined) {
+			expect(JSON.parse(schemaArg)).toEqual(buildClaudeDiffFindingsJsonSchema());
+			expect(JSON.parse(schemaArg)).not.toHaveProperty("$schema");
+		}
 		expect(call?.args.join(" ")).not.toContain("Edit");
 		expect(call?.args.join(" ")).not.toContain("Write");
 		expect(call?.args).not.toContain("--verbose");
