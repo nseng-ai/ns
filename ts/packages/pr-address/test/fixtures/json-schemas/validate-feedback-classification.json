@@ -3,6 +3,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
+      },
       "pr_number": {
         "type": "integer",
         "minimum": -9007199254740991,
@@ -43,14 +50,6 @@
           {
             "type": "null"
           }
-        ]
-      },
-      "stdout_mode": {
-        "description": "Stdout contract: compact stores full data in payload artifacts; full prints the full result inline.",
-        "type": "string",
-        "enum": [
-          "full",
-          "compact"
         ]
       }
     },

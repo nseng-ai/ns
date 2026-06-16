@@ -42,13 +42,11 @@ import { schemaDocument } from "./shared.ts";
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
 //
 // Schema document builders are organized in operation-schemas/ subdirectory:
-// - classification.ts: classification trio (template, validate, plan) — early TS-owned schemas
-// - collection.ts, mutation.ts, payload.ts: contract-pinned operation schemas
+// - classification.ts: classification trio (template, validate, plan)
+// - collection.ts, mutation.ts, payload.ts: collection, mutation, and payload schemas
 //
-// Contract-pinned schemas are checked at the structural-semantic level: property
-// sets, required-ness, types, enums, explicit nullability, and object openness are
-// locked against captured schema contract fixtures in `test/scenario/json-schema-routes.test.ts`.
-// Dialect details such as titles, `$defs` naming, and integer bounds may differ.
+// The scenario route test locks every emitted schema document against an exact
+// generated fixture.
 //
 // Conventions:
 // - Closed request/result objects use `z.object` (emits `additionalProperties: false`).

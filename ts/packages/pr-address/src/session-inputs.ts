@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { PrAddressExecContext } from "./exec-operation.ts";
-import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./feedback-manifest-contracts.ts";
+import { getFeedbackManifestSchema, type GetFeedbackManifest } from "./core/feedback-manifest-contracts.ts";
 import type { FeedbackPlanBatch } from "./feedback-plan-contracts.ts";
 import type { JsonInputError } from "./json-input.ts";
 import { buildGetFeedbackPayloadManifest, type JsonPayloadRole, type PayloadArtifactStore, type PayloadErrorType, type PayloadReference } from "./payload-store.ts";

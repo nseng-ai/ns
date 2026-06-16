@@ -6,7 +6,7 @@ import process from "node:process";
 import { formatErrorMessage, truncatedSha256Digest } from "@asdl/core";
 import { z } from "zod";
 
-import { payloadReferenceSchema } from "./feedback-manifest-contracts.ts";
+import { payloadReferenceSchema } from "./core/feedback-manifest-contracts.ts";
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "./gateways.ts";
 
 export const ASDL_PAYLOAD_ROOT_ENV = "ASDL_PAYLOAD_ROOT";
@@ -128,16 +128,6 @@ export function resolveHarnessSessionId(
 	}
 	if (isSafeSegment(harnessSessionId)) return { type: "ok", value: harnessSessionId };
 	return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${singleQuotedRepr(harnessSessionId)}`);
-}
-
-export function hasConfiguredPayloadSession(
-	explicitHarnessSessionId: string | null | undefined,
-	options: { env?: NodeJS.ProcessEnv | undefined } = {},
-): boolean {
-	const sourceEnv = options.env ?? process.env;
-	if (explicitHarnessSessionId !== undefined && explicitHarnessSessionId !== null && explicitHarnessSessionId !== "") return true;
-	const envSessionId = sourceEnv[HARNESS_SESSION_ID_ENV];
-	return envSessionId !== undefined && envSessionId !== "";
 }
 
 export interface OpenPayloadStoreOptions {
@@ -1065,10 +1055,4 @@ function isErrnoCode(error: unknown, code: string): boolean {
 
 export function singleQuotedRepr(value: string): string {
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-export function tupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

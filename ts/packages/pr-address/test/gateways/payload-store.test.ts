@@ -8,7 +8,6 @@ import { useTempDirs } from "../support/temp.ts";
 import { InMemoryPayloadStoreFactory } from "../../src/payload-store-memory.ts";
 import {
 	defaultPayloadRoot,
-	hasConfiguredPayloadSession,
 	PayloadStore,
 	readJsonPayloadArtifact,
 	readJsonPayloadArtifactValue,
@@ -375,13 +374,6 @@ describe("payload store environment and safety behavior", () => {
 		const result = resolveHarnessSessionId("Bad Session", { env: {} });
 
 		expect(expectError(result)).toEqual({ errorType: "harness_session_invalid", message: "Harness session id must be a safe segment: 'Bad Session'" });
-	});
-
-	test("hasConfiguredPayloadSession reports non-empty explicit or environment session ids", () => {
-		expect(hasConfiguredPayloadSession("explicit-session", { env: {} })).toBe(true);
-		expect(hasConfiguredPayloadSession("", { env: { HARNESS_SESSION_ID: "env-session" } })).toBe(true);
-		expect(hasConfiguredPayloadSession(null, { env: { HARNESS_SESSION_ID: "" } })).toBe(false);
-		expect(hasConfiguredPayloadSession(undefined, { env: {} })).toBe(false);
 	});
 
 	test("defaultPayloadRoot nests an asdl directory under the temp directory", async () => {

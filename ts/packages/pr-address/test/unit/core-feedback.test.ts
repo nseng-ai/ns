@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
-import { buildSummarizeFeedbackResult } from "../../src/core/feedback-summary.ts";
-import { InMemoryPrAddressGitHubGateway, discussionComment, prSummary, review, reviewComment, reviewThread } from "../support/in-memory-pr-address-gateways.ts";
+import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";
+import { InMemoryPrAddressGitHubGateway, discussionComment, review } from "../support/in-memory-pr-address-gateways.ts";
 
 const GATEWAY_OPTIONS = { cwd: "/repo" };
 
@@ -40,26 +40,8 @@ describe("pr-address core feedback helpers", () => {
 		});
 	});
 
-	test("builds compact feedback summaries from a snapshot", async () => {
-		const gateway = new InMemoryPrAddressGitHubGateway({
-			reviews: { 42: [review({ id: "review-1", body: "First line\nsecond line" })] },
-			reviewThreads: { 42: [reviewThread({ id: "thread-1", comments: [reviewComment()] })] },
-			discussionComments: { 42: [discussionComment({ id: 7, author: "vercel[bot]", body: "[vc]: deployment ready" })] },
-		});
-		const snapshotResult = await fetchFeedbackSnapshot({
-			gateway,
-			gatewayOptions: GATEWAY_OPTIONS,
-			prNumber: 42,
-			shouldIncludeResolved: true,
-			shouldIncludeEmptyReviews: true,
-			shouldCountAllReviewThreads: true,
-		});
-		if (snapshotResult.type !== "ok") throw new Error("expected snapshot collection to succeed");
-
-		const summary = buildSummarizeFeedbackResult(prSummary({ number: 42 }), snapshotResult.snapshot, 12);
-
-		expect(summary.counts).toEqual({ reviews: 1, review_threads: 1, unresolved_review_threads: 1, resolved_review_threads: 0, discussion_comments: 1 });
-		expect(summary.reviews[0]?.body_first_line_excerpt).toBe("First line");
-		expect(summary.discussion_comments[0]?.source_evidence).toEqual(["bot_author", "vercel_marker"]);
+	test("identifies automation-like discussion comments", () => {
+		expect(isAutomationLikeDiscussionComment(discussionComment({ author: "vercel[bot]", body: "[vc]: deployment ready" }))).toBe(true);
+		expect(isAutomationLikeDiscussionComment(discussionComment({ author: "octocat", body: "Could you take another look?" }))).toBe(false);
 	});
 });

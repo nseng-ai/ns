@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { threadManifestItemSchema } from "./feedback-manifest-contracts.ts";
+import { threadManifestItemSchema } from "./core/feedback-manifest-contracts.ts";
 import type { PayloadReference } from "./payload-store.ts";
 import { resolveFinalizeRunSessionInput } from "./session-inputs.ts";
 import { compactOperationResult } from "./stdout-mode.ts";

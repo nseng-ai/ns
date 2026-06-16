@@ -3,6 +3,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "stdout_mode": {
+        "type": "string",
+        "enum": [
+          "full",
+          "compact"
+        ]
+      },
       "payload_path": {
         "anyOf": [
           {
@@ -36,13 +43,6 @@
           {
             "type": "null"
           }
-        ]
-      },
-      "stdout_mode": {
-        "type": "string",
-        "enum": [
-          "full",
-          "compact"
         ]
       }
     },

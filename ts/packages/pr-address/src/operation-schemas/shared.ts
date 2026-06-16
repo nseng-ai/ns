@@ -2,10 +2,16 @@ import { z } from "zod";
 import { type JsonSchemaDocument } from "@asdl/clinkr";
 
 import { ACTION_COMPLEXITIES, INFORMATIONAL_REASONS } from "../feedback-plan-contracts.ts";
+import {
+	nullableBooleanSchema,
+	nullableIntSchema,
+	nullableStringSchema,
+	payloadReferenceSchema,
+	prReviewStateSchema,
+} from "../core/operation-schemas/shared.ts";
 
-export const nullableStringSchema = z.string().nullable();
-export const nullableIntSchema = z.int().nullable();
-export const nullableBooleanSchema = z.boolean().nullable();
+export { nullableBooleanSchema, nullableIntSchema, nullableStringSchema, payloadReferenceSchema, prReviewStateSchema };
+
 export const stdoutModeDocSchema = z.enum(["full", "compact"]);
 
 export const stdoutModeRequestSchema = z.object({
@@ -17,7 +23,6 @@ export const stdoutModeRequestShape = {
 
 // --- shared enums -----------------------------------------------------------
 
-export const prReviewStateSchema = z.enum(["PENDING", "COMMENTED", "APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
 export const resolutionReplyModeSchema = z.enum(["fixed", "pre_existing", "explained", "planned"]);
 export const detailKindSchema = z.enum([
 	"review",
@@ -62,20 +67,6 @@ export const discussionTriageReasonSchema = z.enum([
 	"direct_request_possible",
 	"uncertain",
 ]);
-
-// --- payload store reference -------------------------------------------------
-
-export const payloadReferenceSchema = z.object({
-	payload_path: z.string(),
-	session_id: z.string(),
-	descriptor: z.string(),
-	role: z.enum(["raw", "summary", "log"]),
-	created_at_utc: z.string(),
-	sequence: z.int(),
-	payload_bytes: z.int(),
-	content_type: z.string(),
-	extension: z.enum(["json", "txt"]),
-});
 
 // --- resolution provenance ----------------------------------------------------
 

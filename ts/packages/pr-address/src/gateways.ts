@@ -591,24 +591,34 @@ function execResultFromProcess(result: ProcessResult): ExecResult {
 }
 
 function failureFromParse(stdout: string, stderr: string): GatewayFailure {
-	return {
+	return gatewayFailure({
 		code: "parse_failed",
 		message: stderr || "failed to parse command output",
 		stdout,
 		stderr,
 		returncode: 0,
-		details: { stdout, stderr, returncode: 0 },
-	};
+	});
 }
 
 function failureFromMessage(stderr: string, returncode: number): GatewayFailure {
-	return {
+	return gatewayFailure({
 		code: "process_failed",
 		message: stderr,
 		stdout: "",
 		stderr,
 		returncode,
-		details: { stdout: "", stderr, returncode },
+	});
+}
+
+function gatewayFailure(options: { code: string; message: string; stdout: string; stderr: string; returncode: number }): GatewayFailure {
+	const { code, message, stdout, stderr, returncode } = options;
+	return {
+		code,
+		message,
+		stdout,
+		stderr,
+		returncode,
+		details: { stdout, stderr, returncode },
 	};
 }
 

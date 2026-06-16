@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { prDiscussionCommentSchema, prReviewCommentSchema, reactionSchema } from "./github-mirrors.ts";
+import { prDiscussionCommentSchema, prReviewCommentSchema, reactionSchema } from "../core/operation-schemas/github-mirrors.ts";
 import {
 	nullableBooleanSchema,
 	nullableStringSchema,
