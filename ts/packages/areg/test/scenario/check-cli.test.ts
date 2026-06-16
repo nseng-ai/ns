@@ -144,6 +144,59 @@ describe("areg check CLI", () => {
 		expect(run.stderr.join("")).toContain("Invalid JSON in .pi/settings.json:");
 	});
 
+	test("refuses symlinked Pi directory when local skills make Pi settings relevant", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
+				piDir: { type: "symlink", target: "../outside" },
+				checkSkills: [localSkill("demo")],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(".pi is a symlink; refusing to inspect Pi settings.");
+	});
+
+	test("refuses symlinked Pi settings when local skills make Pi settings relevant", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
+				piSettings: { type: "symlink", target: "../settings.json" },
+				checkSkills: [localSkill("demo")],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(".pi/settings.json is a symlink; refusing to inspect Pi settings.");
+	});
+
+	test("refuses non-file Pi settings when local skills make Pi settings relevant", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
+				piSettings: { type: "directory" },
+				checkSkills: [localSkill("demo")],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(".pi/settings.json exists but is not a file.");
+	});
+
+	test("ignores malformed Pi settings for remote-only lockfiles", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { remote: remoteEntry() } },
+				piSettings: "not json",
+				checkSkills: [remoteSkill("remote")],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("All skills OK.\n");
+		expect(run.stderr.join("")).toBe("");
+	});
+
 	test("reports missing Pi replacement for excluded derived skills", async () => {
 		const run = runScenario(["check"], {
 			project: project({

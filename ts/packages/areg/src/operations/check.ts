@@ -1,13 +1,13 @@
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregTextFileState } from "../gateways.ts";
+import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregPathState, AregTextFileState } from "../gateways.ts";
 import { sortStrings, uniqueSortedStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
+import { parsePiSettings } from "./pi-settings.ts";
 import { collectCheckSkillInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
@@ -80,6 +80,7 @@ interface CheckProjectInspection {
 	skillsDirectoryNames: readonly string[];
 	agentsSkillNames: readonly string[];
 	excludedSkillNames: readonly string[];
+	piDir: AregPathState;
 	piSettings: AregTextFileState;
 	genericReplacement: AregGenericReplacementInspection;
 	skills: readonly AregCheckSkillInspection[];
@@ -95,9 +96,10 @@ export async function runCheck(ctx: AregCliContext, request: CheckRequest): Prom
 	if (lockfileResult.type === "error") {
 		return failure("lockfile_invalid", lockfileResult.message);
 	}
-	const piExclusions = lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local") ? parsePiExclusions(inspection.piSettings) : { type: "ok" as const, exclusions: [] };
-	if (piExclusions.type === "error") return failure("pi_settings_invalid", piExclusions.message);
-	const report = buildCheckReport(inspection, lockfileResult.lockfile, piExclusions.exclusions);
+	const hasLocalSkills = lockfileResult.lockfile.skills.some((skill) => skill.sourceType === "local");
+	const piSettings = hasLocalSkills ? parsePiSettings(inspection.piDir, inspection.piSettings) : { type: "ok" as const, value: { exclusions: [] } };
+	if (piSettings.type === "error") return failure("pi_settings_invalid", piSettings.message);
+	const report = buildCheckReport(inspection, lockfileResult.lockfile, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
 	return negative(formatCheckReport(report), report);
 }
@@ -303,6 +305,7 @@ async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: s
 		skillsDirectoryNames: facts.skillInventory.skillsDirectoryNames,
 		agentsSkillNames: facts.skillInventory.agentsSkillNames,
 		excludedSkillNames,
+		piDir: facts.piDir,
 		piSettings: facts.piSettings,
 		genericReplacement: facts.genericReplacement,
 		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
@@ -310,20 +313,6 @@ async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: s
 	};
 }
 
-function parsePiExclusions(settings: AregTextFileState): { type: "ok"; exclusions: readonly string[] } | { type: "error"; message: string } {
-	if (settings.type === "missing") return { type: "ok", exclusions: [] };
-	if (settings.type !== "file") return { type: "ok", exclusions: [] };
-	let data: unknown;
-	try {
-		data = JSON.parse(settings.text);
-	} catch (error) {
-		return { type: "error", message: `Invalid JSON in .pi/settings.json: ${formatErrorMessage(error)}.` };
-	}
-	if (!isRecord(data)) return { type: "error", message: ".pi/settings.json must contain a JSON object." };
-	if (data.skills === undefined) return { type: "ok", exclusions: [] };
-	if (!Array.isArray(data.skills) || data.skills.some((value) => typeof value !== "string")) return { type: "error", message: ".pi/settings.json field 'skills' must be an array of strings." };
-	return { type: "ok", exclusions: data.skills };
-}
 
 function verifyPiReplacement(skillName: string, inspection: CheckProjectInspection): { verified: boolean; surface?: string | undefined } {
 	return verifyPiReplacementFromFacts(skillName, inspection.genericReplacement);

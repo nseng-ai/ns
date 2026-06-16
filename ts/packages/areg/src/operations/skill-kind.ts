@@ -1,5 +1,4 @@
 import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
-import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -15,6 +14,7 @@ import type {
 import { sortStrings } from "../sort.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
+import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
 
@@ -77,12 +77,6 @@ interface SkillKindProjectInspection {
 	piSettings: AregSkillKindTextFileState;
 	genericReplacement: AregGenericReplacementInspection;
 	skills: readonly AregSkillKindSkillInspection[];
-}
-
-interface PiSettingsData {
-	text: string | undefined;
-	data: Record<string, unknown> | undefined;
-	exclusions: readonly string[];
 }
 
 interface PlannedApplyOperationBase {
@@ -461,22 +455,6 @@ function validateInspectableSkill(skill: AregSkillKindSkillInspection): { type: 
 	return { type: "ok" };
 }
 
-function parsePiSettings(piDir: { type: string }, settings: AregSkillKindTextFileState): { type: "ok"; value: PiSettingsData } | { type: "error"; message: string } {
-	if (piDir.type === "symlink") return { type: "error", message: ".pi is a symlink; refusing to inspect Pi settings." };
-	if (settings.type === "missing") return { type: "ok", value: { text: undefined, data: undefined, exclusions: [] } };
-	if (settings.type === "symlink") return { type: "error", message: ".pi/settings.json is a symlink; refusing to inspect Pi settings." };
-	if (settings.type !== "file") return { type: "error", message: ".pi/settings.json exists but is not a file." };
-	let data: unknown;
-	try {
-		data = JSON.parse(settings.text);
-	} catch (error) {
-		return { type: "error", message: `Invalid JSON in .pi/settings.json: ${formatErrorMessage(error)}.` };
-	}
-	if (!isRecord(data)) return { type: "error", message: ".pi/settings.json must contain a JSON object." };
-	if (data.skills === undefined) return { type: "ok", value: { text: settings.text, data, exclusions: [] } };
-	if (!Array.isArray(data.skills) || data.skills.some((value) => typeof value !== "string")) return { type: "error", message: ".pi/settings.json field 'skills' must be an array of strings." };
-	return { type: "ok", value: { text: settings.text, data, exclusions: data.skills } };
-}
 
 function planFrontmatterOperation(skillName: string, text: string, kind: SkillInvocationKind): { type: "ok"; value: PlannedApplyOperation } | { type: "error"; message: string } {
 	const relativePath = `skills/${skillName}/SKILL.md`;
