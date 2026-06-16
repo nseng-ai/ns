@@ -88,6 +88,43 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		return { type: "ok", content };
 	}
 
+	async moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>> {
+		const source = normalizeRelativePath(sourceRelativePath);
+		const destination = normalizeRelativePath(destinationRelativePath);
+		const sourceFailure = this.failures.get(source);
+		if (sourceFailure !== undefined) return { ok: false, error: { ...sourceFailure } };
+		const destinationFailure = this.failures.get(destination);
+		if (destinationFailure !== undefined) return { ok: false, error: { ...destinationFailure } };
+		if (!this.directories.has(source)) {
+			return { ok: false, error: { code: "move-source-not-directory", message: `${source} is not a directory.` } };
+		}
+		if (this.files.has(destination) || this.directories.has(destination)) {
+			return { ok: false, error: { code: "move-destination-exists", message: `${destination} already exists.` } };
+		}
+
+		this.addDirectory(dirname(destination));
+		const directoryMoves = [...this.directories]
+			.filter((directory) => isSelfOrDescendant(source, directory))
+			.map((directory) => ({ from: directory, to: replacePathPrefix(directory, source, destination) }));
+		const fileMoves = [...this.files.entries()]
+			.filter(([path]) => isSelfOrDescendant(source, path))
+			.map(([path, content]) => ({ from: path, to: replacePathPrefix(path, source, destination), content }));
+
+		for (const move of directoryMoves) {
+			this.directories.delete(move.from);
+		}
+		for (const move of fileMoves) {
+			this.files.delete(move.from);
+		}
+		for (const move of directoryMoves) {
+			this.directories.add(move.to);
+		}
+		for (const move of fileMoves) {
+			this.files.set(move.to, move.content);
+		}
+		return { ok: true, value: undefined };
+	}
+
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
 		const root = `.asdl/objectives/${record.slug}`;
 		this.addDirectory(root);
@@ -127,4 +164,13 @@ function directChildName(parent: string, childPath: string): string | null {
 	const rest = normalizedChild.slice(prefix.length);
 	if (rest.length === 0 || rest.includes("/")) return null;
 	return rest;
+}
+
+function isSelfOrDescendant(parent: string, childPath: string): boolean {
+	return childPath === parent || childPath.startsWith(`${parent}/`);
+}
+
+function replacePathPrefix(path: string, source: string, destination: string): string {
+	if (path === source) return destination;
+	return `${destination}${path.slice(source.length)}`;
 }

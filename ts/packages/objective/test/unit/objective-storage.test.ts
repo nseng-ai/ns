@@ -5,7 +5,11 @@ import {
 	ObjectiveStorage,
 	activeRecordRelativePath,
 	activeRootRelativePath,
+	archiveDestinationRelativePath,
+	archiveEmptyDestinationRelativePath,
+	archiveEmptySourceRelativePath,
 	archiveRootRelativePath,
+	archiveSourceRelativePath,
 	archivedRecordRelativePath,
 	isValidObjectiveSlug,
 	objectiveSlugFromActivePath,
@@ -31,6 +35,12 @@ describe("Objective storage", () => {
 		expect(activeRecordRelativePath("alpha")).toBe(".asdl/objectives/alpha");
 		expect(archiveRootRelativePath()).toBe(".asdl/objective-archive");
 		expect(archivedRecordRelativePath("alpha")).toBe(".asdl/objective-archive/alpha");
+		expect(archiveSourceRelativePath("alpha", "archive")).toBe(".asdl/objectives/alpha");
+		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(".asdl/objective-archive/alpha");
+		expect(archiveSourceRelativePath("alpha", "unarchive")).toBe(".asdl/objective-archive/alpha");
+		expect(archiveDestinationRelativePath("alpha", "unarchive")).toBe(".asdl/objectives/alpha");
+		expect(archiveEmptySourceRelativePath("archive")).toBe(".asdl/objectives");
+		expect(archiveEmptyDestinationRelativePath("archive")).toBe(".asdl/objective-archive");
 	});
 
 	test("checkout inventory includes direct child directories sorted and detects direct closed marker", async () => {
@@ -103,6 +113,35 @@ describe("Objective storage", () => {
 		await expect(objectiveStorage.readMarkdownFile("objective.md")).resolves.toEqual({ type: "ok", content: "# hello\n" });
 		await expect(objectiveStorage.readMarkdownFile("missing.md")).resolves.toEqual({ type: "missing" });
 		await expect(objectiveStorage.readMarkdownFile("directory")).resolves.toEqual({ type: "missing" });
+	});
+
+	test("moves Objective record directories and creates destination parent", async () => {
+		const fake = new FakeObjectiveStorageGateway({ records: [{ slug: "alpha" }] });
+		const objectiveStorage = storage(fake);
+		const paths = objectiveStorage.movePaths("alpha", "archive");
+
+		await expect(objectiveStorage.moveRecord(paths)).resolves.toEqual({ ok: true, value: undefined });
+		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "missing" });
+		await expect(fake.pathKind(".asdl/objective-archive")).resolves.toEqual({ ok: true, value: "directory" });
+		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "directory" });
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "# alpha\n" });
+	});
+
+	test("fake move refuses destination collisions without merging", async () => {
+		const fake = new FakeObjectiveStorageGateway({
+			records: [{ slug: "alpha" }],
+			files: {
+				".asdl/objectives/alpha/objective.md": "active sentinel\n",
+				".asdl/objective-archive/alpha/objective.md": "archived sentinel\n",
+			},
+		});
+		const objectiveStorage = storage(fake);
+
+		const moved = await objectiveStorage.moveRecord(objectiveStorage.movePaths("alpha", "archive"));
+
+		expect(moved.ok).toBe(false);
+		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "active sentinel\n" });
+		await expect(fake.readTextFile(".asdl/objective-archive/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "archived sentinel\n" });
 	});
 
 	test("extracts Objective slugs from active record child paths only", () => {

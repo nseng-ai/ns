@@ -1,5 +1,5 @@
-import { lstat, readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { lstat, mkdir, readdir, readFile, rename } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
@@ -51,6 +51,20 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 			return { type: "ok", content: await readFile(this.absolutePath(relativePath), "utf8") };
 		} catch (error) {
 			return { type: "unreadable", message: `Failed to read ${relativePath}: ${formatErrorMessage(error)}` };
+		}
+	}
+
+	async moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>> {
+		try {
+			const destination = this.absolutePath(destinationRelativePath);
+			await mkdir(dirname(destination), { recursive: true });
+			await rename(this.absolutePath(sourceRelativePath), destination);
+			return { ok: true, value: undefined };
+		} catch (error) {
+			return storageError(
+				"move-directory-failed",
+				`Failed to move ${sourceRelativePath} to ${destinationRelativePath}: ${formatErrorMessage(error)}`,
+			);
 		}
 	}
 
