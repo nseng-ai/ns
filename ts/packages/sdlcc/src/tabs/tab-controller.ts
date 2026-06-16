@@ -28,7 +28,7 @@ export function createTabController<Model, State, Action, Effect>(
 	module: TabModule<Model, State, Action, Effect>,
 ): TabController {
 	let lifecycle: TabLifecycle<Model, State> = { type: "unloaded" };
-	let busy = false;
+	let isBusy = false;
 	let loadPromise: Promise<void> | undefined;
 
 	async function ensureLoaded(deps: TabModuleDeps): Promise<void> {
@@ -62,7 +62,7 @@ export function createTabController<Model, State, Action, Effect>(
 
 	async function handleKey(key: TabKeyInput, deps: TabModuleDeps, onChange: () => void): Promise<TabKeyOutcome> {
 		if (lifecycle.type !== "loaded") return { type: "ignored" };
-		if (busy) return { type: "ignored" };
+		if (isBusy) return { type: "ignored" };
 
 		const intent = module.interpretKey(lifecycle.state, key);
 		switch (intent.type) {
@@ -81,13 +81,13 @@ export function createTabController<Model, State, Action, Effect>(
 			case "effect": {
 				const runEffect = module.runEffect;
 				if (runEffect === undefined) return { type: "ignored" };
-				busy = true;
+				isBusy = true;
 				try {
 					const next = await runEffect(lifecycle.model, lifecycle.state, intent.effect, deps);
 					// lifecycle stays loaded across the await (only ensureLoaded mutates it, and it is idempotent once loaded).
 					if (lifecycle.type === "loaded") lifecycle = { ...lifecycle, state: next };
 				} finally {
-					busy = false;
+					isBusy = false;
 				}
 				onChange();
 				return { type: "handled" };
@@ -99,7 +99,7 @@ export function createTabController<Model, State, Action, Effect>(
 		id: module.id,
 		label: module.label,
 		ensureLoaded,
-		isBusy: () => busy,
+		isBusy: () => isBusy,
 		render,
 		handleKey,
 	};

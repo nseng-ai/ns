@@ -4,7 +4,10 @@ import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/ta
 
 const COMMAND_TIMEOUT_MS = 10_000;
 
-export type ObjectiveTabAction = { readonly type: "move-selection"; readonly delta: number };
+export interface ObjectiveTabAction {
+	readonly type: "move-selection";
+	readonly delta: number;
+}
 
 export interface ObjectiveTabState {
 	readonly selectedSlug: string | undefined;

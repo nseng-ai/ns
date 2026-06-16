@@ -67,7 +67,7 @@ export interface StackMapState {
 	readonly scope: StackMapScopeFilter;
 	readonly query: string;
 	readonly mode: StackMapMode;
-	readonly showDiagnostics: boolean;
+	readonly areDiagnosticsShown: boolean;
 	readonly statusMessage?: string | undefined;
 }
 
@@ -121,7 +121,7 @@ export function createInitialStackMapState(model: StackMapModel): StackMapState 
 		scope: "all",
 		query: "",
 		mode: { type: "rows" },
-		showDiagnostics: false,
+		areDiagnosticsShown: false,
 	};
 }
 
@@ -150,7 +150,7 @@ export function reduceStackMapState(
 		case "accept-query":
 			return keepSelectedVisible(model, { ...state, mode: { type: "rows" } });
 		case "toggle-diagnostics":
-			return { ...state, showDiagnostics: !state.showDiagnostics };
+			return { ...state, areDiagnosticsShown: !state.areDiagnosticsShown };
 		case "show-cmux-choice":
 			return {
 				...state,
@@ -193,7 +193,7 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 
 	const lines: string[] = [];
 	lines.push(model.title);
-	if (state.showDiagnostics && model.diagnostics.length > 0) {
+	if (state.areDiagnosticsShown && model.diagnostics.length > 0) {
 		lines.push("Diagnostics:");
 		for (const diagnostic of model.diagnostics) lines.push(`- ${diagnostic}`);
 	}
@@ -483,7 +483,7 @@ function renderFooter(state: StackMapState, diagnosticCount: number): string {
 }
 
 function diagnosticsHint(state: StackMapState, diagnosticCount: number): string {
-	if (state.showDiagnostics) return "d hide diagnostics";
+	if (state.areDiagnosticsShown) return "d hide diagnostics";
 	if (diagnosticCount === 0) return "d diagnostics (none)";
 	return `d show diagnostics (${diagnosticCount})`;
 }

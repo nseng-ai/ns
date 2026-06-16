@@ -375,17 +375,17 @@ describe("renderStackMapFrame", () => {
 
 	test("toggles the diagnostics block via toggle-diagnostics", () => {
 		const initial = createInitialStackMapState(MODEL);
-		expect(initial.showDiagnostics).toBe(false);
+		expect(initial.areDiagnosticsShown).toBe(false);
 
 		const shown = reduceStackMapState(MODEL, initial, { type: "toggle-diagnostics" });
 		const shownFrame = renderStackMapFrame(MODEL, shown);
-		expect(shown.showDiagnostics).toBe(true);
+		expect(shown.areDiagnosticsShown).toBe(true);
 		expect(shownFrame).toContain("Diagnostics:\n- loaded");
 		expect(shownFrame).toContain("d hide diagnostics");
 
 		const hiddenAgain = reduceStackMapState(MODEL, shown, { type: "toggle-diagnostics" });
 		const hiddenFrame = renderStackMapFrame(MODEL, hiddenAgain);
-		expect(hiddenAgain.showDiagnostics).toBe(false);
+		expect(hiddenAgain.areDiagnosticsShown).toBe(false);
 		expect(hiddenFrame).not.toContain("Diagnostics:");
 		expect(hiddenFrame).toContain("d show diagnostics (1)");
 	});
