@@ -222,7 +222,7 @@ describe("managed classification/planning CLI operations", () => {
 				"--format",
 				"json",
 			],
-			{ cwd: REPO_ROOT, git: new InMemoryPrAddressGitGateway({ workTreeRootFailure: { stderr: "boom", stdout: "", returncode: 2 } }) },
+			{ cwd: REPO_ROOT, git: new InMemoryPrAddressGitGateway({ workTreeRootFailure: { code: "gateway_failed", message: "boom", stderr: "boom", stdout: "", returncode: 2 } }) },
 		);
 		expect(await run.exit).toBe(2);
 		const envelope = JSON.parse(run.stdout.join("")) as { error_type: string; message: string };

@@ -132,7 +132,7 @@ async function fetchStackPrThreadState(options: {
 	github: PrAddressGitHubGateway;
 }): Promise<{ type: "ok"; value: StackFeedbackThreadStatePrResult } | { type: "error"; exit: ClinkrFailureExit }> {
 	const threadsResult = await options.github.getReviewThreads(options.prInput.pr_number, { ...gatewayOptions(options.ctx), shouldIncludeResolved: true });
-	if (threadsResult.type === "failure") return { type: "error", exit: gatewayFailureExit(`Failed to fetch review threads for PR ${options.prInput.pr_number}`, threadsResult.failure) };
+	if (!threadsResult.ok) return { type: "error", exit: gatewayFailureExit(`Failed to fetch review threads for PR ${options.prInput.pr_number}`, threadsResult.error) };
 	return { type: "ok", value: threadStatePrResult(options.prInput, threadsResult.value) };
 }
 

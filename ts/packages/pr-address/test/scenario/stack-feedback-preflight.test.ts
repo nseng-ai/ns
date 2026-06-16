@@ -235,7 +235,7 @@ describe("pr-address exec stack-feedback-preflight", () => {
 
 	test("maps gh listing failures to pr_gateway_failure", async () => {
 		const root = await makePayloadRoot();
-		const github = new InMemoryPrAddressGitHubGateway({ listOpenPrsFailure: { stderr: "gh: network down", stdout: "", returncode: 1 } });
+		const github = new InMemoryPrAddressGitHubGateway({ listOpenPrsFailure: { code: "gateway_failed", message: "gh: network down", stderr: "gh: network down", stdout: "", returncode: 1 } });
 		const run = runPreflight([], { root, github, stdin: JSON.stringify({ branches: ["feature-a"] }) });
 
 		expect(await run.exit).toBe(2);

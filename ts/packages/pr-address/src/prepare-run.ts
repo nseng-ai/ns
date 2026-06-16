@@ -154,8 +154,8 @@ async function prepareFoundRun(options: {
 	const reopenedThreadIds: string[] = [];
 	for (const threadId of contestedThreadIds(snapshot.review_threads)) {
 		const result = await options.github.unresolveReviewThread(threadId, gatewayOptions(options.ctx));
-		if (result.type === "failure") {
-			warnings.push(`Failed to reopen contested thread ${threadId}: ${gatewayFailureDetail(result.failure)}`);
+		if (!result.ok) {
+			warnings.push(`Failed to reopen contested thread ${threadId}: ${gatewayFailureDetail(result.error)}`);
 			continue;
 		}
 		reopenedThreadIds.push(threadId);
@@ -170,8 +170,8 @@ async function prepareFoundRun(options: {
 
 	const filesResult = await options.git.getRestructuredFiles(options.pr.base_ref_name, gatewayOptions(options.ctx));
 	let restructuredFiles: readonly RestructuredFile[];
-	if (filesResult.type === "failure") {
-		warnings.push(restructuredFilesFailureMessage(options.pr.base_ref_name, filesResult.failure));
+	if (!filesResult.ok) {
+		warnings.push(restructuredFilesFailureMessage(options.pr.base_ref_name, filesResult.error));
 		restructuredFiles = [];
 	} else {
 		restructuredFiles = filesResult.value;
@@ -257,10 +257,10 @@ function buildManifest(inlineResult: PrepareRunInlineResult, payloadReference: P
 
 /** Preserve the current-branch failure message contract: stderr or a fixed fallback. */
 function gitCommandFailureMessage(failure: GatewayFailure): string {
-	return failure.stderr.trim() || "git failed";
+	return failure.stderr?.trim() || failure.message || "git failed";
 }
 
 /** Preserve the restructured-files failure message used in warnings. */
 function restructuredFilesFailureMessage(baseRefName: string, failure: GatewayFailure): string {
-	return `Failed to detect restructured files against origin/${baseRefName}: ${failure.stderr.trim() || "git diff failed"}`;
+	return `Failed to detect restructured files against origin/${baseRefName}: ${failure.stderr?.trim() || failure.message || "git diff failed"}`;
 }

@@ -23,7 +23,7 @@ describe("RealPrAddressGitGateway.getRestructuredFiles", () => {
 		const result = await gateway.getRestructuredFiles("master", { cwd: "/repo", env: { PATH: "/fake/bin" } });
 
 		expect(result).toEqual({
-			type: "ok",
+			ok: true,
 			value: [
 				{ status: "R100", old_path: "src/old.ts", new_path: "src/new.ts", similarity: 100 },
 				{ status: "C75", old_path: "src/base.ts", new_path: "src/copy.ts", similarity: 75 },
@@ -79,6 +79,6 @@ describe("RealPrAddressGitGateway.isInsideWorkTree", () => {
 
 	test("maps any other non-zero exit to failure with process details", async () => {
 		const result = await gatewayReturning({ stdout: "partial", stderr: "git: boom", exitCode: 1 }).isInsideWorkTree({ cwd: "/repo" });
-		expect(result).toEqual({ type: "failure", failure: { stdout: "partial", stderr: "git: boom", returncode: 1 } });
+		expect(result).toMatchObject({ type: "failure", failure: { stdout: "partial", stderr: "git: boom", returncode: 1 } });
 	});
 });

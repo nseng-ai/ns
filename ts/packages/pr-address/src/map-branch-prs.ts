@@ -92,7 +92,7 @@ export async function mapBranchesToOpenPrs(options: {
 	ctx: PrAddressExecContext;
 }): Promise<{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; exit: ClinkrFailureExit }> {
 	const openPrsResult = await options.github.listOpenPrs(gatewayOptions(options.ctx));
-	if (openPrsResult.type === "failure") return { type: "error", exit: gatewayFailureExit("Failed to list open PRs", openPrsResult.failure) };
+	if (!openPrsResult.ok) return { type: "error", exit: gatewayFailureExit("Failed to list open PRs", openPrsResult.error) };
 
 	const prsByHeadBranch = prsGroupedByHeadBranch(openPrsResult.value);
 	const branchPrs: BranchPrEntry[] = [];

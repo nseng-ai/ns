@@ -147,7 +147,7 @@ async function runReplyToReviewOperation(ctx: PrAddressExecContext, request: z.o
 	const gateway = ctx.context.github;
 	const body = formatReviewReply({ reviewAuthor: request.review_author, summaryMarkdown });
 	const result = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
-	if (result.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", result.failure);
+	if (!result.ok) return gatewayFailureExit("Failed to add PR discussion comment", result.error);
 	const data = { body, comment: result.value };
 	return ok(data);
 }
@@ -158,10 +158,10 @@ async function runReplyToDiscussionOperation(ctx: PrAddressExecContext, request:
 	const gateway = ctx.context.github;
 	const body = formatDiscussionReply({ commentAuthor: request.comment_author, originalBody: request.original_body, response });
 	const comment = await gateway.addPrDiscussionComment(request.pr_number, body, gatewayOptions(ctx));
-	if (comment.type === "failure") return gatewayFailureExit("Failed to add PR discussion comment", comment.failure);
+	if (!comment.ok) return gatewayFailureExit("Failed to add PR discussion comment", comment.error);
 	const reaction = await gateway.addPrDiscussionCommentReaction(request.comment_id, "+1", gatewayOptions(ctx));
-	if (reaction.type === "failure") {
-		const data = { body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.failure)}` };
+	if (!reaction.ok) {
+		const data = { body, comment: comment.value, reaction_added: false, warning: `Failed to add reaction to comment ${request.comment_id}: ${gatewayFailureDetail(reaction.error)}` };
 		return ok(data);
 	}
 	const data = { body, comment: comment.value, reaction_added: true, reaction: reaction.value };
@@ -410,9 +410,9 @@ async function applyResolution(
 ): Promise<{ type: "ok"; value: { thread_id: string; body: string; comment: PRReviewComment; is_resolved: boolean; provenance: ResolutionProvenance | null } } | { type: "failure"; prefix: string; failure: GatewayFailure }> {
 	const body = formatResolutionReply({ mode: request.mode, message: request.message, commitSha: request.commitSha, provenance: request.provenance });
 	const comment = await gateway.addReviewThreadReply(request.threadId, body, options);
-	if (comment.type === "failure") return { type: "failure", prefix: "Failed to add review thread reply", failure: comment.failure };
+	if (!comment.ok) return { type: "failure", prefix: "Failed to add review thread reply", failure: comment.error };
 	const resolved = await gateway.resolveReviewThread(request.threadId, options);
-	if (resolved.type === "failure") return { type: "failure", prefix: "Failed to resolve review thread", failure: resolved.failure };
+	if (!resolved.ok) return { type: "failure", prefix: "Failed to resolve review thread", failure: resolved.error };
 	return { type: "ok", value: { thread_id: resolved.value.thread_id, body, comment: comment.value, is_resolved: resolved.value.is_resolved, provenance: request.provenance } };
 }
 

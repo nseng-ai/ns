@@ -51,6 +51,7 @@ export {
 	truncateDiff,
 	type PromptSource,
 } from "./pr-description.ts";
+export { commandFailure, type CommandFailureOptions } from "./command-failure.ts";
 export { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
 export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,

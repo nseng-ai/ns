@@ -152,7 +152,7 @@ describe("pr-address exec map-branch-prs", () => {
 
 	test("maps a gh listing failure to pr_gateway_failure", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
-			listOpenPrsFailure: { stderr: "gh: network down", stdout: "", returncode: 1 },
+			listOpenPrsFailure: { code: "gateway_failed", message: "gh: network down", stderr: "gh: network down", stdout: "", returncode: 1 },
 		});
 		const run = runScenario(mapArgs(), {
 			github,

@@ -89,7 +89,7 @@ describe("repo-context precondition for GitHub-hitting operations", () => {
 	test("a flagged operation proceeds when the repo-context probe itself fails (fail-open)", async () => {
 		const repoRun = run(["exec", "get-feedback", "42", "--payload-mode", "inline", "--format", "json", "--stdout-mode", "full"], {
 			github: feedbackGithub(),
-			git: new InMemoryPrAddressGitGateway({ repoContextFailure: { stderr: "git exploded", stdout: "", returncode: 1 } }),
+			git: new InMemoryPrAddressGitGateway({ repoContextFailure: { code: "gateway_failed", message: "git exploded", stderr: "git exploded", stdout: "", returncode: 1 } }),
 		});
 		expect(await repoRun.exit).toBe(0);
 	});
