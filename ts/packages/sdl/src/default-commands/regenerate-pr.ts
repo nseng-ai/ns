@@ -52,7 +52,7 @@ The command owns its output and exit code. It does not support --format.`,
 			cwd: ctx.cwd,
 			githubPr,
 			generation,
-			force: true,
+			shouldForce: true,
 		});
 		if (decision.kind === "failed") {
 			ctx.stderr?.(ensureTrailingNewline(decision.error));
@@ -63,12 +63,17 @@ The command owns its output and exit code. It does not support --format.`,
 			return ok("");
 		}
 
-		const applied = await applyGeneratedDescription(pr.value, decision.commits, decision.metadata, {
-			cwd: ctx.cwd,
-			env: ctx.env,
-			githubPr,
-			textGeneration: ctx.model,
-			git,
+		const applied = await applyGeneratedDescription({
+			pr: pr.value,
+			commits: decision.commits,
+			metadata: decision.metadata,
+			options: {
+				cwd: ctx.cwd,
+				env: ctx.env,
+				githubPr,
+				textGeneration: ctx.model,
+				git,
+			},
 		});
 		if (!applied.ok) {
 			ctx.stderr?.(ensureTrailingNewline(applied.error));

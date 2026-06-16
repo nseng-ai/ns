@@ -38,7 +38,7 @@ export async function decidePrBodyOverwrite(params: {
 	cwd: string;
 	githubPr: GithubPrGateway;
 	generation: Extract<PrDescriptionGenerationResolution, { ok: true }>;
-	force?: boolean;
+	shouldForce?: boolean;
 }): Promise<PrBodyOverwriteDecision> {
 	const patchId = await params.githubPr.stablePatchIdForPr({ cwd: params.cwd, number: params.pr.number });
 	if (!patchId.ok) {
@@ -51,7 +51,7 @@ export async function decidePrBodyOverwrite(params: {
 		generator: PR_DESCRIPTION_GENERATOR_VERSION,
 	};
 	const parsedRegion = parseManagedGeneratedRegion(params.pr.body);
-	if (params.force !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
+	if (params.shouldForce !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
 		return { kind: "skip", patchId: patchId.value };
 	}
 
@@ -101,24 +101,24 @@ export async function generatePrDescriptionForPr(
 	return { ok: true, title: prepared.title, body: prepared.body, promptSource: generation.promptSource };
 }
 
-export async function applyGeneratedDescription(
-	pr: GithubPrDetails,
-	commits: readonly PrCommitMessage[],
-	metadata: PrDescriptionFingerprintMetadata,
-	options: PrDescriptionApplyOptions,
-): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
-	const prepared = await generatePrDescriptionForPr(pr, commits, options);
+export async function applyGeneratedDescription(params: {
+	pr: GithubPrDetails;
+	commits: readonly PrCommitMessage[];
+	metadata: PrDescriptionFingerprintMetadata;
+	options: PrDescriptionApplyOptions;
+}): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
+	const prepared = await generatePrDescriptionForPr(params.pr, params.commits, params.options);
 	if (!prepared.ok) return prepared;
 
-	options.onProgress?.(`updating PR #${pr.number} description`);
-	const edited = await options.githubPr.editPr({
-		cwd: options.cwd,
-		number: pr.number,
+	params.options.onProgress?.(`updating PR #${params.pr.number} description`);
+	const edited = await params.options.githubPr.editPr({
+		cwd: params.options.cwd,
+		number: params.pr.number,
 		title: prepared.title,
-		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		body: replaceOrInsertGeneratedRegion(params.pr.body, prepared.body, params.metadata),
 	});
 	if (!edited.ok) {
-		return { ok: false, error: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}` };
+		return { ok: false, error: `Generated a PR description, but failed to update PR #${params.pr.number}.\n${edited.error.message}` };
 	}
 	return { ok: true, title: prepared.title, promptSource: prepared.promptSource };
 }
