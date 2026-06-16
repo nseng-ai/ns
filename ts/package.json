@@ -8,10 +8,8 @@
     "pnpm": ">=10.14.0"
   },
   "scripts": {
-    "test": "vitest run --config vitest.config.ts --no-isolate --reporter=dot",
-    "test:isolated": "vitest run --config vitest.config.ts",
-    "check": "tsc --noEmit -p tsconfig.json",
-    "asdl-dev": "node packages/asdl-dev/src/cli.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "check": "pnpm --recursive --workspace-concurrency=2 --if-present run check"
   },
   "devDependencies": {
     "@asdl/branch-context": "workspace:*",
@@ -20,7 +18,6 @@
     "@asdl/plans": "workspace:*",
     "@asdl/sdl": "workspace:*",
     "@types/node": "^24.0.0",
-    "asdl-dev": "workspace:*",
     "sdlcc": "workspace:*",
     "typescript": "^5.9.0",
     "vitest": "^4.1.8"

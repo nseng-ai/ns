@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import asdlDevExtension from "../src/asdl-dev-extension.ts";
 import codeExtension from "../src/code.ts";
 
 interface RegisteredCommand {
@@ -54,15 +53,4 @@ describe("code extension registration", () => {
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 	});
 
-	test("asdl-dev mirrors remain split away from code namespace", () => {
-		const pi = new FakePi();
-
-		codeExtension(pi);
-		asdlDevExtension(pi);
-
-		expect(pi.commandNames).toEqual(["code:pr-feedback-watch", "dev:preview-url"]);
-		expect(pi.commands.has("code:pr-regen")).toBe(false);
-		expect(pi.commands.has("dev:pr-regen")).toBe(false);
-		expect(pi.commands.has("dev:preview-url")).toBe(true);
-	});
 });

@@ -99,11 +99,11 @@ describe("sdl Pi extension", () => {
 			"sdl:code:changes",
 			"sdl:code:checkpoint",
 			"sdl:code:submit",
+			"sdl:code:regenerate-pr",
 			"sdl:code:autobranch",
 			"sdl:code:autoslot",
 			"sdl:code:land",
 			"sdl:code:push",
-			"sdl:code:regenerate-pr",
 		]);
 		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
@@ -115,6 +115,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.has("code:land")).toBe(false);
 		expect(pi.commands.has("code:push")).toBe(false);
 		expect(pi.commands.has("code:pr-regen")).toBe(false);
+		expect(pi.commands.has("sdl:regenerate-pr")).toBe(false);
 		expect(pi.commands.get("sdl:changes")?.description).toBe("sdl changes: Summarize outstanding worktree changes without committing.");
 		expect(pi.commands.get("sdl:cp")?.description).toBe("sdl cp: Create a checkpoint commit for the current diff.");
 		expect(pi.commands.get("sdl:submit")?.description).toBe(
@@ -132,7 +133,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("sdl:code:push")?.description).toContain("git push");
 		expect(pi.commands.get("sdl:code:regenerate-pr")?.description).toBe(
-			"asdl-dev pr-regen: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);

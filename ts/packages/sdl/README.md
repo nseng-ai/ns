@@ -2,7 +2,7 @@
 
 `sdl` is the Source Development Lifecycle CLI. It is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling.
 
-`asdl-dev` is private ASDL contributor tooling and should shrink as lifecycle commands migrate. Lower packages such as `@asdl/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
+The retired `asdl-dev` package no longer owns current command surfaces. Lower packages such as `@asdl/ccc` may continue to own repo-specific orchestration internals, but SDL owns the public lifecycle command surface once a workflow moves to `sdl`.
 
 ## Command ownership and hard cutover
 
@@ -11,7 +11,7 @@ Migrated lifecycle commands target these surfaces:
 - CLI: `sdl <name>`
 - Pi, when a mirror exists: `/sdl:<name>`
 
-A migration slice should delete the old `asdl-dev <name>` command and old `/code:<name>` Pi mirror in the same slice unless an explicit, documented exception is approved before implementation. Do not keep compatibility aliases only for autocomplete or habit.
+A migration slice should delete old command names and old `/code:<name>` Pi mirrors in the same slice unless an explicit, documented exception is approved before implementation. Do not keep compatibility aliases only for autocomplete or habit.
 
 ## SDL extensions
 
@@ -76,7 +76,7 @@ Discovery is side-effect-light: `sdl --help`, `sdl -h`, `sdl --version`, `sdl --
 
 The legacy `.asdl/commands/<command>.ts` path has been removed. It is not a compatibility fallback.
 
-Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. Existing exact mirrors such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` continue to delegate to `sdl`, but arbitrary SDL extension command entries are not dynamically mirrored into Pi.
+Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading slice. Existing exact mirrors such as `/sdl:changes`, `/sdl:cp`, and `/sdl:submit` continue to delegate to `sdl`; nested code-lifecycle mirrors such as `/sdl:code:regenerate-pr` may delegate to SDL commands without adding flat mirrors. Arbitrary SDL extension command entries are not dynamically mirrored into Pi.
 
 ## Public SDL extension API
 
@@ -130,7 +130,7 @@ Environment:
 
 - `SDL_CHECKPOINT_MODEL`: model reference for the checkpoint message.
 
-During the transition from `asdl-dev cp`, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
+For compatibility with existing local environments, an unset `SDL_CHECKPOINT_MODEL` falls back to `ASDL_DEV_CHECKPOINT_MODEL`.
 
 Projects may override `sdl cp` by contributing an SDL command entry named `cp` from `.asdl/extensions` or `~/.asdl/extensions`. When no SDL extension override exists, SDL uses the built-in `cp` implementation.
 
@@ -181,7 +181,30 @@ Environment:
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 - `SDL_SUBMIT_FAILURE_MODEL`: model reference for failed submit output interpretation.
 
-`submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.asdl/extensions`. `asdl-dev submit`, `/code:submit`, and project-local fake Pi metadata are not retained as compatibility surfaces.
+`submit` is a built-in SDL command, not a legacy repo-local `.asdl/commands/submit.ts` module. It can be overridden through an SDL command entry or manifest descriptor under `.asdl/extensions`. Legacy submit surfaces are not retained as compatibility surfaces.
+
+## `regenerate-pr`
+
+Regenerate the current branch PR title and body.
+
+```bash
+sdl regenerate-pr [--force]
+```
+
+Behavior:
+
+- resolves the current branch PR through GitHub;
+- reads commit messages and PR diff through `@asdl/core/submit`;
+- generates a replacement title/body with the PR-description prompt;
+- updates the PR title/body and writes success output with the PR number, URL, title, and prompt source;
+- accepts `--force` as a compatibility no-op and does not support `--format`.
+
+Environment:
+
+- `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+
+Pi exposes this capability only as the nested `/sdl:code:regenerate-pr` adapter in this slice. There is no flat `/sdl:regenerate-pr` Pi mirror.
 
 ## Testing future command migrations
 
@@ -189,4 +212,4 @@ Future SDL command slices should update tests and docs with the command surface 
 
 - SDL CLI scenario tests should cover user-facing `sdl <name>` behavior, including project/global SDL extension command entries when relevant.
 - Pi registration and parity tests should cover `/sdl:<name>` mirrors when a command is exposed in Pi.
-- Source searches should prove stale `asdl-dev <name>` and `/code:<name>` surfaces were deleted or are mentioned only as explicitly labeled migration-away context.
+- Source searches should prove stale old command names and `/code:<name>` surfaces were deleted or are mentioned only as explicitly labeled migration-away context.

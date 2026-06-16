@@ -1,4 +1,3 @@
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { RealGitGateway } from "@asdl/core/git";
 import {
 	RealGithubPrGateway,
@@ -9,8 +8,9 @@ import {
 } from "@asdl/core/submit";
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
-import { failed, ok, z, type ExecOptions as SdlExecOptions, type SdlCommand, type SdlContext } from "../sdk.ts";
+import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
 import { maybeAppendSubmitFailureInterpretation } from "../submit-failure-interpretation.ts";
+import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const submitSchema = z.object({
 	restack: z.boolean().default(false).describe("Run gt restack before submitting when required."),
@@ -73,47 +73,6 @@ The command owns its output and exit code. It does not support --format.`,
 		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 	},
 } satisfies SdlCommand<typeof submitSchema>;
-
-function createSdlCommandRunner(ctx: SdlContext): CommandRunner {
-	return async (command, args, options) => {
-		const cwdError = validateSdlExecCwd(ctx, options);
-		if (cwdError !== undefined) return cwdError;
-		return ctx.exec(command, [...args], convertExecOptions(options));
-	};
-}
-
-function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | undefined {
-	if (options === undefined) return undefined;
-	return {
-		...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
-		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
-		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
-	};
-}
-
-class SdlCommandExecApi implements CommandExecApi {
-	private readonly ctx: SdlContext;
-
-	constructor(ctx: SdlContext) {
-		this.ctx = ctx;
-	}
-
-	async exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
-		const cwdError = validateSdlExecCwd(this.ctx, options);
-		if (cwdError !== undefined) return cwdError;
-		return this.ctx.exec(command, args, convertExecOptions(options));
-	}
-}
-
-function validateSdlExecCwd(ctx: SdlContext, options: ExecOptions | undefined): ExecResult | undefined {
-	if (options?.cwd === undefined || options.cwd === ctx.cwd) return undefined;
-	return {
-		code: 2,
-		stdout: "",
-		stderr: `SDL command execution is scoped to ${ctx.cwd}; refusing command cwd ${options.cwd}.`,
-		killed: false,
-	};
-}
 
 function createSubmitLiveOutput(ctx: Pick<SdlContext, "onOutput" | "stdout" | "stderr">): ((stream: "stdout" | "stderr", text: string) => void) | undefined {
 	if (ctx.onOutput !== undefined) return ctx.onOutput;

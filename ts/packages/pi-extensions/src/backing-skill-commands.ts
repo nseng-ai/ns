@@ -77,7 +77,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"create-bun-typescript-project",
 	"create-python-dev-cli",
 	"create-python-package",
-	"dev-preview-url",
 	"dignified-python",
 	"enriched-plan-save",
 	"handoff-create",

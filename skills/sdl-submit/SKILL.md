@@ -58,10 +58,10 @@ Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the
 To regenerate the current branch PR explicitly, run:
 
 ```bash
-asdl-dev pr-regen
+sdl regenerate-pr
 ```
 
-`submit` regenerates PR title/body metadata for submitted PRs every time, replacing any existing PR body. Explicit `asdl-dev pr-regen` also regenerates both the title and body for the current branch PR, replacing any existing body.
+`submit` regenerates PR title/body metadata for submitted PRs every time, replacing any existing PR body. Explicit `sdl regenerate-pr` also regenerates both the title and body for the current branch PR, replacing any existing body.
 
 ## Failure handling
 
@@ -71,4 +71,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `sdl submit` or explicit `asdl-dev pr-regen`, and these regeneration paths replace existing PR bodies.
+- It edits PR titles/bodies through `sdl submit` or explicit `sdl regenerate-pr`, and these regeneration paths replace existing PR bodies.

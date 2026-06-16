@@ -2,9 +2,9 @@ import process from "node:process";
 
 import type { ExtensionAPI } from "@asdl/pi-extension-runtime/cmux/types";
 import {
-	commitPreparedCheckpointMessageWithAsdlDev,
-	prepareCheckpointMessageWithAsdlDev,
-} from "./autobranch/asdl-dev-checkpoint.ts";
+	commitAutobranchCheckpointMessage,
+	prepareAutobranchCheckpointMessage,
+} from "./autobranch/checkpoint.ts";
 import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
 import type { ParsedAutobranchArgs } from "./autobranch/preparation.ts";
 import { startIdleWaitStatus } from "./idle-wait-status.ts";
@@ -113,9 +113,9 @@ async function createAutoslot(pi: AutoslotExtensionAPI, ctx: AutobranchCommandCo
 			cwd: ctx.cwd,
 			args,
 			exec: (command, commandArgs, cwd, timeout) => pi.exec(command, commandArgs, { cwd, timeout }),
-			prepareCheckpointMessage: (snapshot) => prepareCheckpointMessageWithAsdlDev(snapshot, process.env),
+			prepareCheckpointMessage: (snapshot) => prepareAutobranchCheckpointMessage(snapshot, process.env),
 			commitPreparedCheckpointMessage: (message) =>
-				commitPreparedCheckpointMessageWithAsdlDev(
+				commitAutobranchCheckpointMessage(
 					(command, commandArgs, commandCwd, timeout) => pi.exec(command, commandArgs, { cwd: commandCwd, timeout }),
 					ctx.cwd,
 					message,

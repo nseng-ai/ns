@@ -128,7 +128,7 @@ export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[],
 		"Description failures:",
 		...failures.map(formatPrDescriptionFailureRow),
 		"",
-		"Checkout the branch and run `asdl-dev pr-regen` to regenerate its PR description.",
+		"Checkout the branch and run `sdl regenerate-pr` to regenerate its PR description.",
 	];
 	return lines.join("\n");
 }

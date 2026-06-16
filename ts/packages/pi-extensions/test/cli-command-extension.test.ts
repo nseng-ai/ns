@@ -158,9 +158,9 @@ function registerFakeCli(
 	} = {},
 ): void {
 	registerCliCommandExtension(pi, {
-		cliName: "fake-dev",
+		cliName: "fake-cli",
 		piNamespace: "dev",
-		commands: options.commands ?? [{ name: "preview-url", description: "Print a preview URL." }],
+		commands: options.commands ?? [{ name: "preview-status", description: "Print a preview status." }],
 		runCli: options.runCli ?? (() => 0),
 		...(options.env === undefined ? {} : { env: options.env }),
 	});
@@ -265,8 +265,8 @@ describe("cli command extension helper", () => {
 		});
 
 		expect([...pi.commands.keys()]).toEqual(["dev:one", "dev:two"]);
-		expect(pi.commands.has("fake-dev:one")).toBe(false);
-		expect(pi.commands.get("dev:one")?.description).toBe("fake-dev one: First command.");
+		expect(pi.commands.has("fake-cli:one")).toBe(false);
+		expect(pi.commands.get("dev:one")?.description).toBe("fake-cli one: First command.");
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
@@ -274,7 +274,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		const calls: RunCall[] = [];
 		registerCliCommandExtension(pi, {
-			cliName: "fake-dev",
+			cliName: "fake-cli",
 			piNamespace: "dev",
 			commands: [{ name: "cp", description: "Create a checkpoint." }],
 			env: { SAMPLE: "1" },
@@ -323,12 +323,12 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications } = createContext(order);
 
-		await commandFor(pi, "dev:preview-url").handler("--branch feature/x --json", ctx);
+		await commandFor(pi, "dev:preview-status").handler("--branch feature/x --json", ctx);
 
 		expect(order).toEqual(["wait", "run"]);
 		expect(calls).toEqual([
 			{
-				args: ["preview-url", "--branch", "feature/x", "--json"],
+				args: ["preview-status", "--branch", "feature/x", "--json"],
 				cwd: "/repo",
 				env: { VERCEL_PROJECT: "env-project" },
 			},
@@ -344,7 +344,7 @@ describe("cli command extension helper", () => {
 			releaseWait = resolve;
 		});
 		registerFakeCli(pi, {
-			commands: [{ name: "preview-url", description: "Print a preview URL.", startMessage: "Starting preview lookup." }],
+			commands: [{ name: "preview-status", description: "Print a preview status.", startMessage: "Starting preview status lookup." }],
 			runCli: (_args, deps) => {
 				deps.stdout("done\n");
 				return 0;
@@ -364,9 +364,9 @@ describe("cli command extension helper", () => {
 			},
 		};
 
-		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 
-		expect(notifications).toEqual([{ message: "Starting preview lookup.", level: "info" }]);
+		expect(notifications).toEqual([{ message: "Starting preview status lookup.", level: "info" }]);
 
 		if (releaseWait === undefined) throw new Error("Expected wait resolver to be initialized.");
 		releaseWait();
@@ -385,7 +385,7 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, confirmations } = createContext([], { confirm: () => true });
 
-		await commandFor(pi, "dev:preview-url").handler("", ctx);
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
 		expect(confirmations).toEqual([{ title: "Confirm title", message: "Confirm body" }]);
 		expectSingleCliOutputMessage(pi, "confirmed=true\n");
@@ -416,7 +416,7 @@ describe("cli command extension helper", () => {
 			},
 		});
 
-		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await confirmStarted;
 
 		expect(statuses.at(-1)?.value).toContain("waiting for confirmation");
@@ -446,7 +446,7 @@ describe("cli command extension helper", () => {
 			});
 			const { ctx } = createContext();
 
-			await commandFor(pi, "dev:preview-url").handler("--json", ctx);
+			await commandFor(pi, "dev:preview-status").handler("--json", ctx);
 
 			const events = readTraceEvents(cliCommandTracePath(process.env));
 			expect(events.map((event) => event.event)).toEqual([
@@ -499,10 +499,10 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications } = createContext();
 
-		await commandFor(pi, "dev:preview-url").handler("--json", ctx);
+		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
 
 		expect(notifications).toEqual([]);
-		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n", "error");
+		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 17.\n\nstderr:\nnot found\n", "error");
 	});
 
 	test("reports argument tokenization errors without invoking the runner", async () => {
@@ -516,10 +516,10 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx } = createContext();
 
-		await commandFor(pi, "dev:preview-url").handler('--branch "unterminated', ctx);
+		await commandFor(pi, "dev:preview-status").handler('--branch "unterminated', ctx);
 
 		expect(runnerCalled).toBe(false);
-		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unterminated double quote.\n", "error");
+		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unterminated double quote.\n", "error");
 	});
 
 	test("restores prose-looking command tails without waiting or invoking the CLI", async () => {
@@ -534,15 +534,15 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, editorTexts, notifications } = createContext(order);
 
-		await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+		await commandFor(pi, "dev:preview-status").handler("broke in this pr", ctx);
 
 		expect(runnerCalled).toBe(false);
 		expect(order).toEqual([]);
-		expect(editorTexts).toEqual(["/dev:preview-url broke in this pr"]);
+		expect(editorTexts).toEqual(["/dev:preview-status broke in this pr"]);
 		expect(notifications).toEqual([
 			{
 				message:
-					"Not running /dev:preview-url: text after the command looks like prose, not options. The text was restored to the editor.",
+					"Not running /dev:preview-status: text after the command looks like prose, not options. The text was restored to the editor.",
 				level: "warning",
 			},
 		]);
@@ -559,10 +559,10 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, editorTexts } = createContext();
 
-		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
+		await commandFor(pi, "dev:preview-status").handler("--json words", ctx);
 
-		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
-		expect(editorTexts).toEqual(["/dev:preview-url --json words"]);
+		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
+		expect(editorTexts).toEqual(["/dev:preview-status --json words"]);
 	});
 
 	test("restores command text after clinkr lowercase error usage errors", async () => {
@@ -575,10 +575,10 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, editorTexts } = createContext();
 
-		await commandFor(pi, "dev:preview-url").handler("--bogus", ctx);
+		await commandFor(pi, "dev:preview-status").handler("--bogus", ctx);
 
-		expectSingleCliOutputMessage(pi, "fake-dev preview-url exited with code 2.\n\nstderr:\nerror: unknown option '--bogus'\n", "error");
-		expect(editorTexts).toEqual(["/dev:preview-url --bogus"]);
+		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nerror: unknown option '--bogus'\n", "error");
+		expect(editorTexts).toEqual(["/dev:preview-status --bogus"]);
 	});
 
 	test("allows positional arguments for commands that opt in", async () => {
@@ -612,7 +612,7 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications } = createContext();
 
-		await commandFor(pi, "dev:preview-url").handler("", ctx);
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "ok\n");
@@ -629,7 +629,7 @@ describe("cli command extension helper", () => {
 		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
 
 		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-url").handler("", ctx);
+			await commandFor(pi, "dev:preview-status").handler("", ctx);
 		});
 
 		expect(writes).toEqual({ stdout: "ok\n", stderr: "" });
@@ -651,12 +651,12 @@ describe("cli command extension helper", () => {
 		const { ctx, notifications, editorTexts, statuses, widgets } = createContext([], { hasUI: false });
 
 		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-url").handler("--json", ctx);
+			await commandFor(pi, "dev:preview-status").handler("--json", ctx);
 		});
 
 		expect(writes).toEqual({
 			stdout: "",
-			stderr: "fake-dev preview-url exited with code 17.\n\nstderr:\nnot found\n",
+			stderr: "fake-cli preview-status exited with code 17.\n\nstderr:\nnot found\n",
 		});
 		expect(pi.sentMessages).toEqual([]);
 		expect(notifications).toEqual([]);
@@ -678,7 +678,7 @@ describe("cli command extension helper", () => {
 		const { ctx, notifications, editorTexts, statuses, widgets } = createContext(order, { hasUI: false });
 
 		const writes = await captureProcessWrites(async () => {
-			await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+			await commandFor(pi, "dev:preview-status").handler("broke in this pr", ctx);
 		});
 
 		expect(runnerCalled).toBe(false);
@@ -686,7 +686,7 @@ describe("cli command extension helper", () => {
 		expect(writes).toEqual({
 			stdout: "",
 			stderr:
-				"fake-dev preview-url exited with code 2.\n\nstderr:\nError: /dev:preview-url only accepts option-style arguments here. Use --help for usage.\n",
+				"fake-cli preview-status exited with code 2.\n\nstderr:\nError: /dev:preview-status only accepts option-style arguments here. Use --help for usage.\n",
 		});
 		expect(pi.sentMessages).toEqual([]);
 		expect(notifications).toEqual([]);
@@ -707,7 +707,7 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications, editorTexts } = createContext(order, { setEditorText: false });
 
-		await commandFor(pi, "dev:preview-url").handler("broke in this pr", ctx);
+		await commandFor(pi, "dev:preview-status").handler("broke in this pr", ctx);
 
 		expect(runnerCalled).toBe(false);
 		expect(order).toEqual([]);
@@ -715,7 +715,7 @@ describe("cli command extension helper", () => {
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(
 			pi,
-			"fake-dev preview-url exited with code 2.\n\nstderr:\nError: /dev:preview-url only accepts option-style arguments here. Use --help for usage.\n",
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: /dev:preview-status only accepts option-style arguments here. Use --help for usage.\n",
 			"error",
 		);
 	});
@@ -730,13 +730,13 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications, editorTexts } = createContext([], { setEditorText: false });
 
-		await commandFor(pi, "dev:preview-url").handler("--json words", ctx);
+		await commandFor(pi, "dev:preview-status").handler("--json words", ctx);
 
 		expect(editorTexts).toEqual([]);
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(
 			pi,
-			"fake-dev preview-url exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n",
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n",
 			"error",
 		);
 	});
@@ -752,7 +752,7 @@ describe("cli command extension helper", () => {
 			});
 			const { ctx, notifications } = createContext();
 
-			await commandFor(pi, "dev:preview-url").handler("", ctx);
+			await commandFor(pi, "dev:preview-status").handler("", ctx);
 
 			expect(pi.sentMessages).toEqual([]);
 			expect(notifications).toEqual([{ message: "ok\n", level: "info" }]);
@@ -801,14 +801,14 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications, statuses, widgets } = createContext();
 
-		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await runStarted;
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
 		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
 		expect(statuses.at(-1)?.key).toBe("asdl-cli-command");
-		expect(statuses.at(-1)?.value).toContain("/dev:preview-url running CLI command");
-		expect(liveWidgetText).toContain("Running /dev:preview-url");
+		expect(statuses.at(-1)?.value).toContain("/dev:preview-status running CLI command");
+		expect(liveWidgetText).toContain("Running /dev:preview-status");
 		expect(liveWidgetText).toContain("stdout: started");
 		expect(pi.sentMessages).toEqual([]);
 
@@ -844,7 +844,7 @@ describe("cli command extension helper", () => {
 		});
 		const { ctx, notifications, widgets } = createContext();
 
-		const commandPromise = commandFor(pi, "dev:preview-url").handler("", ctx);
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await liveOutputObserved;
 
 		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
@@ -879,11 +879,11 @@ describe("cli command extension helper", () => {
 		expect(() => {
 			registerFakeCli(pi, {
 				commands: [
-					{ name: "preview-url", description: "First." },
-					{ name: "preview-url", description: "Second." },
+					{ name: "preview-status", description: "First." },
+					{ name: "preview-status", description: "Second." },
 				],
 			});
-		}).toThrow("Duplicate fake-dev command name: preview-url");
+		}).toThrow("Duplicate fake-cli command name: preview-status");
 		expect(pi.commands.size).toBe(0);
 	});
 
@@ -892,7 +892,7 @@ describe("cli command extension helper", () => {
 
 		expect(() => {
 			registerCliCommandExtension(pi, {
-				cliName: "fake-dev",
+				cliName: "fake-cli",
 				piNamespace: "dev",
 				commands: [
 					{ name: "one", description: "First." },
@@ -901,7 +901,7 @@ describe("cli command extension helper", () => {
 				piCommandAliases: { one: "dev:same", two: "dev:same" },
 				runCli: () => 0,
 			});
-		}).toThrow("Duplicate fake-dev Pi command name: dev:same");
+		}).toThrow("Duplicate fake-cli Pi command name: dev:same");
 		expect(pi.commands.size).toBe(0);
 	});
 

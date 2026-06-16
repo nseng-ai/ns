@@ -1,6 +1,5 @@
 import { listSdlCommands, runCli, type SdlCommandInfo } from "@asdl/sdl/cli";
 
-import { asdlDevCodeExtension } from "./asdl-dev-extension.ts";
 import autobranchExtension from "./autobranch.ts";
 import autoslotExtension from "./autoslot.ts";
 import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI as CliExtensionAPI } from "./cli-command-extension.ts";
@@ -9,18 +8,19 @@ import { definePiSurfaceParity } from "./parity.ts";
 import pushExtension from "./push.ts";
 
 export type ExtensionAPI = CliExtensionAPI &
-	Parameters<typeof asdlDevCodeExtension>[0] &
 	Parameters<typeof autobranchExtension>[0] &
 	Parameters<typeof autoslotExtension>[0] &
 	Parameters<typeof landExtension>[0] &
 	Parameters<typeof pushExtension>[0];
 
 const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
+const SDL_CODE_COMMAND_NAMES = ["changes", "cp", "submit", "regenerate-pr"] as const;
 const SDL_CODE_PI_COMMAND_ALIASES = {
 	changes: "sdl:code:changes",
 	cp: "sdl:code:checkpoint",
 	submit: "sdl:code:submit",
-} as const satisfies Record<(typeof SDL_COMMAND_NAMES)[number], string>;
+	"regenerate-pr": "sdl:code:regenerate-pr",
+} as const satisfies Record<(typeof SDL_CODE_COMMAND_NAMES)[number], string>;
 
 export const sdlExtensionParity = definePiSurfaceParity([
 	{
@@ -93,6 +93,18 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		sourceModule: "sdl-extension",
 		notes: "Nested code-lifecycle Pi alias over sdl submit; flat /sdl:submit remains primary.",
 	},
+	{
+		kind: "command",
+		surface: "sdl:code:regenerate-pr",
+		workflow: "Regenerate the current branch PR title and description",
+		parity: "FULL",
+		cli: "sdl regenerate-pr",
+		skill: "sdl-submit",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "sdl-extension",
+		notes: "Nested code-lifecycle Pi alias over sdl regenerate-pr; no flat /sdl:regenerate-pr mirror is registered.",
+	},
 ] as const);
 
 export default function sdlExtension(pi: ExtensionAPI): void {
@@ -106,7 +118,7 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 	registerCliCommandExtension(pi, {
 		cliName: "sdl",
 		piNamespace: "sdl",
-		commands,
+		commands: selectSdlCommands(SDL_CODE_COMMAND_NAMES),
 		piCommandAliases: SDL_CODE_PI_COMMAND_ALIASES,
 		runCli,
 	});
@@ -114,7 +126,6 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 	autoslotExtension(pi);
 	landExtension(pi);
 	pushExtension(pi);
-	asdlDevCodeExtension(pi);
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {

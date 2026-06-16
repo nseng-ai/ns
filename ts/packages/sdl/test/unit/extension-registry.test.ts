@@ -64,10 +64,11 @@ describe("extension registry", () => {
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual(["changes", "cp", "submit"]);
+		expect([...loaded.candidates.keys()]).toEqual(["changes", "cp", "regenerate-pr", "submit"]);
 		expect(loaded.commandInfos.map((info) => [info.name, info.description])).toEqual([
 			["changes", "Summarize outstanding worktree changes without committing."],
 			["cp", "Create a checkpoint commit for the current diff."],
+			["regenerate-pr", "Regenerate the current branch PR's title and description with the asdl PR-description prompt."],
 			["submit", "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive."],
 		]);
 	});
@@ -141,7 +142,7 @@ export default defineExtension({
 		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
 
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
-		expect([...loaded.candidates.keys()]).toEqual(["bye", "changes", "cp", "hello", "submit"]);
+		expect([...loaded.candidates.keys()]).toEqual(["bye", "changes", "cp", "hello", "regenerate-pr", "submit"]);
 		const selected = loaded.candidates.get("bye");
 		expect(selected).toBeDefined();
 		if (selected === undefined) return;

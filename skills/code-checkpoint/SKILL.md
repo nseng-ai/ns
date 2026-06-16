@@ -2,14 +2,14 @@
 name: code-checkpoint
 description: "Command: code-checkpoint"
 allowed-tools:
-  - "Bash(asdl-dev cp*)"
+  - "Bash(sdl cp*)"
 metadata:
   internal: true
 ---
 
 # code-checkpoint
 
-Create a quick checkpoint commit for the current git diff by delegating to the shared `asdl-dev cp` CLI. This is the cross-harness path for `/code:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
+Create a quick checkpoint commit for the current git diff by delegating to the shared `sdl cp` CLI. This is the cross-harness path for `/sdl:cp` and `/sdl:code:checkpoint`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
 
 ## When to use
 
@@ -22,7 +22,7 @@ Do **not** use for milestone commits, PR-ready commits, or anything that should 
 Run:
 
 ```bash
-asdl-dev cp
+sdl cp
 ```
 
 The CLI owns the deterministic behavior:
@@ -37,15 +37,15 @@ The CLI owns the deterministic behavior:
 
 Text generation is controlled by the CLI environment:
 
-- `ASDL_DEV_TEXT_BACKEND` defaults to `pi`;
-- `ASDL_DEV_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`.
+- `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `ASDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.
 
 ## Failure handling
 
-If `asdl-dev cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
+If `sdl cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
 
 ## Rules
 
-- Never hand-roll the checkpoint commit when `asdl-dev cp` is available.
+- Never hand-roll the checkpoint commit when `sdl cp` is available.
 - Never run `git commit --amend` or `git commit --no-verify` for this workflow.
 - Do not add Co-Authored-By trailers to checkpoint commits unless the user explicitly asks for a hand-authored commit instead.

@@ -42,7 +42,7 @@ The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: a
 
 **Autobranch orchestration**:
 The CCC-owned implementation behind public `/sdl:code:autobranch`, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow.
-*Avoid*: Pi registration adapter, `asdl-dev` checkpoint primitive, plain branch creation helper, old `/code:autobranch` alias.
+*Avoid*: Pi registration adapter, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Land orchestration**:
 The CCC-owned implementation behind public unified `/sdl:code:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
