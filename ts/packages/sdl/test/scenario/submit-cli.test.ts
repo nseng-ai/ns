@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { runCli } from "@asdl/sdl/cli";
 import type { ExecOptions, ExecResult, SdlConfirmPrompt, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
@@ -14,9 +14,11 @@ interface ExecCall {
 	options: ExecOptions | undefined;
 }
 
+type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
+
 interface TestState {
 	exec?: readonly ScriptedExecResponse[];
-	textGeneration?: readonly TextGenerationResult[];
+	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: SdlConfirmPrompt;
 }
 
@@ -33,7 +35,7 @@ class ScriptedSubmitContext implements SdlContext {
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
-	private readonly modelResults: TextGenerationResult[];
+	private readonly modelResults: ScriptedTextGenerationResult[];
 
 	constructor(state: TestState = {}, options: { cwd?: string; env?: Record<string, string | undefined> } = {}) {
 		this.cwd = options.cwd ?? "/work";
@@ -63,7 +65,7 @@ class ScriptedSubmitContext implements SdlContext {
 	readonly model = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.modelCalls.push({ ...request });
-			return this.modelResults.shift() ?? { ok: true, text: defaultPrDescriptionText() };
+			return await (this.modelResults.shift() ?? { ok: true, text: defaultPrDescriptionText() });
 		},
 	};
 }
@@ -177,6 +179,10 @@ function formattedExecCalls(context: ScriptedSubmitContext): string[] {
 }
 
 describe("sdl submit CLI", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	test("help and schema expose built-in submit without running subprocesses", async () => {
 		const helpRun = runWithFakes(["submit", "--help"], { exec: [] });
 		expect(await helpRun.exit).toBe(0);
@@ -227,6 +233,29 @@ describe("sdl submit CLI", () => {
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
+	});
+
+	test("post-submit PR description model progress includes an elapsed counter while waiting", async () => {
+		vi.useFakeTimers();
+		let resolveModel: ((result: TextGenerationResult) => void) | undefined;
+		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
+			resolveModel = resolve;
+		});
+		const run = runWithFakes(["submit"], { textGeneration: [pendingModel] });
+
+		await vi.waitFor(() => {
+			expect(run.context.modelCalls).toHaveLength(1);
+		});
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: requesting PR description from model (attempt 1/2)...\n" });
+
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: still waiting for PR description from model (attempt 1/2, 5s elapsed)...\n" });
+
+		await vi.advanceTimersByTimeAsync(5_000);
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: still waiting for PR description from model (attempt 1/2, 10s elapsed)...\n" });
+
+		resolveModel?.({ ok: true, text: defaultPrDescriptionText() });
+		expect(await run.exit).toBe(0);
 	});
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
