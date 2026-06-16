@@ -169,10 +169,10 @@ export function managedBlockBounds(content: string, markers: ManagedMarkers, pat
 	const startCount = countOccurrences(content, markers.start);
 	const endCount = countOccurrences(content, markers.end);
 	if (startCount === 0 && endCount === 0) return { ok: true, value: null };
-	if (startCount !== 1 || endCount !== 1) return malformedManagedBlock(pathLabel);
+	if (startCount !== 1 || endCount !== 1) return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
 	const start = content.indexOf(markers.start);
 	const endMarkerStart = content.indexOf(markers.end);
-	if (endMarkerStart < start) return malformedManagedBlock(pathLabel);
+	if (endMarkerStart < start) return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
 	return { ok: true, value: { start, end: endMarkerStart + markers.end.length } };
 }
 
@@ -330,10 +330,6 @@ function isSkippedFile(plan: AregInitTextWritePlan | SkippedFile): plan is Skipp
 
 function writePlan(relativePath: AregInitTextWritePlan["relativePath"], content: string, description: string, createParent = false): AregInitTextWritePlan {
 	return { relativePath, content, description, createParent };
-}
-
-function malformedManagedBlock<T>(pathLabel: string): Result<T> {
-	return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
 }
 
 function appendTomlSection(content: string, section: string): string {
