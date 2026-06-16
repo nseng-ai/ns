@@ -11,9 +11,10 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { executeSdlCommand, listStaticSdlCommandInfos, type SdlCommandInfo, type SdlCommandCliInfo } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
 import {
+	classifyExtensionDiagnosticsForInvocation,
 	commandInfosForSelectedCommand,
 	formatExtensionErrorDiagnostics,
-	hasExtensionErrors,
+	formatExtensionWarningDiagnostics,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
 } from "./extension-registry.ts";
@@ -97,13 +98,21 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	const cwd = deps.cwd ?? injectedContext?.cwd ?? process.cwd();
 	const env = deps.env ?? injectedContext?.env ?? process.env;
 	const commandCatalog = await loadSdlCommandCatalog({ cwd, env, homeDir: deps.homeDir ?? env.HOME });
-	if (hasExtensionErrors(commandCatalog.diagnostics)) {
-		stderr(`${formatExtensionErrorDiagnostics(commandCatalog.diagnostics)}\n`);
+	const selectedCommandName = requestedCommandName(args);
+	const selectedCandidate = selectedCommandName === undefined ? undefined : commandCatalog.candidates.get(selectedCommandName);
+	const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
+		diagnostics: commandCatalog.diagnostics,
+		requestedCommandName: selectedCommandName,
+		selectedCandidate,
+	});
+	if (diagnosticClassification.fatal.length > 0) {
+		stderr(`${formatExtensionErrorDiagnostics(diagnosticClassification.fatal)}\n`);
 		return 2;
 	}
+	if (diagnosticClassification.warnings.length > 0) {
+		stderr(`${formatExtensionWarningDiagnostics(diagnosticClassification.warnings)}\n`);
+	}
 
-	const selectedCommandName = selectCommandName(args, commandCatalog.commandInfos);
-	const selectedCandidate = selectedCommandName === undefined ? undefined : commandCatalog.candidates.get(selectedCommandName);
 	const loadedSelectedCommand = selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
 	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
 		stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
@@ -135,11 +144,10 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	return buildCli({ commandInfos, selectedCommand }).run(args, { context: contextWithIO, io });
 }
 
-function selectCommandName(args: readonly string[], commandInfos: readonly SdlCommandInfo[]): string | undefined {
+function requestedCommandName(args: readonly string[]): string | undefined {
 	const firstArg = args[0];
 	if (firstArg === undefined || firstArg.startsWith("-")) return undefined;
-	const names = new Set(commandInfos.map((command) => command.name));
-	return names.has(firstArg) ? firstArg : undefined;
+	return firstArg;
 }
 
 function writeSdlResultOutput(result: { ok: true; message: string } | { ok: false; message: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {

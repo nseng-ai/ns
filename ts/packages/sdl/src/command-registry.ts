@@ -1,7 +1,7 @@
 import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
-import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlExtension, type SdlResult } from "./sdk.ts";
+import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
 import {
 	CHANGES_MODEL_ENV,
 	CHECKPOINT_MODEL_ENV,
@@ -84,7 +84,7 @@ const sdlCommandSchema = z.object({
 });
 
 const sdlExtensionSchema = z.object({
-	commands: z.array(sdlCommandSchema).min(1),
+	commands: z.array(sdlCommandSchema).optional().default([]),
 });
 
 const sdlResultSchema = z.discriminatedUnion("ok", [
@@ -167,7 +167,7 @@ export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function findCommandEntry(extension: SdlExtension, expectedName: string): SdlCommand | undefined {
+function findCommandEntry(extension: { commands: readonly SdlCommand[] }, expectedName: string): SdlCommand | undefined {
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
@@ -179,7 +179,7 @@ function formatSdlExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
 		return "default export must be an extension object created with defineExtension().";
 	}
 	if (issue.path.length === 1) {
-		return issue.code === "invalid_type" ? "default export must be an extension object created with defineExtension()." : "SDL extension commands must be a non-empty array.";
+		return "SDL extension commands must be an array of command entries.";
 	}
 	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssue(issue)}.`;
 }

@@ -57,9 +57,15 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject> {
 }
 
 export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
-	commands: TCommands;
+	commands?: TCommands | undefined;
 }
 
+type SdlCommandTuple<TSchemas extends readonly SdlCommandSchema[]> = {
+	readonly [Index in keyof TSchemas]: SdlCommand<TSchemas[Index]>;
+};
+
+export function defineExtension(extension: { commands?: undefined }): SdlExtension<readonly []>;
+export function defineExtension(extension: SdlExtension<readonly []>): SdlExtension<readonly []>;
 export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject>(extension: SdlExtension<readonly [SdlCommand<S1>]>): SdlExtension<readonly [SdlCommand<S1>]>;
 export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject, S2 extends SdlCommandSchema = z.ZodObject>(
 	extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>]>,
@@ -69,7 +75,13 @@ export function defineExtension<
 	S2 extends SdlCommandSchema = z.ZodObject,
 	S3 extends SdlCommandSchema = z.ZodObject,
 >(extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>]>;
-export function defineExtension(extension: SdlExtension): SdlExtension;
+export function defineExtension<
+	S1 extends SdlCommandSchema = z.ZodObject,
+	S2 extends SdlCommandSchema = z.ZodObject,
+	S3 extends SdlCommandSchema = z.ZodObject,
+	S4 extends SdlCommandSchema = z.ZodObject,
+	const SRest extends readonly SdlCommandSchema[] = readonly [],
+>(extension: SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>, SdlCommand<S4>, ...SdlCommandTuple<SRest>]>): SdlExtension<readonly [SdlCommand<S1>, SdlCommand<S2>, SdlCommand<S3>, SdlCommand<S4>, ...SdlCommandTuple<SRest>]>;
 export function defineExtension(extension: SdlExtension): SdlExtension {
 	return extension;
 }

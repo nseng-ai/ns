@@ -109,6 +109,20 @@ describe("extension discovery", () => {
 
 		expect(result.commands).toEqual([]);
 		expect(result.diagnostics[0]).toMatchObject({ code: "extension_manifest_commands_not_array" });
+		expect(result.diagnostics[0]?.commandName).toBeUndefined();
+	});
+
+	test("manifest command entry diagnostics include commandName when the entry has a name", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "bad", "package.json"),
+			JSON.stringify({ asdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] } }),
+		);
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.commands).toEqual([]);
+		expect(result.diagnostics[0]).toMatchObject({ code: "extension_manifest_entry_missing", commandName: "hello" });
 	});
 
 	test("direct entries with invalid inferred command names are malformed", async () => {
