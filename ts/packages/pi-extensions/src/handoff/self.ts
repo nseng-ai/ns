@@ -18,6 +18,7 @@ import {
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 	createHandoffStartMessage,
 	setStatus,
+	type HandoffCreateSkillLoader,
 	type HandoffStartMessages,
 } from "./shared.ts";
 import type { CommandContext, ExtensionAPI, ReplacedSessionContext, ToolDefinition } from "./runtime-types.ts";
@@ -33,6 +34,11 @@ interface HandoffSelfPromptOptions {
 	skillBlock: string | undefined;
 	request: HandoffLaunchRequest;
 	workflowId?: string;
+}
+
+interface HandoffSelfWorkflowOptions {
+	timeoutMs?: number;
+	skillLoader?: HandoffCreateSkillLoader;
 }
 
 interface HandoffSelfLaunchParams extends HandoffLaunchParams {
@@ -79,12 +85,13 @@ const HANDOFF_SELF_START_MESSAGES = {
 
 export function createHandoffSelfWorkflow(
 	pi: ExtensionAPI,
-	options: { timeoutMs?: number } = {},
+	options: HandoffSelfWorkflowOptions = {},
 ): {
 	buildTool(): ToolDefinition;
 	handleCommand(args: string, ctx: CommandContext): Promise<void>;
 } {
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
+	const prepareOptions = options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader };
 	let state: HandoffSelfWorkflowState = { type: "idle" };
 
 	function resetStarting(workflowId: string): void {
@@ -148,7 +155,7 @@ export function createHandoffSelfWorkflow(
 				return;
 			}
 
-			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx);
+			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, prepareOptions);
 			if (prepared === undefined) {
 				return;
 			}

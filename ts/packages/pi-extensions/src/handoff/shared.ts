@@ -40,6 +40,11 @@ If review or editing is needed before creating, iterate in chat, structured UI, 
 Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug based on the final artifact body, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
 export type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
+export type HandoffCreateSkillLoadResult = { type: "found"; skill: ExpandedSkillBlock } | { type: "missing" } | { type: "failed"; message: string };
+
+export interface HandoffCreateSkillLoader {
+	loadCreateHandoffSkill(cwd: string): Promise<HandoffCreateSkillLoadResult>;
+}
 
 export interface HandoffStartMessages {
 	ready: string;
@@ -65,6 +70,20 @@ export async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx:
 	pi.sendUserMessage(`Ask the user exactly this question before creating a handoff: ${CREATE_FOCUS_QUESTION}\n\nDo not create a handoff until the user answers with a meaningful continuation focus.`);
 	return undefined;
 }
+
+export const realHandoffCreateSkillLoader = {
+	async loadCreateHandoffSkill(cwd: string): Promise<HandoffCreateSkillLoadResult> {
+		try {
+			const skill = await expandHandoffSkill(cwd, CREATE_HANDOFF_SKILL_NAME);
+			if (skill === undefined) {
+				return { type: "missing" };
+			}
+			return { type: "found", skill };
+		} catch (error) {
+			return { type: "failed", message: formatErrorMessage(error) };
+		}
+	},
+} satisfies HandoffCreateSkillLoader;
 
 export async function expandHandoffSkill(cwd: string, skillName: string): Promise<ExpandedSkillBlock | undefined> {
 	try {

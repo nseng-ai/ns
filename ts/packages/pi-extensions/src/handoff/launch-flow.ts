@@ -5,17 +5,18 @@ import { isRecord, stringField } from "../cmux/primitives.ts";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import {
 	CREATE_HANDOFF_FALLBACK,
-	CREATE_HANDOFF_SKILL_NAME,
 	DERIVE_HANDOFF_SLUG_TOOL_NAME,
 	checkHandoffExists,
 	createHandoffStartMessage,
 	currentBranch,
-	expandHandoffSkill,
 	fencedBlock,
+	realHandoffCreateSkillLoader,
 	resolveCreateFocus,
 	setStatus,
+	type HandoffCreateSkillLoader,
 	type HandoffStartMessages,
 } from "./shared.ts";
+import type { ExpandedSkillBlock } from "../skill-expansion.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI, ToolDefinition, ToolResult } from "./runtime-types.ts";
 
 export interface HandoffLaunchRequest {
@@ -25,7 +26,7 @@ export interface HandoffLaunchRequest {
 
 export interface PreparedHandoffCreateLaunch {
 	request: HandoffLaunchRequest;
-	skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
+	skill: ExpandedSkillBlock | undefined;
 	skillReadError: string | undefined;
 }
 
@@ -54,6 +55,7 @@ export interface HandoffLaunchCommandSpec {
 	statusKey: string;
 	promptCopy: HandoffLaunchPromptCopy;
 	startMessages: HandoffStartMessages;
+	skillLoader?: HandoffCreateSkillLoader;
 	preflight?(options: { pi: ExtensionAPI; ctx: CommandContext; request: HandoffLaunchRequest }): Promise<{ type: "ok" } | { type: "failed"; message: string }>;
 }
 
@@ -147,7 +149,7 @@ export async function prepareHandoffCreateLaunch(
 	pi: ExtensionAPI,
 	args: string,
 	ctx: CommandContext,
-	options: { preflight?: HandoffLaunchCommandSpec["preflight"] } = {},
+	options: { preflight?: HandoffLaunchCommandSpec["preflight"]; skillLoader?: HandoffCreateSkillLoader } = {},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
@@ -175,20 +177,19 @@ export async function prepareHandoffCreateLaunch(
 		return undefined;
 	}
 
-	let skill: Awaited<ReturnType<typeof expandHandoffSkill>>;
-	let skillReadError: string | undefined;
-	try {
-		skill = await expandHandoffSkill(ctx.cwd, CREATE_HANDOFF_SKILL_NAME);
-	} catch (error) {
-		skillReadError = formatErrorMessage(error);
-	}
+	const loadedSkill = await (options.skillLoader ?? realHandoffCreateSkillLoader).loadCreateHandoffSkill(ctx.cwd);
+	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
+	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
 
 	return { request, skill, skillReadError };
 }
 
 export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ctx: CommandContext, spec: HandoffLaunchCommandSpec): Promise<void> {
 	await ctx.waitForIdle();
-	const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, { preflight: spec.preflight });
+	const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, {
+		...(spec.preflight === undefined ? {} : { preflight: spec.preflight }),
+		...(spec.skillLoader === undefined ? {} : { skillLoader: spec.skillLoader }),
+	});
 	if (prepared === undefined) {
 		return;
 	}
