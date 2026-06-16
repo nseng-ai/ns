@@ -10,7 +10,7 @@ describe("cd directive", () => {
 
 	it("suppresses writes when disabled", async () => {
 		const filesystem = new FakeDirectiveFilesystem();
-		await expect(writeCdDirectiveIfActive("/dest", { enabled: false, env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toEqual({ status: "inactive", path: "/tmp/directive" });
+		await expect(writeCdDirectiveIfActive("/dest", { isEnabled: false, env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toEqual({ status: "inactive", path: "/tmp/directive" });
 		expect(filesystem.writes()).toEqual([]);
 	});
 

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+import { parseGitWorktreePorcelain } from "@asdl/core/git";
 
 const SLOT_GIT_TIMEOUT_MS = 10_000;
 
@@ -58,12 +59,12 @@ export class RealSlotGitGateway implements SlotGitGateway {
 
 	async listWorktrees(): Promise<readonly WorktreeInfo[]> {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd);
-		return parseWorktreePorcelain(result.stdout).map((worktree) => ({ path: worktree.path, branch: worktree.branch }));
+		return parseGitWorktreePorcelain(result.stdout).map((worktree) => ({ path: worktree.path, branch: worktree.branch }));
 	}
 
 	async listBranchOccupancies(): Promise<readonly WorktreeOccupancy[]> {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd);
-		return parseWorktreePorcelain(result.stdout).flatMap((worktree) =>
+		return parseGitWorktreePorcelain(result.stdout).flatMap((worktree) =>
 			worktree.branch === null ? [] : [{ path: worktree.path, branch: worktree.branch, operation: "checked-out" }],
 		);
 	}
@@ -109,32 +110,6 @@ interface CommandResult {
 	stderr: string;
 }
 
-interface PorcelainWorktree {
-	path: string;
-	branch: string | null;
-}
-
-function parseWorktreePorcelain(stdout: string): PorcelainWorktree[] {
-	const records: PorcelainWorktree[] = [];
-	let current: PorcelainWorktree | null = null;
-	for (const line of stdout.split("\n")) {
-		if (line.length === 0) {
-			if (current !== null) records.push(current);
-			current = null;
-			continue;
-		}
-		if (line.startsWith("worktree ")) {
-			if (current !== null) records.push(current);
-			current = { path: line.slice("worktree ".length), branch: null };
-			continue;
-		}
-		if (current !== null && line.startsWith("branch refs/heads/")) {
-			current = { ...current, branch: line.slice("branch refs/heads/".length) };
-		}
-	}
-	if (current !== null) records.push(current);
-	return records;
-}
 
 function stdoutFromError(error: unknown): string {
 	return typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
