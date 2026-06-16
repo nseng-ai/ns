@@ -1,92 +1,74 @@
 import { z } from "zod";
 
-export const payloadReferenceSchema = z.object({
-	payload_path: z.string(),
-	session_id: z.string().optional(),
-	descriptor: z.string().optional(),
+import {
+	discussionCommentManifestItemSchema as operationDiscussionCommentManifestItemSchema,
+	feedbackDomainLocatorSchema as operationFeedbackDomainLocatorSchema,
+	getFeedbackPayloadManifestSchema,
+	manifestBodyLocatorSchema,
+	reviewManifestItemSchema as operationReviewManifestItemSchema,
+	threadCommentManifestItemSchema as operationThreadCommentManifestItemSchema,
+	threadManifestItemSchema as operationThreadManifestItemSchema,
+} from "./operation-schemas/manifest-mirrors.ts";
+import { payloadReferenceSchema as operationPayloadReferenceSchema } from "./operation-schemas/shared.ts";
+
+// Tolerant parse-back contracts for persisted payload manifests. The strict
+// operation-output mirror in operation-schemas/manifest-mirrors.ts owns the
+// canonical field lists; this file only relaxes enum strictness, unknown-key
+// handling, and historical defaults for partial manifests read back from disk.
+export const payloadReferenceSchema = operationPayloadReferenceSchema.partial().extend({
+	payload_path: operationPayloadReferenceSchema.shape.payload_path,
 	role: z.string().optional(),
-	created_at_utc: z.string().optional(),
-	sequence: z.number().int().optional(),
-	payload_bytes: z.number().int().optional(),
-	content_type: z.string().optional(),
 	extension: z.string().optional(),
 });
 
-export const feedbackDomainLocatorSchema = z.looseObject({
+export const feedbackDomainLocatorSchema = operationFeedbackDomainLocatorSchema.loose().extend({
 	kind: z.string(),
-	review_id: z.string().nullable().default(null),
-	thread_id: z.string().nullable().default(null),
-	comment_id: z.number().int().nullable().default(null),
-	discussion_comment_id: z.number().int().nullable().default(null),
-	comment_index: z.number().int().nullable().default(null),
-	path: z.string().nullable().default(null),
-	line: z.number().int().nullable().default(null),
-	start_line: z.number().int().nullable().default(null),
-	is_resolved: z.boolean().nullable().default(null),
-	is_outdated: z.boolean().nullable().default(null),
-	author: z.string().nullable().default(null),
+	review_id: operationFeedbackDomainLocatorSchema.shape.review_id.default(null),
+	thread_id: operationFeedbackDomainLocatorSchema.shape.thread_id.default(null),
+	comment_id: operationFeedbackDomainLocatorSchema.shape.comment_id.default(null),
+	discussion_comment_id: operationFeedbackDomainLocatorSchema.shape.discussion_comment_id.default(null),
+	comment_index: operationFeedbackDomainLocatorSchema.shape.comment_index.default(null),
+	path: operationFeedbackDomainLocatorSchema.shape.path.default(null),
+	line: operationFeedbackDomainLocatorSchema.shape.line.default(null),
+	start_line: operationFeedbackDomainLocatorSchema.shape.start_line.default(null),
+	is_resolved: operationFeedbackDomainLocatorSchema.shape.is_resolved.default(null),
+	is_outdated: operationFeedbackDomainLocatorSchema.shape.is_outdated.default(null),
+	author: operationFeedbackDomainLocatorSchema.shape.author.default(null),
 });
 
-export const bodyLocatorSchema = z.looseObject({
-	body_chars: z.number().int(),
-	json_pointer: z.string(),
-	item_pointer: z.string().nullable().default(null),
+export const bodyLocatorSchema = manifestBodyLocatorSchema.loose().extend({
+	item_pointer: manifestBodyLocatorSchema.shape.item_pointer.default(null),
 	domain: feedbackDomainLocatorSchema,
 });
 
-export const reviewManifestItemSchema = z.looseObject({
-	id: z.string(),
-	author: z.string(),
+export const reviewManifestItemSchema = operationReviewManifestItemSchema.loose().extend({
 	state: z.string(),
-	submitted_at: z.string(),
 	body_locator: bodyLocatorSchema,
 });
 
-export const threadCommentManifestItemSchema = z.looseObject({
-	id: z.number().int(),
-	author: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable(),
-	start_line: z.number().int().nullable(),
-	created_at: z.string(),
+export const threadCommentManifestItemSchema = operationThreadCommentManifestItemSchema.loose().extend({
 	body_locator: bodyLocatorSchema,
 });
 
-export const threadManifestItemSchema = z.looseObject({
-	thread_id: z.string(),
-	path: z.string(),
-	line: z.number().int().nullable(),
-	start_line: z.number().int().nullable(),
-	is_resolved: z.boolean(),
-	is_outdated: z.boolean(),
-	comment_count: z.number().int(),
-	item_pointer: z.string(),
+export const threadManifestItemSchema = operationThreadManifestItemSchema.loose().extend({
 	comments: z.array(threadCommentManifestItemSchema).default([]),
 });
 
-export const discussionCommentManifestItemSchema = z.looseObject({
-	comment_id: z.number().int(),
-	author: z.string(),
-	url: z.string(),
+export const discussionCommentManifestItemSchema = operationDiscussionCommentManifestItemSchema.loose().extend({
 	body_locator: bodyLocatorSchema,
 });
 
-export const getFeedbackManifestSchema = z.looseObject({
+export const getFeedbackManifestSchema = getFeedbackPayloadManifestSchema.omit({ payload_mode: true, counts: true }).loose().extend({
 	payload_reference: payloadReferenceSchema,
-	pr_number: z.number().int(),
 	reviews: z.array(reviewManifestItemSchema).default([]),
 	review_threads: z.array(threadManifestItemSchema).default([]),
 	discussion_comments: z.array(discussionCommentManifestItemSchema).default([]),
 });
 
-export const prepareRunManifestSchema = z.looseObject({
-	payload_reference: payloadReferenceSchema,
+export const prepareRunManifestSchema = getFeedbackManifestSchema.extend({
 	found: z.boolean(),
 	number: z.number().int().nullable().default(null),
 	pr_number: z.number().int().nullable().default(null),
-	reviews: z.array(reviewManifestItemSchema).default([]),
-	review_threads: z.array(threadManifestItemSchema).default([]),
-	discussion_comments: z.array(discussionCommentManifestItemSchema).default([]),
 });
 
 export type PayloadReference = z.infer<typeof payloadReferenceSchema>;

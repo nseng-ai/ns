@@ -38,6 +38,11 @@
       cardinality check, reply formatting + the four resolution modes, the
       resolve-decision validation, and body-on-demand lookup; leave any remaining
       residue in `legacy/`.
+      Schema consolidation evidence: `core/feedback-manifest-contracts.ts` now
+      derives its tolerant parse-back manifest schemas from the canonical strict
+      operation-output mirrors in `core/operation-schemas/manifest-mirrors.ts`,
+      eliminating the hand-maintained duplicate field lists while preserving the
+      old parse-back defaults.
 - [ ] `git mv` the remaining orchestration into `legacy/` untouched
       (`payload-store*`, `session-*`, `stdout-mode`, `prepare-run`,
       `stack-feedback-*`, checkpoint, finalization, the old `exec` surface) and

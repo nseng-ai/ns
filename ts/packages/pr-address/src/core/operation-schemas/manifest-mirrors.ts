@@ -12,7 +12,10 @@ import {
 
 // --- feedback payload manifest contracts -------------------------------------
 
-const feedbackDomainLocatorSchema = z.object({
+// Canonical strict operation-output mirror for feedback payload manifests. The
+// tolerant parse-back schemas in ../feedback-manifest-contracts.ts derive from
+// these field lists and only relax persisted/partial-manifest behavior.
+export const feedbackDomainLocatorSchema = z.object({
 	kind: z.enum(["review", "review_thread_comment", "discussion_comment"]),
 	review_id: nullableStringSchema.optional(),
 	thread_id: nullableStringSchema.optional(),
@@ -45,7 +48,7 @@ export const feedbackCountsSchema = z.object({
 	discussion_comments: z.int(),
 });
 
-const reviewManifestItemSchema = z.object({
+export const reviewManifestItemSchema = z.object({
 	id: z.string(),
 	author: z.string(),
 	state: prReviewStateSchema,
@@ -53,7 +56,7 @@ const reviewManifestItemSchema = z.object({
 	body_locator: manifestBodyLocatorSchema,
 });
 
-const threadCommentManifestItemSchema = z.object({
+export const threadCommentManifestItemSchema = z.object({
 	id: z.int(),
 	author: z.string(),
 	path: z.string(),
@@ -63,7 +66,7 @@ const threadCommentManifestItemSchema = z.object({
 	body_locator: manifestBodyLocatorSchema,
 });
 
-const threadManifestItemSchema = z.object({
+export const threadManifestItemSchema = z.object({
 	thread_id: z.string(),
 	path: z.string(),
 	line: nullableIntSchema,
@@ -75,7 +78,7 @@ const threadManifestItemSchema = z.object({
 	comments: z.array(threadCommentManifestItemSchema),
 });
 
-const discussionCommentManifestItemSchema = z.object({
+export const discussionCommentManifestItemSchema = z.object({
 	comment_id: z.int(),
 	author: z.string(),
 	url: z.string(),
