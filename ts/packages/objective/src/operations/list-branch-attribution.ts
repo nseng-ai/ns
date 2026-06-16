@@ -5,7 +5,7 @@ export const MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS = 50;
 
 export interface ObjectiveBranchAttribution {
 	updatedBranchesBySlug: ReadonlyMap<string, readonly string[]>;
-	truncated: boolean;
+	isTruncated: boolean;
 }
 
 export async function buildObjectiveBranchAttribution(
@@ -43,13 +43,13 @@ export async function buildObjectiveBranchAttribution(
 		type: "ok",
 		value: {
 			updatedBranchesBySlug: freezeAttributionMap(bySlug),
-			truncated: changedBranches.length > maxBranchWalks,
+			isTruncated: changedBranches.length > maxBranchWalks,
 		},
 	};
 }
 
 function emptyAttribution(slugs: ReadonlySet<string>): ObjectiveBranchAttribution {
-	return { updatedBranchesBySlug: new Map([...slugs].map((slug) => [slug, []])), truncated: false };
+	return { updatedBranchesBySlug: new Map([...slugs].map((slug) => [slug, []])), isTruncated: false };
 }
 
 function objectiveSlugsFromTouches(touches: readonly ObjectivePathChangeTouch[], slugs: ReadonlySet<string>): string[] {

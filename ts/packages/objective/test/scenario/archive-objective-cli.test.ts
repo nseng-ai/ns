@@ -27,7 +27,7 @@ function archiveData(options: {
 	destinationPath: string;
 	hasSource: boolean;
 	hasDestination: boolean;
-	wasMoved: boolean;
+	hasMoved: boolean;
 }) {
 	return {
 		status: options.status,
@@ -38,7 +38,7 @@ function archiveData(options: {
 		destination_path: options.destinationPath,
 		source_exists: options.hasSource,
 		destination_exists: options.hasDestination,
-		moved: options.wasMoved,
+		moved: options.hasMoved,
 	};
 }
 
@@ -74,7 +74,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive/alpha",
 				hasSource: false,
 				hasDestination: true,
-				wasMoved: true,
+				hasMoved: true,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objectives/alpha")).resolves.toEqual({ ok: true, value: "missing" });
@@ -106,7 +106,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objectives/alpha",
 				hasSource: false,
 				hasDestination: true,
-				wasMoved: true,
+				hasMoved: true,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objective-archive/alpha")).resolves.toEqual({ ok: true, value: "missing" });
@@ -140,7 +140,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive/ghost",
 				hasSource: false,
 				hasDestination: false,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		});
 		await expect(fake.pathKind(".asdl/objective-archive/ghost")).resolves.toEqual({ ok: true, value: "missing" });
@@ -169,7 +169,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive/alpha",
 				hasSource: true,
 				hasDestination: true,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		});
 		await expect(fake.readTextFile(".asdl/objectives/alpha/objective.md")).resolves.toEqual({ type: "ok", content: "active sentinel\n" });
@@ -191,7 +191,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive",
 				hasSource: false,
 				hasDestination: false,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		});
 
@@ -210,7 +210,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive",
 				hasSource: false,
 				hasDestination: false,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		});
 	});
@@ -233,7 +233,7 @@ describe("objective archive", () => {
 				destinationPath: ".asdl/objective-archive/alpha",
 				hasSource: true,
 				hasDestination: false,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		});
 	});

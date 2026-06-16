@@ -97,7 +97,7 @@ async function archiveObjective(
 				destinationPath: movePaths.relativeDestination,
 				hasSource: false,
 				hasDestination: destinationExists,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		};
 	}
@@ -113,7 +113,7 @@ async function archiveObjective(
 				destinationPath: movePaths.relativeDestination,
 				hasSource: true,
 				hasDestination: destinationExists,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		};
 	}
@@ -129,7 +129,7 @@ async function archiveObjective(
 				destinationPath: movePaths.relativeDestination,
 				hasSource: true,
 				hasDestination: true,
-				wasMoved: false,
+				hasMoved: false,
 			}),
 		};
 	}
@@ -147,7 +147,7 @@ async function archiveObjective(
 			destinationPath: movePaths.relativeDestination,
 			hasSource: false,
 			hasDestination: true,
-			wasMoved: true,
+			hasMoved: true,
 		}),
 	};
 }
@@ -175,7 +175,7 @@ function archiveResult(options: {
 	destinationPath: string;
 	hasSource: boolean;
 	hasDestination: boolean;
-	wasMoved: boolean;
+	hasMoved: boolean;
 }): ArchiveObjectiveResult {
 	return {
 		status: options.status,
@@ -186,7 +186,7 @@ function archiveResult(options: {
 		destination_path: options.destinationPath,
 		source_exists: options.hasSource,
 		destination_exists: options.hasDestination,
-		moved: options.wasMoved,
+		moved: options.hasMoved,
 	};
 }
 
