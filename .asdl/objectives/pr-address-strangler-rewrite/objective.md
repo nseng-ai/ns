@@ -111,6 +111,12 @@ Assumptions:
 - Hidden run state may be useful for performance, batching, or decision history,
   but only as implementation state behind RunEngine. The run ledger is not the
   user interface.
+- De-risked: the "never drop a feedback item" thesis depended on collection
+  reading every review thread and comment. The GitHub review-thread query was
+  previously non-paginating (first 100 threads, first 20 comments per thread);
+  paginating both thread and per-thread comment connections closes that
+  under-collection gap, so the carved collection inputs are no longer silently
+  truncated on large PRs.
 
 Risks:
 
@@ -127,6 +133,13 @@ Risks:
   exclude old artifact vocabulary entirely.
 - Two orchestrations coexist for the duration of the read-only strangler slice.
   This is accepted and time-boxed by the follow-up cutover Objective.
+- A read-only feedback-download capability (`download-feedback`) now exists on
+  the bootstrap/legacy `exec` surface rather than behind the RunEngine. It
+  consumes the carved `core/` collection leaves, so it does not reintroduce
+  payload/session vocabulary into `core/`, but it is a second read-only feedback
+  surface. Mitigation: the planned RunEngine `feedback`/`details` verbs must
+  subsume or replace this command rather than leaving a third surface; do not
+  promote its `harness_session_id`-style input shape into the new app contract.
 
 ## Open Questions
 
