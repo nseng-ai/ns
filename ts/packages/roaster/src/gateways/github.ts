@@ -132,7 +132,7 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 
 	private async runGh(args: readonly string[], options: GitHubGatewayOptions): Promise<RoasterResult<{ readonly stdout: string }>> {
 		const run = await runGitHubCli({
-			runner: (command, commandArgs, execOptions) => this.execApi.exec(command, [...commandArgs], execOptions),
+			execApi: this.execApi,
 			args,
 			cwd: options.cwd,
 			...(options.env === undefined ? {} : { env: options.env }),
