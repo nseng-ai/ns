@@ -20,6 +20,7 @@ export function formatSubmitSuccessText(
 	prLinks: SubmitPrLink[],
 	descriptions: {
 		generated: readonly SubmitPrLink[];
+		skipped: readonly SubmitPrLink[];
 		prewritten: readonly SubmitPrLink[];
 		prewriteFallbacks: readonly SubmitPrLink[];
 	},
@@ -31,6 +32,9 @@ export function formatSubmitSuccessText(
 	const updated = [...descriptions.generated, ...descriptions.prewriteFallbacks];
 	if (updated.length > 0) {
 		lines.push("", "Updated PR descriptions after submit:", ...updated.map(formatPrLinkTextRow));
+	}
+	if (descriptions.skipped.length > 0) {
+		lines.push("", "Skipped unchanged PR descriptions:", ...descriptions.skipped.map(formatPrLinkTextRow));
 	}
 	return lines.join("\n");
 }

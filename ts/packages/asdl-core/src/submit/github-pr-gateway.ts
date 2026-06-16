@@ -9,6 +9,7 @@ import { commandFailure } from "./command-failure.ts";
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
 const DIFF_TIMEOUT_MS = 60_000;
+const PATCH_ID_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
 
 export interface GithubPrDetails {
@@ -30,6 +31,7 @@ export interface GithubPrGateway {
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
 	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>>;
 	getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
+	stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
 	editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>>;
 }
 
@@ -89,6 +91,28 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		});
 		if (failure !== undefined) return err(failure);
 		return ok(result.stdout);
+	}
+
+	async stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<string>> {
+		const diff = await this.getPrDiff(params);
+		if (!diff.ok) return diff;
+
+		const args = ["patch-id", "--stable"];
+		const result = await this.runner("git", args, { cwd: params.cwd, timeout: PATCH_ID_TIMEOUT_MS, stdin: diff.value });
+		const failure = commandFailure({
+			command: "git",
+			args,
+			result,
+			code: "git_patch_id_failed",
+			message: `Could not compute stable patch id for PR #${params.number}.`,
+		});
+		if (failure !== undefined) return err(failure);
+
+		const patchId = result.stdout.trim().split(/\s+/, 1)[0] ?? "";
+		if (patchId === "") {
+			return err({ code: "git_patch_id_parse_failed", message: `Stable patch-id output for PR #${params.number} was empty or malformed.` });
+		}
+		return ok(patchId);
 	}
 
 	async editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>> {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
@@ -14,6 +15,9 @@ import { selectPrDescriptionModelRef, type TextGenerationGateway } from "./text-
 export const PR_DESCRIPTION_PROMPT_ENV = "ASDL_DEV_PR_DESCRIPTION_PROMPT";
 export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".asdl/prompts/pr-description.md";
 export const GENERATED_BODY_MARKER = "<!-- generated-by: asdl-dev pr-description v1 -->";
+export const MANAGED_BODY_BEGIN_MARKER = "<!-- asdl-pr-description:begin";
+export const MANAGED_BODY_END_MARKER = "<!-- asdl-pr-description:end -->";
+export const PR_DESCRIPTION_GENERATOR_VERSION = "asdl-pr-description-v2";
 export const MAX_DIFF_CHARS = 1_000_000;
 
 const LOCKFILE_BASENAMES = new Set(["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "uv.lock", "poetry.lock", "Cargo.lock"]);
@@ -123,6 +127,18 @@ export interface ParsedPrDescription {
 	body: string;
 }
 
+export interface PrDescriptionFingerprintMetadata {
+	version: "2";
+	patchId: string;
+	promptHash: string;
+	generator: string;
+}
+
+export type ManagedGeneratedRegionParseResult =
+	| { type: "found"; metadata: PrDescriptionFingerprintMetadata; body: string; start: number; end: number }
+	| { type: "missing" }
+	| { type: "malformed"; reason: string };
+
 export type PrDescriptionValidationIssue =
 	| { type: "empty_title" }
 	| { type: "title_too_long"; length: number; maxLength: number }
@@ -138,7 +154,49 @@ export type PreparedPrDescription =
 	| { ok: false; error: string };
 
 export function hasGeneratedMarker(body: string): boolean {
-	return body.includes(GENERATED_BODY_MARKER);
+	return body.includes(GENERATED_BODY_MARKER) || body.includes(MANAGED_BODY_BEGIN_MARKER);
+}
+
+export function hashPrDescriptionPrompt(promptText: string): string {
+	return `sha256:${createHash("sha256").update(promptText).digest("hex")}`;
+}
+
+export function formatManagedGeneratedRegion(body: string, metadata: PrDescriptionFingerprintMetadata): string {
+	const begin = `${MANAGED_BODY_BEGIN_MARKER} version=${metadata.version} patch-id=${metadata.patchId} prompt=${metadata.promptHash} generator=${metadata.generator} -->`;
+	return [begin, "<details open>", "<summary>Generated PR description</summary>", "", body.trim(), "", "</details>", MANAGED_BODY_END_MARKER].join("\n");
+}
+
+export function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
+	const beginIndex = body.indexOf(MANAGED_BODY_BEGIN_MARKER);
+	if (beginIndex === -1) return { type: "missing" };
+	const beginEndIndex = body.indexOf("-->", beginIndex);
+	if (beginEndIndex === -1) return { type: "malformed", reason: "managed region begin marker is unterminated" };
+	const endIndex = body.indexOf(MANAGED_BODY_END_MARKER, beginEndIndex + 3);
+	if (endIndex === -1) return { type: "malformed", reason: "managed region end marker is missing" };
+	const afterEnd = endIndex + MANAGED_BODY_END_MARKER.length;
+	const beginComment = body.slice(beginIndex, beginEndIndex + 3);
+	const metadata = parseManagedRegionMetadata(beginComment);
+	if (metadata === undefined) return { type: "malformed", reason: "managed region metadata is invalid" };
+	return {
+		type: "found",
+		metadata,
+		body: extractManagedRegionBody(body.slice(beginEndIndex + 3, endIndex)),
+		start: beginIndex,
+		end: afterEnd,
+	};
+}
+
+export function replaceOrInsertGeneratedRegion(existingBody: string, generatedBody: string, metadata: PrDescriptionFingerprintMetadata): string {
+	const region = formatManagedGeneratedRegion(generatedBody, metadata);
+	const parsed = parseManagedGeneratedRegion(existingBody);
+	if (parsed.type === "found" || parsed.type === "malformed") {
+		return `${existingBody.slice(0, parsed.type === "found" ? parsed.start : existingBody.indexOf(MANAGED_BODY_BEGIN_MARKER)).trimEnd()}\n\n${region}\n\n${existingBody.slice(parsed.type === "found" ? parsed.end : existingBody.length).trimStart()}`.trim();
+	}
+	if (existingBody.includes(GENERATED_BODY_MARKER)) {
+		return region;
+	}
+	const trimmedExisting = existingBody.trim();
+	return trimmedExisting === "" ? region : `${region}\n\n${trimmedExisting}`;
 }
 
 export function isCommitMessagePrefillBody(body: string, commits: readonly PrCommitMessage[]): boolean {
@@ -320,6 +378,28 @@ function formatCommitMessages(messages: readonly PrCommitMessage[]): string {
 		.map((message) => message.headline.trim())
 		.filter((message) => message !== "")
 		.join("\n\n---\n\n");
+}
+
+function parseManagedRegionMetadata(comment: string): PrDescriptionFingerprintMetadata | undefined {
+	const fields = new Map<string, string>();
+	for (const match of comment.matchAll(/([a-z-]+)=([^\s>]+)/g)) {
+		const key = match[1];
+		const value = match[2];
+		if (key === undefined || value === undefined) continue;
+		fields.set(key, value);
+	}
+	const version = fields.get("version");
+	const patchId = fields.get("patch-id");
+	const promptHash = fields.get("prompt");
+	const generator = fields.get("generator");
+	if (version !== "2" || patchId === undefined || promptHash === undefined || generator === undefined) return undefined;
+	return { version, patchId, promptHash, generator };
+}
+
+function extractManagedRegionBody(regionContents: string): string {
+	const normalized = regionContents.replace(/\r/g, "");
+	const match = normalized.match(/<details open>\n<summary>Generated PR description<\/summary>\n\n([\s\S]*?)\n\n<\/details>/);
+	return match?.[1]?.trim() ?? normalized.trim();
 }
 
 function isLockfileDiffSection(section: string): boolean {

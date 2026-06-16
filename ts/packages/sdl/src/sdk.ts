@@ -9,6 +9,7 @@ export type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult
 
 export interface ExecOptions {
 	timeoutMs?: number;
+	stdin?: string | undefined;
 	onStdout?: ((text: string) => void) | undefined;
 	onStderr?: ((text: string) => void) | undefined;
 }
