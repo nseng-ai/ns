@@ -13,7 +13,7 @@ import {
 	type FeedbackPlanInformationalItem,
 	type FeedbackPlanVoidedThreadItem,
 } from "./feedback-plan-contracts.ts";
-import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import {
 	type DecisionKind,
 	type StackFeedbackAutomationDiscussionSummary,
@@ -80,7 +80,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 	const validationSummary: StackFeedbackPlanValidationSummary = {
 		all_valid: validations.every(({ validation }) => validation.valid),
 		per_pr: validations.map(({ prResult, validation }) => ({
-			pr_number: pythonOrPrNumber(validation.pr_number, prResult.pr_number),
+			pr_number: validationPrNumberOrFallback(validation.pr_number, prResult.pr_number),
 			valid: validation.valid,
 			counts: validation.counts,
 			errors: validation.errors,
@@ -117,12 +117,12 @@ function classificationsByPr(payload: StackFeedbackPlanInput): { type: "ok"; val
 	const expectedPrs = new Set(payload.prep.stack.map((item) => item.pr_number));
 	const actualPrs = payload.classifications.map((item) => item.pr_number);
 	const duplicatePrs = duplicateValues(actualPrs);
-	if (duplicatePrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications contain duplicate PR numbers: ${pythonTupleRepr(duplicatePrs)}` };
+	if (duplicatePrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications contain duplicate PR numbers: ${tupleRepr(duplicatePrs)}` };
 	const actualPrSet = new Set(actualPrs);
 	const missingPrs = payload.prep.stack.map((item) => item.pr_number).filter((prNumber) => !actualPrSet.has(prNumber));
-	if (missingPrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications missing PR numbers: ${pythonTupleRepr(missingPrs)}` };
+	if (missingPrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications missing PR numbers: ${tupleRepr(missingPrs)}` };
 	const unknownPrs = actualPrs.filter((prNumber) => !expectedPrs.has(prNumber));
-	if (unknownPrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications contain unknown PR numbers: ${pythonTupleRepr(unknownPrs)}` };
+	if (unknownPrs.length > 0) return { type: "error", message: `stack-feedback-plan classifications contain unknown PR numbers: ${tupleRepr(unknownPrs)}` };
 	return { type: "ok", value: new Map(payload.classifications.map((item) => [item.pr_number, item.classification])) };
 }
 
@@ -471,18 +471,8 @@ function compactInformationalSummary(informational: readonly StackFeedbackPlanIn
 	};
 }
 
-/** Mirror Python's `validation.pr_number or pr_result.pr_number` truthiness fallback, including 0. */
-function pythonOrPrNumber(validationPrNumber: number | null, fallbackPrNumber: number): number {
+/** Preserve the historical wire contract: null or 0 validation PR numbers fall back to the PR result number. */
+function validationPrNumberOrFallback(validationPrNumber: number | null, fallbackPrNumber: number): number {
 	if (validationPrNumber === null || validationPrNumber === 0) return fallbackPrNumber;
 	return validationPrNumber;
-}
-
-function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

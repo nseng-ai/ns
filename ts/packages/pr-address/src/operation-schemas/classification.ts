@@ -97,7 +97,7 @@ export const classificationTemplateResultDocSchema = z.object({
 	classification_template: classificationTemplatePacketSchema,
 });
 
-// --- classification request schemas (legacy template builders) --------------------
+// --- classification request schemas (template builders) ---------------------------
 
 const nullableCliStringSchema = z.string().nullable().default(null);
 

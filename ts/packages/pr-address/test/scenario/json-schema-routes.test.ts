@@ -4,20 +4,18 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-
-import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
+import { collectSchemaContractMismatches } from "../support/json-schema-contract.ts";
 import { EXEC_OPERATION_NAMES } from "../support/operation-names.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 
-// Operations whose schema documents were ported in this slice and must hold
-// structural semantic parity with the captured Python (Pydantic) fixtures.
-// Fixture input schemas for stack-feedback-diff-current,
+// Operations whose schema documents are locked against captured schema contract
+// fixtures. Fixture input schemas for stack-feedback-diff-current,
 // build-stack-resolve-thread-payloads, and build-resolve-thread-batch-payload
 // additionally carry TypeScript-owned option fields (payload_file and artifact
-// reference options) that intentionally extend the original Python contract.
-const PARITY_OPERATIONS = [
+// reference options) that intentionally extend the operation contract.
+const CONTRACT_LOCKED_OPERATIONS = [
 	"build-resolve-thread-batch-payload",
 	"build-stack-resolve-thread-payloads",
 	"finalize-run",
@@ -34,13 +32,12 @@ const PARITY_OPERATIONS = [
 ] as const;
 
 // The classification trio shipped TypeScript-owned schema documents before this
-// slice with looser zod contracts; they are asserted as TS-served here but are
-// not held to the structural parity bar (pre-existing dialect/coverage gaps).
+// sweep with looser zod contracts; they are asserted as TS-served here but are
+// not held to the structural contract comparator (pre-existing dialect/coverage gaps).
 const PRE_EXISTING_TS_SCHEMA_OPERATIONS = ["classification-template", "validate-feedback-classification", "plan-feedback"] as const;
 
-// TypeScript-owned operations with no current Python parity contract. This
-// includes helpers whose harness-session input contract intentionally diverged
-// from the captured Python fixtures.
+// TypeScript-owned operations that are checked by exact captured fixtures rather
+// than the structural contract comparator.
 const TS_ONLY_OPERATIONS = ["get-feedback", "map-branch-prs", "prepare-run", "record-batch-checkpoint", "stack-feedback-plan", "stack-feedback-preflight", "stack-feedback-prep", "stack-feedback-thread-state"] as const;
 
 async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
@@ -60,23 +57,23 @@ async function serveSchemaDocument(operation: string): Promise<Record<string, un
 describe("pr-address exec --json-schema routes", () => {
 	test("the sweep covers every registered exec operation exactly once", () => {
 		// Total-coverage guard: a new operation cannot ship without joining one
-		// of the sweep buckets, so no --json-schema route can silently regress
-		// to the legacy CLI.
-		const sweepNames = [...PARITY_OPERATIONS, ...PRE_EXISTING_TS_SCHEMA_OPERATIONS, ...TS_ONLY_OPERATIONS].sort();
+		// of the sweep buckets, so every --json-schema route stays covered by
+		// the TypeScript schema registry.
+		const sweepNames = [...CONTRACT_LOCKED_OPERATIONS, ...PRE_EXISTING_TS_SCHEMA_OPERATIONS, ...TS_ONLY_OPERATIONS].sort();
 		expect(sweepNames).toEqual([...EXEC_OPERATION_NAMES].sort());
 	});
 
-	for (const operation of PARITY_OPERATIONS) {
-		test(`${operation} serves a TypeScript schema document with structural parity to Python`, async () => {
+	for (const operation of CONTRACT_LOCKED_OPERATIONS) {
+		test(`${operation} serves a TypeScript schema document matching the captured schema contract`, async () => {
 			const document = await serveSchemaDocument(operation);
 			const fixture = await readFixture(operation);
-			expect(collectSchemaParityMismatches(document["input_json_schema"], fixture.input_json_schema)).toEqual([]);
-			expect(collectSchemaParityMismatches(document["output_json_schema"], fixture.output_json_schema)).toEqual([]);
+			expect(collectSchemaContractMismatches(document["input_json_schema"], fixture.input_json_schema)).toEqual([]);
+			expect(collectSchemaContractMismatches(document["output_json_schema"], fixture.output_json_schema)).toEqual([]);
 		});
 	}
 
 	for (const operation of PRE_EXISTING_TS_SCHEMA_OPERATIONS) {
-		test(`${operation} serves its schema document without legacy fallback`, async () => {
+		test(`${operation} serves its schema document from the TypeScript registry`, async () => {
 			await serveSchemaDocument(operation);
 		});
 	}
@@ -89,7 +86,7 @@ describe("pr-address exec --json-schema routes", () => {
 		});
 	}
 
-	test("--json-schema short-circuits before argument validation like the eager Python flag", async () => {
+	test("--json-schema short-circuits before argument validation", async () => {
 		const run = runScenario(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;

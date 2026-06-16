@@ -81,7 +81,7 @@ async function writeRawArtifact(root: string, artifact: PayloadArtifactSpec, clo
 	return expectOk(await store.writeJsonArtifact({ descriptor: artifact.descriptor, role: "raw", payload: artifact.payload }));
 }
 
-describe("get-feedback payload mode parity with the Python CLI", () => {
+describe("get-feedback payload mode contract", () => {
 	test("writes the raw payload artifact and emits the payload manifest envelope byte-for-byte", async () => {
 		const root = await makePayloadRoot();
 		const github = new InMemoryPrAddressGitHubGateway({
@@ -101,7 +101,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 		expect(await readFile(join(root, getFeedbackFixture.artifact_relative_path), "utf8")).toBe(getFeedbackFixture.expected_artifact_text);
 	});
 
-	test("fails with the Python harness_session_required envelope when no session id is available", async () => {
+	test("fails with the harness_session_required envelope when no session id is available", async () => {
 		const root = await makePayloadRoot();
 		const run = runScenario(["exec", "get-feedback", String(getFeedbackFixture.pr_number), "--format", "json", "--stdout-mode", "full"], {
 			github: new InMemoryPrAddressGitHubGateway(),
@@ -130,7 +130,7 @@ describe("get-feedback payload mode parity with the Python CLI", () => {
 	});
 });
 
-describe("read-feedback-details parity with the Python CLI", () => {
+describe("read-feedback-details golden contract", () => {
 	async function seedDetailsRoot(): Promise<string> {
 		const root = await makePayloadRoot();
 		for (const artifact of readFeedbackDetailsFixture.artifacts) {

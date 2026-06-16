@@ -55,20 +55,18 @@ import {
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
 //
 // Schema document builders are organized in operation-schemas/ subdirectory:
-// - classification.ts: classification trio (template, validate, plan) — legacy TS-owned schemas
-// - collection.ts, mutation.ts, payload.ts, stack.ts: parity-pinned operation schemas
+// - classification.ts: classification trio (template, validate, plan) — early TS-owned schemas
+// - collection.ts, mutation.ts, payload.ts, stack.ts: contract-pinned operation schemas
 //
-// Parity-pinned schemas mirror the legacy Python (Pydantic) request/result contracts at the
-// structural-semantic level: property sets, required-ness, types, enums, and explicit
-// nullability match the Python documents, while dialect details (titles, `$defs`
-// naming, integer bounds) may differ. Parity is enforced against captured Python
-// fixtures in `test/scenario/json-schema-routes.test.ts`.
+// Contract-pinned schemas are checked at the structural-semantic level: property
+// sets, required-ness, types, enums, explicit nullability, and object openness are
+// locked against captured schema contract fixtures in `test/scenario/json-schema-routes.test.ts`.
+// Dialect details such as titles, `$defs` naming, and integer bounds may differ.
 //
 // Conventions:
-// - Pydantic `ClinkrModel` / `BaseModel(extra="forbid")` mirrors use `z.object`
-//   (emits `additionalProperties: false`).
-// - Pydantic dataclass mirrors (gh/git types) use `z.looseObject` (open objects).
-// - Fields with Python defaults use `.optional()`; explicit-null fields use `.nullable()`.
+// - Closed request/result objects use `z.object` (emits `additionalProperties: false`).
+// - Open gateway-shaped records use `z.looseObject`.
+// - Fields with defaults use `.optional()`; explicit-null fields use `.nullable()`.
 
 // --- document registry --------------------------------------------------------------
 

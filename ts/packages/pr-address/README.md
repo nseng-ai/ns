@@ -18,7 +18,7 @@ TypeScript-managed local `exec` operation execution:
 - Batch checkpoint recovery: `record-batch-checkpoint` (validation plus checkpoint artifact writing)
 - Composite run preparation and summary: `prepare-run` (inline and default payload-artifact modes, contested-thread reopen, restructured-files detection) and `summarize-feedback`
 - Mutation helpers: `resolve-thread-with-reply`, `resolve-thread-batch`, `reply-to-review`, `reply-to-discussion`
-- JSON Schema documents: `--json-schema` for every exec operation is served by TypeScript (`src/operation-schemas/index.ts`), with structural semantic parity against captured Python fixtures (`test/fixtures/json-schemas/`)
+- JSON Schema documents: `--json-schema` for every exec operation is served by TypeScript (`src/operation-schemas/index.ts`), with structural semantic checks against captured schema contract fixtures (`test/fixtures/json-schemas/`)
 
 Argv usage errors (unknown/missing options, excess arguments, non-integer values, invalid `--payload-mode`/`--stdout-mode`/`--format` choices) are rendered by commander in TypeScript as raw stderr exit-2 errors.
 

@@ -31,7 +31,7 @@ describe("pr-address Node runtime CLI entrypoint", () => {
 		expect(result.stdout).toContain("Usage: pr-address");
 		expect(result.stdout).toContain("--runtime");
 		// PINNED CLINKR SEMANTICS: the hidden exec subgroup is omitted from
-		// top-level help (Python parity) while staying invocable.
+		// top-level help while staying invocable.
 		expect(result.stdout).not.toContain("exec");
 	});
 

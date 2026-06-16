@@ -27,7 +27,7 @@ function expectOk<T>(result: PayloadResult<T>): T {
 }
 
 /**
- * Schema drift guards: verify that parity-frozen result schemas from
+ * Schema drift guards: verify that contract-frozen result schemas from
  * operation-schemas/ still parse representative runtime outputs from golden files
  * or scenario runs.
  *

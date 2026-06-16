@@ -12,7 +12,7 @@ const classificationTemplateCases = await goldenCases("classification-template")
 const validationCases = await goldenCases("validate-feedback-classification");
 const planningCases = await goldenCases("plan-feedback");
 
-describe("classification-template TypeScript parity", () => {
+describe("classification-template golden contract", () => {
 	for (const goldenCase of classificationTemplateCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);
@@ -31,7 +31,7 @@ describe("classification-template TypeScript parity", () => {
 	}
 });
 
-describe("validate-feedback-classification TypeScript parity", () => {
+describe("validate-feedback-classification golden contract", () => {
 	for (const goldenCase of validationCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = asWrapperInput(await readJson(goldenCase.inputPath));
@@ -42,7 +42,7 @@ describe("validate-feedback-classification TypeScript parity", () => {
 	}
 });
 
-describe("plan-feedback TypeScript parity", () => {
+describe("plan-feedback golden contract", () => {
 	for (const goldenCase of planningCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = asWrapperInput(await readJson(goldenCase.inputPath));

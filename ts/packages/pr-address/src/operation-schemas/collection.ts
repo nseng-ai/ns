@@ -16,8 +16,8 @@ import {
 } from "./shared.ts";
 
 // --- map-branch-prs ---------------------------------------------------------------
-// TypeScript-only operation: no Python contract exists; the schema document is
-// TypeScript-owned and its fixture is captured from `--json-schema` output.
+// TypeScript-owned operation: the schema document and fixture are captured from
+// `--json-schema` output.
 
 export const mapBranchPrsRequestSchema = stdoutModeRequestSchema.extend({
 	branches_json: z.string().optional(),

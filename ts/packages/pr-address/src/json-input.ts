@@ -65,37 +65,6 @@ export interface LoadArtifactReferenceOptions<T> {
 	store?: PayloadArtifactStore | undefined;
 }
 
-export interface ResolveXorSourceInputOptions<T> {
-	commandName: string;
-	embeddedValue: T | undefined;
-	embeddedKey: string;
-	referencePath: string | undefined;
-	optionName: string;
-	artifactDescription: string;
-	referenceSchema: z.ZodType<T>;
-	inputName?: string | undefined;
-	store?: PayloadArtifactStore | undefined;
-}
-
-export interface OperationPayloadField<TPayload extends object, TKey extends keyof TPayload & string> {
-	key: TKey;
-	artifactDescription: string;
-	referenceSchema: z.ZodType<TPayload[TKey]>;
-	inputName?: string | undefined;
-}
-
-export interface LoadOperationPayloadOptions<TPayload extends object> {
-	commandName: string;
-	inputDescription: string;
-	payloadSchema: z.ZodType<TPayload>;
-	/** Parsed clinkr request record; payload sources read snake_case keys. */
-	request: Readonly<Record<string, unknown>>;
-	stdin: () => Promise<string>;
-	fields: readonly OperationPayloadField<TPayload, keyof TPayload & string>[];
-	store?: PayloadArtifactStore | undefined;
-	canOmitPayloadWhenAllFieldsReferenced?: boolean | undefined;
-}
-
 /**
  * Read and validate a store-owned artifact referenced by a CLI path option.
  * Validation is structural only: references may come from any payload session,
@@ -129,110 +98,6 @@ export async function loadArtifactReference<T>(options: LoadArtifactReferenceOpt
 	});
 }
 
-/** Resolve one input from exactly one source: an embedded payload key or its reference option. */
-export async function resolveXorSourceInput<T>(options: ResolveXorSourceInputOptions<T>): Promise<JsonInputResult<T>> {
-	const inputName = options.inputName ?? options.embeddedKey;
-	if (options.referencePath === undefined) {
-		if (options.embeddedValue === undefined) {
-			return {
-				type: "error",
-				error: {
-					errorType: "invalid_request",
-					message: `${options.commandName} requires a ${inputName} input via the payload ${options.embeddedKey} key or ${options.optionName}.`,
-				},
-			};
-		}
-		return { type: "ok", value: options.embeddedValue };
-	}
-	if (options.embeddedValue !== undefined) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_request",
-				message: `${options.commandName} cannot mix an embedded ${options.embeddedKey} payload key with ${options.optionName}; pass exactly one ${inputName} source.`,
-			},
-		};
-	}
-	return await loadArtifactReference({
-		filePath: options.referencePath,
-		commandName: options.commandName,
-		optionName: options.optionName,
-		artifactDescription: options.artifactDescription,
-		schema: options.referenceSchema,
-		store: options.store,
-	});
-}
-
-/** Flag spelling for a payload-field reference; used in error wording. */
-export function operationPayloadReferenceOption(key: string): `--${string}` {
-	return `--${key.replaceAll("_", "-")}-reference`;
-}
-
-/** Parsed-request key for a payload-field reference (snake_case, clinkr-derived). */
-export function operationPayloadReferenceKey(key: string): string {
-	return `${key}_reference`;
-}
-
-export async function loadOperationPayload<TPayload extends object>(
-	options: LoadOperationPayloadOptions<TPayload>,
-): Promise<JsonInputResult<TPayload>> {
-	const payloadJson = stringRequestField(options.request, "payload_json");
-	const payloadFile = stringRequestField(options.request, "payload_file");
-	const hasPayloadOption = payloadJson !== undefined || payloadFile !== undefined;
-	const hasAllReferences =
-		options.fields.length > 0 &&
-		options.fields.every((field) => stringRequestField(options.request, operationPayloadReferenceKey(field.key)) !== undefined);
-	const shouldLoadPayload = hasPayloadOption || (options.canOmitPayloadWhenAllFieldsReferenced !== true || !hasAllReferences);
-	const resolvedPayload: Record<string, unknown> = {};
-	if (shouldLoadPayload) {
-		const payloadResult = await loadJsonInput({
-			optionValue: payloadJson,
-			filePath: payloadFile,
-			commandName: options.commandName,
-			inputDescription: options.inputDescription,
-			optionName: "--payload-json",
-			fileOptionName: "--payload-file",
-			schema: options.payloadSchema,
-			stdin: options.stdin,
-		});
-		if (payloadResult.type === "error") return payloadResult;
-		Object.assign(resolvedPayload, payloadResult.value);
-	}
-	for (const field of options.fields) {
-		const result = await resolveXorSourceInput({
-			commandName: options.commandName,
-			embeddedValue: resolvedPayload[field.key],
-			embeddedKey: field.key,
-			referencePath: stringRequestField(options.request, operationPayloadReferenceKey(field.key)),
-			optionName: operationPayloadReferenceOption(field.key),
-			artifactDescription: field.artifactDescription,
-			referenceSchema: field.referenceSchema,
-			inputName: field.inputName,
-			store: options.store,
-		});
-		if (result.type === "error") return result;
-		resolvedPayload[field.key] = result.value;
-	}
-	// Validate assembled payload. Every field was individually validated, so this
-	// should never fail unless field specs disagree with payload schema (programmer error).
-	const finalParseResult = options.payloadSchema.safeParse(resolvedPayload);
-	if (!finalParseResult.success) {
-		throw new Error(`Operation payload schema rejected individually-validated fields: ${z.prettifyError(finalParseResult.error)}`);
-	}
-	// All fields in the fields list were resolved and must be present in the validated data.
-	for (const field of options.fields) {
-		if (!(field.key in finalParseResult.data)) {
-			throw new Error(`Operation payload field ${field.key} missing after validation despite successful field resolution.`);
-		}
-	}
-	return { type: "ok", value: finalParseResult.data };
-}
-
-function stringRequestField(request: Readonly<Record<string, unknown>>, key: string): string | undefined {
-	const value = request[key];
-	return typeof value === "string" ? value : undefined;
-}
-
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {
 	const textResult = await readJsonInputText(options);
 	if (textResult.type === "error") return textResult;
@@ -249,7 +114,7 @@ export interface LoadJsonRecordOptions extends ReadJsonInputTextOptions {}
 
 /**
  * Load JSON input that must be a record/object.
- * Preserves legacy "JSON must be an object" error wording for byte-level fixture stability.
+ * Preserves the pinned "JSON must be an object" error wording for byte-level fixture stability.
  */
 export async function loadJsonRecord(options: LoadJsonRecordOptions): Promise<JsonInputResult<Record<string, unknown>>> {
 	const textResult = await readJsonInputText(options);

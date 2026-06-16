@@ -42,7 +42,7 @@ export function fakePrAddressContext(
 /**
  * PINNED FAKE ERROR STRINGS. Envelope fixtures and golden expectations embed
  * these literals byte-for-byte (e.g. fixtures/summarize-feedback/*.json,
- * fixtures/prepare-run/*.json); renaming the values breaks parity pins.
+ * fixtures/prepare-run/*.json); renaming the values breaks golden pins.
  */
 const FAKE_GH_AUTH_FAILED_STDERR = "gh auth failed";
 const FAKE_PR_LOOKUP_MISS_STDERR = "no PR found";
@@ -319,7 +319,7 @@ function lookupMiss(): PRLookupMiss {
 	return { type: "miss", stderr: FAKE_PR_LOOKUP_MISS_STDERR, returncode: 1 };
 }
 
-/** Mirrors the Python FakePRGateway miss text for number-keyed PR lookups. */
+/** Preserves the pinned fake miss text for number-keyed PR lookups. */
 function prLookupMiss(prNumber: number): PRLookupMiss {
 	return { type: "miss", stderr: fakePrLookupMissStderr(prNumber), returncode: 1 };
 }

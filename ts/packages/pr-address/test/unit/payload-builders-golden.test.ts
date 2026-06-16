@@ -17,7 +17,7 @@ const buildResolveThreadBatchPayloadCases = await goldenCases("build-resolve-thr
 const recordBatchCheckpointCases = await goldenCases("record-batch-checkpoint");
 const finalizeRunCases = await goldenCases("finalize-run");
 
-describe("payload manifest TypeScript parity", () => {
+describe("payload manifest golden contract", () => {
 	for (const goldenCase of getFeedbackPayloadManifestCases) {
 		test(`get-feedback payload manifest matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);
@@ -39,7 +39,7 @@ describe("payload manifest TypeScript parity", () => {
 	}
 });
 
-describe("resolve-thread batch payload TypeScript parity", () => {
+describe("resolve-thread batch payload golden contract", () => {
 	for (const goldenCase of buildResolveThreadBatchPayloadCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);
@@ -50,7 +50,7 @@ describe("resolve-thread batch payload TypeScript parity", () => {
 	}
 });
 
-describe("batch checkpoint TypeScript helper parity", () => {
+describe("batch checkpoint TypeScript helper golden contract", () => {
 	for (const goldenCase of recordBatchCheckpointCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);
@@ -61,7 +61,7 @@ describe("batch checkpoint TypeScript helper parity", () => {
 	}
 });
 
-describe("finalize-run TypeScript parity", () => {
+describe("finalize-run golden contract", () => {
 	for (const goldenCase of finalizeRunCases) {
 		test(`matches golden ${goldenCase.name}`, async () => {
 			const input = await readJson(goldenCase.inputPath);

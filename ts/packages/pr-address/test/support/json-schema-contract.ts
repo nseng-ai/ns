@@ -1,9 +1,9 @@
-// Structural JSON Schema comparator for pr-address `--json-schema` parity tests.
+// Structural JSON Schema comparator for pr-address `--json-schema` contract tests.
 //
-// Compares a TypeScript-emitted (zod) schema document against a captured Python
-// (Pydantic) fixture at the structural-semantic level: property sets, required-ness,
-// types, enums/consts, array items, nullability, object strictness
-// (`additionalProperties: false`), and record key/value shapes must match.
+// Compares an emitted schema document against a captured contract fixture at the
+// structural-semantic level: property sets, required-ness, types, enums/consts,
+// array items, nullability, object strictness (`additionalProperties: false`),
+// and record key/value shapes must match.
 //
 // Accepted dialect differences that are deliberately ignored:
 // - `title`, `description`, `default`, `examples`, `$schema`
@@ -50,7 +50,7 @@ type CanonicalSchema = SchemaAtom[];
 
 const IGNORED_KEYS = new Set(["title", "description", "default", "examples", "$schema", "minimum", "maximum", "discriminator"]);
 
-export function collectSchemaParityMismatches(actual: unknown, expected: unknown): string[] {
+export function collectSchemaContractMismatches(actual: unknown, expected: unknown): string[] {
 	const mismatches: string[] = [];
 	const actualCanonical = canonicalize({ node: actual, defs: rootDefs(actual), side: "actual" });
 	const expectedCanonical = canonicalize({ node: expected, defs: rootDefs(expected), side: "expected" });

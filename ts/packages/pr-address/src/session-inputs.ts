@@ -40,56 +40,6 @@ export type OperationResult<T, TErrorType extends string = JsonInputError["error
 	| { type: "ok"; value: T }
 	| ({ type: "error" } & OperationInputError<TErrorType>);
 
-export type OperationInputSourceKind = "explicit" | "stdin" | "session";
-
-export interface ResolvedSourceInput<T> {
-	source: OperationInputSourceKind;
-	value: T;
-}
-
-export type StdinInputPolicy<T> =
-	| { type: "payload"; read: () => Promise<string> }
-	| { type: "inline_json"; read: () => Promise<string>; resolveInlineJson: (stdinText: string) => OperationResult<T, string> | Promise<OperationResult<T, string>> };
-
-export async function resolveExplicitOrSelectedSessionInput<T>(options: {
-	commandName: string;
-	explicitSource: { hasExplicitSource: boolean; description: string; resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> };
-	sessionSource: { isSelected: boolean; description: string; resolve: () => Promise<OperationResult<T, string>> };
-	stdin?: { read: () => Promise<string> } | undefined;
-	defaultSource: "explicit" | "error";
-	mixInputMessage?: string | undefined;
-	missingInputMessage?: string | undefined;
-}): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
-	if (options.explicitSource.hasExplicitSource && options.sessionSource.isSelected) {
-		return { type: "error", errorType: "invalid_request", message: options.mixInputMessage ?? defaultMixInputMessage(options) };
-	}
-	if (options.explicitSource.hasExplicitSource) return await resolveExplicitSource(options.explicitSource, options.stdin?.read ?? emptyStdin);
-	if (options.sessionSource.isSelected) return await resolveSessionSource(options.sessionSource);
-	if (options.stdin !== undefined) {
-		const stdinText = await options.stdin.read();
-		if (stdinText.trim() !== "") return await resolveExplicitSource(options.explicitSource, async () => stdinText, "stdin");
-		if (options.defaultSource === "explicit") return await resolveExplicitSource(options.explicitSource, async () => stdinText);
-	}
-	if (options.defaultSource === "explicit") return await resolveExplicitSource(options.explicitSource, emptyStdin);
-	return { type: "error", errorType: "invalid_request", message: options.missingInputMessage ?? defaultMissingInputMessage(options) };
-}
-
-export async function resolveExplicitStdinOrDefaultSessionInput<T>(options: {
-	explicitSource: { hasExplicitSource: boolean; resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> };
-	stdin: StdinInputPolicy<T>;
-	defaultSessionSource: { resolve: () => Promise<OperationResult<T, string>> };
-}): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
-	if (options.explicitSource.hasExplicitSource) return await resolveExplicitSource(options.explicitSource, options.stdin.read);
-	const stdinText = await options.stdin.read();
-	if (stdinText.trim() !== "") {
-		if (options.stdin.type === "payload") return await resolveExplicitSource(options.explicitSource, async () => stdinText, "stdin");
-		const result = await options.stdin.resolveInlineJson(stdinText);
-		if (result.type === "error") return result;
-		return { type: "ok", value: { source: "stdin", value: result.value } };
-	}
-	return await resolveSessionSource(options.defaultSessionSource);
-}
-
 export async function rejectNonEmptyStdin(options: { commandName: string; stdin: () => Promise<string> }): Promise<OperationResult<null, string>> {
 	const stdinText = await options.stdin();
 	if (stdinText.trim() === "") return { type: "ok", value: null };
@@ -98,44 +48,6 @@ export async function rejectNonEmptyStdin(options: { commandName: string; stdin:
 		errorType: "invalid_request",
 		message: `${options.commandName} no longer accepts JSON payloads on stdin; use payload-session artifacts instead.`,
 	};
-}
-
-async function resolveExplicitSource<T>(
-	explicitSource: { resolve: (stdin: () => Promise<string>) => Promise<OperationResult<T, string>> },
-	stdin: () => Promise<string>,
-	source: "explicit" | "stdin" = "explicit",
-): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
-	const result = await explicitSource.resolve(stdin);
-	if (result.type === "error") return result;
-	return { type: "ok", value: { source, value: result.value } };
-}
-
-async function resolveSessionSource<T>(sessionSource: { resolve: () => Promise<OperationResult<T, string>> }): Promise<OperationResult<ResolvedSourceInput<T>, string>> {
-	const result = await sessionSource.resolve();
-	if (result.type === "error") return result;
-	return { type: "ok", value: { source: "session", value: result.value } };
-}
-
-function defaultMixInputMessage<T>(options: {
-	commandName: string;
-	explicitSource: { description: string };
-	sessionSource: { description: string };
-}): string {
-	return `${options.commandName} cannot mix ${options.explicitSource.description} with ${options.sessionSource.description}; pass exactly one input source.`;
-}
-
-function defaultMissingInputMessage<T>(options: {
-	commandName: string;
-	explicitSource: { description: string };
-	sessionSource?: { description: string } | undefined;
-}): string {
-	const sessionDescription = options.sessionSource?.description;
-	const sources = sessionDescription === undefined ? options.explicitSource.description : `${options.explicitSource.description} or ${sessionDescription}`;
-	return `${options.commandName} requires an input source via ${sources}.`;
-}
-
-async function emptyStdin(): Promise<string> {
-	return "";
 }
 
 export type PrFeedbackSourceResolution =

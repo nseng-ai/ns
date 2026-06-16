@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { collectSchemaParityMismatches } from "../support/json-schema-parity.ts";
+import { collectSchemaContractMismatches } from "../support/json-schema-contract.ts";
 
 const baseObjectSchema = {
 	type: "object",
@@ -11,9 +11,9 @@ const baseObjectSchema = {
 	required: ["status"],
 };
 
-describe("json schema parity comparator", () => {
+describe("json schema contract comparator", () => {
 	test("reports property set mismatches", () => {
-		const mismatches = collectSchemaParityMismatches(
+		const mismatches = collectSchemaContractMismatches(
 			baseObjectSchema,
 			{
 				type: "object",
@@ -29,7 +29,7 @@ describe("json schema parity comparator", () => {
 	});
 
 	test("reports required, enum, and nested type mismatches", () => {
-		const mismatches = collectSchemaParityMismatches(
+		const mismatches = collectSchemaContractMismatches(
 			{
 				type: "object",
 				properties: {

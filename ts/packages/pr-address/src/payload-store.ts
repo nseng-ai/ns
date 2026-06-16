@@ -54,7 +54,7 @@ export interface PayloadStoreFactory {
 	openContainingArtifact(payloadPath: string, options?: { clock?: PayloadClock | undefined }): Promise<PayloadResult<PayloadArtifactStore>>;
 }
 
-/** Store-owned facts for a written payload artifact. Mirrors the Python `PayloadReference` wire shape. */
+/** Store-owned facts for a written payload artifact. This is the stable payload-reference wire shape. */
 export interface PayloadReference {
 	payload_path: string;
 	session_id: string;
@@ -98,10 +98,10 @@ export function isSafeSegment(value: string): boolean {
 	return SAFE_SEGMENT_PATTERN.test(value);
 }
 
-/** Throws on unsafe segments: descriptor safety is a programmer-error contract, mirroring Python's `ValueError`. */
+/** Throws on unsafe segments: descriptor safety is a programmer-error contract. */
 export function requireSafeSegment(value: string, options: { label: string }): string {
 	if (isSafeSegment(value)) return value;
-	throw new Error(`${options.label} must match safe segment pattern ${pythonRepr(SAFE_SEGMENT_PATTERN_TEXT)}: ${pythonRepr(value)}`);
+	throw new Error(`${options.label} must match safe segment pattern ${singleQuotedRepr(SAFE_SEGMENT_PATTERN_TEXT)}: ${singleQuotedRepr(value)}`);
 }
 
 export function defaultPayloadRoot(options: { tempDir?: string | undefined } = {}): string {
@@ -113,7 +113,7 @@ export function resolvePayloadRoot(options: { env?: NodeJS.ProcessEnv | undefine
 	const envValue = sourceEnv[ASDL_PAYLOAD_ROOT_ENV];
 	if (envValue === undefined || envValue === "") return { type: "ok", value: defaultPayloadRoot({ tempDir: options.tempDir }) };
 	if (isAbsolute(envValue)) return { type: "ok", value: envValue };
-	return payloadError("payload_root_invalid", `${ASDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${pythonRepr(envValue)}`);
+	return payloadError("payload_root_invalid", `${ASDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${singleQuotedRepr(envValue)}`);
 }
 
 export function resolveHarnessSessionId(
@@ -127,7 +127,7 @@ export function resolveHarnessSessionId(
 		return payloadError("harness_session_required", `Payload artifact mode requires ${HARNESS_SESSION_ID_ENV} from the harness or --harness-session-id.`);
 	}
 	if (isSafeSegment(harnessSessionId)) return { type: "ok", value: harnessSessionId };
-	return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${pythonRepr(harnessSessionId)}`);
+	return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${singleQuotedRepr(harnessSessionId)}`);
 }
 
 export function hasConfiguredPayloadSession(
@@ -171,7 +171,7 @@ export class PayloadStore implements PayloadArtifactStore {
 	static async open(options: OpenPayloadStoreOptions): Promise<PayloadResult<PayloadStore>> {
 		if (!isAbsolute(options.root)) return payloadError("payload_root_invalid", `Payload root must be an absolute path: ${options.root}`);
 		if (!isSafeSegment(options.sessionId)) {
-			return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${pythonRepr(options.sessionId)}`);
+			return payloadError("harness_session_invalid", `Harness session id must be a safe segment: ${singleQuotedRepr(options.sessionId)}`);
 		}
 
 		const sessionsDir = join(options.root, "sessions");
@@ -229,11 +229,11 @@ export class PayloadStore implements PayloadArtifactStore {
 	/** Write a JSON raw or summary artifact and return its payload reference. */
 	async writeJsonArtifact(options: { descriptor: string; role: JsonPayloadRole; payload: unknown }): Promise<PayloadResult<PayloadReference>> {
 		if (options.role !== "raw" && options.role !== "summary") {
-			throw new Error(`JSON artifact role must be 'raw' or 'summary': ${pythonRepr(String(options.role))}`);
+			throw new Error(`JSON artifact role must be 'raw' or 'summary': ${singleQuotedRepr(String(options.role))}`);
 		}
 		const serialized = serializeJsonPayload(options.payload);
 		if (serialized.type === "error") {
-			return payloadError("payload_write_failed", `Failed to serialize JSON payload for descriptor ${pythonRepr(options.descriptor)}: ${serialized.message}`);
+			return payloadError("payload_write_failed", `Failed to serialize JSON payload for descriptor ${singleQuotedRepr(options.descriptor)}: ${serialized.message}`);
 		}
 		return await this.writeArtifact({
 			descriptor: options.descriptor,
@@ -246,7 +246,7 @@ export class PayloadStore implements PayloadArtifactStore {
 
 	/** Write a text log artifact and return its payload reference. */
 	async writeTextArtifact(options: { descriptor: string; role: LogPayloadRole; text: string }): Promise<PayloadResult<PayloadReference>> {
-		if (options.role !== "log") throw new Error(`Text artifact role must be 'log': ${pythonRepr(String(options.role))}`);
+		if (options.role !== "log") throw new Error(`Text artifact role must be 'log': ${singleQuotedRepr(String(options.role))}`);
 		return await this.writeArtifact({
 			descriptor: options.descriptor,
 			role: options.role,
@@ -417,7 +417,7 @@ export async function validateContainedArtifactPath(payloadPath: string): Promis
 
 	const sessionId = basename(dirname(payloadDir));
 	if (!isSafeSegment(sessionId)) {
-		return payloadError("payload_lookup_failed", `Payload artifact session id must be a safe segment: ${pythonRepr(sessionId)}`);
+		return payloadError("payload_lookup_failed", `Payload artifact session id must be a safe segment: ${singleQuotedRepr(sessionId)}`);
 	}
 	if (basename(dirname(dirname(payloadDir))) !== "sessions") {
 		return payloadError("payload_lookup_failed", `Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`);
@@ -448,7 +448,7 @@ export async function readJsonPayloadArtifact(
 	const validated = await validateContainedArtifactPath(payloadPath);
 	if (validated.type === "error") return validated;
 	if (!allowedRoles.has(validated.value.role)) {
-		return payloadError("payload_lookup_failed", `Payload artifact role ${pythonRepr(validated.value.role)} is not allowed for this lookup: ${payloadPath}`);
+		return payloadError("payload_lookup_failed", `Payload artifact role ${singleQuotedRepr(validated.value.role)} is not allowed for this lookup: ${payloadPath}`);
 	}
 	if (validated.value.extension !== "json") {
 		return payloadError("payload_lookup_failed", `Payload artifact extension must be json: ${payloadPath}`);
@@ -516,7 +516,7 @@ export async function readJsonPayloadArtifactValue(
 export function resolveJsonPointer(document: unknown, pointer: string): PayloadResult<unknown> {
 	if (pointer === "") return { type: "ok", value: document };
 	if (!pointer.startsWith("/")) {
-		return payloadError("payload_lookup_failed", `JSON Pointer must be empty or start with '/': ${pythonRepr(pointer)}`);
+		return payloadError("payload_lookup_failed", `JSON Pointer must be empty or start with '/': ${singleQuotedRepr(pointer)}`);
 	}
 
 	let current: unknown = document;
@@ -524,9 +524,9 @@ export function resolveJsonPointer(document: unknown, pointer: string): PayloadR
 		const token = unescapePointerToken(rawToken, pointer);
 		if (token.type === "error") return token;
 		if (isJsonObject(current)) {
-			// Object.hasOwn mirrors Python dict membership; the `in` operator would also match prototype keys.
+			// Object.hasOwn keeps membership checks to own JSON object keys; the `in` operator would also match prototype keys.
 			if (!Object.hasOwn(current, token.value)) {
-				return payloadError("payload_lookup_failed", `JSON Pointer token ${pythonRepr(token.value)} was not found in object: ${pythonRepr(pointer)}`);
+				return payloadError("payload_lookup_failed", `JSON Pointer token ${singleQuotedRepr(token.value)} was not found in object: ${singleQuotedRepr(pointer)}`);
 			}
 			current = current[token.value];
 			continue;
@@ -537,13 +537,13 @@ export function resolveJsonPointer(document: unknown, pointer: string): PayloadR
 			if (index.value >= current.length) {
 				return payloadError(
 					"payload_lookup_failed",
-					`JSON Pointer array index ${index.value} is out of range for array of length ${current.length}: ${pythonRepr(pointer)}`,
+					`JSON Pointer array index ${index.value} is out of range for array of length ${current.length}: ${singleQuotedRepr(pointer)}`,
 				);
 			}
 			current = current[index.value];
 			continue;
 		}
-		return payloadError("payload_lookup_failed", `JSON Pointer cannot traverse scalar value at token ${pythonRepr(token.value)}: ${pythonRepr(pointer)}`);
+		return payloadError("payload_lookup_failed", `JSON Pointer cannot traverse scalar value at token ${singleQuotedRepr(token.value)}: ${singleQuotedRepr(pointer)}`);
 	}
 	return { type: "ok", value: current };
 }
@@ -841,11 +841,11 @@ function unescapePointerToken(token: string, pointer: string): PayloadResult<str
 		}
 		const escapeCharacter = token[index + 1];
 		if (escapeCharacter === undefined) {
-			return payloadError("payload_lookup_failed", `Invalid JSON Pointer escape in ${pythonRepr(pointer)}: trailing '~'`);
+			return payloadError("payload_lookup_failed", `Invalid JSON Pointer escape in ${singleQuotedRepr(pointer)}: trailing '~'`);
 		}
 		if (escapeCharacter === "0") result.push("~");
 		else if (escapeCharacter === "1") result.push("/");
-		else return payloadError("payload_lookup_failed", `Invalid JSON Pointer escape '~${escapeCharacter}' in ${pythonRepr(pointer)}`);
+		else return payloadError("payload_lookup_failed", `Invalid JSON Pointer escape '~${escapeCharacter}' in ${singleQuotedRepr(pointer)}`);
 		index += 2;
 	}
 	return { type: "ok", value: result.join("") };
@@ -853,14 +853,14 @@ function unescapePointerToken(token: string, pointer: string): PayloadResult<str
 
 function arrayIndexForToken(token: string, pointer: string): PayloadResult<number> {
 	if (token === "-") {
-		return payloadError("payload_lookup_failed", `JSON Pointer '-' token is not a valid array index: ${pythonRepr(pointer)}`);
+		return payloadError("payload_lookup_failed", `JSON Pointer '-' token is not a valid array index: ${singleQuotedRepr(pointer)}`);
 	}
 	if (token === "0") return { type: "ok", value: 0 };
 	if (token.startsWith("0")) {
-		return payloadError("payload_lookup_failed", `JSON Pointer array index must not contain leading zeroes: ${pythonRepr(pointer)}`);
+		return payloadError("payload_lookup_failed", `JSON Pointer array index must not contain leading zeroes: ${singleQuotedRepr(pointer)}`);
 	}
 	if (!/^[0-9]+$/.test(token)) {
-		return payloadError("payload_lookup_failed", `JSON Pointer array token is not a non-negative integer: ${pythonRepr(pointer)}`);
+		return payloadError("payload_lookup_failed", `JSON Pointer array token is not a non-negative integer: ${singleQuotedRepr(pointer)}`);
 	}
 	return { type: "ok", value: Number(token) };
 }
@@ -940,8 +940,8 @@ export function missingLatestJsonArtifactError(options: { sessionId: string; des
 }
 
 /**
- * Serialize JSON content byte-for-byte like Python `json.dumps(payload, indent=2) + "\n"`,
- * including `ensure_ascii` escaping of non-ASCII characters.
+ * Serialize JSON content for the shared payload-store contract: two-space JSON,
+ * trailing newline, and ASCII escaping of non-ASCII characters.
  */
 export function serializeJsonPayload(payload: unknown): { type: "ok"; text: string } | { type: "error"; message: string } {
 	let serialized: string | undefined;
@@ -1063,7 +1063,12 @@ function isErrnoCode(error: unknown, code: string): boolean {
 	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
 }
 
-
-export function pythonRepr(value: string): string {
+export function singleQuotedRepr(value: string): string {
 	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+}
+
+export function tupleRepr(values: ReadonlyArray<string | number>): string {
+	const parts = values.map((value) => (typeof value === "number" ? String(value) : singleQuotedRepr(value)));
+	if (parts.length === 1) return `(${parts[0]},)`;
+	return `(${parts.join(", ")})`;
 }

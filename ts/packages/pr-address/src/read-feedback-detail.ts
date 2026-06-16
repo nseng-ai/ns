@@ -11,6 +11,7 @@ import {
 	createNodePayloadStoreFactory,
 	readJsonPayloadArtifact,
 	resolveJsonPointer as resolvePayloadJsonPointer,
+	singleQuotedRepr,
 	type PayloadArtifactStore,
 	type PayloadClock,
 	type PayloadReference,
@@ -121,7 +122,7 @@ export async function readFeedbackDetail(options: {
 	store?: PayloadArtifactStore | undefined;
 }): Promise<{ type: "ok"; value: ReadFeedbackDetailResult } | { type: "error"; errorType: string; message: string }> {
 	const detailKind = detailKindForPointer(options.jsonPointer);
-	if (detailKind === null) return { type: "error", errorType: "invalid_request", message: `JSON Pointer is not an allowed PR feedback detail locator: ${pythonRepr(options.jsonPointer)}` };
+	if (detailKind === null) return { type: "error", errorType: "invalid_request", message: `JSON Pointer is not an allowed PR feedback detail locator: ${singleQuotedRepr(options.jsonPointer)}` };
 	if (!basename(options.payloadPath).endsWith(".raw.json")) {
 		return { type: "error", errorType: "payload_lookup_failed", message: `Payload artifact is not an allowed raw payload: ${options.payloadPath}` };
 	}
@@ -264,12 +265,12 @@ export async function readFeedbackDetails(options: {
 		return { type: "error", errorType: "invalid_request", message: `Duplicate JSON Pointer in read-feedback-details selection: ${duplicatePointer}` };
 	}
 
-	// Mirror Python ordering: validate every pointer's detail kind before reading the artifact.
+	// Pinned operation order validates every pointer's detail kind before reading the artifact.
 	const locators: Array<{ pointer: string; detailKind: DetailKind }> = [];
 	for (const pointer of selection.json_pointers) {
 		const detailKind = detailKindForPointer(pointer);
 		if (detailKind === null) {
-			return { type: "error", errorType: "invalid_request", message: `JSON Pointer is not an allowed PR feedback detail locator: ${pythonRepr(pointer)}` };
+			return { type: "error", errorType: "invalid_request", message: `JSON Pointer is not an allowed PR feedback detail locator: ${singleQuotedRepr(pointer)}` };
 		}
 		locators.push({ pointer, detailKind });
 	}
@@ -497,8 +498,4 @@ function detailKindForPointer(pointer: string): DetailKind | null {
 		if (item.pattern.test(pointer)) return item.detailKind;
 	}
 	return null;
-}
-
-function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 }

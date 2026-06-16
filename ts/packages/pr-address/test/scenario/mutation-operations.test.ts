@@ -11,7 +11,7 @@ import { fixedClock, runScenario } from "../support/run-scenario.ts";
 describe("mutation operations use fake gateways", () => {
 	test("mutation positional integers reject non-decimal forms before mutation", async () => {
 		// PINNED CLINKR SEMANTICS: strict-int rejection is a raw commander usage
-		// error (stderr, exit 2), never a machine envelope — click parity.
+		// error (stderr, exit 2), never a machine envelope.
 		const reviewGithub = new InMemoryPrAddressGitHubGateway();
 		const review = runScenario(["exec", "reply-to-review", "1e2", "reviewer", "Done.", "--format", "json", "--stdout-mode", "full"], { cwd: REPO_ROOT, github: reviewGithub });
 		expect(await review.exit).toBe(2);
@@ -28,7 +28,7 @@ describe("mutation operations use fake gateways", () => {
 	});
 
 	test("reply builders post formatted comments and preserve reaction warning success", async () => {
-		// Options must precede `--` (click parity); everything after it is positional.
+		// Options must precede `--`; everything after it is positional.
 		const reviewGithub = new InMemoryPrAddressGitHubGateway();
 		const review = runScenario(["exec", "reply-to-review", "42", "reviewer", "--format", "json", "--stdout-mode", "full", "--", "- Updated tests"], { cwd: REPO_ROOT, github: reviewGithub });
 		expect(await review.exit).toBe(0);

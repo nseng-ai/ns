@@ -74,9 +74,9 @@ function gitGatewayFor(variant: GitVariant): InMemoryPrAddressGitGateway {
 	return new InMemoryPrAddressGitGateway({ currentBranch: "feature", restructuredFiles: fixture.gateway.restructured_files });
 }
 
-describe("prepare-run parity with the Python CLI", () => {
+describe("prepare-run golden contract", () => {
 	for (const prepareCase of fixture.cases) {
-		test(`matches the Python envelope for ${prepareCase.name}`, async () => {
+		test(`matches the captured envelope for ${prepareCase.name}`, async () => {
 			let env: NodeJS.ProcessEnv = { PATH: "/fake/bin" };
 			let root: string | null = null;
 			if (prepareCase.payload_env !== null) {

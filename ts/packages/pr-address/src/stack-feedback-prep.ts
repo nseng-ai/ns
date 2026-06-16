@@ -6,7 +6,7 @@ import { defineExecOperation, type PrAddressExecContext } from "./exec-operation
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
 import { loadArtifactReference, loadJsonInput, type JsonInputResult } from "./json-input.ts";
-import type { PayloadArtifactStore } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore } from "./payload-store.ts";
 import { stackFeedbackPrepInputSchema, type StackFeedbackPrInput, type StackFeedbackPrepResult } from "./stack-feedback-prep-contracts.ts";
 import { compactPrepResult, prepareStackFeedbackStack } from "./stack-feedback-prep-core.ts";
 
@@ -47,7 +47,7 @@ export const stackFeedbackPrepOperation = defineExecOperation({
 });
 
 async function runStackFeedbackPrepOperation(ctx: PrAddressExecContext, request: z.output<typeof stackFeedbackPrepParseSchema>): Promise<ClinkrExit<unknown>> {
-	// Python opens the payload store before reading the stack JSON; preserve that ordering.
+	// Pinned operation order opens the payload store before reading the stack JSON.
 	const storeResult = await openPayloadStoreFromContext({ ctx, harnessSessionId: request.harness_session_id });
 	if (storeResult.type === "error") return failure(storeResult.errorType, storeResult.message);
 	const store = storeResult.value;
@@ -112,20 +112,9 @@ async function resolvePrepStackInput(options: {
 function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): string | null {
 	if (stack.length === 0) return "stack-feedback-prep requires at least one stack PR.";
 	const duplicatePrs = duplicateValues(stack.map((item) => item.pr_number));
-	if (duplicatePrs.length > 0) return `stack-feedback-prep stack contains duplicate PR numbers: ${pythonTupleRepr(duplicatePrs)}`;
+	if (duplicatePrs.length > 0) return `stack-feedback-prep stack contains duplicate PR numbers: ${tupleRepr(duplicatePrs)}`;
 	if (!stack.every((item) => item.branch.trim() !== "")) return "stack-feedback-prep requires every stack PR branch to be non-empty.";
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
-	if (duplicateBranches.length > 0) return `stack-feedback-prep stack contains duplicate branches: ${pythonTupleRepr(duplicateBranches)}`;
+	if (duplicateBranches.length > 0) return `stack-feedback-prep stack contains duplicate branches: ${tupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-
-function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }

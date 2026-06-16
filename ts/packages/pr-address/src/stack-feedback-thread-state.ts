@@ -5,7 +5,7 @@ import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 import { loadArtifactReference, type JsonInputResult } from "./json-input.ts";
-import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
+import { tupleRepr, type PayloadArtifactStore, type PayloadReference } from "./payload-store.ts";
 import { openPayloadStoreFromContext } from "./payload-store-context.ts";
 import { stackArtifactDescriptor } from "./session-artifacts.ts";
 import { compactOperationResult } from "./stdout-mode.ts";
@@ -196,19 +196,9 @@ function compactThreadStateResult(result: StackFeedbackThreadStateResult): Recor
 function stackInputValidationMessage(stack: readonly StackFeedbackPrInput[]): string | null {
 	if (stack.length === 0) return "stack-feedback-thread-state requires at least one stack PR.";
 	const duplicatePrs = duplicateValues(stack.map((item) => item.pr_number));
-	if (duplicatePrs.length > 0) return `stack-feedback-thread-state stack contains duplicate PR numbers: ${pythonTupleRepr(duplicatePrs)}`;
+	if (duplicatePrs.length > 0) return `stack-feedback-thread-state stack contains duplicate PR numbers: ${tupleRepr(duplicatePrs)}`;
 	if (!stack.every((item) => item.branch.trim() !== "")) return "stack-feedback-thread-state requires every stack PR branch to be non-empty.";
 	const duplicateBranches = duplicateValues(stack.map((item) => item.branch));
-	if (duplicateBranches.length > 0) return `stack-feedback-thread-state stack contains duplicate branches: ${pythonTupleRepr(duplicateBranches)}`;
+	if (duplicateBranches.length > 0) return `stack-feedback-thread-state stack contains duplicate branches: ${tupleRepr(duplicateBranches)}`;
 	return null;
-}
-
-function pythonRepr(value: string): string {
-	return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
-}
-
-function pythonTupleRepr(values: ReadonlyArray<string | number>): string {
-	const parts = values.map((value) => (typeof value === "number" ? String(value) : pythonRepr(value)));
-	if (parts.length === 1) return `(${parts[0]},)`;
-	return `(${parts.join(", ")})`;
 }
