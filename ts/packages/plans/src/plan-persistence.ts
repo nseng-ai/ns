@@ -1,9 +1,12 @@
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
+import { isPathInside } from "@asdl/core/primitives";
+
+export { isPathInside } from "@asdl/core/primitives";
 
 const GENERIC_SLUG_WORDS = new Set([
 	"plan",
@@ -65,11 +68,6 @@ export function normalizePlanFilePath(rawPath: string): string {
 		return join(homedir(), withoutAt.slice(2));
 	}
 	return withoutAt;
-}
-
-export function isPathInside(parent: string, child: string): boolean {
-	const relativePath = relative(resolve(parent), resolve(child));
-	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 export interface ResolvePlanSourceFileOptions {
