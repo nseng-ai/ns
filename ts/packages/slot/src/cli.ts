@@ -6,7 +6,9 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
+import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
+import { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./operations/resize.ts";
 
 export const VERSION = "0.1.0";
 
@@ -40,6 +42,24 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		resultSchema: listResultSchema,
 		handler: runList,
 		renderHuman: renderList,
+	});
+	root.command({
+		name: "init",
+		description: "Initialize the worktree pool with N detached slots at trunk.",
+		schema: initRequestSchema,
+		options: { size: {} },
+		resultSchema: initResultSchema,
+		handler: runInit,
+		renderHuman: renderInit,
+	});
+	root.command({
+		name: "resize",
+		description: "Grow or shrink the worktree pool to --size slots.",
+		schema: resizeRequestSchema,
+		options: { size: {} },
+		resultSchema: resizeResultSchema,
+		handler: runResize,
+		renderHuman: renderResize,
 	});
 	return root;
 }

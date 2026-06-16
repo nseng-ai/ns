@@ -14,11 +14,11 @@ describe("slot list CLI", () => {
 		expect(runtime.stdout.join("")).toContain("ts/packages/slot/src/cli.ts");
 	});
 
-	it("shows list and ls in help", async () => {
+	it("shows list, ls, init, and resize in help", async () => {
 		const run = runScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		for (const command of ["list", "ls"]) expect(help).toContain(command);
+		for (const command of ["list", "ls", "init", "resize"]) expect(help).toContain(command);
 	});
 
 	it("renders an empty pool in human mode", async () => {
