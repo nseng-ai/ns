@@ -1,14 +1,17 @@
-import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "./exec.ts";
+import { formatCommand, type CommandExecApi, type ExecOptions, type ExecResult } from "./exec.ts";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 
-export interface RunGitHubCliOptions {
-	readonly runner: CommandRunner;
+interface RunGitHubCliBaseOptions {
 	readonly args: readonly string[];
 	readonly cwd: string;
 	readonly env?: NodeJS.ProcessEnv | undefined;
 	readonly signal?: AbortSignal | undefined;
 	readonly timeoutMs?: number | undefined;
+}
+
+export interface RunGitHubCliOptions extends RunGitHubCliBaseOptions {
+	readonly execApi: CommandExecApi;
 }
 
 export type RunGitHubCliResult =
@@ -30,7 +33,7 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 	const command = ["gh", ...args];
 	const displayCommand = formatCommand("gh", args);
 	try {
-		const result = await options.runner("gh", args, githubCliExecOptions(options));
+		const result = await options.execApi.exec("gh", args, githubCliExecOptions(options));
 		return { type: "completed", command, displayCommand, result };
 	} catch (caught) {
 		return { type: "startup_error", command, displayCommand, message: caught instanceof Error ? caught.message : String(caught) };
