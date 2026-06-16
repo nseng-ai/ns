@@ -86,12 +86,6 @@ interface ValidateTextWriteTargetOptions {
 type WriteTargetValidationResult = { ok: true } | { ok: false; error: AregErrorInfo };
 
 export class RealAregHostGateway implements AregHostGateway {
-	private readonly runner: CommandRunner;
-
-	constructor(options: { runner?: CommandRunner | undefined } = {}) {
-		this.runner = options.runner ?? runCommand;
-	}
-
 	async checkTool(options: { tool: AregHostToolName; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregToolCheckResult> {
 		const pathValue = options.env.PATH ?? "";
 		for (const directory of pathValue.split(path.delimiter)) {
