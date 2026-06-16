@@ -2,6 +2,7 @@ import type { ExecOperation } from "./exec-operation.ts";
 
 import { recordBatchCheckpointOperation } from "./batch-checkpoint.ts";
 import { classificationTemplateOperation, planFeedbackOperation, validateFeedbackClassificationOperation } from "./classification-operations.ts";
+import { downloadFeedbackOperation } from "./download-feedback.ts";
 import { getFeedbackOperation } from "./feedback-collection.ts";
 import { finalizeRunOperation } from "./finalization.ts";
 import { mapBranchPrsOperation } from "./map-branch-prs.ts";
@@ -26,6 +27,7 @@ export const EXEC_OPERATIONS: readonly ExecOperation[] = [
 	buildResolveThreadBatchPayloadOperation,
 	buildStackResolveThreadPayloadsOperation,
 	classificationTemplateOperation,
+	downloadFeedbackOperation,
 	finalizeRunOperation,
 	getFeedbackOperation,
 	mapBranchPrsOperation,

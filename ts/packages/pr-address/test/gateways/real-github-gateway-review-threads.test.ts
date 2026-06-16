@@ -1,9 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { RealPrAddressGitGateway, RealPrAddressGitHubGateway, reviewThreadsQuery, type ProcessRequest, type ProcessResult } from "../../src/gateways.ts";
+import { RealPrAddressGitGateway, RealPrAddressGitHubGateway, reviewThreadCommentsQuery, reviewThreadsQuery, type ProcessRequest, type ProcessResult } from "../../src/gateways.ts";
 
-function graphqlResponse(nodes: readonly unknown[]): string {
-	return JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes } } } } });
+function graphqlResponse(nodes: readonly unknown[], pageInfo: Record<string, unknown> = { hasNextPage: false, endCursor: null }): string {
+	return JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes, pageInfo } } } } });
+}
+
+function commentPageResponse(nodes: readonly unknown[], pageInfo: Record<string, unknown> = { hasNextPage: false, endCursor: null }): string {
+	return JSON.stringify({ data: { node: { comments: { nodes, pageInfo } } } });
 }
 
 function gatewayReturning(result: ProcessResult): RealPrAddressGitHubGateway {
@@ -69,9 +73,67 @@ describe("RealPrAddressGitHubGateway.getReviewThreads", () => {
 				timeout: 30_000,
 			},
 		]);
+		expect(reviewThreadsQuery).toContain("reviewThreads(first: 100, after: $threadCursor)");
+		expect(reviewThreadsQuery).toContain("pageInfo { hasNextPage endCursor }");
+		expect(reviewThreadsQuery).toContain("comments(first: 100)");
 		expect(reviewThreadsQuery).toContain("line: originalLine");
 		expect(reviewThreadsQuery).toContain("startLine: originalStartLine");
 		expect(reviewThreadsQuery).toContain("databaseId");
+	});
+
+	test("loops over multiple review-thread pages", async () => {
+		const requests: ProcessRequest[] = [];
+		const responses = [
+			graphqlResponse([threadNode({ id: "RT_first" })], { hasNextPage: true, endCursor: "cursor-1" }),
+			graphqlResponse([threadNode({ id: "RT_second" })]),
+		];
+		const gateway = new RealPrAddressGitHubGateway({
+			runProcess: async (request) => {
+				requests.push(request);
+				return { stdout: responses.shift() ?? graphqlResponse([]), stderr: "", exitCode: 0 };
+			},
+		});
+
+		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
+
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value.map((thread) => thread.id)).toEqual(["RT_first", "RT_second"]);
+		expect(requests.map((request) => request.args)).toEqual([
+			["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", "number=1157", "-f", `query=${reviewThreadsQuery}`],
+			["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", "number=1157", "-F", "threadCursor=cursor-1", "-f", `query=${reviewThreadsQuery}`],
+		]);
+	});
+
+	test("fetches additional comment pages for a review thread", async () => {
+		const requests: ProcessRequest[] = [];
+		const responses = [
+			graphqlResponse([threadNode({ id: "RT_thread1", comments: { nodes: [commentNode({ databaseId: 1 })], pageInfo: { hasNextPage: true, endCursor: "comment-cursor" } } })]),
+			commentPageResponse([commentNode({ databaseId: 2, body: "second page" })]),
+		];
+		const gateway = new RealPrAddressGitHubGateway({
+			runProcess: async (request) => {
+				requests.push(request);
+				return { stdout: responses.shift() ?? graphqlResponse([]), stderr: "", exitCode: 0 };
+			},
+		});
+
+		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
+
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value[0]?.comments.map((comment) => comment.id)).toEqual([1, 2]);
+		expect(requests.at(1)?.args).toEqual(["api", "graphql", "-F", "threadId=RT_thread1", "-F", "commentCursor=comment-cursor", "-f", `query=${reviewThreadCommentsQuery}`]);
+	});
+
+	test("fails the whole review-thread fetch when nested comment pagination fails", async () => {
+		const responses: ProcessResult[] = [
+			{ stdout: graphqlResponse([threadNode({ id: "RT_thread1", comments: { nodes: [commentNode({ databaseId: 1 })], pageInfo: { hasNextPage: true, endCursor: "comment-cursor" } } })]), stderr: "", exitCode: 0 },
+			{ stdout: "partial", stderr: "gh nested boom", exitCode: 2 },
+		];
+		const gateway = new RealPrAddressGitHubGateway({ runProcess: async () => responses.shift() ?? { stdout: graphqlResponse([]), stderr: "", exitCode: 0 } });
+
+		const result = await gateway.getReviewThreads(1157, { cwd: "/repo", shouldIncludeResolved: false });
+
+		expect(result).toMatchObject({ ok: false, error: { stdout: "partial", stderr: "gh nested boom", returncode: 2 } });
 	});
 
 	test("maps a full GraphQL response to exact domain objects", async () => {

@@ -11,6 +11,7 @@ import { landParity } from "./land.ts";
 import { modelShortcutParity } from "./model-shortcuts.ts";
 import { objectiveParity } from "./objective.ts";
 import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
+import { prExtensionParity } from "./pr.ts";
 import { pushParity } from "./push.ts";
 import { sdlExtensionParity } from "./sdl-extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
@@ -30,6 +31,7 @@ export const PI_EXTENSION_PARITY_RECORDS = [
 	...modelShortcutParity,
 	...objectiveParity,
 	...prFeedbackWatchParity,
+	...prExtensionParity,
 	...pushParity,
 	...sdlExtensionParity,
 	...worktreeStatusParity,

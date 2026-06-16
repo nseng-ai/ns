@@ -6,6 +6,8 @@ import {
 	buildValidateFeedbackClassificationSchemaDocument,
 } from "./classification.ts";
 import {
+	downloadFeedbackRequestSchema,
+	downloadFeedbackResultSchema,
 	getFeedbackRequestSchema,
 	getFeedbackResultSchema,
 	mapBranchPrsRequestSchema,
@@ -74,6 +76,7 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["build-resolve-thread-batch-payload", () => schemaDocument(buildResolveThreadBatchPayloadRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
 	["build-stack-resolve-thread-payloads", () => schemaDocument(buildStackResolveThreadPayloadsRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
 	["classification-template", buildClassificationTemplateSchemaDocument],
+	["download-feedback", () => schemaDocument(downloadFeedbackRequestSchema, downloadFeedbackResultSchema)],
 	["finalize-run", () => schemaDocument(finalizeRunRequestSchema, finalizeRunResultSchema)],
 	["get-feedback", () => schemaDocument(getFeedbackRequestSchema, getFeedbackResultSchema)],
 	["map-branch-prs", () => schemaDocument(mapBranchPrsRequestSchema, mapBranchPrsResultSchema)],

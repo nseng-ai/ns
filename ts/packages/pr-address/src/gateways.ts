@@ -101,6 +101,18 @@ const ghReviewCommentSchema = z
 		createdAt: z.string().default(""),
 	})
 	.loose();
+const ghPageInfoSchema = z
+	.object({
+		hasNextPage: z.boolean().default(false),
+		endCursor: z.string().nullable().optional(),
+	})
+	.loose();
+const ghReviewCommentConnectionSchema = z
+	.object({
+		nodes: z.array(ghReviewCommentSchema).default([]),
+		pageInfo: ghPageInfoSchema.default({ hasNextPage: false }),
+	})
+	.loose();
 const ghReviewThreadSchema = z
 	.object({
 		id: z.string().nullable().default(null),
@@ -109,7 +121,7 @@ const ghReviewThreadSchema = z
 		startLine: z.number().int().nullable().optional(),
 		isResolved: z.boolean().default(false),
 		isOutdated: z.boolean().default(false),
-		comments: z.object({ nodes: z.array(ghReviewCommentSchema).default([]) }).loose().default({ nodes: [] }),
+		comments: ghReviewCommentConnectionSchema.default({ nodes: [], pageInfo: { hasNextPage: false } }),
 	})
 	.loose();
 const ghDiscussionCommentSchema = z
@@ -136,12 +148,21 @@ const ghReviewThreadsResponseSchema = z
 		data: z.object({
 			repository: z.object({
 				pullRequest: z.object({
-					reviewThreads: z.object({ nodes: z.array(ghReviewThreadSchema).default([]) }),
+					reviewThreads: z.object({ nodes: z.array(ghReviewThreadSchema).default([]), pageInfo: ghPageInfoSchema.default({ hasNextPage: false }) }).loose(),
 				}),
 			}),
 		}),
 	})
 	.loose();
+const ghReviewThreadCommentsResponseSchema = z
+	.object({
+		data: z.object({
+			node: z.object({ comments: ghReviewCommentConnectionSchema }).loose().nullable(),
+		}),
+	})
+	.loose();
+
+type GhReviewThread = z.infer<typeof ghReviewThreadSchema>;
 
 const resolveReviewThreadMutation = `
 mutation($threadId: ID!) {
@@ -164,14 +185,12 @@ mutation($threadId: ID!, $body: String!) {
   }
 }`;
 
-// Known limitation: this query does not paginate reviewThreads(first: 100)
-// or comments(first: 20). Large PRs can be under-collected until pagination
-// is implemented.
 export const reviewThreadsQuery = `
-query($owner: String!, $repo: String!, $number: Int!) {
+query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: $threadCursor) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           id
           isResolved
@@ -179,10 +198,23 @@ query($owner: String!, $repo: String!, $number: Int!) {
           path
           line
           startLine
-          comments(first: 20) {
+          comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
           }
         }
+      }
+    }
+  }
+}`;
+
+export const reviewThreadCommentsQuery = `
+query($threadId: ID!, $commentCursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $commentCursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
       }
     }
   }
@@ -221,11 +253,27 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
-		const result = await this.runGh(["api", "graphql", "-F", "owner={owner}", "-F", "repo={repo}", "-F", `number=${prNumber}`, "-f", `query=${reviewThreadsQuery}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadsResponseSchema);
-		if (!parseResult.ok) return parseResult;
-		const threads = parseResult.value.data.repository.pullRequest.reviewThreads.nodes.flatMap(normalizeReviewThread);
+		const threads: PRReviewThread[] = [];
+		let threadCursor: string | null | undefined;
+		for (;;) {
+			const result = await this.runGh(reviewThreadPageArgs(prNumber, threadCursor), options);
+			if (result.exitCode !== 0) return err(failureFromProcess(result));
+			const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadsResponseSchema);
+			if (!parseResult.ok) return parseResult;
+
+			const connection = parseResult.value.data.repository.pullRequest.reviewThreads;
+			for (const thread of connection.nodes) {
+				const hydrated = await this.withCompleteThreadComments(thread, options);
+				if (!hydrated.ok) return hydrated;
+				threads.push(...normalizeReviewThread(hydrated.value));
+			}
+
+			if (!connection.pageInfo.hasNextPage) break;
+			threadCursor = connection.pageInfo.endCursor;
+			if (threadCursor === null || threadCursor === undefined || threadCursor === "") {
+				return err(failureFromMessage("GitHub returned a reviewThreads page with hasNextPage but no endCursor", 0));
+			}
+		}
 		return ok(options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved));
 	}
 
@@ -277,6 +325,29 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		if (!parseResult.ok) return parseResult;
 		const thread = parseResult.value.data.unresolveReviewThread.thread;
 		return ok({ thread_id: thread.id, is_resolved: thread.isResolved });
+	}
+
+	private async withCompleteThreadComments(thread: GhReviewThread, options: GatewayOptions): Promise<GatewayResult<GhReviewThread>> {
+		if (!thread.comments.pageInfo.hasNextPage) return ok(thread);
+		if (thread.id === null) return ok(thread);
+
+		const comments = [...thread.comments.nodes];
+		let commentCursor = thread.comments.pageInfo.endCursor;
+		for (;;) {
+			if (commentCursor === null || commentCursor === undefined || commentCursor === "") {
+				return err(failureFromMessage(`GitHub returned review thread ${thread.id} comments with hasNextPage but no endCursor`, 0));
+			}
+			const result = await this.runGh(reviewThreadCommentPageArgs(thread.id, commentCursor), options);
+			if (result.exitCode !== 0) return err(failureFromProcess(result));
+			const parseResult = parseGraphqlJson(result.stdout, ghReviewThreadCommentsResponseSchema);
+			if (!parseResult.ok) return parseResult;
+			const node = parseResult.value.data.node;
+			if (node === null) return err(failureFromMessage(`GitHub returned no review thread for ${thread.id}`, 0));
+			comments.push(...node.comments.nodes);
+			if (!node.comments.pageInfo.hasNextPage) break;
+			commentCursor = node.comments.pageInfo.endCursor;
+		}
+		return ok({ ...thread, comments: { ...thread.comments, nodes: comments, pageInfo: { hasNextPage: false } } });
 	}
 
 	private async getPrBySelector(selector: string, options: GatewayOptions): Promise<PRLookupResult> {
@@ -358,6 +429,26 @@ export async function runProcess(request: ProcessRequest): Promise<ProcessResult
 		...(request.timeout === undefined ? {} : { timeout: request.timeout }),
 	});
 	return { stdout: result.stdout, stderr: result.stderr, exitCode: result.code, command: request.command, args: request.args };
+}
+
+function reviewThreadPageArgs(prNumber: number, threadCursor: string | null | undefined): string[] {
+	return [
+		"api",
+		"graphql",
+		"-F",
+		"owner={owner}",
+		"-F",
+		"repo={repo}",
+		"-F",
+		`number=${prNumber}`,
+		...(threadCursor === null || threadCursor === undefined ? [] : ["-F", `threadCursor=${threadCursor}`]),
+		"-f",
+		`query=${reviewThreadsQuery}`,
+	];
+}
+
+function reviewThreadCommentPageArgs(threadId: string, commentCursor: string): string[] {
+	return ["api", "graphql", "-F", `threadId=${threadId}`, "-F", `commentCursor=${commentCursor}`, "-f", `query=${reviewThreadCommentsQuery}`];
 }
 
 function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): PRSummary {

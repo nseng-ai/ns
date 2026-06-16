@@ -152,6 +152,10 @@ export function compactDiscussionComment(comment: PRDiscussionComment, bodyChars
 	};
 }
 
+export function isAutomationLikeDiscussionComment(comment: PRDiscussionComment): boolean {
+	return sourceEvidence(comment.author, comment.body).length > 0;
+}
+
 function compactThreadComment(comment: PRReviewComment, bodyChars: number): CompactThreadCommentSummary {
 	return {
 		id: comment.id,

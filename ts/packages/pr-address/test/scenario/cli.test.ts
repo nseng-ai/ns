@@ -214,6 +214,7 @@ describe("pr-address exec operation table", () => {
 			"build-resolve-thread-batch-payload",
 			"build-stack-resolve-thread-payloads",
 			"classification-template",
+			"download-feedback",
 			"finalize-run",
 			"get-feedback",
 			"map-branch-prs",
