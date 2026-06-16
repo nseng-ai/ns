@@ -1,4 +1,4 @@
-import { formatCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "./exec.ts";
+import { formatCommand, type CommandExecApi, type ExecOptions, type ExecResult } from "./exec.ts";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 
@@ -10,11 +10,9 @@ interface RunGitHubCliBaseOptions {
 	readonly timeoutMs?: number | undefined;
 }
 
-export type RunGitHubCliOptions = RunGitHubCliBaseOptions &
-	(
-		| { readonly runner: CommandRunner; readonly execApi?: never }
-		| { readonly execApi: CommandExecApi; readonly runner?: never }
-	);
+export interface RunGitHubCliOptions extends RunGitHubCliBaseOptions {
+	readonly execApi: CommandExecApi;
+}
 
 export type RunGitHubCliResult =
 	| {
@@ -35,16 +33,11 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 	const command = ["gh", ...args];
 	const displayCommand = formatCommand("gh", args);
 	try {
-		const result = await runGitHubCliCommand(options, args, githubCliExecOptions(options));
+		const result = await options.execApi.exec("gh", args, githubCliExecOptions(options));
 		return { type: "completed", command, displayCommand, result };
 	} catch (caught) {
 		return { type: "startup_error", command, displayCommand, message: caught instanceof Error ? caught.message : String(caught) };
 	}
-}
-
-function runGitHubCliCommand(options: RunGitHubCliOptions, args: string[], execOptions: ExecOptions): Promise<ExecResult> {
-	if (options.execApi !== undefined) return options.execApi.exec("gh", args, execOptions);
-	return options.runner("gh", args, execOptions);
 }
 
 function githubCliExecOptions(options: RunGitHubCliOptions): ExecOptions {
