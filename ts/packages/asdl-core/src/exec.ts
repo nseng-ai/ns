@@ -23,6 +23,7 @@ export interface ExecOptions {
 	timeout?: number;
 	timeoutKillGraceMs?: number;
 	signal?: AbortSignal;
+	stdin?: string;
 	onStdout?: (text: string) => void;
 	onStderr?: (text: string) => void;
 }
@@ -71,7 +72,7 @@ export async function runCommand(command: string, args: readonly string[], optio
 
 		const spawnOptions: SpawnOptions = {
 			shell: false,
-			stdio: ["ignore", "pipe", "pipe"],
+			stdio: [options.stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"],
 		};
 		if (options.cwd !== undefined) {
 			spawnOptions.cwd = options.cwd;
@@ -129,6 +130,20 @@ export async function runCommand(command: string, args: readonly string[], optio
 			stderr += chunk;
 			options.onStderr?.(chunk);
 		});
+		if (options.stdin !== undefined) {
+			child.stdin?.on("error", (error: NodeJS.ErrnoException) => {
+				if (error.code === "EPIPE") return;
+				if (stderr.length === 0) stderr = error.message;
+			});
+			try {
+				child.stdin?.end(options.stdin);
+			} catch (error) {
+				const stdinError = error as NodeJS.ErrnoException;
+				if (stdinError.code !== "EPIPE" && stderr.length === 0) {
+					stderr = stdinError instanceof Error ? stdinError.message : String(stdinError);
+				}
+			}
+		}
 		child.on("error", (error) => {
 			startupError = error instanceof Error ? error.message : String(error);
 			if (stderr.length === 0) stderr = startupError;

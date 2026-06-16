@@ -4,6 +4,7 @@ import {
 	createFindingsReview,
 	createLocalDiff,
 	findingsReviewSchema,
+	harnessReviewRequestSchema,
 	inlineClassificationResultSchema,
 	inlinePostingStatusSchema,
 	localDiffSchema,
@@ -13,6 +14,7 @@ import {
 	prReviewCommentSchema,
 	reviewDefinitionSchema,
 	reviewFindingSchema,
+	reviewExecutionResponseSchema,
 	reviewInputCoverageSchema,
 	reviewRunSuccessSchema,
 	reviewUsageSchema,
@@ -104,6 +106,22 @@ describe("roaster domain schemas", () => {
 		expect(coverage.omittedFileCount).toBe(1);
 		expect(reviewUsageTotalInputTokens(usage)).toBe(15);
 		expect(() => reviewInputCoverageSchema.parse({ ...coverage, omittedFileCount: 2 })).toThrow();
+	});
+
+	test("validates harness request and response payloads", () => {
+		const localDiff = createLocalDiff({ baseRef: "main", diffText: "diff", files: [] });
+		const reviewDefinition = reviewDefinitionSchema.parse({
+			name: "typescript-style",
+			description: "Review TypeScript diffs.",
+			instructions: "Flag concrete issues.",
+			defaultModel: "haiku",
+			applicability: { include: ["**/*.ts"], exclude: [] },
+		});
+		const request = harnessReviewRequestSchema.parse({ model: "haiku", reviewDefinition, target: { localDiff } });
+		const response = reviewExecutionResponseSchema.parse({ payload: createFindingsReview([]), usage: null, inputCoverage: null });
+
+		expect(request.target.localDiff.baseRef).toBe("main");
+		expect(response.payload.count).toBe(0);
 	});
 
 	test("validates future review run success envelope", () => {

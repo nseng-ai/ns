@@ -103,6 +103,35 @@ process.exit(7);
 		expect(result.killed).toBe(false);
 	});
 
+	test("writes provided stdin and captures stdout", async () => {
+		const script = writeChildScript(`
+process.stdin.setEncoding("utf8");
+let input = "";
+process.stdin.on("data", (chunk) => {
+	input += chunk;
+});
+process.stdin.on("end", () => {
+	process.stdout.write("received:" + input);
+});
+`);
+
+		const result = await runCommand(process.execPath, [script], { stdin: "hello from stdin" });
+
+		expect(result).toMatchObject({ stdout: "received:hello from stdin", stderr: "", code: 0, killed: false });
+	});
+
+	test("no stdin option preserves ignored stdin behavior", async () => {
+		const script = writeChildScript(`
+process.stdin.on("data", () => process.exit(9));
+setTimeout(() => process.stdout.write("done"), 10);
+setTimeout(() => process.exit(0), 20);
+`);
+
+		const result = await runCommand(process.execPath, [script]);
+
+		expect(result).toMatchObject({ stdout: "done", stderr: "", code: 0, killed: false });
+	});
+
 	test("streams stdout and stderr chunks while preserving buffered output", async () => {
 		const script = writeChildScript(`
 process.stdout.write("first stdout\\n");

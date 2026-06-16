@@ -36,6 +36,7 @@ export type HarnessFailure =
 	| { readonly type: "harness_invocation_failed"; readonly message: string }
 	| { readonly type: "harness_execution_failed"; readonly message: string; readonly stderr: string; readonly code: number | null }
 	| { readonly type: "model_not_supported_by_harness"; readonly message: string; readonly model: string }
+	| { readonly type: "review_execution_empty_output"; readonly message: string }
 	| { readonly type: "review_execution_invalid_json"; readonly message: string }
 	| { readonly type: "review_execution_invalid_response"; readonly message: string }
 	| { readonly type: "review_execution_invalid_findings"; readonly message: string };
