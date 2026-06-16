@@ -33,8 +33,14 @@ describe("handoff-tab extension", () => {
 
 		handoffExtension(pi);
 
-		expect([...pi.commands.keys()].sort()).toEqual(["ccc:handoff-tab", "handoff:create", "handoff:list", "handoff:pickup"]);
-		expect([...pi.tools.keys()]).toEqual(["derive_handoff_slug_from_content", "handoff_tab_launch"]);
+		expect([...pi.commands.keys()].sort()).toEqual([
+			"ccc:handoff-tab",
+			"handoff:create",
+			"handoff:list",
+			"handoff:pickup",
+			"handoff:self",
+		]);
+		expect([...pi.tools.keys()]).toEqual(["derive_handoff_slug_from_content", "handoff_tab_launch", "handoff_self_queue_pickup"]);
 		expect(pi.commands.get("ccc:handoff-tab")?.description).toBe("Create a handoff and open a focused cmux tab to pick it up.");
 	});
 

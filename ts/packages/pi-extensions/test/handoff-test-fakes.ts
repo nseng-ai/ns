@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import handoffExtension, { type CommandContext, type ExecResult, type ExtensionAPI } from "../src/handoff.ts";
-import type { RenderComponent, SendUserMessageOptions, TuiHandle } from "../src/handoff/runtime-types.ts";
+import type { NewSessionOptions, RenderComponent, SendUserMessageOptions, TuiHandle } from "../src/handoff/runtime-types.ts";
 
 export const ROOT = "/repo";
 export const BRANCH = "feature/handoff";
@@ -42,6 +42,15 @@ export interface InputPrompt {
 	placeholder: string | undefined;
 }
 
+export interface SentUserMessageCall {
+	content: string;
+	options: SendUserMessageOptions | undefined;
+}
+
+export interface NewSessionCall {
+	parentSession: string | undefined;
+}
+
 export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly tools = new Map<string, RegisteredTool>();
@@ -50,7 +59,7 @@ export class FakePi implements ExtensionAPI {
 	readonly renderers = new Map<string, MessageRenderer>();
 	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
-	readonly sentUserMessageCalls: Array<{ content: string; options: SendUserMessageOptions | undefined }> = [];
+	readonly sentUserMessageCalls: SentUserMessageCall[] = [];
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 	private readonly script: ScriptedExec[];
@@ -244,6 +253,7 @@ export function createContext(
 		inputUnavailable?: boolean;
 		sessionFile?: string;
 		cwd?: string;
+		isNewSessionCancelled?: boolean;
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -252,6 +262,9 @@ export function createContext(
 	inputs: InputPrompt[];
 	statuses: Array<string | undefined>;
 	tuiEvents: string[];
+	newSessionCalls: NewSessionCall[];
+	replacementUserMessages: SentUserMessageCall[];
+	replacementNotifications: Notification[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
@@ -259,6 +272,9 @@ export function createContext(
 	const inputs: InputPrompt[] = [];
 	const statuses: Array<string | undefined> = [];
 	const tuiEvents: string[] = [];
+	const newSessionCalls: NewSessionCall[] = [];
+	const replacementUserMessages: SentUserMessageCall[] = [];
+	const replacementNotifications: Notification[] = [];
 	let waits = 0;
 
 	const ui: CommandContext["ui"] = {
@@ -324,13 +340,47 @@ export function createContext(
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
+		async newSession(sessionOptions?: NewSessionOptions): Promise<{ cancelled: boolean }> {
+			newSessionCalls.push({ parentSession: sessionOptions?.parentSession });
+			if (options.isNewSessionCancelled) {
+				return { cancelled: true };
+			}
+			await sessionOptions?.withSession?.({
+				cwd: options.cwd ?? ROOT,
+				hasUI: options.hasUI ?? true,
+				mode: options.mode ?? "tui",
+				ui: {
+					notify(message: string, level?: "info" | "warning" | "error"): void {
+						replacementNotifications.push({ message, level });
+					},
+					setStatus(_key: string, value: string | undefined): void {
+						statuses.push(value);
+					},
+				},
+				async sendUserMessage(content: string, messageOptions?: SendUserMessageOptions): Promise<void> {
+					replacementUserMessages.push({ content, options: messageOptions });
+				},
+			});
+			return { cancelled: false };
+		},
 	};
 
 	if (options.sessionFile !== undefined) {
 		ctx.sessionManager = { getSessionFile: () => options.sessionFile };
 	}
 
-	return { ctx, notifications, selections, inputs, statuses, tuiEvents, waitForIdleCalls: () => waits };
+	return {
+		ctx,
+		notifications,
+		selections,
+		inputs,
+		statuses,
+		tuiEvents,
+		newSessionCalls,
+		replacementUserMessages,
+		replacementNotifications,
+		waitForIdleCalls: () => waits,
+	};
 }
 
 interface RunExtensionCommandOptions {
@@ -347,6 +397,8 @@ interface RunExtensionCommandOptions {
 		inputResponse?: string;
 		inputUnavailable?: boolean;
 		cwd?: string;
+		sessionFile?: string;
+		isNewSessionCancelled?: boolean;
 	};
 	commandInfos?: CommandInfo[];
 	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean };
@@ -359,6 +411,9 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 	inputs: InputPrompt[];
 	statuses: Array<string | undefined>;
 	tuiEvents: string[];
+	newSessionCalls: NewSessionCall[];
+	replacementUserMessages: SentUserMessageCall[];
+	replacementNotifications: Notification[];
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(options.script, options.commandInfos, options.piOptions);
@@ -370,7 +425,7 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 }
 
 export async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "ccc:handoff-tab",
+	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "ccc:handoff-tab" | "handoff:self",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
@@ -383,6 +438,9 @@ export async function runCommand(
 	inputs: InputPrompt[];
 	statuses: Array<string | undefined>;
 	tuiEvents: string[];
+	newSessionCalls: NewSessionCall[];
+	replacementUserMessages: SentUserMessageCall[];
+	replacementNotifications: Notification[];
 	waitForIdleCalls: () => number;
 }> {
 	return runExtensionCommand({

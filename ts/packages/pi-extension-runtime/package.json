@@ -9,6 +9,7 @@
     "./objective-list": "./src/objective-list.ts",
     "./objective-picker": "./src/objective-picker.ts",
     "./objective-selection": "./src/objective-selection.ts",
+    "./session-replacement": "./src/session-replacement.ts",
     "./skill-expansion": "./src/skill-expansion.ts",
     "./terminal-presentation": "./src/terminal-presentation.ts",
     "./cmux/pi-launch": "./src/cmux/pi-launch.ts",

@@ -5,6 +5,7 @@ import { definePiSurfaceParity } from "./parity.ts";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, deriveSemanticHandoffSlug, handoffKeyToSlug as handoffSlug, isHandoffKey } from "@asdl/handoff/identity";
 import { truncateDisplayLine } from "./terminal-presentation.ts";
 import { buildDeriveHandoffSlugTool, buildHandoffTabLaunchTool, buildHandoffTabPrompt, handleHandoffTabCommand } from "./handoff/tab.ts";
+import { buildHandoffSelfPrompt, createHandoffSelfWorkflow, formatHandoffSelfKickoffPrompt } from "./handoff/self.ts";
 import {
 	BRMEM_TIMEOUT_MS,
 	CREATE_HANDOFF_COMMAND_NAME,
@@ -12,6 +13,7 @@ import {
 	HANDOFF_TAB_LAUNCH_TOOL_NAME,
 	HANDOFF_TIMEOUT_MS,
 	HANDOFF_TAB_COMMAND_NAME,
+	HANDOFF_SELF_COMMAND_NAME,
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
 	CREATE_HANDOFF_FALLBACK,
@@ -82,11 +84,22 @@ export const handoffParity = definePiSurfaceParity([
 		sourceModule: "handoff",
 		notes: "Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
 	},
+	{
+		kind: "command",
+		surface: HANDOFF_SELF_COMMAND_NAME,
+		workflow: "Create a handoff, replace the current Pi session, and pick it up in the fresh session",
+		parity: "WAIVED",
+		fallback: "Create the handoff with handoff-create, start a new Pi session manually, then run handoff-pickup for the saved artifact.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@asdl/pi-extensions",
+		sourceModule: "handoff",
+		notes: "Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
+	},
 ] as const);
 
 export type { CommandContext, ExecResult, ExtensionAPI } from "./handoff/runtime-types.ts";
 export type { HandoffTabLaunchResult } from "./handoff/tab.ts";
-export { buildHandoffTabPrompt, deriveSemanticHandoffSlug };
+export { formatHandoffSelfKickoffPrompt, buildHandoffSelfPrompt, buildHandoffTabPrompt, deriveSemanticHandoffSlug };
 
 export const HANDOFF_LIST_MESSAGE_TYPE = "handoff-list";
 const MAX_PREVIEW_CHARS = 240;
@@ -888,11 +901,17 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer?.(HANDOFF_LIST_MESSAGE_TYPE, renderHandoffListMessage);
 
 	if (pi.registerTool !== undefined) {
+		const selfWorkflow = createHandoffSelfWorkflow(pi);
 		pi.registerTool(buildDeriveHandoffSlugTool(pi));
 		pi.registerTool(buildHandoffTabLaunchTool(pi));
+		pi.registerTool(selfWorkflow.buildTool());
 		pi.registerCommand(HANDOFF_TAB_COMMAND_NAME, {
 			description: "Create a handoff and open a focused cmux tab to pick it up.",
 			handler: async (args, ctx) => handleHandoffTabCommand(pi, args, ctx),
+		});
+		pi.registerCommand(HANDOFF_SELF_COMMAND_NAME, {
+			description: "Create a handoff, clear context, and pick it up in this Pi session.",
+			handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
 		});
 	}
 

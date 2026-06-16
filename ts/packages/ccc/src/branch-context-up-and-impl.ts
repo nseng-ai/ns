@@ -1,19 +1,15 @@
 import { formatImplBranchContextCommand, type BranchContextEvidence } from "@asdl/branch-context";
 import type { ExecResult } from "@asdl/core/exec";
+import type { SessionReplacementContext, SessionReplacementOptions, SessionReplacementResult } from "@asdl/pi-extension-runtime/session-replacement";
 import { setLaunchStatus, type LaunchStatusUi, type LaunchStatusUpdater } from "./launch-status.ts";
 
 export interface BranchContextUpAndImplHost {
 	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
 }
 
-export interface BranchContextUpAndImplNewSessionContext {
-	sendUserMessage(content: string): Promise<void> | void;
-}
-
-export interface BranchContextUpAndImplNewSessionOptions {
-	parentSession?: string;
-	withSession?(ctx: BranchContextUpAndImplNewSessionContext): Promise<void> | void;
-}
+export type BranchContextUpAndImplNewSessionContext = SessionReplacementContext;
+export type BranchContextUpAndImplNewSessionOptions = SessionReplacementOptions<BranchContextUpAndImplNewSessionContext>;
+export type BranchContextUpAndImplNewSessionResult = SessionReplacementResult;
 
 export interface BranchContextUpAndImplContext {
 	cwd: string;
@@ -22,7 +18,7 @@ export interface BranchContextUpAndImplContext {
 	sessionManager?: {
 		getSessionFile?(): string | undefined;
 	};
-	newSession(options?: BranchContextUpAndImplNewSessionOptions): Promise<{ cancelled: boolean }>;
+	newSession(options?: BranchContextUpAndImplNewSessionOptions): Promise<BranchContextUpAndImplNewSessionResult>;
 }
 
 export interface BranchContextUpAndImplLaunchOptions {
