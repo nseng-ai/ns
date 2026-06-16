@@ -1,8 +1,10 @@
-import { readdir, stat, readFile } from "node:fs/promises";
+import { stat, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
+
+import { sourceFilesUnder } from "../support/source-files.ts";
 
 const PACKAGE_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const SOURCE_ROOT = resolve(PACKAGE_ROOT, "src");
@@ -56,22 +58,6 @@ describe("pr-address strangler import boundary", () => {
 		expect(violations, formatBoundaryViolations(violations)).toHaveLength(0);
 	});
 });
-
-async function sourceFilesUnder(root: string): Promise<string[]> {
-	const files: string[] = [];
-	const entries = await readdir(root, { withFileTypes: true });
-
-	for (const entry of entries) {
-		const entryPath = resolve(root, entry.name);
-		if (entry.isDirectory()) {
-			files.push(...(await sourceFilesUnder(entryPath)));
-		} else if (entry.isFile() && entryPath.endsWith(".ts")) {
-			files.push(entryPath);
-		}
-	}
-
-	return [...files].sort();
-}
 
 function sourceZoneFor(filePath: string): SourceZone {
 	const sourceRelativePath = relative(SOURCE_ROOT, filePath);
