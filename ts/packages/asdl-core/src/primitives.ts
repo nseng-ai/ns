@@ -19,7 +19,7 @@ export interface ZodErrorLike {
 }
 
 export interface FormatZodIssueOptions {
-	readonly rootPath?: string;
+	readonly rootPath?: string | null;
 	readonly pathPrefix?: string;
 	readonly fallback?: string;
 }
@@ -30,6 +30,7 @@ export interface FormatZodErrorOptions extends FormatZodIssueOptions {
 
 export function formatZodIssue(issue: ZodIssueLike | undefined, options: FormatZodIssueOptions = {}): string {
 	if (issue === undefined) return options.fallback ?? "invalid value";
+	if (issue.path.length === 0 && options.rootPath === null) return issue.message;
 	const path = issue.path.length === 0 ? (options.rootPath ?? "<root>") : `${options.pathPrefix ?? ""}${issue.path.map((segment) => String(segment)).join(".")}`;
 	return `${path}: ${issue.message}`;
 }

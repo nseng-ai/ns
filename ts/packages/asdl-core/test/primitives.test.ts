@@ -42,6 +42,11 @@ describe("formatZodIssue", () => {
 		expect(formatZodIssue({ path: ["version"], message: "Expected 1" }, { rootPath: "$", pathPrefix: "$." })).toBe("$.version: Expected 1");
 		expect(formatZodIssue(undefined, { fallback: "invalid lockfile" })).toBe("invalid lockfile");
 	});
+
+	test("can omit the root-path prefix", () => {
+		expect(formatZodIssue({ path: [], message: "Required" }, { rootPath: null })).toBe("Required");
+		expect(formatZodError({ issues: [{ path: [], message: "Required" }] }, { rootPath: null })).toBe("Required");
+	});
 });
 
 describe("formatZodError", () => {
