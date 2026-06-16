@@ -1,10 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@asdl/core/git/testing";
+import { InMemoryGitGateway, type GitRefsPathCall } from "@asdl/core/git/testing";
 
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const BRANCH = "planned-branches/branch-scoped-plan";
+
+interface MutableGitRefsPathCall extends Omit<GitRefsPathCall, "refs"> {
+	refs: string[];
+}
+
+function unsafeMutableRefsPathCalls(calls: readonly GitRefsPathCall[]): MutableGitRefsPathCall[] {
+	return calls as MutableGitRefsPathCall[];
+}
 
 describe("in-memory git gateway", () => {
 	test("returns configured facts and records narrow logs", async () => {
@@ -129,6 +137,64 @@ describe("in-memory git gateway", () => {
 		expect(missing.localBranchPresenceCalls).toEqual([]);
 		expect(await found.trunkBranch({ cwd: ROOT })).toEqual({ type: "found", value: "develop" });
 		expect(found.localBranchPresenceCalls).toEqual([]);
+	});
+
+	test("models reusable git facts and records call logs", async () => {
+		const controller = new AbortController();
+		const git = new InMemoryGitGateway({
+			dirtyPaths: [".asdl/objectives"],
+			localBranchTips: ["feature/a", { name: "feature/b", headIso: "2026-06-15T12:00:00+00:00" }],
+			treeOids: {
+				"HEAD|.asdl/objectives": "tree-head",
+				"main|.asdl/objectives": null,
+			},
+			changedPaths: {
+				"main..HEAD|.asdl/objectives": [".asdl/objectives/a/objective.md"],
+			},
+		});
+
+		expect(await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: "./.asdl/objectives/", signal: controller.signal })).toEqual({ ok: true, value: true });
+		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: [
+				{ name: "feature/a", headIso: null },
+				{ name: "feature/b", headIso: "2026-06-15T12:00:00+00:00" },
+			],
+		});
+		expect(await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".asdl/objectives" })).toEqual({
+			ok: true,
+			value: { HEAD: "tree-head", main: null },
+		});
+		expect(await git.changedPathsUnder({ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".asdl/objectives" })).toEqual({
+			ok: true,
+			value: [".asdl/objectives/a/objective.md"],
+		});
+		expect(git.hasUncommittedChangesUnderCalls).toEqual([{ cwd: ROOT, relativePath: "./.asdl/objectives/", signal: controller.signal }]);
+		expect(git.listLocalBranchTipsCalls).toEqual([{ cwd: ROOT }]);
+		expect(git.treeOidsAtRefsCalls).toEqual([{ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".asdl/objectives" }]);
+		expect(git.changedPathsUnderCalls).toEqual([{ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".asdl/objectives" }]);
+	});
+
+	test("models reusable git fact failures and immutable snapshots", async () => {
+		const explicitError = { code: "custom_git_fact_failure", message: "Custom git fact failure." };
+		const git = new InMemoryGitGateway({
+			dirtyPathFailures: { ".asdl/objectives": explicitError },
+			localBranchTipsFailure: explicitError,
+			treeOids: { "HEAD|.asdl/objectives": explicitError },
+			changedPaths: { "main..HEAD|.asdl/objectives": explicitError },
+		});
+
+		expect(await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".asdl/objectives" })).toEqual({ ok: false, error: explicitError });
+		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({ ok: false, error: explicitError });
+		expect(await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".asdl/objectives" })).toEqual({ ok: false, error: explicitError });
+		expect(await git.changedPathsUnder({ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".asdl/objectives" })).toEqual({ ok: false, error: explicitError });
+
+		const treeCalls = git.treeOidsAtRefsCalls;
+		const mutableTreeCalls = unsafeMutableRefsPathCalls(treeCalls);
+		mutableTreeCalls[0]?.refs.push("mutated");
+
+		expect(treeCalls).toEqual([{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".asdl/objectives" }]);
+		expect(git.treeOidsAtRefsCalls).toEqual([{ cwd: ROOT, refs: ["HEAD"], relativePath: ".asdl/objectives" }]);
 	});
 
 	test("call logs copy signal and are immutable snapshots", async () => {

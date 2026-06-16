@@ -3,7 +3,19 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { GitBranchParams, GitBranchPresenceResult, GitCwdParams, GitGateway, GitOperationResult, GitOptionalResult, GitResult } from "@asdl/core/git";
+import type {
+	GitBranchParams,
+	GitBranchPresenceResult,
+	GitCwdParams,
+	GitGateway,
+	GitLocalBranchTip,
+	GitOperationResult,
+	GitOptionalResult,
+	GitPathParams,
+	GitRefsPathParams,
+	GitResult,
+	GitRevisionRangePathParams,
+} from "@asdl/core/git";
 import {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,
@@ -255,6 +267,22 @@ class FakeGitGateway implements GitGateway {
 
 	async createBranchAtHead(_params: GitBranchParams): Promise<GitOperationResult> {
 		return { ok: true };
+	}
+
+	async hasUncommittedChangesUnder(_params: GitPathParams): Promise<GitResult<boolean>> {
+		return { ok: true, value: false };
+	}
+
+	async listLocalBranchTips(_params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+		return { ok: true, value: [] };
+	}
+
+	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
+	}
+
+	async changedPathsUnder(_params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+		return { ok: true, value: [] };
 	}
 }
 

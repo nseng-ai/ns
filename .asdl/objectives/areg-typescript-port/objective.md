@@ -71,12 +71,19 @@ Risks:
 
 ## Open Questions
 
-- Parked follow-up: what external installation model should `areg` use after repo-local TS cutover: npm-style package execution, generated shims, both, or another documented model? This is not a blocker for this Objective's completed repo-local cutover.
-- Parked follow-up: should `areg` keep legacy `areg.json` fallback indefinitely, or should a later cleanup define a retirement path in favor of `asdl.toml` `[areg].agents`?
+- Resolved for this Objective: repo-local TypeScript invocation plus `just install-areg` / `install-tools` shims are the accepted distribution model for the cutover. External installed use, npm-style execution, checkout-free packaging, or Python `uvx areg` replacement remains a parked future product decision, not a reason to preserve Python.
+- Parked follow-up: should `areg` keep legacy `areg.json` fallback indefinitely, or should a later cleanup define a retirement path in favor of `asdl.toml` `[areg].agents`? The TypeScript port preserves legacy `areg.json` fallback behavior where scoped for this Objective.
+- Resolved for this Objective: TypeScript `@asdl/clinkr` command-framework behavior is accepted for non-durable Click/help/usage-byte details; durable command, JSON, file-layout, managed-block, lockfile, and safety behavior is covered by the contract inventory and tests.
 - Resolved for this Objective: reusable skill-lock, project-config, managed-block, and skill-layout validation seams remain package-local until a second TypeScript consumer proves extraction.
 
 ## Closure
 
-Completed. `areg` is TypeScript-default for repo-local use, its active Python implementation and workspace wiring have been removed, public repo-local callers and skill guidance use the TypeScript path, external installed distribution is parked as follow-up rather than a blocker, and the parent `port-asdl-toolkit-to-typescript` Objective now records the completed out-of-sequence cutover and reusable lessons.
+Completed. `areg` is TypeScript-default for repo-local use and for the active first-party standalone CLI surface: `areg init`, `areg check`, `areg update-skills`, flattened `areg skill apply|list|show`, and hidden `areg exec skillx parse|list|fetch|cleanup` are implemented in `ts/packages/areg` with fake-driven scenario/unit/gateway coverage.
 
-Closure evidence includes the completed roadmap rows, Semantic Update `updates/2026-06-16T010915Z-areg-ts-cutover-python-removal.md` for TS cutover and Python removal, parent Semantic Update `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, and the parent `porting-playbook.md` lessons. Remaining questions are explicitly parked follow-ups, not active non-parked work for this Objective.
+The accepted cutover/distribution state is repo-local TypeScript invocation from the `ts/` workspace plus the `just install-areg` / `install-tools` shim. `justfile`, CI, public repo-local callers, skill guidance, and hidden `exec skillx` guidance use the TypeScript path, and runtime diagnostics report `runtime: typescript` for both direct source invocation and the installed `areg` shim path.
+
+The Python fallback is retired: tracked `packages/areg` files are gone, uv workspace/dev dependency/source configuration no longer includes `areg`, Python lint/type/test configuration no longer includes `packages/areg`, and empty untracked `packages/areg` directories were removed during closure verification. Rollback/reference evidence for the deleted Python implementation is in-repo commit `18f25c34720f2422881afe93084d569f0d071dfd`, the parent of deletion commit `eb5785fc3`.
+
+Closure evidence includes the completed roadmap rows, Semantic Updates `updates/2026-06-15T191151Z-areg-typescript-cutover-complete.md` and `updates/2026-06-16T010915Z-areg-ts-cutover-python-removal.md`, parent Semantic Updates `port-asdl-toolkit-to-typescript/updates/2026-06-15T191151Z-areg-cutover-and-playbook-lessons.md` and `port-asdl-toolkit-to-typescript/updates/2026-06-16T012156Z-areg-cutover-playbook-lessons.md`, and the parent `porting-playbook.md` lessons.
+
+Caveats and follow-ups: broader post-migration CLI cleanup is tracked separately in `.asdl/objectives/areg-ts-cli-cleanup/`; external installed distribution beyond repo-local shims remains a future product decision; no reusable areg-specific validation or mutation seam is promoted to shared TypeScript packages without a second consumer. The parent `port-asdl-toolkit-to-typescript` Objective records `areg` as the completed out-of-sequence cutover and resumes the default next capability as `objective` unless new evidence changes the sequence.

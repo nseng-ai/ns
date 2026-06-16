@@ -234,6 +234,18 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 		async createBranchAtHead() {
 			return { ok: true };
 		},
+		async hasUncommittedChangesUnder() {
+			return { ok: true, value: false };
+		},
+		async listLocalBranchTips() {
+			return { ok: true, value: [] };
+		},
+		async treeOidsAtRefs(params) {
+			return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
+		},
+		async changedPathsUnder() {
+			return { ok: true, value: [] };
+		},
 	};
 }
 
