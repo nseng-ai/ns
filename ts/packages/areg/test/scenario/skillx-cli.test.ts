@@ -30,7 +30,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 0,
+			exit_code: 1,
 			message: "Empty input",
 			data: { success: false, error: "Empty input" },
 		});
@@ -55,7 +55,7 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			exit_code: 0,
+			exit_code: 1,
 			message: "No skills directory found in owner/repo",
 			data: {
 				success: false,
@@ -132,7 +132,28 @@ describe("areg exec skillx CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			exit_code: 0,
+			exit_code: 1,
+			data: { success: false, error: "Skill 'demo' was not found in installed skills", tmp_dir: null },
+		});
+		expect(workspace.operations()).toEqual([
+			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
+			{ type: "cleanup-workspace", workspaceRoot: "/tmp/skillx.fake-1", cwd: "/repo" },
+		]);
+	});
+
+	test("fetch keeps missing requested skill as primary result when cleanup fails", async () => {
+		const workspace = new FakeAregSkillxWorkspaceGateway({
+			workspaceRoot: "/tmp/skillx.fake-1",
+			installedSkills: [skill("other", ["SKILL.md"])],
+			cleanupFailure: { code: "refused", message: "Refusing cleanup" },
+		});
+		const context = skillxContext(workspace);
+		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], { context });
+
+		expect(await run.exit).toBe(0);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			exit_code: 1,
+			message: "Skill 'demo' was not found in installed skills",
 			data: { success: false, error: "Skill 'demo' was not found in installed skills", tmp_dir: null },
 		});
 		expect(workspace.operations()).toEqual([

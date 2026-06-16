@@ -152,13 +152,6 @@ export function checkStep(branch: string, key: string, exists: boolean): Scripte
 	});
 }
 
-export function legacyMissingCheckStep(branch: string, key: string): ScriptedExec {
-	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"], {
-		code: 1,
-		stdout: `${JSON.stringify({ exit_code: 1, message: `not found: Entry Key=${key} Namespace=handoff Branch=${branch}` })}\n`,
-	});
-}
-
 export function cmuxIdentifyStep(): ScriptedExec {
 	return step("cmux", ["identify", "--json", "--id-format", "both"], {
 		stdout: JSON.stringify({ caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" } }),

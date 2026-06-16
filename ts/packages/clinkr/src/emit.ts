@@ -31,9 +31,8 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			options.io.stdout(`${body}\n`);
 			return legacy.exitCode;
 		}
-		const exitCodeOptions = { shellExitCode: options.shellExitCode };
-		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit, exitCodeOptions))}\n`);
-		return exitCodeForExit(exit, exitCodeOptions);
+		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
+		return exitCodeForExit(exit, { shellExitCode: options.shellExitCode });
 	}
 	switch (exit.type) {
 		case "ok": {

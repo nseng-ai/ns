@@ -90,7 +90,7 @@ describe("objective exec runner-subagent-usage", () => {
 	test("missing args return a negative compatibility JSON envelope", async () => {
 		const run = runScenario(["exec", "runner-subagent-usage", "--format", "json"]);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",

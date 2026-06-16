@@ -18,8 +18,9 @@ export interface ClinkrFailureExit {
 export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrFailureExit;
 
 /**
- * The machine envelope emitted under `--format json`, at exact parity with
- * Python clinkr's `ClinkrExit.to_envelope_dict`: keys are omitted when absent.
+ * The semantic machine envelope emitted under `--format json`, at exact parity
+ * with Python clinkr's `ClinkrExit.to_envelope_dict`: keys are omitted when absent.
+ * Process exit status may diverge in default shell-friendly negative mode.
  */
 export interface MachineEnvelope {
 	exit_code: 0 | 1 | 2;
@@ -56,14 +57,14 @@ export function exitCodeForExit(exit: ClinkrExit<unknown>, options: ClinkrExitCo
 	}
 }
 
-export function toMachineEnvelope(exit: ClinkrExit<unknown>, options: ClinkrExitCodeOptions = {}): MachineEnvelope {
+export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 	// Object-literal key order matches Python's envelope insertion order
 	// (exit_code, error_type, message, data) so serialized output is byte-identical.
 	switch (exit.type) {
 		case "ok":
 			return { exit_code: 0, data: exit.data };
 		case "negative": {
-			const envelope: MachineEnvelope = { exit_code: exitCodeForExit(exit, options), message: exit.message };
+			const envelope: MachineEnvelope = { exit_code: 1, message: exit.message };
 			if (exit.data !== undefined) envelope.data = exit.data;
 			return envelope;
 		}

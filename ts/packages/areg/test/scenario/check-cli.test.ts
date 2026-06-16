@@ -84,7 +84,7 @@ describe("areg check CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		const body = JSON.parse(run.stdout.join(""));
-		expect(body.exit_code).toBe(0);
+		expect(body.exit_code).toBe(1);
 		expect(body.data.issues).toEqual([
 			expect.objectContaining({ skill: "demo", code: "invalid_lock_hash", message: expect.stringContaining("placeholder computedHash PENDING_REGEN") }),
 			expect.objectContaining({ skill: "short", code: "invalid_lock_hash", message: expect.stringContaining("invalid computedHash 'abc123'") }),

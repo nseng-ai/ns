@@ -1,8 +1,7 @@
-import { runAvailableBrmemCommand } from "@asdl/core/brmem-cli";
+import { checkBrmemEntry } from "@asdl/core/brmem-cli";
 import { formatCommand, tailText, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
 import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@asdl/handoff/identity";
-import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skill-expansion.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
@@ -118,39 +117,22 @@ export async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, 
 }
 
 export async function checkHandoffExists(pi: ExtensionAPI, cwd: string, branch: string, key: string): Promise<HandoffExistsResult> {
-	const brmemArgs = ["check", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch, "--format", "json"];
-	const run = await runAvailableBrmemCommand({ gateway: pi, cwd, brmemArgs, timeoutMs: BRMEM_TIMEOUT_MS });
-	if (!run.ok) {
-		return { type: "failed", message: run.error.message };
+	const result = await checkBrmemEntry({
+		gateway: pi,
+		cwd,
+		key,
+		namespace: HANDOFF_NAMESPACE,
+		branch,
+		timeoutMs: BRMEM_TIMEOUT_MS,
+	});
+	switch (result.type) {
+		case "present":
+			return { type: "exists" };
+		case "absent":
+			return { type: "missing" };
+		case "error":
+			return { type: "failed", message: result.error.message };
 	}
-	const result = run.value.result;
-	if (result.killed) {
-		return {
-			type: "failed",
-			message: `brmem check failed before it could verify the handoff.\n\n${formatExecFailure(run.value.displayCommand, result)}`,
-		};
-	}
-	if (result.code === 0) {
-		const presence = parseBrmemCheckPresence(result.stdout);
-		switch (presence.type) {
-			case "exists":
-				return { type: "exists" };
-			case "missing":
-				return { type: "missing" };
-			case "invalid":
-				return {
-					type: "failed",
-					message: `brmem check returned malformed JSON before it could verify the handoff.\n\n${presence.message}`,
-				};
-		}
-	}
-	if (result.code === 1 && isBrmemMissingEnvelope(result.stdout)) {
-		return { type: "missing" };
-	}
-	return {
-		type: "failed",
-		message: `brmem check failed before it could verify the handoff.\n\n${formatExecFailure(run.value.displayCommand, result)}`,
-	};
 }
 
 export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | undefined): void {
@@ -178,26 +160,6 @@ export function formatExecFailure(commandDisplay: string, result: ExecResult): s
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
 	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
-}
-
-type BrmemCheckPresence = { type: "exists" } | { type: "missing" } | { type: "invalid"; message: string };
-
-function parseBrmemCheckPresence(stdout: string): BrmemCheckPresence {
-	const envelope = parseMachineEnvelopeData(stdout, { label: "brmem check JSON", stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: 80 } });
-	if (envelope.type !== "valid") return { type: "invalid", message: envelope.message };
-	const present = envelope.data.present;
-	if (present === undefined) return { type: "exists" };
-	if (typeof present !== "boolean") {
-		return { type: "invalid", message: "Malformed brmem check JSON: expected boolean field data.present." };
-	}
-	return present ? { type: "exists" } : { type: "missing" };
-}
-
-function isBrmemMissingEnvelope(stdout: string): boolean {
-	const envelope = parseMachineEnvelopeData(stdout, { label: "brmem check JSON", stdoutTail: false });
-	if (envelope.type !== "failure" || envelope.exitCode !== 1) return false;
-	const message = envelope.cliMessage ?? "";
-	return message.startsWith("not found:") && message.includes("Namespace=handoff");
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {

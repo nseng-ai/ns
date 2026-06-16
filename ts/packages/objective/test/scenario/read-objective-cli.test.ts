@@ -120,7 +120,7 @@ describe("objective exec read-objective", () => {
 	test("missing slug returns a stable negative JSON envelope without usage", async () => {
 		const run = runScenario(["exec", "read-objective", "--format", "json"]);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).not.toContain("Usage:");
 		expect(run.stdout.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(run)).toEqual({
@@ -133,7 +133,7 @@ describe("objective exec read-objective", () => {
 	test("invalid slug returns a stable negative JSON envelope", async () => {
 		const run = runScenario(["exec", "read-objective", "foo/bar", "--format", "json"]);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "Invalid Objective slug 'foo/bar'. Pass a single slug, not a path.",
@@ -146,7 +146,7 @@ describe("objective exec read-objective", () => {
 			fake: { records: [], directories: [".asdl/objective-archive/alpha"] },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "No Objective record found for slug 'alpha'.",

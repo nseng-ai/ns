@@ -208,7 +208,8 @@ If the old Pi implementation cannot be deleted or reduced to Pi-specific composi
 - Add `--json` when agents or scripts need structured success and failure details.
 - Use stable error codes inside JSON payloads.
 - Keep command descriptions specific; Pi shows them as `asdl-dev <command>: <description>`.
-- Treat nonzero exit codes as part of the command contract. The Pi adapter will display them as error-level custom messages. For Clinkr rendered commands, `negative(...)` is a successful domain-negative answer that exits 0 by default; shell/CI callers that need nonzero semantic negatives should pass `--shell-exit-code`.
+- Treat nonzero process exit codes as part of the command contract. The Pi adapter will display them as error-level custom messages. For Clinkr rendered commands, `negative(...)` is a successful domain-negative answer that exits 0 by default; shell/CI callers that need nonzero semantic negatives should pass `--shell-exit-code`. This flag affects the process exit status only, not the JSON machine envelope: machine consumers should read envelope `exit_code`, where negative remains semantic `1`.
+- Prefer `ok + data` when a command successfully answers a predicate/query and “no” is ordinary result data, such as `brmem check` returning `{ present: false }`. Use `negative` when the command completed but the requested outcome did not occur and generic machine consumers should treat the result as semantically non-ok, such as an empty selection or no actionable work.
 - Avoid large output. If a command can produce long logs, summarize by default and provide a flag or temp-file evidence path for details.
 
 ## Test checklist

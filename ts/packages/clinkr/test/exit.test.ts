@@ -61,14 +61,8 @@ describe("toMachineEnvelope", () => {
 		expect(Object.keys(envelope)).toEqual(["exit_code", "data"]);
 	});
 
-	test("negative envelope without data omits the data key and exits 0 by default", () => {
+	test("negative envelope without data omits the data key and uses semantic exit_code 1", () => {
 		const envelope = toMachineEnvelope(negative("no plans found"));
-		expect(envelope).toEqual({ exit_code: 0, message: "no plans found" });
-		expect(Object.keys(envelope)).toEqual(["exit_code", "message"]);
-	});
-
-	test("negative envelope uses exit_code 1 in shell exit code mode", () => {
-		const envelope = toMachineEnvelope(negative("no plans found"), { shellExitCode: true });
 		expect(envelope).toEqual({ exit_code: 1, message: "no plans found" });
 		expect(Object.keys(envelope)).toEqual(["exit_code", "message"]);
 	});

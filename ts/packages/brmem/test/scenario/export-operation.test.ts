@@ -151,7 +151,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "scratch", branch: "main", key: "other.md", content: "other" }] },
 			});
 			expect(await run.exit).toBe(0);
-			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 0, message: "No base Entries found on Branch main.", data: { exported: [], output_dir: outputDir } });
+			expect(parseJsonOutput(run)).toMatchObject({ exit_code: 1, message: "No base Entries found on Branch main.", data: { exported: [], output_dir: outputDir } });
 			await expect(readFile(outputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 
 			const namedOutputDir = join(root, "named-empty");
@@ -159,7 +159,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "base.md", content: "base" }] },
 			});
 			expect(await named.exit).toBe(0);
-			expect(parseJsonOutput(named)).toMatchObject({ exit_code: 0, message: "No Entries found on Branch main in Namespace scratch.", data: { exported: [], output_dir: namedOutputDir } });
+			expect(parseJsonOutput(named)).toMatchObject({ exit_code: 1, message: "No Entries found on Branch main in Namespace scratch.", data: { exported: [], output_dir: namedOutputDir } });
 			await expect(readFile(namedOutputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			await rm(root, { recursive: true, force: true });

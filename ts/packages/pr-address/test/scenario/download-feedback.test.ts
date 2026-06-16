@@ -86,7 +86,7 @@ describe("pr-address exec download-feedback", () => {
 			github: defaultGithub(),
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
 		expect(data.found).toBe(false);
 		expect(data.markdown).toContain("No PR found for branch feature/missing");
