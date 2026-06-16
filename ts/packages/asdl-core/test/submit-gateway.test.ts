@@ -161,7 +161,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	});
 
 	test("verifyCurrentPr maps timeouts", async () => {
-		const runner = new ScriptedCommandRunner([{ command: "gt", args: ["branch", "info", "--no-interactive"], exitCode: 124, killed: true }]);
+		const runner = new ScriptedCommandRunner([{ command: "gt", args: ["branch", "info", "--no-interactive"], exitCode: 124, isKilled: true }]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
 		const result = await gateway.verifyCurrentPr({ cwd: "/repo" });

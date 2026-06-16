@@ -49,7 +49,7 @@ export interface ResultFields {
 	readonly stderr?: string;
 	readonly exitCode?: number;
 	readonly startupError?: string;
-	readonly killed?: boolean;
+	readonly isKilled?: boolean;
 }
 
 export interface StepOptions extends ResultFields {}
@@ -218,7 +218,7 @@ function result(fields: ResultFields): ExecResult {
 		code: fields.exitCode ?? 0,
 		stdout: fields.stdout ?? "",
 		stderr: fields.startupError ?? fields.stderr ?? "",
-		killed: fields.killed === true,
+		killed: fields.isKilled === true,
 		...(fields.startupError === undefined ? {} : { startupError: fields.startupError }),
 	};
 }
