@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { formatCommand, formatCommandFailure, type CommandExecApi, type ExecOptions, type ExecResult } from "../exec.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -50,6 +52,7 @@ export interface GitGateway {
 	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
 	headCommit(params: GitCwdParams): Promise<GitResult<string>>;
+	gitPath(params: GitPathParams): Promise<GitResult<string>>;
 	validateBranchRef(params: GitBranchParams): Promise<GitOperationResult>;
 	localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult>;
 	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
@@ -156,6 +159,20 @@ export class RealGitGateway implements GitGateway {
 			return error("head_commit_empty", `git rev-parse HEAD returned no commit.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
 		}
 		return { ok: true, value: commit };
+	}
+
+	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
+		const run = await this.runGit(params, ["rev-parse", "--path-format=absolute", "--git-path", params.relativePath]);
+		if (!run.ok) return run;
+		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return error("git_path_failed", formatCommandFailure("git rev-parse --git-path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+		}
+
+		const gitPath = firstNonEmptyLine(run.value.result.stdout);
+		if (gitPath === undefined) {
+			return error("git_path_empty", `git rev-parse --git-path returned no path.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
+		}
+		return { ok: true, value: path.isAbsolute(gitPath) ? path.normalize(gitPath) : path.resolve(params.cwd, gitPath) };
 	}
 
 	async validateBranchRef(params: GitBranchParams): Promise<GitOperationResult> {

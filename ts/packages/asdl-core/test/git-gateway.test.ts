@@ -116,6 +116,49 @@ describe("real git gateway", () => {
 		expect(commands.execCalls.every((call) => call.options?.timeout === 10_000)).toBe(true);
 	});
 
+	test("resolves git paths with absolute path command protocol", async () => {
+		const commands = new ScriptedCommands([step("git", ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], { stdout: "/repo/.git/info/exclude\n" })]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toEqual({ ok: true, value: "/repo/.git/info/exclude" });
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([{ command: "git", args: ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], options: { cwd: "/work", timeout: 10_000 } }]);
+	});
+
+	test("normalizes relative git path output defensively", async () => {
+		const commands = new ScriptedCommands([step("git", ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], { stdout: "relative/info/exclude\n" })]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toEqual({ ok: true, value: "/work/relative/info/exclude" });
+		commands.assertDone();
+	});
+
+	test("reports git path command failures", async () => {
+		const commands = new ScriptedCommands([step("git", ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], { code: 128, stderr: "fatal: not a git repository" })]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toMatchObject({
+			ok: false,
+			error: { code: "git_path_failed", displayCommand: "git rev-parse --path-format=absolute --git-path info/exclude" },
+		});
+		commands.assertDone();
+	});
+
+	test("reports empty git path output", async () => {
+		const commands = new ScriptedCommands([step("git", ["rev-parse", "--path-format=absolute", "--git-path", "info/exclude"], { stdout: "\n" })]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.gitPath({ cwd: "/work", relativePath: "info/exclude" })).toEqual({
+			ok: false,
+			error: {
+				code: "git_path_empty",
+				message: "git rev-parse --git-path returned no path.\nCommand: git rev-parse --path-format=absolute --git-path info/exclude",
+				displayCommand: "git rev-parse --path-format=absolute --git-path info/exclude",
+			},
+		});
+		commands.assertDone();
+	});
+
 	test("reports detached current branch", async () => {
 		const commands = new ScriptedCommands([step("git", ["branch", "--show-current"], { stdout: "\n" })]);
 		const git = new RealGitGateway(commands);

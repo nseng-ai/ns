@@ -225,6 +225,9 @@ function fakeGitGateway(branch: string = PLAN_BRANCH): GitGateway {
 		async headCommit() {
 			return { ok: true, value: "1111111111111111111111111111111111111111" };
 		},
+		async gitPath() {
+			return { ok: true, value: "/repo/.git/info/exclude" };
+		},
 		async validateBranchRef() {
 			return { ok: true };
 		},

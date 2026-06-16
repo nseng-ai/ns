@@ -179,6 +179,11 @@ class FakeGitGateway implements GitGateway {
 		return { ok: true, value: "abc123" };
 	}
 
+	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
+		this.calls.push("gitPath");
+		return { ok: true, value: `${this.repoRootValue}/.git/${params.relativePath}` };
+	}
+
 	async validateBranchRef(_params: GitBranchParams): Promise<GitOperationResult> {
 		this.calls.push("validateBranchRef");
 		return { ok: true };

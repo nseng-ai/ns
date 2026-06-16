@@ -34,12 +34,13 @@ export function createRealAregContext(options: { cwd?: string | undefined; env?:
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const npxSkills = new RealAregNpxSkillsGateway();
+	const git = new RealGitGateway(new NodeCommandExecApi());
 	return {
 		host: new RealAregHostGateway(),
 		github: new RealAregGithubGateway(),
 		skillxWorkspace: new RealAregSkillxWorkspaceGateway({ npxSkills }),
-		project: new RealAregProjectGateway(),
-		git: new RealGitGateway(new NodeCommandExecApi()),
+		project: new RealAregProjectGateway({ git }),
+		git,
 		npxSkills,
 		prompt: new RealAregPromptGateway(),
 		cwd,
