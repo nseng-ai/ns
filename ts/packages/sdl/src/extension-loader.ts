@@ -1,3 +1,4 @@
+import { formatUnknownError } from "./command-registry.ts";
 import { loadSdlUserModuleDefault } from "./sdk-module-loader.ts";
 
 export interface ExtensionLoadDiagnostic {
@@ -24,6 +25,3 @@ function diagnostic(code: string, message: string, path: string): ExtensionLoadD
 	return { severity: "error", code, message, path };
 }
 
-function formatUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
