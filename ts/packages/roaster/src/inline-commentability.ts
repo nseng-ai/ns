@@ -1,29 +1,33 @@
+import { parsePatchFiles, type Hunk } from "@pierre/diffs";
+
 import type { InlineClassificationResult, PRChangedFile, ReviewFinding } from "./models.ts";
 
-const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(?<start>\d+)(?:,\d+)? @@/;
+const INLINE_PATCH_FILE = "__roaster_inline__.patch";
 
 export function commentableRightSideLines(patch: string | null): ReadonlySet<number> {
 	const lines = new Set<number>();
-	if (patch === null) return lines;
+	if (patch === null || patch.trim() === "") return lines;
 
-	let rightLine: number | null = null;
-	for (const patchLine of patch.split(/\r?\n/u)) {
-		const hunkMatch = HUNK_HEADER_RE.exec(patchLine);
-		if (hunkMatch !== null) {
-			const start = hunkMatch.groups?.start;
-			if (start !== undefined) rightLine = Number.parseInt(start, 10);
-			continue;
-		}
-
-		if (rightLine === null) continue;
-		if (patchLine.startsWith("\\")) continue;
-		if (patchLine.startsWith("-")) continue;
-		if (patchLine.startsWith("+") || patchLine.startsWith(" ")) {
-			lines.add(rightLine);
-			rightLine += 1;
+	for (const hunk of parseInlinePatchHunks(patch)) {
+		for (let line = hunk.additionStart; line < hunk.additionStart + hunk.additionCount; line += 1) {
+			lines.add(line);
 		}
 	}
 	return lines;
+}
+
+function parseInlinePatchHunks(patch: string): readonly Hunk[] {
+	try {
+		return parsePatchFiles(syntheticUnifiedPatch(patch), "roaster-inline").flatMap((parsedPatch) => parsedPatch.files.flatMap((file) => file.hunks));
+	} catch {
+		// Malformed GitHub patch snippets should only disable inline comments, not fail review classification.
+		return [];
+	}
+}
+
+function syntheticUnifiedPatch(patch: string): string {
+	const patchBody = patch.endsWith("\n") ? patch : `${patch}\n`;
+	return `diff --git a/${INLINE_PATCH_FILE} b/${INLINE_PATCH_FILE}\n--- a/${INLINE_PATCH_FILE}\n+++ b/${INLINE_PATCH_FILE}\n${patchBody}`;
 }
 
 export function classifyInlineFindings(findings: readonly ReviewFinding[], changedFiles: readonly PRChangedFile[]): InlineClassificationResult {
