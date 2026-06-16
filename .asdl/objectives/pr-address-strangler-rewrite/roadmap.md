@@ -2,9 +2,12 @@
 
 ## Work
 
-- [ ] Define the three-zone layout (`src/{core,legacy,app}`), the
+- [x] Define the three-zone layout (`src/{core,legacy,app}`), the
       import-direction contract, and the static enforcement rule (initially over
       an empty `core/`) so the boundary is enforced before any code moves.
+      Evidence: `src/core`, `src/app`, and `src/legacy` are materialized with
+      marker files, and the package-local import-boundary static test passes as
+      part of both targeted and full TypeScript validation.
 - [ ] Define the new `PrAddressRunEngine`/RunKernel façade in `app/`: target
       verbs are `feedback`, `details`, `plan`, `batch`, `status`, and `reply`,
       while this first read-only strangler slice implements only the read-only
