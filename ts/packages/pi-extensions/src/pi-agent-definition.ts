@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
+import { splitMarkdownFrontmatter, stripLineEnding } from "@asdl/core/markdown-frontmatter";
 import { formatErrorMessage } from "@asdl/core/primitives";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "asdl.pi-agent.v1";
@@ -85,19 +86,17 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 }
 
 export function parsePiAgentDefinitionMarkdown(raw: string, filePath: string): PiAgentDefinition {
-	const normalized = raw.replace(/\r\n?/g, "\n");
-	const lines = normalized.split("\n");
-	if (lines[0] !== "---") {
+	const split = splitMarkdownFrontmatter(raw);
+	if (split.type === "not_found") {
 		throw new Error(`Pi agent definition ${filePath} must start with an opening frontmatter delimiter "---".`);
 	}
-
-	const closingIndex = lines.findIndex((line, index) => index > 0 && line === "---");
-	if (closingIndex === -1) {
+	if (split.type === "missing_closing_fence") {
 		throw new Error(`Pi agent definition ${filePath} is missing a closing frontmatter delimiter "---".`);
 	}
 
-	const fields = parseFrontmatterLines(lines.slice(1, closingIndex), filePath);
-	const body = lines.slice(closingIndex + 1).join("\n");
+	const frontmatterLines = split.block.frontmatterLinesWithEndings.map((line) => stripLineEnding(line).replace(/\r$/u, ""));
+	const body = split.block.body.replace(/\r\n?/gu, "\n");
+	const fields = parseFrontmatterLines(frontmatterLines, filePath);
 	return validatePiAgentDefinition(fields, body, filePath);
 }
 

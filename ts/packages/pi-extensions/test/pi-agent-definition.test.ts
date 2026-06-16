@@ -41,6 +41,18 @@ describe("Pi agent definitions", () => {
 		);
 	});
 
+	test("requires exact first-line frontmatter fences", () => {
+		expect(() => parsePiAgentDefinitionMarkdown("\n---\nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md")).toThrow(
+			/opening frontmatter delimiter/,
+		);
+		expect(() => parsePiAgentDefinitionMarkdown("--- \nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md")).toThrow(
+			/opening frontmatter delimiter/,
+		);
+		expect(() => parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\n--- \nBody", "/agent.md")).toThrow(
+			/closing frontmatter delimiter/,
+		);
+	});
+
 	test("rejects the wrong schema", () => {
 		expect(() => parsePiAgentDefinitionMarkdown(definitionMarkdown({ schema: "asdl.pi-agent.v2" }), "/agent.md")).toThrow(
 			/expected asdl\.pi-agent\.v1/,

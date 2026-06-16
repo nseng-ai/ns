@@ -195,6 +195,30 @@ Do next work.
 		expect(expanded?.body).toBe("# Objective Next");
 		expect(expanded?.body).not.toContain("name: objective-next");
 	});
+
+	test("rejects exact opening frontmatter without an exact closing fence", async () => {
+		await expect(
+			expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
+				readTextFile: async () => "---\nname: objective-next\n# Objective Next\n",
+			}),
+		).rejects.toThrow('Skill Markdown frontmatter is missing a closing "---" fence.');
+	});
+
+	test("treats near opening fences as body text", async () => {
+		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
+			readTextFile: async () => "--- \nname: objective-next\n---\n# Objective Next\n",
+		});
+
+		expect(expanded?.body).toBe("--- \nname: objective-next\n---\n# Objective Next");
+	});
+
+	test("does not strip prose fences after the first line", async () => {
+		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
+			readTextFile: async () => "# Objective Next\n\n---\nnot frontmatter\n---\n",
+		});
+
+		expect(expanded?.body).toBe("# Objective Next\n\n---\nnot frontmatter\n---");
+	});
 });
 
 describe("repo skill expansion", () => {

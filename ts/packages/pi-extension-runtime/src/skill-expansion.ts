@@ -1,6 +1,8 @@
 import { lstat, readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 
+import { splitMarkdownFrontmatter } from "@asdl/core/markdown-frontmatter";
+
 export interface SkillCommandInfo {
 	name: string;
 	source: string;
@@ -85,7 +87,10 @@ export interface InvokeRepoSkillPromptTurnOptions {
 }
 
 function stripSkillFrontmatter(markdown: string): string {
-	return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+	const split = splitMarkdownFrontmatter(markdown);
+	if (split.type === "not_found") return markdown.trim();
+	if (split.type === "missing_closing_fence") throw new Error('Skill Markdown frontmatter is missing a closing "---" fence.');
+	return split.block.body.trim();
 }
 
 interface BuildSkillBlockOptions {

@@ -116,6 +116,14 @@ describe("parseReviewDefinition", () => {
 		expect(error.message).toContain(message);
 	});
 
+	test("requires exact first-line frontmatter fences", () => {
+		expect(expectError(parseReviewDefinition("\n---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
+		expect(expectError(parseReviewDefinition(" ---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
+		expect(expectError(parseReviewDefinition("--- \ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_open_fence");
+		expect(expectError(parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n ---\n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_close_fence");
+		expect(expectError(parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n--- \n\nFlag concrete issues in the diff.\n", { name: "dignified-python" })).code).toBe("missing_close_fence");
+	});
+
 	test("requires non-empty name", () => {
 		const error = expectError(
 			parseReviewDefinition("---\ndescription: Review Python diffs for style violations.\n---\n\nFlag concrete issues in the diff.\n", { name: "   " }),
