@@ -1,4 +1,4 @@
-import type { SlotCliContext } from "../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import type { CurrentWorktreeRedirect } from "../planning.ts";
 import { findByBranch, findOccupancyByBranch, lowestAvailable, type SlotInventory, type SlotRecord, buildSlotInventory } from "../inventory.ts";
 import { planCurrentWtRedirect } from "../planning.ts";
@@ -31,33 +31,33 @@ interface ClaimPlan {
 
 export async function claimBranch(ctx: SlotCliContext, branchName: string): Promise<SlotClaimResult> {
 	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
-	await ensureSlotsMetadataDir(ctx.repo, ctx.storage);
-	if (!(await ctx.git.branchExists(branchName))) return failure("branch_missing", `Branch '${branchName}' does not exist locally.`);
+	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
+	await ensureSlotsMetadataDir(repoCtx.repo, repoCtx.storage);
+	if (!(await repoCtx.git.branchExists(branchName))) return failure("branch_missing", `Branch '${branchName}' does not exist locally.`);
 
-	const planResult = await planClaim(ctx, branchName);
+	const planResult = await planClaim(repoCtx, branchName);
 	if (planResult.type === "failure") return planResult;
 	const plan = planResult.outcome;
-	if (plan.isAlreadyCurrent) return ok(outcomeFromPlan(ctx, plan));
+	if (plan.isAlreadyCurrent) return ok(outcomeFromPlan(repoCtx, plan));
 
-	const trunkBranch = await ctx.git.getTrunkBranch();
+	const trunkBranch = await repoCtx.git.getTrunkBranch();
 	if (plan.source !== null) {
 		const sourceBranch = plan.source.branch;
 		if (sourceBranch === null) throw new Error(`claim source slot ${plan.source.slotName} has no branch`);
-		const sourceFailure = await detachSourceSlot(ctx, plan.source, sourceBranch, trunkBranch);
+		const sourceFailure = await detachSourceSlot(repoCtx, plan.source, sourceBranch, trunkBranch);
 		if (sourceFailure !== null) return { type: "failure", failure: sourceFailure };
 	}
 	const redirect = plan.mainRedirect ?? plan.callerRedirect;
 	if (redirect !== null) {
-		const redirectFailure = await executeCurrentWorktreeRedirect(redirect, ctx);
+		const redirectFailure = await executeCurrentWorktreeRedirect(redirect, repoCtx);
 		if (redirectFailure !== null) return { type: "failure", failure: redirectFailure };
 	}
-	const checkoutFailure = await ctx.git.checkoutBranch(plan.target.path, plan.slotCheckoutBranch);
+	const checkoutFailure = await repoCtx.git.checkoutBranch(plan.target.path, plan.slotCheckoutBranch);
 	if (checkoutFailure !== null) return failure("checkout_failed", `Failed to check out '${plan.slotCheckoutBranch}' into ${plan.target.slotName}: ${checkoutFailure.message}`);
-	return ok(outcomeFromPlan(ctx, plan));
+	return ok(outcomeFromPlan(repoCtx, plan));
 }
 
-async function planClaim(ctx: SlotCliContext, branchName: string): Promise<LifecycleResult<ClaimPlan>> {
-	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
+async function planClaim(ctx: RepoSlotContext, branchName: string): Promise<LifecycleResult<ClaimPlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	if (inventory.records.length === 0) return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
 	const current = currentSlotRecord(inventory.records, ctx.repo.root);
@@ -82,8 +82,7 @@ async function planClaim(ctx: SlotCliContext, branchName: string): Promise<Lifec
 	return okPlan({ target: current, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: false, callerRedirect: null, mainRedirect: null });
 }
 
-async function planClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInventory, branchName: string): Promise<LifecycleResult<ClaimPlan>> {
-	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
+async function planClaimFromMainWorktree(ctx: RepoSlotContext, inventory: SlotInventory, branchName: string): Promise<LifecycleResult<ClaimPlan>> {
 	if (ctx.repo.root !== ctx.repo.mainRepoRoot) return notCurrentSlotFailure(ctx);
 	const trunkBranch = await ctx.git.getTrunkBranch();
 	if (branchName === trunkBranch) {
@@ -115,8 +114,7 @@ async function planClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInv
 	return okPlan({ target, slotCheckoutBranch: branchName, source: null, isAlreadyCurrent: false, callerRedirect: null, mainRedirect: null });
 }
 
-async function planTrunkClaimFromMainWorktree(ctx: SlotCliContext, inventory: SlotInventory, trunkBranch: string): Promise<LifecycleResult<ClaimPlan> | null> {
-	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
+async function planTrunkClaimFromMainWorktree(ctx: RepoSlotContext, inventory: SlotInventory, trunkBranch: string): Promise<LifecycleResult<ClaimPlan> | null> {
 	const currentBranch = await ctx.git.getCurrentBranch(ctx.repo.root);
 	if (currentBranch.type === "failure") return failure("current_branch_failed", `Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`);
 	if (currentBranch.type === "detached") return null;
@@ -153,32 +151,32 @@ function currentSlotRecord(records: readonly SlotRecord[], root: string): SlotRe
 	return records.find((record) => record.path === root) ?? null;
 }
 
-function notCurrentSlotFailure(ctx: SlotCliContext): LifecycleResult<ClaimPlan> {
-	return failure("not_current_slot", `\`slot claim\` must be run from a managed slot worktree, or from the main worktree to move or claim a branch into the lowest available slot (current worktree: ${ctx.repo.type === "repo" ? ctx.repo.root : ctx.cwd}).`);
+function notCurrentSlotFailure(ctx: RepoSlotContext): LifecycleResult<ClaimPlan> {
+	return failure("not_current_slot", `\`slot claim\` must be run from a managed slot worktree, or from the main worktree to move or claim a branch into the lowest available slot (current worktree: ${ctx.repo.root}).`);
 }
 
-function trunkInMainWorktreeFailure(ctx: SlotCliContext, branchName: string): LifecycleResult<ClaimPlan> {
-	return failure("trunk_in_main_worktree", `Branch '${branchName}' is the trunk branch and is checked out in the main worktree at ${ctx.repo.type === "repo" ? ctx.repo.root : ctx.cwd}. Refusing to move trunk out of the main worktree; check out a different branch first or claim a branch that is not currently checked out there.`);
+function trunkInMainWorktreeFailure(ctx: RepoSlotContext, branchName: string): LifecycleResult<ClaimPlan> {
+	return failure("trunk_in_main_worktree", `Branch '${branchName}' is the trunk branch and is checked out in the main worktree at ${ctx.repo.root}. Refusing to move trunk out of the main worktree; check out a different branch first or claim a branch that is not currently checked out there.`);
 }
 
-async function currentSlotDirtyFailure(ctx: SlotCliContext, current: SlotRecord): Promise<SlotLifecycleFailure | null> {
+async function currentSlotDirtyFailure(ctx: RepoSlotContext, current: SlotRecord): Promise<SlotLifecycleFailure | null> {
 	if (!(await ctx.git.hasUncommittedChanges(current.path))) return null;
 	return { error_type: "dirty_current_slot", message: `Current slot ${current.slotName} has uncommitted changes at ${current.path}. Commit or stash before claiming a branch.` };
 }
 
-async function sourceSlotFailure(ctx: SlotCliContext, source: SlotRecord): Promise<SlotLifecycleFailure | null> {
+async function sourceSlotFailure(ctx: RepoSlotContext, source: SlotRecord): Promise<SlotLifecycleFailure | null> {
 	if (source.operation !== null) return { error_type: "branch_in_use", message: slotOperationMessage(source, { action: "claiming" }) };
 	if (!(await ctx.git.hasUncommittedChanges(source.path))) return null;
 	return { error_type: "dirty_source_slot", message: `Source slot ${source.slotName} has uncommitted changes at ${source.path}. Commit or stash there before claiming its branch.` };
 }
 
-async function detachSourceSlot(ctx: SlotCliContext, source: SlotRecord, branchName: string, trunkBranch: string): Promise<SlotLifecycleFailure | null> {
+async function detachSourceSlot(ctx: RepoSlotContext, source: SlotRecord, branchName: string, trunkBranch: string): Promise<SlotLifecycleFailure | null> {
 	const detachFailure = await ctx.git.detachHead(source.path, trunkBranch);
 	if (detachFailure === null) return null;
 	return { error_type: "source_detach_failed", message: `Failed to detach source slot ${source.slotName} at ${source.path} from '${branchName}' to ${trunkBranch}: ${detachFailure.message}` };
 }
 
-function outcomeFromPlan(ctx: SlotCliContext, plan: ClaimPlan): SlotClaimOutcome {
+function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcome {
 	const replacedBranchName = plan.target.branch === plan.slotCheckoutBranch ? null : plan.target.branch;
 	const mainCheckoutBranch = mainCheckoutBranchOf(plan);
 	return {
@@ -189,7 +187,7 @@ function outcomeFromPlan(ctx: SlotCliContext, plan: ClaimPlan): SlotClaimOutcome
 		source_slot_name: plan.source?.slotName ?? null,
 		source_worktree_path: plan.source?.path ?? null,
 		already_current: plan.isAlreadyCurrent,
-		main_worktree_path: mainCheckoutBranch === null ? null : ctx.repo.type === "repo" ? ctx.repo.root : ctx.cwd,
+		main_worktree_path: mainCheckoutBranch === null ? null : ctx.repo.root,
 		main_checkout_branch: mainCheckoutBranch,
 	};
 }

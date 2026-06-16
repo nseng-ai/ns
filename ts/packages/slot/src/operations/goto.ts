@@ -1,9 +1,9 @@
 import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findBySlot } from "../inventory.ts";
-import { buildNavigationResultFields } from "../navigation-result.ts";
+import { buildNavigationResultFields, renderNavigationFooter, writeNavigationCdDirective } from "../navigation-result.ts";
 import { poolSize } from "../inventory.ts";
 import { resolveNum, resolveWt } from "../selectors.ts";
 
@@ -30,7 +30,8 @@ export type GotoResult = z.infer<typeof gotoResultSchema>;
 
 export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
+	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
+	const inventory = await buildSlotInventory(repoCtx.git, { mainRepoRoot: repoCtx.repo.mainRepoRoot });
 	if (poolSize(inventory) === 0) return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
 	if (request.num !== undefined && request.wt !== undefined) return failure("conflicting_slot_args", "Pass exactly one of -n/--num or -w/--wt, not both.");
 	let slotName: string;
@@ -47,16 +48,15 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 	}
 	const record = findBySlot(inventory, slotName);
 	if (record === null || record.branch === null) return negative(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
-	if (!(await ctx.git.pathExists(record.path))) return failure("worktree_missing", `Worktree for ${slotName} is missing at ${record.path}. Run \`slot free --wt ${slotName}\` to clear the stale assignment.`);
-	const navigation = await buildNavigationResultFields(ctx, { worktreePath: record.path, shouldSkipClipboard: !request.clipboard });
+	if (!(await repoCtx.git.pathExists(record.path))) return failure("worktree_missing", `Worktree for ${slotName} is missing at ${record.path}. Run \`slot free --wt ${slotName}\` to clear the stale assignment.`);
+	await writeNavigationCdDirective(repoCtx, record.path);
+	const navigation = await buildNavigationResultFields(repoCtx, { worktreePath: record.path, shouldSkipClipboard: !request.clipboard });
 	return ok({ slot_name: slotName, branch_name: record.branch, operation: record.operation, ...navigation });
 }
 
 export function renderGoto(result: GotoResult): string {
 	const operationSuffix = result.operation === null ? "" : ` (${result.operation} in progress)`;
-	const lines = [`${result.slot_name} -> ${result.branch_name}${operationSuffix}`, result.cd_command];
-	if (!result.clipboard_skipped) {
-		lines.push(result.clipboard_copied ? "Copied cd command to clipboard." : `Clipboard unavailable (${result.clipboard_failure_detail ?? "pbcopy failed"})`);
-	}
+	const lines = [`${result.slot_name} -> ${result.branch_name}${operationSuffix}`];
+	lines.push(...renderNavigationFooter(result));
 	return lines.join("\n");
 }

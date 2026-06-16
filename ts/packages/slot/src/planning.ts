@@ -45,8 +45,9 @@ export async function planCheckout(inventory: SlotInventory, git: SlotGitGateway
 
 export async function planCurrentWtRedirect(git: SlotGitGateway, options: { cwd: string; movingBranch: string }): Promise<CurrentWorktreeRedirect> {
 	const previous = await git.getPreviousBranch(options.cwd);
+	const worktrees = await git.listWorktrees();
 	if (previous !== null && previous !== options.movingBranch && await git.branchExists(previous)) {
-		const conflict = (await git.listWorktrees()).find((worktree) => worktree.branch === previous && worktree.path !== options.cwd);
+		const conflict = worktrees.find((worktree) => worktree.branch === previous && worktree.path !== options.cwd);
 		if (conflict === undefined) return { action: { type: "checkout_branch", branch: previous, role: "previous" }, note: null };
 	}
 
@@ -54,7 +55,7 @@ export async function planCurrentWtRedirect(git: SlotGitGateway, options: { cwd:
 	if (extractSlotNumber(basename(options.cwd)) !== null) return { action: { type: "detach_head", ref: trunk }, note: null };
 	if (trunk === options.movingBranch) return { action: { type: "detach_head", ref: options.movingBranch }, note: null };
 
-	const busyWorktree = (await git.listWorktrees()).find((worktree) => worktree.branch === trunk && worktree.path !== options.cwd);
+	const busyWorktree = worktrees.find((worktree) => worktree.branch === trunk && worktree.path !== options.cwd);
 	if (busyWorktree === undefined) return { action: { type: "checkout_branch", branch: trunk, role: "trunk" }, note: null };
 	return {
 		action: { type: "detach_head", ref: options.movingBranch },

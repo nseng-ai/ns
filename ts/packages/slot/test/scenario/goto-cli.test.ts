@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
+import { afterEach, describe, expect, it } from "vitest";
+
+import { SLOT_CD_DIRECTIVE_FILE } from "../../src/shell/cd-directive.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+
+const directiveRoots: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(directiveRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
 
 describe("slot goto CLI", () => {
 	it("goes to assigned slot by number", async () => {
@@ -33,4 +45,36 @@ describe("slot goto CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { operation: "rebase" } });
 	});
+
+	it("writes the shell cd directive for human output", async () => {
+		const directivePath = await makeDirectivePath();
+		const run = runScenario(["goto", "-n", "1"], { env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath }, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await run.exit).toBe(0);
+		await expect(readFile(directivePath, "utf8")).resolves.toBe("/slots/repos/repo/worktrees/slot-01");
+	});
+
+	it.each(["json", "markdown", "md"])("does not write the shell cd directive for %s output", async (format) => {
+		const directivePath = await makeDirectivePath();
+		const run = runScenario(["goto", "-n", "1", "--format", format], { env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath }, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await run.exit).toBe(0);
+		await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
+	});
+
+	it("does not write the shell cd directive for json schema output", async () => {
+		const directivePath = await makeDirectivePath();
+		const run = runScenario(["goto", "--json-schema"], { env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath }, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await run.exit).toBe(0);
+		await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
+	});
 });
+
+async function makeDirectivePath(): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), "slot-cd-directive-"));
+	directiveRoots.push(root);
+	return join(root, "directive");
+}
+
+async function readDirectiveFile(path: string): Promise<string | null> {
+	if (!existsSync(path)) return null;
+	return await readFile(path, "utf8");
+}

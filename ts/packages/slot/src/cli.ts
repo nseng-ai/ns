@@ -110,13 +110,14 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, isMachineMode: !isClinkrHumanOutputInvocation(args) };
+	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 
 function runtimeInfo(): string {
 	return "runtime: typescript\nentry_point: @asdl/slot bin slot -> ts/packages/slot/src/cli.ts\n";
 }
+
 
 if (import.meta.main || isDirectCliInvocation(import.meta.url, process.argv[1])) {
 	process.exitCode = await runCli(process.argv.slice(2));

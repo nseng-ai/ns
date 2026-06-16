@@ -102,10 +102,6 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		return this.localBranches.has(branch);
 	}
 
-	async listLocalBranches(): Promise<readonly string[]> {
-		return [...this.localBranches].sort();
-	}
-
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
 		this.log.push({ type: "create-branch", branch, startPoint, shouldForce: options.shouldForce });
 		const failure = this.createBranchFailures[branch];

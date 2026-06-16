@@ -36,7 +36,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
-		isMachineMode: false,
+		shouldWriteCdDirective: true,
 	};
 	const deps: CliDeps = { context, cwd, env: context.env, stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) };
 	return { exit: runCli(args, deps), stdout, stderr, git, storage, context };
