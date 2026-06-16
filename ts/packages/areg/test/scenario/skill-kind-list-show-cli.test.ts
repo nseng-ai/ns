@@ -20,6 +20,18 @@ describe("areg skill list/show CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 	});
 
+	test("list refuses symlinked Pi settings", async () => {
+		const run = runScenario(["skill", "list"], {
+			project: {
+				piSettings: { type: "symlink", target: "outside" },
+				localSkills: [skill("demo")],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain(".pi/settings.json is a symlink; refusing to inspect Pi settings.");
+	});
+
 	test("list reports clean and diagnostic inferred kinds in human output", async () => {
 		const run = runScenario(["skill", "list"], {
 			project: {

@@ -2,6 +2,7 @@ import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { parse as parseToml } from "smol-toml";
 
 import type { AregInitTextFileState } from "../gateways.ts";
+import { rejectTextState } from "./file-state.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
 
@@ -65,19 +66,13 @@ export function parseLegacyAregJsonAgents(text: string): PlanResult<string[]> {
 
 function parseAsdlAregAgentsFromState(state: AregInitTextFileState): PlanResult<string[]> {
 	if (state.type === "missing") return { type: "ok", value: [] };
-	if (state.type !== "file") return rejectTextState("asdl.toml", state, "asdl.toml");
+	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	return parseAsdlAregAgents(state.text, "asdl.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregInitTextFileState): PlanResult<string[]> {
 	if (state.type === "missing") return { type: "ok", value: [] };
-	if (state.type !== "file") return rejectTextState("areg.json", state, "areg.json");
+	if (state.type !== "file") return rejectTextState({ pathLabel: "areg.json", state, description: "areg.json", action: "manage it" });
 	return parseLegacyAregJsonAgents(state.text);
 }
 
-function rejectTextState<T>(pathLabel: string, state: Exclude<AregInitTextFileState, { type: "file" } | { type: "missing" }>, description: string): PlanResult<T> {
-	if (state.type === "symlink") return { type: "error", message: `${description} at ${pathLabel} is a symlink; refusing to manage it.` };
-	if (state.type === "directory") return { type: "error", message: `${pathLabel} exists but is not a file.` };
-	if (state.type === "unreadable") return { type: "error", message: `Failed to read ${pathLabel}: ${state.message}` };
-	return { type: "error", message: `${pathLabel} exists but is not a file.` };
-}
