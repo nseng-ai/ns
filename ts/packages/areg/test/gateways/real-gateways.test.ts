@@ -175,20 +175,20 @@ describe("real areg gateways", () => {
 	});
 
 	test("github gateway parses success and classifies gh failures", async () => {
-		const success = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], "zeta\nalpha\n")]);
+		const success = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { stdout: "zeta\nalpha\n" })]);
 		expect(await new RealAregGithubGateway({ runner: success.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toEqual({
 			type: "ok",
 			skillNames: ["zeta", "alpha"],
 		});
 		success.assertDone();
 
-		const missing = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], "", 1, "HTTP 404")]);
+		const missing = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 1, stderr: "HTTP 404" })]);
 		expect(await new RealAregGithubGateway({ runner: missing.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({ type: "missing" });
 
-		const auth = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], "", 1, "HTTP 403")]);
+		const auth = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 1, stderr: "HTTP 403" })]);
 		expect(await new RealAregGithubGateway({ runner: auth.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({ type: "auth-error" });
 
-		const generic = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], "", 2, "network down")]);
+		const generic = new ScriptedCommandRunner([step("gh", ["api", "repos/owner/repo/contents/skills", "--jq", ".[].name"], { exitCode: 2, stderr: "network down" })]);
 		expect(await new RealAregGithubGateway({ runner: generic.runner }).listSkillDirectoryNames({ repo: "owner/repo", env: {} })).toMatchObject({
 			type: "error",
 			error: { code: "gh-failed", displayCommand: "gh api repos/owner/repo/contents/skills --jq '.[].name'" },
@@ -204,12 +204,12 @@ describe("real areg gateways", () => {
 			"codex",
 			"-y",
 		]);
-		const runner = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--skill", "a", "--skill", "b", "--agent", "codex", "-y"], "ok\n")]);
+		const runner = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--skill", "a", "--skill", "b", "--agent", "codex", "-y"], { stdout: "ok\n" })]);
 		const gateway = new RealAregNpxSkillsGateway({ runner: runner.runner });
 		expect(await gateway.addSkills({ sourceRepo: "owner/repo", skillNames: ["a", "b"], targetAgents: ["codex"], cwd: "/repo", env: {} })).toEqual({ type: "ok" });
 		runner.assertDone();
 
-		const failing = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--agent", "codex", "-y"], "", 1, "failed")]);
+		const failing = new ScriptedCommandRunner([step("npx", ["skills", "add", "owner/repo", "--agent", "codex", "-y"], { exitCode: 1, stderr: "failed" })]);
 		expect(await new RealAregNpxSkillsGateway({ runner: failing.runner }).addSkills({ sourceRepo: "owner/repo", skillNames: [], targetAgents: ["codex"], cwd: "/repo", env: {} })).toMatchObject({
 			type: "error",
 			error: { code: "npx-failed" },

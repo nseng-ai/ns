@@ -52,6 +52,8 @@ export interface ResultFields {
 	readonly killed?: boolean;
 }
 
+export interface StepOptions extends ResultFields {}
+
 export interface ScriptStep extends ResultFields {
 	readonly command: string;
 	readonly args: readonly string[];
@@ -125,8 +127,8 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 	}
 }
 
-export function step(command: string, args: readonly string[], stdout = "", exitCode = 0, stderr = ""): ScriptStep {
-	return { command, args: [...args], stdout, exitCode, stderr };
+export function step(command: string, args: readonly string[], options: StepOptions = {}): ScriptStep {
+	return { command, args: [...args], ...options };
 }
 
 export function startupErrorStep(command: string, args: readonly string[], startupError: string): ScriptStep {

@@ -13,7 +13,7 @@ test("exports testing helpers through the package testing subpath", () => {
 });
 
 test("scripted command helpers record calls and validate expected steps", async () => {
-	const runner = new ScriptedCommandRunner([step("node", ["--version"], "v1\n")]);
+	const runner = new ScriptedCommandRunner([step("node", ["--version"], { stdout: "v1\n" })]);
 	const result = await runner.runner("node", ["--version"], { cwd: "/repo" });
 
 	expect(result).toEqual({ stdout: "v1\n", stderr: "", code: 0, killed: false });

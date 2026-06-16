@@ -9,7 +9,7 @@ import { ScriptedCommandRunner, step } from "@asdl/core/testing";
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {
 		const args = ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"];
-		const runner = new ScriptedCommandRunner([step("gh", args, "", 1, "no pull requests found")]);
+		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "no pull requests found" })]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.viewCurrentBranchPr({ cwd: "/repo" })).toEqual({
@@ -25,7 +25,7 @@ describe("RealGithubPrGateway", () => {
 
 	test("returns structured command failures when gh commit lookup fails", async () => {
 		const args = ["pr", "view", "12", "--json", "commits"];
-		const runner = new ScriptedCommandRunner([step("gh", args, "", 1, "not found")]);
+		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "not found" })]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.getPrCommitMessages({ cwd: "/repo", number: 12 })).toEqual({
@@ -41,7 +41,7 @@ describe("RealGithubPrGateway", () => {
 
 	test("returns structured command failures when gh diff fails", async () => {
 		const args = ["pr", "diff", "12"];
-		const runner = new ScriptedCommandRunner([step("gh", args, "", 1, "diff unavailable")]);
+		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "diff unavailable" })]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12 })).toEqual({
@@ -57,11 +57,9 @@ describe("RealGithubPrGateway", () => {
 
 	test("views current branch PR details as JSON", async () => {
 		const runner = new ScriptedCommandRunner([
-			step(
-				"gh",
-				["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"],
-				JSON.stringify({ number: 12, url: "https://github.com/acme/project/pull/12", title: "Title", body: "Body", headRefName: "feature/demo", baseRefName: "main" }),
-			),
+			step("gh", ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"], {
+				stdout: JSON.stringify({ number: 12, url: "https://github.com/acme/project/pull/12", title: "Title", body: "Body", headRefName: "feature/demo", baseRefName: "main" }),
+			}),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
@@ -71,8 +69,8 @@ describe("RealGithubPrGateway", () => {
 
 	test("reads commit messages and diff for a PR", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "view", "12", "--json", "commits"], JSON.stringify({ commits: [{ messageHeadline: "Add feature", messageBody: "Body" }] })),
-			step("gh", ["pr", "diff", "12"], "diff --git a/src/app.ts b/src/app.ts\n+code\n"),
+			step("gh", ["pr", "view", "12", "--json", "commits"], { stdout: JSON.stringify({ commits: [{ messageHeadline: "Add feature", messageBody: "Body" }] }) }),
+			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
