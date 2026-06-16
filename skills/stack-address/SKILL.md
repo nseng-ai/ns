@@ -97,6 +97,7 @@ Do not trigger this skill for single-PR feedback; use `pr-address` instead.
   stack plan.
 - Use `(pr_number, thread_id)` in stack review-thread decisions and evidence.
 - Do not hide unresolved review threads inside informational counts.
+- Classify lower-stack unresolved review threads as `voided_by_stack_work` when current stack-tip/upstack code already addressed the request; resolve the dedicated batch with `mode: "explained"`, not ordinary complex work or a new mutation mode.
 - Treat obvious top-level Vercel, Graphite, roaster summary, and GitHub Actions
   status comments as informational by default; inline review threads remain the
   source of truth for actionable roaster findings.
@@ -247,6 +248,7 @@ Plan display rules:
 - Preserve full-plan `informational` and use `data.decision_docket` for
   approval-required work, informational review-thread decisions, and non-
   automation discussion comments that may need reply.
+- If `data.batches` contains `voided_by_stack_work`, display it first as already-addressed stack work. It is not an approval-required code batch; prepare `explained` resolver decisions for those threads after stack-tip verification.
 - Display PR/branch, source kind, review/comment/thread identity, path/line,
   summary, action summary, complexity, and approval requirement. Use this shape;
   omit unavailable path/line:

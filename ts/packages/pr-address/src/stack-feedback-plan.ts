@@ -4,7 +4,15 @@ import { planFeedback, validateFeedbackClassification, type FeedbackPlanningResu
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
-import { ACTION_COMPLEXITIES, APPROVAL_REQUIRED_COMPLEXITIES, type FeedbackPlanActionItem, type FeedbackPlanBatch, type FeedbackPlanInformationalItem } from "./feedback-plan-contracts.ts";
+import {
+	ACTION_COMPLEXITIES,
+	APPROVAL_REQUIRED_COMPLEXITIES,
+	VOIDED_BY_STACK_WORK_BATCH_ID,
+	type FeedbackPlanActionItem,
+	type FeedbackPlanBatch,
+	type FeedbackPlanInformationalItem,
+	type FeedbackPlanVoidedThreadItem,
+} from "./feedback-plan-contracts.ts";
 import type { PayloadArtifactStore, PayloadReference } from "./payload-store.ts";
 import {
 	type DecisionKind,
@@ -64,7 +72,10 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 
 	const validations = payload.prep.stack.map((prResult) => ({
 		prResult,
-		validation: validateFeedbackClassification({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }),
+		validation: validateFeedbackClassification(
+			{ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) },
+			{ allowVoidedByStackWork: true },
+		),
 	}));
 	const validationSummary: StackFeedbackPlanValidationSummary = {
 		all_valid: validations.every(({ validation }) => validation.valid),
@@ -82,7 +93,7 @@ async function runStackFeedbackPlanOperation(ctx: PrAddressExecContext, request:
 
 	const prPlans: PrPlanPair[] = payload.prep.stack.map((prResult) => ({
 		prResult,
-		plan: planFeedback({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }),
+		plan: planFeedback({ manifest: prResult.manifest, classification: classificationByPr.get(prResult.pr_number) }, { allowVoidedByStackWork: true }),
 	}));
 	if (!prPlans.every(({ plan }) => plan.valid)) throw new Error("validated stack classifications must produce valid per-PR plans");
 	const resultWithoutReference = mergedStackPlanResult({
@@ -156,7 +167,8 @@ function mergedStackPlanResult(options: {
 	const batches = mergedBatches(options.prPlans);
 	const informational = mergedInformational(options.prPlans);
 	const triageIndex = buildStackDiscussionTriageIndex(options.prep);
-	const actionItems = batches.flatMap((batch) => batch.items);
+	const actionItems = batches.filter((batch) => batch.batch_id !== VOIDED_BY_STACK_WORK_BATCH_ID).flatMap((batch) => batch.items);
+	const voidedByStackWorkItems = batches.find((batch) => batch.batch_id === VOIDED_BY_STACK_WORK_BATCH_ID)?.items.length ?? 0;
 	return {
 		valid: true,
 		harness_session_id: options.sessionId,
@@ -173,12 +185,25 @@ function mergedStackPlanResult(options: {
 			approval_required_items: actionItems.filter((item) => item.approval_required).length,
 			informational_items: informational.length,
 			automation_discussion_comments: triageIndex.summary.automation_like,
+			...(voidedByStackWorkItems > 0 ? { voided_by_stack_work_items: voidedByStackWorkItems } : {}),
 		},
 	};
 }
 
 function mergedBatches(prPlans: readonly PrPlanPair[]): StackFeedbackPlanBatch[] {
 	const batches: StackFeedbackPlanBatch[] = [];
+	const voidedItems: StackFeedbackPlanItem[] = [];
+	for (const { prResult, plan } of prPlans) {
+		for (const item of plan.voided_by_stack_work ?? []) voidedItems.push(voidedByStackWorkItem(prResult, item));
+	}
+	if (voidedItems.length > 0) {
+		batches.push({
+			batch_id: VOIDED_BY_STACK_WORK_BATCH_ID,
+			complexity: VOIDED_BY_STACK_WORK_BATCH_ID,
+			approval_required: false,
+			items: voidedItems,
+		});
+	}
 	for (const complexity of ACTION_COMPLEXITIES) {
 		const items: StackFeedbackPlanItem[] = [];
 		for (const { prResult, plan } of prPlans) {
@@ -220,6 +245,35 @@ function actionItem(prResult: StackFeedbackPrepPrResultInput, sourceBatch: Feedb
 		is_outdated: item.is_outdated,
 		author: item.author,
 		needs_reply: item.needs_reply,
+	};
+}
+
+function voidedByStackWorkItem(prResult: StackFeedbackPrepPrResultInput, item: FeedbackPlanVoidedThreadItem): StackFeedbackPlanItem {
+	return {
+		pr_number: prResult.pr_number,
+		branch: prResult.branch,
+		title: prResult.title,
+		url: prResult.url,
+		source_batch_id: VOIDED_BY_STACK_WORK_BATCH_ID,
+		source_kind: item.source_kind,
+		summary: item.summary,
+		action_summary: item.action_summary,
+		complexity: VOIDED_BY_STACK_WORK_BATCH_ID,
+		approval_required: false,
+		review_id: item.review_id,
+		review_state: item.review_state,
+		submitted_at: item.submitted_at,
+		thread_id: item.thread_id,
+		discussion_comment_id: item.discussion_comment_id,
+		covered_comment_ids: [...item.covered_comment_ids],
+		body_locator: item.body_locator,
+		thread_item_pointer: item.thread_item_pointer,
+		path: item.path,
+		line: item.line,
+		start_line: item.start_line,
+		is_outdated: item.is_outdated,
+		author: item.author,
+		needs_reply: null,
 	};
 }
 

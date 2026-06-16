@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import type { PRDiscussionComment, PRReview, PRReviewThread } from "../../src/gateways.ts";
 import { normalizePayloadBytes } from "../support/golden.ts";
+import { stackFeedbackPlanConsumerResultSchema } from "../../src/stack-feedback-plan-contracts.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario, type ScenarioRun } from "../support/run-scenario.ts";
 import { useTempDirs } from "../support/temp.ts";
@@ -308,6 +309,114 @@ describe("stack-feedback-plan session-only inputs", () => {
 			expect(run.stderr.join("")).toContain(`unknown option '${removedOptionArgs[0]}'`);
 		});
 	}
+
+	test("puts voided stack review threads in a dedicated first batch", async () => {
+		interface MutableThreadClassification {
+			thread_id: string;
+			disposition: string;
+			summary: string;
+			action_summary?: string | null;
+			complexity?: string | null;
+			informational_reason?: string | null;
+			pre_existing?: boolean;
+		}
+		interface MutablePlanTemplate {
+			prep: unknown;
+			classifications: Array<{ pr_number: number; classification: { review_threads: MutableThreadClassification[] } }>;
+		}
+		interface ClassificationArtifactForTest {
+			pr_number: number;
+			classification: unknown;
+			validation: unknown;
+		}
+		interface StackPlanBatchResult {
+			batch_id: string;
+			approval_required: boolean;
+			items: Array<{ pr_number: number; source_kind: string; thread_id: string | null; action_summary: string | null; complexity: string | null }>;
+		}
+		const root = await makePayloadRoot();
+		const originalTemplate = planTemplate() as MutablePlanTemplate;
+		const template = structuredClone(originalTemplate);
+		const pr102 = template.classifications.find((item) => item.pr_number === 102);
+		if (pr102 === undefined) throw new Error("fixture must include PR 102 classification");
+		const voidedThread = pr102.classification.review_threads.find((item) => item.thread_id === "PRRT_102");
+		const complexThread = pr102.classification.review_threads.find((item) => item.thread_id === "PRRT_103");
+		if (voidedThread === undefined || complexThread === undefined) throw new Error("fixture must include PR 102 review threads");
+		Object.assign(voidedThread, {
+			disposition: "voided_by_stack_work",
+			summary: "Inline parser consolidation request is obsolete at stack tip.",
+			action_summary: "Already addressed by later stack work: both parsing paths now use the shared parser.",
+			complexity: null,
+			informational_reason: null,
+			pre_existing: false,
+		});
+		Object.assign(complexThread, {
+			disposition: "actionable",
+			summary: "Unrelated complex thread still needs ordinary action.",
+			action_summary: "Implement the unrelated complex follow-up.",
+			complexity: "complex",
+			informational_reason: null,
+			pre_existing: false,
+		});
+
+		const prepRun = runScenario(["exec", "stack-feedback-prep", "--stack-json", stackInputJson(), "--format", "json", "--stdout-mode", "full"], {
+			github: fixtureGithubGateway(),
+			env: payloadEnv("session", root, planFixture.session_id),
+			payloadClock: fixedClock(prepFixture.clock_iso),
+		});
+		expect(await prepRun.exit).toBe(0);
+
+		for (const item of template.classifications) {
+			const originalClassification = originalTemplate.classifications.find((candidate) => candidate.pr_number === item.pr_number)?.classification;
+			if (originalClassification === undefined) throw new Error(`fixture must include original PR ${item.pr_number} classification`);
+			const validationClassification = item.pr_number === 102 ? originalClassification : item.classification;
+			const validateRun = runScenario(
+				[
+					"exec",
+					"validate-feedback-classification",
+					"--pr-number",
+					String(item.pr_number),
+					"--classification-json",
+					JSON.stringify(validationClassification),
+					"--format",
+					"json",
+				],
+				{ env: payloadEnv("session", root, planFixture.session_id), payloadClock: fixedClock(planFixture.clock_iso) },
+			);
+			expect(await validateRun.exit).toBe(0);
+			if (item.pr_number === 102) {
+				const validationEnvelope = JSON.parse(validateRun.stdout.join("")) as { data: { details: { classification_reference: { payload_path: string } } } };
+				const artifactPath = validationEnvelope.data.details.classification_reference.payload_path;
+				const artifact = JSON.parse(await readFile(artifactPath, "utf8")) as ClassificationArtifactForTest;
+				await writeFile(artifactPath, `${JSON.stringify({ ...artifact, classification: item.classification }, null, 2)}\n`, "utf8");
+			}
+		}
+
+		const run = runPlan([], root);
+
+		expect(await run.exit).toBe(0);
+		const envelope = JSON.parse(run.stdout.join("")) as { data: { batches: StackPlanBatchResult[]; decision_docket: unknown[]; summary: { voided_by_stack_work_items?: number } } };
+		expect(() => stackFeedbackPlanConsumerResultSchema.parse(envelope.data)).not.toThrow();
+		expect(envelope.data.batches[0]).toMatchObject({ batch_id: "voided_by_stack_work", approval_required: false });
+		expect(envelope.data.batches[0]?.items).toEqual([
+			expect.objectContaining({
+				pr_number: 102,
+				source_kind: "review_thread",
+				thread_id: "PRRT_102",
+				action_summary: "Already addressed by later stack work: both parsing paths now use the shared parser.",
+				complexity: "voided_by_stack_work",
+			}),
+		]);
+		const complexBatch = envelope.data.batches.find((batch) => batch.batch_id === "complex");
+		expect(complexBatch?.items).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ thread_id: "PRRT_103", action_summary: "Implement the unrelated complex follow-up.", complexity: "complex" }),
+			]),
+		);
+		expect(envelope.data.batches.flatMap((batch) => batch.items).filter((item) => item.thread_id === "PRRT_102")).toHaveLength(1);
+		expect(envelope.data.summary.voided_by_stack_work_items).toBe(1);
+		expect(JSON.stringify(envelope.data.decision_docket)).not.toContain("PRRT_102");
+	});
 
 	test("rejects non-empty stdin", async () => {
 		const root = await makePayloadRoot();
