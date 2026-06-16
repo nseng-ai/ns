@@ -67,6 +67,7 @@ export interface StackMapState {
 	readonly scope: StackMapScopeFilter;
 	readonly query: string;
 	readonly mode: StackMapMode;
+	readonly showDiagnostics: boolean;
 	readonly statusMessage?: string | undefined;
 }
 
@@ -78,6 +79,7 @@ export type StackMapAction =
 	| { readonly type: "delete-query-char" }
 	| { readonly type: "clear-query" }
 	| { readonly type: "accept-query" }
+	| { readonly type: "toggle-diagnostics" }
 	| { readonly type: "show-cmux-choice"; readonly branch: string; readonly choices: readonly StackMapCmuxChoice[] }
 	| { readonly type: "move-choice"; readonly delta: number }
 	| { readonly type: "cancel-choice" }
@@ -119,6 +121,7 @@ export function createInitialStackMapState(model: StackMapModel): StackMapState 
 		scope: "all",
 		query: "",
 		mode: { type: "rows" },
+		showDiagnostics: false,
 	};
 }
 
@@ -146,6 +149,8 @@ export function reduceStackMapState(
 			return keepSelectedVisible(model, { ...state, query: "", mode: { type: "rows" } });
 		case "accept-query":
 			return keepSelectedVisible(model, { ...state, mode: { type: "rows" } });
+		case "toggle-diagnostics":
+			return { ...state, showDiagnostics: !state.showDiagnostics };
 		case "show-cmux-choice":
 			return {
 				...state,
@@ -188,7 +193,7 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 
 	const lines: string[] = [];
 	lines.push(model.title);
-	if (model.diagnostics.length > 0) {
+	if (state.showDiagnostics && model.diagnostics.length > 0) {
 		lines.push("Diagnostics:");
 		for (const diagnostic of model.diagnostics) lines.push(`- ${diagnostic}`);
 	}
@@ -212,7 +217,7 @@ export function renderStackMapFrame(model: StackMapModel, state: StackMapState):
 		lines.push(...renderCmuxChooser(state.mode));
 	}
 	lines.push("");
-	lines.push(renderFooter(state));
+	lines.push(renderFooter(state, model.diagnostics.length));
 
 	return lines.join("\n");
 }
@@ -471,10 +476,16 @@ function formatCmuxChoice(choice: StackMapCmuxChoice): string {
 	].filter((part): part is string => part !== undefined && part.length > 0).join("  ");
 }
 
-function renderFooter(state: StackMapState): string {
+function renderFooter(state: StackMapState, diagnosticCount: number): string {
 	if (state.mode.type === "cmux-choice") return "Keys: ↑/k previous  ↓/j next  Enter activate  Esc cancel chooser  q quit";
 	if (state.mode.type === "query") return "Filter: type branch text  Backspace edit  Enter accept  Esc clear";
-	return "Keys: ↑/k previous  ↓/j next  / filter  c cmux  o all/cmux  q/Esc quit";
+	return `Keys: ↑/k previous  ↓/j next  / filter  c cmux  o all/cmux  ${diagnosticsHint(state, diagnosticCount)}  q/Esc quit`;
+}
+
+function diagnosticsHint(state: StackMapState, diagnosticCount: number): string {
+	if (state.showDiagnostics) return "d hide diagnostics";
+	if (diagnosticCount === 0) return "d diagnostics (none)";
+	return `d show diagnostics (${diagnosticCount})`;
 }
 
 function cmuxActionHint(branch: StackMapBranchNode): string {
