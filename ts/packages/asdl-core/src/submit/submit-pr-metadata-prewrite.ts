@@ -83,7 +83,7 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			return err({ code: "submit_stack_current_unknown", message: "Graphite stack inspection did not identify the current branch." });
 		}
 
-		params.onProgress?.(`inspecting Graphite stack branch metadata for ${formatCount(parsedLog.branches.length, "branch")}`);
+		params.onProgress?.(`inspecting Graphite stack branch metadata for ${formatBranchCount(parsedLog.branches.length, "branch")}`);
 		const branches: SubmitStackBranch[] = [];
 		for (const [index, branch] of parsedLog.branches.entries()) {
 			params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${parsedLog.branches.length})`);
@@ -188,7 +188,7 @@ export async function prepareSubmitPrMetadata(input: {
 		(branch): branch is SubmitStackNewBranch => branch.kind === "new" && branch.commitMessages.length === 1 && amendableBranches.has(branch.branch),
 	);
 	input.onProgress?.(
-		`found ${formatCount(inspected.value.branches.length, "stack branch")}; ${formatCount(newBranches.length, "new single-commit branch")} ${newBranches.length === 1 ? "needs" : "need"} initial PR metadata`,
+		`found ${formatBranchCount(inspected.value.branches.length, "stack branch")}; ${formatBranchCount(newBranches.length, "new single-commit branch")} ${newBranches.length === 1 ? "needs" : "need"} initial PR metadata`,
 	);
 	if (newBranches.length === 0) {
 		input.onProgress?.("no pre-submit PR metadata changes needed");
@@ -236,7 +236,7 @@ export async function prepareSubmitPrMetadata(input: {
 		amendedBranches.push(metadata.branch);
 	}
 
-	input.onProgress?.(`prepared pre-submit PR metadata for ${formatCount(generated.prepared.length, "branch")}`);
+	input.onProgress?.(`prepared pre-submit PR metadata for ${formatBranchCount(generated.prepared.length, "branch")}`);
 	return { kind: "prepared", prepared: generated.prepared };
 }
 
@@ -301,8 +301,8 @@ function commandError(command: string, args: readonly string[], result: ExecResu
 	return commandFailure({ command, args, result, code, message });
 }
 
-function formatCount(count: number, noun: string): string {
-	return `${count} ${noun}${count === 1 ? "" : "es"}`;
+function formatBranchCount(count: number, singularBranchPhrase: string): string {
+	return `${count} ${singularBranchPhrase}${count === 1 ? "" : "es"}`;
 }
 
 function parseExistingPrFromBranchInfo(output: string, branch: string): GatewayResult<SubmitPrLink | undefined> {
