@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { defaultCommandResolver, type CommandExecApi, type CommandResolver, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { z } from "zod";
 
 import { estimateTokens } from "../diff-parsing.ts";
@@ -121,7 +122,7 @@ export class RealHarnessGateway implements HarnessGateway {
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
-			return harnessError({ type: "harness_invocation_failed", message: `Failed to resolve Claude Code binary: ${errorMessage(error)}` });
+			return harnessError({ type: "harness_invocation_failed", message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}` });
 		}
 		if (resolvedBinary === undefined) {
 			return harnessError({ type: "harness_binary_missing", message: "Claude Code binary 'claude' was not found on PATH." });
@@ -139,7 +140,7 @@ export class RealHarnessGateway implements HarnessGateway {
 		try {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
-			return harnessError({ type: "harness_invocation_failed", message: `Failed to invoke Claude Code: ${errorMessage(error)}` });
+			return harnessError({ type: "harness_invocation_failed", message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}` });
 		}
 
 		if (result.startupError !== undefined) {
@@ -234,28 +235,10 @@ export function promptSizedDiff(localDiff: HarnessReviewRequest["target"]["local
 }
 
 export function buildClaudeDiffFindingsJsonSchema(): Record<string, unknown> {
-	return {
-		type: "object",
-		additionalProperties: false,
-		required: ["findings"],
-		properties: {
-			findings: {
-				type: "array",
-				items: {
-					type: "object",
-					additionalProperties: false,
-					required: ["path", "line", "severity", "summary", "details"],
-					properties: {
-						path: { type: "string", minLength: 1 },
-						line: { type: ["integer", "null"] },
-						severity: { type: "string", enum: ["info", "warning", "error"] },
-						summary: { type: "string", minLength: 1 },
-						details: { type: "string", minLength: 1 },
-					},
-				},
-			},
-		},
-	};
+	const schema = z.toJSONSchema(claudeFindingsPayloadSchema, { io: "output" }) as Record<string, unknown>;
+	// Claude Code accepts draft schema keywords but omits structured_output when the top-level schema URI is present.
+	delete schema.$schema;
+	return schema;
 }
 
 export function buildClaudeCodeArgs(options: { readonly model: string; readonly systemPrompt: string }): string[] {
@@ -280,14 +263,10 @@ export function parseClaudeCodeReviewOutput(options: { readonly stdout: string; 
 		return harnessError({ type: "review_execution_empty_output", message: "Claude Code produced no JSON output." });
 	}
 
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(options.stdout);
-	} catch (error) {
-		return harnessError({ type: "review_execution_invalid_json", message: `Claude Code output was not valid JSON: ${errorMessage(error)}` });
-	}
+	const parsed = parseClaudeCodeOutputJson(options.stdout);
+	if (parsed.type === "error") return parsed;
 
-	const resultEvent = resultEventFromParsedOutput(parsed);
+	const resultEvent = resultEventFromParsedOutput(parsed.value);
 	if (resultEvent.type === "error") return resultEvent;
 
 	if (Object.hasOwn(resultEvent.value, "structured_output")) {
@@ -338,7 +317,15 @@ function reviewResponseFromClaudePayload(payload: ClaudeFindingsPayload, resultE
 		});
 		return { type: "ok", value: response };
 	} catch (error) {
-		return harnessError({ type: "review_execution_invalid_findings", message: `Claude Code structured output did not match the findings schema: ${errorMessage(error)}` });
+		return harnessError({ type: "review_execution_invalid_findings", message: `Claude Code structured output did not match the findings schema: ${formatErrorMessage(error)}` });
+	}
+}
+
+function parseClaudeCodeOutputJson(stdout: string): RoasterResult<unknown> {
+	try {
+		return { type: "ok", value: JSON.parse(stdout) as unknown };
+	} catch (error) {
+		return harnessError({ type: "review_execution_invalid_json", message: `Claude Code output was not valid JSON: ${formatErrorMessage(error)}` });
 	}
 }
 
@@ -429,14 +416,6 @@ function harnessExecutionMessage(result: ExecResult): string {
 
 function truncateModelResponse(response: string): string {
 	return response.length <= TRUNCATED_MODEL_RESPONSE_CHARS ? response : `${response.slice(0, TRUNCATED_MODEL_RESPONSE_CHARS)}…`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }
 
 function copyRequest(request: HarnessReviewRequest): HarnessReviewRequest {

@@ -85,7 +85,10 @@ describe("Claude Code harness schema and model support", () => {
 		expect(schemaText).not.toContain("$ref");
 		expect(schemaText).not.toContain("$defs");
 		expect(properties.required).toEqual(["path", "line", "severity", "summary", "details"]);
-		expect(findingProperties.line.type).toEqual(["integer", "null"]);
+		expect(findingProperties.line.anyOf).toEqual([
+			{ type: "integer", exclusiveMinimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+			{ type: "null" },
+		]);
 		expect(findingProperties.severity.enum).toEqual(["info", "warning", "error"]);
 	});
 });
