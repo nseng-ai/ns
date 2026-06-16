@@ -7,6 +7,7 @@ import {
 	PR_DESCRIPTION_PROMPT_ENV,
 	RealGithubPrGateway,
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
+	resolvePrDescriptionGeneration,
 	type PromptSource,
 } from "@asdl/core/submit";
 
@@ -32,6 +33,7 @@ The command owns its output and exit code. It does not support --format.`,
 	async run(ctx: SdlContext, _request: z.output<typeof regeneratePrSchema>) {
 		const runner = createSdlCommandRunner(ctx);
 		const githubPr = new RealGithubPrGateway(runner);
+		const git = new RealGitGateway(new SdlCommandExecApi(ctx));
 		const pr = await githubPr.viewCurrentBranchPr({ cwd: ctx.cwd });
 		if (!pr.ok) {
 			const message = `Could not resolve current branch PR.\n${pr.error.message}\n`;
@@ -39,22 +41,34 @@ The command owns its output and exit code. It does not support --format.`,
 			return failed("", 1);
 		}
 
+		const generation = await resolvePrDescriptionGeneration({ cwd: ctx.cwd, env: ctx.env, git });
+		if (!generation.ok) {
+			ctx.stderr?.(ensureTrailingNewline(generation.error));
+			return failed("", generation.exitCode ?? 1);
+		}
+
 		const decision = await decidePrBodyOverwrite({
 			pr: pr.value,
 			cwd: ctx.cwd,
 			githubPr,
+			generation,
+			force: true,
 		});
 		if (decision.kind === "failed") {
 			ctx.stderr?.(ensureTrailingNewline(decision.error));
 			return failed("", 1);
 		}
+		if (decision.kind === "skip") {
+			ctx.stdout?.(`PR description is already up to date.\nPR: #${pr.value.number} ${pr.value.url}\n`);
+			return ok("");
+		}
 
-		const applied = await applyGeneratedDescription(pr.value, decision.commits, {
+		const applied = await applyGeneratedDescription(pr.value, decision.commits, decision.metadata, {
 			cwd: ctx.cwd,
 			env: ctx.env,
 			githubPr,
 			textGeneration: ctx.model,
-			git: new RealGitGateway(new SdlCommandExecApi(ctx)),
+			git,
 		});
 		if (!applied.ok) {
 			ctx.stderr?.(ensureTrailingNewline(applied.error));

@@ -29,7 +29,8 @@ The CLI owns the orchestration:
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
-- regenerates title/body descriptions for submitted PRs every time, overwriting any existing PR body;
+- skips PR description regeneration when the stored patch-id/prompt fingerprint is unchanged;
+- when regeneration is needed, updates PR titles and replaces only the managed generated body region, preserving human text outside it;
 - reports formatter-owned guidance for restack-required, empty-branch, and post-submit description-generation failures;
 - when model access is available, appends an `AI interpretation` section with a concise explanation and next steps for failed submit output.
 
@@ -61,7 +62,7 @@ To regenerate the current branch PR explicitly, run:
 sdl regenerate-pr
 ```
 
-`submit` regenerates PR title/body metadata for submitted PRs every time, replacing any existing PR body. Explicit `sdl regenerate-pr` also regenerates both the title and body for the current branch PR, replacing any existing body.
+`submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl regenerate-pr` always regenerates the current branch PR title and managed generated body region while preserving human-authored body text outside that region.
 
 ## Failure handling
 
@@ -71,4 +72,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `sdl submit` or explicit `sdl regenerate-pr`, and these regeneration paths replace existing PR bodies.
+- It edits PR titles/bodies through `sdl submit` or explicit `sdl regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.

@@ -67,6 +67,37 @@ describe("RealGithubPrGateway", () => {
 		runner.assertDone();
 	});
 
+	test("computes stable patch ids from GitHub PR diffs", async () => {
+		const diff = "diff --git a/src/app.ts b/src/app.ts\n+code\n";
+		const calls: Array<{ command: string; args: readonly string[]; stdin?: string }> = [];
+		const runner: CommandRunner = async (command, args, options = {}) => {
+			calls.push({ command, args: [...args], ...(options.stdin === undefined ? {} : { stdin: options.stdin }) });
+			if (command === "gh") return { stdout: diff, stderr: "", code: 0, killed: false };
+			return { stdout: "abc123 0000000000000000000000000000000000000000\n", stderr: "", code: 0, killed: false };
+		};
+		const gateway = new RealGithubPrGateway(runner);
+
+		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: "abc123" });
+		expect(calls).toEqual([
+			{ command: "gh", args: ["pr", "diff", "12"] },
+			{ command: "git", args: ["patch-id", "--stable"], stdin: diff },
+		]);
+	});
+
+	test("rejects empty stable patch-id output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),
+			step("git", ["patch-id", "--stable"], { stdout: "\n" }),
+		]);
+		const gateway = new RealGithubPrGateway(runner.runner);
+
+		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({
+			ok: false,
+			error: { code: "git_patch_id_parse_failed", message: "Stable patch-id output for PR #12 was empty or malformed." },
+		});
+		runner.assertDone();
+	});
+
 	test("reads commit messages and diff for a PR", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gh", ["pr", "view", "12", "--json", "commits"], { stdout: JSON.stringify({ commits: [{ messageHeadline: "Add feature", messageBody: "Body" }] }) }),

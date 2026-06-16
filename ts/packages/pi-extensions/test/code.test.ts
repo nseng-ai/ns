@@ -52,5 +52,4 @@ describe("code extension registration", () => {
 		expect(pi.commands.has("code:submit")).toBe(false);
 		expect(pi.commands.get("code:pr-feedback-watch")?.description).toContain("current branch PR");
 	});
-
 });

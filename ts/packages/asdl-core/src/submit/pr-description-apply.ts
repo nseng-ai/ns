@@ -2,9 +2,13 @@ import type { GitGateway } from "../git/index.ts";
 
 import type { GithubPrDetails, GithubPrGateway, PrCommitMessage } from "./github-pr-gateway.ts";
 import {
-	appendGeneratedMarker,
+	PR_DESCRIPTION_GENERATOR_VERSION,
+	hashPrDescriptionPrompt,
+	parseManagedGeneratedRegion,
 	preparePrDescription,
+	replaceOrInsertGeneratedRegion,
 	resolvePrDescriptionGeneration,
+	type PrDescriptionFingerprintMetadata,
 	type PrDescriptionGenerationResolution,
 	type PromptSource,
 } from "./pr-description.ts";
@@ -25,20 +29,38 @@ export type GeneratedPrDescriptionResult =
 	| { ok: false; error: string; exitCode?: number };
 
 export type PrBodyOverwriteDecision =
-	| { kind: "generate"; commits: PrCommitMessage[] }
+	| { kind: "skip"; patchId: string }
+	| { kind: "generate"; commits: PrCommitMessage[]; metadata: PrDescriptionFingerprintMetadata }
 	| { kind: "failed"; error: string };
 
 export async function decidePrBodyOverwrite(params: {
 	pr: GithubPrDetails;
 	cwd: string;
 	githubPr: GithubPrGateway;
+	generation: Extract<PrDescriptionGenerationResolution, { ok: true }>;
+	force?: boolean;
 }): Promise<PrBodyOverwriteDecision> {
+	const patchId = await params.githubPr.stablePatchIdForPr({ cwd: params.cwd, number: params.pr.number });
+	if (!patchId.ok) {
+		return { kind: "failed", error: patchId.error.message };
+	}
+	const metadata: PrDescriptionFingerprintMetadata = {
+		version: "2",
+		patchId: patchId.value,
+		promptHash: hashPrDescriptionPrompt(params.generation.promptText),
+		generator: PR_DESCRIPTION_GENERATOR_VERSION,
+	};
+	const parsedRegion = parseManagedGeneratedRegion(params.pr.body);
+	if (params.force !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
+		return { kind: "skip", patchId: patchId.value };
+	}
+
 	const commits = await params.githubPr.getPrCommitMessages({ cwd: params.cwd, number: params.pr.number });
 	if (!commits.ok) {
 		return { kind: "failed", error: commits.error.message };
 	}
 
-	return { kind: "generate", commits: commits.value };
+	return { kind: "generate", commits: commits.value, metadata };
 }
 
 export async function generatePrDescriptionForPr(
@@ -82,6 +104,7 @@ export async function generatePrDescriptionForPr(
 export async function applyGeneratedDescription(
 	pr: GithubPrDetails,
 	commits: readonly PrCommitMessage[],
+	metadata: PrDescriptionFingerprintMetadata,
 	options: PrDescriptionApplyOptions,
 ): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
 	const prepared = await generatePrDescriptionForPr(pr, commits, options);
@@ -92,10 +115,14 @@ export async function applyGeneratedDescription(
 		cwd: options.cwd,
 		number: pr.number,
 		title: prepared.title,
-		body: appendGeneratedMarker(prepared.body),
+		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
 	});
 	if (!edited.ok) {
 		return { ok: false, error: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}` };
 	}
 	return { ok: true, title: prepared.title, promptSource: prepared.promptSource };
+}
+
+function fingerprintsMatch(left: PrDescriptionFingerprintMetadata, right: PrDescriptionFingerprintMetadata): boolean {
+	return left.version === right.version && left.patchId === right.patchId && left.promptHash === right.promptHash && left.generator === right.generator;
 }

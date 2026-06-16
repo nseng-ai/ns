@@ -2,6 +2,12 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import {
+	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
+	PR_DESCRIPTION_GENERATOR_VERSION,
+	formatManagedGeneratedRegion,
+	hashPrDescriptionPrompt,
+} from "@asdl/core/submit";
 import { runCli } from "@asdl/sdl/cli";
 import type { TextGenerationResult } from "@asdl/sdl/sdk";
 
@@ -68,6 +74,8 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 		{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "Hand edited body" }) } },
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+		{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
 		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 		{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
 	];
@@ -136,8 +144,8 @@ describe("sdl submit CLI", () => {
 				{ stream: "stderr", text: "sdl submit: generating or validating PR descriptions...\n" },
 				{ stream: "stderr", text: "sdl submit: preparing descriptions for 1 PR...\n" },
 				{ stream: "stderr", text: "sdl submit: loading PR #123 metadata (1/1)...\n" },
-				{ stream: "stderr", text: "sdl submit: loading PR #123 commit messages...\n" },
 				{ stream: "stderr", text: "sdl submit: resolving PR description prompt and model...\n" },
+				{ stream: "stderr", text: "sdl submit: checking PR #123 description fingerprint...\n" },
 				{ stream: "stderr", text: "sdl submit: reading PR #123 diff...\n" },
 				{ stream: "stderr", text: "sdl submit: requesting PR description from model (attempt 1/2)...\n" },
 				{ stream: "stderr", text: "sdl submit: updating PR #123 description...\n" },
@@ -147,6 +155,38 @@ describe("sdl submit CLI", () => {
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
+	});
+
+	test("matching PR description fingerprint skips model generation and PR edits", async () => {
+		const managedBody = formatManagedGeneratedRegion("Generated body", {
+			version: "2",
+			patchId: "default-patch-id",
+			promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
+			generator: PR_DESCRIPTION_GENERATOR_VERSION,
+		});
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
+					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+					{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: `Human intro\n\n${managedBody}\n\nHuman footer` }) } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Skipped unchanged PR descriptions");
+		expect(run.context.modelCalls).toEqual([]);
+		expect(formattedExecCalls(run.context)).not.toContain("gh pr view 123 --json commits");
+		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gh pr edit 123"))).toBe(false);
 	});
 
 	test("post-submit PR description model progress includes an elapsed counter while waiting", async () => {
@@ -265,6 +305,8 @@ describe("sdl submit CLI", () => {
 					},
 					{ match: "gh pr view 1517 --json commits", result: { stdout: commitsJson() } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 1517", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
 					{ match: "gh pr diff 1517", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 					{ match: /^gh pr edit 1517 --title Generated PR --body-file /, result: {} },
 				],
@@ -539,6 +581,8 @@ describe("sdl submit CLI", () => {
 					{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "" }) } },
 					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
 					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
 					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: { code: 1, stderr: "edit denied\n" } },
 				],
