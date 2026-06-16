@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import { ClinkrGroup, clinkrFormatFromArgs, isClinkrHumanOutputInvocation, ok } from "../src/index.ts";
 import { parseEnvelope, runForTest } from "../src/testing/index.ts";
 
 function buildGroup(): ClinkrGroup<null> {
@@ -32,6 +32,29 @@ function buildMarkdownGroup(): {
 	});
 	return { group, markdownCalls: () => markdownCalls };
 }
+
+describe("raw argv format detection", () => {
+	test("detects the rendered format from raw command args", () => {
+		expect(clinkrFormatFromArgs(["win"])).toBe("human");
+		expect(clinkrFormatFromArgs(["win", "--format", "json"])).toBe("json");
+		expect(clinkrFormatFromArgs(["win", "--format=json"])).toBe("json");
+		expect(clinkrFormatFromArgs(["win", "--format", "markdown"])).toBe("markdown");
+		expect(clinkrFormatFromArgs(["win", "--format=md"])).toBe("markdown");
+	});
+
+	test("repeated raw format args follow commander last-wins behavior", () => {
+		expect(clinkrFormatFromArgs(["win", "--format", "human", "--format", "json"])).toBe("json");
+		expect(clinkrFormatFromArgs(["win", "--format=json", "--format", "human"])).toBe("human");
+	});
+
+	test("human-output detection treats schema printing as non-human side-effect context", () => {
+		expect(isClinkrHumanOutputInvocation(["win"])).toBe(true);
+		expect(isClinkrHumanOutputInvocation(["win", "--format", "human"])).toBe(true);
+		expect(isClinkrHumanOutputInvocation(["win", "--format", "json"])).toBe(false);
+		expect(isClinkrHumanOutputInvocation(["win", "--format", "markdown"])).toBe(false);
+		expect(isClinkrHumanOutputInvocation(["win", "--json-schema"])).toBe(false);
+	});
+});
 
 describe("--format dispatch", () => {
 	test("default format is human", async () => {

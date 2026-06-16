@@ -2,10 +2,13 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveIo } from "@asdl/clinkr";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
+import { checkoutRequestSchema, checkoutResultSchema, renderCheckout, runCheckout } from "./operations/checkout.ts";
+import { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./operations/claim.ts";
+import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./operations/resize.ts";
@@ -44,6 +47,44 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		renderHuman: renderList,
 	});
 	root.command({
+		name: "checkout",
+		description: "Check out a branch into an available pool slot worktree.",
+		schema: checkoutRequestSchema,
+		positionals: { branch_name: { position: 0 }, base: { position: 1 } },
+		options: { new: { short: "-b" } },
+		resultSchema: checkoutResultSchema,
+		handler: runCheckout,
+		renderHuman: renderCheckout,
+	});
+	root.command({
+		name: "co",
+		description: "Alias for checkout.",
+		schema: checkoutRequestSchema,
+		positionals: { branch_name: { position: 0 }, base: { position: 1 } },
+		options: { new: { short: "-b" } },
+		resultSchema: checkoutResultSchema,
+		handler: runCheckout,
+		renderHuman: renderCheckout,
+	});
+	root.command({
+		name: "goto",
+		description: "Print/copy a cd command for an assigned slot.",
+		schema: gotoRequestSchema,
+		options: { num: { short: "-n" }, wt: { short: "-w" } },
+		resultSchema: gotoResultSchema,
+		handler: runGoto,
+		renderHuman: renderGoto,
+	});
+	root.command({
+		name: "claim",
+		description: "Move a local branch into the current managed slot or lowest available slot.",
+		schema: claimRequestSchema,
+		positionals: { branch_name: { position: 0 } },
+		resultSchema: claimResultSchema,
+		handler: runClaim,
+		renderHuman: renderClaim,
+	});
+	root.command({
 		name: "init",
 		description: "Initialize the worktree pool with N detached slots at trunk.",
 		schema: initRequestSchema,
@@ -69,7 +110,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env };
+	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, isMachineMode: !isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 
