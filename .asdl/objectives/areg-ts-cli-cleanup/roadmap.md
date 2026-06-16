@@ -9,8 +9,10 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
 - [ ] Fix git exclude reads to be Git-aware so linked worktrees honor local skill exclusions (F).
   - Policy: direct execution after preview.
   - Evidence: regression test for worktree `.git`-as-file; `areg check` honors exclusions in a linked worktree.
-- [ ] Extract verbatim duplications — one `inspectGenericReplacement`, one shared `.pi/settings.json` parser, one `rejectTextState`, one `errorInfo`; delete the dead `errorInfo` export in `init.ts` (B).
-  - Evidence: grep shows single definition each; targeted tests pass.
+- [~] Extract verbatim duplications — one `inspectGenericReplacement`, one shared `.pi/settings.json` parser, one `rejectTextState`, one `errorInfo`; delete the dead `errorInfo` export in `init.ts` (B).
+  - Progress: shared `.pi/settings.json` parser extracted to `operations/pi-settings.ts` and reused by `check` and `skill-kind`; parser now rejects symlinked/non-file `.pi` inputs, and `check` only parses Pi settings for local skills.
+  - Evidence: PR #1653 / local branch diff against `areg-project-gateway-domain-refactor`; `pnpm --dir ts run test -- ts/packages/areg/test/unit/pi-settings.test.ts ts/packages/areg/test/scenario/check-cli.test.ts ts/packages/areg/test/scenario/skill-kind-list-show-cli.test.ts` passed; `pnpm --dir ts run check` passed.
+  - Remaining: `inspectGenericReplacement`, `rejectTextState`, `errorInfo`, and dead `init.ts` `errorInfo` export cleanup.
 - [ ] Delete the dead `runner` option/field on `RealAregHostGateway` (H).
 - [ ] Drop the ignored `cwd`/`env` fields from `AregSkillxWorkspaceCleanupRequest` (I).
 - [ ] Collapse the six identity-only `*PathState`/`*TextFileState` aliases to one canonical `AregPathState`/`AregTextFileState` pair (A, alias slice).
