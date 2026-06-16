@@ -17,6 +17,8 @@ export async function maybeAppendSubmitFailureInterpretation<T extends SubmitFai
 	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
 
 	const failureText = result.stderr.trim();
+	if (isDeterministicSubmitFailure(failureText)) return result;
+
 	const interpretation = await generateSubmitFailureInterpretation({ failureText, exitCode: result.exitCode, ctx });
 	if (!interpretation.ok) return result;
 
@@ -50,6 +52,10 @@ async function generateSubmitFailureInterpretation(input: {
 	} catch {
 		return { ok: false };
 	}
+}
+
+function isDeterministicSubmitFailure(failureText: string): boolean {
+	return failureText.includes("Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.");
 }
 
 function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {

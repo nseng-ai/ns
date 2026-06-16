@@ -433,7 +433,7 @@ describe("sdl submit CLI", () => {
 		expect(formattedExecCalls(run.context).filter((call) => call === "gt submit -nps --no-ai --no-interactive --no-view --no-web")).toEqual([]);
 	});
 
-	test("failed submit output gets an optional model interpretation", async () => {
+	test("readiness recheck failure is deterministic and does not add a model interpretation", async () => {
 		const run = runWithFakes(["submit", "--restack"], {
 			exec: [
 				...cleanCheckpointResponses(),
@@ -441,22 +441,28 @@ describe("sdl submit CLI", () => {
 				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
 				{
 					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
-					result: { code: 1, stderr: "WARNING: You must restack before submitting this stack.\nERROR: Aborting dry run.\n" },
+					result: {
+						code: 1,
+						stdout: "Running submit in 'dry-run' mode.\nValidating that this Graphite stack is ready to submit...\n",
+						stderr: "WARNING: You must restack before submitting this stack.\nERROR: Aborting dry run.\n",
+					},
 				},
 			],
-			textGeneration: [{ ok: true, text: "## What happened\nGraphite still thinks the stack is stale.\n\n## Recommended next steps\nRun `gt submit -nps --no-ai --no-interactive --dry-run` and inspect the stack state." }],
+			textGeneration: [{ ok: true, text: "This should not be used." }],
 		});
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("Graphite readiness changed after restack. Submission was not attempted");
-		expect(error).toContain("----- AI interpretation (model-generated) -----");
-		expect(error).toContain("----- end AI interpretation -----");
-		expect(error).toContain("Graphite still thinks the stack is stale.");
-		expect(run.context.modelCalls).toHaveLength(1);
-		expect(run.context.modelCalls[0]?.operation).toBe("submit-failure");
-		expect(run.context.modelCalls[0]?.prompt).toContain("WARNING: You must restack before submitting this stack.");
-		expect(run.context.modelCalls[0]?.prompt).toContain("branch <name> is empty");
+		expect(error).toContain("Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.");
+		expect(error).toContain("Submission was not attempted. PR metadata was not prepared.");
+		expect(error).toContain("Graphite dry-run error:");
+		expect(error).toContain("  WARNING: You must restack before submitting this stack.");
+		expect(error).toContain("Next steps:");
+		expect(error).toContain("- Verify readiness: `gt submit -nps --no-ai --no-interactive --dry-run`");
+		expect(error).toContain("Additional dry-run stdout:");
+		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
+		expect(error).not.toContain("This should not be used.");
+		expect(run.context.modelCalls).toHaveLength(0);
 	});
 
 	test("empty-branch post-submit failure names the branch and fences model interpretation", async () => {
