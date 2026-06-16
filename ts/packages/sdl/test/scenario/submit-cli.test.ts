@@ -3,17 +3,16 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { runCli } from "@asdl/sdl/cli";
-import type { SdlConfirmPrompt, TextGenerationResult } from "@asdl/sdl/sdk";
+import type { TextGenerationResult } from "@asdl/sdl/sdk";
 
-import { formattedExecCalls, runCliWithFakes, ScriptedSdlTestContext, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
-
-type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
-
-interface TestState {
-	exec?: readonly ScriptedExecResponse[];
-	textGeneration?: readonly ScriptedTextGenerationResult[];
-	confirm?: SdlConfirmPrompt;
-}
+import {
+	formattedExecCalls,
+	runCliWithFakes,
+	ScriptedSdlTestContext,
+	type RunWithFakesOptions,
+	type ScriptedExecResponse,
+	type TestState,
+} from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/asdl-tools/1517";
@@ -26,9 +25,9 @@ function createSubmitContext(state: TestState = {}): ScriptedSdlTestContext {
 	});
 }
 
-function runWithFakes(args: readonly string[], state: TestState = {}) {
+function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(
-		{ args, state },
+		options,
 		{
 			execResponses: successfulSubmitResponses,
 			textGenerationResults: () => [{ ok: true, text: defaultPrDescriptionText() }],
@@ -99,7 +98,7 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("help and schema expose built-in submit without running subprocesses", async () => {
-		const helpRun = runWithFakes(["submit", "--help"], { exec: [] });
+		const helpRun = runWithFakes({ args: ["submit", "--help"], state: { exec: [] } });
 		expect(await helpRun.exit).toBe(0);
 		const help = helpRun.stdout.join("");
 		expect(help).toContain("Usage: sdl submit");
@@ -109,14 +108,14 @@ describe("sdl submit CLI", () => {
 		expect(help).not.toContain("\n  --format");
 		expect(helpRun.context.execCalls).toEqual([]);
 
-		const schemaRun = runWithFakes(["submit", "--json-schema"], { exec: [] });
+		const schemaRun = runWithFakes({ args: ["submit", "--json-schema"], state: { exec: [] } });
 		expect(await schemaRun.exit).toBe(0);
 		expect(JSON.parse(schemaRun.stdout.join(""))).toHaveProperty("input_json_schema");
 		expect(schemaRun.context.execCalls).toEqual([]);
 	});
 
 	test("clean success submits, verifies current PR, preserves live output, and rewrites PR bodies", async () => {
-		const run = runWithFakes(["submit"]);
+		const run = runWithFakes({ args: ["submit"] });
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
@@ -156,7 +155,7 @@ describe("sdl submit CLI", () => {
 		const pendingModel = new Promise<TextGenerationResult>((resolve) => {
 			resolveModel = resolve;
 		});
-		const run = runWithFakes(["submit"], { textGeneration: [pendingModel] });
+		const run = runWithFakes({ args: ["submit"], state: { textGeneration: [pendingModel] } });
 
 		await vi.waitFor(() => {
 			expect(run.context.modelCalls).toHaveLength(1);
@@ -174,24 +173,27 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("pre-submit metadata preparation reports progress across large stacks", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ feature/base\n◉ feature/top (current)\n" } },
-				{ match: "gt branch info --no-interactive --branch feature/base", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
-				{ match: "gt branch info --no-interactive --branch feature/top", result: { stdout: "Parent: feature/base\n" } },
-				{ match: "git log --format=%B%x00 feature/base..feature/top", result: { stdout: "Add top branch\0" } },
-				{ match: "git diff feature/base..feature/top", result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" } },
-				{ match: "git status --porcelain", result: { stdout: "" } },
-				{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
-				{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
-				{
-					match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
-					result: { stdout: prJson({ title: "Generated PR", body: "Generated body", headRefName: "feature/top" }) },
-				},
-			],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ feature/base\n◉ feature/top (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/base", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{ match: "gt branch info --no-interactive --branch feature/top", result: { stdout: "Parent: feature/base\n" } },
+					{ match: "git log --format=%B%x00 feature/base..feature/top", result: { stdout: "Add top branch\0" } },
+					{ match: "git diff feature/base..feature/top", result: { stdout: "diff --git a/src/top.ts b/src/top.ts\n" } },
+					{ match: "git status --porcelain", result: { stdout: "" } },
+					{ match: "gt modify --no-interactive -m Generated PR -m Generated body", result: {} },
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
+					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+					{
+						match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName",
+						result: { stdout: prJson({ title: "Generated PR", body: "Generated body", headRefName: "feature/top" }) },
+					},
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -235,35 +237,38 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
-				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
-				{
-					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
-					result: { stdout: `implicit-session-resolution-feedback-read-helpers: ${LAGGING_VERIFICATION_PR_URL} (created)\n` },
-				},
-				{ match: "gt branch info --no-interactive", result: { stdout: "implicit-session-resolution-feedback-read-helpers\n6 seconds ago\n" } },
-				{
-					match: "gh pr view 1517 --json number,url,title,body,headRefName,baseRefName",
-					result: {
-						stdout: JSON.stringify({
-							number: 1517,
-							url: LAGGING_VERIFICATION_PR_URL,
-							title: "Existing PR title",
-							body: "Hand edited body",
-							headRefName: "feature/demo",
-							baseRefName: "main",
-						}),
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{
+						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						result: { stdout: `implicit-session-resolution-feedback-read-helpers: ${LAGGING_VERIFICATION_PR_URL} (created)\n` },
 					},
-				},
-				{ match: "gh pr view 1517 --json commits", result: { stdout: commitsJson() } },
-				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-				{ match: "gh pr diff 1517", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
-				{ match: /^gh pr edit 1517 --title Generated PR --body-file /, result: {} },
-			],
+					{ match: "gt branch info --no-interactive", result: { stdout: "implicit-session-resolution-feedback-read-helpers\n6 seconds ago\n" } },
+					{
+						match: "gh pr view 1517 --json number,url,title,body,headRefName,baseRefName",
+						result: {
+							stdout: JSON.stringify({
+								number: 1517,
+								url: LAGGING_VERIFICATION_PR_URL,
+								title: "Existing PR title",
+								body: "Hand edited body",
+								headRefName: "feature/demo",
+								baseRefName: "main",
+							}),
+						},
+					},
+					{ match: "gh pr view 1517 --json commits", result: { stdout: commitsJson() } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 1517", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: /^gh pr edit 1517 --title Generated PR --body-file /, result: {} },
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -274,15 +279,18 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
-				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: "Submitted stack without PR URL\n" } },
-				{ match: "gt branch info --no-interactive", result: { code: 1, stderr: "No PR found for current branch.\n" } },
-			],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: "Submitted stack without PR URL\n" } },
+					{ match: "gt branch info --no-interactive", result: { code: 1, stderr: "No PR found for current branch.\n" } },
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -293,9 +301,12 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("dirty worktree checkpoints before submitting", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [...dirtyCheckpointResponses(), ...successfulSubmitResponses().slice(cleanCheckpointResponses().length)],
-			textGeneration: [{ ok: true, text: "[cp] Submit checkpoint\n\n- Capture dirty work" }],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [...dirtyCheckpointResponses(), ...successfulSubmitResponses().slice(cleanCheckpointResponses().length)],
+				textGeneration: [{ ok: true, text: "[cp] Submit checkpoint\n\n- Capture dirty work" }],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -306,14 +317,17 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("checkpoint failure aborts before Graphite submit", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-				{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
-				{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
-				{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
-			],
-			textGeneration: [{ ok: false, error: "model unavailable" }],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+				],
+				textGeneration: [{ ok: false, error: "model unavailable" }],
+			},
 		});
 
 		expect(await run.exit).toBe(2);
@@ -323,11 +337,14 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("restack-required dry-run stops with guidance when no flag or confirmation is available", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "branch must be restacked before submitting\n" } },
-			],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "branch must be restacked before submitting\n" } },
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -337,16 +354,19 @@ describe("sdl submit CLI", () => {
 
 	test("confirmation threads through SdlContext and runs restack before submit", async () => {
 		const confirmations: Array<{ title: string; message: string }> = [];
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack is required before submit\n" } },
-				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
-				...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
-			],
-			confirm: (title, message) => {
-				confirmations.push({ title, message });
-				return true;
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack is required before submit\n" } },
+					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
+				],
+				confirm: (title, message) => {
+					confirmations.push({ title, message });
+					return true;
+				},
 			},
 		});
 
@@ -391,15 +411,18 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("--restack runs restack without prompting", async () => {
-		const run = runWithFakes(["submit", "--restack"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "must be restacked before submit\n" } },
-				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
-				...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
-			],
-			confirm: () => {
-				throw new Error("confirm should not be called with --restack");
+		const run = runWithFakes({
+			args: ["submit", "--restack"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "must be restacked before submit\n" } },
+					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
+				],
+				confirm: () => {
+					throw new Error("confirm should not be called with --restack");
+				},
 			},
 		});
 
@@ -408,14 +431,17 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("restack conflicts are reported before submit", async () => {
-		const run = runWithFakes(["submit", "--restack"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack required before submit\n" } },
-				{ match: "gt restack --no-interactive", result: { code: 1, stderr: "CONFLICT (content): src/app.ts\n" } },
-				{ match: "git diff --name-only --diff-filter=U", result: { stdout: "src/app.ts\n" } },
-				{ match: "git status --porcelain", result: { stdout: "UU src/app.ts\n" } },
-			],
+		const run = runWithFakes({
+			args: ["submit", "--restack"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack required before submit\n" } },
+					{ match: "gt restack --no-interactive", result: { code: 1, stderr: "CONFLICT (content): src/app.ts\n" } },
+					{ match: "git diff --name-only --diff-filter=U", result: { stdout: "src/app.ts\n" } },
+					{ match: "git status --porcelain", result: { stdout: "UU src/app.ts\n" } },
+				],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -425,21 +451,24 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("readiness recheck failure is deterministic and does not add a model interpretation", async () => {
-		const run = runWithFakes(["submit", "--restack"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack required before submit\n" } },
-				{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
-				{
-					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
-					result: {
-						code: 1,
-						stdout: "Running submit in 'dry-run' mode.\nValidating that this Graphite stack is ready to submit...\n",
-						stderr: "WARNING: You must restack before submitting this stack.\nERROR: Aborting dry run.\n",
+		const run = runWithFakes({
+			args: ["submit", "--restack"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { code: 1, stderr: "restack required before submit\n" } },
+					{ match: "gt restack --no-interactive", result: { stdout: "restacked\n" } },
+					{
+						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							code: 1,
+							stdout: "Running submit in 'dry-run' mode.\nValidating that this Graphite stack is ready to submit...\n",
+							stderr: "WARNING: You must restack before submitting this stack.\nERROR: Aborting dry run.\n",
+						},
 					},
-				},
-			],
-			textGeneration: [{ ok: true, text: "This should not be used." }],
+				],
+				textGeneration: [{ ok: true, text: "This should not be used." }],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -457,31 +486,34 @@ describe("sdl submit CLI", () => {
 	});
 
 	test("empty-branch post-submit failure names the branch and fences model interpretation", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
-				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
-				{
-					match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
-					result: {
-						stdout: `Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{
+						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
+						result: {
+							stdout: `Running in non-interactive mode. Inline prompts to fill PR fields will be skipped.
 
-🥞 Validating that this Graphite stack is ready to submit...
-▸ sdl-extension-api-followup-stack
+	🥞 Validating that this Graphite stack is ready to submit...
+	▸ sdl-extension-api-followup-stack
 
-📝 Preparing to submit PRs for the following branches...
-▸ add-sdl-extension-api (No-op)
-`,
-						stderr: `WARNING: This branch does not introduce any changes:
-WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
-`,
+	📝 Preparing to submit PRs for the following branches...
+	▸ add-sdl-extension-api (No-op)
+	`,
+							stderr: `WARNING: This branch does not introduce any changes:
+	WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+	`,
+						},
 					},
-				},
-				{ match: "gt branch info --no-interactive", result: { stdout: "fix-submit-empty-branch-warning\n\nParent: sdl-extension-api-followup/registry-refactor\n" } },
-			],
-			textGeneration: [{ ok: true, text: "## What happened\nBranch `sdl-extension-api-followup-stack` is empty.\n\n## Recommended next steps\nDelete or reparent around it, then rerun `sdl submit`." }],
+					{ match: "gt branch info --no-interactive", result: { stdout: "fix-submit-empty-branch-warning\n\nParent: sdl-extension-api-followup/registry-refactor\n" } },
+				],
+				textGeneration: [{ ok: true, text: "## What happened\nBranch `sdl-extension-api-followup-stack` is empty.\n\n## Recommended next steps\nDelete or reparent around it, then rerun `sdl submit`." }],
+			},
 		});
 
 		expect(await run.exit).toBe(1);
@@ -494,21 +526,24 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	});
 
 	test("description edit failure keeps submitted PR links visible", async () => {
-		const run = runWithFakes(["submit"], {
-			exec: [
-				...cleanCheckpointResponses(),
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-				{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
-				{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
-				{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
-				{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
-				{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "" }) } },
-				{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-				{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
-				{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
-				{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: { code: 1, stderr: "edit denied\n" } },
-			],
-			textGeneration: [{ ok: true, text: "Generated PR\n\nGenerated body" }],
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
+					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+					{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "" }) } },
+					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: { code: 1, stderr: "edit denied\n" } },
+				],
+				textGeneration: [{ ok: true, text: "Generated PR\n\nGenerated body" }],
+			},
 		});
 
 		expect(await run.exit).toBe(1);

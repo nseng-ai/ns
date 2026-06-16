@@ -1,14 +1,14 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError } from "./command-registry.ts";
+import { isPathInside, isRecord } from "@asdl/core/primitives";
+import { z } from "zod";
+
+import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError, type SdlCommandCandidate } from "./command-registry.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
-export interface DiscoveredExtensionCommand {
-	name: string;
-	description: string;
-	fullDescription: string;
+export interface DiscoveredExtensionCommand extends Pick<SdlCommandCandidate, "name" | "description" | "fullDescription" | "entryPath"> {
 	entryPath: string;
 	displayPath: string;
 	kind: DiscoveredExtensionCommandKind;
@@ -26,6 +26,33 @@ export interface ExtensionDiscoveryResult {
 	commands: readonly DiscoveredExtensionCommand[];
 	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
 }
+
+const manifestCommandStringSchema = z.string().refine((value) => value.trim() !== "");
+
+const manifestCommandEntrySchema = z.object({
+	name: manifestCommandStringSchema,
+	description: manifestCommandStringSchema,
+	entry: manifestCommandStringSchema,
+	fullDescription: manifestCommandStringSchema.optional(),
+});
+
+type ManifestCommandEntry = z.infer<typeof manifestCommandEntrySchema> & { fullDescription: string };
+type ManifestCommandField = keyof z.infer<typeof manifestCommandEntrySchema>;
+
+interface ParsedManifestCommandEntryFields {
+	name: string | undefined;
+	description: string | undefined;
+	entry: string | undefined;
+	fullDescription: string | undefined;
+}
+
+const MANIFEST_COMMAND_FIELD_ORDER = ["name", "description", "entry", "fullDescription"] as const satisfies readonly ManifestCommandField[];
+const MANIFEST_COMMAND_FIELD_DIAGNOSTICS = {
+	name: { field: "name", code: "extension_manifest_command_name_missing" },
+	description: { field: "description", code: "extension_manifest_command_description_missing" },
+	entry: { field: "entry", code: "extension_manifest_command_entry_missing" },
+	fullDescription: { field: "fullDescription", code: "extension_manifest_command_full_description_invalid" },
+} as const satisfies Record<ManifestCommandField, { field: string; code: string }>;
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -149,42 +176,20 @@ function commandForManifestEntry(options: {
 	if (!isRecord(options.entry)) {
 		return { ok: false, diagnostics: [diagnostic("extension_manifest_command_invalid", `Extension manifest commands must be objects: ${options.packageJsonPath}.`, { path: options.packageJsonPath })] };
 	}
-	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
-	const commandName = typeof options.entry.name === "string" && options.entry.name.trim() !== "" ? options.entry.name : undefined;
-	const name = readRequiredString({ value: options.entry.name, field: "name", code: "extension_manifest_command_name_missing", packageJsonPath: options.packageJsonPath, commandName });
-	const description = readRequiredString({
-		value: options.entry.description,
-		field: "description",
-		code: "extension_manifest_command_description_missing",
-		packageJsonPath: options.packageJsonPath,
-		commandName,
-	});
-	const rawEntryPath = readRequiredString({ value: options.entry.entry, field: "entry", code: "extension_manifest_command_entry_missing", packageJsonPath: options.packageJsonPath, commandName });
-	const fullDescription =
-		options.entry.fullDescription === undefined
-			? description
-			: readRequiredString({
-					value: options.entry.fullDescription,
-					field: "fullDescription",
-					code: "extension_manifest_command_full_description_invalid",
-					packageJsonPath: options.packageJsonPath,
-					commandName,
-				});
-	const requiredResults = options.entry.fullDescription === undefined ? [name, description, rawEntryPath] : [name, description, rawEntryPath, fullDescription];
-	for (const result of requiredResults) {
-		if (result.diagnostic !== undefined) diagnostics.push(result.diagnostic);
-	}
+	const parsedEntry = parseManifestCommandEntry({ entry: options.entry, packageJsonPath: options.packageJsonPath });
+	const diagnostics: ExtensionDiscoveryDiagnostic[] = [...parsedEntry.diagnostics];
+	const commandName = parsedEntry.commandName;
 
-	if (name.value !== undefined && !SDL_COMMAND_NAME_PATTERN.test(name.value)) {
-		diagnostics.push(diagnostic("extension_manifest_command_name_invalid", `Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${name.value}.`, { path: options.packageJsonPath, commandName }));
+	if (parsedEntry.entry.name !== undefined && !SDL_COMMAND_NAME_PATTERN.test(parsedEntry.entry.name)) {
+		diagnostics.push(diagnostic("extension_manifest_command_name_invalid", `Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`, { path: options.packageJsonPath, commandName }));
 	}
 
 	let entryPath: string | undefined;
-	if (rawEntryPath.value !== undefined) {
+	if (parsedEntry.entry.entry !== undefined) {
 		const entryPathValidation = validateManifestEntryPath({
 			packageDir: options.packageDir,
 			packageJsonPath: options.packageJsonPath,
-			rawEntryPath: rawEntryPath.value,
+			rawEntryPath: parsedEntry.entry.entry,
 			commandName,
 		});
 		if (entryPathValidation.ok) {
@@ -194,7 +199,13 @@ function commandForManifestEntry(options: {
 		}
 	}
 
-	if (diagnostics.length > 0 || name.value === undefined || description.value === undefined || fullDescription.value === undefined || entryPath === undefined) {
+	if (
+		diagnostics.length > 0 ||
+		parsedEntry.entry.name === undefined ||
+		parsedEntry.entry.description === undefined ||
+		parsedEntry.entry.fullDescription === undefined ||
+		entryPath === undefined
+	) {
 		return { ok: false, diagnostics };
 	}
 
@@ -203,9 +214,9 @@ function commandForManifestEntry(options: {
 		ok: true,
 		command: {
 			kind: "package",
-			name: name.value,
-			description: description.value,
-			fullDescription: fullDescription.value,
+			name: parsedEntry.entry.name,
+			description: parsedEntry.entry.description,
+			fullDescription: parsedEntry.entry.fullDescription,
 			entryPath,
 			displayPath,
 		},
@@ -231,7 +242,7 @@ function validateManifestEntryPath(options: {
 	}
 
 	const resolvedEntry = resolve(options.packageDir, options.rawEntryPath);
-	if (!isInsideDirectory(options.packageDir, resolvedEntry)) {
+	if (!isPathInside(options.packageDir, resolvedEntry)) {
 		return {
 			ok: false,
 			diagnostics: [
@@ -282,21 +293,45 @@ function validateManifestEntryPath(options: {
 	return { ok: true, entryPath: resolvedEntry };
 }
 
-function readRequiredString(options: {
-	value: unknown;
-	field: string;
-	code: string;
+function parseManifestCommandEntry(options: {
+	entry: Record<string, unknown>;
 	packageJsonPath: string;
-	commandName?: string | undefined;
-}): { value: string | undefined; diagnostic?: ExtensionDiscoveryDiagnostic } {
-	if (typeof options.value === "string" && options.value.trim() !== "") return { value: options.value };
+}): { entry: ParsedManifestCommandEntryFields; diagnostics: readonly ExtensionDiscoveryDiagnostic[]; commandName: string | undefined } {
+	const commandName = readNonEmptyString(options.entry.name);
+	const parsed = manifestCommandEntrySchema.safeParse(options.entry);
+	if (parsed.success) {
+		return {
+			entry: { ...parsed.data, fullDescription: parsed.data.fullDescription ?? parsed.data.description },
+			diagnostics: [],
+			commandName,
+		};
+	}
+
+	const invalidFields = new Set(parsed.error.issues.map((issue) => issue.path[0]).filter(isManifestCommandField));
 	return {
-		value: undefined,
-		diagnostic: diagnostic(options.code, `Extension manifest command ${options.field} must be a non-empty string: ${options.packageJsonPath}.`, {
-			path: options.packageJsonPath,
-			commandName: options.commandName,
+		entry: {
+			name: readNonEmptyString(options.entry.name),
+			description: readNonEmptyString(options.entry.description),
+			entry: readNonEmptyString(options.entry.entry),
+			fullDescription: options.entry.fullDescription === undefined ? readNonEmptyString(options.entry.description) : readNonEmptyString(options.entry.fullDescription),
+		},
+		diagnostics: MANIFEST_COMMAND_FIELD_ORDER.filter((field) => invalidFields.has(field)).map((field) => {
+			const fieldDiagnostic = MANIFEST_COMMAND_FIELD_DIAGNOSTICS[field];
+			return diagnostic(fieldDiagnostic.code, `Extension manifest command ${fieldDiagnostic.field} must be a non-empty string: ${options.packageJsonPath}.`, {
+				path: options.packageJsonPath,
+				commandName,
+			});
 		}),
+		commandName,
 	};
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() !== "" ? value : undefined;
+}
+
+function isManifestCommandField(value: unknown): value is ManifestCommandField {
+	return typeof value === "string" && Object.hasOwn(MANIFEST_COMMAND_FIELD_DIAGNOSTICS, value);
 }
 
 function buildCommand(options: {
@@ -322,20 +357,11 @@ function isLoadableExtensionFile(name: string): boolean {
 	return extension === ".ts" || extension === ".js";
 }
 
-function isInsideDirectory(parent: string, child: string): boolean {
-	const relativePath = relative(parent, child);
-	return relativePath === "" || (!relativePath.startsWith("..") && !relativePath.startsWith("/") && !relativePath.startsWith("\\"));
-}
-
 function relativeDisplayPath(rootDir: string, entryPath: string): string {
 	return join(basename(rootDir), relative(rootDir, entryPath));
 }
 
 function diagnostic(code: string, message: string, options: { path?: string | undefined; commandName?: string | undefined } = {}): ExtensionDiscoveryDiagnostic {
 	return { severity: "error", code, message, ...(options.path === undefined ? {} : { path: options.path }), ...(options.commandName === undefined ? {} : { commandName: options.commandName }) };
-}
-
-function isRecord(value: unknown): value is { readonly [key: string]: unknown } {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

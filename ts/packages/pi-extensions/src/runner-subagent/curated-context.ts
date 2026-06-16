@@ -2,6 +2,7 @@ import { closeSync, openSync, readSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ExecResult } from "@asdl/core/exec";
+import { isPathInside } from "@asdl/core/primitives";
 
 export type CuratedContextExecGit = (args: readonly string[], timeoutMs: number) => Promise<ExecResult>;
 
@@ -249,22 +250,17 @@ function parseGitStatusPaths(statusShort: string): readonly string[] {
 
 function resolveCandidatePath(cwd: string, rawPath: string): ResolvedCandidatePath | undefined {
 	const absolutePath = isAbsolute(rawPath) ? resolve(rawPath) : resolve(cwd, rawPath);
-	if (!isInsideRoot(cwd, absolutePath)) return undefined;
+	if (!isPathInside(cwd, absolutePath)) return undefined;
 	const relativePath = toPosixPath(relative(cwd, absolutePath));
 	try {
 		const realRoot = realpathSync(cwd);
 		const realCandidate = realpathSync(absolutePath);
-		if (!isInsideRoot(realRoot, realCandidate)) return undefined;
+		if (!isPathInside(realRoot, realCandidate)) return undefined;
 		return { absolutePath: realCandidate, relativePath };
 	} catch {
 		// Missing or unreadable candidates are classified by the later stat/read step.
 		return { absolutePath, relativePath };
 	}
-}
-
-function isInsideRoot(root: string, path: string): boolean {
-	const relativePath = relative(root, path);
-	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult {
