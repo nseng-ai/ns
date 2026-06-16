@@ -31,6 +31,6 @@ export async function createRealObjectiveContext(
 		repoRoot,
 		trunkBranch,
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
-		gitFacts: new RealObjectiveGitFactsGateway(execApi),
+		gitFacts: new RealObjectiveGitFactsGateway(git),
 	};
 }

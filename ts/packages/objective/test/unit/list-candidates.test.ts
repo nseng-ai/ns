@@ -9,7 +9,7 @@ import { ObjectiveStorage } from "../../src/storage.ts";
 describe("objective list-candidates operation", () => {
 	test("selects active open checkout records without archive records or git facts", async () => {
 		const ctx = contextWithFakeStorage({
-			records: [{ slug: "alpha" }, { slug: "bravo", closed: true }, { slug: "charlie" }],
+			records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
 			directories: [".asdl/objective-archive/archived"],
 		});
 

@@ -236,4 +236,58 @@ describe("real git gateway", () => {
 		expect(await git.localBranchPresence({ cwd: ROOT, branch: "missing" })).toEqual({ type: "absent", refName: "refs/heads/missing" });
 		commands.assertDone();
 	});
+
+	test("preserves generic git fact command protocols", async () => {
+		const controller = new AbortController();
+		const commands = new ScriptedCommands([
+			step("git", ["status", "--porcelain", "--", ".asdl/objectives"], { stdout: " M .asdl/objectives/a/objective.md\n" }),
+			step("git", ["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"], {
+				stdout: "feature/a\t2026-06-15T12:00:00+00:00\nfeature/b\t\n\n",
+			}),
+			step("git", ["rev-parse", "refs/heads/main:.asdl/objectives"], { stdout: "tree-main\n" }),
+			step("git", ["rev-parse", "refs/heads/feature:.asdl/objectives"], { stderr: "fatal: path '.asdl/objectives' does not exist in 'refs/heads/feature'", code: 128 }),
+			step("git", ["diff", "--name-only", "main..feature", "--", ".asdl/objectives"], { stdout: " .asdl/objectives/a/objective.md\n\n.asdl/objectives/b/roadmap.md\n" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".asdl/objectives", signal: controller.signal })).toEqual({ ok: true, value: true });
+		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: [
+				{ name: "feature/a", headIso: "2026-06-15T12:00:00+00:00" },
+				{ name: "feature/b", headIso: null },
+			],
+		});
+		expect(await git.treeOidsAtRefs({ cwd: ROOT, refs: ["refs/heads/main", "refs/heads/feature"], relativePath: ".asdl/objectives" })).toEqual({
+			ok: true,
+			value: { "refs/heads/main": "tree-main", "refs/heads/feature": null },
+		});
+		expect(await git.changedPathsUnder({ cwd: ROOT, revisionRange: "main..feature", relativePath: ".asdl/objectives" })).toEqual({
+			ok: true,
+			value: [".asdl/objectives/a/objective.md", ".asdl/objectives/b/roadmap.md"],
+		});
+		commands.assertDone();
+		expect(commands.execCalls[0]).toEqual({
+			command: "git",
+			args: ["status", "--porcelain", "--", ".asdl/objectives"],
+			options: { cwd: ROOT, timeout: 10_000, signal: controller.signal },
+		});
+		expect(commands.execCalls.map((call) => call.options?.timeout)).toEqual([10_000, 10_000, 10_000, 10_000, 10_000]);
+	});
+
+	test("reports generic git fact failures", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["status", "--porcelain", "--", ".asdl/objectives"], { code: 2, stderr: "bad status" }),
+			errorStep("git", ["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"], new Error("spawn ENOENT")),
+			step("git", ["rev-parse", "HEAD:.asdl/objectives"], { code: 2, stderr: "unexpected" }),
+			step("git", ["diff", "--name-only", "main..feature", "--", ".asdl/objectives"], { killed: true }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".asdl/objectives" })).toMatchObject({ ok: false, error: { code: "git_dirty_status_failed" } });
+		expect(await git.listLocalBranchTips({ cwd: ROOT })).toMatchObject({ ok: false, error: { code: "git_startup_failed" } });
+		expect(await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".asdl/objectives" })).toMatchObject({ ok: false, error: { code: "git_tree_oid_failed" } });
+		expect(await git.changedPathsUnder({ cwd: ROOT, revisionRange: "main..feature", relativePath: ".asdl/objectives" })).toMatchObject({ ok: false, error: { code: "git_changed_paths_failed" } });
+		commands.assertDone();
+	});
 });

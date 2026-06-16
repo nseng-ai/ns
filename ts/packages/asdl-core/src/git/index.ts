@@ -20,6 +20,23 @@ export interface GitBranchParams extends GitCwdParams {
 	branch: string;
 }
 
+export interface GitPathParams extends GitCwdParams {
+	relativePath: string;
+}
+
+export interface GitRefsPathParams extends GitPathParams {
+	refs: readonly string[];
+}
+
+export interface GitRevisionRangePathParams extends GitPathParams {
+	revisionRange: string;
+}
+
+export interface GitLocalBranchTip {
+	name: string;
+	headIso: string | null;
+}
+
 export type GitOperationResult = { ok: true } | { ok: false; error: GitErrorInfo };
 export type GitBranchPresenceResult =
 	| { type: "present"; refName: string; displayCommand: string }
@@ -36,6 +53,10 @@ export interface GitGateway {
 	validateBranchRef(params: GitBranchParams): Promise<GitOperationResult>;
 	localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult>;
 	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
+	hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>>;
+	listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>>;
+	treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>>;
+	changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>>;
 }
 
 interface CommandRun {
@@ -166,6 +187,54 @@ export class RealGitGateway implements GitGateway {
 		return { ok: true };
 	}
 
+	async hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>> {
+		const run = await this.runGit(params, ["status", "--porcelain", "--", params.relativePath]);
+		if (!run.ok) return run;
+		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return error("git_dirty_status_failed", formatCommandFailure("git status for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+		}
+		return { ok: true, value: run.value.result.stdout.trim().length > 0 };
+	}
+
+	async listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+		const run = await this.runGit(params, ["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"]);
+		if (!run.ok) return run;
+		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return error("git_branch_tips_failed", formatCommandFailure("git local branch tip listing failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+		}
+		return { ok: true, value: parseLocalBranchTips(run.value.result.stdout) };
+	}
+
+	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+		const values: Record<string, string | null> = {};
+		for (const ref of params.refs) {
+			const run = await this.runGit(params, ["rev-parse", `${ref}:${params.relativePath}`]);
+			if (!run.ok) return run;
+			if (run.value.result.killed) {
+				return error("git_tree_oid_failed", formatCommandFailure("git tree lookup for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			}
+			if (run.value.result.code === 0) {
+				values[ref] = firstNonEmptyLine(run.value.result.stdout) ?? null;
+				continue;
+			}
+			if (isMissingTreeResult(run.value.result)) {
+				values[ref] = null;
+				continue;
+			}
+			return error("git_tree_oid_failed", formatCommandFailure("git tree lookup for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+		}
+		return { ok: true, value: values };
+	}
+
+	async changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+		const run = await this.runGit(params, ["diff", "--name-only", params.revisionRange, "--", params.relativePath]);
+		if (!run.ok) return run;
+		if (run.value.result.code !== 0 || run.value.result.killed) {
+			return error("git_changed_paths_failed", formatCommandFailure("git changed path lookup failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+		}
+		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
+	}
+
 	private async runGit(params: GitCwdParams, args: string[]): Promise<CommandRunResult> {
 		const displayCommand = formatCommand("git", args);
 		try {
@@ -201,9 +270,27 @@ function isMissingRevisionResult(result: ExecResult): boolean {
 	return output.includes("Needed a single revision");
 }
 
+function isMissingTreeResult(result: ExecResult): boolean {
+	const output = `${result.stdout}\n${result.stderr}`;
+	return output.includes("exists on disk, but not in") || output.includes("does not exist in") || output.includes("unknown revision or path");
+}
+
+function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
+	return stdout.split(/\r?\n/u).flatMap((line) => {
+		if (line.trim().length === 0) return [];
+		const [name, headIso] = line.split("\t", 2);
+		if (name === undefined || name.length === 0) return [];
+		return [{ name, headIso: headIso === undefined || headIso.length === 0 ? null : headIso }];
+	});
+}
+
 function firstNonEmptyLine(value: string): string | undefined {
+	return nonEmptyLines(value)[0];
+}
+
+function nonEmptyLines(value: string): string[] {
 	return value
-		.split(/\r?\n/)
+		.split(/\r?\n/u)
 		.map((line) => line.trim())
-		.find((line) => line.length > 0);
+		.filter((line) => line.length > 0);
 }
