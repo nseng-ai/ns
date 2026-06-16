@@ -33,8 +33,10 @@ function runWithFakes(args: readonly string[], state: TestState = {}, options: {
 function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
 	return [
 		{ match: "gh pr view --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: `Old body\n${GENERATED_BODY_MARKER}` }) } },
-		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n" } },
+		{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
+		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
 		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n" } },
 		{ match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} },
 	];

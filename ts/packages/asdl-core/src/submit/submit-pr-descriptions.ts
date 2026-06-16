@@ -7,7 +7,7 @@ import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts"
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
 export type SubmitPrDescriptionGenerationResult =
-	| { ok: true; generated: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
+	| { ok: true; generated: SubmitPrLink[]; skipped: SubmitPrLink[]; prewritten: SubmitPrLink[]; prewriteFallbacks: SubmitPrLink[] }
 	| { ok: false; failures: PrDescriptionFailure[] };
 
 export interface PrDescriptionFailure {
@@ -24,6 +24,7 @@ export async function generateSubmitPrDescriptions(input: {
 	onProgress?: (message: string) => void;
 }): Promise<SubmitPrDescriptionGenerationResult> {
 	const generated: SubmitPrLink[] = [];
+	const skipped: SubmitPrLink[] = [];
 	const prewritten: SubmitPrLink[] = [];
 	const prewriteFallbacks: SubmitPrLink[] = [];
 	const failures: PrDescriptionFailure[] = [];
@@ -71,17 +72,6 @@ export async function generateSubmitPrDescriptions(input: {
 			continue;
 		}
 
-		input.onProgress?.(`loading PR #${number} commit messages`);
-		const decision = await decidePrBodyOverwrite({
-			pr: viewed.value,
-			cwd: input.cwd,
-			githubPr: input.prDescription.githubPr,
-		});
-		if (decision.kind === "failed") {
-			failures.push({ link, number, reason: decision.error });
-			continue;
-		}
-
 		if (generation === undefined) {
 			input.onProgress?.("resolving PR description prompt and model");
 		}
@@ -96,7 +86,24 @@ export async function generateSubmitPrDescriptions(input: {
 		}
 		generation = resolvedGeneration;
 
-		const applied = await applyGeneratedDescription(viewed.value, decision.commits, {
+		input.onProgress?.(`checking PR #${number} description fingerprint`);
+		const decision = await decidePrBodyOverwrite({
+			pr: viewed.value,
+			cwd: input.cwd,
+			githubPr: input.prDescription.githubPr,
+			generation,
+		});
+		if (decision.kind === "failed") {
+			failures.push({ link, number, reason: decision.error });
+			continue;
+		}
+		if (decision.kind === "skip") {
+			input.onProgress?.(`skipping PR #${number} description; generated fingerprint is unchanged`);
+			skipped.push(link);
+			continue;
+		}
+
+		const applied = await applyGeneratedDescription(viewed.value, decision.commits, decision.metadata, {
 			cwd: input.cwd,
 			env: input.prDescription.env,
 			githubPr: input.prDescription.githubPr,
@@ -116,7 +123,7 @@ export async function generateSubmitPrDescriptions(input: {
 	if (failures.length > 0) {
 		return { ok: false, failures };
 	}
-	return { ok: true, generated, prewritten, prewriteFallbacks };
+	return { ok: true, generated, skipped, prewritten, prewriteFallbacks };
 }
 
 export function formatPrDescriptionFailureText(prLinks: readonly SubmitPrLink[], failures: readonly PrDescriptionFailure[]): string {
