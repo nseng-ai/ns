@@ -1,4 +1,4 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { GitGateway } from "@asdl/core/git";
@@ -6,7 +6,7 @@ import type { GitGateway } from "@asdl/core/git";
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath, type ObjectiveRecordStatus, type ObjectiveStorage } from "../storage.ts";
 
-import { legacyMachine } from "./legacy-machine.ts";
+import { legacyMachine, mapExitData } from "./legacy-machine.ts";
 import { buildObjectiveBranchAttribution, MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
@@ -300,16 +300,7 @@ function formatBranchLine(index: number, branchCount: number, branch: string): s
 }
 
 function stripRenderFields(exit: ClinkrExit<ObjectiveListRenderResult>): ClinkrExit<ObjectiveListResult> {
-	switch (exit.type) {
-		case "ok":
-			return ok(factsOnly(exit.data));
-		case "negative":
-			return exit.data === undefined ? negative(exit.message) : negative(exit.message, factsOnly(exit.data));
-		case "shell-negative":
-			return exit.data === undefined ? shellNegative(exit.message) : shellNegative(exit.message, factsOnly(exit.data));
-		case "failure":
-			return exit;
-	}
+	return mapExitData(exit, factsOnly);
 }
 
 function removeOneTrailingNewline(value: string): string {

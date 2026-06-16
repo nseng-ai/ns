@@ -237,7 +237,7 @@ export async function runSkillKindList(ctx: AregCliContext, request: SkillKindLi
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return skillKindListRecordsFailure(resolved.value.projectDir, records.error);
+	if (!records.ok) return skillKindRecordsFailure(records.error, { project_dir: resolved.value.projectDir, skills: [] });
 	return ok({ project_dir: resolved.value.projectDir, skills: records.value.map(toSkillKindRecordResult) });
 }
 
@@ -247,7 +247,7 @@ export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindSh
 	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
 	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return skillKindShowRecordsFailure(resolved.value.projectDir, resolvedSkill.skillName, records.error);
+	if (!records.ok) return skillKindRecordsFailure(records.error, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
 		return negative(`Local skill not found: ${request.skill}`, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
@@ -292,13 +292,8 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 	return ok({ project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
 }
 
-function skillKindListRecordsFailure(projectDir: string, error: { code: string; message: string }): ClinkrExit<SkillKindListResult> {
-	if (isPiSettingsPathError(error)) return shellNegative(error.message, { project_dir: projectDir, skills: [] });
-	return failure("skill_records_invalid", error.message);
-}
-
-function skillKindShowRecordsFailure(projectDir: string, skillName: string, error: { code: string; message: string }): ClinkrExit<SkillKindShowResult> {
-	if (isPiSettingsPathError(error)) return shellNegative(error.message, emptyShowResult(projectDir, skillName));
+function skillKindRecordsFailure<T>(error: { code: string; message: string }, shellNegativeData: T): ClinkrExit<T> {
+	if (isPiSettingsPathError(error)) return shellNegative(error.message, shellNegativeData);
 	return failure("skill_records_invalid", error.message);
 }
 

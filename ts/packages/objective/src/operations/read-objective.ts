@@ -1,9 +1,9 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr } from "./format.ts";
-import { legacyMachine } from "./legacy-machine.ts";
+import { legacyMachine, mapExitData } from "./legacy-machine.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
@@ -225,16 +225,7 @@ function isRenderResult(result: ReadObjectiveCommandResult): result is ReadObjec
 }
 
 function stripRenderFields(exit: ClinkrExit<ReadObjectiveCommandResult>): ClinkrExit<ReadObjectiveResult> {
-	switch (exit.type) {
-		case "ok":
-			return ok(factsOnly(exit.data));
-		case "negative":
-			return exit.data === undefined ? negative(exit.message) : negative(exit.message, factsOnly(exit.data));
-		case "shell-negative":
-			return exit.data === undefined ? shellNegative(exit.message) : shellNegative(exit.message, factsOnly(exit.data));
-		case "failure":
-			return exit;
-	}
+	return mapExitData(exit, factsOnly);
 }
 
 function factsOnly(result: ReadObjectiveCommandResult): ReadObjectiveResult {
