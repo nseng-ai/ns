@@ -27,7 +27,7 @@ export const sdlExtensionParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "sdl-extension",
-		notes: "Pi command is registered through registerCliCommandExtension and delegates to the shared SDL cp command-module runner.",
+		notes: "Pi command is registered through registerCliCommandExtension and delegates to the shared SDL cp command-entry runner.",
 	},
 	{
 		kind: "command",

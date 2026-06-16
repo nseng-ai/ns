@@ -140,7 +140,7 @@ function parseJsonOutput(run: { stdout: string[] }): Record<string, unknown> {
 }
 
 async function createOverrideProject(extensionSource: string): Promise<string> {
-	return createExtensionProject("cp-override.ts", extensionSource);
+	return createExtensionProject("cp.ts", extensionSource);
 }
 
 async function createExtensionProject(extensionFileName: string, extensionSource: string): Promise<string> {
@@ -159,6 +159,22 @@ async function createLegacyCommandProject(commandFileName: string, commandSource
 	mkdirSync(dirname(commandPath), { recursive: true });
 	writeFileSync(commandPath, commandSource);
 	return directory;
+}
+
+async function createManifestProject(manifest: unknown, files: Record<string, string>): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "sdl-extension-project-"));
+	tempDirs.push(directory);
+	const packageDir = join(directory, ".asdl", "extensions", "pkg");
+	writeFileSyncWithParents(join(packageDir, "package.json"), JSON.stringify(manifest));
+	for (const [relativePath, source] of Object.entries(files)) {
+		writeFileSyncWithParents(join(packageDir, relativePath), source);
+	}
+	return directory;
+}
+
+function writeFileSyncWithParents(path: string, source: string): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, source);
 }
 
 afterEach(() => {
@@ -245,43 +261,43 @@ describe("sdl cp CLI help and parsing", () => {
 });
 
 describe("sdl extension command loading", () => {
-	test("project-only command appears in top-level help after eager factory execution", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineCommand, ok } from "@asdl/sdl/sdk";
+	test("project-only direct command appears in top-level help without importing the entry", async () => {
+		const cwd = await createExtensionProject("hello.ts", "throw new Error('should not import during help');\n");
+		const run = runWithFakes(["--help"], { state: { exec: [] }, cwd });
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "hello",
-		description: "Say hello",
-		run() { return ok("hello"); },
-	}));
-}
-`,
+		expect(await run.exit).toBe(0);
+		const help = run.stdout.join("");
+		expect(help).toContain("hello");
+		expect(help).toContain("Run SDL extension command 'hello'.");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("manifest metadata appears in top-level help without importing the entry", async () => {
+		const cwd = await createManifestProject(
+			{ asdl: { commands: [{ name: "hello", description: "Say hello.", fullDescription: "Say hello with details.", entry: "./src/hello.ts" }] } },
+			{ "src/hello.ts": "throw new Error('should not import during help');\n" },
 		);
 		const run = runWithFakes(["--help"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("hello");
-		expect(help).toContain("Say hello");
+		expect(help).toContain("Say hello.");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("project-local cp help uses extension command metadata and schema", async () => {
+	test("project-local cp help uses selected command metadata and schema", async () => {
 		const cwd = await createOverrideProject(`
 import { defineCommand, ok, z } from "@asdl/sdl/sdk";
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "cp",
-		description: "Project cp override with options.",
-		schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the override.") }),
-		run() { return ok("unused"); },
-	}));
-}
+export default defineCommand({
+	name: "cp",
+	description: "Project cp override with options.",
+	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the override.") }),
+	run() { return ok("unused"); },
+});
 `);
 		const run = runWithFakes(["cp", "--help"], { state: { exec: [] }, cwd });
 
@@ -303,16 +319,14 @@ export default function extension(api) {
 			`
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "hello",
-		description: "Say hello",
-		async run(ctx) {
-			const result = await ctx.exec("echo", ["hello"]);
-			return ok(result.stdout.trim());
-		},
-	}));
-}
+export default defineCommand({
+	name: "hello",
+	description: "Say hello",
+	async run(ctx) {
+		const result = await ctx.exec("echo", ["hello"]);
+		return ok(result.stdout.trim());
+	},
+});
 `,
 		);
 		const run = runWithFakes(["hello"], { state: { exec: [{ match: "echo hello", result: { stdout: "hello\n" } }] }, cwd });
@@ -329,21 +343,20 @@ export default function extension(api) {
 			`
 import { defineCommand, ok, z } from "@asdl/sdl/sdk";
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "hello",
-		description: "Say hello with options.",
-		schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
-		run(_ctx, request) {
-			return ok(request.loud ? "HELLO" : "hello");
-		},
-	}));
-}
+export default defineCommand({
+	name: "hello",
+	description: "Say hello with options.",
+	schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
+	run(_ctx, request) {
+		return ok(request.loud ? "HELLO" : "hello");
+	},
+});
 `,
 		);
 
 		const helpRun = runWithFakes(["hello", "--help"], { state: { exec: [] }, cwd });
 		expect(await helpRun.exit).toBe(0);
+		expect(helpRun.stdout.join("")).toContain("Say hello with options.");
 		expect(helpRun.stdout.join("")).toContain("--loud");
 
 		const schemaRun = runWithFakes(["hello", "--json-schema"], { state: { exec: [] }, cwd });
@@ -356,32 +369,29 @@ export default function extension(api) {
 		expect(invokeRun.context.execCalls).toEqual([]);
 	});
 
-	test("project extension load failure fails before dispatch", async () => {
+	test("selected extension load failure fails only when that command is selected", async () => {
 		const cwd = await createExtensionProject("hello.ts", "throw new Error('module boom');\n");
-		const run = runWithFakes(["--help"], { state: { exec: [] }, cwd });
 
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("Failed to load extension");
-		expect(run.stderr.join("")).toContain("module boom");
-		expect(run.context.execCalls).toEqual([]);
+		const helpRun = runWithFakes(["--help"], { state: { exec: [] }, cwd });
+		expect(await helpRun.exit).toBe(0);
+		expect(helpRun.stderr.join("")).toBe("");
+
+		const selectedRun = runWithFakes(["hello"], { state: { exec: [] }, cwd });
+		expect(await selectedRun.exit).toBe(2);
+		expect(selectedRun.stdout.join("")).toBe("");
+		expect(selectedRun.stderr.join("")).toContain("Failed to load SDL command entry");
+		expect(selectedRun.stderr.join("")).toContain("module boom");
+		expect(selectedRun.context.execCalls).toEqual([]);
 	});
 
-	test("invalid extension command name fails clearly", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`
-import { defineCommand, ok } from "@asdl/sdl/sdk";
-export default function extension(api) {
-	api.registerCommand(defineCommand({ name: "Bad", description: "Wrong", run() { return ok("nope"); } }));
-}
-`,
-		);
+	test("invalid inferred extension command name fails clearly during discovery", async () => {
+		const cwd = await createExtensionProject("Bad.ts", "export default {};\n");
 		const run = runWithFakes(["--help"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("command name must match [a-z][a-z0-9-]*");
+		expect(run.stderr.join("")).toContain("command name inferred");
+		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
 		expect(run.context.execCalls).toEqual([]);
 	});
 
@@ -389,9 +399,7 @@ export default function extension(api) {
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-export default function extension(api) {
-	api.registerCommand({ name: "hello", description: "Hello", schema: { safeParse() { return { success: true, data: {} }; } }, run() { return { ok: true, message: "hello" }; } });
-}
+export default { name: "hello", description: "Hello", schema: { safeParse() { return { success: true, data: {} }; } }, run() { return { ok: true, message: "hello" }; } };
 `,
 		);
 		const run = runWithFakes(["hello"], { state: { exec: [] }, cwd });
@@ -659,16 +667,14 @@ describe("sdl cp CLI behavior", () => {
 		const cwd = await createOverrideProject(`
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "cp",
-		description: "Custom checkpoint",
-		async run(ctx) {
-			const result = await ctx.exec("echo", ["custom"]);
-			return ok(` + "`custom:${result.stdout.trim()}`" + `);
-		},
-	}));
-}
+export default defineCommand({
+	name: "cp",
+	description: "Custom checkpoint",
+	async run(ctx) {
+		const result = await ctx.exec("echo", ["custom"]);
+		return ok(` + "`custom:${result.stdout.trim()}`" + `);
+	},
+});
 `);
 		const run = runWithFakes(["cp"], {
 			state: { exec: [{ match: "echo custom", result: { stdout: "custom\n" } }] },
@@ -683,18 +689,18 @@ export default function extension(api) {
 	});
 
 	test("malformed project-local extension command exits 2 with a clear diagnostic", async () => {
-		const cwd = await createOverrideProject("export default function extension(api) { api.registerCommand({ name: 'Bad', run() {} }); }\n");
+		const cwd = await createOverrideProject("export default { name: 'Bad', run() {} };\n");
 		const run = runWithFakes(["cp"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("command name must match [a-z][a-z0-9-]*");
+		expect(run.stderr.join("")).toContain('command name must be "cp"');
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.modelCalls).toEqual([]);
 	});
 
 	test("project-local extension command must declare description", async () => {
-		const cwd = await createOverrideProject("export default function extension(api) { api.registerCommand({ name: 'cp', run() { return { ok: true, message: 'custom' }; } }); }\n");
+		const cwd = await createOverrideProject("export default { name: 'cp', run() { return { ok: true, message: 'custom' }; } };\n");
 		const run = runWithFakes(["cp"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
@@ -703,7 +709,7 @@ export default function extension(api) {
 	});
 
 	test("project-local extension command invalid return exits 2", async () => {
-		const cwd = await createOverrideProject("export default function extension(api) { api.registerCommand({ name: 'cp', description: 'Custom', run() { return undefined; } }); }\n");
+		const cwd = await createOverrideProject("export default { name: 'cp', description: 'Custom', run() { return undefined; } };\n");
 		const run = runWithFakes(["cp"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);
@@ -712,7 +718,7 @@ export default function extension(api) {
 	});
 
 	test("project-local extension command throw exits 2", async () => {
-		const cwd = await createOverrideProject("export default function extension(api) { api.registerCommand({ name: 'cp', description: 'Custom', run() { throw new Error('boom'); } }); }\n");
+		const cwd = await createOverrideProject("export default { name: 'cp', description: 'Custom', run() { throw new Error('boom'); } };\n");
 		const run = runWithFakes(["cp"], { state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(2);

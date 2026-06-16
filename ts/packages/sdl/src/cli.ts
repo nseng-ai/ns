@@ -10,7 +10,13 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { executeSdlCommand, listStaticSdlCommandInfos, type SdlCommandInfo, type SdlCommandCliInfo } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
-import { formatExtensionErrorDiagnostics, hasExtensionErrors, loadExtensions } from "./extension-registry.ts";
+import {
+	commandInfosForSelectedCommand,
+	formatExtensionErrorDiagnostics,
+	hasExtensionErrors,
+	loadSdlCommandCatalog,
+	loadSelectedSdlCommand,
+} from "./extension-registry.ts";
 import type { SdlCommand, SdlConfirmPrompt, SdlContext, SdlOutputStream } from "./sdk.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
@@ -28,7 +34,6 @@ export interface SdlCliDeps {
 
 export interface BuildSdlCliOptions {
 	commandInfos?: readonly SdlCommandCliInfo[] | undefined;
-	commands?: ReadonlyMap<string, SdlCommand> | undefined;
 	selectedCommand?: SdlCommand | undefined;
 }
 
@@ -63,10 +68,9 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 				schema,
 				...(selectedCommand?.positionals === undefined ? {} : { positionals: selectedCommand.positionals }),
 				run: async (ctx, request) => {
-					const command = selectedCommand ?? options.commands?.get(commandName);
-					const result = command === undefined
+					const result = selectedCommand === undefined
 						? { ok: false as const, exitCode: 2, message: `Unknown SDL command: ${commandName}` }
-						: await executeSdlCommand(ctx.context, command, request);
+						: await executeSdlCommand(ctx.context, selectedCommand, request);
 					writeSdlResultOutput(result, ctx);
 					return result.ok ? 0 : result.exitCode;
 				},
@@ -92,14 +96,25 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 
 	const cwd = deps.cwd ?? injectedContext?.cwd ?? process.cwd();
 	const env = deps.env ?? injectedContext?.env ?? process.env;
-	const loadedExtensions = await loadExtensions({ cwd, env, homeDir: deps.homeDir ?? env.HOME });
-	if (hasExtensionErrors(loadedExtensions.diagnostics)) {
-		stderr(`${formatExtensionErrorDiagnostics(loadedExtensions.diagnostics)}\n`);
+	const commandCatalog = await loadSdlCommandCatalog({ cwd, env, homeDir: deps.homeDir ?? env.HOME });
+	if (hasExtensionErrors(commandCatalog.diagnostics)) {
+		stderr(`${formatExtensionErrorDiagnostics(commandCatalog.diagnostics)}\n`);
 		return 2;
 	}
 
-	const selectedCommandName = selectCommandName(args, loadedExtensions.commandInfos);
-	const selectedCommand = selectedCommandName === undefined ? undefined : loadedExtensions.commands.get(selectedCommandName);
+	const selectedCommandName = selectCommandName(args, commandCatalog.commandInfos);
+	const selectedCandidate = selectedCommandName === undefined ? undefined : commandCatalog.candidates.get(selectedCommandName);
+	const loadedSelectedCommand = selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
+	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
+		stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
+		return 2;
+	}
+	const selectedCommand = loadedSelectedCommand?.command;
+	const selectedSource = loadedSelectedCommand?.source;
+	const commandInfos = commandInfosForSelectedCommand(
+		commandCatalog.commandInfos,
+		selectedCommand === undefined || selectedSource === undefined ? undefined : { command: selectedCommand, source: selectedSource },
+	);
 
 	const baseContext = injectedContext ?? createRealSdlCommandContext({ cwd, env });
 	const onOutput = deps.onOutput ?? baseContext.onOutput;
@@ -117,7 +132,7 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	};
 	const contextWithIO: SdlCliContext = { context, cwd, env, stdout, stderr };
 	const io = resolveIo({ stdout, stderr });
-	return buildCli({ commandInfos: loadedExtensions.commandInfos, commands: loadedExtensions.commands, selectedCommand }).run(args, { context: contextWithIO, io });
+	return buildCli({ commandInfos, selectedCommand }).run(args, { context: contextWithIO, io });
 }
 
 function selectCommandName(args: readonly string[], commandInfos: readonly SdlCommandInfo[]): string | undefined {

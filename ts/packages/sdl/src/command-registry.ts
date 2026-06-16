@@ -1,3 +1,4 @@
+import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
 import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
@@ -10,6 +11,14 @@ import {
 	LEGACY_CHECKPOINT_MODEL_ENV,
 } from "./text-generation.ts";
 
+export type SdlCommandSourceLevel = "built-in" | "global" | "project";
+
+export interface SdlCommandSourceInfo {
+	level: SdlCommandSourceLevel;
+	label: string;
+	path?: string | undefined;
+}
+
 export interface SdlCommandInfo {
 	name: string;
 	description: string;
@@ -17,6 +26,16 @@ export interface SdlCommandInfo {
 
 export interface SdlCommandCliInfo extends SdlCommandInfo {
 	fullDescription: string;
+}
+
+export interface SdlCommandCandidate extends SdlCommandCliInfo {
+	source: SdlCommandSourceInfo;
+	entryPath?: string | undefined;
+}
+
+export interface BuiltInSdlCommandCandidate extends SdlCommandCandidate {
+	source: SdlCommandSourceInfo & { level: "built-in" };
+	command: SdlCommand;
 }
 
 export interface BuiltInCommandDefinition {
@@ -28,8 +47,9 @@ export interface BuiltInCommandDefinition {
 export const SDL_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 export const SDL_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
 
-const builtInCommandInfoDefinitions = {
+export const builtInCommandDefinitions = {
 	changes: {
+		command: defaultChangesCommand,
 		summary: "Summarize outstanding worktree changes without committing.",
 		description: `Summarize outstanding worktree changes without committing.
 
@@ -41,6 +61,7 @@ Environment:
 The command owns human stdout/stderr, has no alternate output-format flag, and does not stage, commit, stash, switch branches, run Graphite, or call GitHub.`,
 	},
 	cp: {
+		command: defaultCpCommand,
 		summary: "Create a checkpoint commit for the current diff.",
 		description: `Create a checkpoint commit for the current git diff using a model-authored message.
 
@@ -48,21 +69,9 @@ Environment:
   ${CHECKPOINT_MODEL_ENV}  Model reference for the checkpoint message. Defaults to ${DEFAULT_CHECKPOINT_MODEL_REF}. Falls back to ${LEGACY_CHECKPOINT_MODEL_ENV} when unset.`,
 	},
 	submit: {
+		command: defaultSubmitCommand,
 		summary: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		description: defaultSubmitCommand.description,
-	},
-} as const satisfies Record<string, { summary: string; description: string }>;
-
-export const builtInCommandDefinitions = {
-	cp: {
-		command: defaultCpCommand,
-		summary: builtInCommandInfoDefinitions.cp.summary,
-		description: builtInCommandInfoDefinitions.cp.description,
-	},
-	submit: {
-		command: defaultSubmitCommand,
-		summary: builtInCommandInfoDefinitions.submit.summary,
-		description: builtInCommandInfoDefinitions.submit.description,
 	},
 } as const satisfies Record<string, BuiltInCommandDefinition>;
 
@@ -79,15 +88,25 @@ const sdlResultSchema = z.discriminatedUnion("ok", [
 	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
 ]);
 
-export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return Object.entries(builtInCommandInfoDefinitions)
-		.map(([name, definition]) => ({ name, description: definition.summary, fullDescription: definition.description }))
+export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] {
+	return Object.entries(builtInCommandDefinitions)
+		.map(([name, definition]) => ({
+			name,
+			description: definition.summary,
+			fullDescription: definition.description,
+			source: { level: "built-in" as const, label: `built-in command ${name}` },
+			command: definition.command,
+		}))
 		.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export function commandInfoForLoadedCommand(command: SdlCommand, sourceLevel: "built-in" | "global" | "project"): SdlCommandCliInfo {
-	if (sourceLevel === "built-in" && Object.hasOwn(builtInCommandInfoDefinitions, command.name)) {
-		const definition = builtInCommandInfoDefinitions[command.name as keyof typeof builtInCommandInfoDefinitions];
+export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
+	return listBuiltInSdlCommandCandidates().map(({ name, description, fullDescription }) => ({ name, description, fullDescription }));
+}
+
+export function commandInfoForLoadedCommand(command: SdlCommand, sourceLevel: SdlCommandSourceLevel): SdlCommandCliInfo {
+	if (sourceLevel === "built-in" && Object.hasOwn(builtInCommandDefinitions, command.name)) {
+		const definition = builtInCommandDefinitions[command.name as keyof typeof builtInCommandDefinitions];
 		return { name: command.name, description: definition.summary, fullDescription: definition.description };
 	}
 	return { name: command.name, description: command.description, fullDescription: command.description };

@@ -54,23 +54,21 @@ function createContext(cwd: string): CommandContext {
 async function createOverrideProject(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-pi-override-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".asdl", "extensions", "cp-override.ts");
+	const extensionPath = join(directory, ".asdl", "extensions", "cp.ts");
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(
 		extensionPath,
 		`
 import { defineCommand, ok } from "@asdl/sdl/sdk";
 
-export default function extension(api) {
-	api.registerCommand(defineCommand({
-		name: "cp",
-		description: "Custom checkpoint",
-		async run(ctx) {
-			const result = await ctx.exec("echo", ["pi-custom"]);
-			return ok(result.stdout.trim());
-		},
-	}));
-}
+export default defineCommand({
+	name: "cp",
+	description: "Custom checkpoint",
+	async run(ctx) {
+		const result = await ctx.exec("echo", ["pi-custom"]);
+		return ok(result.stdout.trim());
+	},
+});
 `,
 	);
 	return directory;
@@ -102,7 +100,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.messageRenderers.has("code-changes-summary")).toBe(false);
 	});
 
-	test("runs the shared cp command-module runner", async () => {
+	test("runs the shared cp command-entry runner", async () => {
 		const cwd = await createOverrideProject();
 		const pi = new FakePi();
 		sdlExtension(pi);
