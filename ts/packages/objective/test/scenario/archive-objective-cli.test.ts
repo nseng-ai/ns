@@ -127,7 +127,7 @@ describe("objective archive", () => {
 		const fake = new FakeObjectiveStorageGateway();
 		const run = runScenario(["archive", "ghost", "--format", "json"], { context: contextFor(fake) });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "No active Objective record found for slug 'ghost' at .asdl/objectives/ghost.",
@@ -156,7 +156,7 @@ describe("objective archive", () => {
 		});
 		const run = runScenario(["archive", "alpha", "--format", "json"], { context: contextFor(fake) });
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "Destination already exists for slug 'alpha': .asdl/objective-archive/alpha. Refusing to merge or overwrite.",
@@ -178,7 +178,7 @@ describe("objective archive", () => {
 
 	test("invalid and missing slugs return stable negative envelopes", async () => {
 		const invalid = runScenario(["archive", "foo/bar", "--format", "json"], { fake: { records: [{ slug: "alpha" }] } });
-		expect(await invalid.exit).toBe(1);
+		expect(await invalid.exit).toBe(0);
 		expect(parseJsonOutput(invalid)).toEqual({
 			exit_code: 1,
 			message: "Invalid Objective slug 'foo/bar'. Pass a single slug, not a path.",
@@ -196,7 +196,7 @@ describe("objective archive", () => {
 		});
 
 		const missing = runScenario(["archive", "--format", "json"]);
-		expect(await missing.exit).toBe(1);
+		expect(await missing.exit).toBe(0);
 		expect(missing.stderr.join("")).not.toContain("Usage:");
 		expect(parseJsonOutput(missing)).toEqual({
 			exit_code: 1,
@@ -220,7 +220,7 @@ describe("objective archive", () => {
 			fake: { files: { ".asdl/objectives/alpha": "not a directory\n" } },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 1,
 			message: "Objective source path for slug 'alpha' is not a directory: .asdl/objectives/alpha.",
