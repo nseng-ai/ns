@@ -4,7 +4,7 @@ import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregErrorInfo, AregInitTextFileState, AregInitTextWritePlan, AregPathState } from "../gateways.ts";
+import type { AregInitTextFileState, AregInitTextWritePlan, AregPathState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
@@ -380,8 +380,4 @@ function countOccurrences(content: string, needle: string): number {
 		count += 1;
 		start = index + needle.length;
 	}
-}
-
-export function errorInfo(code: string, message: string, displayCommand?: string | undefined): AregErrorInfo {
-	return displayCommand === undefined ? { code, message } : { code, message, displayCommand };
 }
