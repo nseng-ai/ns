@@ -33,6 +33,7 @@ describe("objective CLI shape", () => {
 		expect(execOutput).toContain("Commands for use by objective skills.");
 		expect(execOutput).toContain("list-candidates");
 		expect(execOutput).toContain("read-objective");
+		expect(execOutput).toContain("runner-subagent-usage");
 
 		const readHelp = runScenario(["exec", "read-objective", "--help"]);
 		expect(await readHelp.exit).toBe(0);
