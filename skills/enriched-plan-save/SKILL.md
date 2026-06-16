@@ -42,7 +42,12 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
      establishing or documenting that baseline the first implementation slice
      before risky implementation work. This does not require the planner to run
      every validation command before saving.
-   - 2-4 plan-specific STOP conditions for assumptions unique to the plan.
+   - 2-4 plan-specific STOP conditions for assumptions unique to the plan. Do
+     not make an exact current branch name a plan-specific STOP: branch/commit
+     provenance is for forensics, while branch-context attachment and loader
+     evidence determine the implementation branch. If a target branch name was
+     explicitly requested, express that as branch-context creation/attachment
+     guidance, not an executor STOP gate.
    - Compact trust-nothing closeout guidance: rerun declared gates, compare
      changed files to scope, inspect documented deviations, and read changed
      tests/assertions for meaningful coverage instead of trusting green output

@@ -20,6 +20,7 @@ Plan contract prototype:
 - Define verification gates as commands and expected success. Add per-step gates where natural; if there is no independent gate, say `no independent gate; verified by <later command>` instead of inventing one.
 - When the target repo lacks a credible one-command validation baseline, sequence the first implementation slice to establish or document that baseline before risky implementation work. This is planning guidance; it does not require the planner to run every validation command before saving.
 - Add 2-4 plan-specific STOP conditions for assumptions unique to this plan. Do not copy universal branch-context STOP behavior into every plan.
+- Do not make an exact current branch name a plan-specific STOP condition. Branch/commit/date provenance is for forensics; branch-context attachment and loader evidence determine the implementation branch. If a target branch name was explicitly requested, express that as branch-context creation or attachment guidance, not an executor STOP gate.
 - Before saving a non-trivial plan, run a cold-read executability gaps check: ask a fresh-context reviewer/subagent to report only what a downstream executor would have to guess. Label review-model examples by harness, such as Pi/OpenAI `openai-codex/gpt-5.4-mini:medium` and Claude/Anthropic `claude-haiku-4-5`; do not reuse those review-only examples for implementation subagents.
 
 Plan length target:
