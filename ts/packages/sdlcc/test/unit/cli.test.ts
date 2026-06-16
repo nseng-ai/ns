@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runSdlccCli, type SdlccCliDeps } from "../../src/cli.ts";
-import type { StackMapCommandOptions, StackMapCommandOutput } from "../../src/command-runner.ts";
+import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";
 
 interface CliRun {
 	readonly stdout: string[];
@@ -13,7 +13,7 @@ interface CliRun {
 interface CommandCall {
 	readonly command: string;
 	readonly args: readonly string[];
-	readonly options: StackMapCommandOptions;
+	readonly options: CommandOptions | undefined;
 }
 
 function runWithFakes(args: readonly string[], deps: SdlccCliDeps = {}): CliRun {
@@ -39,10 +39,10 @@ function runWithFakes(args: readonly string[], deps: SdlccCliDeps = {}): CliRun 
 function successRunner(calls: CommandCall[] = []): SdlccCliDeps["runCommand"] {
 	return async (command, args, options) => {
 		calls.push({ command, args: [...args], options });
-		if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "" };
-		if (command === "git" && args[0] === "branch") return { code: 0, stdout: "feature/report\n", stderr: "" };
-		if (command === "cmux") return { code: 0, stdout: "", stderr: "" };
-		return { code: 2, stdout: "", stderr: `unexpected command ${command}` };
+		if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+		if (command === "git" && args[0] === "branch") return { code: 0, stdout: "feature/report\n", stderr: "", killed: false };
+		if (command === "cmux") return { code: 0, stdout: "", stderr: "", killed: false };
+		return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
 	};
 }
 
@@ -116,8 +116,8 @@ describe("runSdlccCli", () => {
 		expect(run.stdout).toEqual(["Reported cmux surface identity: feature/report @ /repo/slot-05\n"]);
 		expect(run.stderr).toEqual([]);
 		expect(calls).toEqual([
-			{ command: "git", args: ["rev-parse", "--show-toplevel"], options: { cwd: "/repo/slot-05", timeoutMs: 10_000 } },
-			{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/repo/slot-05", timeoutMs: 10_000 } },
+			{ command: "git", args: ["rev-parse", "--show-toplevel"], options: { cwd: "/repo/slot-05", timeout: 10_000 } },
+			{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/repo/slot-05", timeout: 10_000 } },
 			{
 				command: "cmux",
 				args: [
@@ -139,7 +139,7 @@ describe("runSdlccCli", () => {
 					"--shell",
 					"/bin/bash",
 				],
-				options: { cwd: "/repo/slot-05", timeoutMs: 10_000 },
+				options: { cwd: "/repo/slot-05", timeout: 10_000 },
 			},
 		]);
 		expect(run.startCalls).toEqual([]);
@@ -196,15 +196,15 @@ describe("runSdlccCli", () => {
 		const run = runWithFakes(["cmux", "report"], {
 			cwd: "/tmp",
 			env: reportEnv(),
-			runCommand: async (command, args, options): Promise<StackMapCommandOutput> => {
+			runCommand: async (command, args, options): Promise<CommandOutput> => {
 				calls.push({ command, args: [...args], options });
-				return { code: 128, stdout: "", stderr: "fatal: not a git repository" };
+				return { code: 128, stdout: "", stderr: "fatal: not a git repository", killed: false };
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain("must run inside a git worktree");
-		expect(calls).toEqual([{ command: "git", args: ["rev-parse", "--show-toplevel"], options: { cwd: "/tmp", timeoutMs: 10_000 } }]);
+		expect(calls).toEqual([{ command: "git", args: ["rev-parse", "--show-toplevel"], options: { cwd: "/tmp", timeout: 10_000 } }]);
 	});
 
 	test("fails before mutation on detached HEAD", async () => {
@@ -212,11 +212,11 @@ describe("runSdlccCli", () => {
 		const run = runWithFakes(["cmux", "report"], {
 			cwd: "/repo/slot-05",
 			env: reportEnv(),
-			runCommand: async (command, args, options): Promise<StackMapCommandOutput> => {
+			runCommand: async (command, args, options): Promise<CommandOutput> => {
 				calls.push({ command, args: [...args], options });
-				if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "" };
-				if (command === "git" && args[0] === "branch") return { code: 0, stdout: "\n", stderr: "" };
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}` };
+				if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+				if (command === "git" && args[0] === "branch") return { code: 0, stdout: "\n", stderr: "", killed: false };
+				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
 			},
 		});
 
@@ -229,11 +229,11 @@ describe("runSdlccCli", () => {
 		const run = runWithFakes(["cmux", "report"], {
 			cwd: "/repo/slot-05",
 			env: reportEnv(),
-			runCommand: async (command, args): Promise<StackMapCommandOutput> => {
-				if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "" };
-				if (command === "git" && args[0] === "branch") return { code: 0, stdout: "feature/report\n", stderr: "" };
-				if (command === "cmux") return { code: 7, stdout: "", stderr: "no current surface" };
-				return { code: 2, stdout: "", stderr: `unexpected command ${command}` };
+			runCommand: async (command, args): Promise<CommandOutput> => {
+				if (command === "git" && args[0] === "rev-parse") return { code: 0, stdout: "/repo/slot-05\n", stderr: "", killed: false };
+				if (command === "git" && args[0] === "branch") return { code: 0, stdout: "feature/report\n", stderr: "", killed: false };
+				if (command === "cmux") return { code: 7, stdout: "", stderr: "no current surface", killed: false };
+				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
 			},
 		});
 

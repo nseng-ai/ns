@@ -7,16 +7,16 @@ import {
 	type StackMapSlotAssignment,
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
-import { runRealCommand, type StackMapCommandOptions, type StackMapCommandOutput, type StackMapCommandRunner } from "./command-runner.ts";
+import { runRealCommand, type CommandOptions, type CommandOutput, type CommandRunner } from "./command-runner.ts";
 import { booleanField, isRecord, optionalEntry, optionalStringField, stringArrayField, stringField } from "./json-fields.ts";
 
-export type { StackMapCommandOptions, StackMapCommandOutput, StackMapCommandRunner } from "./command-runner.ts";
+export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";
 
 const COMMAND_TIMEOUT_MS = 10_000;
 
 export interface LoadStackMapModelOptions {
 	readonly cwd?: string | undefined;
-	readonly runCommand?: StackMapCommandRunner | undefined;
+	readonly runCommand?: CommandRunner | undefined;
 }
 
 interface StackMapGraphData {
@@ -113,8 +113,8 @@ export function parseCmuxTreeTabs(stdout: string): { type: "success"; tabs: read
 	return parseCmuxTreeData(parsed);
 }
 
-async function loadStackMapGraph(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
-	const result = await runCommand("slot", ["gt", "exec", "stack-map-branches", "--format", "json"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
+async function loadStackMapGraph(runCommand: CommandRunner, cwd: string): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
+	const result = await runCommand("slot", ["gt", "exec", "stack-map-branches", "--format", "json"], { cwd, timeout: COMMAND_TIMEOUT_MS });
 	const parsed = parseMachineEnvelopeData(result.stdout, "slot gt exec stack-map-branches JSON");
 	if (parsed.type === "failure") {
 		return { type: "failure", message: `${parsed.message}${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}` };
@@ -124,8 +124,8 @@ async function loadStackMapGraph(runCommand: StackMapCommandRunner, cwd: string)
 	return { type: "success", data: data.data };
 }
 
-async function loadCmuxTabs(runCommand: StackMapCommandRunner, cwd: string): Promise<{ type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string }> {
-	const result = await runCommand("cmux", ["tree", "--json", "--all"], { cwd, timeoutMs: COMMAND_TIMEOUT_MS });
+async function loadCmuxTabs(runCommand: CommandRunner, cwd: string): Promise<{ type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string }> {
+	const result = await runCommand("cmux", ["tree", "--json", "--all"], { cwd, timeout: COMMAND_TIMEOUT_MS });
 	if (result.code !== 0) return { type: "failure", message: `Could not load cmux tab inventory: ${result.stderr.trim() || result.stdout.trim() || `cmux tree exited ${result.code}`}` };
 	const parsed = parseCmuxTreeTabs(result.stdout);
 	if (parsed.type === "failure") return { type: "failure", message: `Could not load cmux tab inventory: ${parsed.message}` };

@@ -1,4 +1,4 @@
-import type { TabKeyInput, TabModule, TabModuleDeps, TabViewport } from "./tab-module.ts";
+import type { TabKeyInput, TabModule, TabModuleDeps } from "./tab-module.ts";
 
 export type TabKeyOutcome =
 	| { readonly type: "quit" }
@@ -13,7 +13,7 @@ export interface TabController {
 	// True while a runEffect is in flight; the host blocks tab switches while busy.
 	isBusy(): boolean;
 	// Renders the loading / error / loaded frame for the current lifecycle.
-	render(viewport: TabViewport): readonly string[];
+	render(): readonly string[];
 	// Routes a key through interpretKey -> reduce / runEffect; onChange() re-renders.
 	handleKey(key: TabKeyInput, deps: TabModuleDeps, onChange: () => void): Promise<TabKeyOutcome>;
 }
@@ -48,7 +48,7 @@ export function createTabController<Model, State, Action, Effect>(
 		return loadPromise;
 	}
 
-	function render(viewport: TabViewport): readonly string[] {
+	function render(): readonly string[] {
 		switch (lifecycle.type) {
 			case "unloaded":
 			case "loading":
@@ -56,7 +56,7 @@ export function createTabController<Model, State, Action, Effect>(
 			case "error":
 				return [`Failed to load ${module.label}.`, lifecycle.message];
 			case "loaded":
-				return module.render(lifecycle.model, lifecycle.state, viewport);
+				return module.render(lifecycle.model, lifecycle.state);
 		}
 	}
 

@@ -1,41 +1,7 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { runCommand, type CommandRunner, type ExecOptions, type ExecResult } from "@asdl/core/exec";
 
-import { isRecord } from "./json-fields.ts";
+export type CommandOutput = ExecResult;
+export type CommandOptions = ExecOptions;
+export type { CommandRunner };
 
-const execFileAsync = promisify(execFile);
-
-export interface StackMapCommandOutput {
-	readonly code: number;
-	readonly stdout: string;
-	readonly stderr: string;
-}
-
-export type StackMapCommandRunner = (command: string, args: readonly string[], options: StackMapCommandOptions) => Promise<StackMapCommandOutput>;
-
-export interface StackMapCommandOptions {
-	readonly cwd: string;
-	readonly timeoutMs: number;
-}
-
-export async function runRealCommand(command: string, args: readonly string[], options: StackMapCommandOptions): Promise<StackMapCommandOutput> {
-	try {
-		const result = await execFileAsync(command, [...args], {
-			cwd: options.cwd,
-			timeout: options.timeoutMs,
-		});
-		return { code: 0, stdout: result.stdout, stderr: result.stderr };
-	} catch (error) {
-		return commandFailureOutput(error);
-	}
-}
-
-function commandFailureOutput(error: unknown): StackMapCommandOutput {
-	if (!isRecord(error)) return { code: 1, stdout: "", stderr: String(error) };
-	return {
-		code: typeof error.code === "number" ? error.code : 1,
-		stdout: typeof error.stdout === "string" ? error.stdout : "",
-		stderr: typeof error.stderr === "string" ? error.stderr : String(error),
-	};
-}
-
+export const runRealCommand: CommandRunner = runCommand;

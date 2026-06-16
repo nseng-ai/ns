@@ -1,9 +1,4 @@
-import type { StackMapCommandRunner } from "../command-runner.ts";
-
-export interface TabViewport {
-	readonly width: number;
-	readonly height: number;
-}
+import type { CommandRunner } from "../command-runner.ts";
 
 export interface TabKeyInput {
 	readonly name?: string | undefined;
@@ -15,7 +10,7 @@ export interface TabKeyInput {
 export interface TabModuleDeps {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
-	readonly runCommand: StackMapCommandRunner;
+	readonly runCommand: CommandRunner;
 }
 
 // The host handles Tab/Shift+Tab itself, so modules never emit a "switch-tab" intent.
@@ -31,7 +26,7 @@ export interface TabModule<Model, State, Action, Effect> {
 	loadModel(deps: TabModuleDeps): Promise<Model>;
 	createInitialState(model: Model): State;
 	reduce(model: Model, state: State, action: Action): State;
-	render(model: Model, state: State, viewport: TabViewport): readonly string[];
+	render(model: Model, state: State): readonly string[];
 	interpretKey(state: State, key: TabKeyInput): TabIntent<Action, Effect>;
 	// Optional; modules with no async effects use Effect = never and omit this.
 	runEffect?(model: Model, state: State, effect: Effect, deps: TabModuleDeps): Promise<State>;
