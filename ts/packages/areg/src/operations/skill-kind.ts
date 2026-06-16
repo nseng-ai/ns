@@ -1,4 +1,4 @@
-import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
+import { failure, negative, ok, shellNegative, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
 import { err, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
@@ -13,6 +13,7 @@ import type {
 	AregSkillKindTextWritePlan,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
+import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
@@ -232,7 +233,7 @@ export async function runSkillKindList(ctx: AregCliContext, request: SkillKindLi
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return failure("skill_records_invalid", records.error.message);
+	if (!records.ok) return skillKindRecordsFailure(records.error, { project_dir: resolved.value.projectDir, skills: [] });
 	return ok({ project_dir: resolved.value.projectDir, skills: records.value.map(toSkillKindRecordResult) });
 }
 
@@ -242,7 +243,7 @@ export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindSh
 	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
 	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return failure("skill_records_invalid", records.error.message);
+	if (!records.ok) return skillKindRecordsFailure(records.error, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
 		return negative(`Local skill not found: ${request.skill}`, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
@@ -285,6 +286,11 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 		});
 	}
 	return ok({ project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+}
+
+function skillKindRecordsFailure<T>(error: { code: string; message: string }, shellNegativeData: T): ClinkrExit<T> {
+	if (isPathStateError(error)) return shellNegative(error.message, shellNegativeData);
+	return failure("skill_records_invalid", error.message);
 }
 
 export function renderSkillKindList(result: SkillKindListResult): string {

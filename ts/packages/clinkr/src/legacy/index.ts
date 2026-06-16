@@ -66,6 +66,7 @@ export function legacyMachine(
 			case "failure":
 				return legacyFailureOutput(exit.errorType, exit.message);
 			case "negative":
+			case "shell-negative":
 				// Defensive parity branch: legacy commands never return negative, but
 				// the legacy contract has no negative channel, so map it to failure.
 				return legacyFailureOutput(errorType, exit.message);

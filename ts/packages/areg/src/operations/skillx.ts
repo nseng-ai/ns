@@ -233,7 +233,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 
 export async function runSkillxCleanup(ctx: AregCliContext, request: SkillxCleanupRequest): Promise<ClinkrExit<SkillxCleanupResult>> {
 	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir, cwd: ctx.cwd, env: ctx.env });
-	if (cleanup.type === "ok") return ok({ success: true, removed: request.dir });
+	if (cleanup.ok) return ok({ success: true, removed: request.dir });
 	return failure("cleanup_failed", cleanup.error.message);
 }
 

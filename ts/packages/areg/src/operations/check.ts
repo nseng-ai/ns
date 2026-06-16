@@ -1,10 +1,11 @@
-import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, negative, ok, shellNegative, type ClinkrExit } from "@asdl/clinkr";
 import type { Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregPathState, AregTextFileState } from "../gateways.ts";
 import { sortStrings, uniqueSortedStrings } from "../sort.ts";
+import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
@@ -35,6 +36,7 @@ const CHECK_ISSUE_CODES = [
 	"claude_md_missing_peer",
 	"agents_md_missing_peer",
 	"claude_md_missing_agents_ref",
+	"pi_settings_unusable",
 ] as const;
 
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
@@ -99,7 +101,11 @@ export async function runCheck(ctx: AregCliContext, request: CheckRequest): Prom
 	}
 	const hasLocalSkills = lockfileResult.value.skills.some((skill) => skill.sourceType === "local");
 	const piSettings = hasLocalSkills ? parsePiSettings(inspection.piDir, inspection.piSettings) : { ok: true as const, value: { exclusions: [] } };
-	if (!piSettings.ok) return failure("pi_settings_invalid", piSettings.error.message);
+	if (!piSettings.ok) {
+		if (!isPathStateError(piSettings.error)) return failure("pi_settings_invalid", piSettings.error.message);
+		const report = piSettingsPathFailureReport(inspection.projectDir, piSettings.error.message);
+		return shellNegative(formatCheckReport(report), report);
+	}
 	const report = buildCheckReport(inspection, lockfileResult.value, piSettings.value.exclusions);
 	if (report.ok) return ok(report);
 	return negative(formatCheckReport(report), report);
@@ -317,6 +323,11 @@ async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: s
 
 function verifyPiReplacement(skillName: string, inspection: CheckProjectInspection): { verified: boolean; surface?: string | undefined } {
 	return verifyPiReplacementFromFacts(skillName, inspection.genericReplacement);
+}
+
+function piSettingsPathFailureReport(projectDir: string, message: string): CheckReport {
+	const issues = [issue(".pi/settings.json", "pi_settings_unusable", message)];
+	return { ok: false, project_dir: projectDir, issue_count: issues.length, issues };
 }
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {

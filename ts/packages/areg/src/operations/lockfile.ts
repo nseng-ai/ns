@@ -1,5 +1,5 @@
 import { formatErrorMessage, formatZodIssue } from "@asdl/core/primitives";
-import type { Result } from "@asdl/core/result";
+import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCheckTextFileState } from "../gateways.ts";
@@ -60,7 +60,7 @@ export function parseLockfileText(text: string): Result<SkillsLockfile> {
 	try {
 		data = JSON.parse(text);
 	} catch (error) {
-		return { ok: false, error: { code: "lockfile_invalid_json", message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}` } };
+		return resultErr({ code: "lockfile_invalid_json", message: `Invalid JSON in skills-lock.json: ${formatErrorMessage(error)}` });
 	}
 	return parseLockfileData(data);
 }
@@ -69,10 +69,10 @@ export function parseInspectedLockfile(input: {
 	projectDir: string;
 	lockfile: AregCheckTextFileState;
 }): Result<SkillsLockfile> {
-	if (input.lockfile.type !== "file") return { ok: false, error: { code: "lockfile_missing", message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?` } };
+	if (input.lockfile.type !== "file") return resultErr({ code: "lockfile_missing", message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?` });
 	return parseLockfileText(input.lockfile.text);
 }
 
 function invalidLockfile(reason: string): Result<SkillsLockfile> {
-	return { ok: false, error: { code: "lockfile_invalid", message: `Invalid skills-lock.json: ${reason}.` } };
+	return resultErr({ code: "lockfile_invalid", message: `Invalid skills-lock.json: ${reason}.` });
 }

@@ -1,3 +1,5 @@
+import { resultErr, resultOk } from "@asdl/core/result";
+
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -427,8 +429,8 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 
 	async cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult> {
 		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot, cwd: request.cwd });
-		if (this.cleanupFailure !== undefined) return { type: "error", error: copyErrorInfo(this.cleanupFailure) };
-		return { type: "ok" };
+		if (this.cleanupFailure !== undefined) return resultErr(copyErrorInfo(this.cleanupFailure));
+		return resultOk(undefined);
 	}
 
 	operations(): readonly FakeAregSkillxOperation[] {
@@ -566,5 +568,5 @@ function copyInstalledSkill(skill: AregSkillxInstalledSkill): AregSkillxInstalle
 }
 
 function copyErrorInfo(error: AregErrorInfo): AregErrorInfo {
-	return { code: error.code, message: error.message, displayCommand: error.displayCommand };
+	return error.displayCommand === undefined ? { code: error.code, message: error.message } : { code: error.code, message: error.message, displayCommand: error.displayCommand };
 }

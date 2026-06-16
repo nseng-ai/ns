@@ -1,13 +1,13 @@
+import type { ErrorInfo, Result } from "@asdl/core/result";
+
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
 export type AregHostToolName = (typeof AREG_HOST_TOOL_NAMES)[number];
 
-export interface AregErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string | undefined;
+export interface AregErrorInfo extends ErrorInfo {
+	displayCommand?: string;
 }
 
-export type AregOperationResult = { type: "ok" } | { type: "error"; error: AregErrorInfo };
+export type AregOperationResult = Result<undefined, AregErrorInfo>;
 
 export type AregToolCheckResult =
 	| { type: "found"; tool: AregHostToolName; path: string }

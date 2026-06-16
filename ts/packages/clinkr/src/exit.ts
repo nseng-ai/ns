@@ -11,13 +11,19 @@ export interface ClinkrNegativeExit<T> {
 	data?: T;
 }
 
+export interface ClinkrShellNegativeExit<T> {
+	type: "shell-negative";
+	message: string;
+	data?: T;
+}
+
 export interface ClinkrFailureExit {
 	type: "failure";
 	errorType: string;
 	message: string;
 }
 
-export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrFailureExit;
+export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrShellNegativeExit<T> | ClinkrFailureExit;
 
 /**
  * The semantic machine envelope emitted under `--format json`, at exact parity
@@ -78,6 +84,11 @@ export function negative<T = never>(message: string, data?: T): ClinkrNegativeEx
 	return { type: "negative", message, data };
 }
 
+export function shellNegative<T = never>(message: string, data?: T): ClinkrShellNegativeExit<T> {
+	if (data === undefined) return { type: "shell-negative", message };
+	return { type: "shell-negative", message, data };
+}
+
 export function failure(errorType: string, message: string): ClinkrFailureExit {
 	return { type: "failure", errorType, message };
 }
@@ -88,6 +99,8 @@ export function exitCodeForExit(exit: ClinkrExit<unknown>, options: ClinkrExitCo
 			return 0;
 		case "negative":
 			return options.shellExitCode === true ? 1 : 0;
+		case "shell-negative":
+			return 1;
 		case "failure":
 			return 2;
 	}
@@ -99,7 +112,8 @@ export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 	switch (exit.type) {
 		case "ok":
 			return { exit_code: 0, data: exit.data };
-		case "negative": {
+		case "negative":
+		case "shell-negative": {
 			const envelope: MachineEnvelope = { exit_code: 1, message: exit.message };
 			if (exit.data !== undefined) envelope.data = exit.data;
 			return envelope;

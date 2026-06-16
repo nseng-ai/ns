@@ -257,7 +257,7 @@ describe("real areg gateways", () => {
 				relativeFiles: ["SKILL.md", "nested/a.txt", "z.txt"],
 			},
 		]);
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: install.workspace.workspaceRoot, cwd: "/repo", env: {} })).toEqual({ type: "ok" });
+		expect(await gateway.cleanupWorkspace({ workspaceRoot: install.workspace.workspaceRoot, cwd: "/repo", env: {} })).toEqual({ ok: true, value: undefined });
 
 		const malformedGateway = new RealAregSkillxWorkspaceGateway({ npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }) });
 		const malformed = await malformedGateway.installIntoWorkspace({ sourceRepo: "owner/repo", cwd: "/repo", env: {} });
@@ -267,18 +267,18 @@ describe("real areg gateways", () => {
 	test("skillx cleanup refuses unsafe paths and removes valid temp workspaces", async () => {
 		const gateway = new RealAregSkillxWorkspaceGateway({ npxSkills: new MutatingNpxSkillsGateway({ skillsToCreate: [] }) });
 		expect(await gateway.cleanupWorkspace({ workspaceRoot: path.join(os.tmpdir(), "not-skillx-demo"), cwd: "/repo", env: {} })).toMatchObject({
-			type: "error",
+			ok: false,
 			error: { code: "skillx-cleanup-refused" },
 		});
 		expect(await gateway.cleanupWorkspace({ workspaceRoot: path.join(os.tmpdir(), "skillx.missing-demo"), cwd: "/repo", env: {} })).toMatchObject({
-			type: "error",
+			ok: false,
 			error: { code: "skillx-cleanup-missing" },
 		});
 
 		const nonDirectory = path.join(os.tmpdir(), `skillx.file-${randomUUID()}`);
 		await writeFile(nonDirectory, "not a directory");
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: nonDirectory, cwd: "/repo", env: {} })).toMatchObject({ type: "error", error: { code: "skillx-cleanup-not-directory" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: nonDirectory, cwd: "/repo", env: {} })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-not-directory" } });
 		} finally {
 			await rm(nonDirectory, { force: true });
 		}
@@ -286,7 +286,7 @@ describe("real areg gateways", () => {
 		const symlinkPath = path.join(os.tmpdir(), `skillx.symlink-${randomUUID()}`);
 		await symlink(os.tmpdir(), symlinkPath);
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: symlinkPath, cwd: "/repo", env: {} })).toMatchObject({ type: "error", error: { code: "skillx-cleanup-symlink" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: symlinkPath, cwd: "/repo", env: {} })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-symlink" } });
 		} finally {
 			await rm(symlinkPath, { force: true });
 		}
@@ -294,13 +294,13 @@ describe("real areg gateways", () => {
 		const outside = path.join(process.cwd(), `skillx.outside-${randomUUID()}`);
 		await mkdir(outside);
 		try {
-			expect(await gateway.cleanupWorkspace({ workspaceRoot: outside, cwd: "/repo", env: {} })).toMatchObject({ type: "error", error: { code: "skillx-cleanup-outside-temp" } });
+			expect(await gateway.cleanupWorkspace({ workspaceRoot: outside, cwd: "/repo", env: {} })).toMatchObject({ ok: false, error: { code: "skillx-cleanup-outside-temp" } });
 		} finally {
 			await rm(outside, { recursive: true, force: true });
 		}
 
 		const removable = await mkdtemp(path.join(os.tmpdir(), "skillx.cleanup."));
-		expect(await gateway.cleanupWorkspace({ workspaceRoot: removable, cwd: "/repo", env: {} })).toEqual({ type: "ok" });
+		expect(await gateway.cleanupWorkspace({ workspaceRoot: removable, cwd: "/repo", env: {} })).toEqual({ ok: true, value: undefined });
 		await expect(lstat(removable)).rejects.toMatchObject({ code: "ENOENT" });
 	});
 

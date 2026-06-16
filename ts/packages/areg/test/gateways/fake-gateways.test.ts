@@ -169,7 +169,7 @@ describe("areg gateway fakes", () => {
 			type: "ok",
 			workspace: { installedSkills: [{ relativeFiles: ["SKILL.md"] }] },
 		});
-		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ type: "ok" });
+		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ ok: true, value: undefined });
 
 		const fake = skillx as FakeAregSkillxWorkspaceGateway;
 		expect(fake.operations()).toEqual([
