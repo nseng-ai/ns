@@ -18,8 +18,6 @@ import {
 	readFeedbackDetailResultSchema,
 	readFeedbackDetailsRequestSchema,
 	readFeedbackDetailsResultSchema,
-	summarizeFeedbackRequestSchema,
-	summarizeFeedbackResultSchema,
 } from "./collection.ts";
 import {
 	replyToDiscussionRequestSchema,
@@ -39,26 +37,13 @@ import {
 	recordBatchCheckpointRequestSchema,
 	recordBatchCheckpointResultSchema,
 } from "./payload.ts";
-import { schemaDocument, stackFeedbackDiffCurrentRequestSchema } from "./shared.ts";
-import {
-	buildStackResolveThreadPayloadsRequestSchema,
-	buildStackResolveThreadPayloadsResultSchema,
-	stackFeedbackDiffCurrentResultSchema,
-	stackFeedbackPlanRequestSchema,
-	stackFeedbackPlanResultUnionSchema,
-	stackFeedbackPreflightRequestSchema,
-	stackFeedbackPreflightResultUnionSchema,
-	stackFeedbackPrepRequestSchema,
-	stackFeedbackPrepResultUnionSchema,
-	stackFeedbackThreadStateRequestSchema,
-	stackFeedbackThreadStateResultUnionSchema,
-} from "./stack.ts";
+import { schemaDocument } from "./shared.ts";
 
 // TypeScript-owned `--json-schema` documents for every pr-address exec operation.
 //
 // Schema document builders are organized in operation-schemas/ subdirectory:
 // - classification.ts: classification trio (template, validate, plan) — early TS-owned schemas
-// - collection.ts, mutation.ts, payload.ts, stack.ts: contract-pinned operation schemas
+// - collection.ts, mutation.ts, payload.ts: contract-pinned operation schemas
 //
 // Contract-pinned schemas are checked at the structural-semantic level: property
 // sets, required-ness, types, enums, explicit nullability, and object openness are
@@ -74,7 +59,6 @@ import {
 
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
 	["build-resolve-thread-batch-payload", () => schemaDocument(buildResolveThreadBatchPayloadRequestSchema, buildResolveThreadBatchPayloadResultSchema)],
-	["build-stack-resolve-thread-payloads", () => schemaDocument(buildStackResolveThreadPayloadsRequestSchema, buildStackResolveThreadPayloadsResultSchema)],
 	["classification-template", buildClassificationTemplateSchemaDocument],
 	["download-feedback", () => schemaDocument(downloadFeedbackRequestSchema, downloadFeedbackResultSchema)],
 	["finalize-run", () => schemaDocument(finalizeRunRequestSchema, finalizeRunResultSchema)],
@@ -89,12 +73,6 @@ const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = 
 	["reply-to-review", () => schemaDocument(replyToReviewRequestSchema, replyToReviewResultSchema)],
 	["resolve-thread-batch", () => schemaDocument(resolveThreadBatchRequestSchema, resolveThreadBatchResultSchema)],
 	["resolve-thread-with-reply", () => schemaDocument(resolveThreadWithReplyRequestSchema, resolveThreadWithReplyResultSchema)],
-	["stack-feedback-diff-current", () => schemaDocument(stackFeedbackDiffCurrentRequestSchema, stackFeedbackDiffCurrentResultSchema)],
-	["stack-feedback-plan", () => schemaDocument(stackFeedbackPlanRequestSchema, stackFeedbackPlanResultUnionSchema)],
-	["stack-feedback-preflight", () => schemaDocument(stackFeedbackPreflightRequestSchema, stackFeedbackPreflightResultUnionSchema)],
-	["stack-feedback-prep", () => schemaDocument(stackFeedbackPrepRequestSchema, stackFeedbackPrepResultUnionSchema)],
-	["stack-feedback-thread-state", () => schemaDocument(stackFeedbackThreadStateRequestSchema, stackFeedbackThreadStateResultUnionSchema)],
-	["summarize-feedback", () => schemaDocument(summarizeFeedbackRequestSchema, summarizeFeedbackResultSchema)],
 	["validate-feedback-classification", buildValidateFeedbackClassificationSchemaDocument],
 ]);
 

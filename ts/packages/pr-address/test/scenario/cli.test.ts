@@ -185,10 +185,6 @@ describe("pr-address CLI", () => {
 			expect(prRun.stdout.join("")).toBe("");
 			expect(prRun.stderr.join("")).toContain("expected an integer");
 
-			const bodyCharsRun = runScenario(["exec", "summarize-feedback", "123", "--body-chars", value, "--format=json"]);
-			expect(await bodyCharsRun.exit).toBe(2);
-			expect(bodyCharsRun.stdout.join("")).toBe("");
-			expect(bodyCharsRun.stderr.join("")).toContain("expected an integer");
 		}
 	});
 
@@ -197,11 +193,6 @@ describe("pr-address CLI", () => {
 		expect(await prRun.exit).toBe(2);
 		expect(JSON.parse(prRun.stdout.join(""))).toMatchObject({ error_type: "harness_session_required" });
 
-		const bodyCharsRun = runScenario(["exec", "summarize-feedback", "123", "--body-chars", "12", "--format=json", "--stdout-mode", "full"]);
-		expect(await bodyCharsRun.exit).toBe(1);
-		const bodyCharsEnvelope = JSON.parse(bodyCharsRun.stdout.join("")) as { exit_code: number; message: string };
-		expect(bodyCharsEnvelope.exit_code).toBe(1);
-		expect(bodyCharsEnvelope.message).toContain("No PR found for PR 123");
 	});
 });
 
@@ -212,7 +203,6 @@ describe("pr-address exec operation table", () => {
 		expect(tableNames).toEqual(builderNames);
 		expect(tableNames).toEqual([
 			"build-resolve-thread-batch-payload",
-			"build-stack-resolve-thread-payloads",
 			"classification-template",
 			"download-feedback",
 			"finalize-run",
@@ -227,12 +217,6 @@ describe("pr-address exec operation table", () => {
 			"reply-to-review",
 			"resolve-thread-batch",
 			"resolve-thread-with-reply",
-			"stack-feedback-diff-current",
-			"stack-feedback-plan",
-			"stack-feedback-preflight",
-			"stack-feedback-prep",
-			"stack-feedback-thread-state",
-			"summarize-feedback",
 			"validate-feedback-classification",
 		]);
 	});

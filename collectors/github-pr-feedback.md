@@ -30,8 +30,7 @@ This collector is read-only. Do not:
 - resolve GitHub review threads
 - post GitHub replies, comments, or reactions
 - call mutating `pr-address` operations such as `resolve-thread-batch`,
-  `reply-to-review`, `reply-to-discussion`, `resolve-thread-with-reply`, or
-  `unresolve-thread`
+  `reply-to-review`, `reply-to-discussion`, or `resolve-thread-with-reply`
 - use `pr-address exec prepare-run`, because it can reopen contested threads and
   is not purely read-only
 
@@ -46,15 +45,8 @@ The collector should use these read-only commands only:
 
 ```bash
 git branch --show-current
-pr-address exec get-pr-for-branch <branch> --format json
-pr-address exec summarize-feedback <pr-number> --format json
-```
-
-When the default feedback excerpt is insufficient to understand an item, you may
-rerun the summary with a larger read-only excerpt, up to the helper's limit:
-
-```bash
-pr-address exec summarize-feedback <pr-number> --format json --body-chars 4000
+pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json --stdout-mode full
+pr-address exec download-feedback --pr-number <pr-number> --format json
 ```
 
 Do not pass `--include-resolved` by default. This collector focuses on
@@ -73,7 +65,7 @@ unresolved/current feedback.
 3. Then run:
 
    ```bash
-   pr-address exec get-pr-for-branch <branch> --format json
+   pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json --stdout-mode full
    ```
 
 4. If no current branch is available, or no open PR is found for the current
@@ -82,7 +74,7 @@ unresolved/current feedback.
 5. If a PR is found, run:
 
    ```bash
-   pr-address exec summarize-feedback <pr-number> --format json
+   pr-address exec download-feedback --pr-number <pr-number> --format json
    ```
 
 The `pr-address exec` commands return a machine envelope. Treat `exit_code: 0`
@@ -93,10 +85,10 @@ GitHub inspection.
 
 ## Collection procedure
 
-Use the compact summary from `summarize-feedback` as source evidence. The helper
-compresses review evidence; it does not decide actionability, severity, or batch
-membership. You must interpret the summary and decide which items become
-findings.
+Use the Markdown returned in `data.markdown` from `download-feedback` as source
+evidence. The helper formats review evidence; it does not decide actionability,
+severity, or batch membership. You must interpret the Markdown and decide which
+items become findings.
 
 Include as findings:
 
@@ -109,7 +101,7 @@ Include as findings:
 - non-blocking FYI items only when they still deserve explicit triage
 
 Prefer avoiding duplicate findings when a PR-level review summary repeats an
-inline thread. If the summary includes resolved, stale, non-actionable,
+inline thread. If the Markdown includes resolved, stale, non-actionable,
 duplicate, empty, or automation-noise items, summarize them compactly in
 `ignored_items`. Do not create a complete source-item ledger.
 
@@ -309,7 +301,7 @@ items that were present.
 ## Rules
 
 - Return one JSON object only; no Markdown wrapper and no explanatory prose.
-- Use `pr-address exec summarize-feedback`; do not use `prepare-run`.
+- Use `pr-address exec download-feedback`; do not use `prepare-run`.
 - Stay read-only and do not mutate GitHub, git, Graphite, files, or Branch
   Memory.
 - Keep finding IDs human-readable rather than hashes or opaque source object

@@ -41,8 +41,8 @@ export function fakePrAddressContext(
 
 /**
  * PINNED FAKE ERROR STRINGS. Envelope fixtures and golden expectations embed
- * these literals byte-for-byte (e.g. fixtures/summarize-feedback/*.json,
- * fixtures/prepare-run/*.json); renaming the values breaks golden pins.
+ * these literals byte-for-byte (e.g. fixtures/prepare-run/*.json); renaming
+ * the values breaks golden pins.
  */
 const FAKE_GH_AUTH_FAILED_STDERR = "gh auth failed";
 const FAKE_PR_LOOKUP_MISS_STDERR = "no PR found";

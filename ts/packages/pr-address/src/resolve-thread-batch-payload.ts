@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { formatErrorMessage, isRecord } from "@asdl/core";
+import { formatErrorMessage } from "@asdl/core";
 import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { defineExecOperation, type PrAddressExecContext } from "./exec-operation.ts";
 import {
@@ -25,10 +25,7 @@ function validResolutionModesText(): string {
 	return VALID_RESOLUTION_MODES.join(", ");
 }
 
-const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE = "stack_feedback_plan_not_supported";
-const STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE =
-	"build-resolve-thread-batch-payload expects single-PR plan-feedback data, not merged stack-feedback-plan output. For stack runs, pass the stack-feedback-plan data plus explicit (pr_number, thread_id) decisions to build-stack-resolve-thread-payloads.";
-const INVALID_PLAN_SHAPE_MESSAGE = "plan must be the data object returned by per-PR plan-feedback. Do not pass stack-feedback-plan output or raw feedback manifests.";
+const INVALID_PLAN_SHAPE_MESSAGE = "plan must be the data object returned by per-PR plan-feedback. Do not pass raw feedback manifests or unrelated planning output.";
 
 const nullableStringSchema = z.string().nullable().default(null);
 
@@ -157,7 +154,6 @@ async function runBuildResolveThreadBatchPayloadOperation(
 		resultWithInputs.build_reference = writeResult.value;
 	}
 	if (result.valid) return ok(resultWithInputs);
-	if (hasSingleErrorCode(result, STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE)) return negative(STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, resultWithInputs);
 	return negative("Resolve-thread batch payload decisions failed validation; no payload produced.", resultWithInputs);
 }
 
@@ -219,15 +215,6 @@ export function threadResolutionBuildArtifact(options: {
 export function buildResolveThreadBatchPayload(request: BuildResolveThreadBatchPayloadInput): BuildResolveThreadBatchPayloadResult {
 	const batchId = request.batch_id.trim();
 	const batchCommitSha = trimOptional(request.commit_sha);
-
-	if (looksLikeStackFeedbackPlan(request.plan)) {
-		return invalidResult({
-			batchId,
-			commitSha: batchCommitSha,
-			shouldContinueOnError: request.continue_on_error,
-			errors: [errorItem({ code: STACK_FEEDBACK_PLAN_NOT_SUPPORTED_CODE, message: STACK_FEEDBACK_PLAN_NOT_SUPPORTED_MESSAGE, batchId })],
-		});
-	}
 
 	const planResult = feedbackPlanConsumerSchema.safeParse(request.plan);
 	if (!planResult.success) {
@@ -547,16 +534,6 @@ function noPayloadResult(options: {
 
 function errorItem(options: { code: string; message: string; batchId?: string | null | undefined; threadId?: string | null | undefined }): BuildResolveThreadBatchPayloadError {
 	return { code: options.code, message: options.message, batch_id: options.batchId ?? null, thread_id: options.threadId ?? null };
-}
-
-function hasSingleErrorCode(result: BuildResolveThreadBatchPayloadResult, errorCode: string): boolean {
-	return result.errors.length === 1 && result.errors[0]?.code === errorCode;
-}
-
-function looksLikeStackFeedbackPlan(value: unknown): boolean {
-	if (!isRecord(value)) return false;
-	const validation = value.validation;
-	return "valid" in value && "harness_session_id" in value && "pr_count" in value && isRecord(validation) && ("all_valid" in validation || "per_pr" in validation);
 }
 
 export function firstDuplicatePayloadThreadId(items: readonly ResolveThreadBatchItem[]): string | null {

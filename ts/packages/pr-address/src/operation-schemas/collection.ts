@@ -11,7 +11,6 @@ import {
 	nullableIntSchema,
 	nullableStringSchema,
 	payloadReferenceSchema,
-	prStateSchema,
 	stdoutModeRequestSchema,
 } from "./shared.ts";
 
@@ -106,85 +105,6 @@ export const prepareRunRequestSchema = stdoutModeRequestSchema.extend({
 });
 
 export const prepareRunResultSchema = z.union([prepareRunInlineResultSchema, prepareRunPayloadManifestSchema]);
-
-// --- summarize-feedback ----------------------------------------------------------
-
-export const summarizeFeedbackRequestSchema = stdoutModeRequestSchema.extend({
-	pr_number: z.int(),
-	include_resolved: z.boolean().optional(),
-	include_empty_reviews: z.boolean().optional(),
-	body_chars: z.int().optional(),
-	harness_session_id: nullableStringSchema.optional(),
-});
-
-const compactPullRequestSummarySchema = z.object({
-	number: z.int(),
-	title: z.string(),
-	url: z.string(),
-	head_ref_name: z.string(),
-	base_ref_name: z.string(),
-	state: prStateSchema,
-});
-
-const feedbackSummaryCountsSchema = z.object({
-	reviews: z.int(),
-	review_threads: z.int(),
-	unresolved_review_threads: z.int(),
-	resolved_review_threads: z.int(),
-	discussion_comments: z.int(),
-});
-
-const compactReviewSummarySchema = z.object({
-	id: z.string(),
-	author: z.string(),
-	state: z.string(),
-	submitted_at: z.string(),
-	body_first_line_excerpt: nullableStringSchema,
-	body_excerpt: z.string(),
-});
-
-const compactThreadCommentSummarySchema = z.object({
-	id: z.int(),
-	author: z.string(),
-	line: nullableIntSchema,
-	start_line: nullableIntSchema,
-	created_at: z.string(),
-	body_first_line_excerpt: nullableStringSchema,
-	body_excerpt: z.string(),
-});
-
-const compactThreadSummarySchema = z.object({
-	thread_id: z.string(),
-	path: z.string(),
-	line: nullableIntSchema,
-	start_line: nullableIntSchema,
-	is_outdated: z.boolean(),
-	is_resolved: z.boolean(),
-	comment_count: z.int(),
-	first_comment: compactThreadCommentSummarySchema.nullable(),
-});
-
-const compactDiscussionCommentSummarySchema = z.object({
-	comment_id: z.int(),
-	author: z.string(),
-	url: z.string(),
-	source_kind: z.enum(["automation_like", "human_like"]),
-	source_evidence: z.array(z.string()),
-	body_first_line_excerpt: nullableStringSchema,
-	body_excerpt: z.string(),
-});
-
-export const summarizeFeedbackResultSchema = z.object({
-	found: z.boolean(),
-	pr_number: z.int(),
-	pr: compactPullRequestSummarySchema.nullable().optional(),
-	counts: feedbackSummaryCountsSchema.nullable().optional(),
-	reviews: z.array(compactReviewSummarySchema).optional(),
-	review_threads: z.array(compactThreadSummarySchema).optional(),
-	discussion_comments: z.array(compactDiscussionCommentSummarySchema).optional(),
-	error: nullableStringSchema.optional(),
-	returncode: nullableIntSchema.optional(),
-});
 
 // --- read-feedback-detail ----------------------------------------------------------
 

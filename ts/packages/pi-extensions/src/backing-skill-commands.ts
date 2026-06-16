@@ -101,7 +101,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"sdl-submit",
 	"skill-audit",
 	"skill-management",
-	"stack-address",
 	"typescript-fake-driven-testing",
 	"typescript-style",
 ] as const;

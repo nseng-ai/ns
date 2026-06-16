@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-
 import { describe, expect, test } from "vitest";
 
 import { finalizeRun, finalizeRunInputSchema } from "../../src/finalization.ts";
@@ -10,13 +8,11 @@ import {
 	buildResolveThreadBatchPayload,
 	buildResolveThreadBatchPayloadInputSchema,
 } from "../../src/resolve-thread-batch-payload.ts";
-import { summarizeFeedbackResultSchema } from "../../src/operation-schemas/collection.ts";
 import {
 	buildResolveThreadBatchPayloadResultSchema,
 	finalizeRunResultSchema,
 } from "../../src/operation-schemas/payload.ts";
 import { resolveThreadBatchResultSchema } from "../../src/operation-schemas/mutation.ts";
-import type { PRDiscussionComment, PRReview, PRReviewThread, PRSummary } from "../../src/gateways.ts";
 import { goldenCases, readJson, REPO_ROOT } from "../support/golden.ts";
 import { InMemoryPrAddressGitHubGateway } from "../support/in-memory-pr-address-gateways.ts";
 import { fixedClock, runScenario } from "../support/run-scenario.ts";
@@ -68,34 +64,6 @@ describe("build-resolve-thread-batch-payload drift guard", async () => {
 			expect(parseResult.success, `buildResolveThreadBatchPayloadResultSchema should parse golden ${goldenCase.name}`).toBe(true);
 		});
 	}
-});
-
-interface SummarizeFeedbackFixture {
-	gateway: {
-		pr: PRSummary;
-		reviews: PRReview[];
-		review_threads: PRReviewThread[];
-		discussion_comments: PRDiscussionComment[];
-	};
-}
-
-describe("summarize-feedback drift guard", async () => {
-	const fixture = JSON.parse(await readFile(new URL("../fixtures/summarize-feedback/summarize-feedback.json", import.meta.url), "utf8")) as SummarizeFeedbackFixture;
-
-	test("successful summarize-feedback scenario output parses under summarizeFeedbackResultSchema", async () => {
-		const github = new InMemoryPrAddressGitHubGateway({
-			prs: [fixture.gateway.pr],
-			reviews: { [fixture.gateway.pr.number]: fixture.gateway.reviews },
-			reviewThreads: { [fixture.gateway.pr.number]: fixture.gateway.review_threads },
-			discussionComments: { [fixture.gateway.pr.number]: fixture.gateway.discussion_comments },
-		});
-		const run = runScenario(["exec", "summarize-feedback", String(fixture.gateway.pr.number), "--format", "json", "--stdout-mode", "full"], { github });
-
-		expect(await run.exit).toBe(0);
-		const envelope = JSON.parse(run.stdout.join("")) as { data: unknown };
-		const parseResult = summarizeFeedbackResultSchema.safeParse(envelope.data);
-		expect(parseResult.success, "summarizeFeedbackResultSchema should parse successful scenario data").toBe(true);
-	});
 });
 
 describe("resolve-thread-batch drift guard", () => {

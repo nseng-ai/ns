@@ -11,25 +11,12 @@ import {
 	prArtifactDescriptor,
 	prBatchArtifactDescriptor,
 	resolveLatestJsonSessionArtifact,
-	stackArtifactDescriptor,
 	type ClassificationArtifact,
 	type PrArtifactKind,
 	type ResolvedSessionArtifact,
-	type StackArtifactKind,
 } from "./session-artifacts.ts";
 import { feedbackPlanConsumerSchema, type FeedbackPlanConsumer } from "./feedback-plan-contracts.ts";
 import { threadResolutionBuildArtifactSchema, threadResolutionResultArtifactSchema, type ThreadResolutionBuildArtifact, type ThreadResolutionResultArtifact } from "./thread-resolution-build-artifact.ts";
-import {
-	stackFeedbackPlanConsumerResultSchema,
-	type StackFeedbackPlanConsumerResult,
-	type StackFeedbackPlanInput,
-	type StackFeedbackPlanResolvedInputs,
-} from "./stack-feedback-plan-contracts.ts";
-import {
-	stackFeedbackPrepResultInputSchema,
-	type StackFeedbackPrepResultWithManifest,
-} from "./stack-feedback-prep-contracts.ts";
-import { stackFeedbackThreadStateResultSchema, type StackFeedbackThreadStateResult } from "./stack-feedback-thread-state-contracts.ts";
 
 export interface OperationInputError<TErrorType extends string = JsonInputError["errorType"]> {
 	errorType: TErrorType;
@@ -72,30 +59,9 @@ export interface PlanFeedbackSessionInputs {
 	};
 }
 
-export interface StackFeedbackPlanSessionInputResult {
-	payload: StackFeedbackPlanInput;
-	resolvedInputs: StackFeedbackPlanResolvedInputs;
-}
-
-export interface StackFeedbackDiffCurrentResolvedInputs {
-	stack_plan: PayloadReference;
-	current_thread_state: PayloadReference;
-}
-
-export interface StackFeedbackDiffCurrentSessionInputResult {
-	payload: { stack_plan: StackFeedbackPlanConsumerResult; current_thread_state: StackFeedbackThreadStateResult };
-	resolvedInputs: StackFeedbackDiffCurrentResolvedInputs;
-}
-
 export interface ResolveThreadBuildPlanSessionInput {
 	store: PayloadArtifactStore;
 	plan: FeedbackPlanConsumer;
-	resolvedInput: PayloadReference;
-}
-
-export interface StackResolveThreadBuildPlanSessionInput {
-	store: PayloadArtifactStore;
-	plan: StackFeedbackPlanConsumerResult;
 	resolvedInput: PayloadReference;
 }
 
@@ -463,92 +429,6 @@ export async function resolvePlanFeedbackSessionInputs(options: {
 			manifest: manifest.value.manifest,
 			classification: classification.value.value,
 			resolvedInputs: { manifest: manifest.value.resolvedInput, classification: classification.value.reference },
-		},
-	};
-}
-
-export async function resolveLatestStackSessionArtifact<T>(options: {
-	store: PayloadArtifactStore;
-	kind: StackArtifactKind;
-	role: JsonPayloadRole;
-	schema?: z.ZodType<T> | undefined;
-}): Promise<OperationResult<ResolvedSessionArtifact<T>, PayloadErrorType>> {
-	return await resolveLatestJsonSessionArtifact({
-		store: options.store,
-		descriptor: stackArtifactDescriptor(options.kind),
-		role: options.role,
-		schema: options.schema,
-	});
-}
-
-export async function resolveStackResolveThreadBuildPlanSessionInput(options: {
-	ctx: PrAddressExecContext;
-	harnessSessionId?: string | undefined;
-}): Promise<OperationResult<StackResolveThreadBuildPlanSessionInput, PayloadErrorType>> {
-	const storeResult = await openPayloadStoreFromContext({ ctx: options.ctx, harnessSessionId: options.harnessSessionId });
-	if (storeResult.type === "error") return storeResult;
-	const artifact = await resolveLatestStackSessionArtifact({
-		store: storeResult.value,
-		kind: "plan",
-		role: "summary",
-		schema: stackFeedbackPlanConsumerResultSchema,
-	});
-	if (artifact.type === "error") return artifact;
-	return { type: "ok", value: { store: storeResult.value, plan: artifact.value.value, resolvedInput: artifact.value.reference } };
-}
-
-export async function resolveStackFeedbackPlanSessionInput(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackPlanSessionInputResult>> {
-	const prep = await resolveLatestStackSessionArtifact({
-		store,
-		kind: "prep",
-		role: "summary",
-		schema: stackFeedbackPrepResultInputSchema,
-	});
-	if (prep.type === "error") return prep;
-	const classifications: StackFeedbackPlanInput["classifications"] = [];
-	const resolvedClassifications: StackFeedbackPlanResolvedInputs["classifications"] = [];
-	for (const prResult of prep.value.value.stack) {
-		const classification = await resolvePrScopedArtifact({
-			store,
-			prNumber: prResult.pr_number,
-			kind: "classification",
-			role: "summary",
-			schema: classificationArtifactSchema,
-			mismatchMessage: (actualPrNumber) => `Resolved classification artifact PR number ${actualPrNumber} does not match stack prep PR ${prResult.pr_number}.`,
-		});
-		if (classification.type === "error") return classification;
-		classifications.push({ pr_number: prResult.pr_number, classification: classification.value.value.classification });
-		resolvedClassifications.push({ pr_number: prResult.pr_number, reference: classification.value.reference });
-	}
-	return {
-		type: "ok",
-		value: {
-			payload: { prep: prep.value.value, classifications },
-			resolvedInputs: { prep: prep.value.reference, classifications: resolvedClassifications },
-		},
-	};
-}
-
-export async function resolveStackFeedbackDiffCurrentSessionInput(store: PayloadArtifactStore): Promise<OperationResult<StackFeedbackDiffCurrentSessionInputResult>> {
-	const stackPlan = await resolveLatestStackSessionArtifact({
-		store,
-		kind: "plan",
-		role: "summary",
-		schema: stackFeedbackPlanConsumerResultSchema,
-	});
-	if (stackPlan.type === "error") return stackPlan;
-	const currentThreadState = await resolveLatestStackSessionArtifact({
-		store,
-		kind: "thread-state",
-		role: "summary",
-		schema: stackFeedbackThreadStateResultSchema,
-	});
-	if (currentThreadState.type === "error") return currentThreadState;
-	return {
-		type: "ok",
-		value: {
-			payload: { stack_plan: stackPlan.value.value, current_thread_state: currentThreadState.value.value },
-			resolvedInputs: { stack_plan: stackPlan.value.reference, current_thread_state: currentThreadState.value.reference },
 		},
 	};
 }
