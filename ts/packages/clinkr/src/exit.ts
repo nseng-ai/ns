@@ -42,6 +42,33 @@ export const machineEnvelopeSchema = z.strictObject({
 	data: z.unknown().optional(),
 });
 
+export interface BuildFailureMachineEnvelopeSchemaOptions {
+	readonly exitCodeSchema?: z.ZodType<1 | 2>;
+	readonly errorTypeSchema?: z.ZodType<string>;
+	readonly messageSchema?: z.ZodType<string>;
+}
+
+const machineEnvelopeHeaderSchema = machineEnvelopeSchema.pick({ exit_code: true });
+
+export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(dataSchema: DataSchema) {
+	return machineEnvelopeHeaderSchema
+		.extend({
+			exit_code: z.literal(0),
+			data: dataSchema,
+		})
+		.strict();
+}
+
+export function buildFailureMachineEnvelopeSchema(options: BuildFailureMachineEnvelopeSchemaOptions = {}) {
+	return machineEnvelopeHeaderSchema
+		.extend({
+			exit_code: options.exitCodeSchema ?? z.union([z.literal(1), z.literal(2)]),
+			error_type: options.errorTypeSchema ?? z.string(),
+			message: options.messageSchema ?? z.string(),
+		})
+		.strict();
+}
+
 export function ok<T>(data: T): ClinkrOkExit<T> {
 	return { type: "ok", data };
 }

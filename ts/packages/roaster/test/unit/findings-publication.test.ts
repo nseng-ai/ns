@@ -165,6 +165,32 @@ describe("payload parsers", () => {
 			expect(result.payload.reviewName).toBe("review");
 		}
 	});
+
+	test("parses negative envelopes as renderable payloads", () => {
+		const result = parseFindingsPayloadResult(
+			JSON.stringify({ exit_code: 1, error_type: "negative", message: "no findings" }),
+			{ fallbackReviewName: "review", fallbackBaseRef: "base" },
+		);
+
+		expect(result.type).toBe("ok");
+		if (result.type === "ok") {
+			expect(result.payload.errorType).toBe("negative");
+			expect(result.payload.errorMessage).toBe("no findings");
+			expect(result.payload.reviewName).toBe("review");
+			expect(result.payload.baseRef).toBe("base");
+		}
+	});
+
+	test("rejects noncanonical failure exit codes", () => {
+		const result = parseFindingsPayloadResult(
+			JSON.stringify({ exit_code: 3, error_type: "failure", message: "boom" }),
+		);
+
+		expect(result.type).toBe("error");
+		if (result.type === "error") {
+			expect(result.error.message).toBe("expected a clinkr envelope with top-level 'exit_code'");
+		}
+	});
 });
 
 describe("preserveActivityLog", () => {
