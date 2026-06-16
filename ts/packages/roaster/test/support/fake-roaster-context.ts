@@ -2,6 +2,7 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import type { GitBranchParams, GitBranchPresenceResult, GitGateway, GitOperationResult, GitOptionalResult, GitResult } from "@asdl/core/git";
 
 import type { RoasterContext } from "../../src/context.ts";
+import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeLocalDiffGateway, type LocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway, type ReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 
@@ -10,6 +11,7 @@ export interface FakeRoasterContextOptions {
 	readonly gitGateway?: GitGateway | undefined;
 	readonly localDiff?: LocalDiffGateway | undefined;
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
+	readonly github?: RoasterGitHubGateway | undefined;
 }
 
 export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): RoasterContext {
@@ -20,6 +22,7 @@ export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): Roa
 		gitGateway,
 		localDiff: options.localDiff ?? new FakeLocalDiffGateway(),
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
+		github: options.github ?? new FakeRoasterGitHubGateway(),
 	};
 }
 
