@@ -282,13 +282,31 @@ describe("checkBrmemEntry", () => {
 		expect(result).toEqual({ type: "absent" });
 	});
 
-	test("returns absent for legacy exit code 1", async () => {
+	test("returns error for nonzero brmem check process code", async () => {
 		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 1 })]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
 
 		gateway.assertDone();
-		expect(result).toEqual({ type: "absent" });
+		expect(result).toMatchObject({ type: "error", error: { code: "brmem_check_failed" } });
+	});
+
+	test("returns malformed error when check output omits required present flag", async () => {
+		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({}) })]);
+
+		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
+
+		gateway.assertDone();
+		expect(result).toMatchObject({ type: "error", error: { code: "brmem_malformed_check" } });
+	});
+
+	test("returns malformed error when check present flag is non-boolean", async () => {
+		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: "no" }) })]);
+
+		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
+
+		gateway.assertDone();
+		expect(result).toMatchObject({ type: "error", error: { code: "brmem_malformed_check" } });
 	});
 
 	test("maps check failures", async () => {

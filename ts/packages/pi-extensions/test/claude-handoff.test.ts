@@ -21,7 +21,6 @@ import {
 	createContext,
 	getRegisteredCommand,
 	getRegisteredTool,
-	legacyMissingCheckStep,
 	skillCommandInfo,
 	step,
 	withTempSkill,
@@ -249,14 +248,9 @@ describe("claude handoff command", () => {
 			expected: "does not exist",
 		},
 		{
-			name: "legacy shell-mode missing handoff",
-			check: legacyMissingCheckStep(BRANCH, "fix-auth-flow.md"),
-			expected: "does not exist",
-		},
-		{
 			name: "check failure",
 			check: step("brmem", ["check", "fix-auth-flow.md", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"], { code: 2, stderr: "boom" }),
-			expected: "command failed",
+			expected: "brmem check failed",
 		},
 	])("launch tool does not launch when verification reports $name", async ({ check, expected }) => {
 		const pi = new FakePi([check]);

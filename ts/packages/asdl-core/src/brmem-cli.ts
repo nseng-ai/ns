@@ -229,9 +229,6 @@ export async function checkBrmemEntry(options: CheckBrmemEntryOptions): Promise<
 			};
 		}
 	}
-	if (run.value.result.code === 1) {
-		return { type: "absent" };
-	}
 	return { type: "error", error: brmemCommandFailure("brmem_check_failed", "brmem check failed", run.value) };
 }
 
@@ -294,9 +291,11 @@ export function brmemCommandFailure(code: string, title: string, run: CompletedB
 
 function parseBrmemCheckData(stdout: string): BrmemCheckData {
 	const data = parseBrmemMachineEnvelopeData(stdout, "brmem check JSON");
-	const present = readOptionalBrmemBooleanField(data, "present", { commandName: "brmem check", stdout });
-	// Older brmem check JSON did not include a present flag; exit code 0 implied presence.
-	return { present: present ?? true };
+	const present = data.present;
+	if (typeof present !== "boolean") {
+		throw malformedBrmemEnvelope("brmem check", stdout, "expected boolean field data.present");
+	}
+	return { present };
 }
 
 export function parseBrmemPutData(stdout: string): BrmemPutData {

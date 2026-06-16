@@ -342,7 +342,7 @@ describe("handoff-tab extension", () => {
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem"]);
 		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain("brmem check failed before it could verify the handoff");
+		expect(result.content[0]?.text).toContain("brmem check failed");
 		expect(result.content[0]?.text).toContain("ModuleNotFoundError");
 		expect(result.content[0]?.text).not.toContain("No handoff finish-widget found");
 	});

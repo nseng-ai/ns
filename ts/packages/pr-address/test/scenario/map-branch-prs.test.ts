@@ -53,14 +53,14 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
-	test("returns exit 1 with full data and a message naming missing branches", async () => {
+	test("returns semantic exit 1 with full data and a message naming missing branches", async () => {
 		const run = runScenario(mapArgs(), {
 			github: stackedGithub(),
 			stdin: JSON.stringify({ branches: ["feature-a", "no-such-branch", "feature-merged"] }),
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(0);
+		expect(envelope.exit_code).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
 		expect(envelope.data?.branch_prs.map((entry) => entry.pr_number)).toEqual([11]);
 		expect(envelope.data?.missing_branches).toEqual(["no-such-branch", "feature-merged"]);
@@ -76,7 +76,7 @@ describe("pr-address exec map-branch-prs", () => {
 		expect(parseEnvelope(run).data?.branch_prs.map((entry) => entry.branch)).toEqual(["feature-a"]);
 	});
 
-	test("returns exit 1 for ambiguous shared-head-branch mapping", async () => {
+	test("returns semantic exit 1 for ambiguous shared-head-branch mapping", async () => {
 		const github = new InMemoryPrAddressGitHubGateway({
 			prs: [
 				prSummary({ number: 30, head_ref_name: "feature-shared" }),
@@ -89,7 +89,7 @@ describe("pr-address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
-		expect(envelope.exit_code).toBe(0);
+		expect(envelope.exit_code).toBe(1);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
 		expect(envelope.data?.branch_prs).toEqual([]);
 		expect(envelope.data?.ambiguous_branches).toEqual([

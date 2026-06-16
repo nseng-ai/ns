@@ -181,7 +181,7 @@ function successScript(input: { branch: string; key: string; filePath: string; p
 		refFormatStep(input.branch),
 		headStep(),
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
-		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
+		brmemCheckStep(input.branch, input.key, { stdout: brmemCheckJson(false) }),
 		gitBranchStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
 			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
@@ -195,7 +195,7 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 		refFormatStep(input.branch),
 		headStep(),
 		localBranchCheckStep(input.branch, { code: 1, stderr: "absent" }),
-		brmemCheckStep(input.branch, input.key, { code: 1, stderr: "absent" }),
+		brmemCheckStep(input.branch, input.key, { stdout: brmemCheckJson(false) }),
 		currentBranchStep(),
 		gtInfoStep(),
 		gitBranchStep(input.branch),
@@ -345,7 +345,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(branch),
 			headStep(),
 			localBranchCheckStep(branch, { code: 1 }),
-			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			currentBranchStep("", { stdout: "\n" }),
 		]);
 
@@ -367,7 +367,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(branch),
 			headStep(),
 			localBranchCheckStep(branch, { code: 1 }),
-			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			currentBranchStep(),
 			gtInfoStep(SOURCE_BRANCH, { code: 1, stderr: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.` }),
 		]);
@@ -390,7 +390,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(branch),
 			headStep(),
 			localBranchCheckStep(branch, { code: 1 }),
-			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			currentBranchStep(),
 			gtInfoStep(),
 			gitBranchStep(branch),
@@ -434,7 +434,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(branch),
 			headStep(),
 			localBranchCheckStep(branch, { code: 1 }),
-			brmemCheckStep(branch, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(branch, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			currentBranchStep(),
 			gtInfoStep(),
 			gitBranchStep(branch),
@@ -559,7 +559,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(PLAN_SLUG),
 			headStep(),
 			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
-			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			gitBranchStep(PLAN_SLUG, { code: 128, stderr: "cannot lock ref" }),
 		]);
 
@@ -577,7 +577,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(PLAN_SLUG),
 			headStep(),
 			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
-			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			gitBranchStep(PLAN_SLUG),
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),
 		]);
@@ -596,7 +596,7 @@ describe("createBranchContextFromFile", () => {
 			refFormatStep(PLAN_SLUG),
 			headStep(),
 			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
-			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 1 }),
+			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			gitBranchStep(PLAN_SLUG),
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 127, stderr: "brmem: command not found" }),
 		]);

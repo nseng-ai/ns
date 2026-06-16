@@ -69,13 +69,13 @@ describe("json mode", () => {
 		expect(run.stderr).toBe("");
 	});
 
-	test("negative emits the envelope without data and exits 0 by default", async () => {
+	test("negative emits semantic envelope exit_code 1 and exits 0 by default", async () => {
 		const run = await runForTest(buildGroup(), ["no", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 0, message: "nothing to do" });
+		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 1, message: "nothing to do" });
 	});
 
-	test("negative emits the envelope with exit 1 under --shell-exit-code", async () => {
+	test("negative keeps semantic envelope exit_code 1 under --shell-exit-code", async () => {
 		const run = await runForTest(buildGroup(), ["no", "--format", "json", "--shell-exit-code"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 1, message: "nothing to do" });
@@ -85,7 +85,7 @@ describe("json mode", () => {
 		const run = await runForTest(buildGroup(), ["no-data", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(parseEnvelope(run.stdout)).toEqual({
-			exit_code: 0,
+			exit_code: 1,
 			message: "empty",
 			data: { count: 0 },
 		});
