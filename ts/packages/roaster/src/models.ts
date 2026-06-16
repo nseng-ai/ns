@@ -103,6 +103,22 @@ export const omittedReviewInputFileSchema = z
 	.strict();
 export type OmittedReviewInputFile = z.infer<typeof omittedReviewInputFileSchema>;
 
+export const diffReviewTargetSchema = z
+	.object({
+		localDiff: localDiffSchema,
+	})
+	.strict();
+export type DiffReviewTarget = z.infer<typeof diffReviewTargetSchema>;
+
+export const harnessReviewRequestSchema = z
+	.object({
+		model: nonBlankStringSchema,
+		reviewDefinition: reviewDefinitionSchema,
+		target: diffReviewTargetSchema,
+	})
+	.strict();
+export type HarnessReviewRequest = z.infer<typeof harnessReviewRequestSchema>;
+
 export const reviewInputCoverageSchema = z
 	.object({
 		fullDiffEstimatedTokens: nonNegativeIntegerSchema,
@@ -123,6 +139,15 @@ export const reviewInputCoverageSchema = z
 		path: ["includedFileCount"],
 	});
 export type ReviewInputCoverage = z.infer<typeof reviewInputCoverageSchema>;
+
+export const reviewExecutionResponseSchema = z
+	.object({
+		payload: findingsReviewSchema,
+		usage: reviewUsageSchema.nullable(),
+		inputCoverage: reviewInputCoverageSchema.nullable(),
+	})
+	.strict();
+export type ReviewExecutionResponse = z.infer<typeof reviewExecutionResponseSchema>;
 
 export const reviewRunSuccessSchema = z
 	.object({
