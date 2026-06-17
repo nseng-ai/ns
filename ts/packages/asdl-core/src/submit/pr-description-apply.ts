@@ -126,7 +126,7 @@ async function readPrDiff(params: {
 	options: PrDescriptionApplyOptions;
 }): Promise<string | { ok: false; error: string }> {
 	params.options.onProgress?.(`reading PR #${params.pr.number} diff`);
-	const diff = await params.options.githubPr.getPrDiff({ cwd: params.options.cwd, number: params.pr.number });
+	const diff = await params.options.githubPr.getPrDiff({ cwd: params.options.cwd, number: params.pr.number, baseRefName: params.pr.baseRefName, headRefName: params.pr.headRefName });
 	if (!diff.ok) {
 		return { ok: false, error: diff.error.message };
 	}

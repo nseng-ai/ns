@@ -110,6 +110,23 @@ describe("RealGithubPrGateway", () => {
 		runner.assertDone();
 	});
 
+	test("falls back to local git diff when GitHub reports an oversized PR diff", async () => {
+		const runner = new ScriptedCommandRunner([
+			step("gh", ["pr", "diff", "12"], {
+				exitCode: 1,
+				stderr: "HTTP 406: Sorry, the diff exceeded the maximum number of lines (20000)\nPullRequest.diff too_large",
+			}),
+			step("git", ["diff", "main...feature/demo"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+local\n" }),
+		]);
+		const gateway = new RealGithubPrGateway(runner.runner);
+
+		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12, baseRefName: "main", headRefName: "feature/demo" })).toEqual({
+			ok: true,
+			value: "diff --git a/src/app.ts b/src/app.ts\n+local\n",
+		});
+		runner.assertDone();
+	});
+
 	test("edits PR body through a temporary body file", async () => {
 		const calls: Array<{ command: string; args: string[]; cwd?: string; bodyFileText?: string }> = [];
 		const runner: CommandRunner = async (command, args, options = {}) => {
