@@ -1,11 +1,9 @@
-import type { ClinkrFailureExit } from "@asdl/clinkr";
-import { failure } from "@asdl/clinkr";
+import { failure, type ClinkrFailureExit } from "./exit.ts";
 
 export type ConfirmationDefault = "yes" | "no";
-export type ConfirmationResult = "yes" | "no" | ClinkrFailureExit;
+export type ConfirmationAnswer = "yes" | "no";
+export type ConfirmationResult = ConfirmationAnswer | ClinkrFailureExit;
 
-// Package-local instead of importing handoff's sibling helper: slot needs configurable
-// defaults (`free` defaults no, `gc` defaults yes) and should not depend on handoff.
 export async function confirmFromStdin(options: {
 	stdin: () => Promise<string>;
 	stderr: (text: string) => void;

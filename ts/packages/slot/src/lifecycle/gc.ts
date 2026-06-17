@@ -99,9 +99,9 @@ export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, opti
 	return outcomeFromEntries(entries, false);
 }
 
-export function outcomeFromGcPlan(plan: SlotGcPlan, options: { dryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] | undefined }): SlotGcOutcome {
+export function outcomeFromGcPlan(plan: SlotGcPlan, options: { isDryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] | undefined }): SlotGcOutcome {
 	const entries = options.cleanup === undefined || options.cleanup.length === 0 ? plan.entries : withCleanupBySlot(plan.entries, options.cleanup);
-	return outcomeFromEntries(entries, options.dryRun);
+	return outcomeFromEntries(entries, options.isDryRun);
 }
 
 function entryFromRecord(record: SlotRecord, action: SlotGcAction, options: { pr?: PrSummary | undefined; message?: string | undefined } = {}): SlotGcEntry {
@@ -142,9 +142,9 @@ function withCleanupBySlot(entries: readonly SlotGcEntry[], cleanup: readonly Sl
 	return entries.map((entry) => ({ ...entry, cleanup: cleanup.filter((result) => result.slot_name === entry.slot_name && result.branch_name === entry.branch_name) }));
 }
 
-function outcomeFromEntries(entries: readonly SlotGcEntry[], dryRun: boolean): SlotGcOutcome {
+function outcomeFromEntries(entries: readonly SlotGcEntry[], isDryRun: boolean): SlotGcOutcome {
 	const counts = countGcActions(entries);
-	return { entries, ...counts, dry_run: dryRun, cleanup_error_count: entries.flatMap((entry) => entry.cleanup).filter((result) => result.status === "error").length };
+	return { entries, ...counts, dry_run: isDryRun, cleanup_error_count: entries.flatMap((entry) => entry.cleanup).filter((result) => result.status === "error").length };
 }
 
 function countGcActions(entries: readonly SlotGcEntry[]): { freed_count: number; kept_count: number; skipped_count: number; error_count: number } {

@@ -49,14 +49,14 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
 	if (request.dry_run) {
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
-		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: true, cleanup })));
+		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })));
 	}
-	if (plan.outcome.would_free_count === 0) return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: false })));
+	if (plan.outcome.would_free_count === 0) return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false })));
 	if (!request.force) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive gc requires --force in JSON mode (or use --dry-run first).");
 		const accepted = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${plan.outcome.would_free_count} completed slot(s)? [Y/n]: `, defaultAnswer: "yes" });
 		if (typeof accepted !== "string") return accepted;
-		if (accepted === "no") return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: false }), { cancelled: true }));
+		if (accepted === "no") return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false }), { isCancelled: true }));
 	}
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
@@ -76,7 +76,7 @@ export function renderGc(result: GcResult): string {
 	return lines.join("\n");
 }
 
-function toGcResult(outcome: SlotGcOutcome, options: { cancelled?: boolean | undefined } = {}): GcResult {
+function toGcResult(outcome: SlotGcOutcome, options: { isCancelled?: boolean | undefined } = {}): GcResult {
 	return {
 		entries: outcome.entries.map((entry) => ({ ...entry, cleanup: [...entry.cleanup] })),
 		freed_count: outcome.freed_count,
@@ -85,7 +85,7 @@ function toGcResult(outcome: SlotGcOutcome, options: { cancelled?: boolean | und
 		error_count: outcome.error_count,
 		dry_run: outcome.dry_run,
 		cleanup_error_count: outcome.cleanup_error_count,
-		...(options.cancelled === undefined ? {} : { cancelled: options.cancelled }),
+		...(options.isCancelled === undefined ? {} : { cancelled: options.isCancelled }),
 	};
 }
 

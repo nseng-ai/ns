@@ -37,7 +37,7 @@ export async function planGcRelease(ctx: RepoSlotContext, cleanupActions: readon
 	const plan = await planGc(ctx);
 	if (plan.type === "failure") return plan;
 	const cleanup = await planGcCleanup(ctx, plan.outcome, cleanupActions);
-	return { type: "ok" as const, outcome: { plan: plan.outcome, cleanup, outcome: outcomeFromGcPlan(plan.outcome, { dryRun: true, cleanup }) } };
+	return { type: "ok" as const, outcome: { plan: plan.outcome, cleanup, outcome: outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup }) } };
 }
 
 export async function executeGcRelease(ctx: RepoSlotContext, plan: SlotGcPlan, cleanupActions: readonly SlotFreeCleanupAction[] = []) {

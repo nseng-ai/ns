@@ -45,16 +45,16 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	const cleanupActions = request.all ? SLOT_RELEASE_ALL_CLEANUP_ACTIONS : [];
 	const preview = await planFreeRelease(repoCtx, resolved.slotNames, { preflightErrors: resolved.errors, cleanupActions });
 	if (preview.type === "failure") return failure(preview.failure.error_type, preview.failure.message);
-	if (request.dry_run) return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, dryRun: true, cancelled: false }));
+	if (request.dry_run) return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, isDryRun: true, isCancelled: false }));
 	if (request.all && preview.outcome.plan.targets.length > 0 && !request.yes) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive free --all requires --yes in JSON mode (or use --dry-run first).");
 		const confirmed = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${preview.outcome.plan.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `, defaultAnswer: "no" });
 		if (typeof confirmed !== "string") return confirmed;
-		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, dryRun: false, cancelled: true }));
+		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: true }));
 	}
 	const executed = await executeFreeRelease(repoCtx, preview.outcome.plan, cleanupActions);
 	if (executed.type === "failure") return failure(executed.failure.error_type, executed.failure.message);
-	const result = buildFreeResult({ freed: executed.outcome.outcome.freed, cleanup: executed.outcome.cleanup, skipped: resolved.skipped, dryRun: false, cancelled: false });
+	const result = buildFreeResult({ freed: executed.outcome.outcome.freed, cleanup: executed.outcome.cleanup, skipped: resolved.skipped, isDryRun: false, isCancelled: false });
 	if (cleanupErrorCount(result.cleanup) > 0) return negative("Slot free completed with cleanup errors.", result);
 	return ok(result);
 }
@@ -104,7 +104,7 @@ function dedupe(values: readonly string[]): readonly string[] {
 	});
 }
 
-function buildFreeResult(options: { freed?: readonly FreedSlot[] | undefined; wouldFree?: readonly FreedSlot[] | undefined; cleanup: readonly SlotFreeCleanupResult[]; skipped: readonly string[]; dryRun: boolean; cancelled: boolean }): FreeResult {
-	return { freed: [...(options.freed ?? [])], would_free: [...(options.wouldFree ?? [])], cleanup: [...options.cleanup], skipped: [...options.skipped], dry_run: options.dryRun, cancelled: options.cancelled };
+function buildFreeResult(options: { freed?: readonly FreedSlot[] | undefined; wouldFree?: readonly FreedSlot[] | undefined; cleanup: readonly SlotFreeCleanupResult[]; skipped: readonly string[]; isDryRun: boolean; isCancelled: boolean }): FreeResult {
+	return { freed: [...(options.freed ?? [])], would_free: [...(options.wouldFree ?? [])], cleanup: [...options.cleanup], skipped: [...options.skipped], dry_run: options.isDryRun, cancelled: options.isCancelled };
 }
 
