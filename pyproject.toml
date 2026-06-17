@@ -1,7 +1,6 @@
 [tool.uv.workspace]
 members = [
   "packages/asdl-core",
-  "packages/asdl-dispatcher",
   "packages/aretro",
   "packages/asdl-slots",
   "packages/packagechk",
@@ -10,7 +9,6 @@ members = [
 
 [tool.uv.sources]
 asdl-core = { workspace = true }
-asdl-dispatcher = { workspace = true }
 aretro = { workspace = true }
 asdl-slots = { workspace = true }
 packagechk = { workspace = true }
@@ -35,7 +33,6 @@ asdl = "asdl_tools.cli.cli:main"
 
 [project.optional-dependencies]
 plugins = [
-  "asdl-dispatcher",
   "asdl-slots",
 ]
 
@@ -45,7 +42,6 @@ dev = [
   "pytest>=8.0.0",
   "pytest-xdist>=3.8.0",
   "asdl-core",
-  "asdl-dispatcher",
   "aretro",
   "asdl-slots",
   "packagechk",
@@ -66,7 +62,6 @@ line-length = 100
 src = [
   "src",
   "packages/asdl-core/src",
-  "packages/asdl-dispatcher/src",
   "packages/aretro/src",
   "packages/asdl-slots/src",
   "packages/packagechk/src",
@@ -88,7 +83,6 @@ select = [
 known-first-party = [
   "asdl_tools",
   "asdl_core",
-  "asdl_dispatcher",
   "aretro",
   "asdl_slots",
   "packagechk",
@@ -112,7 +106,6 @@ markers = [
 testpaths = [
   "tests",
   "packages/asdl-core/tests",
-  "packages/asdl-dispatcher/tests",
   "packages/aretro/tests",
   "packages/asdl-slots/tests",
   "packages/packagechk/tests",

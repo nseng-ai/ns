@@ -6,15 +6,13 @@
   - Evidence: this Objective now exists under `.asdl/objectives/dispatcher-typescript-port/` as the dispatcher capability slice for `port-asdl-toolkit-to-typescript`.
 - [x] Inventory the current Python dispatcher contract.
   - Evidence: `contract-inventory.md` records source, tests, workspace wiring, caller discovery, durable behavior, incidental behavior, and the recommended next action.
-- [ ] Decide whether to port or retire the placeholder.
-  - If active consumers need the `dispatcher` command or plugin mount to survive the migration, create a tiny TypeScript placeholder port that preserves help, version, and plugin discoverability.
-  - If no consumers need the placeholder, plan deliberate retirement of `packages/asdl-dispatcher` and its workspace/build/test references.
-- [ ] Execute the chosen implementation or retirement slice.
-  - Preserve the documented contract during a port, or remove it deliberately during retirement with parent Objective evidence.
-- [ ] Feed the decision and outcome back to the parent TypeScript migration Objective.
-  - Update the migration ledger, roadmap evidence, and any porting-playbook lessons once the port/retire decision is complete.
+- [x] Decide whether to port or retire the placeholder.
+  - Decision: retire the placeholder. Fresh caller discovery found no active consumers beyond the package's own smoke tests and workspace/build/test wiring, and there was no operation contract to preserve.
+- [x] Execute the chosen implementation or retirement slice.
+  - Evidence: deleted `packages/asdl-dispatcher`, removed root workspace/build/test references, regenerated `uv.lock`, removed active context-map tracked-stub wording, and did not create a TypeScript dispatcher package.
+- [x] Feed the decision and outcome back to the parent TypeScript migration Objective.
+  - Evidence: parent migration ledger now marks dispatcher as retired/no-port; parent roadmap records retirement as a completed capability outcome with no TS package created.
 
 ## Parked
 
-- Real GitHub Actions dispatch behavior. The current package name and help text gesture at dispatching coding tasks, but no operation contract exists yet.
-- `packages/asdl-dispatcher/CONTEXT.md`. The repository context map keeps this package out of context scope while the dispatcher group has `operations=[]`.
+- Real GitHub Actions dispatch behavior. The retired package name and help text gestured at dispatching coding tasks, but no operation contract existed. Future dispatch work should start from product requirements in a new slice.

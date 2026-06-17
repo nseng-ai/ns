@@ -6,8 +6,8 @@ This map is the repository entry point for domain-language context. It records w
 
 Current checkout facts:
 
-- Python workspace inventory: 9 active workspace packages under `packages/`.
-- In-scope Python context targets: 9 packages. `asdl-dispatcher` is tracked but remains out of context scope while its CLI group has `operations=[]`.
+- Python workspace inventory: 8 active workspace packages under `packages/`.
+- In-scope Python context targets: 8 packages. The former operation-less dispatcher placeholder is no longer tracked as an active workspace package.
 - TypeScript workspace inventory: 16 repo-local packages under `ts/packages/`. This map's TypeScript package-context coverage is intentionally partial pending a focused rebaseline.
 - Present context files: root `CONTEXT.md`, `packages/asdl-core/CONTEXT.md`, `ts/packages/handoff/CONTEXT.md`, `ts/packages/brmem/CONTEXT.md`, `ts/packages/pi-extension-runtime/CONTEXT.md`, `ts/packages/pi-extensions/CONTEXT.md`, `ts/packages/ccc/CONTEXT.md`, and `ts/packages/sdl/CONTEXT.md`.
 - Future drift should be handled by focused rebaseline phases before final readback, not silently folded into unrelated package-context sessions.
@@ -37,7 +37,6 @@ Current checkout facts:
 
 ### Explicitly out of scope for now
 
-- `packages/asdl-dispatcher/CONTEXT.md` — tracked package, but its dispatcher group currently has no operations.
 - `packages/asdl-initiatives/CONTEXT.md` — no tracked package exists in the current workspace.
 - `packages/asdl-reviewer/CONTEXT.md` — historical package identity replaced by `roaster`; do not recreate unless the package itself returns as a separate tracked package.
 - Per-subpackage `packages/asdl-core/**/CONTEXT.md` files — keep `asdl-core` as one context file for now.
