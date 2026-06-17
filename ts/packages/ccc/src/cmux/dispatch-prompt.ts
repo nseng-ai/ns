@@ -25,7 +25,7 @@ const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
 
-interface BranchCreateResult {
+export interface BranchCreateResult {
 	branchName: string;
 	parentBranch: string;
 	startPoint: string;
@@ -55,7 +55,7 @@ type StoredDispatchPromptPayload = BrmemPutData;
 // Keep this workflow-local: branch-context's gateway error type is coupled to its namespace policy.
 type BrmemErrorInfo = BrmemCommandErrorInfo;
 
-type DispatchPromptStorageResult = { ok: true; value: StoredDispatchPromptPayload } | { ok: false; error: BrmemErrorInfo };
+export type DispatchPromptStorageResult = { ok: true; value: StoredDispatchPromptPayload } | { ok: false; error: BrmemErrorInfo };
 
 type DispatchPromptPresenceResult = { type: "present"; displayCommand: string } | { type: "absent" } | { type: "error"; error: BrmemErrorInfo };
 
@@ -180,7 +180,7 @@ export async function createTrackedBranchForPrompt(
 	};
 }
 
-async function chooseAvailableBranchName(pi: Pick<ExtensionAPI, "exec">, cwd: string, baseName: string): Promise<string> {
+export async function chooseAvailableBranchName(pi: Pick<ExtensionAPI, "exec">, cwd: string, baseName: string): Promise<string> {
 	let candidate = baseName;
 	for (let suffix = 2; await branchExists(pi, cwd, candidate); suffix += 1) {
 		candidate = appendBranchSuffix(baseName, suffix);
@@ -202,7 +202,7 @@ function appendBranchSuffix(branchName: string, suffix: number): string {
 	return `${stem}${suffixText}`;
 }
 
-async function storeDispatchPromptPayload(options: {
+export async function storeDispatchPromptPayload(options: {
 	pi: Pick<ExtensionAPI, "exec">;
 	cwd: string;
 	branchName: string;
@@ -308,7 +308,7 @@ function dispatchPromptFileStem(branchName: string): string {
 	return sanitizeBranchName(branchName)?.replace(/\//g, "-") ?? "prompt";
 }
 
-function resolveDispatchPromptPayloadOptions(options: DispatchPromptPayloadOptions): ResolvedDispatchPromptPayloadOptions {
+export function resolveDispatchPromptPayloadOptions(options: DispatchPromptPayloadOptions): ResolvedDispatchPromptPayloadOptions {
 	return {
 		...(options.stagingDir === undefined ? {} : { stagingDir: options.stagingDir }),
 		now: options.now ?? Date.now,
@@ -330,7 +330,7 @@ export function buildBrmemPayloadPiLaunchCommand(branchName: string, launchOptio
 	return `payload="$(${getCommand})" && ${piCommand}`;
 }
 
-function formatDispatchPromptStorageFailure(branchName: string, error: BrmemErrorInfo): string {
+export function formatDispatchPromptStorageFailure(branchName: string, error: BrmemErrorInfo): string {
 	if (error.code === "dispatch_prompt_collision") {
 		return [
 			`Created Graphite-tracked branch ${branchName}, but dispatch prompt payload already exists at Branch Memory ${DISPATCH_PROMPT_NAMESPACE}/${DISPATCH_PROMPT_KEY} on that branch.`,
@@ -345,19 +345,21 @@ function formatDispatchPromptStorageFailure(branchName: string, error: BrmemErro
 	].join("\n");
 }
 
-
-export function buildLaunchPrompt(prompt: string): string {
-	return [
-		prompt,
-		"",
+export function buildLaunchPrompt(prompt: string, contextNote?: string): string {
+	const lines = [prompt, ""];
+	if (contextNote !== undefined) {
+		lines.push("## Dispatch context", contextNote, "");
+	}
+	lines.push(
 		"## Completion instructions",
 		"After you finish the implementation:",
 		"1. Create or update the branch commit using the repo's normal workflow.",
 		"2. Then run `!sdl submit`.",
-	].join("\n");
+	);
+	return lines.join("\n");
 }
 
-async function runText(
+export async function runText(
 	pi: Pick<ExtensionAPI, "exec">,
 	cwd: string,
 	command: string,
