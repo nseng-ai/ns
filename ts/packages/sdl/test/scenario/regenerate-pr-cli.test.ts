@@ -37,7 +37,6 @@ function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
 		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n" } },
 		{ match: "git patch-id --stable", result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" } },
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-		{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n" } },
 		{ match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} },
 	];
 }

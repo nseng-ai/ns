@@ -45,8 +45,12 @@ export function isPathInside(parent: string, child: string): boolean {
 	return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
+export function sha256Digest(value: string): string {
+	return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
 export function truncatedSha256Digest(value: string): string {
-	return createHash("sha256").update(value, "utf8").digest("hex").slice(0, 32);
+	return sha256Digest(value).slice(0, 32);
 }
 
 export function mapFromRecordOrMap<T>(source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined): Map<string, T> {

@@ -106,6 +106,7 @@ export async function generateSubmitPrDescriptions(input: {
 		const applied = await applyGeneratedDescription({
 			pr: viewed.value,
 			commits: decision.commits,
+			diff: decision.diff,
 			metadata: decision.metadata,
 			options: {
 				cwd: input.cwd,

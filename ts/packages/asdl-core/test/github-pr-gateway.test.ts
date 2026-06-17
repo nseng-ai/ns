@@ -77,7 +77,7 @@ describe("RealGithubPrGateway", () => {
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
-		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: "abc123" });
+		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: { patchId: "abc123", diff } });
 		expect(calls).toEqual([
 			{ command: "gh", args: ["pr", "diff", "12"] },
 			{ command: "git", args: ["patch-id", "--stable"], stdin: diff },

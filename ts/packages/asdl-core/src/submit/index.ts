@@ -35,7 +35,7 @@ export {
 	type SubmitStackNewBranch,
 } from "./submit-pr-metadata-prewrite.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
-export { RealGithubPrGateway, type GithubPrDetails, type GithubPrGateway, type PrCommitMessage } from "./github-pr-gateway.ts";
+export { RealGithubPrGateway, type GithubPrDetails, type GithubPrGateway, type PrCommitMessage, type StablePatchIdForPrResult } from "./github-pr-gateway.ts";
 export { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 export {
 	appendGeneratedMarker,

@@ -30,7 +30,7 @@ export type GeneratedPrDescriptionResult =
 
 export type PrBodyOverwriteDecision =
 	| { kind: "skip"; patchId: string }
-	| { kind: "generate"; commits: PrCommitMessage[]; metadata: PrDescriptionFingerprintMetadata }
+	| { kind: "generate"; commits: PrCommitMessage[]; diff: string; metadata: PrDescriptionFingerprintMetadata }
 	| { kind: "failed"; error: string };
 
 export async function decidePrBodyOverwrite(params: {
@@ -46,13 +46,13 @@ export async function decidePrBodyOverwrite(params: {
 	}
 	const metadata: PrDescriptionFingerprintMetadata = {
 		version: "2",
-		patchId: patchId.value,
+		patchId: patchId.value.patchId,
 		promptHash: hashPrDescriptionPrompt(params.generation.promptText),
 		generator: PR_DESCRIPTION_GENERATOR_VERSION,
 	};
 	const parsedRegion = parseManagedGeneratedRegion(params.pr.body);
 	if (params.shouldForce !== true && parsedRegion.type === "found" && fingerprintsMatch(parsedRegion.metadata, metadata)) {
-		return { kind: "skip", patchId: patchId.value };
+		return { kind: "skip", patchId: patchId.value.patchId };
 	}
 
 	const commits = await params.githubPr.getPrCommitMessages({ cwd: params.cwd, number: params.pr.number });
@@ -60,24 +60,21 @@ export async function decidePrBodyOverwrite(params: {
 		return { kind: "failed", error: commits.error.message };
 	}
 
-	return { kind: "generate", commits: commits.value, metadata };
+	return { kind: "generate", commits: commits.value, diff: patchId.value.diff, metadata };
 }
 
 export async function generatePrDescriptionForPr(
 	pr: GithubPrDetails,
 	commits: readonly PrCommitMessage[],
-	options: PrDescriptionApplyOptions,
+	options: PrDescriptionApplyOptions & { diff?: string },
 ): Promise<GeneratedPrDescriptionResult> {
 	const generation = options.generation ?? await resolvePrDescriptionGeneration(options);
 	if (!generation.ok) {
 		return generation;
 	}
 
-	options.onProgress?.(`reading PR #${pr.number} diff`);
-	const diff = await options.githubPr.getPrDiff({ cwd: options.cwd, number: pr.number });
-	if (!diff.ok) {
-		return { ok: false, error: diff.error.message };
-	}
+	const diff = options.diff ?? await readPrDiff({ pr, options });
+	if (typeof diff !== "string") return diff;
 
 	const prepared = await preparePrDescription({
 		textGeneration: options.textGeneration,
@@ -91,7 +88,7 @@ export async function generatePrDescriptionForPr(
 			headRefName: pr.headRefName,
 			baseRefName: pr.baseRefName,
 			commitMessages: commits,
-			diff: diff.value,
+			diff,
 		},
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
@@ -104,10 +101,11 @@ export async function generatePrDescriptionForPr(
 export async function applyGeneratedDescription(params: {
 	pr: GithubPrDetails;
 	commits: readonly PrCommitMessage[];
+	diff?: string;
 	metadata: PrDescriptionFingerprintMetadata;
 	options: PrDescriptionApplyOptions;
 }): Promise<{ ok: true; title: string; promptSource: PromptSource } | { ok: false; error: string; exitCode?: number }> {
-	const prepared = await generatePrDescriptionForPr(params.pr, params.commits, params.options);
+	const prepared = await generatePrDescriptionForPr(params.pr, params.commits, { ...params.options, ...(params.diff === undefined ? {} : { diff: params.diff }) });
 	if (!prepared.ok) return prepared;
 
 	params.options.onProgress?.(`updating PR #${params.pr.number} description`);
@@ -121,6 +119,18 @@ export async function applyGeneratedDescription(params: {
 		return { ok: false, error: `Generated a PR description, but failed to update PR #${params.pr.number}.\n${edited.error.message}` };
 	}
 	return { ok: true, title: prepared.title, promptSource: prepared.promptSource };
+}
+
+async function readPrDiff(params: {
+	pr: GithubPrDetails;
+	options: PrDescriptionApplyOptions;
+}): Promise<string | { ok: false; error: string }> {
+	params.options.onProgress?.(`reading PR #${params.pr.number} diff`);
+	const diff = await params.options.githubPr.getPrDiff({ cwd: params.options.cwd, number: params.pr.number });
+	if (!diff.ok) {
+		return { ok: false, error: diff.error.message };
+	}
+	return diff.value;
 }
 
 function fingerprintsMatch(left: PrDescriptionFingerprintMetadata, right: PrDescriptionFingerprintMetadata): boolean {

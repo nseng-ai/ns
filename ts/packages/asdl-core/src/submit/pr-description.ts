@@ -1,10 +1,9 @@
-import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import type { GitGateway } from "../git/index.ts";
-import { formatErrorMessage } from "../primitives.ts";
+import { formatErrorMessage, sha256Digest } from "../primitives.ts";
 import { truncateTextHeadTail } from "../text-truncation.ts";
 import { prepareRepairedText } from "../text-repair.ts";
 import { formatElapsedMs } from "../time-format.ts";
@@ -158,7 +157,7 @@ export function hasGeneratedMarker(body: string): boolean {
 }
 
 export function hashPrDescriptionPrompt(promptText: string): string {
-	return `sha256:${createHash("sha256").update(promptText).digest("hex")}`;
+	return `sha256:${sha256Digest(promptText)}`;
 }
 
 export function formatManagedGeneratedRegion(body: string, metadata: PrDescriptionFingerprintMetadata): string {

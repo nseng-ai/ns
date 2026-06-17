@@ -66,6 +66,7 @@ The command owns its output and exit code. It does not support --format.`,
 		const applied = await applyGeneratedDescription({
 			pr: pr.value,
 			commits: decision.commits,
+			diff: decision.diff,
 			metadata: decision.metadata,
 			options: {
 				cwd: ctx.cwd,

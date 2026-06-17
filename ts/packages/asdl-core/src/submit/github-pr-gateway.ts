@@ -26,12 +26,17 @@ export interface PrCommitMessage {
 	body?: string;
 }
 
+export interface StablePatchIdForPrResult {
+	patchId: string;
+	diff: string;
+}
+
 export interface GithubPrGateway {
 	viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>>;
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
 	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>>;
 	getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
-	stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
+	stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>>;
 }
 
@@ -93,7 +98,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(result.stdout);
 	}
 
-	async stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<string>> {
+	async stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<StablePatchIdForPrResult>> {
 		const diff = await this.getPrDiff(params);
 		if (!diff.ok) return diff;
 
@@ -112,7 +117,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (patchId === "") {
 			return err({ code: "git_patch_id_parse_failed", message: `Stable patch-id output for PR #${params.number} was empty or malformed.` });
 		}
-		return ok(patchId);
+		return ok({ patchId, diff: diff.value });
 	}
 
 	async editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>> {
