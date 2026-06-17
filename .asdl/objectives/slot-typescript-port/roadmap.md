@@ -89,8 +89,8 @@
   - Policy: preview before reviving; ask if a live consumer appears and changes the deferral risk.
   - Evidence: future scenario tests and Semantic Update.
 
-- [ ] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
-      parent-shell `cd` directive, and clipboard. (Novel-risk slice.)
+- [~] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
+  parent-shell `cd` directive, and clipboard. (Novel-risk slice.)
   - Preserve the `$SLOT_CD_DIRECTIVE_FILE` protocol and `inactive`/`written`/`failed` states; the
     "never cd in `--format json` / `--json-schema`" rule; zsh/bash detection from `$SHELL`; the
     marker blocks (`# >>> slot shell integration >>>`, `# >>> slot completion >>>`); idempotent
@@ -101,8 +101,10 @@
     throwaway rc, run a navigation command, confirm the shell `cd`s).
   - Policy: steer-first slice. Preview required; ask before changing the env-var name, marker
     strings, or the JSON-mode cd suppression rule.
-  - Evidence: fake-driven scenario tests for show/install/cd-directive/clipboard plus a real-shell
-    parity note, and a Semantic Update.
+  - Evidence: fake-backed TypeScript `slot shell show|install`, `slot completion show|install`,
+    marker/idempotency behavior, and clipboard skip/failure coverage are implemented and tested;
+    validation recorded in `updates/20260617T142400Z-slot-shell-completion-fake-backed.md`. Keep this
+    row in progress until the deliberate real-shell parity check is documented.
 
 - [ ] Cut over public docs, wrapper, and distribution to the TypeScript default.
   - Make the standalone TypeScript `slot` CLI the default surface; add `just install-slot`

@@ -198,8 +198,8 @@ confirmation without needing a new policy change.
 Assumptions:
 
 - Stable `slot` contracts can be preserved through `--format json` envelope checks, scenario tests,
-  exit-code assertions, real-git worktree probes in throwaway repos, and a manual real-shell parity
-  check for the cd-directive and rc-block behavior.
+  exit-code assertions, real-git worktree probes in throwaway repos, fake-backed shell/completion rc
+  install tests, and a manual real-shell parity check for the cd-directive and rc-block behavior.
 - The strongest current public-contract sources are the package `README.md`, source group
   registration (`packages/asdl-slots/src/asdl_slots/cli/slot/group.py`), the outcome dataclasses
   (`lifecycle/outcomes.py`), the pure core (`inventory.py`, `naming.py`, `checkout_planning.py`,
@@ -224,9 +224,10 @@ Risks:
 - **Shell-integration parity is the central, novel migration risk.** The parent-shell wrapper reads
   `$SLOT_CD_DIRECTIVE_FILE`, navigation commands write the destination only when that env var is set
   and the command is human-format, and `slot shell install` / `slot completion install` append
-  idempotent marker blocks to the user's real rc file. Getting the env-var name, file-write timing,
-  marker strings, or "never cd in JSON mode" rule subtly wrong silently breaks `cd` for users. This
-  needs explicit fake-driven tests plus a deliberate real-shell check, not happy-path coverage.
+  idempotent marker blocks to the user's real rc file. The fake-backed TypeScript shell/completion
+  slice de-risks env-var naming, marker/idempotency behavior, redirected rc writes, and JSON-mode cd
+  suppression; the deliberate real-shell parity check is still required before this risk is fully
+  retired.
 - `git worktree` semantics are load-bearing and easy to approximate incorrectly: detached-worktree
   creation, removal, dirty detection (`has_uncommitted_changes`), and in-progress operation detection
   via branch occupancies (rebasing/bisecting) all drive `assigned`/`available`/`operation` status and
@@ -256,11 +257,10 @@ Risks:
 - cd-directive protocol fidelity: keep the `$SLOT_CD_DIRECTIVE_FILE` env-var name and single-line
   destination-file contract verbatim (the installed wrapper depends on it), or redesign? Default:
   keep verbatim while a shell wrapper consumes it; resolve in `prework/05`.
-- rc-block byte parity: must the rendered zsh/bash wrapper and the completion activation line be
-  byte-identical to Python, or may they be idiomatically re-authored as long as markers and behavior
-  match? Default: preserve the marker strings and behavior (idempotency, `already_installed`, "source
-  to activate") and treat the inner script bytes as re-authorable if scenario-tested; resolve in
-  `prework/05`.
+- rc-block byte parity: the TypeScript shell wrapper preserves the user-visible marker/idempotency
+  contract, while completion activation intentionally uses package-local static completion scripts
+  instead of Python's Click `_SLOT_COMPLETE` activation because `@asdl/clinkr` does not implement that
+  protocol. Keep the real-shell parity check pending before treating this decision as cutover-ready.
 - Clipboard fallback semantics: preserve the `backend_missing` / `subprocess_error` reason tags and
   the `copied`/`skipped`/`failure` tri-state in the JSON envelope verbatim. Confirm whether any
   consumer branches on the reason tag.
