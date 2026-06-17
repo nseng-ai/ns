@@ -38,6 +38,10 @@ export interface BranchCreateOptions {
 	shouldForce: boolean;
 }
 
+export interface BranchDeleteOptions {
+	shouldForce: boolean;
+}
+
 export interface SlotGitGateway {
 	pathExists(path: string): Promise<boolean>;
 	getGitCommonDir(cwd: string): Promise<string | null>;
@@ -50,6 +54,7 @@ export interface SlotGitGateway {
 	getPreviousBranch(cwd: string): Promise<string | null>;
 	branchExists(branch: string): Promise<boolean>;
 	createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null>;
+	deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null>;
 	checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null>;
 	detachHead(cwd: string, ref: string): Promise<GitCommandFailure | null>;
 	addDetachedWorktree(path: string, ref: string): Promise<void>;
@@ -145,6 +150,12 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {
 		const flag = options.shouldForce ? ["-f"] : [];
 		const result = await this.git(["branch", ...flag, branch, startPoint], this.cwd, { allowFailure: true });
+		return result.isOk ? null : failureFromResult(result);
+	}
+
+	async deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null> {
+		const flag = options.shouldForce ? "-D" : "-d";
+		const result = await this.git(["branch", flag, branch], this.cwd, { allowFailure: true });
 		return result.isOk ? null : failureFromResult(result);
 	}
 

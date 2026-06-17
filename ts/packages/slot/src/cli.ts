@@ -8,6 +8,8 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
 import { checkoutRequestSchema, checkoutResultSchema, renderCheckout, runCheckout } from "./operations/checkout.ts";
 import { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./operations/claim.ts";
+import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
+import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
 import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
@@ -21,6 +23,7 @@ export interface CliDeps {
 	env?: NodeJS.ProcessEnv | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
+	stdin?: (() => Promise<string>) | undefined;
 }
 
 export function buildCli(): ClinkrGroup<SlotCliContext> {
@@ -85,6 +88,24 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		renderHuman: renderClaim,
 	});
 	root.command({
+		name: "free",
+		description: "Free assigned slots back to the pool.",
+		schema: freeRequestSchema,
+		options: { num: { short: "-n" }, wt: { short: "-w" }, branch: { short: "-b" }, current: { short: "-c" }, yes: { short: "-y" } },
+		resultSchema: freeResultSchema,
+		handler: runFree,
+		renderHuman: renderFree,
+	});
+	root.command({
+		name: "gc",
+		description: "Free slots whose pull requests have closed or merged.",
+		schema: gcRequestSchema,
+		options: { force: { short: "-f" } },
+		resultSchema: gcResultSchema,
+		handler: runGc,
+		renderHuman: renderGc,
+	});
+	root.command({ 
 		name: "init",
 		description: "Initialize the worktree pool with N detached slots at trunk.",
 		schema: initRequestSchema,
@@ -110,7 +131,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
+	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, stdin: deps.stdin ?? context.stdin, stderr: deps.stderr ?? context.stderr, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 

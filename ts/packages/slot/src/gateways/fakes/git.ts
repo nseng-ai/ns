@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
 
-import type { BranchCreateOptions, CurrentBranchResult, GitCommandFailure, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
+import type { BranchCreateOptions, BranchDeleteOptions, CurrentBranchResult, GitCommandFailure, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
 
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
 	| { type: "remove-worktree"; path: string }
 	| { type: "create-branch"; branch: string; startPoint: string; shouldForce: boolean }
+	| { type: "delete-local-branch"; branch: string; shouldForce: boolean }
 	| { type: "checkout-branch"; path: string; branch: string }
 	| { type: "detach-head"; path: string; ref: string };
 
@@ -23,6 +24,7 @@ export interface FakeSlotGitGatewayOptions {
 	checkoutFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 	detachFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 	createBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
+	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 }
 
 export class FakeSlotGitGateway implements SlotGitGateway {
@@ -39,6 +41,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 	private readonly checkoutFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly detachFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly createBranchFailures: Readonly<Record<string, GitCommandFailure>>;
+	private readonly deleteBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly log: FakeSlotGitOperation[] = [];
 
 	constructor(options: FakeSlotGitGatewayOptions = {}) {
@@ -55,6 +58,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		this.checkoutFailures = options.checkoutFailures ?? {};
 		this.detachFailures = options.detachFailures ?? {};
 		this.createBranchFailures = options.createBranchFailures ?? {};
+		this.deleteBranchFailures = options.deleteBranchFailures ?? {};
 	}
 
 	async pathExists(path: string): Promise<boolean> {
@@ -107,6 +111,15 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		const failure = this.createBranchFailures[branch];
 		if (failure !== undefined) return { ...failure };
 		this.localBranches.add(branch);
+		return null;
+	}
+
+	async deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null> {
+		this.log.push({ type: "delete-local-branch", branch, shouldForce: options.shouldForce });
+		const failure = this.deleteBranchFailures[branch];
+		if (failure !== undefined) return { ...failure };
+		if (!this.localBranches.has(branch)) return { message: `error: branch '${branch}' not found` };
+		this.localBranches.delete(branch);
 		return null;
 	}
 
