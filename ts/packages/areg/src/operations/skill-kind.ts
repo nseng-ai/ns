@@ -17,7 +17,7 @@ import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
-import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
+import { inspectSkillKindProject, type AregSkillKindProjectInspection } from "./project-inspection.ts";
 import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
@@ -73,14 +73,7 @@ interface ResolvedProjectInspection {
 	inspection: SkillKindProjectInspection;
 }
 
-interface SkillKindProjectInspection {
-	projectDir: string;
-	projectPathState: AregPathState;
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
-	replacement: AregReplacementInspection;
-	skills: readonly AregSkillKindSkillInspection[];
-}
+type SkillKindProjectInspection = AregSkillKindProjectInspection;
 
 interface PlannedApplyOperationBase {
 	type: ApplyOperationType;
@@ -497,15 +490,7 @@ async function inspectResolvedProject(ctx: AregCliContext, requestPath: string):
 }
 
 async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPath: string): Promise<SkillKindProjectInspection> {
-	const facts = await collectProjectInspectionFacts(ctx, projectPath);
-	return {
-		projectDir: facts.projectDir,
-		projectPathState: facts.projectPathState,
-		piDir: facts.piDir,
-		piSettings: facts.piSettings,
-		replacement: facts.replacement,
-		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
-	};
+	return await inspectSkillKindProject(ctx, projectPath);
 }
 
 function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {

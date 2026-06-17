@@ -35,7 +35,8 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
 ### Batch 4 — Deeper structural decomposition
 
 - [ ] Collapse the four project-inspection gateways toward one `AregProjectInspectionGateway` / shared `inspectProject` core and split the `real-gateways.ts`/`fake-gateways.ts` monolith by capability (A, gateway-collapse slice).
-  - Policy: steer first; confirm the target shape (single gateway vs shared core + thin wrappers) before large edits.
+  - Policy: steered to the lower-risk shared operation-layer core + thin wrappers first, not a new durable gateway interface.
+  - Progress: `operations/project-inspection.ts` now owns shared core/facet helpers and wrappers for check, skill-kind, init, and update-skills. Gateway monolith splitting remains as a possible finding A follow-up because no real/fake gateway edits were needed for the core slice.
 - [ ] Split `skill-kind.ts` into `{inference, apply-plan, frontmatter-edit}`; document why frontmatter parse and rewrite cannot share one parser (J).
 
 ### Batch 5 — Opportunistic
