@@ -63,7 +63,8 @@ Risks:
 - Historical Objective records and docs still mention preserving `pr-address` as a wrapper or improving stack-address. Mitigation: current active guidance and Semantic Updates explicitly supersede those records.
 - Deleting old commands may break private habits or scripts. Accepted: the repo is private/unreleased, and the user explicitly chose deletion over compatibility.
 - A tiny downloader package could regrow workflow semantics if future changes add planning or mutation convenience there. Mitigation: keep downloader-only scope explicit and move any rebuilt workflow to a separate Objective.
-- Retargeting `/code:pr-feedback-watch` may be more involved than the docs update. Mitigation: make it a separate roadmap row before deleting package internals it might still call.
+- Retargeting `/code:pr-feedback-watch` may be more involved than the docs update. Mitigation: make it a separate roadmap row before deleting package internals it might still call; the deletion catalog now names its prepare-run/payload-locator dependencies explicitly.
+- Compact-output payload artifacts may be the only remaining reason for payload-store machinery after old workflow deletion. Mitigation: keep `/pr:download-stack-feedback` on full stdout for `map-branch-prs`, then remove compact mode if no retained downloader path needs it.
 
 ## Open Questions
 
