@@ -291,6 +291,9 @@ describe("worktree status formatting", () => {
 		);
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
+		expect(formatGhStatus({ type: "unavailable", message: "gh api graphql exited 1: timeout" })).toBe(
+			"[gh] unavailable: gh api graphql exited 1: timeout",
+		);
 	});
 
 	test("colors gh landability by state without changing stripped text", () => {
@@ -305,7 +308,9 @@ describe("worktree status formatting", () => {
 		expect(landable).toContain("<accent>16✓</accent>");
 		expect(landable).toContain("<accent>landable</accent>");
 		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
-		expect(formatGhStatus({ type: "unavailable" }, MARKER_THEME)).toBe("<warning>[gh] unavailable</warning>");
+		expect(formatGhStatus({ type: "unavailable", message: "timeout" }, MARKER_THEME)).toBe(
+			"<warning>[gh] unavailable</warning><dim>: timeout</dim>",
+		);
 	});
 
 });
@@ -526,6 +531,26 @@ describe("loadWorktreeStatus", () => {
 				failingChecks: 1,
 			});
 			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 3/5 · actions 2⏳ 1✗");
+		});
+	});
+
+	test("includes a dim unavailable message when gh review thread loading fails", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const failedReviewThreads = ghReviewThreadsStep({ number: 1736, unresolvedThreads: 0, totalThreads: 0 });
+			failedReviewThreads.result = { code: 1, stderr: "GraphQL: API rate limit exceeded" };
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghPrViewStep({ number: 1736, passingChecks: 4 }),
+				failedReviewThreads,
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expectNoGtCalls(pi);
+			expect(status.gh).toEqual({ type: "unavailable", message: "gh api graphql exited 1: GraphQL: API rate limit exceeded" });
+			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh api graphql exited 1: GraphQL: API rate limit exceeded");
 		});
 	});
 });

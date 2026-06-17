@@ -95,7 +95,7 @@ export interface GhStatus {
 	failingChecks: number;
 }
 
-export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable" };
+export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable"; message?: string | undefined };
 
 export interface WorktreeStatus {
 	brmem: string | undefined;
@@ -326,7 +326,7 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 }
 
 async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
-	if (signal?.aborted) return { type: "unavailable" };
+	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
 
 	try {
 		const view = normalizeExecResult(
@@ -335,24 +335,24 @@ async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 		if (view.code !== 0) return { type: "no-pr" };
 
 		const pr = parseGhPrView(view.stdout);
-		if (pr === undefined) return { type: "unavailable" };
+		if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
 
 		const reviewThreads = await loadUnresolvedReviewThreadCount(pi, cwd, pr, signal);
-		if (reviewThreads === undefined) return { type: "unavailable" };
+		if (reviewThreads.type === "unavailable") return reviewThreads;
 
 		return {
 			type: "available",
 			prNumber: pr.number,
 			url: pr.url,
-			unresolvedThreads: reviewThreads.unresolved,
-			totalThreads: reviewThreads.total,
-			hasMoreThreads: reviewThreads.hasMore,
+			unresolvedThreads: reviewThreads.counts.unresolved,
+			totalThreads: reviewThreads.counts.total,
+			hasMoreThreads: reviewThreads.counts.hasMore,
 			passingChecks: countPassingChecks(pr.statusCheckRollup),
 			pendingChecks: countPendingChecks(pr.statusCheckRollup),
 			failingChecks: countFailingChecks(pr.statusCheckRollup),
 		};
-	} catch {
-		return { type: "unavailable" };
+	} catch (error) {
+		return { type: "unavailable", message: errorMessage(error) };
 	}
 }
 
@@ -362,14 +362,16 @@ interface ReviewThreadCounts {
 	hasMore: boolean;
 }
 
+type ReviewThreadLoadResult = { type: "available"; counts: ReviewThreadCounts } | { type: "unavailable"; message: string };
+
 async function loadUnresolvedReviewThreadCount(
 	pi: ExecGateway,
 	cwd: string,
 	pr: GhPrView,
 	signal?: AbortSignal,
-): Promise<ReviewThreadCounts | undefined> {
+): Promise<ReviewThreadLoadResult> {
 	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
-	if (identity === undefined) return undefined;
+	if (identity === undefined) return { type: "unavailable", message: "could not identify GitHub repository from PR URL" };
 
 	const result = normalizeExecResult(
 		await pi.exec(
@@ -389,8 +391,10 @@ async function loadUnresolvedReviewThreadCount(
 			execOptions(cwd, signal),
 		),
 	);
-	if (result.code !== 0) return undefined;
-	return parseUnresolvedReviewThreadCount(result.stdout);
+	if (result.code !== 0) return { type: "unavailable", message: commandFailureMessage("gh api graphql", result) };
+	const counts = parseUnresolvedReviewThreadCount(result.stdout);
+	if (counts === undefined) return { type: "unavailable", message: "could not parse gh review thread output" };
+	return { type: "available", counts };
 }
 
 interface GhPrView {
@@ -520,6 +524,22 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
+function commandFailureMessage(command: string, result: ExecResult): string {
+	const detail = ((result.stderr ?? "").trim() || (result.stdout ?? "").trim()).replace(/\s+/g, " ");
+	if (detail.length === 0) return `${command} exited ${result.code}`;
+	return `${command} exited ${result.code}: ${truncateStatusDetail(detail)}`;
+}
+
+function errorMessage(error: unknown): string {
+	if (error instanceof Error && error.message.length > 0) return truncateStatusDetail(error.message);
+	return "unexpected error";
+}
+
+function truncateStatusDetail(message: string): string {
+	const maxLength = 160;
+	return message.length <= maxLength ? message : `${message.slice(0, maxLength - 1)}…`;
+}
+
 export function renderWorktreeStatusMessage(
 	message: CustomMessage,
 	_options: { expanded: boolean },
@@ -605,7 +625,10 @@ function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
 
 export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
 	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
-	if (status.type === "unavailable") return formatColoredSegment("[gh] unavailable", "warning", theme);
+	if (status.type === "unavailable") {
+		const detail = status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
+		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
+	}
 
 	const commentsValue = `${status.unresolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
 	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0;
