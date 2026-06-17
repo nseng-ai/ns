@@ -2,7 +2,8 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
-import { normalizeExecResult, type PiExecResultLike } from "@asdl/core/exec";
+import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
+import { runGitHubCli } from "@asdl/core/github-cli";
 import {
 	githubPrIdentityFromUrl,
 	githubReviewThreadCountsArgs,
@@ -12,6 +13,7 @@ import {
 	type GithubPrStatusView,
 	type GithubReviewThreadCounts,
 } from "@asdl/core/github-status";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -33,12 +35,6 @@ const COMMAND_TIMEOUT_MS = 5_000;
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 
 export type ExecResult = PiExecResultLike;
-
-interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
 
 export interface ExecGateway {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
@@ -338,52 +334,65 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
 	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
 
-	try {
-		const view = normalizeExecResult(
-			await pi.exec("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], execOptions(cwd, signal)),
-		);
-		if (view.code !== 0) return { type: "no-pr" };
+	const ghPrViewArgs = ["pr", "view", "--json", "number,url,statusCheckRollup"];
+	const view = await runGitHubCli({
+		runner: execApiToCommandRunner(githubCliExecApi(pi)),
+		cwd,
+		signal,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		args: ghPrViewArgs,
+	});
+	if (view.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(view.message) };
+	if (view.result.code !== 0) return { type: "no-pr" };
 
-		const pr = parseGithubPrStatusViewJson(view.stdout);
-		if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
+	const pr = parseGithubPrStatusViewJson(view.result.stdout);
+	if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
 
-		const reviewThreads = await loadUnresolvedReviewThreadCount(pi, cwd, pr, signal);
-		if (reviewThreads.type === "unavailable") return reviewThreads;
-		const checks = tallyGithubStatusChecks(pr.statusCheckRollup);
+	const reviewThreads = await loadUnresolvedReviewThreadCount({ pi, cwd, pr, signal });
+	if (reviewThreads.type === "unavailable") return reviewThreads;
+	const checks = tallyGithubStatusChecks(pr.statusCheckRollup);
 
-		return {
-			type: "available",
-			prNumber: pr.number,
-			url: pr.url,
-			unresolvedThreads: reviewThreads.counts.unresolved,
-			totalThreads: reviewThreads.counts.total,
-			hasMoreThreads: reviewThreads.counts.hasMore,
-			passingChecks: checks.passing,
-			pendingChecks: checks.pending,
-			failingChecks: checks.failing,
-			unknownChecks: checks.unknown,
-		};
-	} catch (error) {
-		return { type: "unavailable", message: errorMessage(error) };
-	}
+	return {
+		type: "available",
+		prNumber: pr.number,
+		url: pr.url,
+		unresolvedThreads: reviewThreads.counts.unresolved,
+		totalThreads: reviewThreads.counts.total,
+		hasMoreThreads: reviewThreads.counts.hasMore,
+		passingChecks: checks.passing,
+		pendingChecks: checks.pending,
+		failingChecks: checks.failing,
+		unknownChecks: checks.unknown,
+	};
 }
 
 type ReviewThreadLoadResult = { type: "available"; counts: GithubReviewThreadCounts } | { type: "unavailable"; message: string };
 
-async function loadUnresolvedReviewThreadCount(
-	pi: ExecGateway,
-	cwd: string,
-	pr: GithubPrStatusView,
-	signal?: AbortSignal,
-): Promise<ReviewThreadLoadResult> {
+interface LoadUnresolvedReviewThreadCountOptions {
+	readonly pi: ExecGateway;
+	readonly cwd: string;
+	readonly pr: GithubPrStatusView;
+	readonly signal?: AbortSignal | undefined;
+}
+
+async function loadUnresolvedReviewThreadCount(options: LoadUnresolvedReviewThreadCountOptions): Promise<ReviewThreadLoadResult> {
+	const { pi, cwd, pr, signal } = options;
 	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
 	if (identity === undefined) return { type: "unavailable", message: "could not identify GitHub repository from PR URL" };
 
-	const result = normalizeExecResult(
-		await pi.exec("gh", githubReviewThreadCountsArgs(identity), execOptions(cwd, signal)),
-	);
-	if (result.code !== 0) return { type: "unavailable", message: commandFailureMessage("gh api graphql", result) };
-	const counts = parseGithubReviewThreadCountsJson(result.stdout);
+	const args = githubReviewThreadCountsArgs(identity);
+	const result = await runGitHubCli({
+		runner: execApiToCommandRunner(githubCliExecApi(pi)),
+		cwd,
+		signal,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		args,
+	});
+	if (result.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(result.message) };
+	if (result.result.code !== 0) {
+		return { type: "unavailable", message: compactCommandFailureMessage(compactGithubCommandName(args), result.result) };
+	}
+	const counts = parseGithubReviewThreadCountsJson(result.result.stdout);
 	if (counts === undefined) return { type: "unavailable", message: "could not parse gh review thread output" };
 	return { type: "available", counts };
 }
@@ -407,20 +416,31 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
 }
 
-function commandFailureMessage(command: string, result: ExecResult): string {
-	const detail = ((result.stderr ?? "").trim() || (result.stdout ?? "").trim()).replace(/\s+/g, " ");
+function githubCliExecApi(pi: ExecGateway): CommandExecApi {
+	return {
+		async exec(command, args, options) {
+			return normalizeExecResult(await pi.exec(command, args, options));
+		},
+	};
+}
+
+function compactGithubCommandName(args: readonly string[]): string {
+	return formatCommand("gh", args.slice(0, 2));
+}
+
+function compactCommandFailureMessage(command: string, result: ExecResult): string {
+	const detail = compactStatusDetail((result.stderr ?? "").trim() || (result.stdout ?? "").trim());
 	if (detail.length === 0) return `${command} exited ${result.code}`;
-	return `${command} exited ${result.code}: ${truncateStatusDetail(detail)}`;
+	return `${command} exited ${result.code}: ${detail}`;
 }
 
-function errorMessage(error: unknown): string {
-	if (error instanceof Error && error.message.length > 0) return truncateStatusDetail(error.message);
-	return "unexpected error";
+function compactErrorMessage(error: unknown): string {
+	const message = compactStatusDetail(formatErrorMessage(error));
+	return message.length > 0 ? message : "unexpected error";
 }
 
-function truncateStatusDetail(message: string): string {
-	const maxLength = 160;
-	return message.length <= maxLength ? message : `${message.slice(0, maxLength - 1)}…`;
+function compactStatusDetail(message: string): string {
+	return tailText(message.trim().replace(/\s+/g, " "), { maxChars: 160, maxLines: 1 });
 }
 
 export function renderWorktreeStatusMessage(

@@ -92,6 +92,15 @@ interface StatusFooterRenderOptions {
 	worktreeStatus?: WorktreeStatus | undefined;
 }
 
+interface FormatFooterIdentityOptions {
+	readonly cwd: string;
+	readonly branch: string;
+	readonly home?: string | undefined;
+	readonly width: number;
+	readonly gt?: GtStatus | undefined;
+	readonly theme: StatusTheme;
+}
+
 interface FooterExtensionStatusLines {
 	activity: string[];
 }
@@ -563,7 +572,14 @@ function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width, worktreeStatus } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
 	const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
-	const identity = formatFooterIdentity(cwd, branch, process.env.HOME || process.env.USERPROFILE, width, worktreeStatus?.gt, theme);
+	const identity = formatFooterIdentity({
+		cwd,
+		branch,
+		home: process.env.HOME || process.env.USERPROFILE,
+		width,
+		gt: worktreeStatus?.gt,
+		theme,
+	});
 
 	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
 	const statsLine = formatFooterStats({ ctx, footerData, theme, width, worktreeStatus });
@@ -591,7 +607,8 @@ function currentFooterBranch(cwd: string, footerData: StatusFooterData): string 
 	return footerData.getGitBranch();
 }
 
-function formatFooterIdentity(cwd: string, branch: string, home: string | undefined, width: number, gt: GtStatus | undefined, theme: StatusTheme): string {
+function formatFooterIdentity(options: FormatFooterIdentityOptions): string {
+	const { cwd, branch, home, width, gt, theme } = options;
 	const identity = footerIdentityParts(cwd, branch, home);
 	const rawLeft = `[wt] repo:${identity.repo} wt:${identity.slot} pwd:${identity.relativePath}${gt?.dirty === "yes" ? " (✗)" : ""}`;
 	const rawRight = `br:${identity.branch}${formatGtBranchSuffix(gt)}`;
