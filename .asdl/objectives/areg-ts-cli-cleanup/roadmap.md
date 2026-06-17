@@ -34,8 +34,10 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
 
 ### Batch 4 — Deeper structural decomposition
 
-- [ ] Collapse the four project-inspection gateways toward one `AregProjectInspectionGateway` / shared `inspectProject` core and split the `real-gateways.ts`/`fake-gateways.ts` monolith by capability (A, gateway-collapse slice).
-  - Policy: steer first; confirm the target shape (single gateway vs shared core + thin wrappers) before large edits.
+- [x] Collapse the four project-inspection gateways toward one `AregProjectInspectionGateway` / shared `inspectProject` core and split the `real-gateways.ts`/`fake-gateways.ts` monolith by capability (A, gateway-collapse slice).
+  - Decision: finding A is complete via the lower-risk shared operation-layer core + thin wrappers, not a new durable gateway interface.
+  - Evidence: `operations/project-inspection.ts` now owns shared core/facet helpers and wrappers for check, skill-kind, init, and update-skills; the branch diff against `areg-preflight-partial-state-evidence` shows those operations importing the shared wrappers instead of each owning bespoke project-inspection choreography.
+  - Deferred-with-reason: splitting `real-gateways.ts` / `fake-gateways.ts` by capability is intentionally deferred because this slice did not require real/fake gateway edits, would be a broad monolith-file organization refactor rather than a project-inspection semantics fix, and can be revisited after the remaining `skill-kind.ts` decomposition proves the next capability seam.
 - [ ] Split `skill-kind.ts` into `{inference, apply-plan, frontmatter-edit}`; document why frontmatter parse and rewrite cannot share one parser (J).
 
 ### Batch 5 — Opportunistic

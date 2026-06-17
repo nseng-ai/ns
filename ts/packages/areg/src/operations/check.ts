@@ -3,15 +3,15 @@ import type { Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregPathState, AregReplacementInspection, AregTextFileState } from "../gateways.ts";
-import { sortStrings, uniqueSortedStrings } from "../sort.ts";
+import type { AregCheckSkillInspection } from "../gateways.ts";
+import { sortStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import { inferSkillKindRecord, inspectSkillFrontmatter } from "./skill-kind.ts";
-import { collectCheckSkillInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
+import { inspectCheckProject, type AregCheckProjectInspection } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
 	"invalid_lock_hash",
@@ -75,22 +75,10 @@ export const checkResultSchema = checkReportSchema;
 export type CheckRequest = z.infer<typeof checkRequestSchema>;
 export type CheckReport = z.infer<typeof checkReportSchema>;
 
-interface CheckProjectInspection {
-	projectDir: string;
-	projectPathState: { type: string };
-	lockfile: AregTextFileState;
-	skillsDirectoryNames: readonly string[];
-	agentsSkillNames: readonly string[];
-	excludedSkillNames: readonly string[];
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
-	replacement: AregReplacementInspection;
-	skills: readonly AregCheckSkillInspection[];
-	pairingDirectories: readonly AregCheckPairingDirectory[];
-}
+type CheckProjectInspection = AregCheckProjectInspection;
 
 export async function runCheck(ctx: AregCliContext, request: CheckRequest): Promise<ClinkrExit<CheckReport>> {
-	const inspection = await collectCheckProjectInspection(ctx, request.path);
+	const inspection = await inspectCheckProject(ctx, request.path);
 	if (inspection.projectPathState.type !== "directory") {
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
@@ -297,33 +285,6 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 	}
 	return issues;
 }
-
-async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: string): Promise<CheckProjectInspection> {
-	const facts = await collectProjectInspectionFacts(ctx, projectPath);
-	const excludedSkillNames = await ctx.project.readLocallyExcludedSkillNames({ projectDir: facts.projectDir, env: ctx.env });
-	const lockfileResult = parseInspectedLockfile(facts);
-	const lockfileSkillNames = lockfileResult.ok ? lockfileResult.value.skills.map((skill) => skill.name) : [];
-	const skillNames = uniqueSortedStrings([
-		...lockfileSkillNames,
-		...facts.skillInventory.skillsDirectoryNames,
-		...facts.skillInventory.agentsSkillNames,
-		...facts.skillInventory.claudeSkillNames,
-	]);
-	return {
-		projectDir: facts.projectDir,
-		projectPathState: facts.projectPathState,
-		lockfile: facts.lockfile,
-		skillsDirectoryNames: facts.skillInventory.skillsDirectoryNames,
-		agentsSkillNames: facts.skillInventory.agentsSkillNames,
-		excludedSkillNames,
-		piDir: facts.piDir,
-		piSettings: facts.piSettings,
-		replacement: facts.replacement,
-		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
-		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: facts.projectDir, env: ctx.env }),
-	};
-}
-
 
 function piSettingsPathFailureReport(projectDir: string, message: string): CheckReport {
 	const issues = [issue(".pi/settings.json", "pi_settings_unusable", message)];

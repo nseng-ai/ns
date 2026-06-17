@@ -17,7 +17,7 @@ import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontmatterData } from "./frontmatter.ts";
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
-import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
+import { inspectSkillKindProject, type AregSkillKindProjectInspection } from "./project-inspection.ts";
 import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
@@ -73,14 +73,7 @@ interface ResolvedProjectInspection {
 	inspection: SkillKindProjectInspection;
 }
 
-interface SkillKindProjectInspection {
-	projectDir: string;
-	projectPathState: AregPathState;
-	piDir: AregPathState;
-	piSettings: AregTextFileState;
-	replacement: AregReplacementInspection;
-	skills: readonly AregSkillKindSkillInspection[];
-}
+type SkillKindProjectInspection = AregSkillKindProjectInspection;
 
 interface PlannedApplyOperationBase {
 	type: ApplyOperationType;
@@ -485,27 +478,15 @@ function skillAfterPlannedApply(skill: AregSkillKindSkillInspection, plan: Skill
 }
 
 async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
-	const targetInspection = await collectSkillKindProjectInspection(ctx, requestPath);
+	const targetInspection = await inspectSkillKindProject(ctx, requestPath);
 	if (targetInspection.projectPathState.type === "missing") return { type: "error", message: `Target ${targetInspection.projectDir} does not exist.`, projectDir: targetInspection.projectDir };
 	if (targetInspection.projectPathState.type !== "directory") return { type: "error", message: `${targetInspection.projectDir} is not a directory.`, projectDir: targetInspection.projectDir };
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
 	if (repoRoot.type === "error") return { type: "error", message: repoRoot.error.message, projectDir: targetInspection.projectDir };
 	if (repoRoot.type === "missing") return { type: "error", message: `No Git root found containing ${targetInspection.projectDir}.`, projectDir: targetInspection.projectDir };
 	if (repoRoot.value === targetInspection.projectDir) return { type: "ok", value: { projectDir: targetInspection.projectDir, inspection: targetInspection } };
-	const rootInspection = await collectSkillKindProjectInspection(ctx, repoRoot.value);
+	const rootInspection = await inspectSkillKindProject(ctx, repoRoot.value);
 	return { type: "ok", value: { projectDir: repoRoot.value, inspection: rootInspection } };
-}
-
-async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPath: string): Promise<SkillKindProjectInspection> {
-	const facts = await collectProjectInspectionFacts(ctx, projectPath);
-	return {
-		projectDir: facts.projectDir,
-		projectPathState: facts.projectPathState,
-		piDir: facts.piDir,
-		piSettings: facts.piSettings,
-		replacement: facts.replacement,
-		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
-	};
 }
 
 function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {

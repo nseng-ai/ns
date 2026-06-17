@@ -9,6 +9,7 @@ import type { AregCliContext } from "../context.ts";
 import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
+import { inspectInitProject } from "./project-inspection.ts";
 import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
@@ -134,9 +135,7 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	const tool = await ctx.host.checkTool({ tool: "npx", cwd: ctx.cwd, env: ctx.env });
 	if (tool.type === "missing") return failure("missing_tool", tool.message);
 
-	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath: request.target, env: ctx.env });
-	const instructionFiles = await ctx.project.inspectInstructionFiles({ projectDir: base.projectDir, env: ctx.env });
-	const inspection = { ...base, ...instructionFiles };
+	const inspection = await inspectInitProject(ctx, request.target);
 	if (inspection.projectPathState.type === "missing") return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
 	if (inspection.projectPathState.type !== "directory") return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
 
