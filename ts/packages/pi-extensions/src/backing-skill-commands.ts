@@ -120,7 +120,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"code-checkpoint": "sdl:code:checkpoint",
 	"code-just-fix": "code:just-fix",
 	"sdl-submit": "sdl:submit",
-	"ccc-sidebar": "ccc:sidebar:session-summary",
+	"ccc-sidebar": "ccc:sidebar:pr-summary",
 } as const satisfies Record<string, string>;
 
 export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(Object.values(SPECIALIZED_SKILL_REPLACEMENTS));
