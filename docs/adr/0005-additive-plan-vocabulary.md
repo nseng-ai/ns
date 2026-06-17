@@ -23,7 +23,7 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 ### Bound now, applied to existing surfaces
 
 - **`enriched-plan`** replaces the `plans` CLI group: `enriched-plan exec save`, `enriched-plan exec resolve`, `enriched-plan list`. Wordiness is acceptable: exec operations are skill-invoked, and the human surfaces are the Pi commands.
-- **save** replaces **write** as the intake verb (`enriched-plan exec save`, Pi `/enriched-plan:save`, `/enriched-plan:grill-and-save`). Saving is source-agnostic: it covers plans authored in-session and plans brought in from any harness's planning surface. The authorship framing of "write" is retired.
+- **save** replaces **write** as the intake verb (`enriched-plan exec save`, Pi `/sdl:plan:save`, `/sdl:plan:grill-and-save`). Saving is source-agnostic: it covers plans authored in-session and plans brought in from any harness's planning surface. The authorship framing of "write" is retired.
 - The initially proposed TypeScript package rename (`ts/packages/plans/` → `ts/packages/enriched-plan/`) was scope-corrected during implementation: the package remains `@sdl/plans` / `ts/packages/plans/`; only the CLI group, verb, store path, and skill renamed.
 - The local store re-keys from `~/.sdl/planned-branch/plans/<repo>/<branch>/` to an `enriched-plan` store path. The old path was mis-keyed twice over: the store is pre-branch by definition, and it predates the vocabulary. No migration shim (unreleased software).
 - The `plans-write` skill renames to `enriched-plan-save`.
@@ -46,14 +46,14 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 - **Pattern-application surface naming** (see above).
 - **Quality modifiers** (composable verification/judging add-ons applied to a pattern) — the feature is deferred and deliberately unnamed until designed.
-- **Unattended execution surface** — unbound until it exists. Today execution starts through the attached-plan loader: `branch-context exec load` for deterministic agents and `/branch-context:impl` in Pi.
+- **Unattended execution surface** — unbound until it exists. Today execution starts through the attached-plan loader: `branch-context exec load` for deterministic agents and `/sdl:branch-context:impl-attached-plan` in Pi.
 
 ## Consequences
 
 - Staged renames (group, verb, store path, skill, Pi mirrors) are tracked as Objective `additive-plan-vocabulary` rather than executed ad hoc.
 - CONTEXT files and CONTEXT-MAP are not modified by this ADR; canonicalizing the vocabulary in domain-language files (including retiring "Saved plan"/"Source branch plan file" in favor of enriched-plan terms, the vibechk "run" ambiguity entry, and the existing Plan/attachment/handoff ambiguity) waits for a dedicated context rebaseline session per repo policy.
 - "Planned branch" no longer remains the forward vocabulary for active surfaces; ADR 0006 replaces it with branch context while keeping `enriched-plan` unchanged.
-- The prompt backing `/enriched-plan:save` keeps the name `plans-write` because it is a runtime contract with `.sdl/prompts/plans-write.md`, consistent everywhere, and guarded by the checked-in prompt test.
+- The prompt backing `/sdl:plan:save` keeps the name `plans-write` because it is a runtime contract with `.sdl/prompts/plans-write.md`, consistent everywhere, and guarded by the checked-in prompt test.
 - Live saved plans in the old store path must be moved manually; the store typically holds zero-to-few transient files.
 - Unreleased status means all re-keying carries no compatibility burden.
 

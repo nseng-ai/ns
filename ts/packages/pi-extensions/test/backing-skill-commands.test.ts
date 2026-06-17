@@ -52,10 +52,10 @@ describe("derivePiReplacementCommand", () => {
 	test.each([
 		["objective-create", "objective:create"],
 		["objective-stack-impl", "objective:stack-impl"],
-		["branch-context-from-plan", "branch-context:from-plan"],
-		["branch-context-impl", "branch-context:impl"],
-		["enriched-plan-save", "enriched-plan:save"],
-		["pi-grill-with-docs-ui", "pi:grill-with-docs-ui"],
+		["branch-context-from-plan", "sdl:branch-context:from-plan"],
+		["branch-context-impl", "sdl:branch-context:impl-attached-plan"],
+		["enriched-plan-save", "sdl:plan:save"],
+		["pi-grill-with-docs-ui", "pi:grill-with-docs"],
 		["foo-bar-baz", "foo:bar-baz"],
 	])("derives %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);

@@ -13,16 +13,16 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 
 ## Public workflow surface
 
-1. Save a source-branch plan with `/enriched-plan:save`, `/enriched-plan:grill-and-save`, or `enriched-plan exec save`.
-2. Create a branch and attach its branch context with `/branch-context:from-plan` or `branch-context exec from-plan`.
+1. Save a source-branch plan with `/sdl:plan:save`, `/sdl:plan:grill-and-save`, or `enriched-plan exec save`.
+2. Create a branch and attach its branch context with `/sdl:branch-context:from-plan` or `branch-context exec from-plan`.
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
-4. Load and implement with `/branch-context:impl` or `branch-context exec load`.
+4. Load and implement with `/sdl:branch-context:impl-attached-plan` or `branch-context exec load`.
 
-For Pi users, `/branch-context:upstack-impl-session` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/branch-context:impl` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
+For Pi users, `/sdl:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/sdl:branch-context:impl-attached-plan` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
 
 ## Save a source-branch plan
 
-Pi users run `/enriched-plan:save`. The static planning-policy body lives at:
+Pi users run `/sdl:plan:save`. The static planning-policy body lives at:
 
 ```text
 .sdl/prompts/plans-write.md
@@ -30,7 +30,7 @@ Pi users run `/enriched-plan:save`. The static planning-policy body lives at:
 
 For `/enriched-plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
 
-The structured grilling variant is `/enriched-plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
+The structured grilling variant is `/sdl:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 
 CLI/agent workflows save with:
 
@@ -66,7 +66,7 @@ enriched-plan list [--format json] [--plan-store-root <path>]
 
 ## Create a branch and attach its branch context
 
-Pi users run `/branch-context:from-plan`. CLI/agent workflows use:
+Pi users run `/sdl:branch-context:from-plan`. CLI/agent workflows use:
 
 ```text
 branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
@@ -88,7 +88,7 @@ The attached Branch Memory entry is the implementation branch identity. Branch n
 
 ## Start or resume implementation in one Pi command
 
-Pi users can run `/branch-context:upstack-impl-session` after saving a plan. The command resolves a Saved plan, creates or reuses a branch with attached branch context, checks out the target branch, starts a new Pi session, and sends `/branch-context:impl`.
+Pi users can run `/sdl:branch-context:upstack-impl-from-plan` after saving a plan. The command resolves a Saved plan, creates or reuses a branch with attached branch context, checks out the target branch, starts a new Pi session, and sends `/sdl:branch-context:impl-attached-plan`.
 
 ```text
 Resolve Saved plan from Local plan store
@@ -98,7 +98,7 @@ Resolve Saved plan from Local plan store
 Selected branch + branch-context entry
 → git checkout <branch>
 → create a new Pi session (/new)
-→ send /branch-context:impl [<key>] in that new session
+→ send /sdl:branch-context:impl-attached-plan [<key>] in that new session
 ```
 
 The command is for starting implementation from a reviewed Saved plan without manually creating the branch, checking it out, opening a new Pi session, and loading the Attached plan. It also makes the same command safe to rerun when the branch and Attached plan already exist but the original Saved plan is not available from the current source branch's Local plan store.
@@ -113,7 +113,7 @@ Useful options:
 
 ## Load and implement an attached plan
 
-Pi users run `/branch-context:impl`. CLI/agent workflows use:
+Pi users run `/sdl:branch-context:impl-attached-plan`. CLI/agent workflows use:
 
 ```text
 branch-context exec load [<key>] [--prompt-file <path>] [--format json]
@@ -145,7 +145,7 @@ Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attac
 
 ### Graphite branch creation
 
-Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/branch-context:from-plan` and `/branch-context:upstack-impl-session` to request Graphite branch creation unless the user passes `--plain-git`. Direct skill/CLI agent invocations in this repo bypass that Pi adapter option, so they must pass `--branch-creation graphite` unless the user explicitly requests plain Git.
+Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/sdl:branch-context:from-plan` and `/sdl:branch-context:upstack-impl-from-plan` to request Graphite branch creation unless the user passes `--plain-git`. Direct skill/CLI agent invocations in this repo bypass that Pi adapter option, so they must pass `--branch-creation graphite` unless the user explicitly requests plain Git.
 
 Graphite creation still creates the local Git branch first:
 
@@ -163,7 +163,7 @@ This does not switch the current checkout. The plan attachment still passes the 
 
 ### `upstack-impl-session` creation and resumption
 
-On the creation path, `/branch-context:upstack-impl-session` resolves a Saved plan from the Local plan store before creating or attaching anything. With no explicit plan path, it prefers the most recent Saved plan created in the current Pi session, then falls back to the newest Markdown file in the current repository/source-branch Local plan store directory.
+On the creation path, `/sdl:branch-context:upstack-impl-from-plan` resolves a Saved plan from the Local plan store before creating or attaching anything. With no explicit plan path, it prefers the most recent Saved plan created in the current Pi session, then falls back to the newest Markdown file in the current repository/source-branch Local plan store directory.
 
 An explicit plan path may be absolute or current-user home-relative with `~` or `~/`; a leading `@` is accepted and stripped, and the normalized path must be absolute and end in `.md`.
 
@@ -181,34 +181,34 @@ Candidate selection order for resumption is:
 
 Candidates are verified in that order and the first verified candidate wins. If no candidate verifies, the command fails with one message listing every verification failure, including a current branch that could not be resolved.
 
-After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/branch-context:impl <key>` in that new session when the selected key is named. Legacy `plan.md` may still render as bare `/branch-context:impl`. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
+After either creation or resumption selects a branch/key, the command checks out the exact branch with `git checkout <branch>`, creates a new Pi session, and sends `/sdl:branch-context:impl-attached-plan <key>` in that new session when the selected key is named. Legacy `plan.md` may still render as bare `/sdl:branch-context:impl-attached-plan`. Resumption success and cancellation messages say the branch and Attached plan were reused; they do not claim that a branch was newly created.
 
-Ambiguity is explicit. If the current session contains multiple candidate branches with branch-context output, the command refuses to choose implicitly and asks you to rerun with `--branch <target-branch>`. If a branch-context entry cannot be selected unambiguously on the chosen branch, rerun `/branch-context:impl <key>` manually from that branch or inspect the branch-context keys first.
+Ambiguity is explicit. If the current session contains multiple candidate branches with branch-context output, the command refuses to choose implicitly and asks you to rerun with `--branch <target-branch>`. If a branch-context entry cannot be selected unambiguously on the chosen branch, rerun `/sdl:branch-context:impl-attached-plan <key>` manually from that branch or inspect the branch-context keys first.
 
 Recovery examples:
 
 Preview what the command would do:
 
 ```text
-/branch-context:upstack-impl-session --dry-run
+/sdl:branch-context:upstack-impl-from-plan --dry-run
 ```
 
 Resume from a branch created earlier in the same Pi session after the source branch no longer has a Saved plan in its Local plan store:
 
 ```text
-/branch-context:upstack-impl-session
+/sdl:branch-context:upstack-impl-from-plan
 ```
 
 If resumption reports multiple candidates, choose explicitly:
 
 ```text
-/branch-context:upstack-impl-session --branch <target-branch>
+/sdl:branch-context:upstack-impl-from-plan --branch <target-branch>
 ```
 
 If checkout or new-session launch is cancelled after resumption succeeds, continue from the checked-out branch:
 
 ```text
-/branch-context:impl
+/sdl:branch-context:impl-attached-plan
 ```
 
 ### Plan-path normalization
@@ -224,7 +224,7 @@ Saved-plan path arguments are normalized before resolution:
 
 Common recovery paths:
 
-- If no Saved plan is found, run `/enriched-plan:save` or pass an explicit saved-plan path.
+- If no Saved plan is found, run `/sdl:plan:save` or pass an explicit saved-plan path.
 - If the target branch already exists, choose another branch or inspect the existing branch before retrying.
 - If slug validation fails, choose a clearer 3-7 word kebab-case slug from the plan content and retry.
 - If the derived branch-context key already exists on the target branch, the workflow refuses to overwrite it.
@@ -248,6 +248,6 @@ brmem get <key> --namespace branch-context --branch <branch>
 
 ## Related surfaces
 
-- Pi commands: `/enriched-plan:save`, `/enriched-plan:grill-and-save`, `/branch-context:from-plan`, `/branch-context:upstack-impl-session`, `/branch-context:impl`.
+- Pi commands: `/sdl:plan:save`, `/sdl:plan:grill-and-save`, `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
 - Agent skills: `enriched-plan-save`, `branch-context`, `branch-context-from-plan`, and `branch-context-impl`.

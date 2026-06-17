@@ -79,9 +79,9 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 ] as const;
 
 export const SPECIALIZED_SKILL_REPLACEMENTS = {
-	"branch-context-from-plan": "branch-context:from-plan",
-	"branch-context-impl": "branch-context:impl",
-	"enriched-plan-save": "enriched-plan:save",
+	"branch-context-from-plan": "sdl:branch-context:from-plan",
+	"branch-context-impl": "sdl:branch-context:impl-attached-plan",
+	"enriched-plan-save": "sdl:plan:save",
 	"handoff-create": "handoff:create",
 	"handoff-pickup": "handoff:pickup",
 	"objective-create": "objective:create",
@@ -103,6 +103,18 @@ export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
 );
 
 export function derivePiReplacementCommand(skillName: string): DerivedPiCommand | undefined {
+	const specializedSurface =
+		SPECIALIZED_SKILL_REPLACEMENTS[skillName as keyof typeof SPECIALIZED_SKILL_REPLACEMENTS];
+	if (specializedSurface !== undefined) {
+		const separator = specializedSurface.indexOf(":");
+		return {
+			surface: specializedSurface,
+			skillName,
+			namespace: specializedSurface.slice(0, separator),
+			command: specializedSurface.slice(separator + 1),
+		};
+	}
+
 	const namespaces = [...KNOWN_PI_COMMAND_NAMESPACES].sort(
 		(left, right) => right.length - left.length,
 	);

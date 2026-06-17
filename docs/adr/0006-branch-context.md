@@ -36,15 +36,15 @@ There are no migration shims. This is unreleased private software, so pre-rename
 
 ### Surface map
 
-| Old surface                                                                                 | New surface                                                                                 |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `@sdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                  | `@sdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                  |
-| `planned-branch exec create`                                                                | `branch-context exec from-plan --slug <slug> --plan-file <path>`                            |
-| `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads only when exactly one entry exists    |
-| attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                              |
-| Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, named Markdown plan keys                                        |
-| Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/branch-context:from-plan`, `/branch-context:impl`, `/branch-context:upstack-impl-session` |
-| skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `branch-context-from-plan`, `branch-context-impl`                         |
+| Old surface                                                                                 | New surface                                                                                                             |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `@sdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                  | `@sdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                                              |
+| `planned-branch exec create`                                                                | `branch-context exec from-plan --slug <slug> --plan-file <path>`                                                        |
+| `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads only when exactly one entry exists                                |
+| attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                                                          |
+| Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, named Markdown plan keys                                                                    |
+| Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/sdl:branch-context:from-plan`, `/sdl:branch-context:impl-attached-plan`, `/sdl:branch-context:upstack-impl-from-plan` |
+| skills `planned-branch`, `planned-branch-create`, `planned-branch-impl`                     | `branch-context`, `branch-context-from-plan`, `branch-context-impl`                                                     |
 
 ### `attach --file` source constraint
 

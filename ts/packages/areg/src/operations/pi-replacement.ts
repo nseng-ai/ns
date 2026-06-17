@@ -23,9 +23,9 @@ export const KNOWN_PI_COMMAND_NAMESPACES = [
 ] as const;
 
 export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = {
-	"branch-context-from-plan": "branch-context:from-plan",
-	"branch-context-impl": "branch-context:impl",
-	"enriched-plan-save": "enriched-plan:save",
+	"branch-context-from-plan": "sdl:branch-context:from-plan",
+	"branch-context-impl": "sdl:branch-context:impl-attached-plan",
+	"enriched-plan-save": "sdl:plan:save",
 	"handoff-create": "handoff:create",
 	"handoff-pickup": "handoff:pickup",
 	"objective-create": "objective:create",

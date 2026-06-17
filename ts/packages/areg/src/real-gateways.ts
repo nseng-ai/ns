@@ -70,9 +70,9 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 // AREG intentionally does not import @sdl/pi-extensions: pi-extensions is a leaf
 // package for project-local Pi adapters, so shared packages must not depend on it.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = [
-	"branch-context:from-plan",
-	"branch-context:impl",
-	"enriched-plan:save",
+	"sdl:branch-context:from-plan",
+	"sdl:branch-context:impl-attached-plan",
+	"sdl:plan:save",
 	"handoff:create",
 	"handoff:pickup",
 	"objective:create",
