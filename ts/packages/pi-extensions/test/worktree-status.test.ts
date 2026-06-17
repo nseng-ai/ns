@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
@@ -172,7 +176,7 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[brmem] (branch-context: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)\n[gh] (pr: -)",
+				"[brmem] (branch-context: model-only-checkpoint-message-text-generation.md)\n[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 			);
 			await pi.sessionShutdown?.();
 		});
@@ -214,7 +218,7 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] (↓: main) (↑: -) (commits)\n[gh] (pr: -)",
+				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 			);
 			await pi.sessionShutdown?.();
 		});
@@ -300,8 +304,88 @@ describe("worktree status extension registration", () => {
 			);
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines[0]).toBe(`${root} (current-branch)`);
+			expect(footerLines[0]).toBe(`(no-slot) (current-branch) (${root})`);
 			expect(footerLines[0]).not.toContain("stale-branch");
+			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("custom footer formats slot identity and truncates nested path before branch", async () => {
+		const tempRoot = mkdtempSync(join(tmpdir(), "worktree-status-slots-"));
+		await withTempRoot(tempRoot, async (root) => {
+			const worktreeRoot = join(root, ".slots", "repos", "asdl-tools", "worktrees", "slot-02");
+			const nestedCwd = join(worktreeRoot, "ts", "packages", "pi-extensions");
+			mkdirSync(join(worktreeRoot, ".git"), { recursive: true });
+			mkdirSync(nestedCwd, { recursive: true });
+			writeFileSync(join(worktreeRoot, ".git", "HEAD"), "ref: refs/heads/feature/slot-identity\n");
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghNoPrStep(),
+				dirtyStep(),
+			]);
+			const statuses = new Map<string, string>();
+			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+			const ctx: ExtensionContext = {
+				cwd: worktreeRoot,
+				hasUI: true,
+				sessionManager: {
+					getEntries() {
+						return [];
+					},
+					getCwd() {
+						return nestedCwd;
+					},
+					getSessionName() {
+						return "hidden-session-name";
+					},
+				},
+				model: { id: "test-model", contextWindow: 272000 },
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						if (value === undefined) statuses.delete(key);
+						else statuses.set(key, value);
+					},
+					setWidget() {},
+					setFooter(factory) {
+						footerFactory = factory;
+					},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+
+			pi.assertDone();
+			expect(footerFactory).toBeDefined();
+			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+
+			const footer = footerFactory(
+				{ requestRender() {} },
+				TEST_THEME,
+				{
+					getGitBranch() {
+						return "stale-branch";
+					},
+					getExtensionStatuses() {
+						return statuses;
+					},
+					getAvailableProviderCount() {
+						return 1;
+					},
+					onBranchChange() {
+						return () => {};
+					},
+				},
+			);
+
+			const wideFooterLines = footer.render(200).map(stripTerminalEscapes);
+			expect(wideFooterLines[0]).toBe("(slot-02) (feature/slot-identity) (ts/packages/pi-extensions)");
+			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
+			expect(wideFooterLines[0]).not.toContain("stale-branch");
+			const narrowIdentity = footer.render(46).map(stripTerminalEscapes)[0] ?? "";
+			expect(narrowIdentity).toContain("(slot-02) (feature/slot-identity)");
+			expect(narrowIdentity).toContain("...");
 			await pi.sessionShutdown?.();
 		});
 	});
@@ -468,8 +552,8 @@ describe("worktree status extension registration", () => {
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
 			expect(footerLines.slice(-3)).toEqual([
 				"[brmem] (pb-plan: handoffs-graphite-footer-lines.md)",
-				"[gt] (↓: main) (↑: -) (commits)",
-				"[gh] (pr: -)",
+				"[gt] ↓ main · ↑ - · 1 commit",
+				"[gh] no PR",
 			]);
 			await pi.sessionShutdown?.();
 		});

@@ -551,14 +551,11 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
-	const branch = currentFooterBranch(cwd, footerData);
-	const sessionName = ctx.sessionManager?.getSessionName();
-	let pwd = formatFooterCwd(cwd, process.env.HOME || process.env.USERPROFILE);
-	if (branch) pwd = `${pwd} (${branch})`;
-	if (sessionName) pwd = `${pwd} • ${sessionName}`;
+	const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
+	const identity = formatFooterIdentity(cwd, branch, process.env.HOME || process.env.USERPROFILE, width);
 
 	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
-	const lines = [truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "...")), statsLine];
+	const lines = [theme.fg("dim", identity), statsLine];
 	for (const statusLine of formatExtensionStatusLines(footerData.getExtensionStatuses())) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
@@ -572,6 +569,47 @@ function currentFooterBranch(cwd: string, footerData: StatusFooterData): string 
 		if (branch !== undefined) return branch;
 	}
 	return footerData.getGitBranch();
+}
+
+function formatFooterIdentity(cwd: string, branch: string, home: string | undefined, width: number): string {
+	const identity = footerIdentityParts(cwd, branch, home);
+	const prefix = `(${identity.slot}) (${identity.branch}) `;
+	const pathSegment = `(${identity.relativePath})`;
+	const fullIdentity = `${prefix}${pathSegment}`;
+	if (visibleWidth(fullIdentity) <= width) return fullIdentity;
+
+	const availablePathWidth = width - visibleWidth(prefix) - 2;
+	if (availablePathWidth > 0) {
+		const truncatedPath = truncateToWidth(identity.relativePath, availablePathWidth, "...");
+		return `${prefix}(${truncatedPath})`;
+	}
+	return truncateToWidth(fullIdentity, width, "...");
+}
+
+function footerIdentityParts(cwd: string, branch: string, home: string | undefined): { slot: string; branch: string; relativePath: string } {
+	const slotInfo = slotInfoFromCwd(cwd);
+	if (slotInfo !== undefined) {
+		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
+		return { slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+	}
+	return { slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
+}
+
+function slotInfoFromCwd(cwd: string): { slot: string; worktreeRoot: string } | undefined {
+	const resolvedCwd = resolve(cwd);
+	const parts = resolvedCwd.split(sep);
+	for (let index = 0; index < parts.length - 4; index++) {
+		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
+		const slot = parts[index + 4];
+		if (slot === undefined || slot.length === 0) return undefined;
+		return { slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
+	}
+	return undefined;
+}
+
+function pathFromParts(parts: readonly string[]): string {
+	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
+	return join(...parts);
 }
 
 function formatFooterCwd(cwd: string, home: string | undefined): string {

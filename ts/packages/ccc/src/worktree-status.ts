@@ -20,7 +20,6 @@ import {
 } from "./worktree-status/graphite-metadata.ts";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
-const EMPTY_BRANCH_ICON = "∅";
 const COMMAND_TIMEOUT_MS = 5_000;
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 
@@ -50,10 +49,15 @@ interface GitPaths {
 
 type GitFileParseResult = { type: "found"; paths: GitPaths | undefined } | { type: "not-gitdir-file" };
 
+export type GtCommitStatus =
+	| { type: "count"; count: number }
+	| { type: "unknown" }
+	| { type: "not-applicable" };
+
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
-	commits: "yes" | "no" | "?" | "n/a";
+	commits: GtCommitStatus;
 	dirty: "yes" | "no";
 }
 
@@ -292,21 +296,21 @@ async function loadHasCommits(
 	cwd: string,
 	down: string | undefined,
 	signal?: AbortSignal,
-): Promise<"yes" | "no" | "?" | "n/a"> {
-	if (down === undefined) return "n/a";
-	if (down === "-" || signal?.aborted) return "?";
+): Promise<GtCommitStatus> {
+	if (down === undefined) return { type: "not-applicable" };
+	if (down === "-" || signal?.aborted) return { type: "unknown" };
 
 	try {
 		const result = normalizeExecResult(
 			await pi.exec("git", ["rev-list", "--count", `${down}..HEAD`], execOptions(cwd, signal)),
 		);
-		if (result.code !== 0) return "?";
+		if (result.code !== 0) return { type: "unknown" };
 
 		const count = Number.parseInt(result.stdout.trim(), 10);
-		if (!Number.isFinite(count)) return "?";
-		return count > 0 ? "yes" : "no";
+		if (!Number.isFinite(count) || count < 0) return { type: "unknown" };
+		return { type: "count", count };
 	} catch {
-		return "?";
+		return { type: "unknown" };
 	}
 }
 
@@ -579,40 +583,72 @@ function formatGraphiteMetadataDiagnostic(diagnostic: GraphiteMetadataWorkerDiag
 }
 
 export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
-	const down = status.down === undefined ? "" : ` (↓: ${status.down})`;
-	const commits =
-		status.commits === "n/a"
-			? ""
-			: status.commits === "yes"
-				? " (commits)"
-				: status.commits === "?"
-					? " (commits: ?)"
-					: ` ${EMPTY_BRANCH_ICON}`;
-	const dirty = status.dirty === "yes" ? " (x)" : "";
-	const rest = `${down} (↑: ${status.up})${commits}${dirty}`;
-	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(rest, theme)}`;
+	const parts: string[] = [];
+	if (status.down !== undefined) parts.push(`↓ ${status.down}`);
+	parts.push(`↑ ${status.up}`);
+	const commits = formatGtCommitStatus(status.commits);
+	if (commits !== undefined) parts.push(commits);
+	if (status.dirty === "yes") parts.push("dirty");
+	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(` ${parts.join(" · ")}`, theme)}`;
+}
+
+function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
+	switch (commits.type) {
+		case "count":
+			return `${commits.count} ${commits.count === 1 ? "commit" : "commits"}`;
+		case "unknown":
+			return "commits ?";
+		case "not-applicable":
+			return undefined;
+	}
 }
 
 export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
-	if (status.type === "no-pr") return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(" (pr: -)", theme)}`;
-	if (status.type === "unavailable") return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(" unavailable", theme)}`;
+	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
+	if (status.type === "unavailable") return formatColoredSegment("[gh] unavailable", "warning", theme);
 
-	const comments = ` (comments: ${status.unresolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""})`;
-	const actions = ` (actions: ${formatActionBuckets(status)})`;
-	const landable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0 ? " landable" : "";
-	return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(` (pr: #${status.prNumber})${comments}${actions}${landable}`, theme)}`;
+	const commentsValue = `${status.unresolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
+	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0;
+	const pieces = [
+		formatColoredSegment("[gh]", "dim", theme),
+		formatColoredSegment(" ", "dim", theme),
+		formatColoredSegment(`#${status.prNumber}`, "accent", theme),
+		formatColoredSegment(" · comments ", "dim", theme),
+		formatColoredSegment(commentsValue, status.unresolvedThreads > 0 ? "warning" : "dim", theme),
+		formatColoredSegment(" · actions ", "dim", theme),
+		...formatActionBucketSegments(status, theme),
+	];
+	if (isLandable) {
+		pieces.push(formatColoredSegment(" · ", "dim", theme), formatColoredSegment("landable", "accent", theme));
+	}
+	return pieces.join("");
 }
 
-function formatActionBuckets(status: GhStatus): string {
-	if (status.pendingChecks === 0 && status.failingChecks === 0) return `${status.passingChecks}✓`;
+function formatActionBucketSegments(status: GhStatus, theme?: StatusTheme): string[] {
+	if (status.pendingChecks === 0 && status.failingChecks === 0) {
+		return [formatColoredSegment(`${status.passingChecks}✓`, "accent", theme)];
+	}
 	const buckets: string[] = [];
-	if (status.pendingChecks > 0) buckets.push(`${status.pendingChecks}⏳`);
-	if (status.failingChecks > 0) buckets.push(`${status.failingChecks}✗`);
-	return buckets.join(" ");
+	if (status.pendingChecks > 0) buckets.push(formatColoredSegment(`${status.pendingChecks}⏳`, "warning", theme));
+	if (status.failingChecks > 0) buckets.push(formatColoredSegment(`${status.failingChecks}✗`, "error", theme));
+	return intersperseActionBucketSpaces(buckets, theme);
+}
+
+function intersperseActionBucketSpaces(buckets: readonly string[], theme?: StatusTheme): string[] {
+	const segments: string[] = [];
+	for (const [index, bucket] of buckets.entries()) {
+		if (index > 0) segments.push(formatColoredSegment(" ", "dim", theme));
+		segments.push(bucket);
+	}
+	return segments;
 }
 
 function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
-	return theme ? theme.fg("dim", text) : text;
+	return formatColoredSegment(text, "dim", theme);
+}
+
+function formatColoredSegment(text: string, color: string, theme: StatusTheme | undefined): string {
+	return theme ? theme.fg(color, text) : text;
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {
