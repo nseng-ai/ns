@@ -6,14 +6,17 @@ import type { ExecResult, ExtensionAPI, NotifyLevel } from "./types.ts";
 const CMUX_TIMEOUT_MS = 10_000;
 const MAX_ERROR_CHARS = 4_000;
 
-export interface OpenBranchInCmuxSlotOptions {
+export interface BranchCmuxSlotCheckoutOptions {
 	pi: Pick<ExtensionAPI, "exec">;
 	cwd: string;
 	branchName: string;
-	command?: string;
-	description?: string;
 	notify: (message: string, level: NotifyLevel) => void;
 	onStatus?: (message: string) => void;
+}
+
+export interface OpenBranchInCmuxSlotOptions extends BranchCmuxSlotCheckoutOptions {
+	command?: string;
+	description?: string;
 	successMessage?: (target: SlotCheckoutTarget) => string;
 }
 
@@ -24,10 +27,10 @@ export interface OpenCmuxWorkspaceOptions {
 	failureDetails?: readonly string[];
 }
 
-export async function openBranchInCmuxSlot(
-	options: OpenBranchInCmuxSlotOptions,
+export async function checkoutBranchCmuxSlot(
+	options: BranchCmuxSlotCheckoutOptions,
 ): Promise<SlotCheckoutTarget | { error: string }> {
-	const { pi, cwd, branchName, command, description, notify, onStatus, successMessage } = options;
+	const { pi, cwd, branchName, notify, onStatus } = options;
 	onStatus?.("checking out branch slot…");
 	const checkout = await checkoutSlot(pi, cwd, { kind: "branch", branchName });
 	if (!checkout.ok) {
@@ -36,7 +39,15 @@ export async function openBranchInCmuxSlot(
 		return error;
 	}
 
-	const target = checkout.target;
+	return checkout.target;
+}
+
+export async function openBranchInCmuxSlot(
+	options: OpenBranchInCmuxSlotOptions,
+): Promise<SlotCheckoutTarget | { error: string }> {
+	const { pi, command, description, notify, onStatus, successMessage } = options;
+	const target = await checkoutBranchCmuxSlot(options);
+	if ("error" in target) return target;
 	onStatus?.("opening cmux workspace…");
 	const workspaceDescription = description ?? (await getWorktreeDescription(pi, target.worktreePath, target.branchName));
 	const workspaceOptions: OpenCmuxWorkspaceOptions = {

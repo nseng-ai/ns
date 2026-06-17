@@ -9,7 +9,7 @@ import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "../src/cmux/dispatch-from-trunk.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
-import { registerCccSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
+import { registerCccSlotDispatchPlanCommand, registerCccSurfaceDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
 import { createCccSidebarController, registerCccSidebarCommands } from "../src/cmux/sidebar.ts";
 import {
@@ -77,6 +77,7 @@ describe("CCC cmux command suite", () => {
 			"ccc:claude-plan-tab",
 			"ccc:sidebar:objective-summary",
 			"ccc:sidebar:session-summary",
+			"ccc:surface:dispatch-plan",
 			"ccc:workspace:dispatch-from-trunk",
 			"ccc:workspace:dispatch-plan",
 			"ccc:workspace:dispatch-prompt",
@@ -299,6 +300,129 @@ describe("CCC cmux command suite", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ccc:surface:dispatch-plan dry-run previews a new surface launch", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
+		const pi = new FakePi({
+			script: [
+				gitRootStep(repoRoot),
+				gitCurrentBranchStep(),
+				gitOriginStep(),
+				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), { stdout: `${PLAN_SLUG}\n` }),
+				headStep(),
+			],
+		});
+		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({ cwd: repoRoot, branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })] });
+
+		await pi.commands.get("ccc:surface:dispatch-plan")?.handler("--dry-run", ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages).toHaveLength(1);
+		const content = String(pi.sentMessages[0]?.content);
+		expect(content).toContain("Dry run: no branch was created, no plan was attached, and no cmux surface was opened.");
+		expect(content).toContain("slot checkout");
+		expect(content).toContain("cmux new-surface");
+		expect(content).toContain("cmux rename-tab");
+		expect(content).toContain("cmux send");
+		expect(content).not.toContain("cmux new-workspace");
+		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
+	});
+
+	test("ccc:surface:dispatch-plan full success opens a focused cmux surface", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
+		const realPlanFile = await realpath(planFile);
+		const launchCommand = `pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${formatImplBranchContextCommand(PLAN_KEY)}'`;
+		const pi = new FakePi({
+			script: [
+				gitRootStep(repoRoot),
+				gitCurrentBranchStep(),
+				gitOriginStep(),
+				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), { stdout: `${PLAN_SLUG}\n` }),
+				gitRootStep(repoRoot),
+				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				headStep(),
+				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
+				step("brmem", ["check", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--format", "json"], { stdout: brmemCheckJson(false) }),
+				gitCurrentBranchStep(),
+				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
+				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["put", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {
+					stdout: brmemPutJson(repoRoot, realPlanFile),
+				}),
+				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(PLAN_SLUG) }),
+				step("cmux", ["identify", "--json", "--id-format", "both"], {
+					stdout: JSON.stringify({ caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" } }),
+				}),
+				step("cmux", ["--json", "new-surface", "--type", "terminal", "--workspace", "workspace-1", "--pane", "pane-1", "--focus", "true", "--window", "window-1"], {
+					stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }),
+				}),
+				step("cmux", ["rename-tab", "--workspace", "workspace-1", "--surface", "surface-1", "--title", PLAN_SLUG, "--window", "window-1"], {}),
+				step("cmux", ["send", "--workspace", "workspace-1", "--surface", "surface-1", "--window", "window-1", "--", `${launchCommand}\n`], {}),
+			],
+		});
+		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			model: PREVIOUS_MODEL,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
+		});
+
+		await pi.commands.get("ccc:surface:dispatch-plan")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "success" });
+		expect(notificationMessages(ctx).some((message) => message.includes("Dispatched plan in cmux surface."))).toBe(true);
+		expect(notificationMessages(ctx).join("\n")).toContain("Surface: surface-1");
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.setModels).toEqual([]);
+		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ccc:surface:dispatch-plan stops before cmux surface launch when slot checkout fails", async () => {
+		const repoRoot = await makeTempDir();
+		const planStoreRoot = await makeTempDir();
+		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
+		const realPlanFile = await realpath(planFile);
+		const pi = new FakePi({
+			script: [
+				gitRootStep(repoRoot),
+				gitCurrentBranchStep(),
+				gitOriginStep(),
+				step("pi", buildSlugModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT)), { stdout: `${PLAN_SLUG}\n` }),
+				gitRootStep(repoRoot),
+				step("git", ["check-ref-format", "--branch", PLAN_SLUG], {}),
+				headStep(),
+				step("git", ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`], missingRevisionResult()),
+				step("brmem", ["check", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--format", "json"], { stdout: brmemCheckJson(false) }),
+				gitCurrentBranchStep(),
+				step("gt", ["info", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("git", ["branch", PLAN_SLUG, "HEAD"], {}),
+				step("gt", ["track", PLAN_SLUG, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["put", PLAN_KEY, "--namespace", "branch-context", "--branch", PLAN_SLUG, "--file", realPlanFile, "--format", "json"], {
+					stdout: brmemPutJson(repoRoot, realPlanFile),
+				}),
+				step("slot", ["checkout", PLAN_SLUG, "--format", "json", "--no-clipboard"], { code: 2, stderr: "slot unavailable\n" }),
+			],
+		});
+		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
+		const ctx = new FakeCommandContext({
+			cwd: repoRoot,
+			model: PREVIOUS_MODEL,
+			branchEntries: [savedPlanEntry(repoRoot, planFile, { slug: SAVED_PLAN_FILENAME_SLUG })],
+		});
+
+		await pi.commands.get("ccc:surface:dispatch-plan")?.handler("", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("Failed to check out branch slot.");
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 
 	test("ccc:workspace:dispatch-plan rejects session plan outside local plan store", async () => {

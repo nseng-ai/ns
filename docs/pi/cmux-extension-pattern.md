@@ -37,9 +37,10 @@ The project-local adapter registers:
 - `/ccc:sidebar:objective-summary [objective-slug-or-path]`
 - `/ccc:workspace:open-branch [branch]`
 - `/ccc:workspace:dispatch-plan [--dry-run]`
+- `/ccc:surface:dispatch-plan [--dry-run]`
 - `/ccc:workspace:dispatch-prompt <prompt>`
 
-`open` commands only open a cmux workspace. `dispatch` commands open a cmux workspace and immediately start child Pi execution. Old cmux-prefixed compatibility aliases are not current project commands unless reintroduced by an explicit future migration.
+`open` commands only open a cmux workspace. `workspace:dispatch` commands open a cmux workspace and immediately start child Pi execution. `surface:dispatch` commands launch the same child execution in a new cmux surface in the caller workspace. Old cmux-prefixed compatibility aliases are not current project commands unless reintroduced by an explicit future migration.
 
 There is no legacy `set-workspace-summary` alias.
 
@@ -61,12 +62,13 @@ Remove stale user-local extension files only after confirming the project adapte
 Workspace-opening commands currently do not auto-run sidebar updates after success:
 
 - `/ccc:workspace:dispatch-plan`
+- `/ccc:surface:dispatch-plan`
 - `/ccc:workspace:open-branch`
 - `/ccc:workspace:dispatch-prompt`
 
 The previous automatic flow targeted the workspace running the command via `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID`, not the newly opened workspace. New-workspace targeting should be designed during a future CCC/cmux targeting pass rather than inferred from `cmux workspace list` in this slice.
 
-The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
+The new workspace still receives initial `cmux new-workspace --name ... --description ... --cwd ...` fields from the launching command. The new-surface variant checks out the same slot worktree, creates a focused terminal surface in the caller workspace, renames the tab to the branch, and sends the child Pi launch command from the slot worktree. Commands that launch a child Pi session must pass the caller's current `--provider`, `--model`, and non-off `--thinking` explicitly instead of relying on Pi's mutable default model settings.
 
 ## Caller workspace contract
 
@@ -196,6 +198,7 @@ Finally smoke-test from inside cmux:
 /ccc:sidebar:pr-summary
 /ccc:sidebar:objective-summary <objective-slug>
 /ccc:workspace:dispatch-plan --dry-run
+/ccc:surface:dispatch-plan --dry-run
 /ccc:workspace:open-branch <branch>
 /ccc:workspace:dispatch-prompt <prompt>
 ```
