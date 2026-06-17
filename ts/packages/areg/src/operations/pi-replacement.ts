@@ -39,7 +39,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = 
 	"code-checkpoint": "sdl:code:checkpoint",
 	"code-just-fix": "code:just-fix",
 	"code-submit": "sdl:code:submit",
-	"ccc-sidebar": "ccc:sidebar:pr-summary",
+	"ccc-sidebar": "ccc:sidebar:session-summary",
 };
 
 export interface PiReplacementFacts {

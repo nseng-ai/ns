@@ -13,7 +13,7 @@ import {
 import { formatErrorMessage } from "@asdl/core/primitives";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
-const PR_SIDEBAR_COMMAND_NAME = "ccc:sidebar:pr-summary";
+const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
 const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
@@ -25,7 +25,7 @@ interface RestoreState {
 }
 
 export interface CccSidebarController {
-	handlePrCommand(ctx: CommandContext): Promise<void>;
+	handleSessionCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
 
@@ -42,7 +42,7 @@ export function createCccSidebarController(pi: ExtensionAPI): CccSidebarControll
 	});
 
 	return {
-		async handlePrCommand(ctx): Promise<void> {
+		async handleSessionCommand(ctx): Promise<void> {
 			await queueSidebar(pi, ctx, (state) => {
 				pendingRestore = state;
 			});
@@ -59,9 +59,9 @@ export function registerCccSidebarCommands(
 	pi: ExtensionAPI,
 	controller: CccSidebarController,
 ): void {
-	pi.registerCommand(PR_SIDEBAR_COMMAND_NAME, {
-		description: "Summarize current PR work into the caller cmux sidebar.",
-		handler: async (_args, ctx) => controller.handlePrCommand(ctx),
+	pi.registerCommand(SESSION_SIDEBAR_COMMAND_NAME, {
+		description: "Summarize this Pi session into the caller cmux sidebar.",
+		handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
 	});
 
 	pi.registerCommand(OBJECTIVE_SIDEBAR_COMMAND_NAME, {
@@ -83,23 +83,24 @@ export function buildCmuxSidebarPrompt(
 ): string {
 	return `${skillBlock ?? buildFallbackSkillPrompt()}
 
-Run the cmux PR sidebar workflow now for the caller workspace.
+Run the cmux session sidebar workflow now for the caller workspace.
 
 Target workspace id/ref from this terminal environment: ${workspaceId}
 
-Requested variant: PR sidebar.
-Summarize the current PR, branch, or active implementation work.
-The Goal line should describe the PR outcome, not the cmux update itself.
+Requested command: ccc:sidebar:session-summary.
+Summarize this Pi session's current task, progress, and likely next action.
+The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug for the session topic and the full title is max 45 chars.
+The Goal line should describe what this session is trying to accomplish, not the cmux update itself.
 
-Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the PR source is resolved, then report the applied title briefly.`;
+Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the source is resolved, then report the applied title briefly.`;
 }
 
 function buildFallbackSkillPrompt(): string {
-	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for the current PR work using exactly one deterministic command:
+	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
 asdl exec cmux-workspace-summary \\
-  --title '...' \\
+  --title 'summary:<slug>' \\
   --description 'Goal: ...' \\
   --format json
 \`\`\`
@@ -222,7 +223,7 @@ async function queueSidebar(
 		}
 		notify(
 			ctx,
-			skillBlock ? "Invoking cmux PR summary." : "cmux sidebar skill not found; using fallback prompt.",
+			skillBlock ? "Invoking cmux session sidebar summary." : "cmux sidebar skill not found; using fallback prompt.",
 			skillBlock ? "info" : "warning",
 		);
 		pi.sendUserMessage(buildCmuxSidebarPrompt(skillBlock, workspaceId));

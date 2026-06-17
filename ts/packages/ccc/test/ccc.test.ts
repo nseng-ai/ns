@@ -74,14 +74,14 @@ describe("CCC cmux command suite", () => {
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"ccc:claude-plan-tab",
 			"ccc:sidebar:objective-summary",
-			"ccc:sidebar:pr-summary",
+			"ccc:sidebar:session-summary",
 			"ccc:workspace:dispatch-plan",
 			"ccc:workspace:dispatch-prompt",
 			"ccc:workspace:open-branch",
 		]);
 	});
 
-	test("ccc:sidebar:pr-summary queues expanded skill prompt and restores the previous model", async () => {
+	test("ccc:sidebar:session-summary queues session-aware skill prompt and restores the previous model", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		await withTempRepoSkill(
 			{ skillName: "ccc-sidebar", markdown: "---\nname: ccc-sidebar\n---\nUse direct `--description` command shape.\n" },
@@ -91,13 +91,16 @@ describe("CCC cmux command suite", () => {
 				registerCccSidebarCommands(pi, controller);
 				const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
 
-				await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
+				await pi.commands.get("ccc:sidebar:session-summary")?.handler("", ctx);
 
 				expect(ctx.waitCount).toBe(1);
 				expect(pi.sentUserMessages).toHaveLength(1);
 				expect(pi.sentUserMessages[0]).toContain("<skill name=\"ccc-sidebar\"");
-				expect(pi.sentUserMessages[0]).toContain("Requested variant: PR sidebar.");
-				expect(pi.sentUserMessages[0]).toContain("--description");
+				expect(pi.sentUserMessages[0]).toContain("Requested command: ccc:sidebar:session-summary.");
+				expect(pi.sentUserMessages[0]).toContain("current task, progress, and likely next action");
+				expect(pi.sentUserMessages[0]).toContain("The title must be exactly summary:<slug>");
+				expect(pi.sentUserMessages[0]).not.toContain("The Goal line should describe the PR outcome");
+				expect(notificationMessages(ctx)).toContain("Invoking cmux session sidebar summary.");
 				expect(pi.setModels).toEqual([FAST_MODEL]);
 				expect(pi.thinkingLevels).toEqual(["minimal"]);
 				expect(ctx.statuses).toEqual([
@@ -120,9 +123,10 @@ describe("CCC cmux command suite", () => {
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
-		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", ctx);
+		await pi.commands.get("ccc:sidebar:session-summary")?.handler("", ctx);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
+		expect(pi.sentUserMessages[0]).toContain("--title 'summary:<slug>'");
 		expect(pi.sentUserMessages[0]).toContain("--description 'Goal: ...'");
 		expect(pi.sentUserMessages[0]).not.toContain("State: ...");
 		expect(pi.sentUserMessages[0]).not.toContain("--goal");
@@ -131,7 +135,7 @@ describe("CCC cmux command suite", () => {
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const noWorkspace = new FakeCommandContext();
-		await pi.commands.get("ccc:sidebar:pr-summary")?.handler("", noWorkspace);
+		await pi.commands.get("ccc:sidebar:session-summary")?.handler("", noWorkspace);
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(noWorkspace.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
