@@ -28,8 +28,9 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
 
 ### Batch 3 — Mutation robustness
 
-- [ ] Give `runInit` and `runSkillKindApply` full preflight before any mutation, then apply one composed plan; or surface explicit partial-state evidence (E).
-  - Policy: steer first; resolve the rollback-vs-preflight open question before implementing.
+- [x] Give `runInit` and `runSkillKindApply` full preflight before any mutation, then apply one composed plan; or surface explicit partial-state evidence (E).
+  - Decision: rollback remains out of scope; Batch 3 completes by choosing full preflight for predictable areg-owned mutations plus explicit partial-state evidence when execution still fails.
+  - Evidence: PR #1718 adds project-gateway preflight methods, shared per-operation mutation status reporting, init evidence for `npx skills add`, and whole-request planning/preflight for multi-skill `areg skill apply`; validation passed with `pnpm --dir ts run check`, targeted areg mutation/init/skill-apply tests, and `pnpm --dir ts exec areg check --path ..`.
 
 ### Batch 4 — Deeper structural decomposition
 
