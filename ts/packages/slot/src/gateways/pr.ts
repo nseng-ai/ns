@@ -1,4 +1,5 @@
-import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
+import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/core/exec";
+import { runGitHubCli } from "@asdl/core/github-cli";
 import { z } from "zod";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
@@ -50,7 +51,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	async getPrForBranch(branch: string): Promise<PrLookupResult> {
-		const result = await this.execApi.exec("gh", ["pr", "view", branch, "--json", "number,state,url,headRefName"], { cwd: this.cwd, env: this.env, timeout: SLOT_PR_TIMEOUT_MS });
+		const result = await this.runGh(["pr", "view", branch, "--json", "number,state,url,headRefName"]);
 		if (result.code !== 0 || result.killed) {
 			if (isPrLookupMiss(result.stdout, result.stderr)) return { type: "miss" };
 			return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
@@ -63,9 +64,15 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	async closePr(number: number): Promise<PrCloseResult> {
-		const result = await this.execApi.exec("gh", ["pr", "close", String(number)], { cwd: this.cwd, env: this.env, timeout: SLOT_PR_TIMEOUT_MS });
+		const result = await this.runGh(["pr", "close", String(number)]);
 		if (result.code === 0 && !result.killed) return { type: "ok" };
 		return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
+	}
+
+	private async runGh(args: readonly string[]): Promise<ExecResult> {
+		const result = await runGitHubCli({ execApi: this.execApi, args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
+		if (result.type === "completed") return result.result;
+		return { stdout: "", stderr: result.message, code: 127, killed: false };
 	}
 }
 

@@ -8,6 +8,7 @@ import { executeFreeRelease, planFreeRelease } from "../lifecycle/release.ts";
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
+import { confirmFromStdin } from "./confirmation.ts";
 
 const freedSlotSchema = z.object({ slot_name: z.string(), branch_name: z.string(), worktree_path: z.string() });
 const cleanupSchema = z.object({ slot_name: z.string(), branch_name: z.string(), action: z.union([z.literal("pr"), z.literal("local_branch")]), status: z.union([z.literal("planned"), z.literal("success"), z.literal("skipped"), z.literal("error")]), pr_number: z.number().int().nullable(), message: z.string().nullable() });
@@ -47,7 +48,8 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (request.dry_run) return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, dryRun: true, cancelled: false }));
 	if (request.all && preview.outcome.plan.targets.length > 0 && !request.yes) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive free --all requires --yes in JSON mode (or use --dry-run first).");
-		const confirmed = await confirmFromStdin(repoCtx, `Free ${preview.outcome.plan.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `);
+		const confirmed = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${preview.outcome.plan.targets.length} slot(s), close matching PRs, and delete local branches? [y/N]: `, defaultAnswer: "no" });
+		if (typeof confirmed !== "string") return confirmed;
 		if (confirmed === "no") return ok(buildFreeResult({ wouldFree: preview.outcome.plan.targets, cleanup: preview.outcome.cleanup, skipped: resolved.skipped, dryRun: false, cancelled: true }));
 	}
 	const executed = await executeFreeRelease(repoCtx, preview.outcome.plan, cleanupActions);
@@ -106,9 +108,3 @@ function buildFreeResult(options: { freed?: readonly FreedSlot[] | undefined; wo
 	return { freed: [...(options.freed ?? [])], would_free: [...(options.wouldFree ?? [])], cleanup: [...options.cleanup], skipped: [...options.skipped], dry_run: options.dryRun, cancelled: options.cancelled };
 }
 
-async function confirmFromStdin(ctx: RepoSlotContext, prompt: string): Promise<"yes" | "no"> {
-	ctx.stderr(prompt);
-	const input = await ctx.stdin();
-	const value = input.split(/\r?\n/)[0]?.trim().toLowerCase() ?? "";
-	return value === "y" || value === "yes" ? "yes" : "no";
-}

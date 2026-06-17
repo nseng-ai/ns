@@ -1,5 +1,5 @@
-import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
-import { GITHUB_CLI_TIMEOUT_MS } from "../github-cli.ts";
+import { runCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "../exec.ts";
+import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli } from "../github-cli.ts";
 import { isRecord } from "../primitives.ts";
 import { withTemporaryFile } from "../temp-files.ts";
 
@@ -177,9 +177,19 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	}
 
 	private async runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
-		return this.runner("gh", args, { cwd, timeout: timeoutMs });
+		const result = await runGitHubCli({ execApi: commandRunnerExecApi(this.runner), args, cwd, timeoutMs });
+		if (result.type === "completed") return result.result;
+		return { stdout: "", stderr: result.message, code: 127, killed: false };
 	}
 
+}
+
+function commandRunnerExecApi(runner: CommandRunner): CommandExecApi {
+	return {
+		async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
+			return await runner(command, args, options);
+		},
+	};
 }
 
 function isGithubDiffTooLarge(result: ExecResult): boolean {

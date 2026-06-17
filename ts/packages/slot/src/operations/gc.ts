@@ -5,6 +5,7 @@ import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { outcomeFromGcPlan, planGc, planGcCleanup, executeGcPlan, type SlotGcOutcome } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
 import { renderCleanupLines } from "./cleanup-rendering.ts";
+import { confirmFromStdin } from "./confirmation.ts";
 
 const cleanupSchema = z.object({ slot_name: z.string(), branch_name: z.string(), action: z.union([z.literal("pr"), z.literal("local_branch")]), status: z.union([z.literal("planned"), z.literal("success"), z.literal("skipped"), z.literal("error")]), pr_number: z.number().int().nullable(), message: z.string().nullable() });
 const gcEntrySchema = z.object({
@@ -53,8 +54,9 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (plan.outcome.would_free_count === 0) return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: false })));
 	if (!request.force) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive gc requires --force in JSON mode (or use --dry-run first).");
-		const accepted = await confirmFromStdin(repoCtx, `Free ${plan.outcome.would_free_count} completed slot(s)? [Y/n]: `);
-		if (!accepted) return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: false }), { cancelled: true }));
+		const accepted = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${plan.outcome.would_free_count} completed slot(s)? [Y/n]: `, defaultAnswer: "yes" });
+		if (typeof accepted !== "string") return accepted;
+		if (accepted === "no") return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { dryRun: false }), { cancelled: true }));
 	}
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
@@ -87,9 +89,3 @@ function toGcResult(outcome: SlotGcOutcome, options: { cancelled?: boolean | und
 	};
 }
 
-async function confirmFromStdin(ctx: RepoSlotContext, prompt: string): Promise<boolean> {
-	ctx.stderr(prompt);
-	const input = await ctx.stdin();
-	const value = input.split(/\r?\n/)[0]?.trim().toLowerCase() ?? "";
-	return value === "" || value === "y" || value === "yes";
-}

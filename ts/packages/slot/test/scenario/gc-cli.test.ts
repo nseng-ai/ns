@@ -29,6 +29,26 @@ describe("slot gc CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
+	it("human prompt accepts empty default and declines no", async () => {
+		const accepted = runScenario(["gc"], {
+			stdin: "\n",
+			git: { worktrees: [slotWorktree("slot-01", "feature/closed")], localBranches: ["master", "feature/closed"] },
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await accepted.exit).toBe(0);
+		expect(accepted.stderr.join("")).toContain("[Y/n]");
+		expect(accepted.git.operations()).toEqual([{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" }]);
+
+		const declined = runScenario(["gc"], {
+			stdin: "no\n",
+			git: { worktrees: [slotWorktree("slot-01", "feature/closed")], localBranches: ["master", "feature/closed"] },
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await declined.exit).toBe(0);
+		expect(declined.stdout.join("")).toContain("Cancelled slot gc.");
+		expect(declined.git.operations()).toEqual([]);
+	});
+
 	it("--force frees closed assignments and --delete-branches deletes local branch", async () => {
 		const run = runScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", "feature/closed"), slotWorktree("slot-02", "feature/open")], localBranches: ["master", "feature/closed", "feature/open"] },

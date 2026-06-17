@@ -39,6 +39,26 @@ describe("slot free CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
+	it("human --all prompt accepts and declines", async () => {
+		const accepted = runScenario(["free", "--wt", "slot-01", "--all"], {
+			stdin: "yes\n",
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["master", "feature/a"] },
+			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
+		});
+		expect(await accepted.exit).toBe(0);
+		expect(accepted.stderr.join("")).toContain("[y/N]");
+		expect(accepted.git.operations()).toContainEqual({ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" });
+
+		const declined = runScenario(["free", "--wt", "slot-01", "--all"], {
+			stdin: "\n",
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["master", "feature/a"] },
+			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
+		});
+		expect(await declined.exit).toBe(0);
+		expect(declined.stdout.join("")).toContain("Cancelled slot free.");
+		expect(declined.git.operations()).toEqual([]);
+	});
+
 	it("--all --yes closes PR then deletes local branch after detach", async () => {
 		const run = runScenario(["free", "-b", "feature/a", "--all", "--yes", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")], localBranches: ["master", "feature/a"] },
