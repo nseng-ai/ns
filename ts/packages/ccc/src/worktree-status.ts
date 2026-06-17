@@ -588,7 +588,7 @@ export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 	parts.push(`↑ ${status.up}`);
 	const commits = formatGtCommitStatus(status.commits);
 	if (commits !== undefined) parts.push(commits);
-	if (status.dirty === "yes") parts.push("dirty");
+	if (status.dirty === "yes") parts.push("✗");
 	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(` ${parts.join(" · ")}`, theme)}`;
 }
 

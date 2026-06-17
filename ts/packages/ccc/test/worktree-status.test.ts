@@ -272,7 +272,7 @@ describe("worktree status formatting", () => {
 			"[gt] ↓ main · ↑ - · commits ?",
 		);
 		expect(formatGtStatus({ down: "main", up: "-", commits: { type: "count", count: 0 }, dirty: "yes" })).toBe(
-			"[gt] ↓ main · ↑ - · 0 commits · dirty",
+			"[gt] ↓ main · ↑ - · 0 commits · ✗",
 		);
 	});
 
@@ -708,7 +708,7 @@ describe("loadGtStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(formatted).toBe("[gt] ↓ main · ↑ - · 0 commits · dirty");
+			expect(formatted).toBe("[gt] ↓ main · ↑ - · 0 commits · ✗");
 		});
 	});
 

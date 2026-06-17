@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
@@ -304,7 +304,7 @@ describe("worktree status extension registration", () => {
 			);
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines[0]).toBe(`(no-slot) (current-branch) (${root})`);
+			expect(footerLines[0]).toBe(`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:current-branch ↓:main commits:1 ↑:-`);
 			expect(footerLines[0]).not.toContain("stale-branch");
 			await pi.sessionShutdown?.();
 		});
@@ -321,7 +321,7 @@ describe("worktree status extension registration", () => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 				ghNoPrStep(),
-				dirtyStep(),
+				dirtyStep(" M file.txt\n"),
 			]);
 			const statuses = new Map<string, string>();
 			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
@@ -379,12 +379,18 @@ describe("worktree status extension registration", () => {
 				},
 			);
 
-			const wideFooterLines = footer.render(200).map(stripTerminalEscapes);
-			expect(wideFooterLines[0]).toBe("(slot-02) (feature/slot-identity) (ts/packages/pi-extensions)");
+			const wideFooterRaw = footer.render(200)[0] ?? "";
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158m[wt]\x1B[39m\x1B[38;2;95;102;115m \x1B[39m\x1B[38;2;139;148;158mrepo:\x1B[39m\x1B[38;2;125;211;252masdl-tools\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mwt:\x1B[39m\x1B[38;2;125;211;252mslot-02\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mpwd:\x1B[39m\x1B[38;2;167;139;250mts/packages/pi-extensions\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mbr:\x1B[39m\x1B[38;2;251;191;36mfeature/slot-identity\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;239;68;68m✗\x1B[39m");
+			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
+			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/packages/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
 			expect(wideFooterLines[0]).not.toContain("stale-branch");
 			const narrowIdentity = footer.render(46).map(stripTerminalEscapes)[0] ?? "";
-			expect(narrowIdentity).toContain("(slot-02) (feature/slot-identity)");
+			expect(narrowIdentity).toContain("[wt] repo:asdl-tools wt:slot-02");
 			expect(narrowIdentity).toContain("...");
 			await pi.sessionShutdown?.();
 		});
@@ -550,11 +556,10 @@ describe("worktree status extension registration", () => {
 			);
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines.slice(-3)).toEqual([
-				"[brmem] (pb-plan: handoffs-graphite-footer-lines.md)",
-				"[gt] ↓ main · ↑ - · 1 commit",
-				"[gh] no PR",
-			]);
+			expect(footerLines[0]).toBe(`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:feature/current ↓:main commits:1 ↑:-`);
+			expect(footerLines).toContain("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
+			expect(footerLines).toContain("[gh] no PR");
+			expect(footerLines).not.toContain("[gt] ↓ main · ↑ - · 1 commit");
 			await pi.sessionShutdown?.();
 		});
 	});
