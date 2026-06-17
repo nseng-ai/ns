@@ -66,6 +66,17 @@ function negativeEnvelope(data: object): string {
 	return JSON.stringify({ exit_code: 1, message: "No PR found", data });
 }
 
+function counts(overrides: Partial<Record<"included_review_threads" | "included_reviews" | "included_discussion_comments" | "excluded_resolved_threads" | "excluded_empty_reviews" | "excluded_automation_comments", number>> = {}): object {
+	return {
+		included_review_threads: overrides.included_review_threads ?? 0,
+		included_reviews: overrides.included_reviews ?? 0,
+		included_discussion_comments: overrides.included_discussion_comments ?? 0,
+		excluded_resolved_threads: overrides.excluded_resolved_threads ?? 0,
+		excluded_empty_reviews: overrides.excluded_empty_reviews ?? 0,
+		excluded_automation_comments: overrides.excluded_automation_comments ?? 0,
+	};
+}
+
 async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand(pi, PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, rawArgs);
 }
@@ -163,8 +174,8 @@ describe("/pr:download-stack-feedback", () => {
 					],
 				}),
 			}),
-			execResult({ stdout: envelope({ markdown: pr101Markdown }) }),
-			execResult({ stdout: envelope({ markdown: pr102Markdown }) }),
+			execResult({ stdout: envelope({ markdown: pr101Markdown, counts: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }) }) }),
+			execResult({ stdout: envelope({ markdown: pr102Markdown, counts: counts({ included_discussion_comments: 3, included_reviews: 1, excluded_empty_reviews: 1, excluded_automation_comments: 4 }) }) }),
 		]);
 
 		const ctx = await runStackCommand(pi);
@@ -176,12 +187,28 @@ describe("/pr:download-stack-feedback", () => {
 			{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "102", "--format", "json"] },
 		]);
 		expect(ctx.editorTexts).toHaveLength(1);
-		expect(ctx.editorTexts[0]).toContain("# PR stack feedback triage request");
-		expect(ctx.editorTexts[0]).toContain("- #101 branch-one: First (https://example.test/pull/101)");
-		expect(ctx.editorTexts[0]).toContain("## PR #101: First");
-		expect(ctx.editorTexts[0]).toContain("### Target PR");
-		expect(ctx.editorTexts[0]).toContain("Thread 101");
-		expect(ctx.editorTexts[0]).toContain("Comment 102");
+		const prompt = ctx.editorTexts[0] ?? "";
+		expect(prompt).toContain("# PR stack feedback triage request");
+		expect(prompt).toContain("Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.");
+		expect(prompt).toContain("## Stack PRs");
+		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
+		expect(prompt).toContain("## Feedback by PR");
+		expect(prompt).toContain("## PR #101: First");
+		expect(prompt).toContain("### Target PR");
+		expect(prompt).toContain("Thread 101");
+		expect(prompt).toContain("Comment 102");
+		expect(prompt.indexOf("## Summary")).toBeGreaterThan(prompt.indexOf("Comment 102"));
+		expect(prompt).toContain("Downloaded feedback for 2 PRs in the current Graphite stack.");
+		expect(prompt).toContain("Stack PRs:\n- #101 branch-one: First (https://example.test/pull/101)\n- #102 branch-two: Second (https://example.test/pull/102)");
+		expect(prompt).toContain("- Unresolved review threads included: 1");
+		expect(prompt).toContain("- PR-level review bodies included: 1");
+		expect(prompt).toContain("- Discussion comments included: 3");
+		expect(prompt).toContain("- Resolved review threads excluded: 2");
+		expect(prompt).toContain("- Empty PR-level reviews excluded: 1");
+		expect(prompt).toContain("- Automation-like discussion comments excluded: 4");
+		expect(prompt.indexOf("## Instructions before responding")).toBeGreaterThan(prompt.indexOf("## Summary"));
+		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
+		expect(prompt.trim()).toMatch(/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u);
 		expect(ctx.notifications.at(-1)).toEqual({ message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.", level: "info" });
 		expect(ctx.statuses.at(0)).toEqual({ key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, value: "PR stack feedback: discovering stack…" });
 		expect(ctx.statuses.at(-1)).toEqual({ key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, value: undefined });
