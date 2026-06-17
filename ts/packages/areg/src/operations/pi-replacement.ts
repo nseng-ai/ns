@@ -51,8 +51,8 @@ export interface PiReplacementVerification {
 	surface?: string | undefined;
 }
 
-export function derivePiReplacementCommand(skillName: string): string | undefined {
-	for (const namespace of [...KNOWN_PI_COMMAND_NAMESPACES].sort((left, right) => right.length - left.length)) {
+export function derivePiReplacementCommand(skillName: string, namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES): string | undefined {
+	for (const namespace of [...namespaces].sort((left, right) => right.length - left.length)) {
 		const prefix = `${namespace}-`;
 		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
 	}

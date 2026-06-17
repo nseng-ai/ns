@@ -217,16 +217,12 @@ function emptyFailure(error: AregErrorInfo, operationStatuses: readonly ProjectM
 	};
 }
 
-export function createProjectMutationOperationStatusRecord(options: ProjectMutationOperationStatusRecord): ProjectMutationOperationStatusRecord {
-	return { ...options };
-}
-
 function operationStatus(operation: ProjectMutationOperation, status: ProjectMutationOperationStatus, error?: AregErrorInfo | undefined): ProjectMutationOperationStatusRecord {
-	return createProjectMutationOperationStatusRecord({
+	return {
 		type: operation.type,
 		path: operation.relativePath,
 		description: operation.description,
 		status,
 		error,
-	});
+	};
 }

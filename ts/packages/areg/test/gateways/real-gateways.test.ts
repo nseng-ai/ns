@@ -8,6 +8,7 @@ import { describe, expect, test } from "vitest";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 
 import type { AregNpxSkillsAddRequest, AregNpxSkillsAddResult, AregNpxSkillsGateway } from "../../src/gateways.ts";
+import { derivePiReplacementCommand } from "../../src/operations/pi-replacement.ts";
 import {
 	buildNpxSkillsAddArgs,
 	RealAregGithubGateway,
@@ -409,21 +410,11 @@ function expectedBackingSkillCommandSurfaces(source: string): readonly string[] 
 	const specializedSurfaces = new Set(Object.values(specialized));
 	const genericSurfaces = skillNames.flatMap((skillName) => {
 		if (skillName in specialized) return [];
-		const surface = deriveReplacementSurface(skillName, namespaces);
+		const surface = derivePiReplacementCommand(skillName, namespaces);
 		if (surface === undefined || specializedSurfaces.has(surface)) return [];
 		return [surface];
 	});
 	return [...specializedSurfaces, ...genericSurfaces];
-}
-
-function deriveReplacementSurface(skillName: string, namespaces: readonly string[]): string | undefined {
-	for (const namespace of namespaces) {
-		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
-	}
-	const firstHyphen = skillName.indexOf("-");
-	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
-	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
 }
 
 function readConstStringArray(source: string, name: string): readonly string[] {

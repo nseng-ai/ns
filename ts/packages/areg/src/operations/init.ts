@@ -12,7 +12,6 @@ import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } 
 import { inspectInitProject } from "./project-inspection.ts";
 import {
 	applyProjectMutationPlan,
-	createProjectMutationOperationStatusRecord,
 	PROJECT_MUTATION_OPERATION_STATUSES,
 	PROJECT_MUTATION_OPERATION_TYPES,
 	type ProjectMutationOperationStatusRecord,
@@ -123,13 +122,13 @@ function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<In
 }
 
 function npxSkillsAddOperation(status: ProjectMutationOperationStatusRecord["status"], error?: ProjectMutationOperationStatusRecord["error"]): ProjectMutationOperationStatusRecord {
-	return createProjectMutationOperationStatusRecord({
+	return {
 		type: "external",
 		path: "npx skills add",
 		description: `Install bootstrap skills from ${BOOTSTRAP_REPO}`,
 		status,
 		error,
-	});
+	};
 }
 
 export async function runInit(ctx: AregCliContext, request: InitRequest): Promise<ClinkrExit<InitResult>> {

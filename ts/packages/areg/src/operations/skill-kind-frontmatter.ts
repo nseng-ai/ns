@@ -13,7 +13,7 @@ export function planFrontmatterOperation(skillName: string, text: string, kind: 
 	const transformed = transformSkillFrontmatter(text, relativePath, desiredFrontmatter(kind));
 	if (!transformed.ok) return transformed;
 	if (transformed.value === text) return { ok: true, value: { type: "skip", relativePath, description: "SKILL.md", reason: "SKILL.md frontmatter already current" } };
-	return { ok: true, value: { type: "write", relativePath, description: "SKILL.md", content: transformed.value, createParent: false } };
+	return { ok: true, value: { type: "write", relativePath, description: "SKILL.md", content: transformed.value, shouldCreateParent: false } };
 }
 
 export function desiredFrontmatter(kind: SkillInvocationKind): Readonly<Record<string, string | undefined>> {
