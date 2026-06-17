@@ -1,10 +1,9 @@
-import { failure, ok } from "@asdl/clinkr";
+import { confirmFromStdin, failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { deleteHandoffArtifact, listHandoffSummaries } from "../artifact-storage.ts";
 import { handoffSummarySchema, type HandoffSummary } from "../inventory.ts";
-import { confirmFromStdin } from "./shared.ts";
 
 const gcActionSchema = z.enum(["kept_active", "would_delete", "deleted", "error"]);
 export type GcAction = z.infer<typeof gcActionSchema>;
@@ -47,6 +46,7 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 		stdin: ctx.stdin,
 		stderr: ctx.stderr,
 		prompt: `Delete ${preview.would_delete_count} handoff(s)? [y/N]: `,
+		defaultAnswer: "no",
 	});
 	if (confirmed === "yes") return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
 	if (confirmed !== "no") return confirmed;

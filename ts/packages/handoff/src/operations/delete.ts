@@ -1,9 +1,9 @@
-import { failure, ok } from "@asdl/clinkr";
+import { confirmFromStdin, failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { deleteHandoffArtifact, prepareHandoffDeletion } from "../artifact-storage.ts";
-import { confirmFromStdin, resolveBranch } from "./shared.ts";
+import { resolveBranch } from "./shared.ts";
 
 export const deleteRequestSchema = z.object({
 	slug: z.string().describe("Handoff slug."),
@@ -41,6 +41,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 			stdin: ctx.stdin,
 			stderr: ctx.stderr,
 			prompt: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`? [y/N]: `,
+			defaultAnswer: "no",
 		});
 		if (confirmed === "no") return ok(cancelledResult(target.value));
 		if (confirmed !== "yes") return confirmed;

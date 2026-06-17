@@ -1,11 +1,10 @@
-import { failure, negative, ok } from "@asdl/clinkr";
+import { confirmFromStdin, failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { outcomeFromGcPlan, planGc, planGcCleanup, executeGcPlan, type SlotGcOutcome } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
 import { renderCleanupLines } from "./cleanup-rendering.ts";
-import { confirmFromStdin } from "./confirmation.ts";
 
 const cleanupSchema = z.object({ slot_name: z.string(), branch_name: z.string(), action: z.union([z.literal("pr"), z.literal("local_branch")]), status: z.union([z.literal("planned"), z.literal("success"), z.literal("skipped"), z.literal("error")]), pr_number: z.number().int().nullable(), message: z.string().nullable() });
 const gcEntrySchema = z.object({
