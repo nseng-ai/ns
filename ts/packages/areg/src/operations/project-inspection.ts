@@ -4,7 +4,6 @@ import type {
 	AregCheckSkillInspection,
 	AregInstructionFilesInspection,
 	AregPathState,
-	AregPiArtifactsInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
@@ -46,36 +45,16 @@ export interface AregSkillKindProjectInspection {
 
 export interface AregInitProjectInspection extends AregProjectBaseInspection, AregInstructionFilesInspection {}
 
-export async function inspectProject(ctx: AregCliContext, projectPath: string): Promise<AregProjectBaseInspection> {
-	return await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
-}
-
-export async function inspectProjectPiArtifacts(ctx: AregCliContext, projectDir: string): Promise<AregPiArtifactsInspection> {
-	return await ctx.project.inspectPiArtifacts({ projectDir, env: ctx.env });
-}
-
-export async function inspectProjectSkillInventory(ctx: AregCliContext, projectDir: string): Promise<AregSkillNameInventory> {
-	return await ctx.project.inspectSkillNameInventory({ projectDir, env: ctx.env });
-}
-
-export async function inspectProjectInstructionFiles(ctx: AregCliContext, projectDir: string): Promise<AregInstructionFilesInspection> {
-	return await ctx.project.inspectInstructionFiles({ projectDir, env: ctx.env });
-}
-
 export async function inspectInitProject(ctx: AregCliContext, projectPath: string): Promise<AregInitProjectInspection> {
-	const base = await inspectProject(ctx, projectPath);
-	const instructionFiles = await inspectProjectInstructionFiles(ctx, base.projectDir);
+	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
+	const instructionFiles = await ctx.project.inspectInstructionFiles({ projectDir: base.projectDir, env: ctx.env });
 	return { ...base, ...instructionFiles };
 }
 
-export async function inspectUpdateSkillsProject(ctx: AregCliContext, projectPath: string): Promise<AregProjectBaseInspection> {
-	return await inspectProject(ctx, projectPath);
-}
-
 export async function collectProjectInspectionFacts(ctx: AregCliContext, projectPath: string): Promise<AregProjectInspectionFacts> {
-	const base = await inspectProject(ctx, projectPath);
-	const piArtifacts = await inspectProjectPiArtifacts(ctx, base.projectDir);
-	const skillInventory = await inspectProjectSkillInventory(ctx, base.projectDir);
+	const base = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath, env: ctx.env });
+	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir: base.projectDir, env: ctx.env });
+	const skillInventory = await ctx.project.inspectSkillNameInventory({ projectDir: base.projectDir, env: ctx.env });
 	return {
 		...base,
 		piDir: piArtifacts.piDir,
@@ -107,7 +86,7 @@ export async function inspectCheckProject(ctx: AregCliContext, projectPath: stri
 		piSettings: facts.piSettings,
 		replacement: facts.replacement,
 		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
-		pairingDirectories: await inspectProjectPairingDirectories(ctx, facts.projectDir),
+		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: facts.projectDir, env: ctx.env }),
 	};
 }
 
@@ -121,10 +100,6 @@ export async function inspectSkillKindProject(ctx: AregCliContext, projectPath: 
 		replacement: facts.replacement,
 		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
 	};
-}
-
-export async function inspectProjectPairingDirectories(ctx: AregCliContext, projectDir: string): Promise<readonly AregCheckPairingDirectory[]> {
-	return await ctx.project.inspectPairingDirectories({ projectDir, env: ctx.env });
 }
 
 export async function collectCheckSkillInspections(ctx: AregCliContext, projectDir: string, skillNames: readonly string[]): Promise<readonly AregCheckSkillInspection[]> {

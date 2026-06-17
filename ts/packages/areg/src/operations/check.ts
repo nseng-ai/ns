@@ -78,7 +78,7 @@ export type CheckReport = z.infer<typeof checkReportSchema>;
 type CheckProjectInspection = AregCheckProjectInspection;
 
 export async function runCheck(ctx: AregCliContext, request: CheckRequest): Promise<ClinkrExit<CheckReport>> {
-	const inspection = await collectCheckProjectInspection(ctx, request.path);
+	const inspection = await inspectCheckProject(ctx, request.path);
 	if (inspection.projectPathState.type !== "directory") {
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}
@@ -284,10 +284,6 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 		}
 	}
 	return issues;
-}
-
-async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: string): Promise<CheckProjectInspection> {
-	return await inspectCheckProject(ctx, projectPath);
 }
 
 function piSettingsPathFailureReport(projectDir: string, message: string): CheckReport {

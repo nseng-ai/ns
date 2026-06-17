@@ -478,19 +478,15 @@ function skillAfterPlannedApply(skill: AregSkillKindSkillInspection, plan: Skill
 }
 
 async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
-	const targetInspection = await collectSkillKindProjectInspection(ctx, requestPath);
+	const targetInspection = await inspectSkillKindProject(ctx, requestPath);
 	if (targetInspection.projectPathState.type === "missing") return { type: "error", message: `Target ${targetInspection.projectDir} does not exist.`, projectDir: targetInspection.projectDir };
 	if (targetInspection.projectPathState.type !== "directory") return { type: "error", message: `${targetInspection.projectDir} is not a directory.`, projectDir: targetInspection.projectDir };
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
 	if (repoRoot.type === "error") return { type: "error", message: repoRoot.error.message, projectDir: targetInspection.projectDir };
 	if (repoRoot.type === "missing") return { type: "error", message: `No Git root found containing ${targetInspection.projectDir}.`, projectDir: targetInspection.projectDir };
 	if (repoRoot.value === targetInspection.projectDir) return { type: "ok", value: { projectDir: targetInspection.projectDir, inspection: targetInspection } };
-	const rootInspection = await collectSkillKindProjectInspection(ctx, repoRoot.value);
+	const rootInspection = await inspectSkillKindProject(ctx, repoRoot.value);
 	return { type: "ok", value: { projectDir: repoRoot.value, inspection: rootInspection } };
-}
-
-async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPath: string): Promise<SkillKindProjectInspection> {
-	return await inspectSkillKindProject(ctx, projectPath);
 }
 
 function validateInspectableSkill(skill: AregSkillKindSkillInspection): Result<undefined> {

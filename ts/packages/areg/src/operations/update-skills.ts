@@ -6,7 +6,7 @@ import type { AregCliContext } from "../context.ts";
 import { sortStrings } from "../sort.ts";
 import { parseInspectedLockfile, type LockfileSkill } from "./lockfile.ts";
 import { resolveProjectAgents } from "./project-agents.ts";
-import { inspectUpdateSkillsProject } from "./project-inspection.ts";
+
 
 const updateStatusSchema = z.enum(["planned", "updated", "failed"]);
 
@@ -44,7 +44,7 @@ type SelectedUpdate = z.infer<typeof selectedUpdateSchema>;
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 
 export async function runUpdateSkills(ctx: AregCliContext, request: UpdateSkillsRequest): Promise<ClinkrExit<UpdateSkillsResult>> {
-	const inspection = await inspectUpdateSkillsProject(ctx, request.path);
+	const inspection = await ctx.project.inspectProjectBase({ cwd: ctx.cwd, projectPath: request.path, env: ctx.env });
 	if (inspection.projectPathState.type !== "directory") {
 		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
 	}

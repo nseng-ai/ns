@@ -94,12 +94,12 @@ Risks:
 - **F is a live behavioral bug, not taste:** linked worktrees silently miss exclusions today; deferring it ships wrong results. It is prioritized first for that reason.
 - The skill-kind unification (C) and replacement-contract change (D) touch real semantics across two commands; a careless merge could change `areg check` diagnostics. Mitigate by unifying behind one classifier with tests before deleting `checkInvokeOnly`.
 - Batch 3's preflight-first design does not promise filesystem or external-command atomicity; it mitigates predictable areg-owned validation failures before mutation and makes post-preflight partial state machine-readable when execution still fails.
-- The gateway-collapse (A) is the highest-leverage but highest-cost item; sequencing it before C/D would mean redoing it once the skill-kind model changes what gateways must expose. It is intentionally last and may be deferred-with-reason rather than forced.
+- The gateway-collapse (A) risk is now accepted as resolved for this Objective: the shared operation-layer project-inspection core landed, and the remaining real/fake gateway file split is intentionally deferred because it would be a broad organization refactor rather than a required semantics fix.
 - Decomposition/version items (J, K) are taste/nice-to-have; the risk is over-investing in them. They are last and explicitly eligible for deferral.
 - If the parent `areg-typescript-port` Objective is closed without pointing here, this parked cleanup could be lost; updating that Objective to reference this slug is advisable but is out of this Objective's mutation scope.
 
 ## Open Questions
 
 - For E, resolved by Batch 3: rollback is out of scope; the accepted contract is preflight-only for areg-owned mutations plus explicit partial-state evidence for execution-time and external-operation failures.
-- For A, do we commit to one `AregProjectInspectionGateway`, or stop at the shared `inspectProject` core with thin per-feature wrappers? Decide at the start of Batch 4.
+- For A, resolved by Batch 4: stop at the shared `inspectProject` / project-inspection operation core with thin per-feature wrappers. Do not introduce a new durable `AregProjectInspectionGateway` or split real/fake gateway monoliths unless a later capability seam proves the need.
 - For K, can `buildCli` read the package version at runtime under the Node ESM/pnpm build, or does bundling make the `cli.ts` literal the pragmatic single source? Confirm before touching version wiring.
