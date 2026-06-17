@@ -2,6 +2,10 @@
 
 This package contains Pi extension modules. Keep extension code testable through the host API instead of reaching directly into Node process globals.
 
+## Package Boundary
+
+`@asdl/pi-extensions` is a leaf package for project-local Pi adapters. Other workspace packages must not import from it. If a non-leaf package needs shared behavior that currently lives here, move or copy the shared contract into a lower-level package instead of adding a dependency on `@asdl/pi-extensions`.
+
 ## Process I/O
 
 Extension modules must not import `node:child_process` or perform synchronous process/spawning I/O. Execute processes through the injected `pi.exec` host capability or a narrow injected function built from it.

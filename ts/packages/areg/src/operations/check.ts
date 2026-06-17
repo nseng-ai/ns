@@ -10,7 +10,7 @@ import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
 import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { inferSkillKindRecord, inspectSkillFrontmatter } from "./skill-kind.ts";
+import { inferSkillKindRecord, inspectSkillFrontmatter } from "./skill-kind-inference.ts";
 import { inspectCheckProject, type AregCheckProjectInspection } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [

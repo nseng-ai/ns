@@ -19,6 +19,16 @@ import {
 import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
 
 describe("real areg gateways", () => {
+	test("mirrored replacement surfaces cover backing skill command surfaces without importing the leaf package", async () => {
+		const tsRoot = path.basename(process.cwd()) === "ts" ? process.cwd() : path.join(process.cwd(), "ts");
+		const aregSource = await readFile(path.join(tsRoot, "packages", "areg", "src", "real-gateways.ts"), "utf8");
+		const backingSkillCommandsSource = await readFile(path.join(tsRoot, "packages", "pi-extensions", "src", "backing-skill-commands.ts"), "utf8");
+		const aregSurfaces = readConstStringArray(aregSource, "AREG_VISIBLE_REPLACEMENT_SURFACES");
+
+		expect(new Set(aregSurfaces).size).toBe(aregSurfaces.length);
+		expect(aregSurfaces).toEqual(expect.arrayContaining([...expectedBackingSkillCommandSurfaces(backingSkillCommandsSource)]));
+	});
+
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
 		const root = await mkdtemp(path.join(os.tmpdir(), "areg-check."));
 		try {
@@ -391,6 +401,42 @@ describe("real areg gateways", () => {
 		}
 	});
 });
+
+function expectedBackingSkillCommandSurfaces(source: string): readonly string[] {
+	const namespaces = [...readConstStringArray(source, "KNOWN_PI_COMMAND_NAMESPACES")].sort((left, right) => right.length - left.length);
+	const skillNames = readConstStringArray(source, "COMMAND_STYLE_LOCAL_SKILLS");
+	const specialized = readConstStringMap(source, "SPECIALIZED_SKILL_REPLACEMENTS");
+	const specializedSurfaces = new Set(Object.values(specialized));
+	const genericSurfaces = skillNames.flatMap((skillName) => {
+		if (skillName in specialized) return [];
+		const surface = deriveReplacementSurface(skillName, namespaces);
+		if (surface === undefined || specializedSurfaces.has(surface)) return [];
+		return [surface];
+	});
+	return [...specializedSurfaces, ...genericSurfaces];
+}
+
+function deriveReplacementSurface(skillName: string, namespaces: readonly string[]): string | undefined {
+	for (const namespace of namespaces) {
+		const prefix = `${namespace}-`;
+		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
+	}
+	const firstHyphen = skillName.indexOf("-");
+	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
+	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
+}
+
+function readConstStringArray(source: string, name: string): readonly string[] {
+	const match = new RegExp(`(?:export\\s+)?const ${name} = \\[([\\s\\S]*?)\\] as const;`).exec(source);
+	if (match?.[1] === undefined) throw new Error(`Could not find const string array ${name}`);
+	return [...match[1].matchAll(/"([^"]+)"/g)].map((stringMatch) => stringMatch[1]).filter((value) => value !== undefined);
+}
+
+function readConstStringMap(source: string, name: string): Readonly<Record<string, string>> {
+	const match = new RegExp(`(?:export\\s+)?const ${name} = \\{([\\s\\S]*?)\\} as const`).exec(source);
+	if (match?.[1] === undefined) throw new Error(`Could not find const string map ${name}`);
+	return Object.fromEntries([...match[1].matchAll(/"([^"]+)": "([^"]+)"/g)].map((stringMatch) => [stringMatch[1], stringMatch[2]]));
+}
 
 class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
 	private readonly skillsToCreate: readonly string[];

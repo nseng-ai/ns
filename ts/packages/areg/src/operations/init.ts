@@ -10,7 +10,7 @@ import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "..
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
-import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
+import { applyProjectMutationPlan, createProjectMutationOperationStatusRecord, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 
@@ -117,13 +117,13 @@ function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<In
 }
 
 function npxSkillsAddOperation(status: ProjectMutationOperationStatusRecord["status"], error?: ProjectMutationOperationStatusRecord["error"]): ProjectMutationOperationStatusRecord {
-	return {
+	return createProjectMutationOperationStatusRecord({
 		type: "external",
 		path: "npx skills add",
 		description: `Install bootstrap skills from ${BOOTSTRAP_REPO}`,
 		status,
 		error,
-	};
+	});
 }
 
 export async function runInit(ctx: AregCliContext, request: InitRequest): Promise<ClinkrExit<InitResult>> {

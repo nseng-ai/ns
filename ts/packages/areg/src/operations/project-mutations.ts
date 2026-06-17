@@ -33,8 +33,13 @@ type ApplyProjectMutationPlanRequest =
 		removeEmptyDirs: readonly ProjectRemoveEmptyDirPlan[];
 	});
 
-export type ProjectMutationOperationType = "write" | "delete" | "remove_empty_dir" | "external";
-export type ProjectMutationOperationStatus = "applied" | "failed" | "not_attempted" | "skipped";
+export const PROJECT_FILE_MUTATION_OPERATION_TYPES = ["write", "delete", "remove_empty_dir"] as const;
+export const PROJECT_MUTATION_OPERATION_TYPES = [...PROJECT_FILE_MUTATION_OPERATION_TYPES, "external"] as const;
+export const PROJECT_MUTATION_OPERATION_STATUSES = ["applied", "failed", "not_attempted", "skipped"] as const;
+
+export type ProjectFileMutationOperationType = (typeof PROJECT_FILE_MUTATION_OPERATION_TYPES)[number];
+export type ProjectMutationOperationType = (typeof PROJECT_MUTATION_OPERATION_TYPES)[number];
+export type ProjectMutationOperationStatus = (typeof PROJECT_MUTATION_OPERATION_STATUSES)[number];
 
 export interface ProjectMutationOperationStatusRecord {
 	type: ProjectMutationOperationType;
@@ -45,7 +50,7 @@ export interface ProjectMutationOperationStatusRecord {
 }
 
 interface ProjectMutationOperationBase {
-	type: ProjectMutationOperationType;
+	type: ProjectFileMutationOperationType;
 	relativePath: string;
 	description: string;
 }
@@ -212,12 +217,16 @@ function emptyFailure(error: AregErrorInfo, operationStatuses: readonly ProjectM
 	};
 }
 
+export function createProjectMutationOperationStatusRecord(options: ProjectMutationOperationStatusRecord): ProjectMutationOperationStatusRecord {
+	return { ...options };
+}
+
 function operationStatus(operation: ProjectMutationOperation, status: ProjectMutationOperationStatus, error?: AregErrorInfo | undefined): ProjectMutationOperationStatusRecord {
-	return {
+	return createProjectMutationOperationStatusRecord({
 		type: operation.type,
 		path: operation.relativePath,
 		description: operation.description,
 		status,
 		error,
-	};
+	});
 }
