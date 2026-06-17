@@ -102,7 +102,7 @@ Return a compact report with:
 2. A per-Objective table:
 
 | Objective | Action | Files changed | Material evidence | Notes |
-| --- | --- | --- | --- | --- |
+| --------- | ------ | ------------- | ----------------- | ----- |
 
 Use `updated`, `skipped`, `ambiguous`, or `closure-ready` as the action. A closure-ready Objective may also have refresh edits, but make clear that it was not closed.
 
