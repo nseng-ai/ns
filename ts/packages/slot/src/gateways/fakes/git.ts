@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import type { BranchCreateOptions, BranchDeleteOptions, CurrentBranchResult, GitCommandFailure, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
+import type { BranchCreateOptions, BranchDeleteOptions, CurrentBranchResult, GitCommandFailure, LocalBranchTip, SlotGitGateway, WorktreeInfo, WorktreeOccupancy } from "../git.ts";
 
 export type FakeSlotGitOperation =
 	| { type: "add-detached-worktree"; path: string; ref: string }
@@ -19,6 +19,7 @@ export interface FakeSlotGitGatewayOptions {
 	dirtyPaths?: readonly string[] | undefined;
 	trunkBranch?: string | undefined;
 	localBranches?: readonly string[] | undefined;
+	localBranchTips?: readonly LocalBranchTip[] | undefined;
 	previousBranches?: Readonly<Record<string, string | null>> | undefined;
 	currentBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
 	checkoutFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
@@ -36,6 +37,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 	private readonly dirtyPaths: ReadonlySet<string>;
 	private readonly trunkBranch: string;
 	private readonly localBranches: Set<string>;
+	private readonly localBranchTips: LocalBranchTip[];
 	private readonly previousBranches: Map<string, string | null>;
 	private readonly currentBranchFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly checkoutFailures: Readonly<Record<string, GitCommandFailure>>;
@@ -53,6 +55,7 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
 		this.trunkBranch = options.trunkBranch ?? "master";
 		this.localBranches = new Set(options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch));
+		this.localBranchTips = (options.localBranchTips ?? [...this.localBranches].map((name) => ({ name, head_iso: null }))).map((tip) => ({ ...tip }));
 		this.previousBranches = new Map(Object.entries(options.previousBranches ?? {}));
 		this.currentBranchFailures = options.currentBranchFailures ?? {};
 		this.checkoutFailures = options.checkoutFailures ?? {};
@@ -104,6 +107,14 @@ export class FakeSlotGitGateway implements SlotGitGateway {
 
 	async branchExists(branch: string): Promise<boolean> {
 		return this.localBranches.has(branch);
+	}
+
+	async listLocalBranches(): Promise<readonly string[]> {
+		return [...this.localBranches].sort();
+	}
+
+	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
+		return this.localBranchTips.map((tip) => ({ ...tip }));
 	}
 
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {

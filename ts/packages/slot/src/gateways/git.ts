@@ -25,6 +25,11 @@ export interface WorktreeOccupancy {
 	operation: string;
 }
 
+export interface LocalBranchTip {
+	name: string;
+	head_iso: string | null;
+}
+
 export interface GitCommandFailure {
 	message: string;
 	returncode?: number | null | undefined;
@@ -55,6 +60,8 @@ export interface SlotGitGateway {
 	getCurrentBranch(cwd: string): Promise<CurrentBranchResult>;
 	getPreviousBranch(cwd: string): Promise<string | null>;
 	branchExists(branch: string): Promise<boolean>;
+	listLocalBranches(): Promise<readonly string[]>;
+	listLocalBranchTips(): Promise<readonly LocalBranchTip[]>;
 	createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null>;
 	deleteLocalBranch(branch: string, options: BranchDeleteOptions): Promise<GitCommandFailure | null>;
 	checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null>;
@@ -147,6 +154,21 @@ export class RealSlotGitGateway implements SlotGitGateway {
 	async branchExists(branch: string): Promise<boolean> {
 		const result = await this.git(["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], this.cwd, { allowFailure: true });
 		return result.isOk;
+	}
+
+	async listLocalBranches(): Promise<readonly string[]> {
+		const result = await this.git(["for-each-ref", "--format=%(refname:short)", "refs/heads/"], this.cwd, { allowFailure: true });
+		if (!result.isOk) return [];
+		return result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+	}
+
+	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
+		const result = await this.git(["for-each-ref", "--format=%(refname:short)%00%(committerdate:iso-strict)", "refs/heads/"], this.cwd, { allowFailure: true });
+		if (!result.isOk) return [];
+		return result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).map((line) => {
+			const [name = "", headIso = ""] = line.split("\0");
+			return { name, head_iso: headIso.length > 0 ? headIso : null };
+		}).filter((tip) => tip.name.length > 0);
 	}
 
 	async createBranch(branch: string, startPoint: string, options: BranchCreateOptions): Promise<GitCommandFailure | null> {

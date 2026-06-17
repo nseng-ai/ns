@@ -16,6 +16,10 @@ import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/g
 import { completionInstallResultSchema, completionRequestSchema, completionShowResultSchema, renderCompletionInstall, renderCompletionShow, runCompletionInstall, runCompletionShow } from "./operations/completion.ts";
 import { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./operations/resize.ts";
 import { renderShellInstall, renderShellShow, runShellInstall, runShellShow, shellInstallResultSchema, shellRequestSchema, shellShowResultSchema } from "./operations/shell.ts";
+import { renderGtNavigation, gtNavigationRequestSchema, gtNavigationResultSchema, runGtDown, runGtUp } from "./operations/gt/navigation.ts";
+import { gtFreeStackRequestSchema, gtFreeStackResultSchema, renderGtFreeStack, runGtFreeStack } from "./operations/gt/free-stack.ts";
+import { renderStackBranches, runStackBranches, stackBranchesRequestSchema, stackBranchesResultSchema } from "./operations/gt/exec/stack-branches.ts";
+import { renderStackMapBranches, runStackMapBranches, stackMapBranchesRequestSchema, stackMapBranchesResultSchema } from "./operations/gt/exec/stack-map-branches.ts";
 
 export const VERSION = "0.1.0";
 
@@ -125,6 +129,57 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		handler: runResize,
 		renderHuman: renderResize,
 	});
+	const gt = new ClinkrGroup<SlotCliContext>({
+		name: "gt",
+		description: "Navigate and manage Graphite stacks in slot worktrees.",
+	});
+	gt.command({
+		name: "up",
+		description: "Go to the single upstack Graphite child branch.",
+		schema: gtNavigationRequestSchema,
+		resultSchema: gtNavigationResultSchema,
+		handler: runGtUp,
+		renderHuman: renderGtNavigation,
+	});
+	gt.command({
+		name: "down",
+		description: "Go to the downstack Graphite parent branch.",
+		schema: gtNavigationRequestSchema,
+		resultSchema: gtNavigationResultSchema,
+		handler: runGtDown,
+		renderHuman: renderGtNavigation,
+	});
+	gt.command({
+		name: "free-stack",
+		description: "Free managed slots assigned to branches in the current Graphite stack.",
+		schema: gtFreeStackRequestSchema,
+		resultSchema: gtFreeStackResultSchema,
+		handler: runGtFreeStack,
+		renderHuman: renderGtFreeStack,
+	});
+	const gtExec = new ClinkrGroup<SlotCliContext>({
+		name: "exec",
+		description: "Commands for skill/agent invocation.",
+		isHidden: true,
+	});
+	gtExec.command({
+		name: "stack-branches",
+		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
+		schema: stackBranchesRequestSchema,
+		resultSchema: stackBranchesResultSchema,
+		handler: runStackBranches,
+		renderHuman: renderStackBranches,
+	});
+	gtExec.command({
+		name: "stack-map-branches",
+		description: "Emit a Graphite branch graph and slot rows for stack-map skill/agent invocation.",
+		schema: stackMapBranchesRequestSchema,
+		resultSchema: stackMapBranchesResultSchema,
+		handler: runStackMapBranches,
+		renderHuman: renderStackMapBranches,
+	});
+	gt.group(gtExec);
+	root.group(gt);
 	const shell = new ClinkrGroup<SlotCliContext>({
 		name: "shell",
 		description: "Manage parent-shell directory-changing integration for slot.",

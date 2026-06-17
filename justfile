@@ -72,6 +72,16 @@ install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/src/c
 # inside an asdl checkout, this checkout's sources everywhere else.
 install-roaster: (_install-ts-shim "roaster" "ts/packages/roaster/src/cli.ts" "just install-roaster")
 
+# Install the slot shim to ~/.local/bin so `slot` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+_uninstall-slot-uv-tool:
+    uv tool uninstall asdl-slots >/dev/null 2>&1 || true
+    @echo "removed stale uv tool asdl-slots if present"
+
+install-slot: _uninstall-slot-uv-tool (_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" "just install-slot or just install-tools")
+    @echo "installed: slot (TypeScript shim)"
+
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
@@ -125,12 +135,11 @@ areg-check: ts-install
 refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
-# Install public tools: slot and objective as editable uv tools;
-# brmem, handoff, and areg via TypeScript source shims.
-install-tools: install-brmem install-handoff install-areg
-    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
+# Install public tools: slot, brmem, handoff, and areg via TypeScript source shims;
+# objective remains an editable uv tool.
+install-tools: install-slot install-brmem install-handoff install-areg
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective"
+    @echo "installed: slot (TypeScript shim), brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

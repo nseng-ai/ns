@@ -69,7 +69,7 @@
     behind command-exec tests, selector/dry-run/confirmation/cleanup/GC classification scenarios,
     plus `pnpm --dir ts/packages/slot run test` and `pnpm --dir ts/packages/slot run check` passing.
 
-- [ ] Port the Graphite subgroup: `slot gt up|down|free-stack` and hidden `slot gt exec
+- [x] Port the Graphite subgroup: `slot gt up|down|free-stack` and hidden `slot gt exec
       stack-branches|stack-map-branches`.
   - Reuse-or-checkout navigation for `up`/`down`; `free-stack` stack collection excluding current and
     trunk, with `--downstack`; `on_trunk`/`no_slots` noop reasons; `gt_*` error types and the
@@ -78,9 +78,14 @@
     shapes for stack-branches / stack-map-branches.
   - Policy: directly executable after preview behind the `slot gt` Graphite-named boundary. Ask
     before broadening the Graphite dependency beyond `slot gt`.
-  - Evidence: scenario tests with a fake GtGateway for up/down/free-stack/exec, and a Semantic Update.
+  - Evidence: TypeScript `slot gt` subgroup registered with lazy package-local `SlotGtGateway`, Node
+    built-in SQLite metadata reader, fake-driven scenarios for up/down/free-stack/hidden exec, hidden
+    `stack-map-branches` JSON preserving the `sdlcc` consumer shape, plus
+    `pnpm --dir ts/packages/slot run test`, `pnpm --dir ts/packages/slot run check`,
+    `pnpm --dir ts --filter sdlcc run check`, and
+    `pnpm --dir ts exec vitest run --config vitest.config.ts packages/sdlcc/test` passing.
 
-- [ ] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
+- [x] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
       parent-shell `cd` directive, and clipboard. (Novel-risk slice.)
   - Preserve the `$SLOT_CD_DIRECTIVE_FILE` protocol and `inactive`/`written`/`failed` states; the
     "never cd in `--format json` / `--json-schema`" rule; zsh/bash detection from `$SHELL`; the
@@ -94,8 +99,8 @@
   - Policy: steer-first slice. Preview required; ask before changing the env-var name, marker
     strings, or the JSON-mode cd suppression rule.
   - Evidence: fake-driven scenario tests for show/install/cd-directive/clipboard, minimal Clinkr
-    static shell-completion support, explicit manual real-shell parity deferral, and a Semantic
-    Update.
+    static shell-completion support, explicit manual real-shell parity deferral, a Semantic Update,
+    and cutover reconciliation that verified the live code/test anchors still exist.
 
 - [ ] Cut over public docs, wrapper, and distribution to the TypeScript default.
   - Make the standalone TypeScript `slot` CLI the default surface; add `just install-slot`
@@ -109,7 +114,8 @@
     preview. npm/PyPI publishing and checkout-free bundling are out of scope unless newly accepted.
   - Evidence: shim recipe, wrapper tests (enclosing-checkout/canonical/missing-dep/no-checkout),
     `install-tools` routing, docs refresh, manual rendered-shim smoke, manual real-shell parity
-    transcript, and a Semantic Update.
+    transcript, and a Semantic Update. Automated cutover edits are present in the Phase A cutover
+    Semantic Update; row remains unchecked until user-owned manual install/shell parity is confirmed.
 
 - [ ] Retire the Python fallback and delete `packages/asdl-slots` from active paths.
   - Gate on full 17-command parity, worktree-state parity, shell-integration parity (incl. real-shell

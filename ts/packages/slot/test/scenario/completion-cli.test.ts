@@ -24,7 +24,7 @@ describe("slot completion CLI", () => {
 		const envelope = parseJsonOutput(run) as { data: { shell: string; script: string } };
 		expect(envelope.data.shell).toBe("bash");
 		expect(envelope.data.script).toContain("complete -F _slot_completion slot");
-		expect(envelope.data.script).toContain("checkout co goto claim free gc init resize shell completion");
+		expect(envelope.data.script).toContain("checkout co goto claim free gc init resize gt shell completion");
 	});
 
 	it("installs completion with distinct markers that coexist with shell integration", async () => {

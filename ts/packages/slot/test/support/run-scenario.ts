@@ -2,6 +2,7 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotGitGateway, type FakeSlotGitGatewayOptions } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPRGateway, type FakeSlotPRGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
@@ -9,6 +10,7 @@ import { FakeRcFilesystem } from "./fake-rc-filesystem.ts";
 
 export interface ScenarioRunOptions {
 	git?: FakeSlotGitGatewayOptions | undefined;
+	gt?: FakeSlotGtGatewayOptions | FakeSlotGtGateway | undefined;
 	clipboard?: FakeClipboardGateway | undefined;
 	pr?: FakeSlotPRGatewayOptions | FakeSlotPRGateway | undefined;
 	rc?: FakeRcFilesystem | undefined;
@@ -23,6 +25,7 @@ export interface ScenarioRun {
 	stdout: string[];
 	stderr: string[];
 	git: FakeSlotGitGateway;
+	gt: FakeSlotGtGateway;
 	pr: FakeSlotPRGateway;
 	storage: FakeSlotStorageGateway;
 	rc: FakeRcFilesystem;
@@ -34,6 +37,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const git = new FakeSlotGitGateway(options.git);
+	const gt = options.gt instanceof FakeSlotGtGateway ? options.gt : new FakeSlotGtGateway(options.gt);
 	const storage = new FakeSlotStorageGateway();
 	const pr = options.pr instanceof FakeSlotPRGateway ? options.pr : new FakeSlotPRGateway(options.pr);
 	const rc = options.rc ?? new FakeRcFilesystem();
@@ -46,6 +50,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		storage,
 		clipboard: options.clipboard ?? new FakeClipboardGateway(),
 		pr,
+		gt,
 		rc,
 		stdin,
 		stderr: (text) => stderr.push(text),
@@ -55,7 +60,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		shouldWriteCdDirective: true,
 	};
 	const deps: CliDeps = { context, cwd, env: context.env, stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text), stdin };
-	return { exit: runCli(args, deps), stdout, stderr, git, pr, storage, rc, context };
+	return { exit: runCli(args, deps), stdout, stderr, git, gt, pr, storage, rc, context };
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {
