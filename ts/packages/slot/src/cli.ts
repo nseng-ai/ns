@@ -13,7 +13,9 @@ import { initRequestSchema, initResultSchema, renderInit, runInit } from "./oper
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
+import { completionInstallResultSchema, completionRequestSchema, completionShowResultSchema, renderCompletionInstall, renderCompletionShow, runCompletionInstall, runCompletionShow } from "./operations/completion.ts";
 import { renderResize, resizeRequestSchema, resizeResultSchema, runResize } from "./operations/resize.ts";
+import { renderShellInstall, renderShellShow, runShellInstall, runShellShow, shellInstallResultSchema, shellRequestSchema, shellShowResultSchema } from "./operations/shell.ts";
 
 export const VERSION = "0.1.0";
 
@@ -123,6 +125,48 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		handler: runResize,
 		renderHuman: renderResize,
 	});
+	const shell = new ClinkrGroup<SlotCliContext>({
+		name: "shell",
+		description: "Manage parent-shell directory-changing integration for slot.",
+	});
+	shell.command({
+		name: "show",
+		description: "Print the opt-in zsh/bash parent-shell wrapper for slot navigation.",
+		schema: shellRequestSchema,
+		resultSchema: shellShowResultSchema,
+		handler: runShellShow,
+		renderHuman: renderShellShow,
+	});
+	shell.command({
+		name: "install",
+		description: "Append the opt-in zsh/bash parent-shell wrapper to the user's shell rc file.",
+		schema: shellRequestSchema,
+		resultSchema: shellInstallResultSchema,
+		handler: runShellInstall,
+		renderHuman: renderShellInstall,
+	});
+	root.group(shell);
+	const completion = new ClinkrGroup<SlotCliContext>({
+		name: "completion",
+		description: "Manage shell completion for slot.",
+	});
+	completion.command({
+		name: "show",
+		description: "Print the Clinkr-backed shell-completion activation script for slot.",
+		schema: completionRequestSchema,
+		resultSchema: completionShowResultSchema,
+		handler: runCompletionShow,
+		renderHuman: renderCompletionShow,
+	});
+	completion.command({
+		name: "install",
+		description: "Append slot's Clinkr-backed shell-completion activation script to the user's shell rc file.",
+		schema: completionRequestSchema,
+		resultSchema: completionInstallResultSchema,
+		handler: runCompletionInstall,
+		renderHuman: renderCompletionInstall,
+	});
+	root.group(completion);
 	return root;
 }
 

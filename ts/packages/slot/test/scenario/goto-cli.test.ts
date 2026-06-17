@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { SLOT_CD_DIRECTIVE_FILE } from "../../src/shell/cd-directive.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
@@ -65,6 +66,17 @@ describe("slot goto CLI", () => {
 		const run = runScenario(["goto", "--json-schema"], { env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath }, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
 		expect(await run.exit).toBe(0);
 		await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
+	});
+
+	it("keeps clipboard failures non-fatal and reports skipped clipboard", async () => {
+		const failingClipboard = new FakeClipboardGateway({ type: "failure", reason: "backend_missing", detail: "missing pbcopy" });
+		const failed = runScenario(["goto", "-n", "1", "--format", "json"], { clipboard: failingClipboard, git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await failed.exit).toBe(0);
+		expect(parseJsonOutput(failed)).toMatchObject({ data: { cd_command: "cd /slots/repos/repo/worktrees/slot-01", clipboard_copied: false, clipboard_skipped: false, clipboard_failure_reason: "backend_missing", clipboard_failure_detail: "missing pbcopy" } });
+
+		const skipped = runScenario(["goto", "-n", "1", "--no-clipboard", "--format", "json"], { git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] } });
+		expect(await skipped.exit).toBe(0);
+		expect(parseJsonOutput(skipped)).toMatchObject({ data: { clipboard_copied: false, clipboard_skipped: true, clipboard_failure_reason: null, clipboard_failure_detail: null } });
 	});
 });
 

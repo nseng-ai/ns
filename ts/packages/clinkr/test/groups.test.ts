@@ -124,6 +124,22 @@ describe("nested groups", () => {
 	});
 });
 
+describe("shell completion", () => {
+	test("renders static zsh and bash completion scripts from registered commands and groups", () => {
+		const group = buildTree();
+		const zsh = group.shellCompletionScript("zsh", "root");
+		expect(zsh).toContain("#compdef root");
+		expect(zsh).toContain("commands=('top' 'sub' 'exec')");
+		expect(zsh).toContain("subcommands=('inner')");
+		expect(zsh).toContain("compdef _root_completion root");
+
+		const bash = group.shellCompletionScript("bash", "root");
+		expect(bash).toContain("complete -F _root_completion root");
+		expect(bash).toContain("compgen -W 'top sub exec'");
+		expect(bash).toContain("compgen -W 'inner'");
+	});
+});
+
 describe("hidden subgroups", () => {
 	test("hidden subgroups are absent from parent help", async () => {
 		const run = await runForTest(buildTree(), ["--help"], { context: { calls: [] } });
