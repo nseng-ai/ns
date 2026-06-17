@@ -40,6 +40,13 @@ export {
 	validatePlanSlug,
 } from "./plan-persistence.ts";
 export {
+	mergeSavedPlanTags,
+	parseSavedPlanTags,
+	validatePlanTag,
+	type MergePlanTagsResult,
+	type SavedPlanMetadata,
+} from "./saved-plan-metadata.ts";
+export {
 	NoSavedPlanAvailableError,
 	buildPlanFileName,
 	buildRepoPlanStoreKey,

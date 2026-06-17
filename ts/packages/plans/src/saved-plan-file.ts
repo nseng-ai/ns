@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { mkdir, open, readdir, realpath, stat } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -11,6 +11,7 @@ import {
 } from "@sdl/core/github-status";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { isRecord } from "@sdl/core/primitives";
+import { mergeSavedPlanTags, parseSavedPlanTags } from "./saved-plan-metadata.ts";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -22,6 +23,7 @@ export interface SavedPlanFileParams {
 	slug: string;
 	content: string;
 	summary?: string;
+	tags?: readonly string[];
 }
 
 export interface PlanStoreOptions {
@@ -53,6 +55,7 @@ export interface SavedPlanListItem extends PlanStoreRepoEvidence {
 	filePath: string;
 	fileName: string;
 	modifiedTimeMs: number;
+	tags: readonly string[];
 }
 
 export interface LatestSavedPlanFileEvidence extends PlanStoreDirectoryEvidence {
@@ -246,6 +249,7 @@ export async function listSavedPlans(
 				continue;
 			}
 
+			const content = await readFile(filePath, "utf8");
 			plans.push({
 				...repoDirectory,
 				branchKey,
@@ -253,6 +257,7 @@ export async function listSavedPlans(
 				filePath,
 				fileName: planEntry.name,
 				modifiedTimeMs: fileStat.mtimeMs,
+				tags: parseSavedPlanTags(content),
 			});
 		}
 	}
@@ -324,7 +329,12 @@ export async function writeSavedPlanFile(
 	const directory = await resolvePlanStoreDirectory(pi, options);
 	const filePath = join(directory.directoryPath, buildPlanFileName(slug));
 
-	await writeExclusiveFile(filePath, params.content);
+	const mergeResult = mergeSavedPlanTags(params.content, params.tags ?? []);
+	if (mergeResult.type === "invalid-tags") {
+		throw new Error(`Cannot apply saved-plan tags: ${mergeResult.message}`);
+	}
+
+	await writeExclusiveFile(filePath, mergeResult.content);
 
 	const evidence = {
 		slug,
@@ -350,6 +360,7 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	const slug = params.slug;
 	const content = params.content;
 	const summary = params.summary;
+	const tags = params.tags;
 	if (typeof slug !== "string") {
 		throw new Error("writeSavedPlanFile requires string parameter `slug`.");
 	}
@@ -359,11 +370,16 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 	if (summary !== undefined && typeof summary !== "string") {
 		throw new Error("writeSavedPlanFile parameter `summary` must be a string when provided.");
 	}
-
-	if (summary === undefined) {
-		return { slug, content };
+	if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string"))) {
+		throw new Error("writeSavedPlanFile parameter `tags` must be an array of strings when provided.");
 	}
-	return { slug, content, summary };
+
+	return {
+		slug,
+		content,
+		...(summary === undefined ? {} : { summary }),
+		...(tags === undefined ? {} : { tags }),
+	};
 }
 
 async function resolveRequiredGitRepoRoot(

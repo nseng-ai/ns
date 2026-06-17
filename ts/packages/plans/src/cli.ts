@@ -17,6 +17,7 @@ import {
 	resolvePlanSourceFile,
 	validatePlanSlug,
 } from "./plan-persistence.ts";
+import { validatePlanTag } from "./saved-plan-metadata.ts";
 import {
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
@@ -35,6 +36,7 @@ const listRequestSchema = z.object({
 		.string()
 		.optional()
 		.describe("Plan store root directory (relative paths resolve against cwd)."),
+	tag: z.array(z.string()).default([]).describe("Plan tag filter; repeatable."),
 });
 
 const saveRequestSchema = z.object({
@@ -42,6 +44,7 @@ const saveRequestSchema = z.object({
 	summary: z.string().optional().describe("Optional saved-plan summary."),
 	stdin: z.boolean().optional().describe("Read plan content from stdin."),
 	contentFile: z.string().optional().describe("Read plan content from this file path."),
+	tag: z.array(z.string()).default([]).describe("Saved-plan tag to apply; repeatable."),
 });
 
 const resolveRequestSchema = z.object({
@@ -145,14 +148,16 @@ async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<L
 			? undefined
 			: normalizeRootPath(request.planStoreRoot, ctx.cwd);
 	const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
+	const tagFilters = validateTagInputs(request.tag, "filter");
 	const plans = await listSavedPlans(ctx.commands, {
 		cwd: ctx.cwd,
 		git: ctx.git,
 		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
 	});
+	const filteredPlans = filterPlansByTags(plans, tagFilters);
 	return {
-		machine: { plans: plans.map(savedPlanListItemJson) },
-		human: stripOneTrailingNewline(formatSavedPlanList(plans)),
+		machine: { plans: filteredPlans.map(savedPlanListItemJson) },
+		human: stripOneTrailingNewline(formatSavedPlanList(filteredPlans, tagFilters)),
 	};
 }
 
@@ -163,6 +168,7 @@ async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<L
 		throw new Error("Pass exactly one of --stdin or --content-file <path>.");
 	}
 
+	const tags = validateTagInputs(request.tag, "save");
 	const content =
 		request.stdin === true
 			? await ctx.stdin()
@@ -173,6 +179,7 @@ async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<L
 			slug: request.slug,
 			content,
 			...(request.summary === undefined ? {} : { summary: request.summary }),
+			...(tags.length === 0 ? {} : { tags }),
 		},
 		{
 			cwd: ctx.cwd,
@@ -216,8 +223,11 @@ async function resolvePlanEvidence(
 	return { source: "latest", ...latest };
 }
 
-function formatSavedPlanList(plans: readonly SavedPlanListItem[]): string {
+function formatSavedPlanList(plans: readonly SavedPlanListItem[], tagFilters: readonly string[] = []): string {
 	if (plans.length === 0) {
+		if (tagFilters.length > 0) {
+			return `No saved plans found for the current repository matching tags: ${tagFilters.join(", ")}.\n`;
+		}
 		return "No saved plans found for the current repository.\n";
 	}
 
@@ -226,6 +236,7 @@ function formatSavedPlanList(plans: readonly SavedPlanListItem[]): string {
 		lines.push(
 			[
 				`- ${plan.slug}`,
+				...(plan.tags.length === 0 ? [] : [`  Tags: ${plan.tags.join(", ")}`]),
 				`  Branch key: ${plan.branchKey}`,
 				`  Modified: ${new Date(plan.modifiedTimeMs).toISOString()}`,
 				`  Path: ${plan.filePath}`,
@@ -239,6 +250,7 @@ function savedPlanListItemJson(plan: SavedPlanListItem): Record<string, unknown>
 	return {
 		slug: plan.slug,
 		branch_key: plan.branchKey,
+		tags: plan.tags,
 		modified_time_ms: plan.modifiedTimeMs,
 		path: plan.filePath,
 		file_name: plan.fileName,
@@ -307,6 +319,29 @@ function formatLatestSavedPlanFileEvidence(evidence: LatestSavedPlanFileEvidence
 		`Slug: ${evidence.slug}`,
 		`Modified time ms: ${evidence.modifiedTimeMs}`,
 	].join("\n");
+}
+
+function validateTagInputs(tags: readonly string[], role: "filter" | "save"): readonly string[] {
+	const deduped: string[] = [];
+	const seen = new Set<string>();
+	for (const tag of tags) {
+		const error = validatePlanTag(tag);
+		if (error !== undefined) {
+			throw new Error(`Invalid saved-plan ${role} tag \`${tag}\`: ${error}`);
+		}
+		if (!seen.has(tag)) {
+			seen.add(tag);
+			deduped.push(tag);
+		}
+	}
+	return deduped;
+}
+
+function filterPlansByTags(plans: readonly SavedPlanListItem[], tagFilters: readonly string[]): readonly SavedPlanListItem[] {
+	if (tagFilters.length === 0) {
+		return plans;
+	}
+	return plans.filter((plan) => tagFilters.every((tag) => plan.tags.includes(tag)));
 }
 
 function stripOneTrailingNewline(value: string): string {

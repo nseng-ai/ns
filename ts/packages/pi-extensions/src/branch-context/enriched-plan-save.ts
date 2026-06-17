@@ -10,6 +10,7 @@ import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
+	validatePlanTag,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
 } from "@sdl/plans";
@@ -33,6 +34,7 @@ const WRITE_PLAN_TOOL_STATUS_KEY = "enriched-plan:save";
 interface WriteSavedPlanFileToolParams {
 	content: string;
 	summary?: string;
+	tags?: readonly string[];
 }
 
 interface WriteSavedPlanFileToolDetails extends SavedPlanFileEvidence {
@@ -55,6 +57,7 @@ export const DEFAULT_WRITE_PLAN_PROMPT_BODY = `Plan audience and context contrac
 - Embed all relevant context discovered during planning, including user goals, constraints, current behavior, important files/symbols/tests/docs, decisions made, rationale, rejected alternatives, assumptions, risks, and proportional validation guidance.
 - Prefer concrete file paths, symbol names, command names, expected outcomes, and implementation order over vague instructions.
 - If you inspected evidence during planning, summarize the discovered facts in the plan so the downstream agent does not need to rediscover them unless verification is required.
+- Tags are optional lowercase kebab-case discovery metadata. Use \`follow-up\` for deferred work discovered during review/triage when appropriate; tags do not create Objectives, branches, or Branch Memory entries.
 
 External research/context contract:
 - If planning used anything outside the repository — web searches, external docs, GitHub issues/PRs, API docs, CLIs hitting remote services, local files outside the repo, or other non-repo resources — include the relevant findings inline in the saved plan.
@@ -106,6 +109,7 @@ Saved-plan filename slug rules:
 When the plan is ready, call write_saved_plan_file with:
 - content: the complete reviewed Markdown plan content
 - summary: optional one-sentence summary of the plan
+- tags: optional lowercase kebab-case discovery tags, such as follow-up, pr-review, architecture, or typescript
 
 Exact tool call shape:
 \`\`\`json
@@ -284,13 +288,15 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the local plan store at `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`, with optional lowercase kebab-case discovery tags. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`.",
 		promptGuidelines: [
 			"Use write_saved_plan_file for `/enriched-plan:save` and `/enriched-plan:grill-and-save` after producing a reviewed final Markdown plan.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
 			"write_saved_plan_file writes the local plan store under `~/.sdl/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md`; it does not create branches or write Branch Memory.",
+			"write_saved_plan_file accepts optional lowercase kebab-case tags; use `follow-up` for deferred work discovered during review/triage so plans are discoverable with `enriched-plan list --tag follow-up`.",
+			"Tags are discovery metadata only; they do not create Objectives, branches, handoffs, or Branch Memory entries.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
 			"If write_saved_plan_file reports that the saved plan file already exists, stop and report the collision; never overwrite the existing file.",
@@ -307,6 +313,11 @@ export function buildWriteSavedPlanFileTool(
 				summary: {
 					type: "string",
 					description: "Optional one-sentence summary of the plan.",
+				},
+				tags: {
+					type: "array",
+					items: { type: "string" },
+					description: "Optional lowercase kebab-case discovery tags for the saved plan, e.g. follow-up.",
 				},
 			},
 			required: ["content"],
@@ -477,27 +488,42 @@ function parseWriteSavedPlanFileToolParamsForName(
 
 	const content = params.content;
 	const summary = params.summary;
+	const tags = params.tags;
 	if (typeof content !== "string") {
 		throw new Error(`${toolName} requires string parameter \`content\`.`);
 	}
 	if (summary !== undefined && typeof summary !== "string") {
 		throw new Error(`${toolName} parameter \`summary\` must be a string when provided.`);
 	}
-
-	if (summary === undefined) {
-		return { content };
+	if (tags !== undefined && (!Array.isArray(tags) || !tags.every((tag) => typeof tag === "string"))) {
+		throw new Error(`${toolName} parameter \`tags\` must be an array of strings when provided.`);
 	}
-	return { content, summary };
+	if (Array.isArray(tags)) {
+		for (const tag of tags) {
+			const error = validatePlanTag(tag);
+			if (error !== undefined) {
+				throw new Error(`${toolName} parameter \`tags\` contains invalid tag \`${tag}\`: ${error}`);
+			}
+		}
+	}
+
+	return {
+		content,
+		...(summary === undefined ? {} : { summary }),
+		...(tags === undefined ? {} : { tags }),
+	};
 }
 
 function buildSavedPlanFileParams(
 	params: WriteSavedPlanFileToolParams,
 	slug: string,
-): { slug: string; content: string; summary?: string } {
-	if (params.summary === undefined) {
-		return { slug, content: params.content };
-	}
-	return { slug, content: params.content, summary: params.summary };
+): { slug: string; content: string; summary?: string; tags?: readonly string[] } {
+	return {
+		slug,
+		content: params.content,
+		...(params.summary === undefined ? {} : { summary: params.summary }),
+		...(params.tags === undefined ? {} : { tags: params.tags }),
+	};
 }
 
 function formatSavedPlanFileEvidenceWithSlugModel(

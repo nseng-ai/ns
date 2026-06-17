@@ -38,6 +38,7 @@ const LIST_HELP = [
 	"Options:",
 	"  --plan-store-root <value>  Plan store root directory (relative paths resolve",
 	"                             against cwd).",
+	"  --tag <value>              Plan tag filter; repeatable. (default: [])",
 	'  --format <format>          Output format. (choices: "human", "json",',
 	'                             "markdown", "md", default: "human")',
 	"  --shell-exit-code          Use shell-visible Clinkr semantic exit codes;",
@@ -71,6 +72,7 @@ const SAVE_HELP = [
 	"  --summary <value>       Optional saved-plan summary.",
 	"  --stdin                 Read plan content from stdin.",
 	"  --content-file <value>  Read plan content from this file path.",
+	"  --tag <value>           Saved-plan tag to apply; repeatable. (default: [])",
 	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
 	'                          "md", default: "human")',
 	"  --shell-exit-code       Use shell-visible Clinkr semantic exit codes; negative",
@@ -325,6 +327,7 @@ describe("plans list CLI pins", () => {
 					{
 						slug: "first-useful-saved-plan",
 						branch_key: fixture.branchKey,
+						tags: [],
 						modified_time_ms: MODIFIED_TIME_MS,
 						path: filePath,
 						file_name: "first-useful-saved-plan.md",
@@ -377,6 +380,7 @@ describe("plans list CLI pins", () => {
 				{
 					slug: "relative-root-plan-file",
 					branch_key: fixture.branchKey,
+					tags: [],
 					modified_time_ms: MODIFIED_TIME_MS,
 					path: filePath,
 					file_name: "relative-root-plan-file.md",
