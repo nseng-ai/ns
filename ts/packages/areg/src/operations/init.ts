@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { managedRegionBounds } from "@asdl/core/managed-region";
 import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
@@ -166,14 +167,10 @@ export function replaceOrAppendAregSection(content: string, agents: readonly str
 }
 
 export function managedBlockBounds(content: string, markers: ManagedMarkers, pathLabel: string): Result<{ start: number; end: number } | null> {
-	const startCount = countOccurrences(content, markers.start);
-	const endCount = countOccurrences(content, markers.end);
-	if (startCount === 0 && endCount === 0) return { ok: true, value: null };
-	if (startCount !== 1 || endCount !== 1) return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
-	const start = content.indexOf(markers.start);
-	const endMarkerStart = content.indexOf(markers.end);
-	if (endMarkerStart < start) return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
-	return { ok: true, value: { start, end: endMarkerStart + markers.end.length } };
+	const bounds = managedRegionBounds({ text: content, startMarker: markers.start, endMarker: markers.end });
+	if (bounds.type === "missing") return { ok: true, value: null };
+	if (bounds.type === "malformed") return resultErr({ code: "managed_block_malformed", message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.` });
+	return { ok: true, value: { start: bounds.start, end: bounds.end } };
 }
 
 export function appendBlock(content: string, block: string): string {
@@ -366,13 +363,3 @@ function tomlTableName(line: string): string | null {
 	return stripped.slice(1, closingIndex).trim();
 }
 
-function countOccurrences(content: string, needle: string): number {
-	let count = 0;
-	let start = 0;
-	while (true) {
-		const index = content.indexOf(needle, start);
-		if (index === -1) return count;
-		count += 1;
-		start = index + needle.length;
-	}
-}
