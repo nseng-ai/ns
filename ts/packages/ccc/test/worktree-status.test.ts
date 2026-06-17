@@ -146,7 +146,7 @@ function ghNoPrStep(): ScriptedExec {
 	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
 }
 
-function ghPrViewStep(options: { number: number; passingChecks?: number; pendingChecks?: number; failingChecks?: number }): ScriptedExec {
+function ghPrViewStep(options: { number: number; passingChecks?: number; pendingChecks?: number; failingChecks?: number; unknownChecks?: number }): ScriptedExec {
 	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], {
 		stdout: JSON.stringify({
 			number: options.number,
@@ -167,6 +167,12 @@ function ghPrViewStep(options: { number: number; passingChecks?: number; pending
 					__typename: "CheckRun",
 					conclusion: "FAILURE",
 					name: `failed-${index}`,
+					status: "COMPLETED",
+				})),
+				...Array.from({ length: options.unknownChecks ?? 0 }, (_value, index) => ({
+					__typename: "CheckRun",
+					conclusion: "MYSTERY",
+					name: `unknown-${index}`,
 					status: "COMPLETED",
 				})),
 			],
@@ -283,11 +289,17 @@ describe("worktree status formatting", () => {
 	});
 
 	test("formats gh landability from unresolved comments and condensed action buckets", () => {
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0 })).toBe(
-			"[gh] #1736 · comments 0/8 · actions 16✓ · landable",
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 })).toBe(
+			"[gh] #1736 · comments 8/8 · actions 16✓ · landable",
 		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1 })).toBe(
-			"[gh] #1736 · comments 2/100+ · actions 3⏳ 1✗",
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 18, totalThreads: 18, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 })).toBe(
+			"[gh] #1736 · comments 0/18 · actions 16✓",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1, unknownChecks: 0 })).toBe(
+			"[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 2 })).toBe(
+			"[gh] #1736 · comments 8/8 · actions 2?",
 		);
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
@@ -297,14 +309,14 @@ describe("worktree status formatting", () => {
 	});
 
 	test("colors gh landability by state without changing stripped text", () => {
-		const blocked = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1 }, MARKER_THEME);
+		const blocked = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1, unknownChecks: 0 }, MARKER_THEME);
 		expect(blocked).toContain("<dim>[gh]</dim>");
 		expect(blocked).toContain("<accent>#1736</accent>");
-		expect(blocked).toContain("<warning>2/100+</warning>");
+		expect(blocked).toContain("<warning>98/100+</warning>");
 		expect(blocked).toContain("<warning>3⏳</warning>");
 		expect(blocked).toContain("<error>1✗</error>");
 
-		const landable = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0 }, MARKER_THEME);
+		const landable = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 }, MARKER_THEME);
 		expect(landable).toContain("<accent>16✓</accent>");
 		expect(landable).toContain("<accent>landable</accent>");
 		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
@@ -529,8 +541,29 @@ describe("loadWorktreeStatus", () => {
 				passingChecks: 4,
 				pendingChecks: 2,
 				failingChecks: 1,
+				unknownChecks: 0,
 			});
-			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 3/5 · actions 2⏳ 1✗");
+			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
+		});
+	});
+
+	test("unknown gh checks block landability", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghPrViewStep({ number: 1736, passingChecks: 4, unknownChecks: 1 }),
+				ghReviewThreadsStep({ number: 1736, unresolvedThreads: 0, totalThreads: 0 }),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expectNoGtCalls(pi);
+			expect(status.gh).toMatchObject({ type: "available", unknownChecks: 1 });
+			const formatted = formatWorktreeStatus(status);
+			expect(formatted).toContain("[gh] #1736 · comments 0/0 · actions 1?");
+			expect(formatted.join("\n")).not.toContain("landable");
 		});
 	});
 

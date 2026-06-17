@@ -6,6 +6,7 @@ import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-p
 
 import {
 	formatWorktreeStatus,
+	formatWorktreeStatusForFooter,
 	loadWorktreeStatus,
 	renderWorktreeStatusMessage,
 	WORKTREE_STATUS_UI_KEY,
@@ -25,17 +26,6 @@ export const worktreeStatusParity = definePiSurfaceParity([] as const);
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
 const REMOTE_STATUS_REFRESH_MS = 30_000;
-const FOOTER_IDENTITY_COLORS = {
-	punctuation: "#5f6673",
-	label: "#8b949e",
-	repo: "#7dd3fc",
-	slot: "#7dd3fc",
-	branch: "#fbbf24",
-	path: "#a78bfa",
-	commit: "#7dd3fc",
-	topology: "#a78bfa",
-	dirty: "#ef4444",
-} as const;
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);
 const IGNORED_WORKTREE_PATH_PARTS = new Set([
 	".git",
@@ -99,11 +89,10 @@ interface StatusFooterRenderOptions {
 	footerData: StatusFooterData;
 	theme: StatusTheme;
 	width: number;
-	gt?: GtStatus | undefined;
+	worktreeStatus?: WorktreeStatus | undefined;
 }
 
 interface FooterExtensionStatusLines {
-	worktreeState: string[];
 	activity: string[];
 }
 
@@ -361,7 +350,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 				dispose: unsubscribe,
 				invalidate() {},
 				render(width) {
-					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width, gt: session.worktreeStatus?.gt }) : [];
+					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width, worktreeStatus: session.worktreeStatus }) : [];
 				},
 			};
 		});
@@ -571,15 +560,15 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 }
 
 function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
-	const { ctx, footerData, theme, width, gt } = options;
+	const { ctx, footerData, theme, width, worktreeStatus } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
 	const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
-	const identity = formatFooterIdentity(cwd, branch, process.env.HOME || process.env.USERPROFILE, width, gt);
+	const identity = formatFooterIdentity(cwd, branch, process.env.HOME || process.env.USERPROFILE, width, worktreeStatus?.gt, theme);
 
 	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
-	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
+	const statsLine = formatFooterStats({ ctx, footerData, theme, width, worktreeStatus });
 	const lines = [identity];
-	for (const statusLine of footerStatusLines.worktreeState) {
+	for (const statusLine of formatStructuredFooterWorktreeLines(worktreeStatus, theme)) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	lines.push(statsLine);
@@ -589,12 +578,8 @@ function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	return lines;
 }
 
-function isMergedGtFooterLine(line: string): boolean {
-	return stripAnsiEscapes(line).startsWith("[gt] ↓") || stripAnsiEscapes(line).startsWith("[gt] ↑");
-}
-
-function stripAnsiEscapes(text: string): string {
-	return text.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
+function formatStructuredFooterWorktreeLines(status: WorktreeStatus | undefined, theme: StatusTheme): string[] {
+	return status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
@@ -606,41 +591,41 @@ function currentFooterBranch(cwd: string, footerData: StatusFooterData): string 
 	return footerData.getGitBranch();
 }
 
-function formatFooterIdentity(cwd: string, branch: string, home: string | undefined, width: number, gt: GtStatus | undefined): string {
+function formatFooterIdentity(cwd: string, branch: string, home: string | undefined, width: number, gt: GtStatus | undefined, theme: StatusTheme): string {
 	const identity = footerIdentityParts(cwd, branch, home);
 	const rawLeft = `[wt] repo:${identity.repo} wt:${identity.slot} pwd:${identity.relativePath}${gt?.dirty === "yes" ? " (✗)" : ""}`;
 	const rawRight = `br:${identity.branch}${formatGtBranchSuffix(gt)}`;
 	const rawFullIdentity = `${rawLeft} | ${rawRight}`;
-	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentity(identity, gt);
+	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentity(identity, gt, theme);
 
-	return ansiHex(FOOTER_IDENTITY_COLORS.punctuation, truncateToWidth(rawFullIdentity, width, "..."));
+	return theme.fg("dim", truncateToWidth(rawFullIdentity, width, "..."));
 }
 
-function colorFooterIdentity(identity: FooterIdentityParts, gt: GtStatus | undefined): string {
+function colorFooterIdentity(identity: FooterIdentityParts, gt: GtStatus | undefined, theme: StatusTheme): string {
 	const parts = [
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "[wt]"),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "repo:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.repo, identity.repo),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "wt:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.slot, identity.slot),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "pwd:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.path, identity.relativePath),
+		theme.fg("dim", "[wt]"),
+		theme.fg("dim", " "),
+		theme.fg("dim", "repo:"),
+		theme.fg("accent", identity.repo),
+		theme.fg("dim", " "),
+		theme.fg("dim", "wt:"),
+		theme.fg("accent", identity.slot),
+		theme.fg("dim", " "),
+		theme.fg("dim", "pwd:"),
+		theme.fg("dim", identity.relativePath),
 	];
 	if (gt?.dirty === "yes") {
 		parts.push(
-			ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " ("),
-			ansiHex(FOOTER_IDENTITY_COLORS.dirty, "✗"),
-			ansiHex(FOOTER_IDENTITY_COLORS.punctuation, ")"),
+			theme.fg("dim", " ("),
+			theme.fg("error", "✗"),
+			theme.fg("dim", ")"),
 		);
 	}
 	parts.push(
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " | "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "br:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.branch, identity.branch),
-		...colorGtBranchSegments(gt),
+		theme.fg("dim", " | "),
+		theme.fg("dim", "br:"),
+		theme.fg("accent", identity.branch),
+		...colorGtBranchSegments(gt, theme),
 	);
 	return parts.join("");
 }
@@ -651,18 +636,18 @@ function formatGtBranchSuffix(gt: GtStatus | undefined): string {
 	return ` ↓:${gt.down ?? "-"} ${commits} ↑:${gt.up}`;
 }
 
-function colorGtBranchSegments(gt: GtStatus | undefined): string[] {
+function colorGtBranchSegments(gt: GtStatus | undefined, theme: StatusTheme): string[] {
 	if (gt === undefined) return [];
 	return [
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "↓:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.topology, gt.down ?? "-"),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "commits:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.commit, footerCommitCount(gt.commits)),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "↑:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.topology, gt.up),
+		theme.fg("dim", " "),
+		theme.fg("dim", "↓:"),
+		theme.fg("accent", gt.down ?? "-"),
+		theme.fg("dim", " "),
+		theme.fg("dim", "commits:"),
+		theme.fg("accent", footerCommitCount(gt.commits)),
+		theme.fg("dim", " "),
+		theme.fg("dim", "↑:"),
+		theme.fg("accent", gt.up),
 	];
 }
 
@@ -679,13 +664,6 @@ function footerCommitCount(commits: GtCommitStatus): string {
 		case "not-applicable":
 			return "-";
 	}
-}
-
-function ansiHex(hex: string, text: string): string {
-	const red = Number.parseInt(hex.slice(1, 3), 16);
-	const green = Number.parseInt(hex.slice(3, 5), 16);
-	const blue = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1B[38;2;${red};${green};${blue}m${text}\x1B[39m`;
 }
 
 interface FooterIdentityParts {
@@ -826,16 +804,12 @@ function formatFooterTokens(count: number): string {
 }
 
 function formatFooterExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): FooterExtensionStatusLines {
-	const worktreeState: string[] = [];
 	const activity: string[] = [];
 	let compactActivityParts: string[] = [];
 
 	for (const [key, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
 		const sanitizedLines = sanitizeStatusLines(text);
-		if (key === WORKTREE_STATUS_UI_KEY) {
-			worktreeState.push(...sanitizedLines.filter((line) => !isMergedGtFooterLine(line)));
-			continue;
-		}
+		if (key === WORKTREE_STATUS_UI_KEY) continue;
 
 		if (sanitizedLines.length <= 1) {
 			const line = sanitizedLines[0];
@@ -851,7 +825,7 @@ function formatFooterExtensionStatusLines(extensionStatuses: ReadonlyMap<string,
 	}
 
 	if (compactActivityParts.length > 0) activity.push(compactActivityParts.join(" "));
-	return { worktreeState, activity };
+	return { activity };
 }
 
 function sanitizeStatusLines(text: string): string[] {

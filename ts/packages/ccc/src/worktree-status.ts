@@ -3,6 +3,15 @@ import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
 import { normalizeExecResult, type PiExecResultLike } from "@asdl/core/exec";
+import {
+	githubPrIdentityFromUrl,
+	githubReviewThreadCountsArgs,
+	parseGithubPrStatusViewJson,
+	parseGithubReviewThreadCountsJson,
+	tallyGithubStatusChecks,
+	type GithubPrStatusView,
+	type GithubReviewThreadCounts,
+} from "@asdl/core/github-status";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -93,6 +102,7 @@ export interface GhStatus {
 	passingChecks: number;
 	pendingChecks: number;
 	failingChecks: number;
+	unknownChecks: number;
 }
 
 export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable"; message?: string | undefined };
@@ -334,11 +344,12 @@ async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 		);
 		if (view.code !== 0) return { type: "no-pr" };
 
-		const pr = parseGhPrView(view.stdout);
+		const pr = parseGithubPrStatusViewJson(view.stdout);
 		if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
 
 		const reviewThreads = await loadUnresolvedReviewThreadCount(pi, cwd, pr, signal);
 		if (reviewThreads.type === "unavailable") return reviewThreads;
+		const checks = tallyGithubStatusChecks(pr.statusCheckRollup);
 
 		return {
 			type: "available",
@@ -347,162 +358,34 @@ async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 			unresolvedThreads: reviewThreads.counts.unresolved,
 			totalThreads: reviewThreads.counts.total,
 			hasMoreThreads: reviewThreads.counts.hasMore,
-			passingChecks: countPassingChecks(pr.statusCheckRollup),
-			pendingChecks: countPendingChecks(pr.statusCheckRollup),
-			failingChecks: countFailingChecks(pr.statusCheckRollup),
+			passingChecks: checks.passing,
+			pendingChecks: checks.pending,
+			failingChecks: checks.failing,
+			unknownChecks: checks.unknown,
 		};
 	} catch (error) {
 		return { type: "unavailable", message: errorMessage(error) };
 	}
 }
 
-interface ReviewThreadCounts {
-	unresolved: number;
-	total: number;
-	hasMore: boolean;
-}
-
-type ReviewThreadLoadResult = { type: "available"; counts: ReviewThreadCounts } | { type: "unavailable"; message: string };
+type ReviewThreadLoadResult = { type: "available"; counts: GithubReviewThreadCounts } | { type: "unavailable"; message: string };
 
 async function loadUnresolvedReviewThreadCount(
 	pi: ExecGateway,
 	cwd: string,
-	pr: GhPrView,
+	pr: GithubPrStatusView,
 	signal?: AbortSignal,
 ): Promise<ReviewThreadLoadResult> {
 	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
 	if (identity === undefined) return { type: "unavailable", message: "could not identify GitHub repository from PR URL" };
 
 	const result = normalizeExecResult(
-		await pi.exec(
-			"gh",
-			[
-				"api",
-				"graphql",
-				"-f",
-				"query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}",
-				"-f",
-				`owner=${identity.owner}`,
-				"-f",
-				`repo=${identity.repo}`,
-				"-F",
-				`number=${pr.number}`,
-			],
-			execOptions(cwd, signal),
-		),
+		await pi.exec("gh", githubReviewThreadCountsArgs(identity), execOptions(cwd, signal)),
 	);
 	if (result.code !== 0) return { type: "unavailable", message: commandFailureMessage("gh api graphql", result) };
-	const counts = parseUnresolvedReviewThreadCount(result.stdout);
+	const counts = parseGithubReviewThreadCountsJson(result.stdout);
 	if (counts === undefined) return { type: "unavailable", message: "could not parse gh review thread output" };
 	return { type: "available", counts };
-}
-
-interface GhPrView {
-	number: number;
-	url: string;
-	statusCheckRollup: unknown[];
-}
-
-function parseGhPrView(stdout: string): GhPrView | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	if (!isRecord(parsed)) return undefined;
-	if (typeof parsed.number !== "number" || !Number.isInteger(parsed.number) || parsed.number <= 0) return undefined;
-	if (typeof parsed.url !== "string") return undefined;
-	return {
-		number: parsed.number,
-		url: parsed.url,
-		statusCheckRollup: Array.isArray(parsed.statusCheckRollup) ? parsed.statusCheckRollup : [],
-	};
-}
-
-function githubPrIdentityFromUrl(url: string, expectedNumber: number): { owner: string; repo: string } | undefined {
-	let parsed: URL;
-	try {
-		parsed = new URL(url);
-	} catch {
-		return undefined;
-	}
-	if (parsed.hostname !== "github.com") return undefined;
-	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
-	if (parts.length !== 4 || parts[2] !== "pull") return undefined;
-	const number = Number(parts[3]);
-	if (number !== expectedNumber) return undefined;
-	return { owner: parts[0] as string, repo: parts[1] as string };
-}
-
-function parseUnresolvedReviewThreadCount(stdout: string): ReviewThreadCounts | undefined {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch {
-		return undefined;
-	}
-	const reviewThreads = graphQlReviewThreadConnection(parsed);
-	if (reviewThreads === undefined) return undefined;
-	const hasMore = graphQlHasNextPage(reviewThreads);
-	const totalCount = typeof reviewThreads.totalCount === "number" && Number.isInteger(reviewThreads.totalCount)
-		? reviewThreads.totalCount
-		: reviewThreads.nodes.length;
-	return {
-		unresolved: reviewThreads.nodes.filter((node) => isRecord(node) && node.isResolved === false).length,
-		total: hasMore ? reviewThreads.nodes.length : totalCount,
-		hasMore,
-	};
-}
-
-function graphQlReviewThreadConnection(value: unknown): { nodes: unknown[]; totalCount?: unknown; pageInfo?: unknown } | undefined {
-	if (!isRecord(value)) return undefined;
-	const data = value.data;
-	if (!isRecord(data)) return undefined;
-	const repository = data.repository;
-	if (!isRecord(repository)) return undefined;
-	const pullRequest = repository.pullRequest;
-	if (!isRecord(pullRequest)) return undefined;
-	const reviewThreads = pullRequest.reviewThreads;
-	if (!isRecord(reviewThreads) || !Array.isArray(reviewThreads.nodes)) return undefined;
-	return { nodes: reviewThreads.nodes, totalCount: reviewThreads.totalCount, pageInfo: reviewThreads.pageInfo };
-}
-
-function graphQlHasNextPage(reviewThreads: { pageInfo?: unknown }): boolean {
-	return isRecord(reviewThreads.pageInfo) && reviewThreads.pageInfo.hasNextPage === true;
-}
-
-function countPassingChecks(items: readonly unknown[]): number {
-	return items.filter(isPassingCheck).length;
-}
-
-function countPendingChecks(items: readonly unknown[]): number {
-	return items.filter(isPendingCheck).length;
-}
-
-function countFailingChecks(items: readonly unknown[]): number {
-	return items.filter(isFailingCheck).length;
-}
-
-function isPassingCheck(value: unknown): boolean {
-	if (!isRecord(value)) return false;
-	if (value.__typename === "CheckRun") return value.status === "COMPLETED" && (value.conclusion === "SUCCESS" || value.conclusion === "NEUTRAL" || value.conclusion === "SKIPPED");
-	if (value.__typename === "StatusContext") return value.state === "SUCCESS";
-	return false;
-}
-
-function isPendingCheck(value: unknown): boolean {
-	if (!isRecord(value)) return false;
-	if (value.__typename === "CheckRun") return value.status !== "COMPLETED";
-	if (value.__typename === "StatusContext") return value.state === "PENDING" || value.state === "EXPECTED";
-	return false;
-}
-
-function isFailingCheck(value: unknown): boolean {
-	if (!isRecord(value)) return false;
-	if (value.__typename === "CheckRun") return value.status === "COMPLETED" && value.conclusion !== "SUCCESS" && value.conclusion !== "NEUTRAL" && value.conclusion !== "SKIPPED";
-	if (value.__typename === "StatusContext") return value.state !== "SUCCESS" && value.state !== "PENDING" && value.state !== "EXPECTED";
-	return false;
 }
 
 function currentBranchName(gitPaths: GitPaths): string | undefined {
@@ -578,7 +461,21 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
 	lines.push(formatGtStatus(status.gt, theme));
-	lines.push(formatGhStatus(status.gh, theme));
+	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	return lines;
+}
+
+export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: StatusTheme): string[] {
+	const lines: string[] = [];
+	if (status.brmem !== undefined) {
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
+	}
+	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	return lines;
+}
+
+function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
+	const lines = [formatGhStatus(status.gh, theme)];
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
 	}
@@ -630,8 +527,9 @@ export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): s
 		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
 	}
 
-	const commentsValue = `${status.unresolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
-	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0;
+	const resolvedThreads = Math.max(0, status.totalThreads - status.unresolvedThreads);
+	const commentsValue = `${resolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
+	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0;
 	const pieces = [
 		formatColoredSegment("[gh]", "dim", theme),
 		formatColoredSegment(" ", "dim", theme),
@@ -648,12 +546,13 @@ export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): s
 }
 
 function formatActionBucketSegments(status: GhStatus, theme?: StatusTheme): string[] {
-	if (status.pendingChecks === 0 && status.failingChecks === 0) {
+	if (status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0) {
 		return [formatColoredSegment(`${status.passingChecks}✓`, "accent", theme)];
 	}
 	const buckets: string[] = [];
 	if (status.pendingChecks > 0) buckets.push(formatColoredSegment(`${status.pendingChecks}⏳`, "warning", theme));
 	if (status.failingChecks > 0) buckets.push(formatColoredSegment(`${status.failingChecks}✗`, "error", theme));
+	if (status.unknownChecks > 0) buckets.push(formatColoredSegment(`${status.unknownChecks}?`, "warning", theme));
 	return intersperseActionBucketSpaces(buckets, theme);
 }
 

@@ -126,11 +126,17 @@ function ghNoPrStep(): ScriptedExec {
 
 const TEST_THEME: StatusTheme = {
 	fg(color, value) {
-		const code = color === "accent" ? "36" : "90";
+		const code = color === "accent" ? "36" : color === "error" ? "31" : "90";
 		return `\x1B[${code}m${value}\x1B[39m`;
 	},
 	underline(value) {
 		return `\x1B[4m${value}\x1B[24m`;
+	},
+};
+
+const MARKER_THEME: StatusTheme = {
+	fg(color, value) {
+		return `<${color}>${value}</${color}>`;
 	},
 };
 
@@ -362,7 +368,7 @@ describe("worktree status extension registration", () => {
 
 			const footer = footerFactory(
 				{ requestRender() {} },
-				TEST_THEME,
+				MARKER_THEME,
 				{
 					getGitBranch() {
 						return "stale-branch";
@@ -380,16 +386,16 @@ describe("worktree status extension registration", () => {
 			);
 
 			const wideFooterRaw = footer.render(200)[0] ?? "";
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158m[wt]\x1B[39m\x1B[38;2;95;102;115m \x1B[39m\x1B[38;2;139;148;158mrepo:\x1B[39m\x1B[38;2;125;211;252masdl-tools\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mwt:\x1B[39m\x1B[38;2;125;211;252mslot-02\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mpwd:\x1B[39m\x1B[38;2;167;139;250mts/packages/pi-extensions\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mbr:\x1B[39m\x1B[38;2;251;191;36mfeature/slot-identity\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;239;68;68m✗\x1B[39m");
-			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
+			expect(wideFooterRaw).toContain("<dim>[wt]</dim><dim> </dim><dim>repo:</dim><accent>asdl-tools</accent>");
+			expect(wideFooterRaw).toContain("<dim>wt:</dim><accent>slot-02</accent>");
+			expect(wideFooterRaw).toContain("<dim>pwd:</dim><dim>ts/packages/pi-extensions</dim>");
+			expect(wideFooterRaw).toContain("<dim>br:</dim><accent>feature/slot-identity</accent>");
+			expect(wideFooterRaw).toContain("<error>✗</error>");
+			const wideFooterLines = [wideFooterRaw.replace(/<[^>]+>/g, "")];
 			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/packages/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
 			expect(wideFooterLines[0]).not.toContain("stale-branch");
-			const narrowIdentity = footer.render(46).map(stripTerminalEscapes)[0] ?? "";
+			const narrowIdentity = footer.render(46).map((line) => line.replace(/<[^>]+>/g, ""))[0] ?? "";
 			expect(narrowIdentity).toContain("[wt] repo:asdl-tools wt:slot-02");
 			expect(narrowIdentity).toContain("...");
 			await pi.sessionShutdown?.();
@@ -544,7 +550,11 @@ describe("worktree status extension registration", () => {
 						return "handoffs-graphite-footer-lines";
 					},
 					getExtensionStatuses() {
-						return new Map([...statuses, ["sdl-submit", "/sdl:submit running CLI command (23s)"]]);
+						return new Map([
+							...statuses,
+							["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
+							["sdl-submit", "/sdl:submit running CLI command (23s)"],
+						]);
 					},
 					getAvailableProviderCount() {
 						return 1;
@@ -561,7 +571,8 @@ describe("worktree status extension registration", () => {
 			expect(footerLines[2]).toBe("[gh] no PR");
 			expect(footerLines[3]).toContain("18.2%/272k (auto)");
 			expect(footerLines.at(-1)).toBe("/sdl:submit running CLI command (23s)");
-			expect(footerLines).not.toContain("[gt] ↓ main · ↑ - · 1 commit");
+			expect(footerLines).not.toContain("[gt] future format that should be ignored");
+			expect(footerLines).not.toContain("[gh] stale text");
 			await pi.sessionShutdown?.();
 		});
 	});
