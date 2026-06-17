@@ -153,10 +153,10 @@ function buildMissingPrResult(target: DownloadFeedbackTarget, message: string): 
 }
 
 function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget; counts: DownloadFeedbackCounts; feedback: IncludedFeedback }): string {
-	const lines = [
+	return [
 		"# PR feedback triage request",
 		"",
-		"Triage and group the feedback below. Identify likely code, docs, and test changes. Ask clarifying questions for ambiguity. Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
+		"Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.",
 		"",
 		"## Target PR",
 		`- PR: ${formatNullableNumber(options.target.pr_number)}`,
@@ -165,6 +165,7 @@ function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget
 		`- Branch: ${formatNullable(options.target.branch)}`,
 		`- Head: ${formatNullable(options.target.head_ref_name)}`,
 		`- Base: ${formatNullable(options.target.base_ref_name)}`,
+		...(hasNoIncludedFeedback(options.counts) ? ["", "No unresolved/human feedback was found for this PR with the current filters."] : []),
 		"",
 		"## Unresolved review threads",
 		...renderReviewThreads(options.feedback.reviewThreads),
@@ -175,15 +176,36 @@ function buildDownloadFeedbackMarkdown(options: { target: DownloadFeedbackTarget
 		"## Discussion comments",
 		...renderDiscussionComments(options.feedback.discussionComments),
 		"",
-		"## Excluded by default",
-		`- Resolved review threads excluded: ${options.counts.excluded_resolved_threads}`,
-		`- Empty PR-level reviews excluded: ${options.counts.excluded_empty_reviews}`,
-		`- Automation-like discussion comments excluded: ${options.counts.excluded_automation_comments}`,
+		...renderDownloadFeedbackSummary(options.target, options.counts),
+		"",
+		...renderSinglePrInstructions(),
+	].join("\n");
+}
+
+function renderDownloadFeedbackSummary(target: DownloadFeedbackTarget, counts: DownloadFeedbackCounts): string[] {
+	return [
+		"## Summary",
+		`Downloaded feedback for PR #${formatNullableNumber(target.pr_number)}: ${formatNullable(target.title)}`,
+		`- URL: ${formatNullable(target.url)}`,
+		`- Branch: ${formatNullable(target.branch)}`,
+		`- Head: ${formatNullable(target.head_ref_name)}`,
+		`- Base: ${formatNullable(target.base_ref_name)}`,
+		`- Unresolved review threads included: ${counts.included_review_threads}`,
+		`- PR-level review bodies included: ${counts.included_reviews}`,
+		`- Discussion comments included: ${counts.included_discussion_comments}`,
+		`- Resolved review threads excluded: ${counts.excluded_resolved_threads}`,
+		`- Empty PR-level reviews excluded: ${counts.excluded_empty_reviews}`,
+		`- Automation-like discussion comments excluded: ${counts.excluded_automation_comments}`,
 	];
-	if (hasNoIncludedFeedback(options.counts)) {
-		lines.splice(13, 0, "", "No unresolved/human feedback was found for this PR with the current filters.");
-	}
-	return lines.join("\n");
+}
+
+function renderSinglePrInstructions(): string[] {
+	return [
+		"## Instructions before responding",
+		"Triage and group the feedback above. Identify likely code, docs, and test changes. Ask clarifying questions for ambiguity.",
+		"",
+		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
+	];
 }
 
 function renderReviewThreads(threads: readonly PRReviewThread[]): string[] {

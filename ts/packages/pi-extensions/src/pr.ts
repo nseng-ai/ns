@@ -34,11 +34,27 @@ const markdownDataSchema = z.looseObject({
 	markdown: z.string(),
 });
 
+const downloadFeedbackCountsSchema = z.looseObject({
+	included_review_threads: z.number().int().nonnegative(),
+	included_reviews: z.number().int().nonnegative(),
+	included_discussion_comments: z.number().int().nonnegative(),
+	excluded_resolved_threads: z.number().int().nonnegative(),
+	excluded_empty_reviews: z.number().int().nonnegative(),
+	excluded_automation_comments: z.number().int().nonnegative(),
+});
+
+const stackMarkdownDataSchema = z.looseObject({
+	markdown: z.string(),
+	counts: downloadFeedbackCountsSchema,
+});
+
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
+type DownloadFeedbackCounts = z.output<typeof downloadFeedbackCountsSchema>;
 
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
 	markdown: string;
+	counts: DownloadFeedbackCounts;
 }
 
 export const prExtensionParity = definePiSurfaceParity([
@@ -246,11 +262,11 @@ async function downloadFeedbackForPr(pi: ExtensionAPI, ctx: ExtensionContext, en
 	const parsed = parseEnvelopeWithSchema({
 		label: `pr-address download-feedback #${entry.pr_number}`,
 		result,
-		schema: markdownDataSchema,
+		schema: stackMarkdownDataSchema,
 		allowFailureData: true,
 	});
 	if (parsed.type === "error") return parsed;
-	return { type: "ok", value: { entry, markdown: parsed.value.markdown } };
+	return { type: "ok", value: { entry, markdown: parsed.value.markdown, counts: parsed.value.counts } };
 }
 
 interface EnvelopeWithSchemaOptions<T> {
@@ -294,7 +310,7 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 	return [
 		"# PR stack feedback triage request",
 		"",
-		"Triage and group the feedback below across the entire Graphite stack. Identify shared fixes, per-PR fixes, ordering constraints, and ambiguous feedback. Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
+		"Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.",
 		"",
 		"## Stack PRs",
 		...downloads.map(({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`),
@@ -308,7 +324,60 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 			"",
 			...demoteMarkdownHeadings(stripPrDownloadHeading(markdown)).split("\n"),
 		]),
+		"",
+		...renderStackDownloadFeedbackSummary(downloads),
+		"",
+		...renderStackInstructions(),
 	].join("\n");
+}
+
+function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDownload[]): string[] {
+	const totals = sumDownloadFeedbackCounts(downloads);
+	return [
+		"## Summary",
+		`Downloaded feedback for ${downloads.length} ${downloads.length === 1 ? "PR" : "PRs"} in the current Graphite stack.`,
+		"",
+		"Stack PRs:",
+		...downloads.map(({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`),
+		"",
+		"Totals:",
+		`- Unresolved review threads included: ${totals.included_review_threads}`,
+		`- PR-level review bodies included: ${totals.included_reviews}`,
+		`- Discussion comments included: ${totals.included_discussion_comments}`,
+		`- Resolved review threads excluded: ${totals.excluded_resolved_threads}`,
+		`- Empty PR-level reviews excluded: ${totals.excluded_empty_reviews}`,
+		`- Automation-like discussion comments excluded: ${totals.excluded_automation_comments}`,
+	];
+}
+
+function sumDownloadFeedbackCounts(downloads: readonly StackFeedbackDownload[]): DownloadFeedbackCounts {
+	return downloads.reduce<DownloadFeedbackCounts>(
+		(totals, download) => ({
+			included_review_threads: totals.included_review_threads + download.counts.included_review_threads,
+			included_reviews: totals.included_reviews + download.counts.included_reviews,
+			included_discussion_comments: totals.included_discussion_comments + download.counts.included_discussion_comments,
+			excluded_resolved_threads: totals.excluded_resolved_threads + download.counts.excluded_resolved_threads,
+			excluded_empty_reviews: totals.excluded_empty_reviews + download.counts.excluded_empty_reviews,
+			excluded_automation_comments: totals.excluded_automation_comments + download.counts.excluded_automation_comments,
+		}),
+		{
+			included_review_threads: 0,
+			included_reviews: 0,
+			included_discussion_comments: 0,
+			excluded_resolved_threads: 0,
+			excluded_empty_reviews: 0,
+			excluded_automation_comments: 0,
+		},
+	);
+}
+
+function renderStackInstructions(): string[] {
+	return [
+		"## Instructions before responding",
+		"Triage and group the feedback above across the entire Graphite stack. Identify shared fixes, per-PR fixes, ordering constraints, and ambiguous feedback.",
+		"",
+		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
+	];
 }
 
 function stripPrDownloadHeading(markdown: string): string {
