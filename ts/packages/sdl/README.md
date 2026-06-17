@@ -172,6 +172,8 @@ Behavior:
 - uses `@asdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
 - prints concise phase-oriented progress by default while preserving captured Graphite output for PR-link extraction and failure diagnostics;
 - streams raw Graphite/subprocess output for debugging with `--verbose`;
+- skips model regeneration and `gh pr edit` for unchanged PR descriptions when the stored managed-region fingerprint matches the current GitHub PR diff patch id, prompt hash, and generator version;
+- when regeneration is needed, updates the PR title and replaces only the machine-owned generated body region, preserving human text outside it;
 - prompts through `ctx.confirm` when Graphite reports a required restack, or runs restack directly with `--restack`;
 - asks the configured model to append a concise interpretation and recommended next steps to failed submit output when model access is available;
 - exposes the Pi mirror as `/sdl:submit` from SDL command metadata.
@@ -206,6 +208,29 @@ Environment:
 - `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
 
 Pi exposes this capability only as the nested `/sdl:code:regenerate-pr` adapter in this slice. There is no flat `/sdl:regenerate-pr` Pi mirror.
+
+## `pr-regen`
+
+Regenerate the current branch PR title and managed generated body region.
+
+```bash
+sdl pr-regen
+```
+
+Behavior:
+
+- resolves the current branch PR through GitHub;
+- computes the same stable patch id as `gh pr diff <number> | git patch-id --stable`;
+- asks the configured PR-description model for a fresh title and body even when `sdl submit` would skip the PR as unchanged;
+- replaces only the open `<details>` managed generated body region and preserves human PR body text outside that region;
+- exposes the Pi mirror as `/sdl:pr-regen`.
+
+Environment matches PR description generation for `sdl submit`:
+
+- `ASDL_DEV_PR_DESCRIPTION_MODEL`: model reference for generated PR descriptions.
+- `ASDL_DEV_PR_DESCRIPTION_PROMPT`: optional custom PR-description prompt file.
+
+`asdl-dev pr-regen` and `/code:pr-regen` are not retained as compatibility surfaces.
 
 ## Testing future command migrations
 

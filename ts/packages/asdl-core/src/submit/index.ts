@@ -35,20 +35,28 @@ export {
 	type SubmitStackNewBranch,
 } from "./submit-pr-metadata-prewrite.ts";
 export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
-export { RealGithubPrGateway, type GithubPrDetails, type GithubPrGateway, type PrCommitMessage } from "./github-pr-gateway.ts";
+export { RealGithubPrGateway, type GithubPrDetails, type GithubPrGateway, type PrCommitMessage, type StablePatchIdForPrResult } from "./github-pr-gateway.ts";
 export { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 export {
 	appendGeneratedMarker,
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
+	formatManagedGeneratedRegion,
+	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	GENERATED_BODY_MARKER,
+	hashPrDescriptionPrompt,
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
+	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
+	PR_DESCRIPTION_GENERATOR_VERSION,
 	PR_DESCRIPTION_PROMPT_ENV,
+	replaceOrInsertGeneratedRegion,
+	resolvePrDescriptionGeneration,
 	resolvePrDescriptionPrompt,
 	REPO_PR_DESCRIPTION_PROMPT_PATH,
 	truncateDiff,
+	type PrDescriptionFingerprintMetadata,
 	type PromptSource,
 } from "./pr-description.ts";
 export { commandFailure, type CommandFailureOptions } from "./command-failure.ts";

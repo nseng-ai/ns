@@ -9,11 +9,15 @@ import {
 	appendGeneratedMarker,
 	buildPrDescriptionUserPrompt,
 	filterLockfileSections,
+	formatManagedGeneratedRegion,
 	GENERATED_BODY_MARKER,
+	hashPrDescriptionPrompt,
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
+	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
 	PR_DESCRIPTION_PROMPT_ENV,
+	replaceOrInsertGeneratedRegion,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
 } from "@asdl/core/submit";
@@ -54,6 +58,29 @@ describe("PR description helpers", () => {
 
 		expect(body).toBe(`Body text\n\n${GENERATED_BODY_MARKER}`);
 		expect(hasGeneratedMarker(body)).toBe(true);
+	});
+
+	test("formats, parses, and replaces the managed generated region", () => {
+		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const region = formatManagedGeneratedRegion("Generated body", metadata);
+
+		expect(region).toContain("<details open>");
+		expect(parseManagedGeneratedRegion(region)).toMatchObject({ type: "found", metadata, body: "Generated body" });
+		expect(replaceOrInsertGeneratedRegion(`Intro\n\n${region}\n\nFooter`, "New generated body", { ...metadata, patchId: "patch-2" })).toBe(
+			`Intro\n\n${formatManagedGeneratedRegion("New generated body", { ...metadata, patchId: "patch-2" })}\n\nFooter`,
+		);
+	});
+
+	test("inserts managed generated regions before unowned human body content", () => {
+		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+
+		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
+	});
+
+	test("legacy generated marker bodies regenerate as fully machine-owned", () => {
+		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+
+		expect(replaceOrInsertGeneratedRegion(`Old generated\n\n${GENERATED_BODY_MARKER}`, "Generated body", metadata)).toBe(formatManagedGeneratedRegion("Generated body", metadata));
 	});
 
 	test("detects a body that exactly matches a commit message body", () => {

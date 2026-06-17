@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatErrorMessage, formatZodError, formatZodIssue, isRecord, truncatedSha256Digest } from "../src/primitives.ts";
+import { formatErrorMessage, formatZodError, formatZodIssue, isRecord, sha256Digest, truncatedSha256Digest } from "../src/primitives.ts";
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {
@@ -59,6 +59,12 @@ describe("formatZodError", () => {
 				],
 			}),
 		).toBe("<root>: Required; count: Expected number");
+	});
+});
+
+describe("sha256Digest", () => {
+	test("returns a full SHA256 hex digest", () => {
+		expect(sha256Digest("/tmp/session.jsonl")).toBe("29e67821bedc391a811d7fd8fcdf12be11edd17dc6c6340415bce3c46c72fd28");
 	});
 });
 
