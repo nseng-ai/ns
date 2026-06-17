@@ -1,5 +1,6 @@
 {
   "name": "sdlcc",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -9,7 +10,7 @@
     "check": "tsc --noEmit -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdlcc/test",
     "start": "bun src/cli.ts",
-    "stack-map": "bun src/cli.ts"
+    "stack-map": "bun src/cli.ts stack-map"
   },
   "dependencies": {
     "@asdl/clinkr": "workspace:*",

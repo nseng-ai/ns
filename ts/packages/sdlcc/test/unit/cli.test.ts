@@ -6,7 +6,8 @@ import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts"
 interface CliRun {
 	readonly stdout: string[];
 	readonly stderr: string[];
-	readonly startCalls: string[];
+	readonly startAppCalls: string[];
+	readonly startStackMapCalls: string[];
 	readonly exit: Promise<number>;
 }
 
@@ -19,18 +20,19 @@ interface CommandCall {
 function runWithFakes(args: readonly string[], deps: SdlccCliDeps = {}): CliRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
-	const startCalls: string[] = [];
+	const startAppCalls: string[] = [];
+	const startStackMapCalls: string[] = [];
 
 	return {
 		stdout,
 		stderr,
-		startCalls,
+		startAppCalls,
+		startStackMapCalls,
 		exit: runSdlccCli(args, {
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
-			startTui: () => {
-				startCalls.push("start");
-			},
+			startApp: async () => { startAppCalls.push("start-app"); },
+			startStackMap: async () => { startStackMapCalls.push("start-stack-map"); },
 			...deps,
 		}),
 	};
@@ -57,51 +59,42 @@ function reportEnv(overrides: Record<string, string | undefined> = {}): Record<s
 }
 
 describe("runSdlccCli", () => {
-	test("starts the TUI with no arguments", async () => {
+	test("starts the app shell with no arguments", async () => {
 		const run = runWithFakes([]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.startCalls).toEqual(["start"]);
-		expect(run.stdout).toEqual([]);
-		expect(run.stderr).toEqual([]);
+		expect(run.startAppCalls).toEqual(["start-app"]);
+		expect(run.startStackMapCalls).toEqual([]);
 	});
 
-	test("prints help without starting the TUI", async () => {
+	test("starts direct stack-map command without the app shell", async () => {
+		const run = runWithFakes(["stack-map"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.startAppCalls).toEqual([]);
+		expect(run.startStackMapCalls).toEqual(["start-stack-map"]);
+	});
+
+	test("prints help without starting either TUI", async () => {
 		const run = runWithFakes(["--help"]);
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: sdlcc [options]");
-		expect(run.stdout.join("")).toContain("Open a full-screen OpenTUI stack map.");
+		expect(run.stdout.join("")).toContain("Open the dashboard-first OpenTUI app shell.");
+		expect(run.stdout.join("")).toContain("stack-map");
 		expect(run.stdout.join("")).toContain("cmux");
 		expect(run.stderr).toEqual([]);
-		expect(run.startCalls).toEqual([]);
+		expect(run.startAppCalls).toEqual([]);
+		expect(run.startStackMapCalls).toEqual([]);
 	});
 
-	test("prints short help without starting the TUI", async () => {
-		const run = runWithFakes(["-h"]);
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: sdlcc");
-		expect(run.stderr).toEqual([]);
-		expect(run.startCalls).toEqual([]);
-	});
-
-	test("prints version without starting the TUI", async () => {
+	test("prints version without starting either TUI", async () => {
 		const run = runWithFakes(["--version"]);
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("0.1.0\n");
 		expect(run.stderr).toEqual([]);
-		expect(run.startCalls).toEqual([]);
-	});
-
-	test("rejects unknown commands without starting the TUI", async () => {
-		const run = runWithFakes(["not-a-command"]);
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout).toEqual([]);
-		expect(run.stderr.join("")).toContain("unknown command 'not-a-command'");
-		expect(run.startCalls).toEqual([]);
+		expect(run.startAppCalls).toEqual([]);
+		expect(run.startStackMapCalls).toEqual([]);
 	});
 
 	test("reports cmux surface identity with human output", async () => {
@@ -142,7 +135,8 @@ describe("runSdlccCli", () => {
 				options: { cwd: "/repo/slot-05", timeout: 10_000 },
 			},
 		]);
-		expect(run.startCalls).toEqual([]);
+		expect(run.startAppCalls).toEqual([]);
+		expect(run.startStackMapCalls).toEqual([]);
 	});
 
 	test("reports cmux surface identity as JSON", async () => {

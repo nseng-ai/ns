@@ -1,20 +1,8 @@
 # sdlcc
 
-`sdlcc` opens a full-screen OpenTUI stack map for this repository. It shows the current Graphite branch graph, slot assignments, and strong cmux tab matches in one branch-oriented surface.
+` sdlcc` opens a dashboard-first full-screen OpenTUI app shell.
 
-## Stack map
-
-The stack map reads branch graph data from the sanctioned hidden command:
-
-```bash
-slot gt exec stack-map-branches --format json
-```
-
-That command owns Graphite metadata-store parsing on the Python side and returns selected branch rows, graph edges, assigned slot rows, and warnings. `sdlcc` separately reads cmux tab inventory with `cmux tree --json --all` and overlays tabs only when there is strong branch evidence.
-
-## Run
-
-From the repository root:
+## Launch
 
 ```bash
 bun ts/packages/sdlcc/src/cli.ts
@@ -23,48 +11,36 @@ bun ts/packages/sdlcc/src/cli.ts
 Package-local run:
 
 ```bash
+pnpm --dir ts --filter sdlcc run start
+```
+
+Direct stack-map fallback:
+
+```bash
 pnpm --dir ts --filter sdlcc run stack-map
 ```
 
-Expected display: a full-screen OpenTUI branch list with Graphite topology glyphs on the left and branch metadata / slot or strong cmux-tab labels aligned in table columns.
+## Internal tabs
+
+- `Dashboard` — default no-args view
+- `Stack Map` — preserved stack-map experience inside the shell
 
 Keys:
 
-- `↑`/`k`: previous branch
-- `↓`/`j`: next branch
-- `/`: enter branch-name filter mode
-- text in filter mode: narrow rows by case-insensitive branch-name substring
-- `Backspace` in filter mode: edit the query
-- `Enter` in filter mode: accept the query and return to row navigation
-- `Esc` in filter mode: clear the query and return to row navigation; press `Esc` again from rows to exit
-- `c`: cmux action for the selected visible branch
-- `o`: toggle all branches vs. live-cmux-tab rows
-- `q` or `Esc` from row navigation: exit
+- `Tab` / `Shift+Tab`: next / previous tab
+- `1` / `2`: jump to Dashboard / Stack Map
+- Dashboard rows: `↑`/`k`, `↓`/`j`, `Enter`, `r`, `q`
+- Stack Map keeps its existing keys when opened directly
 
-Scope and query compose: a branch is a match only when it satisfies the branch-name query and the active `all`/`cmux` scope. Matching descendants may keep ancestor/trunk rows visible as topology context; when nothing matches, the map shows an empty-state message and `c` is unavailable. The `cmux` scope means live cmux tab evidence only. Slot labels remain metadata in all-branch rows, but a slot assignment by itself does not make a branch pass cmux scope.
+## Dashboard behavior
 
-`c` uses only strong tab matches: explicit branch metadata or explicit worktree/cwd metadata that maps through slot rows. Workspace titles, tab titles, descriptions, tty names, and visual labels such as `π - slot-05` are diagnostic only and are intentionally not activation targets.
+- Shows workspaces from the current cmux window only
+- Refreshes every 3 seconds and on manual `r`
+- Preserves the selected workspace by ref across refreshes
+- Uses conservative structural buckets only: `here`, `active`, `selected`, `idle/open`, `multi-surface`, `unmatched-branch`, `diagnostic`
+- `Enter` focuses the known safe surface when exactly one target is clear; otherwise it opens an internal chooser
 
-Selected-branch `c` behavior:
+## Notes
 
-- zero strong cmux tab matches: run `slot checkout <branch> --format json --no-clipboard` if needed, then `cmux new-workspace --name <branch> --description <text> --cwd <worktreePath> --command "bun <sdlcc source cli.ts> cmux report || true; exec ${SHELL:-/bin/zsh} -l"`;
-- one strong match: focus that surface with `cmux rpc surface.focus`;
-- two or more strong matches: show a tab chooser with every matching tab plus a final “Open new cmux tab/workspace anyway” option. `Esc` cancels the chooser; `q` quits the TUI.
-
-The bootstrap reporter is non-blocking: if reporting fails, the workspace still starts an interactive login shell. The bootstrap invokes the source `src/cli.ts` entrypoint from the TUI process instead of the target worktree's `sdlcc` binary, so opening an older/downstack branch can still write current cmux metadata.
-
-## cmux surface reporting
-
-`sdlcc cmux report` runs inside a cmux terminal surface and writes the current git branch/worktree identity into cmux `surface resume` metadata. It is strict by default: it must run inside cmux and inside a named git branch worktree. This slice intentionally has no public `--cwd`, `--branch`, `--workspace`, or `--surface` override flags.
-
-The reporter writes:
-
-- `kind=sdlcc-branch`
-- `source=sdlcc`
-- `cwd=<git worktree root>`
-- `name=<current git branch>`
-- a harmless shell restore binding from `$SHELL`, falling back to `/bin/zsh`
-
-Use `sdlcc cmux report --json` for machine-readable success/failure output.
-
-Plan/session launch remains future work; there is deliberately no `p` key in this slice.
+- `sdlcc stack-map` remains the direct compatibility path
+- The prototype does not mutate cmux layout
