@@ -18,7 +18,7 @@ import { parseSkillFrontmatterBlock, transformSkillFrontmatter, type SkillFrontm
 import { formatReplacementLabel, replacementAdvice, verifyPiReplacement, type PiReplacementVerification } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
 import { collectLocalSkillKindInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
-import { applyProjectMutationPlan } from "./project-mutations.ts";
+import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 const SKILL_INVOCATION_KINDS = ["normal", "invoke-only", "command-backed", "ambient-only"] as const;
 const INFERRED_SKILL_INVOCATION_KINDS = [...SKILL_INVOCATION_KINDS, "mixed", "inconsistent"] as const;
@@ -26,6 +26,7 @@ const MODEL_INVOCATION_STATUSES = ["enabled", "disabled", "mixed"] as const;
 const NATIVE_DIRECT_STATUSES = ["enabled", "partial", "mixed"] as const;
 const PI_EXTENSION_STATUSES = ["n/a", "enabled", "missing"] as const;
 const APPLY_OPERATION_TYPES = ["write", "skip", "delete", "remove_empty_dir"] as const;
+const APPLY_STATUS_OPERATION_TYPES = [...APPLY_OPERATION_TYPES, "external"] as const;
 const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
 const USER_INVOCABLE_KEY = "user-invocable";
 const MANAGED_OPENAI_POLICY = "policy:\n  allow_implicit_invocation: false\n";
@@ -148,9 +149,17 @@ const skillKindApplyOperationResultSchema = z.object({
 	applied: z.boolean(),
 });
 
+const skillKindApplyOperationStatusSchema = z.object({
+	type: z.enum(APPLY_STATUS_OPERATION_TYPES),
+	path: z.string(),
+	description: z.string(),
+	status: z.enum(["applied", "failed", "not_attempted", "skipped"]),
+	error: z.unknown().optional(),
+});
+
 const skillKindApplySkillResultSchema = z.object({
 	skill: z.string(),
-	operations: z.array(skillKindApplyOperationResultSchema),
+	operations: z.array(z.union([skillKindApplyOperationResultSchema, skillKindApplyOperationStatusSchema])),
 });
 
 export const skillKindListRequestSchema = z.object({
@@ -185,6 +194,8 @@ export const skillKindApplyResultSchema = z.object({
 	kind: z.enum(SKILL_INVOCATION_KINDS),
 	dry_run: z.boolean(),
 	skills: z.array(skillKindApplySkillResultSchema),
+	mutation_failed: z.boolean().optional(),
+	operations: z.array(skillKindApplyOperationStatusSchema).optional(),
 });
 
 export type SkillKindListRequest = z.infer<typeof skillKindListRequestSchema>;
@@ -194,6 +205,8 @@ export type SkillKindRecordResult = z.infer<typeof skillKindRecordSchema>;
 export type SkillKindListResult = z.infer<typeof skillKindListResultSchema>;
 export type SkillKindShowResult = z.infer<typeof skillKindShowResultSchema>;
 export type SkillKindApplyResult = z.infer<typeof skillKindApplyResultSchema>;
+
+type SkillKindApplyOperationStatusResult = NonNullable<SkillKindApplyResult["operations"]>[number];
 
 export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	const skillGroup = new ClinkrGroup<AregCliContext>({
@@ -252,40 +265,61 @@ export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindSh
 }
 
 export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindApplyRequest): Promise<ClinkrExit<SkillKindApplyResult>> {
-	const firstResolved = await inspectResolvedProject(ctx, request.path);
-	if (firstResolved.type === "error") return failure("project_inspection_failed", firstResolved.message);
-	const projectDir = firstResolved.value.projectDir;
-	const skillResults: SkillKindApplyResult["skills"] = [];
+	const resolved = await inspectResolvedProject(ctx, request.path);
+	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
+	const projectDir = resolved.value.projectDir;
+	const plans: SkillKindApplyPlan[] = [];
+	let planningInspection = resolved.value.inspection;
 	for (const spec of request.skills) {
-		const resolved = await inspectResolvedProject(ctx, projectDir);
-		if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
 		if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
-		const plan = buildSkillKindApplyPlan(resolved.value.inspection, resolvedSkill.skillName, request.kind);
+		const plan = buildSkillKindApplyPlan(planningInspection, resolvedSkill.skillName, request.kind);
 		if (!plan.ok) return failure("skill_plan_failed", plan.error.message);
-		if (!request.dry_run && !request.yes && hasDeletionPrompt(plan.value)) {
-			const confirmed = await ctx.prompt.confirm({ message: deletionPrompt(plan.value), defaultValue: false });
-			if (!confirmed) return negative(`Declined to apply ${request.kind} to ${plan.value.skill}.`, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
-		}
-		if (request.dry_run) {
-			skillResults.push({ skill: plan.value.skill, operations: plan.value.operations.map((operation) => toApplyResult(operation, false, false)) });
-			continue;
-		}
-		const applyResult = await applyProjectMutationPlan({
-			ctx,
-			projectDir,
-			policy: "skill-kind",
-			writes: plannedWrites(plan.value),
-			deletes: plannedDeletes(plan.value),
-			removeEmptyDirs: plannedRemoveEmptyDirs(plan.value),
-		});
-		if (!applyResult.ok) return failure("write_failed", applyResult.error.message);
-		skillResults.push({
-			skill: plan.value.skill,
-			operations: plan.value.operations.map((operation) => toApplyResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
+		plans.push(plan.value);
+		planningInspection = inspectionAfterPlannedApply(planningInspection, plan.value);
+	}
+	if (request.dry_run) {
+		return ok({
+			project_dir: projectDir,
+			kind: request.kind,
+			dry_run: request.dry_run,
+			skills: plans.map((plan) => ({ skill: plan.skill, operations: plan.operations.map((operation) => toApplyResult(operation, false, false)) })),
 		});
 	}
-	return ok({ project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: skillResults });
+	if (!request.yes) {
+		for (const plan of plans) {
+			if (!hasDeletionPrompt(plan)) continue;
+			const confirmed = await ctx.prompt.confirm({ message: deletionPrompt(plan), defaultValue: false });
+			if (!confirmed) return negative(`Declined to apply ${request.kind} to ${plan.skill}.`, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: [] });
+		}
+	}
+	const applyResult = await applyProjectMutationPlan({
+		ctx,
+		projectDir,
+		policy: "skill-kind",
+		writes: plans.flatMap(plannedWrites),
+		deletes: plans.flatMap(plannedDeletes),
+		removeEmptyDirs: plans.flatMap(plannedRemoveEmptyDirs),
+	});
+	if (!applyResult.ok) {
+		return shellNegative(applyResult.error.message, {
+			project_dir: projectDir,
+			kind: request.kind,
+			dry_run: false,
+			mutation_failed: true,
+			operations: applyResult.operationStatuses.map(toApplyOperationStatus),
+			skills: operationStatusesForPlans(plans, applyResult.operationStatuses),
+		});
+	}
+	return ok({
+		project_dir: projectDir,
+		kind: request.kind,
+		dry_run: request.dry_run,
+		skills: plans.map((plan) => ({
+			skill: plan.skill,
+			operations: plan.operations.map((operation) => toApplyResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
+		})),
+	});
 }
 
 function skillKindRecordsFailure<T>(error: { code: string; message: string }, shellNegativeData: T): ClinkrExit<T> {
@@ -430,6 +464,26 @@ function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillNa
 	return { ok: true, value: { skill: skill.name, kind, operations: [frontmatter.value, ...sidecar.value, pi.value] } };
 }
 
+function inspectionAfterPlannedApply(inspection: SkillKindProjectInspection, plan: SkillKindApplyPlan): SkillKindProjectInspection {
+	const piSettingsWrite = plan.operations.find((operation): operation is PlannedWriteOperation => operation.type === "write" && operation.relativePath === ".pi/settings.json");
+	return {
+		...inspection,
+		piSettings: piSettingsWrite === undefined ? inspection.piSettings : { type: "file", text: piSettingsWrite.content },
+		skills: inspection.skills.map((skill) => skill.name === plan.skill ? skillAfterPlannedApply(skill, plan) : skill),
+	};
+}
+
+function skillAfterPlannedApply(skill: AregSkillKindSkillInspection, plan: SkillKindApplyPlan): AregSkillKindSkillInspection {
+	let skillMd = skill.skillMd;
+	let openaiPolicy = skill.openaiPolicy;
+	for (const operation of plan.operations) {
+		if (operation.type === "write" && operation.relativePath === `skills/${skill.name}/SKILL.md`) skillMd = { type: "file", text: operation.content };
+		if (operation.type === "write" && operation.relativePath === `skills/${skill.name}/agents/openai.yaml`) openaiPolicy = { type: "file", text: operation.content };
+		if (operation.type === "delete" && operation.relativePath === `skills/${skill.name}/agents/openai.yaml`) openaiPolicy = { type: "missing" };
+	}
+	return { ...skill, skillMd, openaiPolicy };
+}
+
 async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
 	const targetInspection = await collectSkillKindProjectInspection(ctx, requestPath);
 	if (targetInspection.projectPathState.type === "missing") return { type: "error", message: `Target ${targetInspection.projectDir} does not exist.`, projectDir: targetInspection.projectDir };
@@ -544,7 +598,29 @@ function toApplyResult(operation: PlannedApplyOperation, didApply: boolean, remo
 	};
 }
 
+function operationStatusesForPlans(plans: readonly SkillKindApplyPlan[], operationStatuses: readonly ProjectMutationOperationStatusRecord[]): SkillKindApplyResult["skills"] {
+	const statuses = operationStatuses.map(toApplyOperationStatus);
+	const consumedStatusIndexes = new Set<number>();
+	return plans.map((plan) => ({
+		skill: plan.skill,
+		operations: plan.operations.map((operation) => {
+			if (operation.type === "skip") return { type: operation.type, path: operation.relativePath, description: operation.description, status: "skipped" as const };
+			const statusIndex = statuses.findIndex((status, index) => !consumedStatusIndexes.has(index) && status.type === operation.type && status.path === operation.relativePath && status.description === operation.description);
+			if (statusIndex === -1) return { type: operation.type, path: operation.relativePath, description: operation.description, status: "not_attempted" as const };
+			consumedStatusIndexes.add(statusIndex);
+			return statuses[statusIndex] ?? { type: operation.type, path: operation.relativePath, description: operation.description, status: "not_attempted" as const };
+		}),
+	}));
+}
+
+function toApplyOperationStatus(status: ProjectMutationOperationStatusRecord): SkillKindApplyOperationStatusResult {
+	const result = { type: status.type, path: status.path, description: status.description, status: status.status };
+	if (status.error === undefined) return result;
+	return { ...result, error: status.error };
+}
+
 function renderApplyOperation(operation: SkillKindApplyResult["skills"][number]["operations"][number], dryRun: boolean): string | undefined {
+	if (!("applied" in operation)) return undefined;
 	switch (operation.type) {
 		case "write":
 			return `${dryRun ? "Would write" : "Wrote"} ${operation.path}`;

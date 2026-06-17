@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { failure, ok, shellNegative, type ClinkrExit } from "@asdl/clinkr";
 import { managedRegionBounds } from "@asdl/core/managed-region";
 import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import type { AregCliContext } from "../context.ts";
 import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
-import { applyProjectMutationPlan } from "./project-mutations.ts";
+import { applyProjectMutationPlan, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 
@@ -57,6 +57,14 @@ const skippedFileSchema = z.object({
 	reason: z.string(),
 });
 
+const initOperationStatusSchema = z.object({
+	type: z.enum(["write", "delete", "remove_empty_dir", "external"]),
+	path: z.string(),
+	description: z.string(),
+	status: z.enum(["applied", "failed", "not_attempted", "skipped"]),
+	error: z.unknown().optional(),
+});
+
 export const initResultSchema = z.object({
 	project_dir: z.string(),
 	agents: z.array(z.string()),
@@ -64,6 +72,8 @@ export const initResultSchema = z.object({
 	bootstrap_skills: z.array(z.string()),
 	written_files: z.array(z.string()),
 	skipped_files: z.array(skippedFileSchema),
+	mutation_failed: z.boolean().optional(),
+	operations: z.array(initOperationStatusSchema).optional(),
 });
 
 export type InitRequest = z.infer<typeof initRequestSchema>;
@@ -82,6 +92,37 @@ interface InitTextPlan {
 interface ManagedMarkers {
 	start: string;
 	end: string;
+}
+
+interface InitMutationFailureOptions {
+	message: string;
+	projectDir: string;
+	agents: readonly string[];
+	textPlan: InitTextPlan;
+	operations: readonly ProjectMutationOperationStatusRecord[];
+}
+
+function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<InitResult> {
+	return shellNegative(options.message, {
+		mutation_failed: true,
+		project_dir: options.projectDir,
+		agents: [...options.agents],
+		bootstrap_repo: BOOTSTRAP_REPO,
+		bootstrap_skills: [...BOOTSTRAP_SKILLS],
+		written_files: options.operations.filter((operation) => operation.type === "write" && operation.status === "applied").map((operation) => operation.path),
+		skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
+		operations: options.operations.map((operation) => ({ ...operation })),
+	});
+}
+
+function npxSkillsAddOperation(status: ProjectMutationOperationStatusRecord["status"], error?: ProjectMutationOperationStatusRecord["error"]): ProjectMutationOperationStatusRecord {
+	return {
+		type: "external",
+		path: "npx skills add",
+		description: `Install bootstrap skills from ${BOOTSTRAP_REPO}`,
+		status,
+		error,
+	};
 }
 
 export async function runInit(ctx: AregCliContext, request: InitRequest): Promise<ClinkrExit<InitResult>> {
@@ -119,6 +160,17 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 	if (!planResult.ok) return failure("write_plan_failed", planResult.error.message);
 	const textPlan = planResult.value;
 
+	const preflight = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes, execute: false });
+	if (!preflight.ok) {
+		return initMutationFailure({
+			message: `Cannot initialize areg: ${preflight.error.message}`,
+			projectDir: inspection.projectDir,
+			agents,
+			textPlan,
+			operations: [npxSkillsAddOperation("not_attempted"), ...preflight.operationStatuses],
+		});
+	}
+
 	const install = await ctx.npxSkills.addSkills({
 		sourceRepo: BOOTSTRAP_REPO,
 		skillNames: BOOTSTRAP_SKILLS,
@@ -126,10 +178,29 @@ export async function runInit(ctx: AregCliContext, request: InitRequest): Promis
 		cwd: inspection.projectDir,
 		env: ctx.env,
 	});
-	if (install.type === "error") return failure("skill_install_failed", `npx skills add failed: ${install.error.message}`);
+	if (install.type === "error") {
+		return initMutationFailure({
+			message: `npx skills add failed: ${install.error.message}`,
+			projectDir: inspection.projectDir,
+			agents,
+			textPlan,
+			operations: [
+				npxSkillsAddOperation("failed", install.error),
+				...preflight.operationStatuses,
+			],
+		});
+	}
 
 	const apply = await applyProjectMutationPlan({ ctx, projectDir: inspection.projectDir, policy: "init", writes: textPlan.writes });
-	if (!apply.ok) return failure("write_failed", apply.error.message);
+	if (!apply.ok) {
+		return initMutationFailure({
+			message: `Cannot finish areg init: ${apply.error.message}`,
+			projectDir: inspection.projectDir,
+			agents,
+			textPlan,
+			operations: [npxSkillsAddOperation("applied"), ...apply.operationStatuses],
+		});
+	}
 
 	return ok({
 		project_dir: inspection.projectDir,

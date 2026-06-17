@@ -94,6 +94,46 @@ describe("areg gateway fakes", () => {
 		});
 	});
 
+	test("project fake supports independent preflight failures with fallback and logs preflights", async () => {
+		const project: AregProjectGateway = new FakeAregProjectGateway({
+			preflightFailures: {
+				"skills/demo/SKILL.md": { code: "specific-preflight", message: "specific preflight" },
+				"*": { code: "fallback-preflight", message: "fallback preflight" },
+			},
+		});
+
+		expect(await project.preflightWriteTextFile({
+			projectDir: "/repo",
+			relativePath: "skills/demo/SKILL.md",
+			content: "demo",
+			description: "SKILL.md",
+			createParent: false,
+			policy: "skill-kind",
+			env: {},
+		})).toMatchObject({ ok: false, error: { code: "specific-preflight" } });
+		expect(await project.preflightDeleteFile({
+			projectDir: "/repo",
+			relativePath: ".pi/settings.json",
+			description: "Pi settings",
+			policy: "skill-kind",
+			env: {},
+		})).toMatchObject({ ok: false, error: { code: "fallback-preflight" } });
+		expect(await project.writeTextFile({
+			projectDir: "/repo",
+			relativePath: "skills/demo/SKILL.md",
+			content: "demo",
+			description: "SKILL.md",
+			createParent: false,
+			policy: "skill-kind",
+			env: {},
+		})).toEqual({ ok: true });
+		expect((project as FakeAregProjectGateway).operations().map((operation) => operation.type)).toEqual([
+			"preflight-write-text-file",
+			"preflight-delete-file",
+			"write-text-file",
+		]);
+	});
+
 	test("host fake implements tool checks and read-only operation logs", async () => {
 		const host: AregHostGateway = new FakeAregHostGateway({ tools: { gh: "/bin/gh", npx: null } });
 		expect(await host.checkTool({ tool: "gh", cwd: "/work", env: {} })).toEqual({ type: "found", tool: "gh", path: "/bin/gh" });
