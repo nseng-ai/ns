@@ -45,7 +45,7 @@ The collector should use these read-only commands only:
 
 ```bash
 git branch --show-current
-pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json --stdout-mode full
+pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json
 pr-address exec download-feedback --pr-number <pr-number> --format json
 ```
 
@@ -65,7 +65,7 @@ unresolved/current feedback.
 3. Then run:
 
    ```bash
-   pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json --stdout-mode full
+   pr-address exec map-branch-prs --branches-json '{"branches":["<branch>"]}' --format json
    ```
 
 4. If no current branch is available, or no open PR is found for the current

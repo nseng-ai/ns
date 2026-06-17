@@ -18,7 +18,6 @@
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "@asdl/plans": "workspace:*",
     "zod": "^4.4.3"
   }
 }

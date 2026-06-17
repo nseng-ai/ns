@@ -2,8 +2,6 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
-import { formatErrorMessage, isRecord } from "@asdl/core";
-
 export interface JsonInputError {
 	errorType: "invalid_json" | "invalid_request";
 	message: string;
@@ -26,7 +24,7 @@ export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
 	schema: z.ZodType<T>;
 }
 
-export async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<JsonInputResult<string>> {
+async function readJsonInputText(options: ReadJsonInputTextOptions): Promise<JsonInputResult<string>> {
 	const canReadStdin = options.canReadStdin ?? true;
 	const sourceCount = Number(options.optionValue !== undefined) + Number(options.filePath !== undefined);
 	if (sourceCount > 1) {
@@ -65,42 +63,6 @@ export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promis
 		jsonDescription: `${options.commandName} ${options.inputDescription}`,
 		schemaDescription: `${options.commandName} ${options.inputDescription}`,
 	});
-}
-
-export interface LoadJsonRecordOptions extends ReadJsonInputTextOptions {}
-
-/**
- * Load JSON input that must be a record/object.
- * Preserves the pinned "JSON must be an object" error wording for byte-level fixture stability.
- */
-export async function loadJsonRecord(options: LoadJsonRecordOptions): Promise<JsonInputResult<Record<string, unknown>>> {
-	const textResult = await readJsonInputText(options);
-	if (textResult.type === "error") return textResult;
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(textResult.value);
-	} catch (error) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_json",
-				message: `Invalid ${options.commandName} ${options.inputDescription}: ${jsonParseMessage(error)}`,
-			},
-		};
-	}
-
-	if (!isRecord(parsed)) {
-		return {
-			type: "error",
-			error: {
-				errorType: "invalid_request",
-				message: `${options.commandName} ${options.inputDescription} JSON must be an object.`,
-			},
-		};
-	}
-
-	return { type: "ok", value: parsed };
 }
 
 async function readRawPayload(options: ReadJsonInputTextOptions, canReadStdin: boolean): Promise<JsonInputResult<string>> {
@@ -164,45 +126,14 @@ function jsonParseMessage(error: unknown): string {
 	return String(error);
 }
 
-/**
- * Parse JSON text and validate with Zod schema, returning structured errors.
- * @param text - Raw JSON text to parse
- * @param schema - Zod schema for validation
- * @param jsonDescription - Descriptor for JSON parsing errors (e.g., "demo payload")
- * @param schemaDescription - Descriptor for schema validation errors (e.g., "demo payload")
- */
-export interface LoadJsonInputFileOptions<T> {
-	filePath: string;
-	schema: z.ZodType<T>;
-	commandName: string;
-	optionName: string;
-}
-
-export async function loadJsonInputFile<T>(options: LoadJsonInputFileOptions<T>): Promise<{ type: "ok"; value: T } | { type: "error"; errorType: string; message: string }> {
-	let text: string;
-	try {
-		text = await readFile(options.filePath, "utf8");
-	} catch (error) {
-		return { type: "error", errorType: "invalid_request", message: `${options.commandName} ${options.optionName} must point to an existing JSON file: ${options.filePath} (${formatErrorMessage(error)})` };
-	}
-	const parsed = parseJsonWithSchema({
-		text,
-		schema: options.schema,
-		jsonDescription: `${options.commandName} ${options.optionName}`,
-		schemaDescription: `${options.commandName} ${options.optionName}`,
-	});
-	if (parsed.type === "error") return { type: "error", errorType: parsed.error.errorType, message: parsed.error.message };
-	return { type: "ok", value: parsed.value };
-}
-
-export interface ParseJsonWithSchemaOptions<T> {
+interface JsonSchemaParseOptions<T> {
 	text: string;
 	schema: z.ZodType<T>;
 	jsonDescription: string;
 	schemaDescription: string;
 }
 
-export function parseJsonWithSchema<T>(options: ParseJsonWithSchemaOptions<T>): JsonInputResult<T> {
+function parseJsonWithSchema<T>(options: JsonSchemaParseOptions<T>): JsonInputResult<T> {
 	let parsedJson: unknown;
 	try {
 		parsedJson = JSON.parse(options.text);

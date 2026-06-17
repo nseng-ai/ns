@@ -231,7 +231,7 @@ async function loadStackBranches(pi: ExtensionAPI, ctx: ExtensionContext): Promi
 
 async function mapStackBranchesToPrs(pi: ExtensionAPI, ctx: ExtensionContext, branches: readonly string[]): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
 	const branchesJson = JSON.stringify({ branches });
-	const result = await pi.exec("pr-address", ["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json", "--stdout-mode", "full"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
+	const result = await pi.exec("pr-address", ["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"], { cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS });
 	const parsed = parseEnvelopeWithSchema({
 		label: "pr-address map-branch-prs",
 		result,

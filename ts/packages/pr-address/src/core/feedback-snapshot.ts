@@ -1,6 +1,5 @@
 import type { GatewayFailure, GatewayOptions, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
 
-const RESOLUTION_MARKER = "<!-- pr-address:resolved -->";
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 
 export interface FeedbackSnapshot {
@@ -58,32 +57,6 @@ export async function fetchFeedbackSnapshot(options: FetchFeedbackSnapshotOption
 export function reviewsForRequest(reviews: readonly PRReview[], shouldIncludeEmptyReviews: boolean): readonly PRReview[] {
 	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
-}
-
-export function contestedThreadIds(reviewThreads: readonly PRReviewThread[]): readonly string[] {
-	const contested: string[] = [];
-	for (const thread of reviewThreads) {
-		if (!thread.is_resolved) continue;
-		const markerIndexes: number[] = [];
-		thread.comments.forEach((comment, index) => {
-			if (comment.body.includes(RESOLUTION_MARKER)) markerIndexes.push(index);
-		});
-		const lastMarkerIndex = markerIndexes.at(-1);
-		if (lastMarkerIndex !== undefined && lastMarkerIndex < thread.comments.length - 1) contested.push(thread.id);
-	}
-	return contested;
-}
-
-export function feedbackCounts(snapshot: FeedbackSnapshot): Record<string, number> {
-	const resolvedThreads = snapshot.review_threads.filter((thread) => thread.is_resolved).length;
-	return {
-		reviews: snapshot.reviews.length,
-		review_threads: snapshot.review_threads.length,
-		unresolved_review_threads: snapshot.review_threads.length - resolvedThreads,
-		resolved_review_threads: resolvedThreads,
-		thread_comments: snapshot.review_threads.reduce((total, thread) => total + thread.comments.length, 0),
-		discussion_comments: snapshot.discussion_comments.length,
-	};
 }
 
 function isEmptyReview(review: PRReview): boolean {

@@ -171,7 +171,7 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] },
-			{ command: "pr-address", args: ["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["branch-one", "branch-two"] }), "--format", "json", "--stdout-mode", "full"] },
+			{ command: "pr-address", args: ["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["branch-one", "branch-two"] }), "--format", "json"] },
 			{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "101", "--format", "json"] },
 			{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "102", "--format", "json"] },
 		]);

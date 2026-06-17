@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { nullableIntSchema, nullableStringSchema } from "./shared.ts";
+const nullableIntSchema = z.int().nullable();
+const nullableStringSchema = z.string().nullable();
 
 export const mapBranchPrsRequestSchema = z.object({
 	branches_json: z.string().optional(),
