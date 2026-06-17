@@ -10,7 +10,13 @@ import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "..
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
-import { applyProjectMutationPlan, createProjectMutationOperationStatusRecord, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
+import {
+	applyProjectMutationPlan,
+	createProjectMutationOperationStatusRecord,
+	PROJECT_MUTATION_OPERATION_STATUSES,
+	PROJECT_MUTATION_OPERATION_TYPES,
+	type ProjectMutationOperationStatusRecord,
+} from "./project-mutations.ts";
 
 export { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 
@@ -59,10 +65,10 @@ const skippedFileSchema = z.object({
 });
 
 const initOperationStatusSchema = z.object({
-	type: z.enum(["write", "delete", "remove_empty_dir", "external"]),
+	type: z.enum(PROJECT_MUTATION_OPERATION_TYPES),
 	path: z.string(),
 	description: z.string(),
-	status: z.enum(["applied", "failed", "not_attempted", "skipped"]),
+	status: z.enum(PROJECT_MUTATION_OPERATION_STATUSES),
 	error: z.unknown().optional(),
 });
 

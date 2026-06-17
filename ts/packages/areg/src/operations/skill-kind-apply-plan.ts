@@ -8,7 +8,7 @@ import type {
 } from "../gateways.ts";
 import { replacementAdvice, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings, type PiSettingsData } from "./pi-settings.ts";
-import { PROJECT_FILE_MUTATION_OPERATION_TYPES, PROJECT_MUTATION_OPERATION_TYPES, type ProjectMutationOperationStatus, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
+import { PROJECT_FILE_MUTATION_OPERATION_TYPES, PROJECT_MUTATION_OPERATION_TYPES, type ProjectMutationOperationStatusRecord } from "./project-mutations.ts";
 import { planFrontmatterOperation } from "./skill-kind-frontmatter.ts";
 import { type SkillInvocationKind, type SkillKindProjectInspection, validateInspectableSkill } from "./skill-kind-inference.ts";
 
@@ -16,7 +16,6 @@ export const APPLY_OPERATION_TYPES = [...PROJECT_FILE_MUTATION_OPERATION_TYPES, 
 export const APPLY_STATUS_OPERATION_TYPES = [...PROJECT_MUTATION_OPERATION_TYPES, "skip"] as const;
 
 export type ApplyOperationType = (typeof APPLY_OPERATION_TYPES)[number];
-export type ApplyOperationStatus = ProjectMutationOperationStatus;
 
 export interface PlannedApplyOperationBase {
 	type: ApplyOperationType;
@@ -62,7 +61,7 @@ export interface SkillKindApplySkipStatusResult {
 	type: "skip";
 	path: string;
 	description: string;
-	status: ApplyOperationStatus;
+	status: "skipped";
 	error?: unknown;
 }
 

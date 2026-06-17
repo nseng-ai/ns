@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import { isPathStateError } from "./file-state.ts";
 import { inspectSkillKindProject } from "./project-inspection.ts";
-import { applyProjectMutationPlan } from "./project-mutations.ts";
+import { applyProjectMutationPlan, PROJECT_MUTATION_OPERATION_STATUSES } from "./project-mutations.ts";
 import {
 	APPLY_OPERATION_TYPES,
 	APPLY_STATUS_OPERATION_TYPES,
@@ -73,7 +73,7 @@ const skillKindApplyOperationStatusSchema = z.object({
 	type: z.enum(APPLY_STATUS_OPERATION_TYPES),
 	path: z.string(),
 	description: z.string(),
-	status: z.enum(["applied", "failed", "not_attempted", "skipped"]),
+	status: z.enum(PROJECT_MUTATION_OPERATION_STATUSES),
 	error: z.unknown().optional(),
 });
 
