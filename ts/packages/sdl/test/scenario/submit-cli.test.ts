@@ -15,6 +15,7 @@ import {
 } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/asdl-tools/1517";
 
 function createSubmitContext(state: TestState = {}): ScriptedSdlTestContext {
@@ -103,6 +104,7 @@ describe("sdl submit CLI", () => {
 		const help = helpRun.stdout.join("");
 		expect(help).toContain("Usage: sdl submit");
 		expect(help).toContain("--restack");
+		expect(help).toContain("--verbose");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_MODEL");
 		expect(help).toContain("ASDL_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help).not.toContain("\n  --format");
@@ -114,39 +116,57 @@ describe("sdl submit CLI", () => {
 		expect(schemaRun.context.execCalls).toEqual([]);
 	});
 
-	test("clean success submits, verifies current PR, preserves live output, and rewrites PR bodies", async () => {
+	test("clean success submits, verifies current PR, prints quiet progress, and rewrites PR bodies", async () => {
 		const run = runWithFakes({ args: ["submit"] });
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("gt submit succeeded");
-		expect(output).toContain(`#123 ${PR_URL}`);
-		expect(output).toContain("Updated PR descriptions after submit");
-		expect(output).not.toContain("Skipped PR descriptions");
+		expect(output).toContain("Submitted 1 PR:");
+		expect(output).toContain(`✓ #123 ${PR_URL}`);
+		expect(output).toContain("description updated");
+		expect(output).not.toContain("gt submit succeeded");
+		expect(output).not.toContain("PRs:");
+		expect(output).not.toContain("Updated PR descriptions after submit");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "sdl submit: checking worktree and checkpointing pending changes if needed...\n" },
-				{ stream: "stderr", text: "sdl submit: checking Graphite submit readiness...\n" },
-				{ stream: "stdout", text: "ready\n" },
-				{ stream: "stderr", text: "sdl submit: preparing PR metadata before submit...\n" },
-				{ stream: "stderr", text: "sdl submit: running gt submit...\n" },
-				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
-				{ stream: "stderr", text: "sdl submit: verifying submitted PRs...\n" },
-				{ stream: "stderr", text: "sdl submit: generating or validating PR descriptions...\n" },
-				{ stream: "stderr", text: "sdl submit: preparing descriptions for 1 PR...\n" },
-				{ stream: "stderr", text: "sdl submit: loading PR #123 metadata (1/1)...\n" },
-				{ stream: "stderr", text: "sdl submit: loading PR #123 commit messages...\n" },
-				{ stream: "stderr", text: "sdl submit: resolving PR description prompt and model...\n" },
-				{ stream: "stderr", text: "sdl submit: reading PR #123 diff...\n" },
-				{ stream: "stderr", text: "sdl submit: requesting PR description from model (attempt 1/2)...\n" },
-				{ stream: "stderr", text: "sdl submit: updating PR #123 description...\n" },
-				{ stream: "stderr", text: "sdl submit: finished PR #123 description...\n" },
+				{ stream: "stderr", text: "sdl submit\n" },
+				{ stream: "stderr", text: "• Checking worktree and checkpointing pending changes if needed…\n" },
+				{ stream: "stderr", text: "✓ Checkpoint phase complete\n" },
+				{ stream: "stderr", text: "• Preflight: checking Graphite submit readiness…\n" },
+				{ stream: "stderr", text: "• Metadata: preparing PR metadata before submit…\n" },
+				{ stream: "stderr", text: "• Submit: running gt submit…\n" },
+				{ stream: "stderr", text: "• Verification: checking submitted PR…\n" },
+				{ stream: "stderr", text: "• Descriptions: generating or validating PR descriptions…\n" },
+				{ stream: "stderr", text: "  … preparing descriptions for 1 PR\n" },
+				{ stream: "stderr", text: "  … loading PR #123 metadata (1/1)\n" },
+				{ stream: "stderr", text: "  … loading PR #123 commit messages\n" },
+				{ stream: "stderr", text: "  … resolving PR description prompt and model\n" },
+				{ stream: "stderr", text: "  … reading PR #123 diff\n" },
+				{ stream: "stderr", text: "  … generating PR metadata (attempt 1/2)\n" },
+				{ stream: "stderr", text: "  … updating PR #123 description\n" },
+				{ stream: "stderr", text: "  … finished PR #123 description\n" },
 			]),
 		);
+		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
+		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
+	});
+
+	test("--verbose streams raw Graphite output in addition to concise progress", async () => {
+		const run = runWithFakes({ args: ["submit", "--verbose"] });
+
+		expect(await run.exit).toBe(0);
+		expect(run.liveOutput).toEqual(
+			expect.arrayContaining([
+				{ stream: "stderr", text: "• Preflight: checking Graphite submit readiness…\n" },
+				{ stream: "stdout", text: "ready\n" },
+				{ stream: "stderr", text: "• Submit: running gt submit…\n" },
+				{ stream: "stdout", text: `Submitted ${PR_URL}\n` },
+			]),
+		);
 	});
 
 	test("post-submit PR description model progress includes an elapsed counter while waiting", async () => {
@@ -160,13 +180,13 @@ describe("sdl submit CLI", () => {
 		await vi.waitFor(() => {
 			expect(run.context.modelCalls).toHaveLength(1);
 		});
-		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: requesting PR description from model (attempt 1/2)...\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "  … generating PR metadata (attempt 1/2)\n" });
 
 		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: still waiting for PR description from model (attempt 1/2, 5s elapsed)...\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "  … still generating PR metadata (5s elapsed)\n" });
 
 		await vi.advanceTimersByTimeAsync(5_000);
-		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "sdl submit: still waiting for PR description from model (attempt 1/2, 10s elapsed)...\n" });
+		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "  … still generating PR metadata (10s elapsed)\n" });
 
 		resolveModel?.({ ok: true, text: defaultPrDescriptionText() });
 		expect(await run.exit).toBe(0);
@@ -197,19 +217,22 @@ describe("sdl submit CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Prepared initial PR metadata");
+		const output = run.stdout.join("");
+		expect(output).toContain("Submitted 1 PR:");
+		expect(output).toContain("initial metadata prepared");
+		expect(output).not.toContain("Prepared initial PR metadata:");
 		expect(run.liveOutput).toEqual(
 			expect.arrayContaining([
-				{ stream: "stderr", text: "sdl submit: inspecting Graphite stack before metadata preparation...\n" },
-				{ stream: "stderr", text: "sdl submit: inspecting Graphite stack branch metadata for 2 branches...\n" },
-				{ stream: "stderr", text: "sdl submit: inspecting PR metadata for feature/base (1/2)...\n" },
-				{ stream: "stderr", text: "sdl submit: inspecting PR metadata for feature/top (2/2)...\n" },
-				{ stream: "stderr", text: "sdl submit: reading local commits and diff for feature/top...\n" },
-				{ stream: "stderr", text: "sdl submit: found 2 stack branches; 1 new single-commit branch needs initial PR metadata...\n" },
-				{ stream: "stderr", text: "sdl submit: generating initial PR metadata for feature/top (1/1)...\n" },
-				{ stream: "stderr", text: "sdl submit: checking clean worktree before metadata amendment...\n" },
-				{ stream: "stderr", text: "sdl submit: amending local PR metadata commit for feature/top (1/1)...\n" },
-				{ stream: "stderr", text: "sdl submit: prepared pre-submit PR metadata for 1 branch...\n" },
+				{ stream: "stderr", text: "  … inspecting Graphite stack before metadata preparation\n" },
+				{ stream: "stderr", text: "  … inspecting Graphite stack branch metadata for 2 branches\n" },
+				{ stream: "stderr", text: "  … inspecting PR metadata for feature/base (1/2)\n" },
+				{ stream: "stderr", text: "  … inspecting PR metadata for feature/top (2/2)\n" },
+				{ stream: "stderr", text: "  … reading local commits and diff for feature/top\n" },
+				{ stream: "stderr", text: "  … found 2 stack branches; 1 new single-commit branch needs initial PR metadata\n" },
+				{ stream: "stderr", text: "  … generating initial PR metadata for feature/top (1/1)\n" },
+				{ stream: "stderr", text: "  … checking clean worktree before metadata amendment\n" },
+				{ stream: "stderr", text: "  … amending local PR metadata commit for feature/top (1/1)\n" },
+				{ stream: "stderr", text: "  … prepared pre-submit PR metadata for 1 branch\n" },
 			]),
 		);
 	});
@@ -229,11 +252,12 @@ describe("sdl submit CLI", () => {
 			},
 		})).toBe(0);
 
-		expect(stderr.join("")).toContain("sdl submit: checking worktree and checkpointing pending changes if needed...");
-		expect(stderr.join("")).toContain("sdl submit: running gt submit...");
-		expect(stdout.join("")).toContain("ready\n");
-		expect(stdout.join("")).toContain(`Submitted ${PR_URL}\n`);
-		expect(stdout.join("")).toContain("gt submit succeeded");
+		expect(stderr.join("")).toContain("sdl submit\n");
+		expect(stderr.join("")).toContain("• Checking worktree and checkpointing pending changes if needed…");
+		expect(stderr.join("")).toContain("• Submit: running gt submit…");
+		expect(stdout.join("")).not.toContain("ready\n");
+		expect(stdout.join("")).not.toContain(`Submitted ${PR_URL}\n`);
+		expect(stdout.join("")).toContain("Submitted 1 PR:");
 	});
 
 	test("accepts submit-output PR links when current PR verification lags", async () => {
@@ -272,10 +296,37 @@ describe("sdl submit CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("gt submit succeeded");
+		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
 		expect(run.stdout.join("")).toContain(`#1517 ${LAGGING_VERIFICATION_PR_URL}`);
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+	});
+
+	test("deduplicates the submitted PR when Graphite and GitHub URL forms differ", async () => {
+		const run = runWithFakes({
+			args: ["submit"],
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
+					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${GRAPHITE_PR_URL}\n` } },
+					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
+					{ match: "gh pr view 123 --json number,url,title,body,headRefName,baseRefName", result: { stdout: prJson({ body: "Hand edited body" }) } },
+					{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "gh pr diff 123", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+					{ match: /^gh pr edit 123 --title Generated PR --body-file /, result: {} },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output.match(/^✓ #123 /gm)).toHaveLength(1);
+		expect(output).toContain(`✓ #123 ${GRAPHITE_PR_URL}`);
+		expect(output).not.toContain(PR_URL);
 	});
 
 	test("post-submit no-current-PR failure gives checkpoint guidance", async () => {
@@ -404,10 +455,11 @@ describe("sdl submit CLI", () => {
 		};
 
 		expect(await runCli(["submit"], { context, homeDir: join(context.cwd, ".home") })).toBe(0);
-		expect(stdout.join("")).toContain("gt submit succeeded");
+		expect(stdout.join("")).toContain("Submitted 1 PR:");
 		expect(stderr.join("")).toBe("");
 		expect(confirmations).toEqual(["Run gt restack before submit?"]);
-		expect(liveOutput).toEqual(expect.arrayContaining([{ stream: "stdout", text: "restacked\n" }]));
+		expect(liveOutput).toEqual(expect.arrayContaining([{ stream: "stderr", text: "• Preflight: running gt restack…\n" }]));
+		expect(liveOutput).not.toContainEqual({ stream: "stdout", text: "restacked\n" });
 	});
 
 	test("--restack runs restack without prompting", async () => {

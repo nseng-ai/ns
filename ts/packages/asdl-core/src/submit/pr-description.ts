@@ -271,13 +271,13 @@ export async function preparePrDescription(input: {
 		onProgress: (event) => {
 			switch (event.type) {
 				case "attempt_started":
-					input.onProgress?.(`requesting PR description from model (attempt ${event.attempt}/${event.maxAttempts})`);
+					input.onProgress?.(`generating PR metadata (attempt ${event.attempt}/${event.maxAttempts})`);
 					break;
 				case "attempt_waiting":
-					input.onProgress?.(`still waiting for PR description from model (attempt ${event.attempt}/${event.maxAttempts}, ${formatElapsedMs(event.elapsedMs)} elapsed)`);
+					input.onProgress?.(`still generating PR metadata (${formatElapsedMs(event.elapsedMs)} elapsed)`);
 					break;
 				case "attempt_invalid":
-					input.onProgress?.("PR description model output failed validation; requesting repair");
+					input.onProgress?.("PR metadata draft failed validation; requesting repair");
 					break;
 			}
 		},

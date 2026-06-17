@@ -1,8 +1,8 @@
 import { stripTerminalEscapes } from "../exec.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
+import { formatPrLinkText } from "./submit-pr-link.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
-import { formatPrLinkTextRow } from "./submit-pr-descriptions.ts";
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -24,24 +24,45 @@ export function formatSubmitSuccessText(
 		prewriteFallbacks: readonly SubmitPrLink[];
 	},
 ): string {
-	const lines = ["gt submit succeeded", "", "PRs:", ...prLinks.map(formatPrLinkTextRow)];
-	if (descriptions.prewritten.length > 0) {
-		lines.push("", "Prepared initial PR metadata:", ...descriptions.prewritten.map(formatPrLinkTextRow));
-	}
-	const updated = [...descriptions.generated, ...descriptions.prewriteFallbacks];
-	if (updated.length > 0) {
-		lines.push("", "Updated PR descriptions after submit:", ...updated.map(formatPrLinkTextRow));
+	const lines = [`Submitted ${prLinks.length} ${prLinks.length === 1 ? "PR" : "PRs"}:`];
+	for (const link of prLinks) {
+		lines.push(`✓ ${formatPrLinkText(link)}`);
+		for (const status of formatSubmitSuccessStatuses(link, descriptions)) {
+			lines.push(`  - ${status}`);
+		}
 	}
 	return lines.join("\n");
 }
 
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
-	const lines = ["gt submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed."];
+	const lines = ["Submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed."];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
 		lines.push("", "Recent output:", outputTail);
 	}
 	return lines.join("\n");
+}
+
+function formatSubmitSuccessStatuses(
+	link: SubmitPrLink,
+	descriptions: {
+		generated: readonly SubmitPrLink[];
+		prewritten: readonly SubmitPrLink[];
+		prewriteFallbacks: readonly SubmitPrLink[];
+	},
+): string[] {
+	const statuses: string[] = [];
+	if (hasMatchingLink(descriptions.prewritten, link)) {
+		statuses.push("initial metadata prepared");
+	}
+	if (hasMatchingLink(descriptions.generated, link) || hasMatchingLink(descriptions.prewriteFallbacks, link)) {
+		statuses.push("description updated");
+	}
+	return statuses;
+}
+
+function hasMatchingLink(links: readonly SubmitPrLink[], target: SubmitPrLink): boolean {
+	return links.some((link) => link.url === target.url);
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {
