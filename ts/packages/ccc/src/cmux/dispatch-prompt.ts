@@ -145,22 +145,43 @@ export async function createTrackedBranchForPrompt(
 		return { error: `Could not resolve HEAD: ${startPoint.message}` };
 	}
 
+	return createTrackedBranchFromResolvedParent({
+		pi,
+		cwd,
+		prompt,
+		parentBranch: parent.text,
+		startPoint: startPoint.text,
+		startRef: "HEAD",
+	});
+}
+
+export async function createTrackedBranchFromResolvedParent(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	prompt: string;
+	parentBranch: string;
+	startPoint: string;
+	startRef: string;
+	createFailureContext?: string;
+}): Promise<BranchCreateResult | { error: string }> {
+	const { pi, cwd, prompt, parentBranch, startPoint, startRef, createFailureContext } = options;
 	const slug = await generateBranchSlug(pi, cwd, { kind: "task", content: prompt });
 	if (!slug.ok) {
 		return { error: slug.message };
 	}
 
 	const branchName = await chooseAvailableBranchName(pi, cwd, slug.text);
-	const create = await runText(pi, cwd, "git", ["branch", branchName, "HEAD"]);
+	const create = await runText(pi, cwd, "git", ["branch", branchName, startRef]);
 	if (!create.ok) {
-		return { error: `Failed to create branch ${branchName}: ${create.message}` };
+		const context = createFailureContext === undefined ? "" : ` ${createFailureContext}`;
+		return { error: `Failed to create branch ${branchName}${context}: ${create.message}` };
 	}
 
 	const track = await runText(pi, cwd, "gt", [
 		"track",
 		branchName,
 		"--parent",
-		parent.text,
+		parentBranch,
 		"--no-interactive",
 	]);
 	if (!track.ok) {
@@ -175,12 +196,12 @@ export async function createTrackedBranchForPrompt(
 
 	return {
 		branchName,
-		parentBranch: parent.text,
-		startPoint: startPoint.text,
+		parentBranch,
+		startPoint,
 	};
 }
 
-export async function chooseAvailableBranchName(pi: Pick<ExtensionAPI, "exec">, cwd: string, baseName: string): Promise<string> {
+async function chooseAvailableBranchName(pi: Pick<ExtensionAPI, "exec">, cwd: string, baseName: string): Promise<string> {
 	let candidate = baseName;
 	for (let suffix = 2; await branchExists(pi, cwd, candidate); suffix += 1) {
 		candidate = appendBranchSuffix(baseName, suffix);

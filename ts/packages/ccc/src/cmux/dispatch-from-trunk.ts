@@ -1,7 +1,7 @@
 import {
 	buildBrmemPayloadPiLaunchCommand,
 	buildLaunchPrompt,
-	chooseAvailableBranchName,
+	createTrackedBranchFromResolvedParent,
 	formatDispatchPromptStorageFailure,
 	resolveDispatchPromptPayloadOptions,
 	runText,
@@ -9,7 +9,6 @@ import {
 	type BranchCreateResult,
 	type DispatchPromptPayloadOptions,
 } from "./dispatch-prompt.ts";
-import { generateBranchSlug } from "./branch-slug.ts";
 import { getPiLaunchOptions } from "./pi-launch.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import type { CommandContext, ExtensionAPI } from "./types.ts";
@@ -133,39 +132,15 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	}
 
 	notify?.("Generating branch name…");
-	const slug = await generateBranchSlug(pi, cwd, { kind: "task", content: prompt });
-	if (!slug.ok) {
-		return { error: slug.message };
-	}
-
-	const branchName = await chooseAvailableBranchName(pi, cwd, slug.text);
-	const create = await runText(pi, cwd, "git", ["branch", branchName, trunkBranch]);
-	if (!create.ok) {
-		return { error: `Failed to create branch ${branchName} from refreshed trunk ${trunkBranch}: ${create.message}` };
-	}
-
-	const track = await runText(pi, cwd, "gt", [
-		"track",
-		branchName,
-		"--parent",
-		trunkBranch,
-		"--no-interactive",
-	]);
-	if (!track.ok) {
-		return {
-			error: [
-				`Created git branch ${branchName}, but Graphite tracking failed:`,
-				track.message,
-				"The slot/cmux prompt session was not launched.",
-			].join("\n"),
-		};
-	}
-
-	return {
-		branchName,
+	return createTrackedBranchFromResolvedParent({
+		pi,
+		cwd,
+		prompt,
 		parentBranch: trunkBranch,
 		startPoint: startPoint.text,
-	};
+		startRef: trunkBranch,
+		createFailureContext: `from refreshed trunk ${trunkBranch}`,
+	});
 }
 
 function firstNonEmptyLine(text: string): string | undefined {
