@@ -38,7 +38,7 @@ const TOP_LEVEL_BOT_DISCUSSION_AUTHORS = new Set(["vercel[bot]"]);
 
 type WatchCommandAction = "toggle" | "start" | "stop" | "status" | "once";
 type ExistingFeedbackMode = "dispatch" | "baseline";
-type FeedbackItemKind = "review" | "thread_comment" | "discussion_comment";
+type FeedbackItemKind = "download" | "review" | "thread_comment" | "discussion_comment";
 type FeedbackFingerprintItemKind = "discussion_comment" | "review" | "review_comment";
 type WatchMode = "rest_fingerprint" | "heavy_fallback" | "stopped";
 type IgnoredFeedbackReason = "current_user" | "status_bot";
@@ -100,63 +100,30 @@ export interface FilteredFeedbackItems {
 	ignoredItems: IgnoredFeedbackItem[];
 }
 
-export interface PrepareRunData {
+export interface DownloadFeedbackData {
 	found: boolean;
-	currentBranch?: string | undefined;
-	number?: number | undefined;
-	title?: string | undefined;
-	url?: string | undefined;
-	headRefName?: string | undefined;
-	baseRefName?: string | undefined;
-	state?: string | undefined;
-	payloadPath?: string | undefined;
-	reviews: PrepareRunReview[];
-	reviewThreads: PrepareRunReviewThread[];
-	discussionComments: PrepareRunDiscussionComment[];
+	target: {
+		pr_number?: number | null | undefined;
+		branch?: string | null | undefined;
+		title?: string | null | undefined;
+		url?: string | null | undefined;
+		head_ref_name?: string | null | undefined;
+		base_ref_name?: string | null | undefined;
+	};
+	counts: {
+		included_review_threads: number;
+		included_reviews: number;
+		included_discussion_comments: number;
+	};
+	markdown: string;
 }
 
-interface PrepareRunReview {
-	id: string;
-	author: string | undefined;
-	state: string | undefined;
-	jsonPointer: string | undefined;
-	itemPointer: string | undefined;
-}
-
-interface PrepareRunReviewThread {
-	threadId: string;
-	path: string | undefined;
-	line: number | undefined;
-	startLine: number | undefined;
-	isResolved: boolean | undefined;
-	isOutdated: boolean | undefined;
-	comments: PrepareRunThreadComment[];
-}
-
-interface PrepareRunThreadComment {
-	id: number;
-	author: string | undefined;
-	path: string | undefined;
-	line: number | undefined;
-	startLine: number | undefined;
-	jsonPointer: string | undefined;
-	itemPointer: string | undefined;
-}
-
-interface PrepareRunDiscussionComment {
-	commentId: number;
-	author: string | undefined;
-	url: string | undefined;
-	jsonPointer: string | undefined;
-	itemPointer: string | undefined;
-}
-
-interface PrepareRunDataParseInvalid {
+interface DownloadFeedbackDataParseInvalid {
 	type: "invalid";
 	message: string;
 }
 
-type PrepareRunDataParseResult = { type: "valid"; data: PrepareRunData } | PrepareRunDataParseInvalid;
+type DownloadFeedbackDataParseResult = { type: "valid"; data: DownloadFeedbackData } | DownloadFeedbackDataParseInvalid;
 
 export interface ExecResult {
 	stdout: string;
@@ -273,7 +240,7 @@ interface ActiveSession {
 }
 
 interface FeedbackSnapshot {
-	data: PrepareRunData;
+	data: DownloadFeedbackData;
 	items: FeedbackItemKey[];
 	ignoredItems: IgnoredFeedbackItem[];
 	headRefOid?: string | undefined;
@@ -316,9 +283,8 @@ interface WatchEventEntry {
 }
 
 interface DispatchPromptInput {
-	data: PrepareRunData;
+	data: DownloadFeedbackData;
 	items: readonly FeedbackItemKey[];
-	payloadPath: string | undefined;
 }
 
 export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFeedbackWatchExtensionOptions = {}): void {
@@ -440,74 +406,55 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 	return { type: "valid", action: actionToken, options };
 }
 
-export function parsePrepareRunData(value: unknown): PrepareRunDataParseResult {
-	const manifestResult = prepareRunManifestRecord(value);
-	if (manifestResult.type === "invalid") return manifestResult;
-	const manifest = manifestResult.manifest;
-	const found = booleanField(manifest, "found");
-	if (found === undefined) return { type: "invalid", message: "prepare-run data missing boolean found." };
-
+export function parseDownloadFeedbackData(value: unknown): DownloadFeedbackDataParseResult {
+	if (!isRecord(value)) return { type: "invalid", message: "download-feedback data was not an object." };
+	const found = booleanField(value, "found");
+	if (found === undefined) return { type: "invalid", message: "download-feedback data missing boolean found." };
+	if (!isRecord(value.target)) return { type: "invalid", message: "download-feedback data missing target." };
+	if (!isRecord(value.counts)) return { type: "invalid", message: "download-feedback data missing counts." };
+	const markdown = stringField(value, "markdown");
+	if (markdown === undefined) return { type: "invalid", message: "download-feedback data missing markdown." };
+	for (const key of ["included_review_threads", "included_reviews", "included_discussion_comments"]) {
+		if (numberField(value.counts, key) === undefined) return { type: "invalid", message: `download-feedback data missing numeric counts.${key}.` };
+	}
 	return {
 		type: "valid",
 		data: {
 			found,
-			currentBranch: stringField(manifest, "current_branch"),
-			number: numberField(manifest, "number"),
-			title: stringField(manifest, "title"),
-			url: stringField(manifest, "url"),
-			headRefName: stringField(manifest, "head_ref_name"),
-			baseRefName: stringField(manifest, "base_ref_name"),
-			state: stringField(manifest, "state"),
-			payloadPath: payloadPathFromValue(manifest.payload_reference),
-			reviews: parseReviews(manifest.reviews),
-			reviewThreads: parseReviewThreads(manifest.review_threads),
-			discussionComments: parseDiscussionComments(manifest.discussion_comments),
+			target: {
+				pr_number: numberField(value.target, "pr_number") ?? null,
+				branch: stringField(value.target, "branch") ?? null,
+				title: stringField(value.target, "title") ?? null,
+				url: stringField(value.target, "url") ?? null,
+				head_ref_name: stringField(value.target, "head_ref_name") ?? null,
+				base_ref_name: stringField(value.target, "base_ref_name") ?? null,
+			},
+			counts: {
+				included_review_threads: requiredNumberField(value.counts, "included_review_threads"),
+				included_reviews: requiredNumberField(value.counts, "included_reviews"),
+				included_discussion_comments: requiredNumberField(value.counts, "included_discussion_comments"),
+			},
+			markdown,
 		},
 	};
 }
 
-function prepareRunManifestRecord(value: unknown): { type: "valid"; manifest: Record<string, unknown> } | PrepareRunDataParseInvalid {
-	if (!isRecord(value)) return { type: "invalid", message: "prepare-run data was not an object." };
-	if (booleanField(value, "found") !== undefined) return { type: "valid", manifest: value };
-	if (isRecord(value.manifest)) return { type: "valid", manifest: value.manifest };
-	return { type: "invalid", message: "prepare-run data missing boolean found." };
+export function feedbackItemKeyFromDownload(data: DownloadFeedbackData): FeedbackItemKey[] {
+	if (!data.found) return [];
+	const prNumber = data.target.pr_number ?? "unknown";
+	const total = data.counts.included_review_threads + data.counts.included_reviews + data.counts.included_discussion_comments;
+	if (total === 0) return [];
+	return [{ kind: "download", key: `download-feedback:${prNumber}:${total}`, author: undefined }];
 }
 
-export function feedbackItemKeysFromPrepareRun(data: PrepareRunData): FeedbackItemKey[] {
-	const items: FeedbackItemKey[] = [];
-	for (const review of data.reviews) {
-		items.push({
-			kind: "review",
-			key: `review:${review.id}`,
-			author: review.author,
-			jsonPointer: review.jsonPointer,
-			itemPointer: review.itemPointer,
-		});
-	}
-	for (const thread of data.reviewThreads) {
-		if (thread.isResolved === true) continue;
-		for (const comment of thread.comments) {
-			items.push({
-				kind: "thread_comment",
-				key: `thread-comment:${thread.threadId}:${comment.id}`,
-				author: comment.author,
-				path: comment.path ?? thread.path,
-				line: comment.line ?? thread.line,
-				jsonPointer: comment.jsonPointer,
-				itemPointer: comment.itemPointer,
-			});
-		}
-	}
-	for (const comment of data.discussionComments) {
-		items.push({
-			kind: "discussion_comment",
-			key: `discussion:${comment.commentId}`,
-			author: comment.author,
-			jsonPointer: comment.jsonPointer,
-			itemPointer: comment.itemPointer,
-		});
-	}
-	return items;
+export function feedbackItemKeysFromFingerprint(items: readonly FeedbackFingerprintItem[]): FeedbackItemKey[] {
+	return items.map((item) => ({
+		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
+		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
+		author: item.author,
+		path: item.path,
+		line: item.line,
+	}));
 }
 
 export function parseGitHubPullRequestUrl(url: string | undefined, fallbackNumber: number | undefined): GithubPrIdentity | undefined {
@@ -652,28 +599,26 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		"",
 		"New PR feedback arrived for the current branch's PR.",
 		"",
-		`PR: #${data.number ?? "unknown"} ${data.title ?? "(untitled)"}`,
-		`URL: ${data.url ?? "(unknown)"}`,
-		`Branch: ${data.currentBranch ?? data.headRefName ?? "(unknown)"}`,
-		`Payload artifact: ${input.payloadPath ?? "(not available)"}`,
-		"Detected new feedback keys:",
+		`PR: #${data.target.pr_number ?? "unknown"} ${data.target.title ?? "(untitled)"}`,
+		`URL: ${data.target.url ?? "(unknown)"}`,
+		`Branch: ${data.target.branch ?? data.target.head_ref_name ?? "(unknown)"}`,
+		"Detected feedback change keys:",
 	];
 	for (const item of input.items) {
 		const location = item.path === undefined ? "" : ` path=${item.path}${item.line === undefined ? "" : `:${item.line}`}`;
-		const locator = item.jsonPointer === undefined ? "" : ` locator=${item.jsonPointer}`;
-		lines.push(`- ${item.kind}/${item.key} author=${item.author ?? "(unknown)"}${locator}${location}`);
+		lines.push(`- ${item.kind}/${item.key} author=${item.author ?? "(unknown)"}${location}`);
 	}
 	lines.push(
 		"",
+		"Downloaded feedback Markdown:",
+		"",
+		data.markdown,
+		"",
 		"Instructions:",
-		"- Use the installed `pr-address` skill/workflow; invoke operations with the `pr-address` CLI on PATH.",
-		"- Do not push, submit, or create branches.",
-		"- Address only the detected new feedback keys above. If `pr-address` validation requires classifying/accounting for all current feedback, classify/account for all feedback but execute only work for the detected keys. Leave pre-existing unresolved feedback unchanged unless it is necessary context for a detected key.",
-		"- Use payload locators and `read-feedback-detail` for exact body text; do not paste full raw payload JSON into the transcript.",
+		"- Triage the downloaded feedback above and propose a focused plan before editing.",
+		"- Do not push, submit, create branches, resolve threads, or reply on GitHub unless the human explicitly asks.",
 		"- Ask before cross-cutting, complex, ambiguous, or dirty-tree work.",
 		"- Run appropriate tests before committing.",
-		"- Use canonical `pr-address exec` helpers for GitHub replies/resolution; do not hand-roll GitHub API mutations.",
-		"- End with commits created, feedback keys addressed, threads resolved/replied, skipped items, and next manual steps.",
 	);
 	return lines.join("\n");
 }
@@ -749,7 +694,7 @@ class PrFeedbackWatchController {
 			await this.dispatchNewItems(session, snapshot.snapshot.items, snapshot.snapshot);
 		} else {
 			this.baseline(snapshot.snapshot);
-			notify(ctx, `PR feedback watch started for #${snapshot.snapshot.data.number ?? "unknown"}; existing feedback was baselined.`, "info");
+			notify(ctx, `PR feedback watch started for #${snapshot.snapshot.data.target.pr_number ?? "unknown"}; existing feedback was baselined.`, "info");
 		}
 		this.state = { ...this.state, isEnabled: true, state: "active", mode: this.lastRestFingerprintKey === undefined ? "heavy_fallback" : "rest_fingerprint" };
 		this.renderStatus();
@@ -862,7 +807,7 @@ class PrFeedbackWatchController {
 	}
 
 	private async initializeRestBaseline(session: ActiveSession, snapshot: FeedbackSnapshot): Promise<void> {
-		const identity = parseGitHubPullRequestUrl(snapshot.data.url, snapshot.data.number);
+		const identity = parseGitHubPullRequestUrl(snapshot.data.target.url ?? undefined, snapshot.data.target.pr_number ?? undefined);
 		this.githubPrIdentity = identity;
 		this.lastRestFingerprintKey = undefined;
 		if (identity === undefined) {
@@ -878,6 +823,7 @@ class PrFeedbackWatchController {
 			return;
 		}
 		this.restSinceIso = sinceIso;
+		this.markFingerprintItemsSeen(result.fingerprint);
 		this.advanceRestFingerprint(result.fingerprint);
 		await this.refreshCheckSummary(session, identity.number);
 	}
@@ -948,9 +894,10 @@ class PrFeedbackWatchController {
 			return;
 		}
 		if (context.reason !== "rest_changed" && await this.pauseIfWorkingTreeDirty(session)) return;
+		const candidateItems = context.fingerprint === undefined ? snapshot.items : filterIgnoredFeedback(feedbackItemKeysFromFingerprint(context.fingerprint.items), { currentUserLogin: this.currentUserLogin }).actionableTriggerItems;
 		const newItems = options.existingFeedbackMode === "dispatch"
-			? snapshot.items.filter((item) => !this.attemptedKeys.has(item.key))
-			: snapshot.items.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
+			? candidateItems.filter((item) => !this.attemptedKeys.has(item.key))
+			: candidateItems.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
 		if (newItems.length === 0) {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
@@ -1000,6 +947,10 @@ class PrFeedbackWatchController {
 		};
 	}
 
+	private markFingerprintItemsSeen(fingerprint: FeedbackFingerprint): void {
+		for (const item of feedbackItemKeysFromFingerprint(fingerprint.items)) this.seenKeys.add(item.key);
+	}
+
 	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
 		const result = await loadPrCheckSummary({ pi: this.pi, cwd: session.cwd, prNumber, signal: session.abortController.signal });
 		this.state = { ...this.state, checkSummary: result.type === "loaded" ? result.summary : undefined };
@@ -1010,26 +961,25 @@ class PrFeedbackWatchController {
 		if (runner.type === "failed") return runner;
 		const result = await this.pi.exec(
 			runner.runner.command,
-			[...runner.runner.baseArgs, "exec", "prepare-run", "--harness-session-id", session.harnessSessionId, "--format", "json"],
+			[...runner.runner.baseArgs, "exec", "download-feedback", "--format", "json"],
 			{ cwd: session.cwd, timeout: COMMAND_TIMEOUT_MS, signal: session.abortController.signal },
 		);
 		if (result.killed || result.code !== 0) {
-			return { type: "failed", message: `prepare-run failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
+			return { type: "failed", message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
 		}
-		const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address prepare-run JSON", stdoutTail: { maxChars: 1_000 } });
+		const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address download-feedback JSON", stdoutTail: { maxChars: 1_000 } });
 		if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
-		const dataResult = parsePrepareRunData(parsed.data);
+		const dataResult = parseDownloadFeedbackData(parsed.data);
 		if (dataResult.type === "invalid") return { type: "failed", message: dataResult.message };
 		const currentUserLoginPromise = this.currentUserLogin === undefined
 			? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
 			: Promise.resolve(this.currentUserLogin);
-		const headRefOidPromise = dataResult.data.number === undefined
+		const headRefOidPromise = dataResult.data.target.pr_number === undefined || dataResult.data.target.pr_number === null
 			? Promise.resolve(undefined)
-			: loadHeadRefOid(this.pi, session.cwd, dataResult.data.number, session.abortController.signal);
+			: loadHeadRefOid(this.pi, session.cwd, dataResult.data.target.pr_number, session.abortController.signal);
 		const [currentUserLogin, headRefOid] = await Promise.all([currentUserLoginPromise, headRefOidPromise]);
 		this.currentUserLogin = currentUserLogin;
-		const feedbackItems = feedbackItemKeysFromPrepareRun(dataResult.data);
-		const filtered = filterIgnoredFeedback(feedbackItems, { currentUserLogin });
+		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(dataResult.data), { currentUserLogin });
 		return {
 			type: "loaded",
 			snapshot: {
@@ -1061,15 +1011,15 @@ class PrFeedbackWatchController {
 		this.headRefOid = snapshot.headRefOid;
 		for (const item of [...snapshot.items, ...snapshot.ignoredItems.map((ignored) => ignored.item)]) this.seenKeys.add(item.key);
 		this.appendEvent("baseline", {
-			branch: snapshot.data.currentBranch,
-			prNumber: snapshot.data.number,
+			branch: snapshot.data.target.branch ?? undefined,
+			prNumber: snapshot.data.target.pr_number ?? undefined,
 			headRefOid: snapshot.headRefOid,
 			itemKeys: snapshot.items.map((item) => item.key),
 		});
 		if (snapshot.ignoredItems.length > 0) {
 			this.appendEvent("ignored", {
-				branch: snapshot.data.currentBranch,
-				prNumber: snapshot.data.number,
+				branch: snapshot.data.target.branch ?? undefined,
+				prNumber: snapshot.data.target.pr_number ?? undefined,
 				itemKeys: snapshot.ignoredItems.map((ignored) => ignored.item.key),
 			});
 		}
@@ -1106,13 +1056,13 @@ class PrFeedbackWatchController {
 		const itemKeys = items.map((item) => item.key);
 		this.state = { ...this.state, state: "dispatching", queuedCount: items.length };
 		this.appendEvent("detected", {
-			branch: snapshot.data.currentBranch,
-			prNumber: snapshot.data.number,
+			branch: snapshot.data.target.branch ?? undefined,
+			prNumber: snapshot.data.target.pr_number ?? undefined,
 			headRefOid: snapshot.headRefOid,
 			itemKeys,
 		});
 		this.renderStatus(`PR watch: dispatching ${items.length} item(s)`);
-		const prompt = buildDetectedFeedbackPrompt({ data: snapshot.data, items, payloadPath: snapshot.data.payloadPath });
+		const prompt = buildDetectedFeedbackPrompt({ data: snapshot.data, items });
 		if (this.pi.sendUserMessage !== undefined) {
 			this.pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		} else if (this.pi.sendMessage !== undefined) {
@@ -1125,8 +1075,8 @@ class PrFeedbackWatchController {
 			session.ctx.ui?.setEditorText?.(prompt);
 		}
 		this.appendEvent("dispatched", {
-			branch: snapshot.data.currentBranch,
-			prNumber: snapshot.data.number,
+			branch: snapshot.data.target.branch ?? undefined,
+			prNumber: snapshot.data.target.pr_number ?? undefined,
 			headRefOid: snapshot.headRefOid,
 			itemKeys,
 		});
@@ -1140,8 +1090,8 @@ class PrFeedbackWatchController {
 		const checkedAt = new Date().toISOString();
 		this.state = {
 			...this.state,
-			prNumber: snapshot.data.number,
-			branch: snapshot.data.currentBranch ?? snapshot.data.headRefName,
+			prNumber: snapshot.data.target.pr_number ?? undefined,
+			branch: snapshot.data.target.branch ?? snapshot.data.target.head_ref_name ?? undefined,
 			lastPollAt: checkedAt,
 			lastHeavyCheckAt: checkedAt,
 			lastError: undefined,
@@ -1495,83 +1445,6 @@ function isWatchEventType(value: string): value is WatchEventEntry["type"] {
 	return value === "baseline" || value === "detected" || value === "dispatched" || value === "ignored" || value === "stopped" || value === "config" || value === "error";
 }
 
-function parseReviews(value: unknown): PrepareRunReview[] {
-	if (!Array.isArray(value)) return [];
-	const reviews: PrepareRunReview[] = [];
-	for (const item of value) {
-		if (!isRecord(item)) continue;
-		const id = stringField(item, "id");
-		if (id === undefined) continue;
-		const locator = locatorFromValue(item.body_locator);
-		reviews.push({ id, author: stringField(item, "author"), state: stringField(item, "state"), jsonPointer: locator.jsonPointer, itemPointer: locator.itemPointer });
-	}
-	return reviews;
-}
-
-function parseReviewThreads(value: unknown): PrepareRunReviewThread[] {
-	if (!Array.isArray(value)) return [];
-	const threads: PrepareRunReviewThread[] = [];
-	for (const item of value) {
-		if (!isRecord(item)) continue;
-		const threadId = stringField(item, "thread_id");
-		if (threadId === undefined) continue;
-		threads.push({
-			threadId,
-			path: stringField(item, "path"),
-			line: numberField(item, "line"),
-			startLine: numberField(item, "start_line"),
-			isResolved: booleanField(item, "is_resolved"),
-			isOutdated: booleanField(item, "is_outdated"),
-			comments: parseThreadComments(item.comments),
-		});
-	}
-	return threads;
-}
-
-function parseThreadComments(value: unknown): PrepareRunThreadComment[] {
-	if (!Array.isArray(value)) return [];
-	const comments: PrepareRunThreadComment[] = [];
-	for (const item of value) {
-		if (!isRecord(item)) continue;
-		const id = numberField(item, "id");
-		if (id === undefined) continue;
-		const locator = locatorFromValue(item.body_locator);
-		comments.push({
-			id,
-			author: stringField(item, "author"),
-			path: stringField(item, "path"),
-			line: numberField(item, "line"),
-			startLine: numberField(item, "start_line"),
-			jsonPointer: locator.jsonPointer,
-			itemPointer: locator.itemPointer,
-		});
-	}
-	return comments;
-}
-
-function parseDiscussionComments(value: unknown): PrepareRunDiscussionComment[] {
-	if (!Array.isArray(value)) return [];
-	const comments: PrepareRunDiscussionComment[] = [];
-	for (const item of value) {
-		if (!isRecord(item)) continue;
-		const commentId = numberField(item, "comment_id");
-		if (commentId === undefined) continue;
-		const locator = locatorFromValue(item.body_locator);
-		comments.push({ commentId, author: stringField(item, "author"), url: stringField(item, "url"), jsonPointer: locator.jsonPointer, itemPointer: locator.itemPointer });
-	}
-	return comments;
-}
-
-function payloadPathFromValue(value: unknown): string | undefined {
-	if (!isRecord(value)) return undefined;
-	return stringField(value, "payload_path");
-}
-
-function locatorFromValue(value: unknown): { jsonPointer?: string | undefined; itemPointer?: string | undefined } {
-	if (!isRecord(value)) return {};
-	return { jsonPointer: stringField(value, "json_pointer"), itemPointer: stringField(value, "item_pointer") };
-}
-
 function compareFingerprintItems(left: FeedbackFingerprintItem, right: FeedbackFingerprintItem): number {
 	return fingerprintSortKey(left).localeCompare(fingerprintSortKey(right));
 }
@@ -1596,6 +1469,12 @@ function idField(value: Record<string, unknown>, key: string): string | undefine
 function numberField(value: Record<string, unknown>, key: string): number | undefined {
 	const field = value[key];
 	return typeof field === "number" && Number.isFinite(field) ? field : undefined;
+}
+
+function requiredNumberField(value: Record<string, unknown>, key: string): number {
+	const field = numberField(value, key);
+	if (field === undefined) throw new Error(`Expected numeric field ${key} after validation.`);
+	return field;
 }
 
 function booleanField(value: Record<string, unknown>, key: string): boolean | undefined {

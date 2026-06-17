@@ -7,7 +7,7 @@ description: "Download GitHub PR feedback for agent triage. The old pr-address a
 
 `pr-address` is now a transitional, read-only feedback-download surface.
 
-Use it to fetch GitHub PR review feedback as Markdown for an agent to inspect. Do **not** use it as an addressing workflow engine: the old payload-session, classification, planning, resolver-payload, checkpoint, finalization, and mutation workflow is retired and scheduled for deletion.
+Use it to fetch GitHub PR review feedback as Markdown for an agent to inspect. Do **not** use it as an addressing workflow engine: the old payload-session, classification, planning, resolver-payload, checkpoint, finalization, and mutation workflow is retired and deleted from the current CLI.
 
 ## Supported workflow
 

@@ -1,8 +1,0 @@
-{
-  "function": "discussion_reply",
-  "kwargs": {
-    "comment_author": "bob",
-    "original_body": "Can you add docs?",
-    "response": "Added docs in `docs/pr-address.md`."
-  }
-}

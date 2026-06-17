@@ -32,7 +32,7 @@ function parseEnvelope(run: Awaited<ReturnType<typeof runScenario>>): MachineEnv
 }
 
 function mapArgs(args: readonly string[] = []): string[] {
-	return ["exec", "map-branch-prs", ...args, "--format", "json", "--stdout-mode", "full"];
+	return ["exec", "map-branch-prs", ...args, "--format", "json"];
 }
 
 describe("pr-address exec map-branch-prs", () => {

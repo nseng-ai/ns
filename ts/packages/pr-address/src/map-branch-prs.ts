@@ -5,7 +5,6 @@ import { duplicateValues } from "./duplicate-values.ts";
 import { defineExecOperation, gatewayFailureExit, gatewayOptions, type PrAddressExecContext } from "./exec-operation.ts";
 import type { PrAddressGitHubGateway, PRSummary } from "./gateways.ts";
 import { loadJsonInput } from "./json-input.ts";
-import { compactOperationResult } from "./stdout-mode.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
 	branches: z.array(z.string()),
@@ -13,7 +12,6 @@ export const mapBranchPrsInputSchema = z.looseObject({
 
 const mapBranchPrsParseSchema = z.object({
 	branches_json: z.string().optional(),
-	harness_session_id: z.string().optional(),
 });
 
 type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
@@ -46,21 +44,6 @@ export const mapBranchPrsOperation = defineExecOperation({
 		description: "Map local branches to open PRs.",
 		schema: mapBranchPrsParseSchema,
 		handler: runMapBranchPrsOperation,
-	},
-	compactOutput: {
-		harnessSessionId: (request) => request.harness_session_id,
-		buildCompact: ({ data, fullOutput }) => {
-			const result = data as MapBranchPrsResult;
-			return {
-				type: "ok",
-				value: compactOperationResult({
-					operation: "map-branch-prs",
-					counts: result.summary,
-					artifacts: { full_output: fullOutput },
-					details: { branch_prs: result.branch_prs, missing_branches: result.missing_branches, ambiguous_branches: result.ambiguous_branches },
-				}),
-			};
-		},
 	},
 });
 

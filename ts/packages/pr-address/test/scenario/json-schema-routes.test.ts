@@ -43,7 +43,7 @@ describe("pr-address exec --json-schema routes", () => {
 	}
 
 	test("--json-schema short-circuits before argument validation", async () => {
-		const run = runScenario(["exec", "resolve-thread-with-reply", "--json-schema", "--format", "json"]);
+		const run = runScenario(["exec", "download-feedback", "--json-schema", "--format", "json"]);
 		expect(await run.exit).toBe(0);
 		const document = JSON.parse(run.stdout.join("")) as Record<string, unknown>;
 		expect(Object.keys(document).sort()).toEqual(["input_json_schema", "output_json_schema"]);

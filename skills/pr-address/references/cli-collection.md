@@ -31,4 +31,4 @@ The stack command should then call `download-feedback` once per discovered PR. D
 
 ## Retired helpers
 
-The following historical helpers are obsolete and scheduled for deletion: `prepare-run`, `get-feedback` payload modes, `classification-template`, `validate-feedback-classification`, `plan-feedback`, `read-feedback-detail`, `read-feedback-details`, resolver-payload builders, mutation helpers, checkpoints, and finalization.
+The following historical helpers are obsolete and deleted from the current CLI: `prepare-run`, `get-feedback` payload modes, `classification-template`, `validate-feedback-classification`, `plan-feedback`, `read-feedback-detail`, `read-feedback-details`, resolver-payload builders, mutation helpers, checkpoints, and finalization.

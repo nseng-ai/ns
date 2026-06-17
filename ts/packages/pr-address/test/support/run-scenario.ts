@@ -1,13 +1,10 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { PrAddressContext } from "../../src/context.ts";
-import type { PayloadClock } from "../../src/payload-store.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
 
 export interface ScenarioRunOptions {
 	github?: PrAddressContext["github"] | undefined;
 	git?: PrAddressContext["git"] | undefined;
-	payloadClock?: PayloadClock | undefined;
-	payloadStoreFactory?: PrAddressContext["payloadStoreFactory"] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	cwd?: string | undefined;
 	stdin?: string | (() => Promise<string>) | undefined;
@@ -20,11 +17,6 @@ export interface ScenarioRun {
 	stderr: string[];
 }
 
-export function fixedClock(iso: string): PayloadClock {
-	const instant = new Date(iso);
-	return () => instant;
-}
-
 /** Drive the CLI in process against in-memory fakes. */
 export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
 	const stdout: string[] = [];
@@ -32,8 +24,6 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const overrides: Partial<PrAddressContext> = {};
 	if (options.github !== undefined) overrides.github = options.github;
 	if (options.git !== undefined) overrides.git = options.git;
-	if (options.payloadClock !== undefined) overrides.payloadClock = options.payloadClock;
-	if (options.payloadStoreFactory !== undefined) overrides.payloadStoreFactory = options.payloadStoreFactory;
 	const stdin = options.stdin;
 	return {
 		exit: runCli(args, {

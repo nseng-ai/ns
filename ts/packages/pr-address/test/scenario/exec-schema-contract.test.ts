@@ -9,12 +9,7 @@ import { buildOperationSchemaDocument } from "../../src/operation-schemas/index.
  * `input_json_schema` document properties. Each entry MUST have a comment
  * explaining the delta rationale; do not bulk-allowlist.
  */
-const CONTRACT_DELTAS: Record<string, string[]> = {
-	// Commander treats `--no-code-change` as a negated boolean flag, so the
-	// parse schema uses `code_change` while the published contract documents the
-	// user-facing `no_code_change` request field.
-	"record-batch-checkpoint": ["code_change", "no_code_change"],
-};
+const CONTRACT_DELTAS: Record<string, string[]> = {};
 
 describe("pr-address exec operation parse↔document schema contract", () => {
 	test("every exec operation's parse schema keys match published document schema keys (modulo deltas)", () => {
