@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import { runScenario, parseJsonOutput } from "../support/run-scenario.ts";
 
 describe("objective exec read-objective", () => {
-	test("returns Python-compatible JSON facts for a complete open record", async () => {
+	test("returns TS-native JSON facts and Markdown files for a complete open record", async () => {
 		const run = runScenario(["exec", "read-objective", "alpha", "--format", "json"], {
 			fake: {
 				records: [{ slug: "alpha", updates: { "second.md": "# Second\n", "first.md": "# First\n" } }],
@@ -16,29 +16,43 @@ describe("objective exec read-objective", () => {
 			data: {
 				status: "ok",
 				error: null,
-				root_path: ".asdl/objectives",
-				root_exists: true,
+				rootPath: ".asdl/objectives",
+				rootExists: true,
 				slug: "alpha",
 				path: ".asdl/objectives/alpha",
 				exists: true,
 				closed: false,
 				files: {
-					objective_md: true,
-					roadmap_md: true,
-					updates_dir: true,
-					closed_md: false,
+					objectiveMd: true,
+					roadmapMd: true,
+					updatesDir: true,
+					closedMd: false,
 				},
 				updates: [
 					{ name: "first.md", path: ".asdl/objectives/alpha/updates/first.md" },
 					{ name: "second.md", path: ".asdl/objectives/alpha/updates/second.md" },
 				],
-				update_count: 2,
+				updateCount: 2,
+				markdownFiles: {
+					objectiveMd: { type: "ok", content: "# alpha\n" },
+					roadmapMd: { type: "ok", content: "# Roadmap\n" },
+					updates: [
+						{
+							update: { name: "first.md", path: ".asdl/objectives/alpha/updates/first.md" },
+							content: { type: "ok", content: "# First\n" },
+						},
+						{
+							update: { name: "second.md", path: ".asdl/objectives/alpha/updates/second.md" },
+							content: { type: "ok", content: "# Second\n" },
+						},
+					],
+				},
 			},
 		});
 		expect(run.stderr).toEqual([]);
 	});
 
-	test("omits raw Markdown content from JSON output", async () => {
+	test("includes raw Markdown content in JSON output", async () => {
 		const run = runScenario(["exec", "read-objective", "quiet", "--format", "json"], {
 			fake: {
 				records: [
@@ -54,9 +68,9 @@ describe("objective exec read-objective", () => {
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).not.toContain("private objective body sentinel");
-		expect(output).not.toContain("private roadmap body sentinel");
-		expect(output).not.toContain("private update body sentinel");
+		expect(output).toContain("private objective body sentinel");
+		expect(output).toContain("private roadmap body sentinel");
+		expect(output).toContain("private update body sentinel");
 	});
 
 	test("renders Markdown facts and raw files with sorted direct updates", async () => {
@@ -164,19 +178,19 @@ function emptyReadData(options: { status: string; error: string; slug?: string |
 	return {
 		status: options.status,
 		error: options.error,
-		root_path: ".asdl/objectives",
-		root_exists: false,
+		rootPath: ".asdl/objectives",
+		rootExists: false,
 		slug: options.slug ?? null,
 		path: options.path ?? null,
 		exists: false,
 		closed: false,
 		files: {
-			objective_md: false,
-			roadmap_md: false,
-			updates_dir: false,
-			closed_md: false,
+			objectiveMd: false,
+			roadmapMd: false,
+			updatesDir: false,
+			closedMd: false,
 		},
 		updates: [],
-		update_count: 0,
+		updateCount: 0,
 	};
 }

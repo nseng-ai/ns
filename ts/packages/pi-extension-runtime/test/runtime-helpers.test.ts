@@ -88,11 +88,11 @@ describe("pi extension runtime helpers", () => {
 					stdout: JSON.stringify({
 						exit_code: 0,
 						data: {
-							trunk_branch: "master",
-							root_path: "/repo",
-							status_filter: "active",
-							names_only: false,
-							records: [{ slug: "alpha", status: "active", latest_update_iso: null }],
+							trunkBranch: "master",
+							rootPath: "/repo",
+							statusFilter: "active",
+							namesOnly: false,
+							records: [{ slug: "alpha", status: "active", latestUpdateIso: null }],
 						},
 					}),
 				};
@@ -129,10 +129,10 @@ describe("pi extension runtime helpers", () => {
 				stdout: JSON.stringify({
 					exit_code: 0,
 					data: {
-						trunk_branch: "master",
-						root_path: "/repo",
-						status_filter: "active",
-						names_only: false,
+						trunkBranch: "master",
+						rootPath: "/repo",
+						statusFilter: "active",
+						namesOnly: false,
 						records: [],
 					},
 				}),

@@ -39,22 +39,22 @@ describe("runner subagent usage summaries", () => {
 		const summary = await summarizeRunnerSubagentSessionFile(sessionFile);
 
 		expect(summary.status).toBe("ok");
-		expect(summary.assistant_response_count).toBe(2);
+		expect(summary.assistantResponseCount).toBe(2);
 		expect(summary.tokens).toEqual({
-			input_tokens: 300,
-			output_tokens: 50,
-			cache_read_tokens: 10,
-			cache_write_tokens: 12,
-			total_tokens: 372,
+			inputTokens: 300,
+			outputTokens: 50,
+			cacheReadTokens: 10,
+			cacheWriteTokens: 12,
+			totalTokens: 372,
 		});
-		expect(summary.cost.input_usd).toBeCloseTo(0.03);
-		expect(summary.cost.output_usd).toBeCloseTo(0.05);
-		expect(summary.cost.cache_read_usd).toBeCloseTo(0.003);
-		expect(summary.cost.cache_write_usd).toBeCloseTo(0.011);
-		expect(summary.cost.total_usd).toBeCloseTo(0.094);
-		expect(summary.peak_observed_total_tokens).toBe(237);
-		expect(summary.peak_observed_prompt_tokens).toBe(207);
-		expect(summary.configured_context_window_tokens).toBeNull();
+		expect(summary.cost.inputUsd).toBeCloseTo(0.03);
+		expect(summary.cost.outputUsd).toBeCloseTo(0.05);
+		expect(summary.cost.cacheReadUsd).toBeCloseTo(0.003);
+		expect(summary.cost.cacheWriteUsd).toBeCloseTo(0.011);
+		expect(summary.cost.totalUsd).toBeCloseTo(0.094);
+		expect(summary.peakObservedTotalTokens).toBe(237);
+		expect(summary.peakObservedPromptTokens).toBe(207);
+		expect(summary.configuredContextWindowTokens).toBeNull();
 		expect(summary.models).toEqual([{ provider: "openai-codex", api: "responses", model: "gpt-5.5" }]);
 	});
 
@@ -70,10 +70,10 @@ describe("runner subagent usage summaries", () => {
 		const summary = await summarizeRunnerSubagentSessionFile(sessionFile);
 
 		expect(summary.status).toBe("ok");
-		expect(summary.assistant_response_count).toBe(1);
-		expect(summary.tokens.input_tokens).toBe(11);
-		expect(summary.tokens.output_tokens).toBe(7);
-		expect(summary.tokens.total_tokens).toBe(18);
+		expect(summary.assistantResponseCount).toBe(1);
+		expect(summary.tokens.inputTokens).toBe(11);
+		expect(summary.tokens.outputTokens).toBe(7);
+		expect(summary.tokens.totalTokens).toBe(18);
 	});
 
 	test("deduplicates model references preserving first-seen order", async () => {
@@ -106,15 +106,15 @@ describe("runner subagent usage summaries", () => {
 		const invalidJson = await summarizeRunnerSubagentSessionFile(invalidJsonPath);
 		const noUsage = await summarizeRunnerSubagentSessionFile(noUsagePath);
 
-		expect(missing).toMatchObject({ status: "missing", assistant_response_count: 0, tokens: { total_tokens: 0 }, cost: { total_usd: 0 } });
-		expect(directory).toMatchObject({ status: "not_file", assistant_response_count: 0, tokens: { total_tokens: 0 } });
+		expect(missing).toMatchObject({ status: "missing", assistantResponseCount: 0, tokens: { totalTokens: 0 }, cost: { totalUsd: 0 } });
+		expect(directory).toMatchObject({ status: "not_file", assistantResponseCount: 0, tokens: { totalTokens: 0 } });
 		expect(invalidJson.status).toBe("invalid_json");
-		expect(invalidJson.error_line).toBe(3);
+		expect(invalidJson.errorLine).toBe(3);
 		expect(invalidJson.error).toContain("invalid JSON");
-		expect(invalidJson.assistant_response_count).toBe(0);
-		expect(noUsage).toMatchObject({ status: "no_usage", assistant_response_count: 0, tokens: { total_tokens: 0 } });
-		expect(noUsage.peak_observed_total_tokens).toBeNull();
-		expect(noUsage.peak_observed_prompt_tokens).toBeNull();
+		expect(invalidJson.assistantResponseCount).toBe(0);
+		expect(noUsage).toMatchObject({ status: "no_usage", assistantResponseCount: 0, tokens: { totalTokens: 0 } });
+		expect(noUsage.peakObservedTotalTokens).toBeNull();
+		expect(noUsage.peakObservedPromptTokens).toBeNull();
 	});
 
 	test("aggregates only ok sessions", async () => {
@@ -125,15 +125,15 @@ describe("runner subagent usage summaries", () => {
 		const result = await summarizeRunnerSubagentUsage([okFile, noUsageFile, missingFile]);
 
 		expect(result.sessions.map((session) => session.status)).toEqual(["ok", "no_usage", "missing"]);
-		expect(result.aggregate.session_count).toBe(3);
-		expect(result.aggregate.ok_session_count).toBe(1);
-		expect(result.aggregate.usage_response_count).toBe(1);
-		expect(result.aggregate.tokens.input_tokens).toBe(40);
-		expect(result.aggregate.tokens.output_tokens).toBe(5);
-		expect(result.aggregate.tokens.cache_read_tokens).toBe(9);
-		expect(result.aggregate.tokens.total_tokens).toBe(54);
-		expect(result.aggregate.peak_observed_total_tokens).toBe(54);
-		expect(result.aggregate.peak_observed_prompt_tokens).toBe(49);
+		expect(result.aggregate.sessionCount).toBe(3);
+		expect(result.aggregate.okSessionCount).toBe(1);
+		expect(result.aggregate.usageResponseCount).toBe(1);
+		expect(result.aggregate.tokens.inputTokens).toBe(40);
+		expect(result.aggregate.tokens.outputTokens).toBe(5);
+		expect(result.aggregate.tokens.cacheReadTokens).toBe(9);
+		expect(result.aggregate.tokens.totalTokens).toBe(54);
+		expect(result.aggregate.peakObservedTotalTokens).toBe(54);
+		expect(result.aggregate.peakObservedPromptTokens).toBe(49);
 	});
 });
 

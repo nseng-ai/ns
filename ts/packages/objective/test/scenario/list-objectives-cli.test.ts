@@ -34,15 +34,16 @@ describe("objective list", () => {
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "active",
-				names_only: false,
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
 				records: [
 					{
 						slug: "open-one",
 						status: "open",
-						latest_update_iso: "2026-06-15T22:35:20Z",
+						latestUpdateIso: "2026-06-15T22:35:20Z",
+						hasOutstandingChanges: false,
 					},
 				],
 			},
@@ -65,8 +66,8 @@ describe("objective list", () => {
 		expect(recordSlugs(parseJsonOutput(open))).toEqual(["alpha"]);
 		expect(recordSlugs(parseJsonOutput(closed))).toEqual(["done"]);
 		expect(recordSlugs(parseJsonOutput(all))).toEqual(["alpha", "done"]);
-		expect((parseJsonOutput(closed) as { data: { updated_branches_included: boolean } }).data.updated_branches_included).toBe(true);
-		expect((parseJsonOutput(all) as { data: { updated_branches_included: boolean } }).data.updated_branches_included).toBe(true);
+		expect((parseJsonOutput(closed) as { data: { updatedBranchesIncluded: boolean } }).data.updatedBranchesIncluded).toBe(true);
+		expect((parseJsonOutput(all) as { data: { updatedBranchesIncluded: boolean } }).data.updatedBranchesIncluded).toBe(true);
 	});
 
 	test("includes incomplete direct child directories as active records", async () => {
@@ -78,11 +79,11 @@ describe("objective list", () => {
 		expect(parseJsonOutput(run)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "active",
-				names_only: false,
-				records: [{ slug: "incomplete", status: "open", latest_update_iso: null }],
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
+				records: [{ slug: "incomplete", status: "open", latestUpdateIso: null, hasOutstandingChanges: false }],
 			},
 		});
 	});
@@ -117,7 +118,7 @@ describe("objective list", () => {
 		expect(output).toContain("| done | ✓ closed | — |");
 	});
 
-	test("dirty markers stay out of JSON but appear in human and Markdown renderers", async () => {
+	test("dirty markers appear in JSON, human, and Markdown renderers", async () => {
 		const fake = { records: [{ slug: "alpha" }] };
 		const git = { dirtyPaths: [".asdl/objectives/alpha"] };
 		const json = runScenario(["list", "--format", "json"], { fake, git });
@@ -132,22 +133,22 @@ describe("objective list", () => {
 		expect(parseJsonOutput(json)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "active",
-				names_only: false,
-				updated_branches_included: true,
-				records: [{ slug: "alpha", status: "open", latest_update_iso: null, updated_branches: [] }],
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
+				updatedBranchesIncluded: true,
+				records: [{ slug: "alpha", status: "open", latestUpdateIso: null, updatedBranches: [], hasOutstandingChanges: true }],
 			},
 		});
 		expect(parseJsonOutput(minimalJson)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "active",
-				names_only: false,
-				records: [{ slug: "alpha", status: "open", latest_update_iso: null }],
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
+				records: [{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: true }],
 			},
 		});
 		expect(human.stdout.join("")).toContain("alpha | ○ open | (x) — | —");
@@ -186,15 +187,15 @@ describe("objective list", () => {
 		expect(parseJsonOutput(json)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "all",
-				names_only: false,
-				updated_branches_included: true,
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "all",
+				namesOnly: false,
+				updatedBranchesIncluded: true,
 				records: [
-					{ slug: "alpha", status: "open", latest_update_iso: null, updated_branches: ["feat/alpha"] },
-					{ slug: "beta", status: "open", latest_update_iso: null, updated_branches: ["feat/beta"] },
-					{ slug: "closed-one", status: "closed", latest_update_iso: null, updated_branches: ["feat/beta"] },
+					{ slug: "alpha", status: "open", latestUpdateIso: null, updatedBranches: ["feat/alpha"], hasOutstandingChanges: false },
+					{ slug: "beta", status: "open", latestUpdateIso: null, updatedBranches: ["feat/beta"], hasOutstandingChanges: false },
+					{ slug: "closed-one", status: "closed", latestUpdateIso: null, updatedBranches: ["feat/beta"], hasOutstandingChanges: false },
 				],
 			},
 		});
@@ -223,11 +224,11 @@ describe("objective list", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(await human.exit).toBe(0);
-		const output = parseJsonOutput(run) as { data: { updated_branches_truncated: boolean; records: [{ updated_branches: string[] }] } };
-		expect(output.data.updated_branches_truncated).toBe(true);
-		expect(output.data.records[0].updated_branches).toHaveLength(50);
-		expect(output.data.records[0].updated_branches.slice(0, 2)).toEqual(["feat/00", "feat/01"]);
-		expect(output.data.records[0].updated_branches).not.toContain("feat/50");
+		const output = parseJsonOutput(run) as { data: { updatedBranchesTruncated: boolean; records: [{ updatedBranches: string[] }] } };
+		expect(output.data.updatedBranchesTruncated).toBe(true);
+		expect(output.data.records[0].updatedBranches).toHaveLength(50);
+		expect(output.data.records[0].updatedBranches.slice(0, 2)).toEqual(["feat/00", "feat/01"]);
+		expect(output.data.records[0].updatedBranches).not.toContain("feat/50");
 		expect(human.stdout.join("")).toContain("limited to newest 50 changed local branches");
 	});
 
@@ -245,8 +246,8 @@ describe("objective list", () => {
 		expect(await minimal.exit).toBe(0);
 		expect(await namesJson.exit).toBe(0);
 		expect(await namesHuman.exit).toBe(0);
-		expect(JSON.stringify(parseJsonOutput(minimal))).not.toContain("updated_branches");
-		expect(JSON.stringify(parseJsonOutput(namesJson))).not.toContain("updated_branches");
+		expect(JSON.stringify(parseJsonOutput(minimal))).not.toContain("updatedBranches");
+		expect(JSON.stringify(parseJsonOutput(namesJson))).not.toContain("updatedBranches");
 		expect(namesHuman.stdout.join("")).toBe("alpha\n");
 	});
 

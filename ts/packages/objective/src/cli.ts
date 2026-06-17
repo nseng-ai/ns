@@ -8,30 +8,30 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { createRealObjectiveContext, type ObjectiveCliContext } from "./context.ts";
 import {
 	archiveObjectiveRequestSchema,
+	archiveObjectiveResultSchema,
 	renderArchiveObjective,
 	runArchiveObjective,
 } from "./operations/archive-objective.ts";
 import {
-	legacyListCandidatesMachine,
 	listCandidatesRequestSchema,
+	listCandidatesResultSchema,
 	renderListCandidates,
 	runListCandidates,
 } from "./operations/list-candidates.ts";
 import {
-	legacyObjectiveListMachine,
 	listObjectivesRequestSchema,
+	objectiveListResultSchema,
 	renderObjectiveListHuman,
 	renderObjectiveListMarkdown,
 	runListObjectives,
 } from "./operations/list-objectives.ts";
 import {
-	legacyReadObjectiveMachine,
 	readObjectiveRequestSchema,
+	readObjectiveResultSchema,
 	renderReadObjective,
 	runReadObjective,
 } from "./operations/read-objective.ts";
 import {
-	legacyRunnerSubagentUsageMachine,
 	renderRunnerSubagentUsageMarkdown,
 	runnerSubagentUsageRequestSchema,
 	runnerSubagentUsageResultSchema,
@@ -59,6 +59,7 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		name: "archive",
 		description: "Archive or unarchive an Objective record by moving its directory.",
 		schema: archiveObjectiveRequestSchema,
+		resultSchema: archiveObjectiveResultSchema,
 		positionals: { slug: { position: 0 } },
 		handler: runArchiveObjective,
 		renderHuman: renderArchiveObjective,
@@ -67,10 +68,10 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		name: "list",
 		description: "List Objective records in the current checkout.",
 		schema: listObjectivesRequestSchema,
+		resultSchema: objectiveListResultSchema,
 		handler: runListObjectives,
 		renderHuman: renderObjectiveListHuman,
 		renderMarkdown: renderObjectiveListMarkdown,
-		legacyMachine: legacyObjectiveListMachine,
 	});
 	const execGroup = new ClinkrGroup<ObjectiveCliContext>({
 		name: "exec",
@@ -81,19 +82,19 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		name: "list-candidates",
 		description: "List active Objective slug candidates for shell and agent autocomplete.",
 		schema: listCandidatesRequestSchema,
+		resultSchema: listCandidatesResultSchema,
 		handler: runListCandidates,
 		renderHuman: renderListCandidates,
-		legacyMachine: legacyListCandidatesMachine,
 	});
 	execGroup.command({
 		name: "read-objective",
 		description: "Read one Objective record by explicit slug as filesystem facts or raw Markdown.",
 		schema: readObjectiveRequestSchema,
+		resultSchema: readObjectiveResultSchema,
 		positionals: { slug: { position: 0 } },
 		handler: runReadObjective,
 		renderHuman: renderReadObjective,
 		renderMarkdown: renderReadObjective,
-		legacyMachine: legacyReadObjectiveMachine,
 	});
 	execGroup.command({
 		name: "runner-subagent-usage",
@@ -104,7 +105,6 @@ export function buildCli(): ClinkrGroup<ObjectiveCliContext> {
 		handler: runRunnerSubagentUsage,
 		renderHuman: renderRunnerSubagentUsageMarkdown,
 		renderMarkdown: renderRunnerSubagentUsageMarkdown,
-		legacyMachine: legacyRunnerSubagentUsageMachine,
 	});
 	root.group(execGroup);
 	return root;

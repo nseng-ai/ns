@@ -92,7 +92,7 @@ describe("Objective storage", () => {
 		const presence = await objectiveStorage.filePresence(recordPath);
 		expect(presence).toEqual({
 			ok: true,
-			value: { objective_md: true, roadmap_md: true, updates_dir: true, closed_md: true },
+			value: { objectiveMd: true, roadmapMd: true, updatesDir: true, closedMd: true },
 		});
 		if (!presence.ok) throw new Error("unexpected storage failure");
 		expect(renderFilePresence(presence.value)).toBe("objective.md:yes, roadmap.md:yes, updates/:yes, closed.md:yes");

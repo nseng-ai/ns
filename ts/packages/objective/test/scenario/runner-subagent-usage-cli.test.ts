@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
 
 describe("objective exec runner-subagent-usage", () => {
-	test("emits Python-compatible JSON usage summaries", async () => {
+	test("emits TS-native JSON usage summaries", async () => {
 		const sessionFile = await writeRunnerSubagentJsonl();
 		const run = runScenario(["exec", "runner-subagent-usage", sessionFile, "--format", "json"]);
 
@@ -17,52 +17,52 @@ describe("objective exec runner-subagent-usage", () => {
 			data: {
 				sessions: [
 					{
-						session_file: sessionFile,
+						sessionFile: sessionFile,
 						status: "ok",
 						error: null,
-						error_line: null,
-						assistant_response_count: 1,
+						errorLine: null,
+						assistantResponseCount: 1,
 						models: [{ provider: "openai-codex", api: "responses", model: "gpt-5.5" }],
 						tokens: {
-							input_tokens: 100,
-							output_tokens: 20,
-							cache_read_tokens: 30,
-							cache_write_tokens: 0,
-							total_tokens: 150,
+							inputTokens: 100,
+							outputTokens: 20,
+							cacheReadTokens: 30,
+							cacheWriteTokens: 0,
+							totalTokens: 150,
 						},
 						cost: {
-							input_usd: 0.001,
-							output_usd: 0.002,
-							cache_read_usd: 0.003,
-							cache_write_usd: 0,
-							total_usd: 0.006,
+							inputUsd: 0.001,
+							outputUsd: 0.002,
+							cacheReadUsd: 0.003,
+							cacheWriteUsd: 0,
+							totalUsd: 0.006,
 						},
-						peak_observed_total_tokens: 150,
-						peak_observed_prompt_tokens: 130,
-						configured_context_window_tokens: null,
+						peakObservedTotalTokens: 150,
+						peakObservedPromptTokens: 130,
+						configuredContextWindowTokens: null,
 					},
 				],
 				aggregate: {
-					session_count: 1,
-					ok_session_count: 1,
-					usage_response_count: 1,
+					sessionCount: 1,
+					okSessionCount: 1,
+					usageResponseCount: 1,
 					tokens: {
-						input_tokens: 100,
-						output_tokens: 20,
-						cache_read_tokens: 30,
-						cache_write_tokens: 0,
-						total_tokens: 150,
+						inputTokens: 100,
+						outputTokens: 20,
+						cacheReadTokens: 30,
+						cacheWriteTokens: 0,
+						totalTokens: 150,
 					},
 					cost: {
-						input_usd: 0.001,
-						output_usd: 0.002,
-						cache_read_usd: 0.003,
-						cache_write_usd: 0,
-						total_usd: 0.006,
+						inputUsd: 0.001,
+						outputUsd: 0.002,
+						cacheReadUsd: 0.003,
+						cacheWriteUsd: 0,
+						totalUsd: 0.006,
 					},
-					peak_observed_total_tokens: 150,
-					peak_observed_prompt_tokens: 130,
-					configured_context_window_tokens: null,
+					peakObservedTotalTokens: 150,
+					peakObservedPromptTokens: 130,
+					configuredContextWindowTokens: null,
 				},
 			},
 		});
@@ -87,7 +87,7 @@ describe("objective exec runner-subagent-usage", () => {
 		expect(run.stderr).toEqual([]);
 	});
 
-	test("missing args return a negative compatibility JSON envelope", async () => {
+	test("missing args return a negative canonical JSON envelope", async () => {
 		const run = runScenario(["exec", "runner-subagent-usage", "--format", "json"]);
 
 		expect(await run.exit).toBe(0);
@@ -97,14 +97,14 @@ describe("objective exec runner-subagent-usage", () => {
 			data: {
 				sessions: [],
 				aggregate: {
-					session_count: 0,
-					ok_session_count: 0,
-					usage_response_count: 0,
-					tokens: { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, total_tokens: 0 },
-					cost: { input_usd: 0, output_usd: 0, cache_read_usd: 0, cache_write_usd: 0, total_usd: 0 },
-					peak_observed_total_tokens: null,
-					peak_observed_prompt_tokens: null,
-					configured_context_window_tokens: null,
+					sessionCount: 0,
+					okSessionCount: 0,
+					usageResponseCount: 0,
+					tokens: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0 },
+					cost: { inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, totalUsd: 0 },
+					peakObservedTotalTokens: null,
+					peakObservedPromptTokens: null,
+					configuredContextWindowTokens: null,
 				},
 			},
 		});

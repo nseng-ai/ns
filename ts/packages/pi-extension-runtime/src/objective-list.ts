@@ -41,7 +41,7 @@ function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListR
 
 	const slug = value.slug;
 	const status = value.status;
-	const latestUpdateIso = value.latest_update_iso;
+	const latestUpdateIso = value.latestUpdateIso;
 	if (
 		typeof slug !== "string" ||
 		typeof status !== "string" ||
@@ -49,7 +49,7 @@ function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListR
 	) {
 		return {
 			type: "invalid",
-			message: `Invalid Objective list record at index ${index}: expected slug, status, and latest_update_iso.`,
+			message: `Invalid Objective list record at index ${index}: expected slug, status, and latestUpdateIso.`,
 		};
 	}
 
@@ -63,10 +63,10 @@ export function parseObjectiveList(stdout: string): ObjectiveListParseResult {
 	}
 
 	const data = envelope.data;
-	const trunkBranch = data.trunk_branch;
-	const rootPath = data.root_path;
-	const statusFilter = data.status_filter;
-	const namesOnly = data.names_only;
+	const trunkBranch = data.trunkBranch;
+	const rootPath = data.rootPath;
+	const statusFilter = data.statusFilter;
+	const namesOnly = data.namesOnly;
 	const records = data.records;
 	if (
 		typeof trunkBranch !== "string" ||
@@ -77,7 +77,7 @@ export function parseObjectiveList(stdout: string): ObjectiveListParseResult {
 	) {
 		return {
 			type: "invalid",
-			message: "Invalid objective list JSON: expected trunk_branch, root_path, status_filter, names_only, and records.",
+			message: "Invalid objective list JSON: expected trunkBranch, rootPath, statusFilter, namesOnly, and records.",
 		};
 	}
 

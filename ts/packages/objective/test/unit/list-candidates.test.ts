@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/context.ts";
 import { FakeObjectiveStorageGateway, type FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
-import { legacyListCandidatesMachine, renderListCandidates, runListCandidates } from "../../src/operations/list-candidates.ts";
+import { renderListCandidates, runListCandidates } from "../../src/operations/list-candidates.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
 
 describe("objective list-candidates operation", () => {
@@ -27,24 +27,12 @@ describe("objective list-candidates operation", () => {
 		expect(ctx.git.hasUncommittedChangesUnderCalls).toEqual([]);
 	});
 
-	test("renders TSV rows and legacy machine shape used by Pi autocomplete consumers", async () => {
+	test("renders TSV rows used by Pi autocomplete consumers", async () => {
 		const ctx = contextWithFakeStorage({ records: [{ slug: "alpha" }, { slug: "charlie" }] });
 		const exit = await runListCandidates(ctx, {});
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 
 		expect(renderListCandidates(exit.data)).toBe("alpha\topen\ncharlie\topen");
-		expect(legacyListCandidatesMachine(exit)).toEqual({
-			exitCode: 0,
-			body: {
-				exit_code: 0,
-				data: {
-					records: [
-						{ slug: "alpha", status: "open" },
-						{ slug: "charlie", status: "open" },
-					],
-				},
-			},
-		});
 	});
 });
 
