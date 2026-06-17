@@ -243,7 +243,7 @@ function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { t
 
 function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, query: string): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
 	const result = sqliteRunner.run(dbPath, query);
-	if (result.error !== undefined) return { type: "failure", failure: { message: errorCodeFromValue(result.error) === "ENOENT" ? "sqlite3 command not found while reading Graphite metadata" : `Graphite metadata store unreadable: ${String(result.error.message)}`, returnCode: null } };
+	if (result.error !== undefined && result.error !== null) return { type: "failure", failure: { message: errorCodeFromValue(result.error) === "ENOENT" ? "sqlite3 command not found while reading Graphite metadata" : `Graphite metadata store unreadable: ${errorMessageFromValue(result.error)}`, returnCode: null } };
 	if (result.status !== 0) return { type: "failure", failure: { message: result.stderr.trim() || "Graphite metadata store unreadable", returnCode: result.status } };
 	try {
 		return { type: "ok", data: JSON.parse(result.stdout.trim() || "[]") };
@@ -336,4 +336,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function errorCodeFromValue(value: unknown): string | undefined {
 	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
+}
+
+function errorMessageFromValue(value: unknown): string {
+	return isRecord(value) && typeof value.message === "string" ? value.message : String(value);
 }
