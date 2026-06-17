@@ -11,7 +11,6 @@ const downloadFeedbackParseSchema = z.object({
 	include_resolved: z.boolean().default(false),
 	include_automation: z.boolean().default(false),
 	include_empty_reviews: z.boolean().default(false),
-	harness_session_id: z.string().optional(),
 });
 
 type DownloadFeedbackRequest = z.output<typeof downloadFeedbackParseSchema>;

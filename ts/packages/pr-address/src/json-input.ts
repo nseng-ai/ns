@@ -3,10 +3,9 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 
 import { formatErrorMessage, isRecord } from "@asdl/core";
-import type { PayloadArtifactStore, PayloadErrorType } from "./payload-store.ts";
 
 export interface JsonInputError {
-	errorType: "invalid_json" | "invalid_request" | PayloadErrorType;
+	errorType: "invalid_json" | "invalid_request";
 	message: string;
 }
 
@@ -54,48 +53,6 @@ export async function readJsonInputText(options: ReadJsonInputTextOptions): Prom
 		};
 	}
 	return rawPayloadResult;
-}
-
-export interface LoadArtifactReferenceOptions<T> {
-	filePath: string;
-	commandName: string;
-	optionName: string;
-	artifactDescription: string;
-	schema: z.ZodType<T>;
-	store?: PayloadArtifactStore | undefined;
-}
-
-/**
- * Read and validate a store-owned artifact referenced by a CLI path option.
- * Validation is structural only: references may come from any payload session,
- * so provenance is deliberately not checked.
- */
-export async function loadArtifactReference<T>(options: LoadArtifactReferenceOptions<T>): Promise<JsonInputResult<T>> {
-	if (options.store !== undefined) {
-		const artifactResult = await options.store.readJsonArtifact({ payloadPath: options.filePath });
-		if (artifactResult.type === "ok") {
-			return parseJsonValueWithSchema({
-				value: artifactResult.value,
-				schema: options.schema,
-				schemaDescription: `${options.commandName} ${options.optionName}`,
-			});
-		}
-	}
-
-	const fileResult = await readJsonInputFile({
-		filePath: options.filePath,
-		commandName: options.commandName,
-		inputDescription: options.artifactDescription,
-		fileOptionNameValue: options.optionName,
-	});
-	if (fileResult.type === "error") return fileResult;
-
-	return parseJsonWithSchema({
-		text: fileResult.value,
-		schema: options.schema,
-		jsonDescription: `${options.commandName} ${options.optionName} file`,
-		schemaDescription: `${options.commandName} ${options.optionName}`,
-	});
 }
 
 export async function loadJsonInput<T>(options: LoadJsonInputOptions<T>): Promise<JsonInputResult<T>> {

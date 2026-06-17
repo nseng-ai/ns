@@ -40,12 +40,7 @@ npx skills add ./skills/skill-management --agent codex claude-code -y
 rm -rf .agents/skills/skill-management
 ln -s ../../skills/skill-management .agents/skills/skill-management
 
-# Internal local skill bootstrap
-INSTALL_INTERNAL_SKILLS=1 npx skills add ./skills/internal-pr-stack-address --agent codex claude-code -y
-rm -rf .agents/skills/internal-pr-stack-address
-ln -s ../../skills/internal-pr-stack-address .agents/skills/internal-pr-stack-address
-rm -rf .claude/skills/internal-pr-stack-address
-ln -s ../../.agents/skills/internal-pr-stack-address .claude/skills/internal-pr-stack-address
+# Retired internal stack-address skills are historical only; use /pr:download-stack-feedback for stack feedback download.
 
 # Single GitHub skill
 npx skills add withgraphite/agent-skills --skill graphite --agent codex claude-code -y

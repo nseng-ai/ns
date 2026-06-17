@@ -1,8 +1,0 @@
-{
-  "function": "resolution_reply",
-  "kwargs": {
-    "mode": "pre_existing",
-    "message": null,
-    "commit_sha": null
-  }
-}

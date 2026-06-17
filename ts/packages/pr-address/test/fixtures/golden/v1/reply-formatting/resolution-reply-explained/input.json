@@ -1,8 +1,0 @@
-{
-  "function": "resolution_reply",
-  "kwargs": {
-    "mode": "explained",
-    "message": "The existing branch already handles this path.",
-    "commit_sha": null
-  }
-}

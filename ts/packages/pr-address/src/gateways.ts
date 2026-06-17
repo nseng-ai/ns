@@ -5,9 +5,7 @@ import { commandFailure, err, ok } from "@asdl/core/submit";
 import { z } from "zod";
 
 import type {
-	BranchHeadOidResult,
-	CommitChangedFilesResult,
-	CurrentBranchResult,
+			CurrentBranchResult,
 	GatewayFailure,
 	GatewayOptions,
 	GatewayResult,
@@ -18,18 +16,12 @@ import type {
 	PRReview,
 	PRReviewComment,
 	PRReviewThread,
-	PRReviewThreadState,
 	PRSummary,
-	Reaction,
 	RepoContextResult,
-	RestructuredFile,
-	WorkTreeRootResult,
 } from "./core/gateways.ts";
 
 export type {
-	BranchHeadOidResult,
-	CommitChangedFilesResult,
-	CurrentBranchResult,
+			CurrentBranchResult,
 	GatewayFailure,
 	GatewayOptions,
 	GatewayResult,
@@ -41,12 +33,8 @@ export type {
 	PRReview,
 	PRReviewComment,
 	PRReviewThread,
-	PRReviewThreadState,
 	PRSummary,
-	Reaction,
 	RepoContextResult,
-	RestructuredFile,
-	WorkTreeRootResult,
 } from "./core/gateways.ts";
 
 export interface ProcessRequest {
@@ -135,13 +123,6 @@ const ghDiscussionCommentSchema = z
 		html_url: z.string().optional(),
 	})
 	.loose();
-const ghReactionSchema = z
-	.object({
-		id: z.union([z.number().int(), z.string()]),
-		content: z.string(),
-	})
-	.loose();
-const ghReviewThreadStateSchema = z.object({ id: z.string(), isResolved: z.boolean() }).loose();
 const ghGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
 const ghReviewThreadsResponseSchema = z
 	.object({
@@ -163,27 +144,6 @@ const ghReviewThreadCommentsResponseSchema = z
 	.loose();
 
 type GhReviewThread = z.infer<typeof ghReviewThreadSchema>;
-
-const resolveReviewThreadMutation = `
-mutation($threadId: ID!) {
-  resolveReviewThread(input: {threadId: $threadId}) {
-    thread { id isResolved }
-  }
-}`;
-
-const unresolveReviewThreadMutation = `
-mutation($threadId: ID!) {
-  unresolveReviewThread(input: {threadId: $threadId}) {
-    thread { id isResolved }
-  }
-}`;
-
-const addReviewThreadReplyMutation = `
-mutation($threadId: ID!, $body: String!) {
-  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $threadId, body: $body}) {
-    comment { databaseId body author { login } path line: originalLine startLine: originalStartLine createdAt }
-  }
-}`;
 
 export const reviewThreadsQuery = `
 query($owner: String!, $repo: String!, $number: Int!, $threadCursor: String) {
@@ -285,48 +245,6 @@ export class RealPrAddressGitHubGateway implements PrAddressGitHubGateway {
 		return ok(parseResult.value.comments.map(normalizeDiscussionComment).filter((comment) => comment.id !== 0));
 	}
 
-	async addPrDiscussionComment(prNumber: number, body: string, options: GatewayOptions): Promise<GatewayResult<PRDiscussionComment>> {
-		const result = await this.runGh(["api", "--method", "POST", `repos/{owner}/{repo}/issues/${prNumber}/comments`, "-f", `body=${body}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseJson(result.stdout, ghDiscussionCommentSchema);
-		if (!parseResult.ok) return parseResult;
-		return ok(normalizeDiscussionComment(parseResult.value));
-	}
-
-	async addPrDiscussionCommentReaction(commentId: number, reaction: string, options: GatewayOptions): Promise<GatewayResult<Reaction>> {
-		const result = await this.runGh(["api", "--method", "POST", `repos/{owner}/{repo}/issues/comments/${commentId}/reactions`, "-H", "Accept: application/vnd.github+json", "-f", `content=${reaction}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseJson(result.stdout, ghReactionSchema);
-		if (!parseResult.ok) return parseResult;
-		return ok({ id: numericId(parseResult.value.id), comment_id: commentId, content: parseResult.value.content });
-	}
-
-	async addReviewThreadReply(threadId: string, body: string, options: GatewayOptions): Promise<GatewayResult<PRReviewComment>> {
-		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `body=${body}`, "-f", `query=${addReviewThreadReplyMutation}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ addPullRequestReviewThreadReply: z.object({ comment: ghReviewCommentSchema }) }) }).loose());
-		if (!parseResult.ok) return parseResult;
-		return ok(normalizeReviewComment(parseResult.value.data.addPullRequestReviewThreadReply.comment));
-	}
-
-	async resolveReviewThread(threadId: string, options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `query=${resolveReviewThreadMutation}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ resolveReviewThread: z.object({ thread: ghReviewThreadStateSchema }) }) }).loose());
-		if (!parseResult.ok) return parseResult;
-		const thread = parseResult.value.data.resolveReviewThread.thread;
-		return ok({ thread_id: thread.id, is_resolved: thread.isResolved });
-	}
-
-	async unresolveReviewThread(threadId: string, options: GatewayOptions): Promise<GatewayResult<PRReviewThreadState>> {
-		const result = await this.runGh(["api", "graphql", "-F", `threadId=${threadId}`, "-f", `query=${unresolveReviewThreadMutation}`], options);
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		const parseResult = parseGraphqlJson(result.stdout, z.object({ data: z.object({ unresolveReviewThread: z.object({ thread: ghReviewThreadStateSchema }) }) }).loose());
-		if (!parseResult.ok) return parseResult;
-		const thread = parseResult.value.data.unresolveReviewThread.thread;
-		return ok({ thread_id: thread.id, is_resolved: thread.isResolved });
-	}
-
 	private async withCompleteThreadComments(thread: GhReviewThread, options: GatewayOptions): Promise<GatewayResult<GhReviewThread>> {
 		if (!thread.comments.pageInfo.hasNextPage) return ok(thread);
 		if (thread.id === null) return ok(thread);
@@ -389,37 +307,6 @@ export class RealPrAddressGitGateway implements PrAddressGitGateway {
 		return { type: "failure", failure: failureFromProcess(result) };
 	}
 
-	async getWorkTreeRoot(options: GatewayOptions): Promise<WorkTreeRootResult> {
-		// Keep this pr-address gateway local instead of delegating to @asdl/core/git.optionalRepoRoot:
-		// optionalRepoRoot collapses git failures into missing, but the classification-file safety guard
-		// must preserve inside | outside | failure to avoid treating unexpected git failures as safe.
-		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--show-toplevel"], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
-		if (result.exitCode === 0) return { type: "inside", root: result.stdout.trim() };
-		// git exits 128 with "not a git repository" outside any work tree.
-		if (result.exitCode === 128) return { type: "outside" };
-		return { type: "failure", failure: failureFromProcess(result) };
-	}
-
-	async getBranchHeadOid(branch: string, options: GatewayOptions): Promise<BranchHeadOidResult> {
-		const result = await this.runProcess({ command: "git", args: ["rev-parse", "--verify", `${branch}^{commit}`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
-		if (result.exitCode === 0) return { type: "found", oid: result.stdout.trim() };
-		if (result.exitCode === 128) return { type: "missing", stderr: result.stderr ?? result.stdout ?? "branch not found", returncode: result.exitCode };
-		return { type: "failure", failure: failureFromProcess(result) };
-	}
-
-	async getCommitChangedFiles(commitSha: string, options: GatewayOptions): Promise<CommitChangedFilesResult> {
-		const trimmed = commitSha.trim();
-		if (trimmed === "") return { type: "failure", failure: failureFromMessage("commit sha must be non-empty", 2) };
-		const result = await this.runProcess({ command: "git", args: ["diff-tree", "--no-commit-id", "--name-only", "-r", trimmed], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
-		if (result.exitCode !== 0) return { type: "failure", failure: failureFromProcess(result) };
-		return { type: "ok", files: result.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "") };
-	}
-
-	async getRestructuredFiles(baseRefName: string, options: GatewayOptions): Promise<GatewayResult<readonly RestructuredFile[]>> {
-		const result = await this.runProcess({ command: "git", args: ["diff", "--name-status", "-M", "-C", `origin/${baseRefName}...HEAD`], cwd: options.cwd, env: options.env, timeout: GIT_TIMEOUT_MS });
-		if (result.exitCode !== 0) return err(failureFromProcess(result));
-		return ok(parseRestructuredFiles(result.stdout));
-	}
 }
 
 export async function runProcess(request: ProcessRequest): Promise<ProcessResult> {
@@ -545,25 +432,6 @@ function parseGraphqlJson<T>(text: string, schema: z.ZodType<T>): GatewayResult<
 	if (!base.ok) return base;
 	if (base.value.errors !== undefined && base.value.errors.length > 0) return err(failureFromParse(text, JSON.stringify(base.value.errors)));
 	return parseJson(text, schema);
-}
-
-function parseRestructuredFiles(stdout: string): RestructuredFile[] {
-	const files: RestructuredFile[] = [];
-	for (const line of stdout.split("\n")) {
-		if (line.trim() === "") continue;
-		const columns = line.split("\t");
-		const status = columns[0] ?? "";
-		if (!(status.startsWith("R") || status.startsWith("C"))) continue;
-		const oldPath = columns[1] ?? null;
-		const newPath = columns[2] ?? columns[1] ?? "";
-		files.push({ status, old_path: oldPath, new_path: newPath, similarity: similarity(status) });
-	}
-	return files;
-}
-
-function similarity(status: string): number | null {
-	const numeric = Number(status.slice(1));
-	return Number.isInteger(numeric) ? numeric : null;
 }
 
 function failureFromProcess(result: ProcessResult): GatewayFailure {

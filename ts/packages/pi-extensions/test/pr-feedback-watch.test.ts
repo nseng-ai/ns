@@ -3,11 +3,11 @@ import { describe, expect, test, vi } from "vitest";
 import prFeedbackWatchExtension, {
 	buildDetectedFeedbackPrompt,
 	buildFeedbackFingerprint,
-	feedbackItemKeysFromPrepareRun,
+	feedbackItemKeyFromDownload,
 	filterIgnoredFeedback,
 	parseDiscussionCommentFingerprint,
 	parseGitHubPullRequestUrl,
-	parsePrepareRunData,
+	parseDownloadFeedbackData,
 	parseReviewCommentFingerprint,
 	parseReviewFingerprint,
 	parseWatchCommandArgs,
@@ -171,19 +171,10 @@ function envelope(data: object): string {
 	return JSON.stringify({ exit_code: 0, data });
 }
 
-function prepareStep(data: object, harnessSessionId: string): ScriptedExec {
-	return step("pr-address", ["exec", "prepare-run", "--harness-session-id", harnessSessionId, "--format", "json"], {
-		result: { stdout: envelope(compactPrepareRunData(data)) },
+function downloadStep(data: object): ScriptedExec {
+	return step("pr-address", ["exec", "download-feedback", "--format", "json"], {
+		result: { stdout: envelope(data) },
 	});
-}
-
-function compactPrepareRunData(manifest: object): object {
-	return {
-		operation: "prepare-run",
-		counts: {},
-		artifacts: {},
-		manifest,
-	};
 }
 
 function currentUserStep(login = "schrockn"): ScriptedExec {
@@ -250,56 +241,30 @@ function dirtyStep(): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1"], { result: { stdout: " M file.ts\n" } });
 }
 
-function compactManifest(commentIds: number[] = [10]): object {
+function downloadData(commentIds: number[] = [10]): object {
+	const count = commentIds.length;
 	return {
 		found: true,
-		current_branch: "feature/pr-watch",
-		number: 123,
-		title: "PR title",
-		url: "https://github.com/acme/repo/pull/123",
-		head_ref_name: "feature/pr-watch",
-		base_ref_name: "main",
-		state: "OPEN",
-		payload_reference: { payload_path: "/tmp/pr-watch.raw.json" },
-		reviews: [],
-		review_threads: [
-			{
-				thread_id: "PRRT_1",
-				path: "src/file.ts",
-				line: 7,
-				start_line: 7,
-				is_resolved: false,
-				is_outdated: false,
-				comments: commentIds.map((id, index) => ({
-					id,
-					author: index === 0 ? "github-actions" : "reviewer",
-					path: "src/file.ts",
-					line: 7 + index,
-					start_line: null,
-					created_at: "2026-06-07T00:00:00Z",
-					body_locator: {
-						json_pointer: `/data/review_threads/0/comments/${index}/body`,
-						item_pointer: `/data/review_threads/0/comments/${index}`,
-					},
-				})),
-			},
-		],
-		discussion_comments: [
-			{
-				comment_id: 90,
-				author: "vercel[bot]",
-				url: "https://github.com/acme/repo/pull/123#issuecomment-90",
-				body_locator: { json_pointer: "/data/discussion_comments/0/body", item_pointer: "/data/discussion_comments/0" },
-			},
-			{
-				comment_id: 91,
-				author: "schrockn",
-				url: "https://github.com/acme/repo/pull/123#issuecomment-91",
-				body_locator: { json_pointer: "/data/discussion_comments/1/body", item_pointer: "/data/discussion_comments/1" },
-			},
-		],
+		target: {
+			pr_number: 123,
+			title: "PR title",
+			url: "https://github.com/acme/repo/pull/123",
+			branch: "feature/pr-watch",
+			head_ref_name: "feature/pr-watch",
+			base_ref_name: "main",
+		},
+		counts: {
+			included_review_threads: count,
+			included_reviews: 0,
+			included_discussion_comments: 0,
+			excluded_resolved_threads: 0,
+			excluded_empty_reviews: 0,
+			excluded_automation_comments: 0,
+		},
+		markdown: [`# PR feedback triage request`, ``, ...commentIds.map((id) => `Thread comment ${id}`)].join("\n"),
 	};
 }
+
 
 describe("pr feedback watch command parsing", () => {
 	test("parses bare command as toggle with dispatch defaults", () => {
@@ -355,47 +320,32 @@ describe("pr feedback watch command parsing", () => {
 	});
 });
 
-describe("pr feedback watch manifest helpers", () => {
-	test("accepts direct and compact prepare-run manifest shapes", () => {
-		const direct = parsePrepareRunData(compactManifest());
-		const compact = parsePrepareRunData(compactPrepareRunData(compactManifest()));
-
-		expect(direct.type).toBe("valid");
-		expect(compact.type).toBe("valid");
-		if (direct.type !== "valid" || compact.type !== "valid") return;
-		expect(compact.data).toEqual(direct.data);
-	});
-
-	test("extracts deterministic keys and ignores only selected authors", () => {
-		const parsed = parsePrepareRunData(compactManifest());
+describe("pr feedback watch download helpers", () => {
+	test("accepts downloader output and derives a coarse trigger key", () => {
+		const parsed = parseDownloadFeedbackData(downloadData());
 		expect(parsed.type).toBe("valid");
 		if (parsed.type !== "valid") return;
 
-		const keys = feedbackItemKeysFromPrepareRun(parsed.data);
-		expect(keys.map((item) => item.key)).toEqual(["thread-comment:PRRT_1:10", "discussion:90", "discussion:91"]);
-		const filtered = filterIgnoredFeedback(keys, { currentUserLogin: "schrockn" });
-		expect(filtered.actionableTriggerItems.map((item) => item.key)).toEqual(["thread-comment:PRRT_1:10"]);
-		expect(filtered.ignoredItems.map((item) => [item.item.key, item.reason])).toEqual([
-			["discussion:90", "status_bot"],
-			["discussion:91", "current_user"],
-		]);
+		const keys = feedbackItemKeyFromDownload(parsed.data);
+		expect(keys.map((item) => item.key)).toEqual(["download-feedback:123:1"]);
+		expect(filterIgnoredFeedback(keys, { currentUserLogin: "schrockn" }).actionableTriggerItems.map((item) => item.key)).toEqual(["download-feedback:123:1"]);
 	});
 
 	test("builds a constrained pr-address prompt", () => {
-		const parsed = parsePrepareRunData(compactManifest());
+		const parsed = parseDownloadFeedbackData(downloadData());
 		expect(parsed.type).toBe("valid");
 		if (parsed.type !== "valid") return;
-		const item = feedbackItemKeysFromPrepareRun(parsed.data)[0];
+		const item = feedbackItemKeyFromDownload(parsed.data)[0];
 		expect(item).toBeDefined();
 		if (item === undefined) return;
-		const prompt = buildDetectedFeedbackPrompt({ data: parsed.data, payloadPath: parsed.data.payloadPath, items: [item] });
+		const prompt = buildDetectedFeedbackPrompt({ data: parsed.data, items: [item] });
 
 		expect(prompt).toContain("Automated PR feedback watch trigger.");
 		expect(prompt).toContain("PR: #123 PR title");
-		expect(prompt).toContain("Payload artifact: /tmp/pr-watch.raw.json");
-		expect(prompt).toContain("thread_comment/thread-comment:PRRT_1:10");
-		expect(prompt).toContain("Do not push, submit, or create branches.");
-		expect(prompt).toContain("Use the installed `pr-address` skill/workflow");
+		expect(prompt).toContain("Downloaded feedback Markdown:");
+		expect(prompt).toContain("download/download-feedback:123:1");
+		expect(prompt).toContain("Do not push, submit, create branches");
+		expect(prompt).toContain("Triage the downloaded feedback");
 	});
 });
 
@@ -454,26 +404,26 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("empty command starts and dispatches existing actionable feedback", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
-		expect(pi.userMessages[0]).not.toContain("discussion:90");
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
+		expect(pi.userMessages[0]).not.toContain("download-feedback:ignored");
 		pi.assertDone();
 	});
 
 	test("agent_end redispatches actionable feedback that arrived while queued", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
 			cleanStep(),
-			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10, 11])),
 			headOidStep(),
 		]);
 		const ctx = new FakeContext();
@@ -481,13 +431,13 @@ describe("pr feedback watch extension", () => {
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 
 		await triggerAgentEnd(pi);
 
 		expect(pi.userMessages).toHaveLength(2);
-		expect(pi.userMessages[1]).toContain("thread-comment:PRRT_1:11");
-		expect(pi.userMessages[1]).not.toContain("thread-comment:PRRT_1:10");
+		expect(pi.userMessages[1]).toContain("download-feedback:123:2");
+		expect(pi.userMessages[1]).not.toContain("download-feedback:123:1");
 		pi.assertDone();
 	});
 
@@ -495,7 +445,7 @@ describe("pr feedback watch extension", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-06-14T05:40:00.000Z"));
 		try {
-			const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+			const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
 			const ctx = new FakeContext();
 			prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -517,19 +467,19 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("once dispatches current feedback by default", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), cleanStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 		pi.assertDone();
 	});
 
 	test("once with baseline-existing baselines current feedback", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -541,21 +491,21 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("once with dispatch-existing sends constrained prompt", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), cleanStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once --dispatch-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
-		expect(pi.userMessages[0]).not.toContain("discussion:90");
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
+		expect(pi.userMessages[0]).not.toContain("download-feedback:ignored");
 		pi.assertDone();
 	});
 
 	test("unchanged cheap poll avoids heavy work", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -575,13 +525,13 @@ describe("pr feedback watch extension", () => {
 	test("after baseline, a new comment dispatches once", async () => {
 		const changedRest = { reviewComments: [reviewCommentRestItem(11)] };
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
 			...restFingerprintSteps(changedRest),
 			cleanStep(),
-			prepareStep(compactManifest([10, 11]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10, 11])),
 			headOidStep(),
 			...restFingerprintSteps(changedRest),
 		]);
@@ -593,20 +543,20 @@ describe("pr feedback watch extension", () => {
 		await pi.commands.get("code:pr-feedback-watch")?.handler("once --baseline-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:11");
+		expect(pi.userMessages[0]).toContain("review_comment:11:2026-06-07T00:00:11Z");
 		pi.assertDone();
 	});
 
 	test("changed REST fingerprint with no actionable manifest items advances without dispatch", async () => {
 		const changedRest = { discussion: [{ id: 92, updated_at: "2026-06-07T00:00:30Z", author: "schrockn" }] };
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
 			...restFingerprintSteps(changedRest),
 			cleanStep(),
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			headOidStep(),
 		]);
 		const ctx = new FakeContext();
@@ -622,7 +572,7 @@ describe("pr feedback watch extension", () => {
 
 	test("pause-on-dirty pauses before heavy normalization after REST changes", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -643,7 +593,7 @@ describe("pr feedback watch extension", () => {
 
 	test("REST failures warn without dispatching or heavy retry before threshold", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest([10]), "pr-feedback-watch-1"),
+			downloadStep(downloadData([10])),
 			currentUserStep(),
 			headOidStep(),
 			...restFingerprintSteps(),
@@ -667,19 +617,19 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("start with dispatch-existing works on dirty tree by default", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), ...restFingerprintSteps(), dirtyStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
 		await pi.commands.get("code:pr-feedback-watch")?.handler("start --dispatch-existing", ctx);
 
 		expect(pi.userMessages).toHaveLength(1);
-		expect(pi.userMessages[0]).toContain("thread-comment:PRRT_1:10");
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
 		pi.assertDone();
 	});
 
 	test("bare command toggles active watcher off without retracting queued prompt", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), ...restFingerprintSteps(), cleanStep()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -694,7 +644,7 @@ describe("pr feedback watch extension", () => {
 	});
 
 	test("explicit stop remains supported", async () => {
-		const pi = new FakePi([prepareStep(compactManifest(), "pr-feedback-watch-1"), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
+		const pi = new FakePi([downloadStep(downloadData()), currentUserStep(), headOidStep(), ...restFingerprintSteps()]);
 		const ctx = new FakeContext();
 		prFeedbackWatchExtension(pi, { runner: RUNNER });
 
@@ -708,11 +658,11 @@ describe("pr feedback watch extension", () => {
 
 	test("pause-on-dirty pauses dispatch unless allow-dirty is set", async () => {
 		const pi = new FakePi([
-			prepareStep(compactManifest(), "pr-feedback-watch-1"),
+			downloadStep(downloadData()),
 			currentUserStep(),
 			headOidStep(),
 			dirtyStep(),
-			prepareStep(compactManifest(), "pr-feedback-watch-1"),
+			downloadStep(downloadData()),
 			headOidStep(),
 			dirtyStep(),
 		]);

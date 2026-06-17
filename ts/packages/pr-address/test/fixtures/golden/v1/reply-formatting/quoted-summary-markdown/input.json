@@ -1,8 +1,0 @@
-{
-  "function": "discussion_reply",
-  "kwargs": {
-    "comment_author": "carol",
-    "original_body": "First line\n\nSecond line",
-    "response": "Done:\n- added tests\n- updated docs"
-  }
-}
