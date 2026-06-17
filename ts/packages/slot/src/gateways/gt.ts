@@ -91,14 +91,22 @@ export class RealSlotGtGateway implements SlotGtGateway {
 
 	async parentOf(cwd: string): Promise<ParentOfResult> {
 		const result = await this.gt(["parent", "--no-interactive"], cwd);
-		if (!result.isOk) return graphiteFailureResult(result);
+		if (!result.isOk) {
+			const failure = failureFromCommandResult(result);
+			if (failure.message.toLowerCase().includes("untracked branch")) return { type: "untracked_branch", message: failure.message };
+			return { type: "failure", failure };
+		}
 		const branch = firstNonemptyLine(result.stdout);
 		return branch === null ? { type: "no_parent" } : { type: "parent", branch };
 	}
 
 	async childrenOf(cwd: string): Promise<ChildrenOfResult> {
 		const result = await this.gt(["children", "--no-interactive"], cwd);
-		if (!result.isOk) return graphiteFailureResult(result);
+		if (!result.isOk) {
+			const failure = failureFromCommandResult(result);
+			if (failure.message.toLowerCase().includes("untracked branch")) return { type: "untracked_branch", message: failure.message };
+			return { type: "failure", failure };
+		}
 		return { type: "children", branches: nonemptyLines(result.stdout) };
 	}
 
@@ -170,12 +178,6 @@ interface BranchMetadataRow {
 	children: readonly string[];
 	validationResult: string | null;
 	childrenCorruption: ChildrenCorruption | null;
-}
-
-function graphiteFailureResult<T extends ParentOfResult | ChildrenOfResult>(result: CommandResult): T {
-	const failure = failureFromCommandResult(result);
-	if (failure.message.toLowerCase().includes("untracked branch")) return { type: "untracked_branch", message: failure.message } as T;
-	return { type: "failure", failure } as T;
 }
 
 function failureFromCommandResult(result: CommandResult): GtCommandFailure {

@@ -23,8 +23,8 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	if (parent.type === "failure") return failure("gt_parent_failed", parent.failure.message);
 	if (parent.type === "no_parent") return negative(`No downstack branch for '${currentResult.branch}'.`);
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, parent.branch);
-	if ("type" in resolution && resolution.type === "failure") return resolution;
-	return ok(await buildGtNavigationResult(ctx, resolution, { shouldSkipClipboard: !request.clipboard }));
+	if (resolution.type === "failure") return resolution;
+	return ok(await buildGtNavigationResult(ctx, resolution.resolution, { shouldSkipClipboard: !request.clipboard }));
 }
 
 export { renderGtNavigation };

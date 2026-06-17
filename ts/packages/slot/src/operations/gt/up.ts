@@ -35,8 +35,8 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	if (children.branches.length > 1) return negative(`Multiple upstack branches for '${currentResult.branch}': ${children.branches.join(", ")}. Run \`slot checkout <branch>\` for the branch you want.`);
 	const branch = children.branches[0] ?? "";
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, branch);
-	if ("type" in resolution && resolution.type === "failure") return resolution;
-	return ok(await buildGtNavigationResult(ctx, resolution, { shouldSkipClipboard: !request.clipboard }));
+	if (resolution.type === "failure") return resolution;
+	return ok(await buildGtNavigationResult(ctx, resolution.resolution, { shouldSkipClipboard: !request.clipboard }));
 }
 
 export { renderGtNavigation };

@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { failure } from "@asdl/clinkr";
+import { failure, type ClinkrFailureExit } from "@asdl/clinkr";
 
 import type { SlotCliContext } from "../../context.ts";
 import { findByBranch, buildSlotInventory } from "../../inventory.ts";
@@ -25,14 +25,16 @@ interface WorktreeResolution {
 	alreadyAssigned: boolean;
 }
 
-export async function resolveOrCheckoutWorktreeForBranch(ctx: SlotCliContext, branch: string): Promise<WorktreeResolution | ReturnType<typeof failure>> {
+export type WorktreeResolutionResult = { type: "ok"; resolution: WorktreeResolution } | ClinkrFailureExit;
+
+export async function resolveOrCheckoutWorktreeForBranch(ctx: SlotCliContext, branch: string): Promise<WorktreeResolutionResult> {
 	const existing = await findWorktreeForBranch(ctx, branch);
-	if (existing !== null) return { target: existing, alreadyAssigned: true };
+	if (existing !== null) return { type: "ok", resolution: { target: existing, alreadyAssigned: true } };
 	const result = await checkoutBranch(ctx, branch, { shouldCreateBranch: false, base: null });
 	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
 	return {
-		target: { slotName: result.outcome.slot_name.length === 0 ? null : result.outcome.slot_name, branchName: result.outcome.branch_name, worktreePath: result.outcome.worktree_path },
-		alreadyAssigned: result.outcome.already_assigned,
+		type: "ok",
+		resolution: { target: { slotName: result.outcome.slot_name.length === 0 ? null : result.outcome.slot_name, branchName: result.outcome.branch_name, worktreePath: result.outcome.worktree_path }, alreadyAssigned: result.outcome.already_assigned },
 	};
 }
 

@@ -2,12 +2,14 @@ import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotGitGateway, type FakeSlotGitGatewayOptions } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
 
 export interface ScenarioRunOptions {
 	git?: FakeSlotGitGatewayOptions | undefined;
+	gt?: FakeSlotGtGatewayOptions | undefined;
 	pr?: FakeSlotPrGatewayOptions | undefined;
 	cwd?: string | undefined;
 	stdin?: string | (() => Promise<string>) | undefined;
@@ -20,6 +22,7 @@ export interface ScenarioRun {
 	stdout: string[];
 	stderr: string[];
 	git: FakeSlotGitGateway;
+	gt: FakeSlotGtGateway | undefined;
 	pr: FakeSlotPrGateway;
 	storage: FakeSlotStorageGateway;
 	context: SlotCliContext;
@@ -30,6 +33,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const git = new FakeSlotGitGateway(options.git);
+	const gt = options.gt === undefined ? undefined : new FakeSlotGtGateway(options.gt);
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	const stdin = options.stdin;
@@ -37,6 +41,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const context: SlotCliContext = {
 		repo,
 		git,
+		gt,
 		pr,
 		storage,
 		clipboard: new FakeClipboardGateway(),
@@ -48,7 +53,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		shouldWriteCdDirective: true,
 	};
 	const deps: CliDeps = { context, cwd, env: context.env, stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text), stdin: context.stdin };
-	return { exit: runCli(args, deps), stdout, stderr, git, pr, storage, context };
+	return { exit: runCli(args, deps), stdout, stderr, git, gt, pr, storage, context };
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

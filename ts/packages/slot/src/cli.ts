@@ -176,7 +176,8 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	const cwd = deps.cwd ?? process.cwd();
 	const env = deps.env ?? process.env;
 	const context = deps.context ?? await createRealSlotContext({ cwd, env });
-	const runContext: SlotCliContext = { ...context, cwd, env: deps.env ?? context.env, stdin: deps.stdin ?? context.stdin, stderr: deps.stderr ?? context.stderr, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
+	const gt = args[0] === "gt" ? context.gt ?? new RealSlotGtGateway({ env, git: context.git }) : context.gt;
+	const runContext: SlotCliContext = { ...context, gt, cwd, env: deps.env ?? context.env, stdin: deps.stdin ?? context.stdin, stderr: deps.stderr ?? context.stderr, shouldWriteCdDirective: isClinkrHumanOutputInvocation(args) };
 	return await buildCli().run(args, { context: runContext, io });
 }
 
