@@ -14,6 +14,7 @@ import {
 	writeGraphiteMetadataDb,
 } from "./worktree-status-fixtures.ts";
 import {
+	formatGhStatus,
 	formatGtStatus,
 	formatWorktreeStatus,
 	loadGtStatus,
@@ -141,6 +142,75 @@ function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
+function ghNoPrStep(): ScriptedExec {
+	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
+}
+
+function ghPrViewStep(options: { number: number; passingChecks?: number; pendingChecks?: number; failingChecks?: number }): ScriptedExec {
+	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], {
+		stdout: JSON.stringify({
+			number: options.number,
+			url: `https://github.com/dagster-io/asdl-tools/pull/${options.number}`,
+			statusCheckRollup: [
+				...Array.from({ length: options.passingChecks ?? 0 }, (_value, index) => ({
+					__typename: "CheckRun",
+					conclusion: "SUCCESS",
+					name: `passing-${index}`,
+					status: "COMPLETED",
+				})),
+				...Array.from({ length: options.pendingChecks ?? 0 }, (_value, index) => ({
+					__typename: "CheckRun",
+					name: `pending-${index}`,
+					status: "IN_PROGRESS",
+				})),
+				...Array.from({ length: options.failingChecks ?? 0 }, (_value, index) => ({
+					__typename: "CheckRun",
+					conclusion: "FAILURE",
+					name: `failed-${index}`,
+					status: "COMPLETED",
+				})),
+			],
+		}),
+	});
+}
+
+function ghReviewThreadsStep(options: { number: number; unresolvedThreads: number; totalThreads: number; hasMore?: boolean }): ScriptedExec {
+	const resolvedThreads = Math.max(0, options.totalThreads - options.unresolvedThreads);
+	return step(
+		"gh",
+		[
+			"api",
+			"graphql",
+			"-f",
+			"query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}",
+			"-f",
+			"owner=dagster-io",
+			"-f",
+			"repo=asdl-tools",
+			"-F",
+			`number=${options.number}`,
+		],
+		{
+			stdout: JSON.stringify({
+				data: {
+					repository: {
+						pullRequest: {
+							reviewThreads: {
+								totalCount: options.totalThreads,
+								pageInfo: { hasNextPage: options.hasMore ?? false },
+								nodes: [
+									...Array.from({ length: options.unresolvedThreads }, () => ({ isResolved: false })),
+									...Array.from({ length: resolvedThreads }, () => ({ isResolved: true })),
+								],
+							},
+						},
+					},
+				},
+			}),
+		},
+	);
+}
+
 const TEST_THEME: StatusTheme = {
 	fg(color, value) {
 		const code = color === "accent" ? "36" : "90";
@@ -206,6 +276,15 @@ describe("worktree status formatting", () => {
 		);
 	});
 
+	test("formats gh landability from unresolved comments and condensed action buckets", () => {
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0 })).toBe(
+			"[gh] (pr: #1736) (comments: 0/8) (actions: 16✓) landable",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1 })).toBe(
+			"[gh] (pr: #1736) (comments: 2/100+) (actions: 3⏳ 1✗)",
+		);
+	});
+
 });
 
 describe("loadWorktreeStatus", () => {
@@ -213,6 +292,7 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -229,6 +309,7 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -254,6 +335,7 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -282,6 +364,7 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -299,6 +382,7 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -325,7 +409,7 @@ describe("loadWorktreeStatus", () => {
 				isCurrentTrunk: false,
 			};
 		};
-		const pi = new OrderlessFakePi([brmemListStep({}), ...basicGitStatusScript()]);
+		const pi = new OrderlessFakePi([brmemListStep({}), ghNoPrStep(), ...basicGitStatusScript()]);
 
 		const status = await loadWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
 
@@ -338,7 +422,7 @@ describe("loadWorktreeStatus", () => {
 
 	test("degrades malformed brmem JSON output nonfatally", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGitStatusScript()]);
+			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ghNoPrStep(), ...basicGitStatusScript()]);
 
 			const status = await loadWorktreeStatus(pi, root);
 
@@ -366,6 +450,7 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -381,6 +466,7 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: "nope" } }) }),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
@@ -390,6 +476,33 @@ describe("loadWorktreeStatus", () => {
 			expectNoGtCalls(pi);
 			expect(status.brmem).toBeUndefined();
 			expect(status.gt.down).toBe("main");
+		});
+	});
+
+	test("loads gh status for current branch PR landability", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghPrViewStep({ number: 1736, passingChecks: 4, pendingChecks: 2, failingChecks: 1 }),
+				ghReviewThreadsStep({ number: 1736, unresolvedThreads: 3, totalThreads: 5 }),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expectNoGtCalls(pi);
+			expect(status.gh).toMatchObject({
+				type: "available",
+				prNumber: 1736,
+				unresolvedThreads: 3,
+				totalThreads: 5,
+				hasMoreThreads: false,
+				passingChecks: 4,
+				pendingChecks: 2,
+				failingChecks: 1,
+			});
+			expect(formatWorktreeStatus(status)).toContain("[gh] (pr: #1736) (comments: 3/5) (actions: 2⏳ 1✗)");
 		});
 	});
 });

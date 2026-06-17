@@ -116,6 +116,10 @@ function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
+function ghNoPrStep(): ScriptedExec {
+	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
+}
+
 const TEST_THEME: StatusTheme = {
 	fg(color, value) {
 		const code = color === "accent" ? "36" : "90";
@@ -147,6 +151,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string | undefined>();
@@ -167,7 +172,7 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[brmem] (branch-context: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)",
+				"[brmem] (branch-context: model-only-checkpoint-message-text-generation.md)\n[gt] (↓: main) (↑: -) (commits)\n[gh] (pr: -)",
 			);
 			await pi.sessionShutdown?.();
 		});
@@ -188,6 +193,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string | undefined>();
@@ -208,7 +214,7 @@ describe("worktree status extension registration", () => {
 
 			pi.assertDone();
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
-				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] (↓: main) (↑: -) (commits)",
+				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] (↓: main) (↑: -) (commits)\n[gh] (pr: -)",
 			);
 			await pi.sessionShutdown?.();
 		});
@@ -226,6 +232,7 @@ describe("worktree status extension registration", () => {
 						data: { entries: [] },
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
@@ -308,6 +315,7 @@ describe("worktree status extension registration", () => {
 						data: { entries: [] },
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
@@ -390,6 +398,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
+				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
@@ -457,9 +466,10 @@ describe("worktree status extension registration", () => {
 			);
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines.slice(-2)).toEqual([
+			expect(footerLines.slice(-3)).toEqual([
 				"[brmem] (pb-plan: handoffs-graphite-footer-lines.md)",
 				"[gt] (↓: main) (↑: -) (commits)",
+				"[gh] (pr: -)",
 			]);
 			await pi.sessionShutdown?.();
 		});

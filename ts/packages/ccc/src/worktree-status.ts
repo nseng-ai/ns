@@ -79,9 +79,24 @@ export interface LoadWorktreeStatusOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
+export interface GhStatus {
+	type: "available";
+	prNumber: number;
+	url?: string | undefined;
+	unresolvedThreads: number;
+	totalThreads: number;
+	hasMoreThreads: boolean;
+	passingChecks: number;
+	pendingChecks: number;
+	failingChecks: number;
+}
+
+export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable" };
+
 export interface WorktreeStatus {
 	brmem: string | undefined;
 	gt: GtStatus;
+	gh: WorktreeGhStatus;
 	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
 }
 
@@ -111,7 +126,7 @@ export async function loadWorktreeStatus(
 		gtMetadataDiagnostic = diagnostic;
 		options.onDiagnostic?.(diagnostic);
 	};
-	const [brmem, gt] = await Promise.all([
+	const [brmem, gt, gh] = await Promise.all([
 		loadBrmemStatus(pi, cwd, options.signal),
 		loadGtStatus({
 			pi,
@@ -120,9 +135,10 @@ export async function loadWorktreeStatus(
 			metadataLoader: options.metadataLoader,
 			onDiagnostic,
 		}),
+		loadGhStatus(pi, cwd, options.signal),
 	]);
 
-	const status: WorktreeStatus = { brmem, gt };
+	const status: WorktreeStatus = { brmem, gt, gh };
 	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
 	return status;
 }
@@ -305,6 +321,182 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
+async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
+	if (signal?.aborted) return { type: "unavailable" };
+
+	try {
+		const view = normalizeExecResult(
+			await pi.exec("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], execOptions(cwd, signal)),
+		);
+		if (view.code !== 0) return { type: "no-pr" };
+
+		const pr = parseGhPrView(view.stdout);
+		if (pr === undefined) return { type: "unavailable" };
+
+		const reviewThreads = await loadUnresolvedReviewThreadCount(pi, cwd, pr, signal);
+		if (reviewThreads === undefined) return { type: "unavailable" };
+
+		return {
+			type: "available",
+			prNumber: pr.number,
+			url: pr.url,
+			unresolvedThreads: reviewThreads.unresolved,
+			totalThreads: reviewThreads.total,
+			hasMoreThreads: reviewThreads.hasMore,
+			passingChecks: countPassingChecks(pr.statusCheckRollup),
+			pendingChecks: countPendingChecks(pr.statusCheckRollup),
+			failingChecks: countFailingChecks(pr.statusCheckRollup),
+		};
+	} catch {
+		return { type: "unavailable" };
+	}
+}
+
+interface ReviewThreadCounts {
+	unresolved: number;
+	total: number;
+	hasMore: boolean;
+}
+
+async function loadUnresolvedReviewThreadCount(
+	pi: ExecGateway,
+	cwd: string,
+	pr: GhPrView,
+	signal?: AbortSignal,
+): Promise<ReviewThreadCounts | undefined> {
+	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
+	if (identity === undefined) return undefined;
+
+	const result = normalizeExecResult(
+		await pi.exec(
+			"gh",
+			[
+				"api",
+				"graphql",
+				"-f",
+				"query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}",
+				"-f",
+				`owner=${identity.owner}`,
+				"-f",
+				`repo=${identity.repo}`,
+				"-F",
+				`number=${pr.number}`,
+			],
+			execOptions(cwd, signal),
+		),
+	);
+	if (result.code !== 0) return undefined;
+	return parseUnresolvedReviewThreadCount(result.stdout);
+}
+
+interface GhPrView {
+	number: number;
+	url: string;
+	statusCheckRollup: unknown[];
+}
+
+function parseGhPrView(stdout: string): GhPrView | undefined {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		return undefined;
+	}
+	if (!isRecord(parsed)) return undefined;
+	if (typeof parsed.number !== "number" || !Number.isInteger(parsed.number) || parsed.number <= 0) return undefined;
+	if (typeof parsed.url !== "string") return undefined;
+	return {
+		number: parsed.number,
+		url: parsed.url,
+		statusCheckRollup: Array.isArray(parsed.statusCheckRollup) ? parsed.statusCheckRollup : [],
+	};
+}
+
+function githubPrIdentityFromUrl(url: string, expectedNumber: number): { owner: string; repo: string } | undefined {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return undefined;
+	}
+	if (parsed.hostname !== "github.com") return undefined;
+	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
+	if (parts.length !== 4 || parts[2] !== "pull") return undefined;
+	const number = Number(parts[3]);
+	if (number !== expectedNumber) return undefined;
+	return { owner: parts[0] as string, repo: parts[1] as string };
+}
+
+function parseUnresolvedReviewThreadCount(stdout: string): ReviewThreadCounts | undefined {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		return undefined;
+	}
+	const reviewThreads = graphQlReviewThreadConnection(parsed);
+	if (reviewThreads === undefined) return undefined;
+	const hasMore = graphQlHasNextPage(reviewThreads);
+	const totalCount = typeof reviewThreads.totalCount === "number" && Number.isInteger(reviewThreads.totalCount)
+		? reviewThreads.totalCount
+		: reviewThreads.nodes.length;
+	return {
+		unresolved: reviewThreads.nodes.filter((node) => isRecord(node) && node.isResolved === false).length,
+		total: hasMore ? reviewThreads.nodes.length : totalCount,
+		hasMore,
+	};
+}
+
+function graphQlReviewThreadConnection(value: unknown): { nodes: unknown[]; totalCount?: unknown; pageInfo?: unknown } | undefined {
+	if (!isRecord(value)) return undefined;
+	const data = value.data;
+	if (!isRecord(data)) return undefined;
+	const repository = data.repository;
+	if (!isRecord(repository)) return undefined;
+	const pullRequest = repository.pullRequest;
+	if (!isRecord(pullRequest)) return undefined;
+	const reviewThreads = pullRequest.reviewThreads;
+	if (!isRecord(reviewThreads) || !Array.isArray(reviewThreads.nodes)) return undefined;
+	return { nodes: reviewThreads.nodes, totalCount: reviewThreads.totalCount, pageInfo: reviewThreads.pageInfo };
+}
+
+function graphQlHasNextPage(reviewThreads: { pageInfo?: unknown }): boolean {
+	return isRecord(reviewThreads.pageInfo) && reviewThreads.pageInfo.hasNextPage === true;
+}
+
+function countPassingChecks(items: readonly unknown[]): number {
+	return items.filter(isPassingCheck).length;
+}
+
+function countPendingChecks(items: readonly unknown[]): number {
+	return items.filter(isPendingCheck).length;
+}
+
+function countFailingChecks(items: readonly unknown[]): number {
+	return items.filter(isFailingCheck).length;
+}
+
+function isPassingCheck(value: unknown): boolean {
+	if (!isRecord(value)) return false;
+	if (value.__typename === "CheckRun") return value.status === "COMPLETED" && (value.conclusion === "SUCCESS" || value.conclusion === "NEUTRAL" || value.conclusion === "SKIPPED");
+	if (value.__typename === "StatusContext") return value.state === "SUCCESS";
+	return false;
+}
+
+function isPendingCheck(value: unknown): boolean {
+	if (!isRecord(value)) return false;
+	if (value.__typename === "CheckRun") return value.status !== "COMPLETED";
+	if (value.__typename === "StatusContext") return value.state === "PENDING" || value.state === "EXPECTED";
+	return false;
+}
+
+function isFailingCheck(value: unknown): boolean {
+	if (!isRecord(value)) return false;
+	if (value.__typename === "CheckRun") return value.status === "COMPLETED" && value.conclusion !== "SUCCESS" && value.conclusion !== "NEUTRAL" && value.conclusion !== "SKIPPED";
+	if (value.__typename === "StatusContext") return value.state !== "SUCCESS" && value.state !== "PENDING" && value.state !== "EXPECTED";
+	return false;
+}
+
 function currentBranchName(gitPaths: GitPaths): string | undefined {
 	try {
 		const head = readFileSync(gitPaths.headPath, "utf8").trim();
@@ -362,6 +554,7 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
 	lines.push(formatGtStatus(status.gt, theme));
+	lines.push(formatGhStatus(status.gh, theme));
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
 	}
@@ -398,6 +591,24 @@ export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 	const dirty = status.dirty === "yes" ? " (x)" : "";
 	const rest = `${down} (↑: ${status.up})${commits}${dirty}`;
 	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(rest, theme)}`;
+}
+
+export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
+	if (status.type === "no-pr") return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(" (pr: -)", theme)}`;
+	if (status.type === "unavailable") return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(" unavailable", theme)}`;
+
+	const comments = ` (comments: ${status.unresolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""})`;
+	const actions = ` (actions: ${formatActionBuckets(status)})`;
+	const landable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0 ? " landable" : "";
+	return `${formatStatusSegment("[gh]", theme)}${formatStatusSegment(` (pr: #${status.prNumber})${comments}${actions}${landable}`, theme)}`;
+}
+
+function formatActionBuckets(status: GhStatus): string {
+	if (status.pendingChecks === 0 && status.failingChecks === 0) return `${status.passingChecks}✓`;
+	const buckets: string[] = [];
+	if (status.pendingChecks > 0) buckets.push(`${status.pendingChecks}⏳`);
+	if (status.failingChecks > 0) buckets.push(`${status.failingChecks}✗`);
+	return buckets.join(" ");
 }
 
 function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {

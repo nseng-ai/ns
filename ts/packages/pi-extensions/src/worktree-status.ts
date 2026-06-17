@@ -21,6 +21,7 @@ export const worktreeStatusParity = definePiSurfaceParity([] as const);
 
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
+const REMOTE_STATUS_REFRESH_MS = 30_000;
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);
 const IGNORED_WORKTREE_PATH_PARTS = new Set([
 	".git",
@@ -187,6 +188,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 	let refreshInFlightSession: ActiveSession | undefined;
 	let refreshPendingSession: ActiveSession | undefined;
+	let periodicRefreshTimer: ReturnType<typeof setInterval> | undefined;
 	let gitWatcherRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatcherRescanTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatchers: FSWatcher[] = [];
@@ -299,7 +301,21 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearTimeout(refreshTimer);
 			refreshTimer = undefined;
 		}
+		if (periodicRefreshTimer !== undefined) {
+			clearInterval(periodicRefreshTimer);
+			periodicRefreshTimer = undefined;
+		}
 		refreshPendingSession = undefined;
+	}
+
+	function startPeriodicRefresh(session: ActiveSession): void {
+		if (!session.hasUI || !isActiveSession(session) || periodicRefreshTimer !== undefined) return;
+		periodicRefreshTimer = setInterval(() => {
+			if (!isActiveSession(session)) return;
+			scheduleRefresh(session);
+		}, REMOTE_STATUS_REFRESH_MS);
+		const maybeTimer = periodicRefreshTimer as { unref?: () => void };
+		maybeTimer.unref?.();
 	}
 
 	function renderSessionLines(session: ActiveSession, lines: string[]): boolean {
@@ -511,6 +527,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		setupGitWatchers(session);
+		startPeriodicRefresh(session);
 		await refreshImmediately(session);
 	});
 
