@@ -1,12 +1,24 @@
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, test } from "vitest";
 
 import { runScenario } from "../support/run-scenario.ts";
+
+async function readPackageVersion(): Promise<string> {
+	const packageJsonUrl = new URL("../../package.json", import.meta.url);
+	const packageJson = JSON.parse(await readFile(fileURLToPath(packageJsonUrl), "utf8")) as { version?: unknown };
+	if (typeof packageJson.version !== "string") {
+		throw new Error("@asdl/areg package.json must declare a string version");
+	}
+	return packageJson.version;
+}
 
 describe("areg CLI shape", () => {
 	test("prints version and TypeScript runtime diagnostics", async () => {
 		const version = runScenario(["--version"]);
 		expect(await version.exit).toBe(0);
-		expect(version.stdout.join("")).toBe("0.1.0\n");
+		expect(version.stdout.join("")).toBe(`${await readPackageVersion()}\n`);
 		expect(version.stderr.join("")).toBe("");
 
 		const runtime = runScenario(["--runtime"]);

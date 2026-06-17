@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
 import process from "node:process";
 
 import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
@@ -12,7 +13,7 @@ import { buildSkillGroup } from "./operations/skill-kind.ts";
 import { buildSkillxGroup } from "./operations/skillx.ts";
 import { renderUpdateSkills, runUpdateSkills, updateSkillsRequestSchema, updateSkillsResultSchema } from "./operations/update-skills.ts";
 
-export const VERSION = "0.1.0";
+export const VERSION = readPackageVersion();
 
 export interface CliDeps {
 	context?: AregCliContext | undefined;
@@ -76,6 +77,14 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 		env: deps.env ?? context.env,
 	};
 	return await buildCli().run(args, { context: runContext, io });
+}
+
+function readPackageVersion(): string {
+	const packageJson: unknown = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+	if (typeof packageJson !== "object" || packageJson === null || !("version" in packageJson) || typeof packageJson.version !== "string") {
+		throw new Error("@asdl/areg package.json must declare a string version");
+	}
+	return packageJson.version;
 }
 
 function runtimeInfo(): string {

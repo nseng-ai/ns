@@ -46,8 +46,12 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
 
 ### Batch 5 — Opportunistic
 
-- [ ] Move shim rendering into a tested, shell-quoting generator exercised with adversarial checkout paths (G).
-- [ ] Collapse the version triple source of truth to a single source if `buildCli` can read the package version (K).
+- [x] Move shim rendering into a tested, shell-quoting generator exercised with adversarial checkout paths (G).
+  - Evidence: `ts/packages/areg/test/unit/source-cli-shim.test.ts` exercises the real `ts/scripts/render-cli-shim.py` and `source-cli-shim-template` for `areg` with an adversarial canonical checkout path containing spaces, `&`, `|`, backslash, and a single quote; it asserts no tokens remain, the canonical checkout assignment is shell-quoted rather than raw, `bash -n` accepts the rendered shim, and executing the shim from outside a checkout preserves the exact adversarial path and install hint in the expected exit-2 diagnostic. No renderer change was needed because the existing `shlex.quote` path passed this proof.
+  - Validation: `pnpm --dir ts run test -- ts/packages/areg/test/unit/source-cli-shim.test.ts ts/packages/areg/test/unit/package-metadata.test.ts ts/packages/areg/test/scenario/cli-shape.test.ts` and `pnpm --dir ts run check` passed.
+- [x] Collapse the version triple source of truth to a single source if `buildCli` can read the package version (K).
+  - Evidence: `ts/packages/areg/src/cli.ts` now derives `VERSION` synchronously from `ts/packages/areg/package.json` via `new URL("../package.json", import.meta.url)` and validates that the parsed manifest exposes a string version; the scenario version assertion reads package metadata instead of embedding `0.1.0`, and `package-metadata.test.ts` asserts exported `VERSION` matches the manifest. `package.json` is now the areg version source of truth.
+  - Validation: `pnpm --dir ts run test -- ts/packages/areg/test/unit/source-cli-shim.test.ts ts/packages/areg/test/unit/package-metadata.test.ts ts/packages/areg/test/scenario/cli-shape.test.ts` and `pnpm --dir ts run check` passed.
 
 ## Parked
 

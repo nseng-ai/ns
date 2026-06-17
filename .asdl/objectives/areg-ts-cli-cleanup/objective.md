@@ -102,4 +102,8 @@ Risks:
 
 - For E, resolved by Batch 3: rollback is out of scope; the accepted contract is preflight-only for areg-owned mutations plus explicit partial-state evidence for execution-time and external-operation failures.
 - For A, resolved by Batch 4: stop at the shared `inspectProject` / project-inspection operation core with thin per-feature wrappers. Do not introduce a new durable `AregProjectInspectionGateway` or split real/fake gateway monoliths unless a later capability seam proves the need.
-- For K, can `buildCli` read the package version at runtime under the Node ESM/pnpm build, or does bundling make the `cli.ts` literal the pragmatic single source? Confirm before touching version wiring.
+- For K, resolved by Batch 5: `buildCli` can read `ts/packages/areg/package.json` synchronously under the current Node ESM / pnpm source-runtime layout, so `package.json` is now the areg version source of truth and CLI tests no longer embed an independent version literal.
+
+## Closure
+
+Closed after Batch 5 resolved the final open rows. Shim rendering safety (G) is covered by an areg-focused adversarial rendering test that exercises the real Python renderer and shell template with sed/shell-sensitive checkout characters. Version source-of-truth cleanup (K) is fixed by deriving `VERSION` from `ts/packages/areg/package.json` at CLI module load and updating tests to assert against package metadata rather than a standalone literal. Earlier batches already fixed or explicitly deferred findings A–J, so all A–K Objective criteria are satisfied with targeted TS tests and `pnpm --dir ts run check` passing.
