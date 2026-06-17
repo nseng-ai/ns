@@ -68,7 +68,7 @@ function fakeCtx(options: { confirm?: boolean; hasUI?: boolean } = {}): FakeComm
 }
 
 describe("smart restack extension", () => {
-	test("registers smart-restack command", () => {
+	test("registers gt-smart-restack command", () => {
 		const pi = new FakePi();
 		smartRestackExtension(pi);
 

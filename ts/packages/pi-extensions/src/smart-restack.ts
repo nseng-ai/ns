@@ -1,7 +1,9 @@
+import { formatOutputSection, tailText, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+
 import { buildFencedTextBlock, expandRepoSkillBlock } from "./skill-expansion.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
-export const SMART_RESTACK_COMMAND_NAME = "smart-restack";
+export const SMART_RESTACK_COMMAND_NAME = "gt-smart-restack";
 
 export const smartRestackParity = definePiSurfaceParity([
 	{
@@ -19,21 +21,8 @@ export const smartRestackParity = definePiSurfaceParity([
 
 const GT_RESTACK_TIMEOUT_MS = 10 * 60 * 1_000;
 const GIT_ABORT_TIMEOUT_MS = 60_000;
+const COMMAND_OUTPUT_TAIL_OPTIONS = { maxChars: 4_000, maxLines: 20 } as const;
 const RESTACK_RESOLVE_SKILL_NAME = "code-gt-restack-resolve";
-
-interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
-
-interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-	startupError?: string;
-}
 
 interface CommandContext {
 	cwd: string;
@@ -107,15 +96,12 @@ function formatRestackFailureMessage(result: ExecResult): string {
 
 function formatCommandOutput(result: ExecResult): string {
 	const parts: string[] = [];
-	if (result.stdout.trim().length > 0) parts.push(`stdout:\n${tailText(result.stdout)}`);
-	if (result.stderr.trim().length > 0) parts.push(`stderr:\n${tailText(result.stderr)}`);
-	if (result.startupError !== undefined && result.startupError.length > 0) parts.push(`startup error:\n${tailText(result.startupError)}`);
+	if (result.stdout.trim().length > 0) parts.push(formatOutputSection("stdout", result.stdout, COMMAND_OUTPUT_TAIL_OPTIONS));
+	if (result.stderr.trim().length > 0) parts.push(formatOutputSection("stderr", result.stderr, COMMAND_OUTPUT_TAIL_OPTIONS));
+	if (result.startupError !== undefined && result.startupError.length > 0) {
+		parts.push(`startup error:\n${tailText(result.startupError.trimEnd(), COMMAND_OUTPUT_TAIL_OPTIONS)}`);
+	}
 	return parts.join("\n\n");
-}
-
-function tailText(text: string): string {
-	const lines = text.trimEnd().split(/\r?\n/u);
-	return lines.slice(-20).join("\n");
 }
 
 async function invokeLmResolver(pi: SmartRestackExtensionAPI, ctx: CommandContext, args: string): Promise<void> {
@@ -139,7 +125,7 @@ async function invokeLmResolver(pi: SmartRestackExtensionAPI, ctx: CommandContex
 
 function buildResolverPrompt(skillBlock: string, args: string): string {
 	const trimmedArgs = args.trim();
-	const base = `${skillBlock}\n\nA deterministic smart-restack fast path already ran \`gt restack\` and it did not complete cleanly. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`;
+	const base = `${skillBlock}\n\nA deterministic gt-smart-restack fast path already ran \`gt restack\` and it did not complete cleanly. Continue from the current repository state and run ${RESTACK_RESOLVE_SKILL_NAME} now. Follow the backing skill workflow exactly.`;
 	if (trimmedArgs.length === 0) return base;
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;
 }
