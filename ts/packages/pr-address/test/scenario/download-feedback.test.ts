@@ -56,11 +56,26 @@ describe("pr-address exec download-feedback", () => {
 			excluded_automation_comments: 1,
 		});
 		const markdown = data.markdown;
-		expect(typeof markdown).toBe("string");
+		if (typeof markdown !== "string") throw new Error("expected markdown string");
 		expect(markdown).toContain("# PR feedback triage request");
-		expect(markdown).toContain("Do not edit files yet");
-		expect(markdown).toContain("wait for human confirmation");
-		expect(markdown).toContain("Do not resolve or reply to GitHub threads");
+		expect(markdown).toContain("Downloaded PR feedback is below. Review the summary and instructions at the bottom before responding.");
+		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(markdown.indexOf("## Instructions before responding"));
+		expect(markdown.indexOf("## Summary")).toBeGreaterThan(markdown.indexOf("## Discussion comments"));
+		expect(markdown.indexOf("## Instructions before responding")).toBeGreaterThan(markdown.indexOf("## Summary"));
+		expect(markdown.indexOf("Triage and group the feedback above")).toBeGreaterThan(markdown.indexOf("## Summary"));
+		expect(markdown.indexOf("Triage and group the feedback below")).toBe(-1);
+		expect(markdown.indexOf("Do not edit files yet")).toBeGreaterThan(markdown.indexOf("## Instructions before responding"));
+		expect(markdown.trim()).toMatch(/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u);
+		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");
+		expect(markdown).toContain("- URL: https://example.test/pr/42");
+		expect(markdown).toContain("- Branch: feature/demo");
+		expect(markdown).toContain("- Unresolved review threads included: 1");
+		expect(markdown).toContain("- PR-level review bodies included: 1");
+		expect(markdown).toContain("- Discussion comments included: 1");
+		expect(markdown).toContain("- Resolved review threads excluded: 1");
+		expect(markdown).toContain("- Empty PR-level reviews excluded: 1");
+		expect(markdown).toContain("- Automation-like discussion comments excluded: 1");
+		expect(markdown).not.toContain("## Excluded by default");
 		expect(markdown).toContain("RT_open");
 		expect(markdown).toContain("Please add tests.");
 		expect(markdown).not.toContain("RT_resolved");
@@ -90,6 +105,9 @@ describe("pr-address exec download-feedback", () => {
 		const data = dataFrom(run.stdout);
 		expect(data.found).toBe(false);
 		expect(data.markdown).toContain("No PR found for branch feature/missing");
+		expect(data.markdown).not.toContain("## Summary");
+		expect(data.markdown).not.toContain("## Instructions before responding");
+		expect(data.markdown).not.toContain("Triage and group the feedback above");
 	});
 
 	test("fails clearly on detached HEAD without --pr-number", async () => {
@@ -115,5 +133,9 @@ describe("pr-address exec download-feedback", () => {
 		const data = dataFrom(run.stdout);
 		expect(data.counts).toMatchObject({ included_review_threads: 0, included_reviews: 0, included_discussion_comments: 0 });
 		expect(data.markdown).toContain("No unresolved/human feedback was found");
+		expect(data.markdown).toContain("## Summary");
+		expect(data.markdown).toContain("Downloaded feedback for PR #7: Quiet PR");
+		expect(data.markdown).toContain("- Unresolved review threads included: 0");
+		expect(data.markdown).toContain("## Instructions before responding");
 	});
 });
