@@ -66,6 +66,11 @@
       "sourceType": "local",
       "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
     },
+    "code-gt-linearize-descendants": {
+      "source": "skills/code-gt-linearize-descendants",
+      "sourceType": "local",
+      "computedHash": "713302858eff0584471230ec6c66b76a516191e4269d2bf1d0beb0d3cafafb51"
+    },
     "code-gt-restack-resolve": {
       "source": "skills/code-gt-restack-resolve",
       "sourceType": "local",
