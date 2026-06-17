@@ -12,13 +12,15 @@ describe("slot gt navigation CLI", () => {
 		expect(gt.stdout.join("")).toContain("up");
 		expect(gt.stdout.join("")).toContain("down");
 		expect(gt.stdout.join("")).toContain("free-stack");
+		expect(gt.stdout.join("")).toContain("metadata-backed stack commands");
+		expect(gt.stdout.join("")).toContain("require the sqlite3 CLI");
 		expect(gt.stdout.join("")).not.toContain("exec");
 	});
 
-	it("does not require a Graphite gateway for plain commands", async () => {
+	it("does not invoke the Graphite gateway for plain commands", async () => {
 		const run = runScenario(["list", "--format", "json"], { git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] } });
 		expect(await run.exit).toBe(0);
-		expect(run.gt).toBeUndefined();
+		expect(run.gt.operations()).toEqual([]);
 	});
 
 	it("gt up reuses an existing upstack slot worktree", async () => {
@@ -30,7 +32,7 @@ describe("slot gt navigation CLI", () => {
 		const output = parseJsonOutput(run);
 		expect(output).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/child", is_already_assigned: true, cd_command: "cd /slots/repos/repo/worktrees/slot-01" } });
 		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything() } });
-		expect(run.gt?.operations()).toEqual([{ type: "children-of", cwd: "/repo" }]);
+		expect(run.gt.operations()).toEqual([{ type: "children-of", cwd: "/repo" }]);
 		expect(run.git.operations()).toEqual([]);
 	});
 

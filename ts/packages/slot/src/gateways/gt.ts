@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
@@ -78,19 +78,32 @@ export interface SlotGtGateway {
 	stack(cwd: string): Promise<StackResult>;
 }
 
+export interface SqliteJsonRunnerResult {
+	stdout: string;
+	stderr: string;
+	status: number | null;
+	error?: unknown;
+}
+
+export interface SqliteJsonRunner {
+	run(dbPath: string, query: string): SqliteJsonRunnerResult;
+}
+
 export class RealSlotGtGateway implements SlotGtGateway {
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
-	private readonly git: SlotGitGateway | undefined;
+	private readonly git: SlotGitGateway;
+	private readonly sqliteRunner: SqliteJsonRunner;
 
-	constructor(options: { env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined; git?: SlotGitGateway | undefined } = {}) {
+	constructor(options: { git: SlotGitGateway; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined; sqliteRunner?: SqliteJsonRunner | undefined }) {
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
 		this.git = options.git;
+		this.sqliteRunner = options.sqliteRunner ?? new RealSqliteJsonRunner();
 	}
 
 	async parentOf(cwd: string): Promise<ParentOfResult> {
-		const result = await this.gt(["parent", "--no-interactive"], cwd);
+		const result = await this.run("gt", ["parent", "--no-interactive"], cwd);
 		if (!result.isOk) {
 			const failure = failureFromCommandResult(result);
 			if (failure.message.toLowerCase().includes("untracked branch")) return { type: "untracked_branch", message: failure.message };
@@ -101,7 +114,7 @@ export class RealSlotGtGateway implements SlotGtGateway {
 	}
 
 	async childrenOf(cwd: string): Promise<ChildrenOfResult> {
-		const result = await this.gt(["children", "--no-interactive"], cwd);
+		const result = await this.run("gt", ["children", "--no-interactive"], cwd);
 		if (!result.isOk) {
 			const failure = failureFromCommandResult(result);
 			if (failure.message.toLowerCase().includes("untracked branch")) return { type: "untracked_branch", message: failure.message };
@@ -111,7 +124,7 @@ export class RealSlotGtGateway implements SlotGtGateway {
 	}
 
 	async trunk(cwd: string): Promise<TrunkResult> {
-		const result = await this.gt(["trunk", "--no-interactive"], cwd);
+		const result = await this.run("gt", ["trunk", "--no-interactive"], cwd);
 		if (!result.isOk) return { type: "failure", failure: failureFromCommandResult(result) };
 		const branch = firstNonemptyLine(result.stdout);
 		if (branch === null) return { type: "failure", failure: { message: "gt trunk returned no branch", returnCode: null } };
@@ -124,42 +137,22 @@ export class RealSlotGtGateway implements SlotGtGateway {
 		const current = await this.resolveCurrentBranch(cwd);
 		if (current.type === "failure") return { type: "failure", failure: current.failure };
 		if (current.type === "detached") return { type: "failure", failure: { message: `HEAD at ${cwd} is detached. Check out a branch first.`, returnCode: null } };
-		return readStackFromMetadataDb(join(commonDir, GRAPHITE_METADATA_DB_NAME), current.branch);
+		return readStackFromMetadataDb(join(commonDir, GRAPHITE_METADATA_DB_NAME), current.branch, this.sqliteRunner);
 	}
 
 	private async resolveGitCommonDir(cwd: string): Promise<string | null> {
-		if (this.git !== undefined) return await this.git.getGitCommonDir(cwd);
-		const result = await this.gitCommand(["rev-parse", "--git-common-dir"], cwd);
-		if (!result.isOk) return null;
-		const raw = result.stdout.trim();
-		if (raw.length === 0) return null;
-		return raw.startsWith("/") ? raw : resolve(cwd, raw);
+		return await this.git.getGitCommonDir(cwd);
 	}
 
 	private async resolveCurrentBranch(cwd: string): Promise<{ type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GtCommandFailure }> {
-		if (this.git !== undefined) {
-			const result = await this.git.getCurrentBranch(cwd);
-			if (result.type === "branch") return result;
-			if (result.type === "detached") return result;
-			return { type: "failure", failure: { message: result.failure.message, returnCode: null } };
-		}
-		const result = await this.gitCommand(["symbolic-ref", "--short", "HEAD"], cwd);
-		if (result.isOk) {
-			const branch = result.stdout.trim();
-			return branch.length === 0 ? { type: "detached" } : { type: "branch", branch };
-		}
-		const text = `${result.stderr}\n${result.stdout}`.toLowerCase();
-		if (text.includes("not a symbolic ref") || text.includes("not currently on a branch")) return { type: "detached" };
-		return { type: "failure", failure: failureFromCommandResult(result) };
+		const result = await this.git.getCurrentBranch(cwd);
+		if (result.type === "branch") return result;
+		if (result.type === "detached") return result;
+		return { type: "failure", failure: { message: result.failure.message, returnCode: null } };
 	}
 
-	private async gt(args: readonly string[], cwd: string): Promise<CommandResult> {
-		const result = await this.execApi.exec("gt", [...args], { cwd, env: this.env, timeout: SLOT_GT_TIMEOUT_MS });
-		return { isOk: result.code === 0 && !result.killed, stdout: result.stdout, stderr: result.stderr, code: result.code, killed: result.killed };
-	}
-
-	private async gitCommand(args: readonly string[], cwd: string): Promise<CommandResult> {
-		const result = await this.execApi.exec("git", [...args], { cwd, env: this.env, timeout: SLOT_GT_TIMEOUT_MS });
+	private async run(command: string, args: readonly string[], cwd: string): Promise<CommandResult> {
+		const result = await this.execApi.exec(command, [...args], { cwd, env: this.env, timeout: SLOT_GT_TIMEOUT_MS });
 		return { isOk: result.code === 0 && !result.killed, stdout: result.stdout, stderr: result.stderr, code: result.code, killed: result.killed };
 	}
 }
@@ -193,9 +186,16 @@ function nonemptyLines(text: string): readonly string[] {
 	return text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
 }
 
-function readStackFromMetadataDb(dbPath: string, currentBranch: string): StackResult {
+class RealSqliteJsonRunner implements SqliteJsonRunner {
+	run(dbPath: string, query: string): SqliteJsonRunnerResult {
+		const result = spawnSync("sqlite3", ["-json", dbPath, query], { encoding: "utf8", timeout: SQLITE_QUERY_TIMEOUT_MS });
+		return { stdout: result.stdout, stderr: result.stderr, status: result.status, error: result.error };
+	}
+}
+
+function readStackFromMetadataDb(dbPath: string, currentBranch: string, sqliteRunner: SqliteJsonRunner): StackResult {
 	if (!existsSync(dbPath)) return { type: "failure", failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null } };
-	const loaded = loadBranchMetadata(dbPath);
+	const loaded = loadBranchMetadata(dbPath, sqliteRunner);
 	if (loaded.type === "failure") return { type: "failure", failure: loaded.failure };
 	const row = loaded.rows.get(currentBranch);
 	if (row === undefined) return { type: "untracked_branch", message: `current branch is not tracked by Graphite: ${currentBranch}` };
@@ -221,11 +221,11 @@ function readStackFromMetadataDb(dbPath: string, currentBranch: string): StackRe
 	};
 }
 
-function loadBranchMetadata(dbPath: string): { type: "ok"; rows: Map<string, BranchMetadataRow>; emptyBranchNameRows: number } | { type: "failure"; failure: GtCommandFailure } {
-	const schemaRows = runSqliteJsonQuery(dbPath, "PRAGMA table_info(branch_metadata)");
+function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; rows: Map<string, BranchMetadataRow>; emptyBranchNameRows: number } | { type: "failure"; failure: GtCommandFailure } {
+	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, "PRAGMA table_info(branch_metadata)");
 	if (schemaRows.type === "failure") return schemaRows;
 	if (!hasExpectedBranchMetadataSchema(schemaRows.data)) return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
-	const result = runSqliteJsonQuery(dbPath, "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata");
+	const result = runSqliteJsonQuery(sqliteRunner, dbPath, "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata");
 	if (result.type === "failure") return result;
 	const rows = new Map<string, BranchMetadataRow>();
 	let emptyBranchNameRows = 0;
@@ -241,8 +241,8 @@ function loadBranchMetadata(dbPath: string): { type: "ok"; rows: Map<string, Bra
 	return { type: "ok", rows, emptyBranchNameRows };
 }
 
-function runSqliteJsonQuery(dbPath: string, query: string): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
-	const result = spawnSync("sqlite3", ["-json", dbPath, query], { encoding: "utf8", timeout: SQLITE_QUERY_TIMEOUT_MS });
+function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, query: string): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
+	const result = sqliteRunner.run(dbPath, query);
 	if (result.error !== undefined) return { type: "failure", failure: { message: errorCodeFromValue(result.error) === "ENOENT" ? "sqlite3 command not found while reading Graphite metadata" : `Graphite metadata store unreadable: ${String(result.error.message)}`, returnCode: null } };
 	if (result.status !== 0) return { type: "failure", failure: { message: result.stderr.trim() || "Graphite metadata store unreadable", returnCode: result.status } };
 	try {

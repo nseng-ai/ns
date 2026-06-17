@@ -5,6 +5,7 @@ import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
 import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotGitGateway } from "../../src/gateways/fakes/git.ts";
+import { FakeSlotGtGateway } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/context.ts";
@@ -32,6 +33,7 @@ function context(options: { pr: FakeSlotPrGateway }): RepoSlotContext & { git: F
 	return {
 		repo: repoContext(),
 		git: new FakeSlotGitGateway({ worktrees: [{ path: "/repo", branch: "master" }], localBranches: ["master", "feature/a"] }),
+		gt: new FakeSlotGtGateway(),
 		pr: options.pr,
 		storage: new FakeSlotStorageGateway(),
 		clipboard: new FakeClipboardGateway(),
