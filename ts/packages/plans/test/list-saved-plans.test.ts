@@ -86,6 +86,32 @@ describe("listSavedPlans", () => {
 			},
 		]);
 	});
+
+	test("includes parsed tags and treats malformed metadata as untagged", async () => {
+		const fixture = await makeFixture();
+		const branchKey = encodeBranchForPlanPath("feature/source-plan");
+		await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "tagged-saved-plan.md",
+			modifiedTimeMs: 1_700_000_000_000,
+			content: ["---", "tags:", "  - follow-up", "  - architecture", "---", "", "# Tagged", ""].join("\n"),
+		});
+		await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "malformed-tags-plan.md",
+			modifiedTimeMs: 1_600_000_000_000,
+			content: ["---", "tags:", "  - Follow-Up", "---", "", "# Malformed", ""].join("\n"),
+		});
+
+		const plans = await listSavedPlans(unusedCommands, { cwd: fixture.repoRoot, git: fixture.git, planStoreRoot: fixture.planStoreRoot });
+
+		expect(plans.map((plan) => ({ slug: plan.slug, tags: plan.tags }))).toEqual([
+			{ slug: "tagged-saved-plan", tags: ["follow-up", "architecture"] },
+			{ slug: "malformed-tags-plan", tags: [] },
+		]);
+	});
 });
 
 describe("plans list CLI", () => {
@@ -401,13 +427,14 @@ interface WritePlanFileOptions {
 	branchKey: string;
 	fileName: string;
 	modifiedTimeMs: number;
+	content?: string;
 }
 
 async function writePlanFile(options: WritePlanFileOptions): Promise<string> {
 	const directory = join(options.fixture.planStoreRoot, options.fixture.repoKey, options.branchKey);
 	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, options.fileName);
-	await writeFile(filePath, `# ${options.fileName}\n`, "utf8");
+	await writeFile(filePath, options.content ?? `# ${options.fileName}\n`, "utf8");
 	const modified = new Date(options.modifiedTimeMs);
 	await utimes(filePath, modified, modified);
 	return filePath;

@@ -35,8 +35,22 @@ The structured grilling variant is `/enriched-plan:grill-and-save`. It uses Pi's
 CLI/agent workflows save with:
 
 ```text
-enriched-plan exec save --slug <saved-plan-slug> [--summary <text>] --stdin|--content-file <path> [--format json]
+enriched-plan exec save --slug <saved-plan-slug> [--summary <text>] [--tag <tag>]... --stdin|--content-file <path> [--format json]
 ```
+
+Saved plans may optionally include top-of-file frontmatter tags:
+
+```md
+---
+tags:
+  - follow-up
+  - architecture
+---
+
+# Plan title
+```
+
+Tags are lowercase kebab-case discovery metadata. `follow-up` is the conventional tag for deferred implementation ideas discovered during review or triage; it is not a new artifact type, not an Objective, not a handoff, and not an attached branch context by itself. Untagged saved plans remain valid.
 
 Saved plans are written to:
 
@@ -58,6 +72,13 @@ Inspect saved plans for the current repository:
 
 ```text
 enriched-plan list [--format json] [--plan-store-root <path>]
+```
+
+Filter by tag with AND semantics across repeated `--tag` options:
+
+```text
+enriched-plan list --tag follow-up
+enriched-plan list --tag follow-up --tag architecture
 ```
 
 ## Create a branch and attach its branch context

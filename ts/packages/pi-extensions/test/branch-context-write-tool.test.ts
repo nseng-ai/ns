@@ -41,13 +41,16 @@ describe("write_saved_plan_file tool", () => {
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
+		expect(tool.promptGuidelines?.join("\n")).toContain("follow-up");
+		expect(tool.promptGuidelines?.join("\n")).toContain("enriched-plan list --tag follow-up");
 		const contentParameter = parameters.properties?.content as { description?: string } | undefined;
 		expect(contentParameter?.description).toContain("self-contained");
 		expect(contentParameter?.description).toContain("external research");
+		const tagsParameter = parameters.properties?.tags as { description?: string; type?: string } | undefined;
+		expect(tagsParameter?.type).toBe("array");
+		expect(tagsParameter?.description).toContain("lowercase kebab-case");
 		expect(parameters.required).toEqual(["content"]);
 		expect(parameters.additionalProperties).toBe(false);
-		const tagsParameter = parameters.properties?.tags as { description?: string } | undefined;
-		expect(tagsParameter?.description).toContain("lowercase kebab-case");
 		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary", "tags"]);
 	});
 
@@ -85,6 +88,19 @@ describe("write_saved_plan_file tool", () => {
 			filePath: `/tmp/${PLAN_SLUG}.md`,
 			slugEvidence: contentSlugEvidence(),
 		});
+	});
+
+	test("passes optional saved-plan tags through to plan writing", async () => {
+		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+		const pi = new FakePi([savedPlanSlugStep(content)]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const tool = registeredTool(pi, "write_saved_plan_file");
+
+		await tool.execute("tool-call", { content, tags: ["follow-up", "architecture"] }, undefined, undefined, { cwd: ROOT });
+
+		pi.assertDone();
+		expect(fakes.writePlanCalls[0]?.[1]).toEqual({ slug: PLAN_SLUG, content, tags: ["follow-up", "architecture"] });
 	});
 
 	test("streams progress while deriving the saved-plan slug and writing the plan file", async () => {
@@ -171,6 +187,17 @@ describe("write_saved_plan_file tool", () => {
 				{ cwd: ROOT },
 			),
 		).rejects.toThrow("derives `slug` from content through Codex");
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("rejects malformed saved-plan tags before deriving a slug", async () => {
+		const pi = new FakePi();
+		registerBranchContextExtension(pi);
+		const tool = registeredTool(pi, "write_saved_plan_file");
+
+		await expect(tool.execute("tool-call", { content: DEFAULT_PLAN_CONTENT, tags: ["Follow-Up"] }, undefined, undefined, { cwd: ROOT })).rejects.toThrow(
+			"parameter `tags` contains invalid tag `Follow-Up`",
+		);
 		expect(pi.execCalls).toEqual([]);
 	});
 

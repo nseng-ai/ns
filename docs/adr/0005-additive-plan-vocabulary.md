@@ -50,6 +50,7 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 ## Consequences
 
+- 2026-06-17 amendment: enriched plans may carry optional frontmatter tags for discovery (`tags:` with a simple string list). Tags are metadata on the same enriched-plan artifact, not a separate plan kind or lifecycle. Objectives remain the heavier durable roadmap/tracking mechanism.
 - Staged renames (group, verb, store path, skill, Pi mirrors) are tracked as Objective `additive-plan-vocabulary` rather than executed ad hoc.
 - CONTEXT files and CONTEXT-MAP are not modified by this ADR; canonicalizing the vocabulary in domain-language files (including retiring "Saved plan"/"Source branch plan file" in favor of enriched-plan terms, the vibechk "run" ambiguity entry, and the existing Plan/attachment/handoff ambiguity) waits for a dedicated context rebaseline session per repo policy.
 - "Planned branch" no longer remains the forward vocabulary for active surfaces; ADR 0006 replaces it with branch context while keeping `enriched-plan` unchanged.

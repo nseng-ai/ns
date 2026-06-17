@@ -249,7 +249,10 @@ export async function listSavedPlans(
 				continue;
 			}
 
-			const content = await readFile(filePath, "utf8");
+			const content = await readPlanFileIfExists(filePath);
+			if (content === undefined) {
+				continue;
+			}
 			plans.push({
 				...repoDirectory,
 				branchKey,
@@ -471,6 +474,17 @@ async function statFileIfRegular(path: string): Promise<{ mtimeMs: number } | un
 	try {
 		const fileStat = await stat(path);
 		return fileStat.isFile() ? { mtimeMs: fileStat.mtimeMs } : undefined;
+	} catch (error) {
+		if (isNodeError(error) && error.code === "ENOENT") {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+async function readPlanFileIfExists(path: string): Promise<string | undefined> {
+	try {
+		return await readFile(path, "utf8");
 	} catch (error) {
 		if (isNodeError(error) && error.code === "ENOENT") {
 			return undefined;

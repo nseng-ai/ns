@@ -178,11 +178,12 @@ async function writePlanFile(
 	fixture: Fixture,
 	fileName: string,
 	modifiedTimeMs = MODIFIED_TIME_MS,
+	content?: string,
 ): Promise<string> {
 	const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
 	await mkdir(directory, { recursive: true });
 	const filePath = join(directory, fileName);
-	await writeFile(filePath, `# ${fileName}\n`, "utf8");
+	await writeFile(filePath, content ?? `# ${fileName}\n`, "utf8");
 	const modified = new Date(modifiedTimeMs);
 	await utimes(filePath, modified, modified);
 	return filePath;
@@ -356,6 +357,73 @@ describe("plans list CLI pins", () => {
 				`  Path: ${filePath}`,
 				"",
 			].join("\n"),
+		);
+	});
+
+	test("filters by repeatable tags with AND semantics", async () => {
+		const fixture = await makeFixture();
+		await writePlanFile(
+			fixture,
+			"follow-up-architecture-plan.md",
+			3_000,
+			["---", "tags:", "  - follow-up", "  - architecture", "---", "", "# Both", ""].join("\n"),
+		);
+		await writePlanFile(
+			fixture,
+			"follow-up-only-plan.md",
+			2_000,
+			["---", "tags:", "  - follow-up", "---", "", "# Follow", ""].join("\n"),
+		);
+		await writePlanFile(fixture, "untagged-plan-file.md", 1_000);
+
+		const followUp = await runWithFakes(
+			[
+				"list",
+				"--format",
+				"json",
+				"--tag",
+				"follow-up",
+				"--plan-store-root",
+				fixture.planStoreRoot,
+			],
+			{ cwd: fixture.repoRoot, git: fixture.git },
+		);
+		expect(await followUp.exit).toBe(0);
+		expect((parseJson(followUp).plans as Array<{ slug: string }>).map((plan) => plan.slug)).toEqual(
+			["follow-up-architecture-plan", "follow-up-only-plan"],
+		);
+
+		const both = await runWithFakes(
+			[
+				"list",
+				"--format",
+				"json",
+				"--tag",
+				"follow-up",
+				"--tag",
+				"architecture",
+				"--plan-store-root",
+				fixture.planStoreRoot,
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+			},
+		);
+		expect(await both.exit).toBe(0);
+		expect((parseJson(both).plans as Array<{ slug: string }>).map((plan) => plan.slug)).toEqual([
+			"follow-up-architecture-plan",
+		]);
+	});
+
+	test("rejects invalid list tags", async () => {
+		const run = await runWithFakes(["list", "--tag", "Follow-Up", "--format", "json"]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(
+			jsonFailure(
+				"Invalid saved-plan filter tag `Follow-Up`: Tag must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+			),
 		);
 	});
 
@@ -562,6 +630,108 @@ describe("plans exec save pins", () => {
 				"Summary: Save it",
 				"",
 			].join("\n"),
+		);
+	});
+
+	test("writes tag frontmatter and merges existing frontmatter tags", async () => {
+		const fixture = await makeFixture();
+		const slug = "specific-tagged-saved-plan";
+		const tagged = await runWithFakes(
+			["exec", "save", "--slug", slug, "--tag", "follow-up", "--stdin", "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				stdin: async () => "# Plan\n",
+			},
+		);
+
+		expect(await tagged.exit).toBe(0);
+		expect(await readFile(String(parseJson(tagged).file_path), "utf8")).toBe(
+			["---", "tags:", "  - follow-up", "---", "", "# Plan", ""].join("\n"),
+		);
+
+		const mergeFixture = await makeFixture();
+		const merged = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"specific-tagged-other-plan",
+				"--tag",
+				"architecture",
+				"--stdin",
+				"--format",
+				"json",
+			],
+			{
+				cwd: mergeFixture.repoRoot,
+				git: mergeFixture.git,
+				planStoreRoot: mergeFixture.planStoreRoot,
+				stdin: async () =>
+					["---", "summary: Useful", "tags:", "  - follow-up", "---", "", "# Plan", ""].join("\n"),
+			},
+		);
+		expect(await merged.exit).toBe(0);
+		expect(await readFile(String(parseJson(merged).file_path), "utf8")).toBe(
+			[
+				"---",
+				"summary: Useful",
+				"tags:",
+				"  - follow-up",
+				"  - architecture",
+				"---",
+				"",
+				"# Plan",
+				"",
+			].join("\n"),
+		);
+	});
+
+	test("rejects invalid save tags and malformed existing tags when tags are supplied", async () => {
+		const invalid = await runWithFakes([
+			"exec",
+			"save",
+			"--slug",
+			"specific-invalid-tag-plan",
+			"--tag",
+			"Follow-Up",
+			"--stdin",
+			"--format",
+			"json",
+		]);
+		expect(await invalid.exit).toBe(2);
+		expect(invalid.stdout.join("")).toBe(
+			jsonFailure(
+				"Invalid saved-plan save tag `Follow-Up`: Tag must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+			),
+		);
+
+		const fixture = await makeFixture();
+		const malformed = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"specific-malformed-tag-plan",
+				"--tag",
+				"follow-up",
+				"--stdin",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				stdin: async () => ["---", "tags:", "  - Follow-Up", "---", "", "# Plan", ""].join("\n"),
+			},
+		);
+		expect(await malformed.exit).toBe(2);
+		expect(malformed.stdout.join("")).toBe(
+			jsonFailure(
+				"Cannot apply saved-plan tags: Existing frontmatter has malformed tags metadata.",
+			),
 		);
 	});
 
