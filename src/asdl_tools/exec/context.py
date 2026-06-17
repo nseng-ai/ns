@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import click
 
 from asdl_core.clinkr.context import ClinkrContextObject, load_typed_context
+from asdl_core.gh.pr_gateway import PRGateway, RealPRGateway
 from asdl_tools.cmux.gateway import CmuxGateway, RealCmuxGateway
+
+
+def _real_pr_gateway(repo: str | None) -> PRGateway:
+    return RealPRGateway(repo=repo)
 
 
 @dataclass(frozen=True)
 class AsdlExecContext:
     cmux: CmuxGateway
+    pr_gateway: Callable[[str | None], PRGateway] = _real_pr_gateway
 
 
 def build_asdl_exec_context() -> AsdlExecContext:

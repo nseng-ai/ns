@@ -7,6 +7,8 @@ import pytest
 from click.testing import CliRunner
 
 from asdl_core.clinkr.context import build_clinkr_context_object
+from asdl_core.gh.pr_testing import FakePRGateway
+from asdl_core.gh.types import PRReviewComment, PRReviewThread
 from asdl_slots.repo_context import NoRepoSentinel
 from asdl_tools.cli.cli import build_cli
 from asdl_tools.cli.plugins import PluginEntryPointSource
@@ -71,6 +73,13 @@ def test_root_exec_group_is_hidden_but_invocable() -> None:
     assert "Commands for use by asdl-tools skills." in exec_help.output
     assert "cmux-workspace-summary" in exec_help.output
     assert "resolve-prompt" in exec_help.output
+    assert "gh" in exec_help.output
+
+    gh_help = runner.invoke(cli, ["exec", "gh", "--help"])
+    assert gh_help.exit_code == 0
+    assert "GitHub primitives for skill/agent invocation." in gh_help.output
+    assert "review-threads" in gh_help.output
+    assert "resolve-review-threads" in gh_help.output
 
 
 def test_resolve_prompt_exec_reads_repo_prompt(tmp_path: Path) -> None:
@@ -308,6 +317,126 @@ def test_cmux_workspace_summary_exec_requires_description() -> None:
     assert fake_cmux.renamed_workspaces == []
     assert fake_cmux.workspace_descriptions == []
     assert fake_cmux.cleared_statuses == []
+
+
+def test_gh_review_threads_exec_filters_threads_and_serializes_comments() -> None:
+    thread = PRReviewThread(
+        id="PRRT_open",
+        path="src/app.ts",
+        line=12,
+        start_line=None,
+        is_resolved=False,
+        is_outdated=True,
+        comments=(
+            PRReviewComment(
+                id=101,
+                body="Please fix",
+                author="github-actions",
+                path="src/app.ts",
+                line=12,
+                start_line=None,
+                created_at="2026-06-16T00:00:00Z",
+            ),
+        ),
+    )
+    fake_pr = FakePRGateway(review_threads={1700: [thread]})
+    ctx = AsdlExecContext(cmux=FakeCmuxGateway(), pr_gateway=lambda repo: fake_pr)
+
+    result = CliRunner().invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "gh",
+            "review-threads",
+            "1700",
+            "--thread-id",
+            "PRRT_open",
+            "--format",
+            "json",
+        ],
+        obj=build_clinkr_context_object(lambda: ctx),
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"] == {
+        "pr_number": 1700,
+        "include_resolved": False,
+        "requested_thread_ids": ["PRRT_open"],
+        "threads": [
+            {
+                "id": "PRRT_open",
+                "path": "src/app.ts",
+                "line": 12,
+                "start_line": None,
+                "is_resolved": False,
+                "is_outdated": True,
+                "comments": [
+                    {
+                        "id": 101,
+                        "body": "Please fix",
+                        "author": "github-actions",
+                        "path": "src/app.ts",
+                        "line": 12,
+                        "start_line": None,
+                        "created_at": "2026-06-16T00:00:00Z",
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_gh_resolve_review_threads_exec_resolves_each_thread() -> None:
+    fake_pr = FakePRGateway(
+        review_threads={
+            1700: [
+                PRReviewThread(
+                    id="PRRT_a",
+                    path="a.ts",
+                    line=1,
+                    is_resolved=False,
+                    is_outdated=False,
+                    comments=(),
+                ),
+                PRReviewThread(
+                    id="PRRT_b",
+                    path="b.ts",
+                    line=2,
+                    is_resolved=False,
+                    is_outdated=False,
+                    comments=(),
+                ),
+            ]
+        }
+    )
+    ctx = AsdlExecContext(cmux=FakeCmuxGateway(), pr_gateway=lambda repo: fake_pr)
+
+    result = CliRunner().invoke(
+        build_cli(source=_entry_point_source()),
+        [
+            "exec",
+            "gh",
+            "resolve-review-threads",
+            "PRRT_a",
+            "PRRT_b",
+            "--format",
+            "json",
+        ],
+        obj=build_clinkr_context_object(lambda: ctx),
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["data"] == {
+        "states": [
+            {"thread_id": "PRRT_a", "is_resolved": True},
+            {"thread_id": "PRRT_b", "is_resolved": True},
+        ]
+    }
+    assert fake_pr.resolved_thread_ids == ("PRRT_a", "PRRT_b")
 
 
 def test_cmux_workspace_summary_exec_reports_cmux_command_failure() -> None:
