@@ -14,6 +14,7 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import type { AgentEndContext, CommandContext, ExtensionAPI, ModelInfo, NotifyLevel, ThinkingLevel } from "./types.ts";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
+const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";
 const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
@@ -26,6 +27,7 @@ interface RestoreState {
 
 export interface CccSidebarController {
 	handleSessionCommand(ctx: CommandContext): Promise<void>;
+	handleBranchStateCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
 
@@ -43,7 +45,13 @@ export function createCccSidebarController(pi: ExtensionAPI): CccSidebarControll
 
 	return {
 		async handleSessionCommand(ctx): Promise<void> {
-			await queueSidebar(pi, ctx, (state) => {
+			await queueSessionSidebar(pi, ctx, (state) => {
+				pendingRestore = state;
+			});
+		},
+
+		async handleBranchStateCommand(ctx): Promise<void> {
+			await queueBranchStateSidebar(pi, ctx, (state) => {
 				pendingRestore = state;
 			});
 		},
@@ -64,6 +72,11 @@ export function registerCccSidebarCommands(
 		handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
 	});
 
+	pi.registerCommand(BRANCH_STATE_SIDEBAR_COMMAND_NAME, {
+		description: "Summarize the current branch state versus its parent into the caller cmux sidebar.",
+		handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
+	});
+
 	pi.registerCommand(OBJECTIVE_SIDEBAR_COMMAND_NAME, {
 		description: "Pick or format an asdl Objective into the caller cmux sidebar.",
 		argumentHint: "[objective-slug-or-path]",
@@ -77,11 +90,11 @@ export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): stri
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function buildCmuxSidebarPrompt(
+export function buildCmuxSessionSidebarPrompt(
 	skillBlock: string | undefined,
 	workspaceId: string,
 ): string {
-	return `${skillBlock ?? buildFallbackSkillPrompt()}
+	return `${skillBlock ?? buildFallbackSessionSkillPrompt()}
 
 Run the cmux session sidebar workflow now for the caller workspace.
 
@@ -95,13 +108,45 @@ The Goal line should describe what this session is trying to accomplish, not the
 Use the active Pi conversation context already available to you. Do not include this control prompt as the subject of the sidebar update. Generate compact title and description fields, apply the update with the asdl exec command when the source is resolved, then report the applied title briefly.`;
 }
 
-function buildFallbackSkillPrompt(): string {
+export function buildCmuxBranchStateSidebarPrompt(
+	skillBlock: string | undefined,
+	workspaceId: string,
+): string {
+	return `${skillBlock ?? buildFallbackBranchStateSkillPrompt()}
+
+Run the cmux branch-state sidebar workflow now for the caller workspace.
+
+Target workspace id/ref from this terminal environment: ${workspaceId}
+
+Requested command: ccc:sidebar:branch-state-summary.
+Summarize the current Git branch's implementation state relative to its parent branch.
+Use read-only repository evidence: current branch, parent branch, porcelain status, branch-local commits, and a compact diffstat or short diff summary versus the parent. Prefer Graphite parent evidence when available, such as \`gt parent --no-interactive\`; if Graphite parent evidence is unavailable, explain the fallback basis tersely and use the best Git merge-base/upstream evidence you can resolve.
+The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug for the branch topic and the full title is max 45 chars.
+The State line should describe what the branch currently changes or needs next relative to its parent, not the cmux update itself.
+
+Do not include this control prompt as the subject of the sidebar update. Run only read-only Git/Graphite inspection before applying the cmux update. Generate compact title and description fields, apply the update with the asdl exec command when the branch state is resolved, then report the applied title briefly.`;
+}
+
+function buildFallbackSessionSkillPrompt(): string {
 	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line Goal description for this Pi session using exactly one deterministic command. The title must be exactly summary:<slug>, where <slug> is a concise lowercase hyphen slug:
 
 \`\`\`bash
 asdl exec cmux-workspace-summary \\
   --title 'summary:<slug>' \\
   --description 'Goal: ...' \\
+  --format json
+\`\`\`
+
+The command clears the old cmux status pill. Do not assign shell variables. Do not pass --workspace. Do not run raw cmux commands.`;
+}
+
+function buildFallbackBranchStateSkillPrompt(): string {
+	return `The ccc-sidebar skill was not found. Update the caller cmux workspace title and one-line State description for the current branch relative to its parent using exactly one deterministic apply command after read-only Git/Graphite inspection. The title must be exactly state:<slug>, where <slug> is a concise lowercase hyphen slug:
+
+\`\`\`bash
+asdl exec cmux-workspace-summary \\
+  --title 'state:<slug>' \\
+  --description 'State: ...' \\
   --format json
 \`\`\`
 
@@ -200,10 +245,42 @@ async function resolveObjectiveSidebarSlug(pi: ExtensionAPI, args: string, ctx: 
 	}
 }
 
-async function queueSidebar(
+async function queueSessionSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
 	setPendingRestore: (state: RestoreState) => void,
+): Promise<void> {
+	await queueModelAssistedSidebar(pi, ctx, setPendingRestore, {
+		status: "preparing cmux sidebar…",
+		successMessage: "Invoking cmux session sidebar summary.",
+		fallbackMessage: "cmux sidebar skill not found; using fallback prompt.",
+		buildPrompt: buildCmuxSessionSidebarPrompt,
+	});
+}
+
+async function queueBranchStateSidebar(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	setPendingRestore: (state: RestoreState) => void,
+): Promise<void> {
+	await queueModelAssistedSidebar(pi, ctx, setPendingRestore, {
+		status: "preparing cmux branch-state sidebar…",
+		successMessage: "Invoking cmux branch-state sidebar summary.",
+		fallbackMessage: "cmux sidebar skill not found; using branch-state fallback prompt.",
+		buildPrompt: buildCmuxBranchStateSidebarPrompt,
+	});
+}
+
+async function queueModelAssistedSidebar(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	setPendingRestore: (state: RestoreState) => void,
+	options: {
+		status: string;
+		successMessage: string;
+		fallbackMessage: string;
+		buildPrompt(skillBlock: string | undefined, workspaceId: string): string;
+	},
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -213,7 +290,7 @@ async function queueSidebar(
 		return;
 	}
 
-	setStatus(ctx, "preparing cmux sidebar…");
+	setStatus(ctx, options.status);
 	let restoreState: RestoreState | undefined;
 	try {
 		const skillBlock = await expandSidebarSkillBlock(pi, ctx);
@@ -223,10 +300,10 @@ async function queueSidebar(
 		}
 		notify(
 			ctx,
-			skillBlock ? "Invoking cmux session sidebar summary." : "cmux sidebar skill not found; using fallback prompt.",
+			skillBlock ? options.successMessage : options.fallbackMessage,
 			skillBlock ? "info" : "warning",
 		);
-		pi.sendUserMessage(buildCmuxSidebarPrompt(skillBlock, workspaceId));
+		pi.sendUserMessage(options.buildPrompt(skillBlock, workspaceId));
 	} catch (error) {
 		if (restoreState !== undefined) {
 			await restoreModelState(pi, ctx, restoreState);
