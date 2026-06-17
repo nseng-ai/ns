@@ -7,10 +7,10 @@ export type ObjectiveRecordStatus = "open" | "closed";
 export type ObjectiveArchiveDirection = "archive" | "unarchive";
 
 export interface ObjectiveFiles {
-	objective_md: boolean;
-	roadmap_md: boolean;
-	updates_dir: boolean;
-	closed_md: boolean;
+	objectiveMd: boolean;
+	roadmapMd: boolean;
+	updatesDir: boolean;
+	closedMd: boolean;
 }
 
 export interface ObjectiveUpdateFile {
@@ -126,10 +126,10 @@ export class ObjectiveStorage {
 		return {
 			ok: true,
 			value: {
-				objective_md: objectiveMd.value === "file",
-				roadmap_md: roadmapMd.value === "file",
-				updates_dir: updatesDir.value === "directory",
-				closed_md: closedMd.value === "file",
+				objectiveMd: objectiveMd.value === "file",
+				roadmapMd: roadmapMd.value === "file",
+				updatesDir: updatesDir.value === "directory",
+				closedMd: closedMd.value === "file",
 			},
 		};
 	}
@@ -213,15 +213,15 @@ export function archiveEmptyDestinationRelativePath(direction: ObjectiveArchiveD
 }
 
 export function emptyObjectiveFiles(): ObjectiveFiles {
-	return { objective_md: false, roadmap_md: false, updates_dir: false, closed_md: false };
+	return { objectiveMd: false, roadmapMd: false, updatesDir: false, closedMd: false };
 }
 
 export function renderFilePresence(files: ObjectiveFiles): string {
 	return [
-		`objective.md:${yesNo(files.objective_md)}`,
-		`roadmap.md:${yesNo(files.roadmap_md)}`,
-		`updates/:${yesNo(files.updates_dir)}`,
-		`closed.md:${yesNo(files.closed_md)}`,
+		`objective.md:${yesNo(files.objectiveMd)}`,
+		`roadmap.md:${yesNo(files.roadmapMd)}`,
+		`updates/:${yesNo(files.updatesDir)}`,
+		`closed.md:${yesNo(files.closedMd)}`,
 	].join(", ");
 }
 

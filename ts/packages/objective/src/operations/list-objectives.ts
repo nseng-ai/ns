@@ -1,4 +1,4 @@
-import { failure, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { GitGateway } from "@asdl/core/git";
@@ -6,7 +6,7 @@ import type { GitGateway } from "@asdl/core/git";
 import type { ObjectiveCliContext } from "../context.ts";
 import { activeRecordRelativePath, activeRootRelativePath, type ObjectiveRecordStatus, type ObjectiveStorage } from "../storage.ts";
 
-import { legacyMachine, mapExitData } from "./legacy-machine.ts";
+import { removeOneTrailingNewline } from "./format.ts";
 import { buildObjectiveBranchAttribution, MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 
 export const objectiveStatusFilterSchema = z.enum(["all", "active", "open", "closed"]);
@@ -20,17 +20,18 @@ export const listObjectivesRequestSchema = z.object({
 export const objectiveListRecordSchema = z.object({
 	slug: z.string(),
 	status: z.enum(["open", "closed"]),
-	latest_update_iso: z.string().nullable(),
-	updated_branches: z.array(z.string()).optional(),
+	latestUpdateIso: z.string().nullable(),
+	updatedBranches: z.array(z.string()).optional(),
+	hasOutstandingChanges: z.boolean(),
 });
 
 export const objectiveListResultSchema = z.object({
-	trunk_branch: z.string(),
-	root_path: z.string(),
-	status_filter: objectiveStatusFilterSchema,
-	names_only: z.boolean(),
-	updated_branches_included: z.boolean().optional(),
-	updated_branches_truncated: z.boolean().optional(),
+	trunkBranch: z.string(),
+	rootPath: z.string(),
+	statusFilter: objectiveStatusFilterSchema,
+	namesOnly: z.boolean(),
+	updatedBranchesIncluded: z.boolean().optional(),
+	updatedBranchesTruncated: z.boolean().optional(),
 	records: z.array(objectiveListRecordSchema),
 });
 
@@ -39,18 +40,7 @@ export type ListObjectivesRequest = z.infer<typeof listObjectivesRequestSchema>;
 export type ObjectiveListRecord = z.infer<typeof objectiveListRecordSchema>;
 export type ObjectiveListResult = z.infer<typeof objectiveListResultSchema>;
 
-export type ObjectiveListRenderRecord = ObjectiveListRecord & {
-	has_outstanding_changes: boolean;
-};
-
-export type ObjectiveListRenderResult = Omit<ObjectiveListResult, "records"> & {
-	records: readonly ObjectiveListRenderRecord[];
-};
-
-export async function runListObjectives(
-	ctx: ObjectiveCliContext,
-	request: ListObjectivesRequest,
-): Promise<ClinkrExit<ObjectiveListRenderResult>> {
+export async function runListObjectives(ctx: ObjectiveCliContext, request: ListObjectivesRequest): Promise<ClinkrExit<ObjectiveListResult>> {
 	const result = await buildObjectiveListResult(ctx, request);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	if (result.type === "git-error") return failure(result.error.code, result.error.message);
@@ -61,7 +51,7 @@ export async function buildObjectiveListResult(
 	ctx: ObjectiveCliContext,
 	request: ListObjectivesRequest,
 ): Promise<
-	| { type: "ok"; value: ObjectiveListRenderResult }
+	| { type: "ok"; value: ObjectiveListResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
@@ -83,16 +73,20 @@ export async function buildObjectiveListResult(
 		isUpdatedBranchesTruncated = attribution.value.isTruncated;
 	}
 
-	const records: ObjectiveListRenderRecord[] = [];
-	for (const record of filtered) {
-		const built = await buildObjectiveListRecord({
-			storage: ctx.storage,
-			git: ctx.git,
-			repoRoot: ctx.repoRoot,
-			slug: record.slug,
-			status: record.status,
-			updatedBranches: updatedBranchesBySlug.get(record.slug),
-		});
+	const builtRecords = await Promise.all(
+		filtered.map((record) =>
+			buildObjectiveListRecord({
+				storage: ctx.storage,
+				git: ctx.git,
+				repoRoot: ctx.repoRoot,
+				slug: record.slug,
+				status: record.status,
+				updatedBranches: updatedBranchesBySlug.get(record.slug),
+			}),
+		),
+	);
+	const records: ObjectiveListRecord[] = [];
+	for (const built of builtRecords) {
 		if (built.type === "storage-error") return built;
 		if (built.type === "git-error") return built;
 		records.push(built.value);
@@ -101,68 +95,64 @@ export async function buildObjectiveListResult(
 	return {
 		type: "ok",
 		value: {
-			trunk_branch: ctx.trunkBranch,
-			root_path: activeRootRelativePath(),
-			status_filter: request.status,
-			names_only: request.names,
-			...(includeBranchAttribution ? { updated_branches_included: true } : {}),
-			...(isUpdatedBranchesTruncated ? { updated_branches_truncated: true } : {}),
+			trunkBranch: ctx.trunkBranch,
+			rootPath: activeRootRelativePath(),
+			statusFilter: request.status,
+			namesOnly: request.names,
+			...(includeBranchAttribution ? { updatedBranchesIncluded: true } : {}),
+			...(isUpdatedBranchesTruncated ? { updatedBranchesTruncated: true } : {}),
 			records,
 		},
 	};
 }
 
-export function renderObjectiveListHuman(result: ObjectiveListRenderResult): string {
-	if (result.names_only) return renderSlugs(result.records);
+export function renderObjectiveListHuman(result: ObjectiveListResult): string {
+	if (result.namesOnly) return renderSlugs(result.records);
 
 	const parts = [
 		"Objective records in this checkout\n",
-		`Root: ${result.root_path}\n`,
-		`Status filter: ${result.status_filter}\n`,
+		`Root: ${result.rootPath}\n`,
+		`Status filter: ${result.statusFilter}\n`,
 		"\n",
 	];
 	if (result.records.length === 0) {
-		parts.push(`${emptyMessage(result.status_filter)}\n`);
+		parts.push(`${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
 	parts.push(humanTableHeader(result));
 	for (const record of result.records) {
-		parts.push(...humanRecordRows(record, result.updated_branches_included === true));
+		parts.push(...humanRecordRows(record, result.updatedBranchesIncluded === true));
 	}
-	if (result.updated_branches_truncated === true) {
+	if (result.updatedBranchesTruncated === true) {
 		parts.push(`Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches.\n`);
 	}
 	return removeOneTrailingNewline(parts.join(""));
 }
 
-export function renderObjectiveListMarkdown(result: ObjectiveListRenderResult): string {
-	if (result.names_only) return renderSlugs(result.records);
+export function renderObjectiveListMarkdown(result: ObjectiveListResult): string {
+	if (result.namesOnly) return renderSlugs(result.records);
 
 	const parts = [
 		"# Objective records in this checkout\n",
 		"\n",
-		`Root: \`${result.root_path}\`\n`,
-		`Status filter: \`${result.status_filter}\`\n`,
+		`Root: \`${result.rootPath}\`\n`,
+		`Status filter: \`${result.statusFilter}\`\n`,
 	];
 	if (result.records.length === 0) {
-		parts.push("\n", `${emptyMessage(result.status_filter)}\n`);
+		parts.push("\n", `${emptyMessage(result.statusFilter)}\n`);
 		return removeOneTrailingNewline(parts.join(""));
 	}
 	parts.push("\n", markdownTableHeader(result), markdownTableSeparator(result));
 	for (const record of result.records) {
-		parts.push(markdownRecordRow(record, result.updated_branches_included === true));
+		parts.push(markdownRecordRow(record, result.updatedBranchesIncluded === true));
 	}
-	if (result.updated_branches_truncated === true) {
+	if (result.updatedBranchesTruncated === true) {
 		parts.push(
 			"\n",
 			`_Updated branch attribution limited to newest ${MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS} changed local branches; older updated branches may be omitted._\n`,
 		);
 	}
 	return removeOneTrailingNewline(parts.join(""));
-}
-
-export function legacyObjectiveListMachine(exit: ClinkrExit<ObjectiveListRenderResult>): LegacyMachineOutput {
-	return legacyMachine(stripRenderFields(exit));
 }
 
 export function matchesStatusFilter(status: ObjectiveRecordStatus, statusFilter: ObjectiveStatusFilter): boolean {
@@ -196,7 +186,7 @@ interface BuildObjectiveListRecordOptions {
 }
 
 async function buildObjectiveListRecord(options: BuildObjectiveListRecordOptions): Promise<
-	| { type: "ok"; value: ObjectiveListRenderRecord }
+	| { type: "ok"; value: ObjectiveListRecord }
 	| { type: "storage-error"; error: { code: string; message: string } }
 	| { type: "git-error"; error: { code: string; message: string } }
 > {
@@ -210,9 +200,9 @@ async function buildObjectiveListRecord(options: BuildObjectiveListRecordOptions
 		value: {
 			slug: options.slug,
 			status: options.status,
-			latest_update_iso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
-			...(options.updatedBranches === undefined ? {} : { updated_branches: [...options.updatedBranches] }),
-			has_outstanding_changes: dirty.value,
+			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
+			...(options.updatedBranches === undefined ? {} : { updatedBranches: [...options.updatedBranches] }),
+			hasOutstandingChanges: dirty.value,
 		},
 	};
 }
@@ -248,21 +238,21 @@ function emptyMessage(statusFilter: ObjectiveStatusFilter): string {
 	return "No Objective records found.";
 }
 
-function formatLatestUpdate(record: ObjectiveListRenderRecord): string {
-	const formatted = record.latest_update_iso ?? "—";
-	if (record.has_outstanding_changes) return `(x) ${formatted}`;
+function formatLatestUpdate(record: ObjectiveListRecord): string {
+	const formatted = record.latestUpdateIso ?? "—";
+	if (record.hasOutstandingChanges) return `(x) ${formatted}`;
 	return formatted;
 }
 
-function humanTableHeader(result: ObjectiveListRenderResult): string {
-	if (result.updated_branches_included === true) return "Objective | Status | Latest update | Updated branches\n--- | --- | --- | ---\n";
+function humanTableHeader(result: ObjectiveListResult): string {
+	if (result.updatedBranchesIncluded === true) return "Objective | Status | Latest update | Updated branches\n--- | --- | --- | ---\n";
 	return "Objective | Status | Latest update\n--- | --- | ---\n";
 }
 
-function humanRecordRows(record: ObjectiveListRenderRecord, shouldIncludeUpdatedBranches: boolean): string[] {
+function humanRecordRows(record: ObjectiveListRecord, shouldIncludeUpdatedBranches: boolean): string[] {
 	const core = `${record.slug} | ${statusLabel(record.status)} | ${formatLatestUpdate(record)}`;
 	if (!shouldIncludeUpdatedBranches) return [`${core}\n`];
-	const branches = record.updated_branches ?? [];
+	const branches = record.updatedBranches ?? [];
 	if (branches.length === 0) return [`${core} | —\n`];
 	return branches.map((branch, index) => {
 		const line = formatBranchLine(index + 1, branches.length, branch);
@@ -271,24 +261,24 @@ function humanRecordRows(record: ObjectiveListRenderRecord, shouldIncludeUpdated
 	});
 }
 
-function markdownTableHeader(result: ObjectiveListRenderResult): string {
-	if (result.updated_branches_included === true) return "| objective | status | latest update | updated branches |\n";
+function markdownTableHeader(result: ObjectiveListResult): string {
+	if (result.updatedBranchesIncluded === true) return "| objective | status | latest update | updated branches |\n";
 	return "| objective | status | latest update |\n";
 }
 
-function markdownTableSeparator(result: ObjectiveListRenderResult): string {
-	if (result.updated_branches_included === true) return "| --- | --- | --- | --- |\n";
+function markdownTableSeparator(result: ObjectiveListResult): string {
+	if (result.updatedBranchesIncluded === true) return "| --- | --- | --- | --- |\n";
 	return "| --- | --- | --- |\n";
 }
 
-function markdownRecordRow(record: ObjectiveListRenderRecord, shouldIncludeUpdatedBranches: boolean): string {
+function markdownRecordRow(record: ObjectiveListRecord, shouldIncludeUpdatedBranches: boolean): string {
 	const cells = [record.slug, statusLabel(record.status), formatLatestUpdate(record)];
 	if (shouldIncludeUpdatedBranches) cells.push(formatUpdatedBranches(record));
 	return `| ${cells.join(" | ")} |\n`;
 }
 
 function formatUpdatedBranches(record: ObjectiveListRecord): string {
-	const branches = record.updated_branches ?? [];
+	const branches = record.updatedBranches ?? [];
 	if (branches.length === 0) return "—";
 	return branches.join(", ");
 }
@@ -297,29 +287,4 @@ function formatBranchLine(index: number, branchCount: number, branch: string): s
 	const marker = index === branchCount ? "└" : "├";
 	if (branchCount === 1) return `${marker} ${branch}`;
 	return `${marker} ${index}/${branchCount} ${branch}`;
-}
-
-function stripRenderFields(exit: ClinkrExit<ObjectiveListRenderResult>): ClinkrExit<ObjectiveListResult> {
-	return mapExitData(exit, factsOnly);
-}
-
-function removeOneTrailingNewline(value: string): string {
-	return value.endsWith("\n") ? value.slice(0, -1) : value;
-}
-
-function factsOnly(result: ObjectiveListRenderResult): ObjectiveListResult {
-	return {
-		trunk_branch: result.trunk_branch,
-		root_path: result.root_path,
-		status_filter: result.status_filter,
-		names_only: result.names_only,
-		...(result.updated_branches_included === true ? { updated_branches_included: true } : {}),
-		...(result.updated_branches_truncated === true ? { updated_branches_truncated: true } : {}),
-		records: result.records.map((record) => ({
-			slug: record.slug,
-			status: record.status,
-			latest_update_iso: record.latest_update_iso,
-			...(result.updated_branches_included === true ? { updated_branches: [...(record.updated_branches ?? [])] } : {}),
-		})),
-	};
 }

@@ -21,10 +21,10 @@ export const archiveObjectiveResultSchema = z.object({
 	error: z.string().nullable(),
 	slug: z.string().nullable(),
 	direction: z.enum(["archive", "unarchive"]),
-	source_path: z.string(),
-	destination_path: z.string(),
-	source_exists: z.boolean(),
-	destination_exists: z.boolean(),
+	sourcePath: z.string(),
+	destinationPath: z.string(),
+	sourceExists: z.boolean(),
+	destinationExists: z.boolean(),
 	moved: z.boolean(),
 });
 
@@ -45,17 +45,17 @@ export async function runArchiveObjective(
 		return negative(`Invalid Objective slug ${pythonStringRepr(request.slug ?? "")}. Pass a single slug, not a path.`, result.value);
 	}
 	if (result.value.status === "source_not_found") {
-		return negative(sourceNotFoundMessage(result.value.slug ?? "", result.value.direction, result.value.source_path), result.value);
+		return negative(sourceNotFoundMessage(result.value.slug ?? "", result.value.direction, result.value.sourcePath), result.value);
 	}
 	if (result.value.status === "source_not_directory") {
 		return negative(
-			`Objective source path for slug ${pythonStringRepr(result.value.slug ?? "")} is not a directory: ${result.value.source_path}.`,
+			`Objective source path for slug ${pythonStringRepr(result.value.slug ?? "")} is not a directory: ${result.value.sourcePath}.`,
 			result.value,
 		);
 	}
 	if (result.value.status === "destination_exists") {
 		return negative(
-			`Destination already exists for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.destination_path}. Refusing to merge or overwrite.`,
+			`Destination already exists for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.destinationPath}. Refusing to merge or overwrite.`,
 			result.value,
 		);
 	}
@@ -64,7 +64,7 @@ export async function runArchiveObjective(
 
 export function renderArchiveObjective(result: ArchiveObjectiveResult): string {
 	const action = result.status === "unarchived" ? "Unarchived" : "Archived";
-	return `${action} Objective \`${result.slug}\`.\n\nMoved:\n  ${result.source_path}\n  -> ${result.destination_path}`;
+	return `${action} Objective \`${result.slug}\`.\n\nMoved:\n  ${result.sourcePath}\n  -> ${result.destinationPath}`;
 }
 
 async function archiveObjective(
@@ -159,10 +159,10 @@ function emptyResult(status: ArchiveObjectiveStatus, error: string, direction: O
 		error,
 		slug: null,
 		direction,
-		source_path: archiveEmptySourceRelativePath(direction),
-		destination_path: archiveEmptyDestinationRelativePath(direction),
-		source_exists: false,
-		destination_exists: false,
+		sourcePath: archiveEmptySourceRelativePath(direction),
+		destinationPath: archiveEmptyDestinationRelativePath(direction),
+		sourceExists: false,
+		destinationExists: false,
 		moved: false,
 	};
 }
@@ -183,10 +183,10 @@ function archiveResult(options: {
 		error: options.error,
 		slug: options.slug,
 		direction: options.direction,
-		source_path: options.sourcePath,
-		destination_path: options.destinationPath,
-		source_exists: options.hasSource,
-		destination_exists: options.hasDestination,
+		sourcePath: options.sourcePath,
+		destinationPath: options.destinationPath,
+		sourceExists: options.hasSource,
+		destinationExists: options.hasDestination,
 		moved: options.hasMoved,
 	};
 }

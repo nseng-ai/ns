@@ -1,9 +1,8 @@
-import { failure, negative, ok, type ClinkrExit, type LegacyMachineOutput } from "@asdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
-import { pythonStringRepr } from "./format.ts";
-import { legacyMachine, mapExitData } from "./legacy-machine.ts";
+import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import {
 	activeRecordRelativePath,
 	activeRootRelativePath,
@@ -21,10 +20,10 @@ export const readObjectiveRequestSchema = z.object({
 });
 
 export const objectiveFilesSchema = z.object({
-	objective_md: z.boolean(),
-	roadmap_md: z.boolean(),
-	updates_dir: z.boolean(),
-	closed_md: z.boolean(),
+	objectiveMd: z.boolean(),
+	roadmapMd: z.boolean(),
+	updatesDir: z.boolean(),
+	closedMd: z.boolean(),
 });
 
 export const objectiveUpdateFileSchema = z.object({
@@ -32,19 +31,51 @@ export const objectiveUpdateFileSchema = z.object({
 	path: z.string(),
 });
 
-export const readObjectiveResultSchema = z.object({
-	status: z.enum(["ok", "missing_slug", "invalid_slug", "not_found"]),
+export const objectiveMarkdownReadResultSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("missing") }),
+	z.object({ type: z.literal("ok"), content: z.string() }),
+	z.object({ type: z.literal("unreadable"), message: z.string() }),
+]);
+
+export const readObjectiveBaseResultSchema = z.object({
 	error: z.string().nullable(),
-	root_path: z.string(),
-	root_exists: z.boolean(),
+	rootPath: z.string(),
+	rootExists: z.boolean(),
 	slug: z.string().nullable(),
 	path: z.string().nullable(),
 	exists: z.boolean(),
 	closed: z.boolean(),
 	files: objectiveFilesSchema,
 	updates: z.array(objectiveUpdateFileSchema),
-	update_count: z.number().int(),
+	updateCount: z.number().int(),
 });
+
+export const readObjectiveNonOkResultSchema = z.discriminatedUnion("status", [
+	readObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+]);
+
+export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend({
+	status: z.literal("ok"),
+	markdownFiles: z.object({
+		objectiveMd: objectiveMarkdownReadResultSchema,
+		roadmapMd: objectiveMarkdownReadResultSchema,
+		updates: z.array(
+			z.object({
+				update: objectiveUpdateFileSchema,
+				content: objectiveMarkdownReadResultSchema,
+			}),
+		),
+	}),
+});
+
+export const readObjectiveResultSchema = z.discriminatedUnion("status", [
+	readObjectiveOkResultSchema,
+	readObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+]);
 
 export type ReadObjectiveRequest = z.infer<typeof readObjectiveRequestSchema>;
 export type ReadObjectiveStatus = "ok" | "missing_slug" | "invalid_slug" | "not_found";
@@ -56,16 +87,30 @@ interface ReadObjectiveMarkdownFiles {
 	updates: readonly { update: ObjectiveUpdateFile; content: ObjectiveMarkdownReadResult }[];
 }
 
-export type ReadObjectiveRenderResult = ReadObjectiveResult & {
+export interface ReadObjectiveOkResult extends ReadObjectiveBaseResult {
+	status: "ok";
+	error: null;
+	slug: string;
+	path: string;
+	exists: true;
 	markdownFiles: ReadObjectiveMarkdownFiles;
-};
+}
 
-export type ReadObjectiveCommandResult = ReadObjectiveResult | ReadObjectiveRenderResult;
+interface ReadObjectiveBaseResult {
+	status: ReadObjectiveStatus;
+	error: string | null;
+	rootPath: string;
+	rootExists: boolean;
+	slug: string | null;
+	path: string | null;
+	exists: boolean;
+	closed: boolean;
+	files: ObjectiveFiles;
+	updates: readonly ObjectiveUpdateFile[];
+	updateCount: number;
+}
 
-export async function runReadObjective(
-	ctx: ObjectiveCliContext,
-	request: ReadObjectiveRequest,
-): Promise<ClinkrExit<ReadObjectiveCommandResult>> {
+export async function runReadObjective(ctx: ObjectiveCliContext, request: ReadObjectiveRequest): Promise<ClinkrExit<ReadObjectiveResult>> {
 	const result = await readObjective(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	if (result.value.status === "missing_slug") {
@@ -83,23 +128,23 @@ export async function runReadObjective(
 	return ok(result.value);
 }
 
-export function renderReadObjective(result: ReadObjectiveCommandResult): string {
-	if (!isRenderResult(result) || result.slug === null || result.path === null) return "No Objective record selected.";
+export function renderReadObjective(result: ReadObjectiveResult): string {
+	if (result.status !== "ok") return "No Objective record selected.";
 
-	const rootState = result.root_exists ? "present" : "missing";
+	const rootState = result.rootExists ? "present" : "missing";
 	const state = result.closed ? "closed" : "open";
 	const parts = [
 		`# Objective \`${result.slug}\`\n\n`,
-		`Root: \`${result.root_path}\` (${rootState})\n`,
+		`Root: \`${result.rootPath}\` (${rootState})\n`,
 		`Path: \`${result.path}\`\n`,
 		`State: ${state}\n`,
 		`Files: ${renderFilePresence(result.files)}\n`,
-		`Updates: ${result.update_count}\n\n`,
+		`Updates: ${result.updateCount}\n\n`,
 	];
 
 	appendMarkdownFile(parts, "objective.md", result.markdownFiles.objectiveMd);
 	appendMarkdownFile(parts, "roadmap.md", result.markdownFiles.roadmapMd);
-	if (!result.files.updates_dir) {
+	if (!result.files.updatesDir) {
 		parts.push("## updates/\n\n_Missing `updates/` directory._\n\n");
 	} else if (result.markdownFiles.updates.length === 0) {
 		parts.push("## updates/\n\n_No direct update Markdown files found._\n\n");
@@ -111,14 +156,10 @@ export function renderReadObjective(result: ReadObjectiveCommandResult): string 
 	return removeOneTrailingNewline(parts.join(""));
 }
 
-export function legacyReadObjectiveMachine(exit: ClinkrExit<ReadObjectiveCommandResult>): LegacyMachineOutput {
-	return legacyMachine(stripRenderFields(exit));
-}
-
 async function readObjective(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
-): Promise<{ type: "ok"; value: ReadObjectiveCommandResult } | { type: "storage-error"; error: { code: string; message: string } }> {
+): Promise<{ type: "ok"; value: ReadObjectiveResult } | { type: "storage-error"; error: { code: string; message: string } }> {
 	const root = activeRootRelativePath();
 	const rootPresence = await storage.activeRootExists();
 	if (!rootPresence.ok) return { type: "storage-error", error: rootPresence.error };
@@ -151,18 +192,18 @@ async function readObjective(
 	if (!files.ok) return { type: "storage-error", error: files.error };
 	const updates = await storage.listUpdateFiles(relativePath);
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
-	const facts: ReadObjectiveResult = {
-		status: "ok",
+	const facts = {
+		status: "ok" as const,
 		error: null,
-		root_path: root,
-		root_exists: rootPresence.value,
+		rootPath: root,
+		rootExists: rootPresence.value,
 		slug,
 		path: relativePath,
 		exists: true,
-		closed: files.value.closed_md,
+		closed: files.value.closedMd,
 		files: files.value,
 		updates: [...updates.value],
-		update_count: updates.value.length,
+		updateCount: updates.value.length,
 	};
 	return {
 		type: "ok",
@@ -193,15 +234,15 @@ function emptyResult(options: {
 	return {
 		status: options.status,
 		error: options.error,
-		root_path: options.root,
-		root_exists: options.hasRoot,
+		rootPath: options.root,
+		rootExists: options.hasRoot,
 		slug: options.slug,
 		path: options.path,
 		exists: false,
 		closed: false,
 		files: emptyObjectiveFiles(),
 		updates: [],
-		update_count: 0,
+		updateCount: 0,
 	};
 }
 
@@ -218,32 +259,4 @@ function appendMarkdownFile(parts: string[], displayPath: string, read: Objectiv
 	parts.push(read.content);
 	if (!read.content.endsWith("\n")) parts.push("\n");
 	parts.push("\n");
-}
-
-function isRenderResult(result: ReadObjectiveCommandResult): result is ReadObjectiveRenderResult {
-	return "markdownFiles" in result;
-}
-
-function stripRenderFields(exit: ClinkrExit<ReadObjectiveCommandResult>): ClinkrExit<ReadObjectiveResult> {
-	return mapExitData(exit, factsOnly);
-}
-
-function factsOnly(result: ReadObjectiveCommandResult): ReadObjectiveResult {
-	return {
-		status: result.status,
-		error: result.error,
-		root_path: result.root_path,
-		root_exists: result.root_exists,
-		slug: result.slug,
-		path: result.path,
-		exists: result.exists,
-		closed: result.closed,
-		files: result.files,
-		updates: [...result.updates],
-		update_count: result.update_count,
-	};
-}
-
-function removeOneTrailingNewline(value: string): string {
-	return value.endsWith("\n") ? value.slice(0, -1) : value;
 }

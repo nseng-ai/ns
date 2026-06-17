@@ -82,7 +82,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
    objective list --format json
    ```
 
-   Use `data.records[].updated_branches` as deterministic branch↔Objective evidence.
+   Use `data.records[].updatedBranches` as deterministic branch↔Objective evidence.
 
 8. When Objective JSON is insufficient for semantic linking, read selected Objective prose:
 
@@ -115,7 +115,7 @@ Create branch candidates from local branch inventory. Annotate each branch with:
 Create Objective candidates from open Active Objective records. Annotate each Objective with:
 
 - slug and status;
-- `updated_branches` evidence;
+- `updatedBranches` evidence;
 - any semantic branch links inferred from Objective prose or branch/PR/diff context;
 - whether an authoritative linked branch is already open.
 
@@ -127,7 +127,7 @@ Branch-context and Branch Memory attachment inspection is future work, not requi
 
 A branch is `OPENED` when any open cmux workspace has an existing `current_directory` whose Git HEAD is that branch. Workspace title and description labels are useful hints but are not authoritative occupancy evidence.
 
-An Objective is already open when an `OPENED` branch is authoritatively linked to it. Authoritative links include deterministic `updated_branches` matches and evidence-cited LLM-inferred links with enough confidence to affect availability.
+An Objective is already open when an `OPENED` branch is authoritatively linked to it. Authoritative links include deterministic `updatedBranches` matches and evidence-cited LLM-inferred links with enough confidence to affect availability.
 
 If occupancy evidence is incomplete, keep the candidate visible and mark it uncertain rather than suppressing it.
 

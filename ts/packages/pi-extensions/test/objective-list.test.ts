@@ -25,7 +25,7 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("parses null latest update timestamps", () => {
-		const parsed = parseObjectiveList(envelope({ records: [record({ latest_update_iso: null })] }));
+		const parsed = parseObjectiveList(envelope({ records: [record({ latestUpdateIso: null })] }));
 
 		expect(parsed.type).toBe("valid");
 		if (parsed.type === "valid") {
@@ -50,11 +50,11 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("rejects invalid top-level fields", () => {
-		expectInvalid(parseObjectiveList(envelope({ trunk_branch: 42 })), /expected trunk_branch/);
+		expectInvalid(parseObjectiveList(envelope({ trunkBranch: 42 })), /expected trunkBranch/);
 	});
 
 	test("rejects missing records", () => {
-		expectInvalid(parseObjectiveList(envelope({ records: undefined })), /expected trunk_branch/);
+		expectInvalid(parseObjectiveList(envelope({ records: undefined })), /expected trunkBranch/);
 	});
 
 	test("rejects missing or non-string slug", () => {
@@ -67,13 +67,13 @@ describe("parseObjectiveList", () => {
 		expectInvalid(parseObjectiveList(envelope({ records: [record({ status: 123 })] })), /Invalid Objective list record/);
 	});
 
-	test("rejects latest_update_iso values that are neither string nor null", () => {
+	test("rejects latestUpdateIso values that are neither string nor null", () => {
 		expectInvalid(
-			parseObjectiveList(envelope({ records: [record({ latest_update_iso: undefined })] })),
+			parseObjectiveList(envelope({ records: [record({ latestUpdateIso: undefined })] })),
 			/Invalid Objective list record/,
 		);
 		expectInvalid(
-			parseObjectiveList(envelope({ records: [record({ latest_update_iso: 123 })] })),
+			parseObjectiveList(envelope({ records: [record({ latestUpdateIso: 123 })] })),
 			/Invalid Objective list record/,
 		);
 	});
@@ -85,17 +85,17 @@ describe("parseObjectiveList", () => {
 					exit_code: 0,
 					data: {
 						base_branch: "main",
-						trunk_branch: "main",
+						trunkBranch: "main",
 						view: "list",
-						status_filter: "active",
+						statusFilter: "active",
 						current_branch: null,
 						filtered_to_current: false,
-						names_only: false,
+						namesOnly: false,
 						groups: [],
 					},
 				}),
 			),
-			/expected trunk_branch, root_path, status_filter, names_only, and records/,
+			/expected trunkBranch, rootPath, statusFilter, namesOnly, and records/,
 		);
 	});
 });
@@ -113,10 +113,10 @@ function envelope(dataOverrides: Record<string, unknown> = {}): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			trunk_branch: "main",
-			root_path: ".asdl/objectives",
-			status_filter: "active",
-			names_only: false,
+			trunkBranch: "main",
+			rootPath: ".asdl/objectives",
+			statusFilter: "active",
+			namesOnly: false,
 			records: [record()],
 			...dataOverrides,
 		},
@@ -127,7 +127,7 @@ function record(overrides: Record<string, unknown> = {}): Record<string, unknown
 	return {
 		slug: "alpha",
 		status: "open",
-		latest_update_iso: "2026-05-20T10:00:00Z",
+		latestUpdateIso: "2026-05-20T10:00:00Z",
 		...overrides,
 	};
 }

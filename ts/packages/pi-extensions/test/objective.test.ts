@@ -357,14 +357,14 @@ function objectiveListFromRecords(
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
-			trunk_branch: trunkBranch,
-			root_path: ".asdl/objectives",
-			status_filter: "active",
-			names_only: false,
+			trunkBranch: trunkBranch,
+			rootPath: ".asdl/objectives",
+			statusFilter: "active",
+			namesOnly: false,
 			records: records.map((record) => ({
 				slug: record.slug,
 				status: record.status,
-				latest_update_iso: record.latestUpdateIso,
+				latestUpdateIso: record.latestUpdateIso,
 			})),
 		},
 	});

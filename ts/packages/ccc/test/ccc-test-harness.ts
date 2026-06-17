@@ -316,14 +316,14 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 		stdout: JSON.stringify({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "active",
-				names_only: false,
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "active",
+				namesOnly: false,
 				records: slugs.map((slug, index) => ({
 					slug,
 					status: "open",
-					latest_update_iso: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+					latestUpdateIso: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
 				})),
 			},
 		}),

@@ -34,10 +34,10 @@ function archiveData(options: {
 		error: options.error,
 		slug: options.slug,
 		direction: options.direction,
-		source_path: options.sourcePath,
-		destination_path: options.destinationPath,
-		source_exists: options.hasSource,
-		destination_exists: options.hasDestination,
+		sourcePath: options.sourcePath,
+		destinationPath: options.destinationPath,
+		sourceExists: options.hasSource,
+		destinationExists: options.hasDestination,
 		moved: options.hasMoved,
 	};
 }
@@ -249,11 +249,11 @@ describe("objective archive", () => {
 		expect(parseJsonOutput(list)).toEqual({
 			exit_code: 0,
 			data: {
-				trunk_branch: "master",
-				root_path: ".asdl/objectives",
-				status_filter: "all",
-				names_only: false,
-				records: [{ slug: "bravo", status: "open", latest_update_iso: null }],
+				trunkBranch: "master",
+				rootPath: ".asdl/objectives",
+				statusFilter: "all",
+				namesOnly: false,
+				records: [{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false }],
 			},
 		});
 	});

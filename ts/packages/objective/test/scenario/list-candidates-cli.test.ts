@@ -16,7 +16,7 @@ describe("objective exec list-candidates", () => {
 		expect(run.stderr).toEqual([]);
 	});
 
-	test("emits only slug and status records in the legacy JSON machine envelope", async () => {
+	test("emits only slug and status records in the canonical JSON machine envelope", async () => {
 		const run = runScenario(["exec", "list-candidates", "--format", "json"], {
 			fake: {
 				records: [{ slug: "alpha" }, { slug: "bravo", isClosed: true }, { slug: "charlie" }],
