@@ -2,15 +2,15 @@ import { formatErrorMessage, isRecord } from "@asdl/core/primitives";
 import { err, type Result } from "@asdl/core/result";
 import { parse as parseToml } from "smol-toml";
 
-import type { AregInitTextFileState } from "../gateways.ts";
+import type { AregTextFileState } from "../gateways.ts";
 import { rejectTextState } from "./file-state.ts";
 
 export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
-	asdlToml: AregInitTextFileState;
-	aregJson: AregInitTextFileState;
+	asdlToml: AregTextFileState;
+	aregJson: AregTextFileState;
 }): Result<string[]> {
 	if (input.explicitAgents.length > 0) return { ok: true, value: [...input.explicitAgents] };
 	const asdlAgents = parseAsdlAregAgentsFromState(input.asdlToml);
@@ -63,13 +63,13 @@ export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
 	return { ok: true, value: result };
 }
 
-function parseAsdlAregAgentsFromState(state: AregInitTextFileState): Result<string[]> {
+function parseAsdlAregAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	return parseAsdlAregAgents(state.text, "asdl.toml");
 }
 
-function parseLegacyAregJsonAgentsFromState(state: AregInitTextFileState): Result<string[]> {
+function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "areg.json", state, description: "areg.json", action: "manage it" });
 	return parseLegacyAregJsonAgents(state.text);

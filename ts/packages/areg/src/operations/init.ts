@@ -6,7 +6,7 @@ import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregInitTextFileState, AregInitTextWritePlan, AregPathState } from "../gateways.ts";
+import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
 import { parseAsdlAregAgents, parseLegacyAregJsonAgents, resolveProjectAgents } from "./project-agents.ts";
 import { applyProjectMutationPlan } from "./project-mutations.ts";
@@ -191,11 +191,11 @@ async function buildInitTextPlan(
 	ctx: AregCliContext,
 	inspection: {
 		projectDir: string;
-		agentsMd: AregInitTextFileState;
-		claudeMd: AregInitTextFileState;
-		asdlToml: AregInitTextFileState;
+		agentsMd: AregTextFileState;
+		claudeMd: AregTextFileState;
+		asdlToml: AregTextFileState;
 		claudeDir: AregPathState;
-		claudeSettings: AregInitTextFileState;
+		claudeSettings: AregTextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<Result<InitTextPlan>> {
@@ -231,7 +231,7 @@ async function buildInitTextPlan(
 	};
 }
 
-function planAsdlToml(state: AregInitTextFileState, agents: readonly string[]): Result<AregInitTextWritePlan> {
+function planAsdlToml(state: AregTextFileState, agents: readonly string[]): Result<AregInitTextWritePlan> {
 	if (state.type === "missing") return { ok: true, value: writePlan("asdl.toml", renderAregSection(agents), "asdl.toml") };
 	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
 	const parsed = parseAsdlAregAgents(state.text, "asdl.toml");
@@ -242,7 +242,7 @@ function planAsdlToml(state: AregInitTextFileState, agents: readonly string[]): 
 async function planClaudeMd(
 	ctx: AregCliContext,
 	projectDir: string,
-	state: AregInitTextFileState,
+	state: AregTextFileState,
 	options: { yes: boolean; noAppend: boolean },
 ): Promise<Result<AregInitTextWritePlan | SkippedFile>> {
 	let includeAgentsRef = true;
@@ -269,7 +269,7 @@ async function planManagedBlock(
 	ctx: AregCliContext,
 	input: {
 		path: "AGENTS.md" | "CLAUDE.md";
-		state: AregInitTextFileState;
+		state: AregTextFileState;
 		newFileContent: string;
 		block: string;
 		markers: ManagedMarkers;
@@ -309,7 +309,7 @@ function contentWithoutManagedBlock(content: string, markers: ManagedMarkers, pa
 	return { ok: true, value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}` };
 }
 
-function planSettings(claudeDirState: AregPathState, settingsState: AregInitTextFileState): Result<AregInitTextWritePlan | SkippedFile> {
+function planSettings(claudeDirState: AregPathState, settingsState: AregTextFileState): Result<AregInitTextWritePlan | SkippedFile> {
 	const claudeDir = validateOptionalDirectoryState({ pathLabel: ".claude", state: claudeDirState, action: "manage it", symlinkSubject: ".claude at .claude" });
 	if (!claudeDir.ok) return claudeDir;
 	if (settingsState.type === "missing") return { ok: true, value: writePlan(".claude/settings.local.json", SETTINGS_LOCAL_JSON, "settings.local.json", true) };

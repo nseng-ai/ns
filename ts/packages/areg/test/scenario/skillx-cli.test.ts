@@ -134,7 +134,7 @@ describe("areg exec skillx CLI", () => {
 		});
 		expect(workspace.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
-			{ type: "cleanup-workspace", workspaceRoot: "/tmp/skillx.fake-1", cwd: "/repo" },
+			{ type: "cleanup-workspace", workspaceRoot: "/tmp/skillx.fake-1" },
 		]);
 	});
 
@@ -155,7 +155,7 @@ describe("areg exec skillx CLI", () => {
 		});
 		expect(workspace.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
-			{ type: "cleanup-workspace", workspaceRoot: "/tmp/skillx.fake-1", cwd: "/repo" },
+			{ type: "cleanup-workspace", workspaceRoot: "/tmp/skillx.fake-1" },
 		]);
 	});
 

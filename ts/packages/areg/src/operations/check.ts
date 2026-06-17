@@ -3,13 +3,14 @@ import type { Result } from "@asdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregGenericReplacementInspection, AregPathState, AregTextFileState } from "../gateways.ts";
+import type { AregCheckPairingDirectory, AregCheckSkillInspection, AregPathState, AregReplacementInspection, AregTextFileState } from "../gateways.ts";
 import { sortStrings, uniqueSortedStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { parseInspectedLockfile, parseLockfileData, type LockfileSkill, type SkillsLockfile } from "./lockfile.ts";
-import { derivePiReplacementCommand, verifyPiReplacement as verifyPiReplacementFromFacts } from "./pi-replacement.ts";
+import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
+import { inferSkillKindRecord, inspectSkillFrontmatter } from "./skill-kind.ts";
 import { collectCheckSkillInspections, collectProjectInspectionFacts } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
@@ -42,8 +43,6 @@ const CHECK_ISSUE_CODES = [
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
 const PLACEHOLDER_HASH = "PENDING_REGEN";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/u;
-const DISABLE_MODEL_INVOCATION_KEY = "disable-model-invocation";
-
 type CheckIssueCode = (typeof CHECK_ISSUE_CODES)[number];
 
 interface CheckIssue {
@@ -85,7 +84,7 @@ interface CheckProjectInspection {
 	excludedSkillNames: readonly string[];
 	piDir: AregPathState;
 	piSettings: AregTextFileState;
-	genericReplacement: AregGenericReplacementInspection;
+	replacement: AregReplacementInspection;
 	skills: readonly AregCheckSkillInspection[];
 	pairingDirectories: readonly AregCheckPairingDirectory[];
 }
@@ -124,7 +123,7 @@ export function buildCheckReport(inspection: CheckProjectInspection, lockfile: S
 		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
-		if (entry.sourceType === "local") issues.push(...checkInvokeOnly({ entry, inspected, inspection, piExclusions }));
+		if (entry.sourceType === "local") issues.push(...checkSkillInvocationKind({ entry, inspected, inspection, piExclusions }));
 	}
 	issues.push(...checkLockfileHashes(lockfile));
 	issues.push(...checkOrphansAndDangling(lockfile, inspection));
@@ -217,30 +216,35 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 	return [];
 }
 
-interface CheckInvokeOnlyOptions {
+interface CheckSkillInvocationKindOptions {
 	entry: LockfileSkill;
 	inspected: AregCheckSkillInspection;
 	inspection: CheckProjectInspection;
 	piExclusions: readonly string[];
 }
 
-function checkInvokeOnly(options: CheckInvokeOnlyOptions): CheckIssue[] {
+function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): CheckIssue[] {
 	const { entry, inspected, inspection, piExclusions } = options;
 	if (inspected.localSkillMd.type !== "file") return [];
-	const frontmatter = parseSkillFrontmatterText(inspected.localSkillMd.text);
+	const frontmatter = inspectSkillFrontmatter(inspected.localSkillMd.text, `skills/${entry.name}/SKILL.md`);
 	if (!frontmatter.ok) return [];
-	const flagEnabled = frontmatter.value[DISABLE_MODEL_INVOCATION_KEY]?.trim().toLowerCase() === "true";
-	const sidecarExists = inspected.openaiPolicy.type === "file";
-	const issues: CheckIssue[] = [];
-	if (flagEnabled && !sidecarExists) issues.push(issue(entry.name, "invoke_only_missing_openai_policy", `skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`));
-	if (!flagEnabled && sidecarExists) issues.push(issue(entry.name, "openai_policy_without_invoke_only", `skills/${entry.name}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`));
 	const isPiExcluded = piExclusions.includes(`-skills/${entry.name}`);
-	if ((flagEnabled || sidecarExists) && !isPiExcluded) {
-		issues.push(issue(entry.name, "command_converted_missing_pi_exclusion", `.pi/settings.json missing -skills/${entry.name} for command-converted skill`));
+	const replacement = verifyPiReplacement(entry.name, inspection.replacement);
+	const record = inferSkillKindRecord({
+		skillName: entry.name,
+		frontmatter: frontmatter.value,
+		hasCodexSidecar: inspected.openaiPolicy.type === "file",
+		isPiExcluded,
+		replacement,
+	});
+	const issues: CheckIssue[] = [];
+	if (record.artifacts.isModelInvocationDisabled && !record.artifacts.hasCodexSidecar) issues.push(issue(entry.name, "invoke_only_missing_openai_policy", `skills/${entry.name}/agents/openai.yaml missing for invoke-only skill`));
+	if (!record.artifacts.isModelInvocationDisabled && record.artifacts.hasCodexSidecar) issues.push(issue(entry.name, "openai_policy_without_invoke_only", `skills/${entry.name}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`));
+	if (record.artifacts.isModelInvocationDisabled && record.artifacts.hasCodexSidecar && record.replacement.verified && !record.artifacts.isPiExcluded) {
+		issues.push(issue(entry.name, "command_converted_missing_pi_exclusion", `.pi/settings.json missing -skills/${entry.name} for command-backed skill`));
 	}
-	const replacement = verifyPiReplacement(entry.name, inspection);
-	if (isPiExcluded && !replacement.verified) {
-		const expected = replacement.surface === undefined ? "a derived command" : `/${replacement.surface}`;
+	if (record.artifacts.isPiExcluded && !record.replacement.verified) {
+		const expected = record.replacement.surface === undefined ? "a derived command" : `/${record.replacement.surface}`;
 		issues.push(issue(entry.name, "command_converted_missing_pi_replacement", `Pi skill is excluded but no verified replacement command exists; expected ${expected}`));
 	}
 	return issues;
@@ -314,16 +318,12 @@ async function collectCheckProjectInspection(ctx: AregCliContext, projectPath: s
 		excludedSkillNames,
 		piDir: facts.piDir,
 		piSettings: facts.piSettings,
-		genericReplacement: facts.genericReplacement,
+		replacement: facts.replacement,
 		skills: await collectCheckSkillInspections(ctx, facts.projectDir, skillNames),
 		pairingDirectories: await ctx.project.inspectPairingDirectories({ projectDir: facts.projectDir, env: ctx.env }),
 	};
 }
 
-
-function verifyPiReplacement(skillName: string, inspection: CheckProjectInspection): { verified: boolean; surface?: string | undefined } {
-	return verifyPiReplacementFromFacts(skillName, inspection.genericReplacement);
-}
 
 function piSettingsPathFailureReport(projectDir: string, message: string): CheckReport {
 	const issues = [issue(".pi/settings.json", "pi_settings_unusable", message)];

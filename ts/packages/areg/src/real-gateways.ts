@@ -53,6 +53,51 @@ import { sortStrings } from "./sort.ts";
 const COMMAND_TIMEOUT_MS = 60_000;
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH = "ts/packages/pi-extensions/src/backing-skill-commands.ts";
+const AREG_VISIBLE_REPLACEMENT_SURFACES = [
+	"branch-context:from-plan",
+	"branch-context:impl",
+	"enriched-plan:save",
+	"handoff:create",
+	"handoff:pickup",
+	"objective:create",
+	"objective:next",
+	"objective:stack-impl",
+	"objective:update",
+	"pi:grill-me",
+	"pi:grill-with-docs",
+	"sdl:code:autobranch",
+	"sdl:code:checkpoint",
+	"code:just-fix",
+	"sdl:code:submit",
+	"sdl:submit",
+	"ccc:sidebar:pr-summary",
+	"branch:retro",
+	"changelog:update",
+	"cli:push-down",
+	"code:gh",
+	"code:gt-restack-resolve",
+	"code:resolve-merge-conflicts",
+	"code:workflows",
+	"context:bundle-analysis",
+	"create:bun-typescript-project",
+	"create:python-dev-cli",
+	"create:python-package",
+	"dignified:python",
+	"objective:close",
+	"pr:address",
+	"python:fake-driven-test-layout",
+	"python:fake-driven-testing",
+	"refactor:swarm",
+	"setup:dprint",
+	"setup:dprint-gh-ci",
+	"setup:graphite",
+	"setup:pypi-publish",
+	"setup:python-gh-ci",
+	"skill:audit",
+	"skill:management",
+	"typescript:fake-driven-testing",
+	"typescript:style",
+] as const;
 
 interface ResolveAllowedTargetOptions {
 	projectRoot: string;
@@ -170,7 +215,7 @@ export class RealAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 		return { type: "ok", workspace: { workspaceRoot, installedSkills: inspected.installedSkills } };
 	}
 
-	async cleanupWorkspace(request: { workspaceRoot: string; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregOperationResult> {
+	async cleanupWorkspace(request: { workspaceRoot: string }): Promise<AregOperationResult> {
 		return await cleanupSkillxWorkspace(request.workspaceRoot);
 	}
 }
@@ -224,7 +269,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		return {
 			piDir: await inspectPath(path.join(request.projectDir, ".pi")),
 			piSettings: await inspectTextFile(path.join(request.projectDir, ".pi", "settings.json")),
-			genericReplacement: await inspectGenericReplacement(request.projectDir),
+			replacement: await inspectReplacementSurfaces(request.projectDir),
 		};
 	}
 
@@ -544,11 +589,10 @@ async function inspectTextFile(candidate: string): Promise<AregTextFileState> {
 	}
 }
 
-async function inspectGenericReplacement(projectDir: string): Promise<{ hasAdapter: boolean; hasPackageModule: boolean }> {
-	return {
-		hasAdapter: (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH))).type === "file",
-		hasPackageModule: (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH))).type === "file",
-	};
+async function inspectReplacementSurfaces(projectDir: string): Promise<{ verifiedSurfaces: readonly string[] }> {
+	const hasAdapter = (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH))).type === "file";
+	const hasPackageModule = (await inspectTextFile(path.join(projectDir, PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH))).type === "file";
+	return { verifiedSurfaces: hasAdapter && hasPackageModule ? [...AREG_VISIBLE_REPLACEMENT_SURFACES] : [] };
 }
 
 async function listChildNames(directory: string): Promise<string[]> {

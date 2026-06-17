@@ -67,8 +67,6 @@ export interface AregSkillxInstallRequest {
 
 export interface AregSkillxWorkspaceCleanupRequest {
 	workspaceRoot: string;
-	cwd: string;
-	env: NodeJS.ProcessEnv;
 }
 
 export type AregSkillxInstallResult =
@@ -95,15 +93,6 @@ export type AregTextFileState =
 	| { type: "other" }
 	| { type: "unreadable"; message: string };
 
-export type AregCheckPathState = AregPathState;
-export type AregCheckTextFileState = AregTextFileState;
-export type AregInitPathState = AregPathState;
-export type AregInitTextFileState = AregTextFileState;
-export type AregUpdatePathState = AregPathState;
-export type AregUpdateTextFileState = AregTextFileState;
-export type AregSkillKindPathState = AregPathState;
-export type AregSkillKindTextFileState = AregTextFileState;
-
 export interface AregCheckSkillInspection {
 	name: string;
 	skillsPath: AregPathState;
@@ -128,9 +117,8 @@ export interface AregSkillKindSkillInspection {
 	openaiPolicy: AregTextFileState;
 }
 
-export interface AregGenericReplacementInspection {
-	hasAdapter: boolean;
-	hasPackageModule: boolean;
+export interface AregReplacementInspection {
+	verifiedSurfaces: readonly string[];
 }
 
 export interface AregProjectInspectionRequest {
@@ -168,7 +156,7 @@ export interface AregInstructionFilesInspection {
 export interface AregPiArtifactsInspection {
 	piDir: AregPathState;
 	piSettings: AregTextFileState;
-	genericReplacement: AregGenericReplacementInspection;
+	replacement: AregReplacementInspection;
 }
 
 export interface AregSkillNameInventory {

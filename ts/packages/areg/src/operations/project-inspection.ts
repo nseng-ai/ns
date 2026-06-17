@@ -1,7 +1,7 @@
 import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckSkillInspection,
-	AregGenericReplacementInspection,
+	AregReplacementInspection,
 	AregPathState,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
@@ -16,7 +16,7 @@ export interface AregProjectInspectionFacts {
 	aregJson: AregTextFileState;
 	piDir: AregPathState;
 	piSettings: AregTextFileState;
-	genericReplacement: AregGenericReplacementInspection;
+	replacement: AregReplacementInspection;
 	skillInventory: AregSkillNameInventory;
 }
 
@@ -32,7 +32,7 @@ export async function collectProjectInspectionFacts(ctx: AregCliContext, project
 		aregJson: base.aregJson,
 		piDir: piArtifacts.piDir,
 		piSettings: piArtifacts.piSettings,
-		genericReplacement: piArtifacts.genericReplacement,
+		replacement: piArtifacts.replacement,
 		skillInventory,
 	};
 }

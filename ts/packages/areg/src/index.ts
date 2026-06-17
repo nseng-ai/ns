@@ -2,11 +2,9 @@ export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
 export { createRealAregContext, type AregCliContext } from "./context.ts";
 export type {
 	AregCheckPairingDirectory,
-	AregCheckPathState,
 	AregCheckSkillInspection,
-	AregCheckTextFileState,
 	AregErrorInfo,
-	AregGenericReplacementInspection,
+	AregReplacementInspection,
 	AregGithubGateway,
 	AregGithubSkillListResult,
 	AregHostGateway,
@@ -37,8 +35,6 @@ export type {
 	AregSkillxWorkspaceInstall,
 	AregTextFileState,
 	AregToolCheckResult,
-	AregUpdatePathState,
-	AregUpdateTextFileState,
 } from "./gateways.ts";
 export { derivePiReplacementCommand, parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
 export { parseSkillInput } from "./operations/skillx.ts";

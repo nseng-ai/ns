@@ -24,7 +24,7 @@ describe("areg skill apply CLI", () => {
 	test("dry-run plans command-backed without writing or prompting", async () => {
 		const run = runScenario(["skill", "apply", "--dry-run", "command-backed", "demo-skill"], {
 			project: {
-				genericReplacement: { hasAdapter: true, hasPackageModule: true },
+				replacementSurfaces: ["demo:skill"],
 				localSkills: [skill("demo-skill")],
 			},
 			prompt: { responses: [false] },

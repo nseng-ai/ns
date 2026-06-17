@@ -4,13 +4,13 @@ import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type {
-	AregGenericReplacementInspection,
 	AregPathState,
+	AregReplacementInspection,
 	AregSkillKindDeletePlan,
 	AregSkillKindRemoveEmptyDirPlan,
 	AregSkillKindSkillInspection,
-	AregSkillKindTextFileState,
 	AregSkillKindTextWritePlan,
+	AregTextFileState,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
@@ -76,8 +76,8 @@ interface SkillKindProjectInspection {
 	projectDir: string;
 	projectPathState: AregPathState;
 	piDir: AregPathState;
-	piSettings: AregSkillKindTextFileState;
-	genericReplacement: AregGenericReplacementInspection;
+	piSettings: AregTextFileState;
+	replacement: AregReplacementInspection;
 	skills: readonly AregSkillKindSkillInspection[];
 }
 
@@ -387,7 +387,7 @@ export function inferSkillKindRecord(options: {
 	};
 }
 
-function buildSkillKindRecords(inspection: SkillKindProjectInspection): Result<readonly SkillKindRecord[]> {
+export function buildSkillKindRecords(inspection: SkillKindProjectInspection): Result<readonly SkillKindRecord[]> {
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
 	if (!piSettings.ok) return piSettings;
 	const records: SkillKindRecord[] = [];
@@ -397,7 +397,7 @@ function buildSkillKindRecords(inspection: SkillKindProjectInspection): Result<r
 		if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
 		const frontmatter = inspectSkillFrontmatter(skill.skillMd.text, `skills/${skill.name}/SKILL.md`);
 		if (!frontmatter.ok) return frontmatter;
-		const replacement = verifyPiReplacement(skill.name, inspection.genericReplacement);
+		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
 		records.push(inferSkillKindRecord({
 			skillName: skill.name,
 			frontmatter: frontmatter.value,
@@ -416,7 +416,7 @@ function buildSkillKindApplyPlan(inspection: SkillKindProjectInspection, skillNa
 	if (!readiness.ok) return readiness;
 	if (skill.skillMd.type !== "file") return err({ code: "skill_not_found", message: `skills/${skill.name}/SKILL.md does not exist` });
 	if (kind === "command-backed") {
-		const replacement = verifyPiReplacement(skill.name, inspection.genericReplacement);
+		const replacement = verifyPiReplacement(skill.name, inspection.replacement);
 		if (!replacement.verified) return err({ code: "skill_not_found", message: replacementAdvice(skill.name, replacement.surface) });
 	}
 	const piSettings = parsePiSettings(inspection.piDir, inspection.piSettings);
@@ -449,7 +449,7 @@ async function collectSkillKindProjectInspection(ctx: AregCliContext, projectPat
 		projectPathState: facts.projectPathState,
 		piDir: facts.piDir,
 		piSettings: facts.piSettings,
-		genericReplacement: facts.genericReplacement,
+		replacement: facts.replacement,
 		skills: await collectLocalSkillKindInspections(ctx, facts.projectDir, facts.skillInventory.localSkillKindNames),
 	};
 }

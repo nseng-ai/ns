@@ -36,7 +36,7 @@ describe("areg skill list/show CLI", () => {
 		const run = runScenario(["skill", "list"], {
 			project: {
 				piSettings: { skills: ["-skills/command-skill", "-skills/broken"] },
-				genericReplacement: { hasAdapter: true, hasPackageModule: true },
+				replacementSurfaces: ["command:skill"],
 				localSkills: [
 					skill("normal", BASE_SKILL),
 					skill("invoke", INVOKE_ONLY_SKILL, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
@@ -94,6 +94,7 @@ describe("areg skill list/show CLI", () => {
 		const run = runScenario(["skill", "show", "branch-context-from-plan"], {
 			project: {
 				piSettings: { skills: ["-skills/branch-context-from-plan"] },
+				replacementSurfaces: ["branch-context:from-plan"],
 				localSkills: [
 					skill("branch-context-from-plan", "---\nname: branch-context-from-plan\ndisable-model-invocation: true\n---\n", {
 						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
