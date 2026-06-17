@@ -1,6 +1,6 @@
 ---
 name: objective-bulk-refresh
-description: "Bulk refresh all active open Objectives before a context break: route each Objective's update to the tip of the stack that owns that work, update untouched Objectives on the sweep's own branch, and report degraded/ambiguous/closure-ready records. Use for bedtime Objective refresh, refresh all Objectives, bulk Objective update, or bring all open Objectives up to date."
+description: "Bulk refresh all active open Objectives before a context break. Each owning stack tip gets the Objective's full in-place edits; one combined proposal branch off trunk collects append-only Semantic Updates for in-flight Objectives plus full edits for orphans, as a single reviewable PR. Idempotent by recorded basis: a second run with no new Objective changes makes no commits. Use for bedtime Objective refresh, refresh all Objectives, bulk Objective update, or bring all open Objectives up to date."
 ---
 
 # objective-bulk-refresh
@@ -9,16 +9,25 @@ Run an autonomous semantic maintenance pass over every active open Objective so 
 
 If the user asks what this skill does, explain it without mutating files. If the user asks to run a bedtime Objective refresh, refresh all Objectives, bulk Objective update, or bring all open Objectives up to date, perform this workflow.
 
-## Why routing exists
+## Two write targets
 
-The Objective record for an in-flight Objective is usually being edited on the downstream branch(es) implementing it. Writing that Objective's refresh into the current checkout (effectively trunk) creates trunk edits that collide with those branches at land/restack time. So this skill does not blindly edit the current checkout. Instead it **routes** each Objective's update to where the work lives:
+Every run drives all Objective records toward the same up-to-date state through two distinct targets, and is idempotent: a second run that finds no new Objective changes makes no commits.
 
-- **Alive on exactly one stack** → write at that stack's leaf (tip) worktree.
-- **Alive on two or more stacks** (e.g. an Objective implemented on multiple branches) → write per-tip, scoped to each branch's own diff.
-- **Alive nowhere** (orphan) → write on the sweep's own branch, which reaches trunk via a normal PR.
-- **Cannot be written safely** (degrade) → emit a routing recommendation, write nothing.
+The Objective record for an in-flight Objective evolves on the downstream branch(es) implementing it, while trunk falls behind. Blindly editing the current checkout (effectively trunk) would either collide with those branches at land/restack time or prematurely flip roadmap `[x]` state on trunk before the work lands. So each run produces two things:
 
-This honors "never commit directly to main": every write lands on a real branch (an owning leaf or the sweep's own branch), never on trunk in place.
+1. **Per owning tip** — the Objective's full in-place `objective.md` / `roadmap.md` edits plus a new basis-stamped Semantic Update, written at the stack leaf that owns the work. Roadmap state flips land *with* the work.
+2. **One trunk-rooted proposal branch** — a single dedicated branch off trunk (default name `objective-refresh-proposal`), opened as one combined Objective-refresh PR, carrying:
+   - for **in-flight** Objectives: **only** the append-only Semantic Update files — the *same* basis-stamped files deposited at the tips, `updates/` only, never in-place roadmap/objective edits, so trunk never claims completion ahead of the code;
+   - for **orphan** Objectives (alive on no branch): the **full** edits, since trunk is their only source of truth.
+
+This honors "never commit directly to main": tip writes land on the owning leaf; trunk-facing writes land on a real proposal branch that reaches trunk via a normal PR. Cases that cannot be written safely **degrade** to a recommendation and write nothing.
+
+Classification routes each Objective:
+
+- **Alive on exactly one stack** → tip = that stack's single leaf.
+- **Alive on two or more stacks** → write at each owning tip, scoped to each branch's own diff; the proposal branch still gets one shared append-only update per Objective.
+- **Alive nowhere (orphan)** → full edits on the proposal branch.
+- **Cannot be written safely (degrade)** → routing recommendation only.
 
 ## Graphite dependency
 
@@ -31,15 +40,18 @@ Never parse human-facing `gt ls`, `gt log`, or `gt branch info` output for machi
 
 ## Concept
 
-This is not a per-Objective picker and not a ceremonial changelog. Assess every active open Objective, attribute it to the branches that own its work, route each update to the correct branch tip, update only where materiality is clear, degrade unsafe cases to recommendations, and report closure-ready candidates without closing them.
+This is not a per-Objective picker and not a ceremonial changelog. Assess every active open Objective, attribute it to the branches that own its work, and converge all records on the up-to-date state through the two targets above.
 
-Material context means at least one of:
+Keep two questions separate:
+
+- **Whether a deposit is produced is deterministic, not a judgment.** It is keyed on the Objective record **basis** (step 5): a target receives a deposit exactly when its source-of-truth Objective directory differs from the basis last recorded there. Same state → same basis → no deposit → no-op. This is what makes re-runs idempotent and guarantees the proposal branch exists whenever an Objective has genuinely moved.
+- **Materiality shapes the body, never gates existence.** When a basis change makes a deposit due, write a substantive Semantic Update describing what actually changed; never pad with "checked today" filler. When the basis is unchanged, write nothing at all.
+
+Material context for the body means at least one of:
 
 - facts changed;
 - work completed, de-risked, blocked, or invalidated earlier assumptions;
 - thesis, scope, risks, open questions, roadmap guidance, or follow-up clarity is stale, thin, or underspecified enough that bounded evidence gathering can improve it.
-
-Do not write "checked today" updates or other no-op maintenance notes.
 
 ## Objective surfaces and invariants
 
@@ -50,12 +62,12 @@ Active Objectives live under `.asdl/objectives/<slug>/`:
 - `updates/` contains immutable Semantic Updates. Never edit, rewrite, move, delete, or normalize an existing update file. If later evidence changes earlier context, create a new update instead.
 - `closed.md` is a closure marker. This bulk refresh evaluates closure readiness but must not create `closed.md`.
 
-A new Semantic Update is optional and should be selective: create one only for distinct semantic events, decisions, blockers, risk changes, completion evidence, or provenance-worthy findings. Use a timestamped, human-readable filename following the existing `objective-update` convention in the repo. Include enough seconds-resolution and slug detail to avoid filename collisions.
+A deposited Semantic Update captures the distinct semantic events, decisions, blockers, risk changes, completion evidence, or provenance-worthy findings accumulated since the last recorded basis. The basis (step 5) decides *when* one is due; keep the body substantive rather than ceremonial. Use a timestamped, human-readable filename following the existing `objective-update` convention in the repo. Include enough seconds-resolution and slug detail to avoid filename collisions, and use the *same* filename for the tip and proposal-branch copies of an in-flight Objective's update so the later land is a conflict-free identical add.
 
 ## Preconditions
 
-- The skill must run from a **real-branch worktree** (e.g. a slot holding a checked-out branch). `stack-map-branches` fails on a detached HEAD, and the orphan/trunk path commits to the current branch. If the current checkout is detached, stop and ask.
-- The sweep commits orphan-Objective updates to the **current branch** and does not auto-submit a PR. If you want orphan updates isolated from existing branch work, create a dedicated branch first (`code-autobranch` / `gt create` semantics) before running.
+- The skill must run from a **real-branch worktree** (e.g. a slot holding a checked-out branch). `stack-map-branches` fails on a detached HEAD. If the current checkout is detached, stop and ask.
+- Trunk-facing writes go on a dedicated branch rooted at trunk (default name `objective-refresh-proposal`), **never** the slot's current feature branch. The run reuses that branch if it already exists and creates it from trunk only when there is something to deposit — so a clean re-run leaves no empty branch and opens no PR.
 
 ## Algorithm
 
@@ -102,58 +114,77 @@ git -C <wt> status --porcelain -- .asdl/objectives/<slug>/
 
 Any output → the tip is dirty under this slug → degrade (do not write). Do **not** auto-materialize a missing worktree: you cannot double-checkout a branch and creating a worktree is a side effect. A leaf with no worktree degrades to a recommendation.
 
-### 5. Dedup against prior deposits
+### 5. Compute the basis (idempotency + deposit trigger)
 
-Each auto-deposit records its **basis** as a human-readable provenance line in the new `updates/` file:
+Each deposited Semantic Update records its **basis** as a human-readable provenance line:
 
 ```
-Provenance: bulk-refresh basis tip=<leaf-sha> record=<objective-tree-sha>
+Provenance: bulk-refresh basis tip=<owning-sha> record=<objective-tree-sha>
 ```
 
-Compute the basis at the target leaf:
+`record=<objective-tree-sha>` is the tree SHA of `.asdl/objectives/<slug>/` at the deposit's source of truth — the owning leaf for in-flight Objectives, trunk for orphans. It is both the idempotency key and the deposit trigger:
 
 ```bash
+# in-flight: at the owning leaf worktree <wt>
 git -C <wt> rev-parse <leaf>
 git -C <wt> rev-parse <leaf>:.asdl/objectives/<slug>
+# orphan: at trunk
+git rev-parse <trunk>:.asdl/objectives/<slug>
 ```
 
-Scan the slug's existing `updates/` for a provenance line covering that basis. If one exists, **skip** (no-op dedup) — nothing changed since the last deposit. This makes re-runs a cheap no-op when the basis is unchanged.
+Before depositing at a target, scan that target's `updates/` for a provenance line whose `record=` matches the computed tree SHA. Check **every** target independently: the owning tip's `updates/`, the proposal branch's `updates/`, and trunk's `updates/` (a matching basis already on trunk means a prior proposal landed — nothing to re-propose). If the basis is present at a target, **skip that target**. A target receives a deposit only when its source-of-truth record tree differs from the last basis recorded there — that difference is the materiality signal and the no-op guard at once.
 
-### 6. Write (only when materiality is clear)
+### 6. Deposit
 
-Carry over the materiality bar, immutable-`updates/`, one-directory-at-a-time, and never-close rules from "Write rules" below.
+Carry over the immutable-`updates/`, one-directory-at-a-time, and never-close rules from "Write rules" below. Build the body only when a basis change makes a deposit due; make it substantive, never filler.
 
-- **single-owner clean tip** — work in the leaf's worktree: make in-place `roadmap.md` / `objective.md` edits plus a new `updates/<ts>-<slug>.md` carrying the provenance line. One labeled commit aggregating all Objectives owned by that tip.
+**Tip writes (in-flight Objectives).** For each owning leaf with a clean worktree (step 4):
+
+- **single-owner** — in the leaf's worktree: full in-place `roadmap.md` / `objective.md` edits plus a new `updates/<ts>-<slug>.md` carrying the provenance line. One labeled commit aggregating all Objectives owned by that tip.
 - **multi-owner** — write at each owning tip, **scoped to that branch's own diff**:
 
   ```bash
   git -C <wt> diff <trunk>...<branch> -- .asdl/objectives/<slug>/roadmap.md
   ```
 
-  Use three-dot (merge-base relative) so rows already landed on trunk by another stack don't masquerade as this branch's edits. Apply only the in-place edits attributable to that branch's diff (disjoint rows → conflict-free across tips). Where two tips would edit the **same** region, do not edit in place there: degrade that overlap to an append-only `updates/` note plus a reconciliation flag in the report.
-- **orphan** — make edits in the current checkout and commit them to the **current branch** (no auto-submit). These reach trunk via that branch's normal PR.
-- **open-PR tip** — write anyway. Use a clearly-labeled automated-Objective-update commit message and report it prominently so the PR author sees it. Detect PR state with `gh pr view <leaf> --json state` (see the `code-gh` skill).
-- **degrade cases** — write nothing; emit a routing recommendation naming the target branch/leaf and the reason.
+  Use three-dot (merge-base relative) so rows already landed on trunk by another stack don't masquerade as this branch's edits. Apply only the in-place edits attributable to that branch's diff (disjoint rows → conflict-free across tips). Where two tips would edit the **same** region, do not edit in place there: drop the append-only `updates/` note at both tips and raise a reconciliation flag in the report.
+- **open-PR tip** — write anyway. Use a clearly-labeled commit message and report it prominently so the PR author sees it. Detect PR state with `gh pr view <leaf> --json state` (see the `code-gh` skill).
 
-Commit messages for routed writes must be self-identifying, e.g. `[objective-bulk-refresh] refresh <slug> at tip`.
+**Trunk proposal (one combined branch).** After tip writes, collect every deposit due for trunk:
+
+- each **in-flight** Objective with a due basis contributes the **same** basis-stamped `updates/<ts>-<slug>.md` file (identical content and filename to its tip deposit) — `updates/` only, no `roadmap.md` / `objective.md` edits.
+- each **orphan** Objective with a due basis contributes the **full** edits (`objective.md` / `roadmap.md` + a basis-stamped `updates/` file), since trunk is its only source of truth.
+
+If nothing is due, make no branch and no commit. Otherwise:
+
+1. Reuse the existing `objective-refresh-proposal` branch (rooted at trunk) if present; else create it from trunk. Operate through its own worktree — do not disturb the slot's feature branch.
+2. Apply the collected deposits as one self-identifying commit: `[objective-bulk-refresh] trunk proposal: <n> Objectives`.
+3. Submit/update one combined PR (`gt submit --no-interactive`; see the `graphite` skill).
+
+Depositing the identical basis-stamped update file at both the tip and the proposal branch means that when the feature branch later lands, the file is already on trunk — an identical add, conflict-free.
+
+**Degrade cases** — write nothing; emit a routing recommendation naming the target branch/leaf and the reason.
+
+Commit messages for tip writes must be self-identifying, e.g. `[objective-bulk-refresh] refresh <slug> at tip`.
 
 ## Write rules
 
 - Edit only one Objective directory at a time.
-- You may edit `objective.md` and `roadmap.md`.
-- You may create new timestamped human-readable files under `updates/` for distinct semantic updates; each auto-deposit carries the provenance line from step 5.
+- At a **tip**, you may edit `objective.md` and `roadmap.md` and add an `updates/` file.
+- On the **trunk proposal branch**, in-flight Objectives receive **append-only `updates/` files only** — never edit their `objective.md` / `roadmap.md` there. Only **orphan** Objectives receive full edits on the proposal branch.
+- Each deposited `updates/` file carries the provenance line from step 5.
 - Never edit existing files under `updates/`.
 - Never move, delete, rename, or recreate Objective slug directories.
 - Never edit archived Objectives unless the user explicitly asks for archive work.
 - Do not close Objectives during bulk refresh: do not create `closed.md` and do not add `## Closure` as part of this workflow.
 
-Write directly when materiality is clear and the target is safe; do not pause for per-Objective approval. Degrade and report unsafe or ambiguous Objectives instead of asking inside the loop. The pass is fully autonomous — compute and write in one pass, no preview/confirm gate.
+Deposit whenever the basis is due and the target is safe; do not pause for per-Objective approval. Degrade and report unsafe or ambiguous Objectives instead of asking inside the loop. The pass is fully autonomous — compute and write in one pass, no preview/confirm gate.
 
 ## Stop and ask conditions
 
 Stop or ask the user instead of guessing if:
 
-- the current checkout is detached (no branch to host orphan writes; topology map fails);
+- the current checkout is detached (topology map fails; no stable base to root the proposal branch);
 - the active Objective inventory cannot be obtained;
 - the topology map fails entirely (no Graphite metadata at all);
 - an Objective appears to require closure rather than refresh;
@@ -169,11 +200,12 @@ Return a compact report with:
 1. Validation/evidence commands run, including any limitations (e.g. truncated attribution, metadata warnings).
 2. A per-Objective table:
 
-| Objective | Action | Target leaf / worktree | Basis (tip SHA) | Material evidence | Notes |
-| --------- | ------ | ---------------------- | --------------- | ----------------- | ----- |
+| Objective | Action | Target leaf / worktree | Basis (record tree SHA) | Material evidence | Notes |
+| --------- | ------ | ---------------------- | ----------------------- | ----------------- | ----- |
 
-Use one of these actions: `wrote-at-tip`, `wrote-orphan`, `routed` (degraded, with reason), `note+flag` (multi-owner overlap), `noop-dedup`, `materiality-recommendation` (work advanced an Objective without touching its record), `skipped/ambiguous`, `closure-ready`. A closure-ready Objective may also have refresh edits, but make clear that it was not closed.
+Use one of these actions: `wrote-tip+proposal` (tip in-place edits plus the mirrored append-only update on the proposal branch), `wrote-at-tip` (tip only — e.g. proposal copy already on trunk), `wrote-orphan-proposal` (full orphan edits on the proposal branch), `noop-basis` (basis unchanged at all targets; nothing written), `routed` (degraded, with reason), `note+flag` (multi-owner overlap), `skipped/ambiguous`, `closure-ready`. A closure-ready Objective may also have refresh edits, but make clear that it was not closed.
 
-3. Closure-ready candidates, if any, with rationale.
-4. Short next-morning priority recommendations: the few Objectives or branches most worth picking up next and why.
-5. Confirmation that no existing Semantic Update files were edited, no Objectives were closed, and no edits were committed directly to trunk.
+3. The trunk proposal: branch name, PR link, and the Objectives it carries — or an explicit statement that nothing was due, so no branch/PR was created.
+4. Closure-ready candidates, if any, with rationale.
+5. Short next-morning priority recommendations: the few Objectives or branches most worth picking up next and why.
+6. Confirmation that no existing Semantic Update files were edited, no Objectives were closed, no edits were committed to the slot's feature branch or directly to trunk, and that a clean re-run would be a no-op.
