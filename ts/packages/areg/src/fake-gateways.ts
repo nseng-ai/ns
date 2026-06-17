@@ -80,7 +80,7 @@ export interface FakeAregProjectGatewayOptions {
 	claudeSettings?: AregTextFileState | string | undefined;
 	piDir?: AregPathState | undefined;
 	piSettings?: AregTextFileState | object | string | undefined;
-	genericReplacement?: { hasAdapter?: boolean | undefined; hasPackageModule?: boolean | undefined } | undefined;
+	replacementSurfaces?: readonly string[] | undefined;
 	skillsDirectoryNames?: readonly string[] | undefined;
 	agentsSkillNames?: readonly string[] | undefined;
 	claudeSkillNames?: readonly string[] | undefined;
@@ -99,7 +99,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly files: Map<string, AregTextFileState>;
 	private readonly claudeDir: AregPathState;
 	private readonly piDir: AregPathState;
-	private readonly genericReplacement: { hasAdapter: boolean; hasPackageModule: boolean };
+	private readonly replacementSurfaces: readonly string[];
 	private readonly skillsDirectoryNames: readonly string[];
 	private readonly agentsSkillNames: readonly string[];
 	private readonly claudeSkillNames: readonly string[];
@@ -125,10 +125,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		]);
 		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
 		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
-		this.genericReplacement = {
-			hasAdapter: options.genericReplacement?.hasAdapter ?? false,
-			hasPackageModule: options.genericReplacement?.hasPackageModule ?? false,
-		};
+		this.replacementSurfaces = [...(options.replacementSurfaces ?? [])];
 		this.skillsDirectoryNames = [...(options.skillsDirectoryNames ?? [])];
 		this.agentsSkillNames = [...(options.agentsSkillNames ?? [])];
 		this.claudeSkillNames = [...(options.claudeSkillNames ?? [])];
@@ -167,7 +164,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return {
 			piDir: copyPathState(this.piDir),
 			piSettings: this.fileState(".pi/settings.json"),
-			genericReplacement: { ...this.genericReplacement },
+			replacement: { verifiedSurfaces: [...this.replacementSurfaces] },
 		};
 	}
 
@@ -392,7 +389,7 @@ export class FakeAregPromptGateway implements AregPromptGateway {
 
 export type FakeAregSkillxOperation =
 	| ({ type: "install-into-workspace" } & Omit<AregSkillxInstallRequest, "env">)
-	| ({ type: "cleanup-workspace" } & Omit<AregSkillxWorkspaceCleanupRequest, "env">);
+	| ({ type: "cleanup-workspace" } & AregSkillxWorkspaceCleanupRequest);
 
 export interface FakeAregSkillxWorkspaceGatewayOptions {
 	workspaceRoot?: string | undefined;
@@ -428,7 +425,7 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 	}
 
 	async cleanupWorkspace(request: AregSkillxWorkspaceCleanupRequest): Promise<AregOperationResult> {
-		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot, cwd: request.cwd });
+		this.log.push({ type: "cleanup-workspace", workspaceRoot: request.workspaceRoot });
 		if (this.cleanupFailure !== undefined) return resultErr(copyErrorInfo(this.cleanupFailure));
 		return resultOk(undefined);
 	}

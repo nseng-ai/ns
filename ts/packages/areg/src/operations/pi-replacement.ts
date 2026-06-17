@@ -43,8 +43,7 @@ export const SPECIALIZED_SKILL_REPLACEMENTS: Readonly<Record<string, string>> = 
 };
 
 export interface PiReplacementFacts {
-	hasAdapter: boolean;
-	hasPackageModule: boolean;
+	verifiedSurfaces: readonly string[];
 }
 
 export interface PiReplacementVerification {
@@ -64,10 +63,9 @@ export function derivePiReplacementCommand(skillName: string): string | undefine
 
 export function verifyPiReplacement(skillName: string, facts: PiReplacementFacts): PiReplacementVerification {
 	const specialized = SPECIALIZED_SKILL_REPLACEMENTS[skillName];
-	if (specialized !== undefined) return { verified: true, surface: specialized };
-	const derived = derivePiReplacementCommand(skillName);
-	if (derived === undefined) return { verified: false };
-	return { verified: facts.hasAdapter && facts.hasPackageModule, surface: derived };
+	const surface = specialized ?? derivePiReplacementCommand(skillName);
+	if (surface === undefined) return { verified: false };
+	return { verified: facts.verifiedSurfaces.includes(surface), surface };
 }
 
 export function formatReplacementLabel(replacement: PiReplacementVerification): string {

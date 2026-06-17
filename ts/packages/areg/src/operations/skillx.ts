@@ -215,7 +215,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 	}
 	const selected = request.skill === undefined ? installedSkills[0] : installedSkills.find((skill) => skill.name === request.skill);
 	if (selected === undefined) {
-		await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot, cwd: ctx.cwd, env: ctx.env });
+		await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot });
 		const base = `Skill '${request.skill}' was not found in installed skills`;
 		return fetchNegative(base);
 	}
@@ -232,7 +232,7 @@ export async function runSkillxFetch(ctx: AregCliContext, request: SkillxFetchRe
 }
 
 export async function runSkillxCleanup(ctx: AregCliContext, request: SkillxCleanupRequest): Promise<ClinkrExit<SkillxCleanupResult>> {
-	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir, cwd: ctx.cwd, env: ctx.env });
+	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir });
 	if (cleanup.ok) return ok({ success: true, removed: request.dir });
 	return failure("cleanup_failed", cleanup.error.message);
 }

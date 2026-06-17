@@ -4,7 +4,11 @@ import { derivePiReplacementCommand, formatReplacementLabel, verifyPiReplacement
 
 describe("Pi replacement helpers", () => {
 	test("uses specialized replacements before derived names", () => {
-		expect(verifyPiReplacement("branch-context-from-plan", { hasAdapter: false, hasPackageModule: false })).toEqual({
+		expect(verifyPiReplacement("branch-context-from-plan", { verifiedSurfaces: [] })).toEqual({
+			verified: false,
+			surface: "branch-context:from-plan",
+		});
+		expect(verifyPiReplacement("branch-context-from-plan", { verifiedSurfaces: ["branch-context:from-plan"] })).toEqual({
 			verified: true,
 			surface: "branch-context:from-plan",
 		});
@@ -17,9 +21,10 @@ describe("Pi replacement helpers", () => {
 		expect(derivePiReplacementCommand("plain")).toBeUndefined();
 	});
 
-	test("requires both generic backing-skill files for derived replacements", () => {
-		expect(verifyPiReplacement("foo-bar", { hasAdapter: true, hasPackageModule: false })).toEqual({ verified: false, surface: "foo:bar" });
-		expect(verifyPiReplacement("foo-bar", { hasAdapter: true, hasPackageModule: true })).toEqual({ verified: true, surface: "foo:bar" });
+	test("verifies derived replacements against the explicit surface inventory", () => {
+		expect(verifyPiReplacement("foo-bar", { verifiedSurfaces: [] })).toEqual({ verified: false, surface: "foo:bar" });
+		expect(verifyPiReplacement("foo-bar", { verifiedSurfaces: ["foo:bar"] })).toEqual({ verified: true, surface: "foo:bar" });
+		expect(verifyPiReplacement("plain", { verifiedSurfaces: ["plain"] })).toEqual({ verified: false });
 		expect(formatReplacementLabel({ verified: true, surface: "foo:bar" })).toBe("replacement-verified:foo:bar");
 		expect(formatReplacementLabel({ verified: false })).toBe("replacement-missing");
 	});

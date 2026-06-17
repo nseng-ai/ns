@@ -54,7 +54,7 @@ describe("areg gateway fakes", () => {
 	test("project fake copies skill-kind facts, resolves specs, and logs primitive mutations", async () => {
 		const project: AregProjectGateway = new FakeAregProjectGateway({
 			piSettings: { skills: ["-skills/demo"] },
-			genericReplacement: { hasAdapter: true, hasPackageModule: false },
+			replacementSurfaces: ["demo"],
 			localSkills: [{ name: "demo", skillMd: "---\nname: demo\n---\n" }],
 		});
 
@@ -63,7 +63,7 @@ describe("areg gateway fakes", () => {
 		const first = await project.inspectLocalSkill({ projectDir: "/repo", skillName: "demo", env: {} });
 		expect(pi).toMatchObject({
 			piSettings: { type: "file", text: expect.stringContaining("-skills/demo") },
-			genericReplacement: { hasAdapter: true, hasPackageModule: false },
+			replacement: { verifiedSurfaces: ["demo"] },
 		});
 		expect(inventory.localSkillKindNames).toEqual(["demo"]);
 		expect(first).toMatchObject({ name: "demo", skillDir: { type: "directory" }, skillMd: { type: "file", text: "---\nname: demo\n---\n" } });
@@ -169,13 +169,13 @@ describe("areg gateway fakes", () => {
 			type: "ok",
 			workspace: { installedSkills: [{ relativeFiles: ["SKILL.md"] }] },
 		});
-		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace", cwd: "/repo", env: {} })).toEqual({ ok: true, value: undefined });
+		expect(await skillx.cleanupWorkspace({ workspaceRoot: "/tmp/workspace" })).toEqual({ ok: true, value: undefined });
 
 		const fake = skillx as FakeAregSkillxWorkspaceGateway;
 		expect(fake.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", cwd: "/repo" },
-			{ type: "cleanup-workspace", workspaceRoot: "/tmp/workspace", cwd: "/repo" },
+			{ type: "cleanup-workspace", workspaceRoot: "/tmp/workspace" },
 		]);
 	});
 });

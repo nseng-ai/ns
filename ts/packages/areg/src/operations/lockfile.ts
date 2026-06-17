@@ -2,7 +2,7 @@ import { formatErrorMessage, formatZodIssue } from "@asdl/core/primitives";
 import { resultErr, type Result } from "@asdl/core/result";
 import { z } from "zod";
 
-import type { AregCheckTextFileState } from "../gateways.ts";
+import type { AregTextFileState } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 
 export const SOURCE_TYPES = ["local", "github", "git", "gitlab"] as const;
@@ -67,7 +67,7 @@ export function parseLockfileText(text: string): Result<SkillsLockfile> {
 
 export function parseInspectedLockfile(input: {
 	projectDir: string;
-	lockfile: AregCheckTextFileState;
+	lockfile: AregTextFileState;
 }): Result<SkillsLockfile> {
 	if (input.lockfile.type !== "file") return resultErr({ code: "lockfile_missing", message: `skills-lock.json not found in ${input.projectDir}. Is this an areg project?` });
 	return parseLockfileText(input.lockfile.text);

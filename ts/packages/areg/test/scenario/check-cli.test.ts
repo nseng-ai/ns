@@ -127,8 +127,24 @@ describe("areg check CLI", () => {
 		const stdout = run.stdout.join("");
 		expect(stdout).toContain("invalid description: exceeds maximum length of 1024 characters");
 		expect(stdout).toContain("skills/invoke/agents/openai.yaml missing for invoke-only skill");
-		expect(stdout).toContain(".pi/settings.json missing -skills/invoke");
+		expect(stdout).not.toContain(".pi/settings.json missing -skills/invoke");
 		expect(stdout).toContain("exists but SKILL.md does not set disable-model-invocation: true");
+	});
+
+	test("reports missing Pi exclusion for command-backed skill-kind facts", async () => {
+		const run = runScenario(["check"], {
+			project: project({
+				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
+				replacementSurfaces: ["custom:command"],
+				checkSkills: [localSkill("custom-command", {
+					localSkillMd: { type: "file", text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n" },
+					openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+				})],
+			}),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain(".pi/settings.json missing -skills/custom-command for command-backed skill");
 	});
 
 	test("malformed Pi settings are hard command errors when local skills need conversion checks", async () => {
@@ -197,12 +213,15 @@ describe("areg check CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("reports missing Pi replacement for excluded derived skills", async () => {
+	test("reports missing Pi replacement for excluded command-backed skills", async () => {
 		const run = runScenario(["check"], {
 			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				piSettings: { skills: ["-skills/custom-command"] },
-				checkSkills: [localSkill("custom-command")],
+				checkSkills: [localSkill("custom-command", {
+					localSkillMd: { type: "file", text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n" },
+					openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+				})],
 			}),
 		});
 
