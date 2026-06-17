@@ -1,0 +1,69 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+import { afterEach, describe, expect, test } from "vitest";
+
+const tempRoots: string[] = [];
+
+async function makeTempRoot(prefix: string): Promise<string> {
+	const root = await mkdtemp(join(tmpdir(), prefix));
+	tempRoots.push(root);
+	return root;
+}
+
+afterEach(async () => {
+	await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+describe("areg source CLI shim rendering", () => {
+	test("renders adversarial canonical checkout paths as shell literals", async () => {
+		const tempRoot = await makeTempRoot("areg-shim-render-");
+		const executionRoot = await makeTempRoot("areg-shim-cwd-");
+		const outputPath = join(tempRoot, "areg-shim");
+		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
+		const installHint = "just install-areg or just install-tools";
+		const renderScriptPath = fileURLToPath(new URL("../../../../scripts/render-cli-shim.py", import.meta.url));
+		const templatePath = fileURLToPath(new URL("../../../../scripts/source-cli-shim-template", import.meta.url));
+
+		const render = spawnSync("python", [renderScriptPath], {
+			env: {
+				...process.env,
+				ASDL_TEMPLATE: templatePath,
+				ASDL_OUTPUT: outputPath,
+				ASDL_TOOL: "areg",
+				ASDL_CANONICAL_CHECKOUT: canonicalCheckout,
+				ASDL_CLI_REL_PATH: "ts/packages/areg/src/cli.ts",
+				ASDL_INSTALL_HINT: installHint,
+			},
+			encoding: "utf8",
+		});
+
+		expect(render.status).toBe(0);
+		expect(render.stderr).toBe("");
+
+		const rendered = await readFile(outputPath, "utf8");
+		expect(rendered).not.toContain("@@ASDL_");
+		expect(rendered).toContain("tool=areg\n");
+		expect(rendered).toContain("canonical_checkout='");
+		expect(rendered).toContain("'\"'\"'");
+		expect(rendered).not.toContain(`canonical_checkout=${canonicalCheckout}\n`);
+
+		const syntaxCheck = spawnSync("bash", ["-n", outputPath], { encoding: "utf8" });
+		expect(syntaxCheck.status).toBe(0);
+		expect(syntaxCheck.stderr).toBe("");
+
+		const run = spawnSync("bash", [outputPath], {
+			cwd: executionRoot,
+			encoding: "utf8",
+		});
+		expect(run.status).toBe(2);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toContain("areg: no asdl checkout found");
+		expect(run.stderr).toContain(canonicalCheckout);
+		expect(run.stderr).toContain("ts/packages/areg/src/cli.ts");
+		expect(run.stderr).toContain(installHint);
+	});
+});
