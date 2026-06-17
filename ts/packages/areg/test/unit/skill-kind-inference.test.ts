@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { inferSkillKindRecord, inspectSkillFrontmatter } from "../../src/operations/skill-kind.ts";
+import { inferSkillKindRecord, inspectSkillFrontmatter } from "../../src/operations/skill-kind-inference.ts";
 
 function record(skillMd: string, options: { hasCodexSidecar?: boolean; isPiExcluded?: boolean; replacementVerified?: boolean } = {}) {
 	const frontmatter = inspectSkillFrontmatter(skillMd, "SKILL.md");

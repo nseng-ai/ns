@@ -53,6 +53,10 @@ import { sortStrings } from "./sort.ts";
 const COMMAND_TIMEOUT_MS = 60_000;
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH = "ts/packages/pi-extensions/src/backing-skill-commands.ts";
+// Keep this mirror covering pi-extensions replacement command surfaces, including
+// backing skill commands and direct extension aliases used as skill replacements.
+// AREG intentionally does not import @asdl/pi-extensions: pi-extensions is a leaf
+// package for project-local Pi adapters, so shared packages must not depend on it.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = [
 	"branch-context:from-plan",
 	"branch-context:impl",

@@ -38,7 +38,10 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
   - Decision: finding A is complete via the lower-risk shared operation-layer core + thin wrappers, not a new durable gateway interface.
   - Evidence: `operations/project-inspection.ts` now owns shared core/facet helpers and wrappers for check, skill-kind, init, and update-skills; the branch diff against `areg-preflight-partial-state-evidence` shows those operations importing the shared wrappers instead of each owning bespoke project-inspection choreography.
   - Deferred-with-reason: splitting `real-gateways.ts` / `fake-gateways.ts` by capability is intentionally deferred because this slice did not require real/fake gateway edits, would be a broad monolith-file organization refactor rather than a project-inspection semantics fix, and can be revisited after the remaining `skill-kind.ts` decomposition proves the next capability seam.
-- [ ] Split `skill-kind.ts` into `{inference, apply-plan, frontmatter-edit}`; document why frontmatter parse and rewrite cannot share one parser (J).
+- [x] Split `skill-kind.ts` into `{inference, apply-plan, frontmatter-edit}`; document why frontmatter parse and rewrite cannot share one parser (J).
+  - Evidence: `ts/packages/areg/src/operations/skill-kind.ts` is now the CLI shell for schemas, handlers, renderers, and project resolution while focused internals live in `skill-kind-inference.ts`, `skill-kind-apply-plan.ts`, and `skill-kind-frontmatter.ts`; inference consumers import the focused module directly and `runSkillKindApply` remains the CLI-facing shell API.
+  - Rationale: `skill-kind-frontmatter.ts` documents that inference parses normalized key/value facts while apply planning rewrites source text and must preserve delimiter bounds, line endings, unrelated keys, and body text.
+  - Validation: `pnpm --dir ts run check` and `pnpm --dir ts run test -- ts/packages/areg/test/unit/skill-kind-inference.test.ts ts/packages/areg/test/scenario/skill-kind-list-show-cli.test.ts ts/packages/areg/test/scenario/skill-apply-cli.test.ts` passed; the workspace Vitest config observed 240 files / 2476 tests passing for the targeted command.
 
 ### Batch 5 — Opportunistic
 
