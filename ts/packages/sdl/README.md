@@ -163,14 +163,15 @@ Pi exposes the same capability as `/sdl:changes`; `/code:changes` is not retaine
 Checkpoint outstanding changes, then submit the current Graphite stack.
 
 ```bash
-sdl submit [--restack]
+sdl submit [--restack] [--verbose]
 ```
 
 Behavior:
 
 - runs the existing SDL checkpoint flow before submit when the worktree is dirty;
 - uses `@asdl/core/submit` for Graphite submit, PR metadata prewrite, current-PR verification, and PR-description generation;
-- streams live Graphite output through SDL runtime hooks while preserving command-owned final stdout/stderr;
+- prints concise phase-oriented progress by default while preserving captured Graphite output for PR-link extraction and failure diagnostics;
+- streams raw Graphite/subprocess output for debugging with `--verbose`;
 - prompts through `ctx.confirm` when Graphite reports a required restack, or runs restack directly with `--restack`;
 - asks the configured model to append a concise interpretation and recommended next steps to failed submit output when model access is available;
 - exposes the Pi mirror as `/sdl:submit` from SDL command metadata.

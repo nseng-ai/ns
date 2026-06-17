@@ -2,7 +2,7 @@ import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult }
 import type { GitGateway } from "../git/index.ts";
 
 import type { GithubPrGateway } from "./github-pr-gateway.ts";
-import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
+import { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
 	formatPreflightFailureOutput,
@@ -149,6 +149,7 @@ export interface RunSubmitCommandOptions {
 	gateway: SubmitGateway;
 	metadataGateway: SubmitMetadataGateway;
 	restack: boolean;
+	forwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
@@ -292,7 +293,7 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 			return failure(1, formatRestackDeclinedOutput(readiness.output));
 		}
 
-		const restackFailure = await runRestackBeforeSubmit(options.gateway, commandParams);
+		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
 		if (restackFailure !== undefined) {
 			return restackFailure;
 		}
@@ -370,9 +371,12 @@ async function shouldRunRestack(
 	return confirmed ? "run" : "declined";
 }
 
-async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: SubmitCommandParams): Promise<SubmitCommandResult | undefined> {
-	commandParams.onOutput?.("stderr", "sdl submit: running gt restack...\n");
-	const restack = await gateway.restackCurrentStack(commandParams);
+async function runRestackBeforeSubmit(
+	options: Pick<RunSubmitCommandOptions, "gateway" | "onOutput">,
+	commandParams: SubmitCommandParams,
+): Promise<SubmitCommandResult | undefined> {
+	emitSubmitProgress(options, "running gt restack");
+	const restack = await options.gateway.restackCurrentStack(commandParams);
 	if (restack.kind === "conflict") {
 		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
 	}
@@ -382,15 +386,42 @@ async function runRestackBeforeSubmit(gateway: SubmitGateway, commandParams: Sub
 	return undefined;
 }
 
-function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "onOutput">): SubmitCommandParams {
+function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "forwardCommandOutput" | "onOutput">): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
-		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
+		...(options.forwardCommandOutput === false || options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
 	};
 }
 
 function emitSubmitProgress(options: Pick<RunSubmitCommandOptions, "onOutput">, message: string): void {
-	options.onOutput?.("stderr", `sdl submit: ${message}...\n`);
+	options.onOutput?.("stderr", formatSubmitProgressLine(message));
+}
+
+function formatSubmitProgressLine(message: string): string {
+	const normalized = message.replace(/\.\.\.$/, "…");
+	const line = formatSubmitProgressMessage(normalized);
+	return `${line}\n`;
+}
+
+function formatSubmitProgressMessage(message: string): string {
+	switch (message) {
+		case "checking Graphite submit readiness":
+			return "• Preflight: checking Graphite submit readiness…";
+		case "Graphite requires a restack before submit":
+			return "• Preflight: Graphite requires a restack before submit";
+		case "running gt restack":
+			return "• Preflight: running gt restack…";
+		case "preparing PR metadata before submit":
+			return "• Metadata: preparing PR metadata before submit…";
+		case "running gt submit":
+			return "• Submit: running gt submit…";
+		case "verifying submitted PRs":
+			return "• Verification: checking submitted PR…";
+		case "generating or validating PR descriptions":
+			return "• Descriptions: generating or validating PR descriptions…";
+		default:
+			return `  … ${message}`;
+	}
 }
 
 function shouldFailPostSubmitVerification(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {
@@ -441,13 +472,19 @@ function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): str
 
 function mergePrLinks(first: readonly SubmitPrLink[], second: readonly SubmitPrLink[]): SubmitPrLink[] {
 	const links: SubmitPrLink[] = [];
-	const seenUrls = new Set<string>();
+	const seenKeys = new Set<string>();
 	for (const link of [...first, ...second]) {
-		if (seenUrls.has(link.url)) continue;
-		seenUrls.add(link.url);
+		const key = prLinkIdentityKey(link);
+		if (seenKeys.has(key)) continue;
+		seenKeys.add(key);
 		links.push({ ...link });
 	}
 	return links;
+}
+
+function prLinkIdentityKey(link: SubmitPrLink): string {
+	const number = prNumberFromUrl(link.url) ?? link.label.match(/^#(\d+)$/)?.[1];
+	return number === undefined ? link.url : `pr:${number}`;
 }
 
 function detectRestackNeeded(output: string): boolean {
