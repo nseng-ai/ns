@@ -472,7 +472,7 @@ describe("worktree status extension registration", () => {
 				},
 			);
 
-			expect(footer.render(200).map(stripTerminalEscapes)[1]).toContain("?/272k (auto)");
+			expect(footer.render(200).map(stripTerminalEscapes).some((line) => line.includes("?/272k (auto)"))).toBe(true);
 			await pi.sessionShutdown?.();
 		});
 	});
@@ -544,7 +544,7 @@ describe("worktree status extension registration", () => {
 						return "handoffs-graphite-footer-lines";
 					},
 					getExtensionStatuses() {
-						return statuses;
+						return new Map([...statuses, ["sdl-submit", "/sdl:submit running CLI command (23s)"]]);
 					},
 					getAvailableProviderCount() {
 						return 1;
@@ -557,8 +557,10 @@ describe("worktree status extension registration", () => {
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
 			expect(footerLines[0]).toBe(`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:feature/current ↓:main commits:1 ↑:-`);
-			expect(footerLines).toContain("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
-			expect(footerLines).toContain("[gh] no PR");
+			expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
+			expect(footerLines[2]).toBe("[gh] no PR");
+			expect(footerLines[3]).toContain("18.2%/272k (auto)");
+			expect(footerLines.at(-1)).toBe("/sdl:submit running CLI command (23s)");
 			expect(footerLines).not.toContain("[gt] ↓ main · ↑ - · 1 commit");
 			await pi.sessionShutdown?.();
 		});

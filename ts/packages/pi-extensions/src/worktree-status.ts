@@ -102,6 +102,11 @@ interface StatusFooterRenderOptions {
 	gt?: GtStatus | undefined;
 }
 
+interface FooterExtensionStatusLines {
+	worktreeState: string[];
+	activity: string[];
+}
+
 type StatusFooterFactory = (
 	tui: StatusFooterTui,
 	theme: StatusTheme,
@@ -571,10 +576,14 @@ function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
 	const identity = formatFooterIdentity(cwd, branch, process.env.HOME || process.env.USERPROFILE, width, gt);
 
+	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
 	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
-	const lines = [identity, statsLine];
-	for (const statusLine of formatExtensionStatusLines(footerData.getExtensionStatuses())) {
-		if (isMergedGtFooterLine(statusLine)) continue;
+	const lines = [identity];
+	for (const statusLine of footerStatusLines.worktreeState) {
+		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
+	}
+	lines.push(statsLine);
+	for (const statusLine of footerStatusLines.activity) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	return lines;
@@ -816,27 +825,33 @@ function formatFooterTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
-function formatExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): string[] {
-	const statusLines: string[] = [];
-	let compactStatusParts: string[] = [];
+function formatFooterExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): FooterExtensionStatusLines {
+	const worktreeState: string[] = [];
+	const activity: string[] = [];
+	let compactActivityParts: string[] = [];
 
-	for (const [, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+	for (const [key, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
 		const sanitizedLines = sanitizeStatusLines(text);
-		if (sanitizedLines.length <= 1) {
-			const line = sanitizedLines[0];
-			if (line !== undefined) compactStatusParts.push(line);
+		if (key === WORKTREE_STATUS_UI_KEY) {
+			worktreeState.push(...sanitizedLines.filter((line) => !isMergedGtFooterLine(line)));
 			continue;
 		}
 
-		if (compactStatusParts.length > 0) {
-			statusLines.push(compactStatusParts.join(" "));
-			compactStatusParts = [];
+		if (sanitizedLines.length <= 1) {
+			const line = sanitizedLines[0];
+			if (line !== undefined) compactActivityParts.push(line);
+			continue;
 		}
-		statusLines.push(...sanitizedLines);
+
+		if (compactActivityParts.length > 0) {
+			activity.push(compactActivityParts.join(" "));
+			compactActivityParts = [];
+		}
+		activity.push(...sanitizedLines);
 	}
 
-	if (compactStatusParts.length > 0) statusLines.push(compactStatusParts.join(" "));
-	return statusLines;
+	if (compactActivityParts.length > 0) activity.push(compactActivityParts.join(" "));
+	return { worktreeState, activity };
 }
 
 function sanitizeStatusLines(text: string): string[] {
