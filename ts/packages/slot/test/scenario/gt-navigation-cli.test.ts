@@ -43,8 +43,8 @@ describe("slot gt navigation CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const output = parseJsonOutput(run);
-		expect(output).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/parent", is_already_assigned: false, was_clipboard_skipped: true } });
-		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything(), clipboard_skipped: expect.anything() } });
+		expect(output).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/parent", is_already_assigned: false, is_clipboard_skipped: true } });
+		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything(), clipboard_skipped: expect.anything(), was_clipboard_skipped: expect.anything() } });
 		expect(run.git.operations()).toEqual([{ type: "checkout-branch", path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/parent" }]);
 	});
 

@@ -40,7 +40,7 @@ export async function runShellInstall(ctx: SlotCliContext, request: ShellInstall
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
 	const rcPath = rcPathForShell(selected.shell, ctx.env);
 	const installed = await installMarkerBlock({ rcPath, beginMarker: shellIntegrationBeginMarker, payload: renderShellWrapperScript(), endMarker: shellIntegrationEndMarker });
-	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.alreadyInstalled });
+	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.isAlreadyInstalled });
 }
 
 export function renderShellShow(result: ShellShowResult): string {

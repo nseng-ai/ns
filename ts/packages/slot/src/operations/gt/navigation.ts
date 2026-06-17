@@ -14,8 +14,8 @@ export interface GtNavigationResult {
 	is_already_assigned: boolean;
 	worktree_path: string;
 	cd_command: string;
-	was_clipboard_copied: boolean;
-	was_clipboard_skipped: boolean;
+	is_clipboard_copied: boolean;
+	is_clipboard_skipped: boolean;
 	clipboard_failure_reason: "backend_missing" | "subprocess_error" | null;
 	clipboard_failure_detail: string | null;
 }
@@ -53,8 +53,8 @@ export async function buildGtNavigationResult(ctx: SlotCliContext, resolution: W
 		is_already_assigned: resolution.isAlreadyAssigned,
 		worktree_path: navigation.worktree_path,
 		cd_command: navigation.cd_command,
-		was_clipboard_copied: navigation.clipboard_copied,
-		was_clipboard_skipped: navigation.clipboard_skipped,
+		is_clipboard_copied: navigation.clipboard_copied,
+		is_clipboard_skipped: navigation.clipboard_skipped,
 		clipboard_failure_reason: navigation.clipboard_failure_reason,
 		clipboard_failure_detail: navigation.clipboard_failure_detail,
 	};
@@ -73,8 +73,8 @@ function toNavigationResultFields(result: GtNavigationResult): NavigationResultF
 	return {
 		worktree_path: result.worktree_path,
 		cd_command: result.cd_command,
-		clipboard_copied: result.was_clipboard_copied,
-		clipboard_skipped: result.was_clipboard_skipped,
+		clipboard_copied: result.is_clipboard_copied,
+		clipboard_skipped: result.is_clipboard_skipped,
 		clipboard_failure_reason: result.clipboard_failure_reason,
 		clipboard_failure_detail: result.clipboard_failure_detail,
 	};

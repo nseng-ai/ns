@@ -41,7 +41,7 @@ export async function runCompletionInstall(ctx: SlotCliContext, request: Complet
 	const script = renderCompletionScript(selected.shell);
 	const rcPath = rcPathForShell(selected.shell, ctx.env);
 	const installed = await installMarkerBlock({ rcPath, beginMarker: completionBeginMarker, payload: script, endMarker: completionEndMarker });
-	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.alreadyInstalled });
+	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.isAlreadyInstalled });
 }
 
 export function renderCompletionShow(result: CompletionShowResult): string {

@@ -20,7 +20,7 @@ export interface InstallMarkerBlockOptions {
 
 export interface InstallMarkerBlockResult {
 	rcPath: string;
-	alreadyInstalled: boolean;
+	isAlreadyInstalled: boolean;
 }
 
 export function resolveRequestedShell(raw: string | undefined, env: NodeJS.ProcessEnv): { type: "ok"; shell: SupportedShell } | { type: "failure"; failure: UnsupportedShellFailure } {
@@ -46,12 +46,12 @@ export function buildMarkerBlock(options: { beginMarker: string; payload: string
 
 export async function installMarkerBlock(options: InstallMarkerBlockOptions): Promise<InstallMarkerBlockResult> {
 	const existing = existsSync(options.rcPath) ? await readFile(options.rcPath, "utf8") : "";
-	if (existing.includes(options.beginMarker)) return { rcPath: options.rcPath, alreadyInstalled: true };
+	if (existing.includes(options.beginMarker)) return { rcPath: options.rcPath, isAlreadyInstalled: true };
 	await mkdir(dirname(options.rcPath), { recursive: true });
 	const block = buildMarkerBlock(options);
 	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
 	await writeFile(options.rcPath, `${existing}${separator}${block}`, "utf8");
-	return { rcPath: options.rcPath, alreadyInstalled: false };
+	return { rcPath: options.rcPath, isAlreadyInstalled: false };
 }
 
 function isSupportedShell(value: string): value is SupportedShell {
