@@ -31,6 +31,11 @@
       "sourceType": "local",
       "computedHash": "06cf2b56426fff66e7f80ceccfdbb1ac5bd4d826946897cb3d45541c52a537b1"
     },
+    "ccc-branch-triage": {
+      "source": "skills/ccc-branch-triage",
+      "sourceType": "local",
+      "computedHash": "73312c80c6e5a2cbdcbb63d3881ae4e5e2c09a929d6f31066d6e833ff55fee61"
+    },
     "ccc-sidebar": {
       "source": "skills/ccc-sidebar",
       "sourceType": "local",
