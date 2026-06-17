@@ -158,8 +158,9 @@ describe("areg init CLI", () => {
 		expect(conflict.projectGateway.operations()).toEqual([]);
 
 		const npxFail = runInit([], { npxSkills: { failure: { code: "boom", message: "boom" } } });
-		expect(await npxFail.exit).toBe(2);
+		expect(await npxFail.exit).toBe(1);
 		expect(npxFail.stderr.join("")).toContain("npx skills add failed: boom");
+		expect(npxFail.stderr.join("")).not.toContain("\"operations\"");
 		expect(npxFail.projectGateway.text("asdl.toml")).toBeUndefined();
 	});
 
@@ -189,5 +190,75 @@ describe("areg init CLI", () => {
 				skipped_files: [],
 			},
 		});
+	});
+
+	test("JSON preflight failure reports mutation evidence and skips npx", async () => {
+		const run = runInit(["--format", "json"], { project: { preflightFailures: { "AGENTS.md": { code: "blocked", message: "blocked" } } } });
+
+		expect(await run.exit).toBe(1);
+		const output = JSON.parse(run.stdout.join(""));
+		expect(output).toMatchObject({
+			exit_code: 1,
+			data: {
+				mutation_failed: true,
+				project_dir: "/repo",
+				agents: ["codex", "claude-code"],
+				bootstrap_repo: BOOTSTRAP_REPO,
+				bootstrap_skills: ["skill-management", "skillx"],
+				operations: [
+					{ type: "external", path: "npx skills add", status: "not_attempted" },
+					{ type: "write", path: "asdl.toml", status: "not_attempted" },
+					{ type: "write", path: "AGENTS.md", status: "failed", error: { code: "blocked", message: "blocked" } },
+					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+				],
+			},
+		});
+		expect(run.npxSkills.operations()).toEqual([]);
+		expect(run.projectGateway.text("asdl.toml")).toBeUndefined();
+	});
+
+	test("JSON npx failure reports external failure and not-attempted file writes", async () => {
+		const run = runInit(["--format", "json"], { npxSkills: { failure: { code: "boom", message: "boom" } } });
+
+		expect(await run.exit).toBe(1);
+		const output = JSON.parse(run.stdout.join(""));
+		expect(output).toMatchObject({
+			exit_code: 1,
+			data: {
+				mutation_failed: true,
+				operations: [
+					{ type: "external", path: "npx skills add", status: "failed", error: { code: "boom", message: "boom" } },
+					{ type: "write", path: "asdl.toml", status: "not_attempted" },
+					{ type: "write", path: "AGENTS.md", status: "not_attempted" },
+					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+				],
+			},
+		});
+		expect(run.projectGateway.text("asdl.toml")).toBeUndefined();
+	});
+
+	test("JSON file execution failure reports applied external and partial file statuses", async () => {
+		const run = runInit(["--format", "json"], { project: { mutationFailures: { "AGENTS.md": { code: "write-blocked", message: "write blocked" } } } });
+
+		expect(await run.exit).toBe(1);
+		const output = JSON.parse(run.stdout.join(""));
+		expect(output).toMatchObject({
+			exit_code: 1,
+			data: {
+				mutation_failed: true,
+				operations: [
+					{ type: "external", path: "npx skills add", status: "applied" },
+					{ type: "write", path: "asdl.toml", status: "applied" },
+					{ type: "write", path: "AGENTS.md", status: "failed", error: { code: "write-blocked", message: "write blocked" } },
+					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+				],
+			},
+		});
+		expect(run.npxSkills.operations()).toHaveLength(1);
+		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
+		expect(run.projectGateway.text("AGENTS.md")).toBeUndefined();
 	});
 });

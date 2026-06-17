@@ -87,17 +87,19 @@ Assumptions:
 - The combined review's line-level claims (e.g., the dead `runner` field, the dead `errorInfo` export, the worktree `.git`-as-file path) are accurate; the safe-deletion items (F, B, H) should be grep-verified once before acting.
 - The existing fake-driven gateway/scenario tests are sufficient to keep Batch 1 behavior-preserving without new infrastructure.
 - The standalone `areg` CLI and its current user-facing/agent-facing contracts remain the durable surface during this cleanup.
+- Batch 3 resolved finding E by choosing preflight plus explicit partial-state evidence instead of rollback; external `npx skills add` effects remain intentionally non-rollbackable but are reported as a named operation in init failure evidence.
 
 Risks:
 
 - **F is a live behavioral bug, not taste:** linked worktrees silently miss exclusions today; deferring it ships wrong results. It is prioritized first for that reason.
 - The skill-kind unification (C) and replacement-contract change (D) touch real semantics across two commands; a careless merge could change `areg check` diagnostics. Mitigate by unifying behind one classifier with tests before deleting `checkInvokeOnly`.
+- Batch 3's preflight-first design does not promise filesystem or external-command atomicity; it mitigates predictable areg-owned validation failures before mutation and makes post-preflight partial state machine-readable when execution still fails.
 - The gateway-collapse (A) is the highest-leverage but highest-cost item; sequencing it before C/D would mean redoing it once the skill-kind model changes what gateways must expose. It is intentionally last and may be deferred-with-reason rather than forced.
 - Decomposition/version items (J, K) are taste/nice-to-have; the risk is over-investing in them. They are last and explicitly eligible for deferral.
 - If the parent `areg-typescript-port` Objective is closed without pointing here, this parked cleanup could be lost; updating that Objective to reference this slug is advisable but is out of this Objective's mutation scope.
 
 ## Open Questions
 
-- For E, is rollback genuinely out of scope (preflight-only, with partial-state evidence on failure), or should at least `runInit` become atomic? Resolve before implementing Batch 3.
+- For E, resolved by Batch 3: rollback is out of scope; the accepted contract is preflight-only for areg-owned mutations plus explicit partial-state evidence for execution-time and external-operation failures.
 - For A, do we commit to one `AregProjectInspectionGateway`, or stop at the shared `inspectProject` core with thin per-feature wrappers? Decide at the start of Batch 4.
 - For K, can `buildCli` read the package version at runtime under the Node ESM/pnpm build, or does bundling make the `cli.ts` literal the pragmatic single source? Confirm before touching version wiring.

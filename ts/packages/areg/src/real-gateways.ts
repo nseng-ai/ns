@@ -312,17 +312,24 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		return { type: "ok", skillName: resolved.skillName };
 	}
 
+	async preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
+		const target = await resolveWriteTextFileTarget(request);
+		return target.type === "error" ? { ok: false, error: target.error } : { ok: true };
+	}
+
+	async preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
+		const target = await resolveDeleteFileTarget(request);
+		return target.type === "error" ? { ok: false, error: target.error } : { ok: true };
+	}
+
+	async preflightRemoveEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectMutationResult> {
+		const target = await resolveRemoveEmptyDirTarget(request);
+		return target.type === "error" ? { ok: false, error: target.error } : { ok: true };
+	}
+
 	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
-		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
-		const target = request.policy === "init"
-			? resolveAllowedInitTarget(projectRoot.value, request)
-			: resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		const target = await resolveWriteTextFileTarget(request);
 		if (target.type === "error") return { ok: false, error: target.error };
-		const validation = request.policy === "init"
-			? await validateInitWriteTarget(target.value, projectRoot.value, request)
-			: await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: request.createParent, description: request.description });
-		if (!validation.ok) return validation;
 		if (request.createParent) {
 			try {
 				await mkdir(path.dirname(target.value), { recursive: true });
@@ -331,8 +338,8 @@ export class RealAregProjectGateway implements AregProjectGateway {
 				return { ok: false, error: errorInfo(code, `Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`) };
 			}
 			const revalidation = request.policy === "init"
-				? await validateInitWriteTarget(target.value, projectRoot.value, request)
-				: await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: request.createParent, description: request.description });
+				? await validateInitWriteTarget(target.value, target.projectRoot, request)
+				: await validateSkillKindWriteTarget({ target: target.value, projectRoot: target.projectRoot, shouldCreateParent: request.createParent, description: request.description });
 			if (!revalidation.ok) return revalidation;
 		}
 		try {
@@ -345,12 +352,8 @@ export class RealAregProjectGateway implements AregProjectGateway {
 	}
 
 	async deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
-		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
-		const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		const target = await resolveDeleteFileTarget(request);
 		if (target.type === "error") return { ok: false, error: target.error };
-		const validation = await validateSkillKindDeleteTarget(target.value, projectRoot.value, request.description);
-		if (!validation.ok) return validation;
 		try {
 			await rm(target.value);
 			return { ok: true };
@@ -360,13 +363,9 @@ export class RealAregProjectGateway implements AregProjectGateway {
 	}
 
 	async removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult> {
-		const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-		if (projectRoot.type === "error") return { ok: false, error: projectRoot.error };
-		const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+		const target = await resolveRemoveEmptyDirTarget(request);
 		if (target.type === "error") return { ok: false, error: target.error };
-		const validation = await validateSkillKindRemoveDirTarget(target.value, projectRoot.value, request.description);
-		if (!validation.ok) return validation;
-		if (!validation.exists) return { ok: true, removed: false };
+		if (!target.exists) return { ok: true, removed: false };
 		try {
 			await rmdir(target.value);
 			return { ok: true, removed: true };
@@ -375,6 +374,40 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			return { ok: false, error: errorInfo("skill-kind-remove-dir-failed", `Failed to remove ${request.description} at ${target.value}: ${formatErrorMessage(error)}`) };
 		}
 	}
+}
+
+async function resolveWriteTextFileTarget(request: AregProjectTextWriteRequest): Promise<{ type: "ok"; value: string; projectRoot: string } | { type: "error"; error: AregErrorInfo }> {
+	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
+	const target = request.policy === "init"
+		? resolveAllowedInitTarget(projectRoot.value, request)
+		: resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+	if (target.type === "error") return { type: "error", error: target.error };
+	const validation = request.policy === "init"
+		? await validateInitWriteTarget(target.value, projectRoot.value, request)
+		: await validateSkillKindWriteTarget({ target: target.value, projectRoot: projectRoot.value, shouldCreateParent: request.createParent, description: request.description });
+	if (!validation.ok) return { type: "error", error: validation.error };
+	return { type: "ok", value: target.value, projectRoot: projectRoot.value };
+}
+
+async function resolveDeleteFileTarget(request: AregProjectFileDeleteRequest): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
+	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
+	const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+	if (target.type === "error") return { type: "error", error: target.error };
+	const validation = await validateSkillKindDeleteTarget(target.value, projectRoot.value, request.description);
+	if (!validation.ok) return { type: "error", error: validation.error };
+	return { type: "ok", value: target.value };
+}
+
+async function resolveRemoveEmptyDirTarget(request: AregProjectRemoveEmptyDirRequest): Promise<{ type: "ok"; value: string; exists: boolean } | { type: "error"; error: AregErrorInfo }> {
+	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
+	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
+	const target = resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+	if (target.type === "error") return { type: "error", error: target.error };
+	const validation = await validateSkillKindRemoveDirTarget(target.value, projectRoot.value, request.description);
+	if (!validation.ok) return { type: "error", error: validation.error };
+	return { type: "ok", value: target.value, exists: validation.exists };
 }
 
 export function buildNpxSkillsAddArgs(request: AregNpxSkillsAddRequest): string[] {

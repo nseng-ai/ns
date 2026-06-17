@@ -46,6 +46,9 @@ export type FakeAregProjectOperation =
 	| { type: "inspect-pairing-directories"; projectDir: string }
 	| { type: "read-locally-excluded-skill-names"; projectDir: string }
 	| { type: "resolve-local-skill-spec"; projectDir: string; spec: string; cwd: string }
+	| ({ type: "preflight-write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
+	| ({ type: "preflight-delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
+	| ({ type: "preflight-remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">)
 	| ({ type: "write-text-file" } & Omit<AregProjectTextWriteRequest, "env">)
 	| ({ type: "delete-file" } & Omit<AregProjectFileDeleteRequest, "env">)
 	| ({ type: "remove-empty-dir" } & Omit<AregProjectRemoveEmptyDirRequest, "env">);
@@ -89,6 +92,7 @@ export interface FakeAregProjectGatewayOptions {
 	localSkills?: readonly FakeAregSkillKindSkillOptions[] | undefined;
 	pairingDirectories?: readonly AregCheckPairingDirectory[] | undefined;
 	resolveFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
+	preflightFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
 	mutationFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
 	applyFailure?: AregErrorInfo | undefined;
 }
@@ -108,6 +112,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly localSkills: AregSkillKindSkillInspection[];
 	private readonly pairingDirectories: readonly AregCheckPairingDirectory[];
 	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
+	private readonly preflightFailures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly mutationFailures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly log: FakeAregProjectOperation[] = [];
 
@@ -134,6 +139,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		this.localSkills = (options.localSkills ?? []).map(copyFakeSkillKindSkill);
 		this.pairingDirectories = (options.pairingDirectories ?? []).map(copyPairingDirectory);
 		this.resolveFailures = new Map(Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
+		this.preflightFailures = new Map(Object.entries(options.preflightFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
 		const mutationFailures = options.applyFailure === undefined ? options.mutationFailures : { ...(options.mutationFailures ?? {}), "*": options.applyFailure };
 		this.mutationFailures = new Map(Object.entries(mutationFailures ?? {}).map(([key, value]) => [key, copyErrorInfo(value)]));
 	}
@@ -214,6 +220,32 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		return { type: "ok", skillName };
 	}
 
+	async preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
+		this.log.push({
+			type: "preflight-write-text-file",
+			projectDir: request.projectDir,
+			relativePath: request.relativePath,
+			content: request.content,
+			description: request.description,
+			createParent: request.createParent,
+			policy: request.policy,
+		});
+		const failure = this.preflightFailure(request.relativePath);
+		return failure === undefined ? { ok: true } : { ok: false, error: failure };
+	}
+
+	async preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult> {
+		this.log.push({ type: "preflight-delete-file", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+		const failure = this.preflightFailure(request.relativePath);
+		return failure === undefined ? { ok: true } : { ok: false, error: failure };
+	}
+
+	async preflightRemoveEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectMutationResult> {
+		this.log.push({ type: "preflight-remove-empty-dir", projectDir: request.projectDir, relativePath: request.relativePath, description: request.description, policy: request.policy });
+		const failure = this.preflightFailure(request.relativePath);
+		return failure === undefined ? { ok: true } : { ok: false, error: failure };
+	}
+
 	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
 		this.log.push({
 			type: "write-text-file",
@@ -261,6 +293,11 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 
 	private fileState(relativePath: string): AregTextFileState {
 		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
+	}
+
+	private preflightFailure(relativePath: string): AregErrorInfo | undefined {
+		const failure = this.preflightFailures.get(relativePath) ?? this.preflightFailures.get("*");
+		return failure === undefined ? undefined : copyErrorInfo(failure);
 	}
 
 	private mutationFailure(relativePath: string): AregErrorInfo | undefined {

@@ -225,6 +225,9 @@ export interface AregProjectGateway {
 	inspectPairingDirectories(request: AregProjectDirRequest): Promise<readonly AregCheckPairingDirectory[]>;
 	readLocallyExcludedSkillNames(request: AregProjectDirRequest): Promise<readonly string[]>;
 	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
+	preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
+	preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
+	preflightRemoveEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectMutationResult>;
 	writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
 	removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult>;
