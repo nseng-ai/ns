@@ -77,6 +77,13 @@ describe("PR description helpers", () => {
 		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
 	});
 
+	test("treats duplicate managed generated regions as malformed", () => {
+		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const region = formatManagedGeneratedRegion("Generated body", metadata);
+
+		expect(parseManagedGeneratedRegion(`${region}\n\n${region}`)).toMatchObject({ type: "malformed" });
+	});
+
 	test("legacy generated marker bodies regenerate as fully machine-owned", () => {
 		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
 
