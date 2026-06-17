@@ -21,6 +21,8 @@ For git-backed state capabilities, storage contracts outrank Python module shape
 
 `areg` broadened inventory beyond command bytes into managed repository artifacts. Durable contracts included `.agents/skills` / `.claude/skills` layouts, `skills-lock.json`, `asdl.toml` `[areg].agents`, legacy `areg.json` fallback where still supported, managed instruction blocks, `.pi/settings.json` replacement state, Codex sidecar files, hidden `exec skillx` envelopes, and external `npx skills` / `gh api` boundaries. Legacy command-conversion spelling was reclassified into the flattened `areg skill apply|list|show` surface by the child Objective before final cutover, so inventory can intentionally retire obsolete user paths when the Objective records that decision.
 
+`objective` showed the same pattern for checked-in Markdown state: durable contracts were active/archive Objective roots, closure marker semantics, hidden `objective exec` skill commands, first-party Pi/CCC JSON consumers, and the standalone `objective` command. The `asdl objective` plugin path was retired rather than ported after inventory found no active callers, while Objective-local legacy machine-output projections were deliberately retained as a compatibility gate for current consumers.
+
 ## 2. Port in vertical slices
 
 Prefer one small deterministic operation first, then expand through adjacent surfaces only after seams are proven.
@@ -81,6 +83,8 @@ Before deletion:
 
 `areg` showed the deletion checklist for repo-local caller cutover: update just recipes, CI paths that invoke those recipes, skill instructions, install recipes, and hidden helper guidance; prove the runtime reports TypeScript; grep for active `uv run areg`, `areg.cli:main`, and `packages/areg` callers; then remove Python workspace wiring and package files in the same retirement window. It had no top-level `asdl` plugin to retire; repo-local callers moved to the TypeScript source CLI/shim, tracked `packages/areg` Python files were deleted, and rollback/reference evidence is in-repo commit `18f25c34720f2422881afe93084d569f0d071dfd`, the parent of deletion commit `eb5785fc3`.
 
+`objective` confirmed that a Python plugin can be retired without a replacement when active callers use the standalone CLI. Its retirement window removed the plugin smoke test, root workspace/source/dev/plugin/test/build/Ruff/ty references, install/docs references to `uv tool install asdl-objectives` and `asdl objective`, and the `packages/asdl-objectives` tree. Rollback/reference evidence is in-repo commit `1b1bb1fa44ad`; restoring the deleted Python implementation also requires restoring the removed root manifest/test/build references.
+
 ## 6. Treat distribution as a product decision
 
 Do not inherit either the old Python `uvx` distribution model or `pr-address`'s run-from-source shim by default. Decide distribution from actual consumers.
@@ -96,6 +100,8 @@ For `areg`, repo-local TypeScript source invocation plus the `just install-areg`
 These are capability-specific evidence for completed ports, not blanket requirements for `objective` or later ports; later ports still need their own consumer-backed distribution decision.
 
 For `areg`, repo-local TypeScript source invocation plus the `install-areg` shim was enough for current callers after skills and just recipes were updated; external installed use beyond a checkout remained parked rather than keeping Python `uvx areg` alive. Treat "delete Python now, park external distribution" as valid only when actual callers are repo-local and the parked distribution question is recorded clearly.
+
+For `objective`, the same source-shim model now covers a formerly Python-only standalone CLI with checked-in Markdown storage. `just install-objective` installs the TypeScript shim and removes stale project-venv `objective` scripts so an activated Python development environment cannot shadow the TypeScript command; `install-tools` depends on that shim instead of installing `packages/asdl-objectives` as an editable uv tool.
 
 ## 7. Record Semantic Updates at decision points
 

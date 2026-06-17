@@ -20,10 +20,13 @@ before they choose the next command.
 
 ## Install
 
+`objective` is installed from an asdl checkout with a TypeScript source shim.
+This requires Node 24 or newer.
+
 ```bash
-uv tool install asdl-objectives
+just install-objective
 objective --help
-asdl objective --help
+objective --runtime
 ```
 
 ## Common commands

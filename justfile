@@ -91,6 +91,13 @@ install-areg: (_install-ts-shim "areg" "ts/packages/areg/src/cli.ts" "just insta
     rm -f "{{justfile_directory()}}/.venv/bin/areg"
     @echo "removed stale project venv areg script if present"
 
+# Install the objective shim to ~/.local/bin so `objective` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-objective: (_install-ts-shim "objective" "ts/packages/objective/src/cli.ts" "just install-objective or just install-tools")
+    rm -f "{{justfile_directory()}}/.venv/bin/objective"
+    @echo "removed stale project venv objective script if present"
+
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
     rm -f "$HOME/.local/bin/{{tool}}"
@@ -125,12 +132,11 @@ areg-check: ts-install
 refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
-# Install public tools: slot and objective as editable uv tools;
-# brmem, handoff, and areg via TypeScript source shims.
-install-tools: install-brmem install-handoff install-areg
+# Install public tools: slot as an editable uv tool;
+# brmem, handoff, areg, and objective via TypeScript source shims.
+install-tools: install-brmem install-handoff install-areg install-objective
     uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
-    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-objectives
-    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective"
+    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective (TypeScript shim)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
@@ -141,5 +147,5 @@ clean:
     find . -type f -name "*.pyc" -delete || true
 
 publish: clean check
-    uv build --package asdl-tools --package asdl-core --package asdl-dispatcher --package asdl-objectives --package aretro --package asdl-slots --package vibechk
+    uv build --package asdl-tools --package asdl-core --package asdl-dispatcher --package aretro --package asdl-slots --package vibechk
     uv publish

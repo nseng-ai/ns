@@ -113,27 +113,45 @@ Assumptions:
 
 - Objective meaning should remain in checked-in Markdown and skills/agents, not inside a richer CLI state machine.
 - The existing Python tests encode most durable CLI contracts, but some Click/Python parser bytes may be incidental and can be deliberately reclassified.
-- Recent `brmem`, `handoff`, `areg`, and especially `pr-address` run-from-source TypeScript shim models are the accepted default for Objective; fresh cutover evidence found no Objective-specific reason to reject that model.
-- A package-local fake-driven design has been sufficient for the Objective port slices completed so far; no shared extraction is needed before final cutover unless implementation uncovers a second real consumer.
-- Runner subagents can safely implement the remaining workstream in one parent `objective-stack-impl` session when the parent creates a small Graphite stack, delegates one branch at a time, verifies each result, and records Objective updates after meaningful slices.
-- The current installed checkout command still resolves to the Python implementation (`.venv/bin/objective`, `runtime: python`), while direct TypeScript source invocation (`node ts/packages/objective/src/cli.ts`) works and reports `runtime: typescript`; the install/cutover row should flip the normal local `objective` command to the TypeScript source shim.
-- Current first-party JSON consumers are known and finite: Pi/CCC selection uses `objective list --minimal --format json`, CCC objective sidebar validation uses `objective exec read-objective <slug> --format json`, and Pi Objective typeahead uses `objective exec list-candidates --format json`.
+- Confirmed: recent `brmem`, `handoff`, `areg`, and `pr-address` run-from-source TypeScript shim models were the accepted default for Objective; final cutover installed `objective` through the same shim model.
+- Confirmed: a package-local fake-driven design was sufficient for the Objective port; no shared extraction was needed before final cutover.
+- Superseded: runner subagent orchestration was available for remaining workstream execution, but the final cutover landed directly in one session with full validation evidence.
+- Resolved: the installed checkout command now resolves to the TypeScript shim, and `objective --runtime` reports `runtime: typescript`.
+- Confirmed: current first-party JSON consumers are finite and remained compatible through retained Objective-local `legacyMachine` projections for Objective commands.
 
 Risks:
 
-- Skill, Pi extension, and CCC wrappers rely on subtle `objective exec` or `--format md/json` behavior that is broader than package-local Python tests. Fresh evidence narrowed this to the first-party JSON consumers named above plus Markdown skill reads; keep those consumers green during the JSON-envelope cutover.
-- Retiring `asdl objective` too early could break plugin smoke tests or docs. Fresh grep outside Objective records found no active skill/Pi/CCC `asdl objective` callers; remaining references are the Python plugin implementation, `tests/scenario/test_plugins.py::test_objective_plugin_integration`, and docs-site install prose that currently advertises `asdl objective --help`.
-- Branch attribution and git touch logic may expose reusable git gateway seams; avoid over-extracting unless the final cutover uncovers reuse outside `@asdl/objective`.
-- Markdown formatting/parsing changes could accidentally shift Objective domain semantics.
-- Distribution cutover can leave stale Python console scripts or uv workspace references if `pyproject.toml`, `justfile`, docs-site install prose, Python plugin smoke tests, package directories, and workspace/dev/test/build settings are not migrated together.
-- JSON-shape migration can break Pi/CCC if `legacyMachine` is removed before consumers or tests are updated. The final stack should either keep compatibility deliberately until all consumers are migrated in the same branch, or update consumers/tests and then remove `legacyMachine` in that branch with explicit evidence.
-- Python deletion can be too early if rollback/reference evidence is not recorded. The final stack should record the pre-deletion reference point, exact removed package path, and restoration route before deleting `packages/asdl-objectives`.
+- De-risked: Skill, Pi extension, and CCC wrappers remained green under full TS validation while Objective-local legacy machine projections preserved the current JSON contracts.
+- De-risked: retiring `asdl objective` removed the plugin smoke test and docs/install references; no active skill/Pi/CCC callers were found.
+- De-risked: branch attribution and git touch logic stayed package-local; no shared git gateway extraction was required for final cutover.
+- De-risked: Markdown Objective storage semantics were preserved, with no hidden state, YAML/frontmatter, or semantic Markdown parser added.
+- De-risked with one follow-up: distribution cutover removed stale Python console-script shadowing, uv workspace references, docs/install references, and plugin tests; `CONTEXT-MAP.md` still mentions the deleted package path and should be handled deliberately in a context/documentation session.
+- Accepted migration debt: removing `legacyMachine` during final cutover would have coupled Python deletion to a broader Pi/CCC JSON schema redesign, so the projection remains and is tracked in the umbrella migration-debt ledger.
+- De-risked: Python deletion recorded pre-deletion reference `1b1bb1fa44ad`, exact deleted path `packages/asdl-objectives/`, removed manifest/test/build references, and a restoration route.
 
 ## Open Questions
 
 - Answered: current inventory and fresh grep found no active skill/Pi/CCC consumers invoking `asdl objective`; the plugin path should be retired, with docs-site install prose and plugin smoke tests updated or removed as part of the cutover.
 - Answered for the remaining port: preserve durable behavior and first-party consumer schemas until the coordinated JSON-envelope cutover branch; allow incidental Click/Python vs `@asdl/clinkr` help/parser byte differences with parity notes and scenario coverage.
-- Should `packages/asdl-objectives/CONTEXT.md` be created during this port, or saved for a focused package-context session? Default posture: defer; the remaining work is cutover/deletion, not new domain terminology.
+- Answered: do not create a new `packages/asdl-objectives/CONTEXT.md`; the Python package path is deleted. Follow-up remains to deliberately update `CONTEXT-MAP.md` for the deleted package path.
 - Answered default: record a rollback/reference artifact immediately before Python deletion. Sufficient evidence is a Semantic Update naming the pre-deletion git commit, the deleted `packages/asdl-objectives` path, the removed workspace/dev/test/build references, and the restoration route (`git checkout <pre-deletion-commit> -- packages/asdl-objectives` plus restoring manifest references if needed).
 - Answered: package-local fast validation is `pnpm --dir ts --filter @asdl/objective run check` and `pnpm --dir ts --filter @asdl/objective run test`; final cutover validation should also run `pnpm --dir ts run check`, `pnpm --dir ts run test`, and targeted Python/plugin or repo checks for deleted references.
 - Answered: `runner-subagent-usage` needs durable table/aggregate semantics for stack digests, not byte-for-byte Python Markdown parity. Keep JSON compatibility only where active first-party consumers require it during cutover.
+
+## Closure
+
+Completed. The `objective` capability is now TypeScript-default: standalone `objective` and hidden `objective exec` commands are backed by `ts/packages/objective`, the public local install path is the TypeScript source shim, the `asdl objective` plugin path is retired, and `packages/asdl-objectives/` is deleted with rollback/reference evidence recorded.
+
+Evidence:
+
+- Contract inventory and vertical TypeScript operation slices completed before final cutover.
+- `just install-objective` installed the TypeScript source shim and removed the stale project `.venv/bin/objective` script.
+- `objective --runtime` reported `runtime: typescript`.
+- Root manifests, install recipes, plugin smoke tests, docs, and lockfile no longer depend on the Python Objective package.
+- Full validation passed: plugin smoke suite, root Python test suite, full TS check/test, and docs-site check.
+- Umbrella TypeScript migration ledger/playbook/debt records were updated for the reusable Objective cutover lessons and the remaining Objective-local JSON projection debt.
+
+Caveats/follow-ups:
+
+- `CONTEXT-MAP.md` still references the deleted `packages/asdl-objectives/CONTEXT.md` path; update that deliberately in a context/documentation session.
+- The Objective-local `legacyMachine` JSON projection remains intentional migration debt until Pi/CCC Objective JSON consumers are migrated to a future canonical shape.

@@ -15,13 +15,13 @@ Python package tools can be installed with `uv tool install`:
 ```bash
 uv tool install asdl-slots
 uv tool install aretro
-uv tool install asdl-objectives
 ```
 
 TypeScript tools are installed from an asdl checkout with source shims. These
 require Node 24 or newer:
 
 ```bash
+just install-objective
 just install-pr-address
 just install-roaster
 ```
