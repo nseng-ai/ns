@@ -1,7 +1,8 @@
 import { appendGeneratedMarker, resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./pr-description.ts";
 import { applyGeneratedDescription, decidePrBodyOverwrite } from "./pr-description-apply.ts";
 import { formatItemCount } from "./format.ts";
-import { prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPrLink } from "./gt-output.ts";
+import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";
 
@@ -174,15 +175,3 @@ function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
 	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
 }
 
-export function formatPrLinkTextRow(link: SubmitPrLink): string {
-	if (link.label === link.url) return `• ${link.url}`;
-	return `• ${link.label} ${link.url}`;
-}
-
-function prNumberFromLink(link: SubmitPrLink): number | undefined {
-	const fromUrl = prNumberFromUrl(link.url);
-	const value = fromUrl ?? link.label.match(/^#(\d+)$/)?.[1];
-	if (value === undefined) return undefined;
-	const number = Number.parseInt(value, 10);
-	return Number.isSafeInteger(number) ? number : undefined;
-}

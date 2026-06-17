@@ -1,6 +1,7 @@
 import { stripTerminalEscapes } from "../exec.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
+import { formatPrLinkText } from "./submit-pr-link.ts";
 import type { PreparedSubmitPrMetadata } from "./submit-pr-metadata-prewrite.ts";
 import type {
 	CurrentPrVerificationResult,
@@ -62,11 +63,6 @@ function formatSubmitSuccessStatuses(
 
 function hasMatchingLink(links: readonly SubmitPrLink[], target: SubmitPrLink): boolean {
 	return links.some((link) => link.url === target.url);
-}
-
-function formatPrLinkText(link: SubmitPrLink): string {
-	if (link.label === link.url) return link.url;
-	return `${link.label} ${link.url}`;
 }
 
 function formatSubmitOutputTail(stdout: string, stderr: string): string {

@@ -2,7 +2,7 @@ import { runCommand, stripTerminalEscapes, type CommandRunner, type ExecResult }
 import type { GitGateway } from "../git/index.ts";
 
 import type { GithubPrGateway } from "./github-pr-gateway.ts";
-import { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";
+import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
 	formatPreflightFailureOutput,
@@ -19,6 +19,7 @@ import {
 } from "./submit-format.ts";
 import { prepareSubmitPrMetadata, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
 import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
+import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"] as const;
@@ -483,7 +484,7 @@ function mergePrLinks(first: readonly SubmitPrLink[], second: readonly SubmitPrL
 }
 
 function prLinkIdentityKey(link: SubmitPrLink): string {
-	const number = prNumberFromUrl(link.url) ?? link.label.match(/^#(\d+)$/)?.[1];
+	const number = prNumberFromLink(link);
 	return number === undefined ? link.url : `pr:${number}`;
 }
 
