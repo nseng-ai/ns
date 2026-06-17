@@ -12,6 +12,13 @@ const DIFF_TIMEOUT_MS = 60_000;
 const PATCH_ID_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
 
+interface RunGitOptions {
+	args: readonly string[];
+	cwd: string;
+	timeoutMs: number;
+	stdin?: string | undefined;
+}
+
 export interface GithubPrDetails {
 	number: number;
 	url: string;
@@ -107,7 +114,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (!diff.ok) return diff;
 
 		const args = ["patch-id", "--stable"];
-		const result = await this.runGit(args, params.cwd, PATCH_ID_TIMEOUT_MS, { stdin: diff.value });
+		const result = await this.runGit({ args, cwd: params.cwd, timeoutMs: PATCH_ID_TIMEOUT_MS, stdin: diff.value });
 		const failure = commandFailure({
 			command: "git",
 			args,
@@ -164,7 +171,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		}
 
 		const args = ["diff", `${baseRefName}...${headRefName}`];
-		const result = await this.runGit(args, params.cwd, DIFF_TIMEOUT_MS);
+		const result = await this.runGit({ args, cwd: params.cwd, timeoutMs: DIFF_TIMEOUT_MS });
 		const failure = commandFailure({
 			command: "git",
 			args,
@@ -180,10 +187,10 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return await runGitHubCliAsExecResult({ execApi: commandRunnerExecApi(this.runner), args, cwd, timeoutMs });
 	}
 
-	private async runGit(args: readonly string[], cwd: string, timeoutMs: number, options: { readonly stdin?: string | undefined } = {}): Promise<ExecResult> {
-		return await this.runner("git", args, {
-			cwd,
-			timeout: timeoutMs,
+	private async runGit(options: RunGitOptions): Promise<ExecResult> {
+		return await this.runner("git", options.args, {
+			cwd: options.cwd,
+			timeout: options.timeoutMs,
 			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		});
 	}

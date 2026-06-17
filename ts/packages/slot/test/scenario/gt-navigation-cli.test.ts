@@ -27,7 +27,9 @@ describe("slot gt navigation CLI", () => {
 			gt: { children: { type: "children", branches: ["feature/child"] } },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/child", already_assigned: true, cd_command: "cd /slots/repos/repo/worktrees/slot-01" } });
+		const output = parseJsonOutput(run);
+		expect(output).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/child", is_already_assigned: true, cd_command: "cd /slots/repos/repo/worktrees/slot-01" } });
+		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything() } });
 		expect(run.gt?.operations()).toEqual([{ type: "children-of", cwd: "/repo" }]);
 		expect(run.git.operations()).toEqual([]);
 	});
@@ -38,7 +40,9 @@ describe("slot gt navigation CLI", () => {
 			gt: { parent: { type: "parent", branch: "feature/parent" } },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/parent", already_assigned: false, clipboard_skipped: true } });
+		const output = parseJsonOutput(run);
+		expect(output).toMatchObject({ data: { slot_name: "slot-01", branch_name: "feature/parent", is_already_assigned: false, was_clipboard_skipped: true } });
+		expect(output).not.toMatchObject({ data: { already_assigned: expect.anything(), clipboard_skipped: expect.anything() } });
 		expect(run.git.operations()).toEqual([{ type: "checkout-branch", path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/parent" }]);
 	});
 
