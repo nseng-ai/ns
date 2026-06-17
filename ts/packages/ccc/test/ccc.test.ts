@@ -75,6 +75,7 @@ describe("CCC cmux command suite", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"ccc:claude-plan-tab",
+			"ccc:sidebar:branch-state-summary",
 			"ccc:sidebar:objective-summary",
 			"ccc:sidebar:session-summary",
 			"ccc:workspace:dispatch-from-trunk",
@@ -142,6 +143,42 @@ describe("CCC cmux command suite", () => {
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(noWorkspace.notifications.at(-1)?.message).toBe("Not running inside a cmux caller workspace.");
+	});
+
+	test("ccc:sidebar:branch-state-summary queues branch-parent state prompt", async () => {
+		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
+		await withTempRepoSkill(
+			{ skillName: "ccc-sidebar", markdown: "---\nname: ccc-sidebar\n---\nUse direct `--description` command shape.\n" },
+			async ({ repoDir, skillPath }) => {
+				const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
+				const controller = createCccSidebarController(pi);
+				registerCccSidebarCommands(pi, controller);
+				const ctx = new FakeCommandContext({ cwd: repoDir, model: PREVIOUS_MODEL, fastModel: FAST_MODEL });
+
+				await pi.commands.get("ccc:sidebar:branch-state-summary")?.handler("", ctx);
+
+				expect(ctx.waitCount).toBe(1);
+				expect(pi.sentUserMessages).toHaveLength(1);
+				expect(pi.sentUserMessages[0]).toContain("<skill name=\"ccc-sidebar\"");
+				expect(pi.sentUserMessages[0]).toContain("Requested command: ccc:sidebar:branch-state-summary.");
+				expect(pi.sentUserMessages[0]).toContain("current Git branch's implementation state relative to its parent branch");
+				expect(pi.sentUserMessages[0]).toContain("gt parent --no-interactive");
+				expect(pi.sentUserMessages[0]).toContain("The title must be exactly state:<slug>");
+				expect(pi.sentUserMessages[0]).toContain("The State line should describe what the branch currently changes");
+				expect(notificationMessages(ctx)).toContain("Invoking cmux branch-state sidebar summary.");
+				expect(pi.setModels).toEqual([FAST_MODEL]);
+				expect(pi.thinkingLevels).toEqual(["minimal"]);
+				expect(ctx.statuses).toEqual([
+					{ key: "pi:ccc-sidebar", value: "preparing cmux branch-state sidebar…" },
+					{ key: "pi:ccc-sidebar", value: undefined },
+				]);
+
+				await pi.emitAgentEnd(ctx);
+
+				expect(pi.setModels).toEqual([FAST_MODEL, PREVIOUS_MODEL]);
+				expect(pi.thinkingLevels).toEqual(["minimal", "medium"]);
+			},
+		);
 	});
 
 	test("ccc:workspace:open-branch opens explicit branch without queuing sidebar summary", async () => {
