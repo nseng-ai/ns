@@ -26,6 +26,7 @@ function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | 
 	if (options === undefined) return undefined;
 	return {
 		...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
 		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
 	};
