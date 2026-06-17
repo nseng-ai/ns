@@ -211,9 +211,6 @@ importers:
       '@asdl/core':
         specifier: workspace:*
         version: link:../asdl-core
-      '@asdl/plans':
-        specifier: workspace:*
-        version: link:../plans
       zod:
         specifier: ^4.4.3
         version: 4.4.3

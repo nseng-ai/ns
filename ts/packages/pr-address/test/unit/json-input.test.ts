@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { loadJsonInput, readJsonInputText } from "../../src/json-input.ts";
+import { loadJsonInput } from "../../src/json-input.ts";
 import { useTempDirs } from "../support/temp.ts";
 
 const makeScopedTempDir = useTempDirs();
@@ -54,13 +54,14 @@ describe("JSON input source helpers", () => {
 
 	test("reports source conflicts, empty input, invalid JSON, missing files, and schema errors", async () => {
 		const schema = z.object({ value: z.string() });
-		const conflict = await readJsonInputText({
+		const conflict = await loadJsonInput({
 			optionValue: "{}",
 			filePath: "/tmp/payload.json",
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
+			schema,
 			stdin: async () => "",
 		});
 		expect(conflict).toEqual({
@@ -71,11 +72,12 @@ describe("JSON input source helpers", () => {
 			},
 		});
 
-		const empty = await readJsonInputText({
+		const empty = await loadJsonInput({
 			optionValue: "   ",
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
+			schema,
 			stdin: async () => "unused",
 		});
 		expect(empty.type).toBe("error");
@@ -92,13 +94,14 @@ describe("JSON input source helpers", () => {
 		expect(invalidJson.type).toBe("error");
 		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid_json");
 
-		const missingFile = await readJsonInputText({
+		const missingFile = await loadJsonInput({
 			optionValue: undefined,
 			filePath: "/tmp/definitely-missing-pr-address-payload.json",
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
+			schema,
 			stdin: async () => "",
 		});
 		expect(missingFile.type).toBe("error");
