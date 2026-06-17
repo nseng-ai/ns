@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { failure, ok, type ClinkrExit } from "@asdl/clinkr";
+import { managedRegionBounds } from "@asdl/core/managed-region";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -167,14 +168,10 @@ export function replaceOrAppendAregSection(content: string, agents: readonly str
 }
 
 export function managedBlockBounds(content: string, markers: ManagedMarkers, pathLabel: string): PlanResult<{ start: number; end: number } | null> {
-	const startCount = countOccurrences(content, markers.start);
-	const endCount = countOccurrences(content, markers.end);
-	if (startCount === 0 && endCount === 0) return { type: "ok", value: null };
-	if (startCount !== 1 || endCount !== 1) return malformedManagedBlock(pathLabel);
-	const start = content.indexOf(markers.start);
-	const endMarkerStart = content.indexOf(markers.end);
-	if (endMarkerStart < start) return malformedManagedBlock(pathLabel);
-	return { type: "ok", value: { start, end: endMarkerStart + markers.end.length } };
+	const bounds = managedRegionBounds({ text: content, startMarker: markers.start, endMarker: markers.end });
+	if (bounds.type === "missing") return { type: "ok", value: null };
+	if (bounds.type === "malformed") return malformedManagedBlock(pathLabel);
+	return { type: "ok", value: { start: bounds.start, end: bounds.end } };
 }
 
 export function appendBlock(content: string, block: string): string {
@@ -371,13 +368,3 @@ function tomlTableName(line: string): string | null {
 	return stripped.slice(1, closingIndex).trim();
 }
 
-function countOccurrences(content: string, needle: string): number {
-	let count = 0;
-	let start = 0;
-	while (true) {
-		const index = content.indexOf(needle, start);
-		if (index === -1) return count;
-		count += 1;
-		start = index + needle.length;
-	}
-}

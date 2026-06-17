@@ -4,6 +4,11 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
 import type { GitGateway } from "../git/index.ts";
+import {
+	parseManagedRegion,
+	replaceManagedRegion,
+	replaceMalformedManagedRegionFromBegin,
+} from "../managed-region.ts";
 import { formatErrorMessage } from "../primitives.ts";
 import { truncateTextHeadTail } from "../text-truncation.ts";
 import { prepareRepairedText } from "../text-repair.ts";
@@ -167,30 +172,30 @@ export function formatManagedGeneratedRegion(body: string, metadata: PrDescripti
 }
 
 export function parseManagedGeneratedRegion(body: string): ManagedGeneratedRegionParseResult {
-	const beginIndex = body.indexOf(MANAGED_BODY_BEGIN_MARKER);
-	if (beginIndex === -1) return { type: "missing" };
-	const beginEndIndex = body.indexOf("-->", beginIndex);
-	if (beginEndIndex === -1) return { type: "malformed", reason: "managed region begin marker is unterminated" };
-	const endIndex = body.indexOf(MANAGED_BODY_END_MARKER, beginEndIndex + 3);
-	if (endIndex === -1) return { type: "malformed", reason: "managed region end marker is missing" };
-	const afterEnd = endIndex + MANAGED_BODY_END_MARKER.length;
-	const beginComment = body.slice(beginIndex, beginEndIndex + 3);
-	const metadata = parseManagedRegionMetadata(beginComment);
-	if (metadata === undefined) return { type: "malformed", reason: "managed region metadata is invalid" };
+	const parsed = parseManagedRegion({
+		text: body,
+		markers: { beginPrefix: MANAGED_BODY_BEGIN_MARKER, end: MANAGED_BODY_END_MARKER },
+		parseMetadata: parseManagedRegionMetadata,
+		extractBody: extractManagedRegionBody,
+	});
+	if (parsed.type !== "found") return parsed;
 	return {
 		type: "found",
-		metadata,
-		body: extractManagedRegionBody(body.slice(beginEndIndex + 3, endIndex)),
-		start: beginIndex,
-		end: afterEnd,
+		metadata: parsed.metadata,
+		body: parsed.body,
+		start: parsed.start,
+		end: parsed.end,
 	};
 }
 
 export function replaceOrInsertGeneratedRegion(existingBody: string, generatedBody: string, metadata: PrDescriptionFingerprintMetadata): string {
 	const region = formatManagedGeneratedRegion(generatedBody, metadata);
 	const parsed = parseManagedGeneratedRegion(existingBody);
-	if (parsed.type === "found" || parsed.type === "malformed") {
-		return `${existingBody.slice(0, parsed.type === "found" ? parsed.start : existingBody.indexOf(MANAGED_BODY_BEGIN_MARKER)).trimEnd()}\n\n${region}\n\n${existingBody.slice(parsed.type === "found" ? parsed.end : existingBody.length).trimStart()}`.trim();
+	if (parsed.type === "found") {
+		return replaceManagedRegion({ text: existingBody, replacement: region, start: parsed.start, end: parsed.end });
+	}
+	if (parsed.type === "malformed") {
+		return replaceMalformedManagedRegionFromBegin({ text: existingBody, beginPrefix: MANAGED_BODY_BEGIN_MARKER, replacement: region });
 	}
 	if (existingBody.includes(GENERATED_BODY_MARKER)) {
 		return region;
