@@ -6,12 +6,14 @@ import { registerCliCommandExtension, selectCliCommands, type ExtensionAPI as Cl
 import landExtension from "./land.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 import pushExtension from "./push.ts";
+import trunkPullExtension from "./trunk-pull.ts";
 
 export type ExtensionAPI = CliExtensionAPI &
 	Parameters<typeof autobranchExtension>[0] &
 	Parameters<typeof autoslotExtension>[0] &
 	Parameters<typeof landExtension>[0] &
-	Parameters<typeof pushExtension>[0];
+	Parameters<typeof pushExtension>[0] &
+	Parameters<typeof trunkPullExtension>[0];
 
 const SDL_COMMAND_NAMES = ["changes", "cp", "submit"] as const;
 const SDL_CODE_COMMAND_NAMES = ["changes", "cp", "submit", "regenerate-pr"] as const;
@@ -126,6 +128,7 @@ export default function sdlExtension(pi: ExtensionAPI): void {
 	autoslotExtension(pi);
 	landExtension(pi);
 	pushExtension(pi);
+	trunkPullExtension(pi);
 }
 
 function selectSdlCommands(names: readonly string[]): SdlCommandInfo[] {

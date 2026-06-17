@@ -13,6 +13,7 @@ import { prFeedbackWatchParity } from "./pr-feedback-watch.ts";
 import { prExtensionParity } from "./pr.ts";
 import { pushParity } from "./push.ts";
 import { sdlExtensionParity } from "./sdl-extension.ts";
+import { trunkPullParity } from "./trunk-pull.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 
 export const PI_EXTENSION_PARITY_RECORDS = [
@@ -31,5 +32,6 @@ export const PI_EXTENSION_PARITY_RECORDS = [
 	...prExtensionParity,
 	...pushParity,
 	...sdlExtensionParity,
+	...trunkPullParity,
 	...worktreeStatusParity,
 ] as const;
