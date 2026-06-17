@@ -8,7 +8,6 @@ from asdl_core.clinkr.context import build_clinkr_context_object
 from asdl_core.clinkr.group import ClinkrGroup
 from asdl_tools.exec.cmux_workspace_summary import run_cmux_workspace_summary
 from asdl_tools.exec.context import build_asdl_exec_context, has_clinkr_context
-from asdl_tools.exec.gt_linearize_stack_plan import run_gt_linearize_stack_plan
 from asdl_tools.exec.resolve_prompt import run_resolve_prompt
 
 
@@ -24,7 +23,7 @@ def build_exec_group() -> ClinkrGroup:
     return ClinkrGroup(
         name="exec",
         help="Commands for use by asdl-tools skills.",
-        operations=[run_cmux_workspace_summary, run_gt_linearize_stack_plan, run_resolve_prompt],
+        operations=[run_cmux_workspace_summary, run_resolve_prompt],
         hidden=True,
         callback=ensure_exec_context,
     )

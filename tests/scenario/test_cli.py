@@ -70,7 +70,6 @@ def test_root_exec_group_is_hidden_but_invocable() -> None:
     assert exec_help.exit_code == 0
     assert "Commands for use by asdl-tools skills." in exec_help.output
     assert "cmux-workspace-summary" in exec_help.output
-    assert "gt-linearize-stack-plan" in exec_help.output
     assert "resolve-prompt" in exec_help.output
 
 
