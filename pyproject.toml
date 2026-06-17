@@ -4,7 +4,6 @@ members = [
   "packages/asdl-dispatcher",
   "packages/asdl-objectives",
   "packages/aretro",
-  "packages/asdl-slots",
   "packages/packagechk",
   "packages/vibechk",
 ]
@@ -14,7 +13,6 @@ asdl-core = { workspace = true }
 asdl-dispatcher = { workspace = true }
 asdl-objectives = { workspace = true }
 aretro = { workspace = true }
-asdl-slots = { workspace = true }
 packagechk = { workspace = true }
 vibechk = { workspace = true }
 
@@ -39,7 +37,6 @@ asdl = "asdl_tools.cli.cli:main"
 plugins = [
   "asdl-dispatcher",
   "asdl-objectives",
-  "asdl-slots",
 ]
 
 [dependency-groups]
@@ -51,7 +48,6 @@ dev = [
   "asdl-dispatcher",
   "asdl-objectives",
   "aretro",
-  "asdl-slots",
   "packagechk",
   "vibechk",
   "ty>=0.0.1a7",
@@ -73,7 +69,6 @@ src = [
   "packages/asdl-dispatcher/src",
   "packages/asdl-objectives/src",
   "packages/aretro/src",
-  "packages/asdl-slots/src",
   "packages/packagechk/src",
   "packages/vibechk/src",
 ]
@@ -96,7 +91,6 @@ known-first-party = [
   "asdl_dispatcher",
   "asdl_objectives",
   "aretro",
-  "asdl_slots",
   "packagechk",
   "vibechk",
 ]
@@ -121,7 +115,6 @@ testpaths = [
   "packages/asdl-dispatcher/tests",
   "packages/asdl-objectives/tests",
   "packages/aretro/tests",
-  "packages/asdl-slots/tests",
   "packages/packagechk/tests",
   "packages/vibechk/tests",
 ]
