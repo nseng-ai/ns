@@ -25,6 +25,7 @@ Batched by priority tier (see `review-findings/2026-06-15-areg-ts-cli-combined-r
   - Evidence: `check` now builds diagnostics from `inferSkillKindRecord` / typed artifact facts instead of local `checkInvokeOnly`; the slice gate grep for `checkInvokeOnly` and the old local replacement wrapper returned no matches. Scenario coverage proves invoke-only remains valid without Pi exclusion, command-backed facts still require Pi exclusion, and excluded skills still require verified replacement.
 - [x] Replace unconditional/global "verified" replacement logic with a real per-surface contract (`hasReplacement(surface)` or verified inventory) (D).
   - Evidence: replacement inspection now exposes `verifiedSurfaces`, fake tests configure exact surfaces, unit tests prove specialized and derived replacements are missing when their surface is absent, and the real gateway populates an areg-visible inventory from the backing-skill command files without changing Pi extension runtime behavior.
+  - Follow-up evidence: a later full-suite failure caught drift between the areg-visible replacement inventory and the backing skill command mirror for `ccc-sidebar`; both mirrors now route that skill to the live `ccc:sidebar:pr-summary` command surface, and full `just` passed after the correction.
 
 ### Batch 3 — Mutation robustness
 
