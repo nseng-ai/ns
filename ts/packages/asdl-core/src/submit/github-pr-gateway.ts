@@ -164,7 +164,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		}
 
 		const args = ["diff", `${baseRefName}...${headRefName}`];
-		const result = await this.runGit(args, params.cwd, DIFF_TIMEOUT_MS);
+		const result = await this.runner("git", args, { cwd: params.cwd, timeout: DIFF_TIMEOUT_MS });
 		const failure = commandFailure({
 			command: "git",
 			args,
@@ -180,9 +180,6 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return this.runner("gh", args, { cwd, timeout: timeoutMs });
 	}
 
-	private async runGit(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
-		return this.runner("git", args, { cwd, timeout: timeoutMs });
-	}
 }
 
 function isGithubDiffTooLarge(result: ExecResult): boolean {
