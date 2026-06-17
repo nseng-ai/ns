@@ -1,27 +1,21 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { createTempDirTracker } from "@asdl/core/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
-const tempRoots: string[] = [];
-
-async function makeTempRoot(prefix: string): Promise<string> {
-	const root = await mkdtemp(join(tmpdir(), prefix));
-	tempRoots.push(root);
-	return root;
-}
+const tempDirs = createTempDirTracker();
 
 afterEach(async () => {
-	await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+	await tempDirs.cleanup();
 });
 
 describe("areg source CLI shim rendering", () => {
 	test("renders adversarial canonical checkout paths as shell literals", async () => {
-		const tempRoot = await makeTempRoot("areg-shim-render-");
-		const executionRoot = await makeTempRoot("areg-shim-cwd-");
+		const tempRoot = await tempDirs.makeTempDir("areg-shim-render-");
+		const executionRoot = await tempDirs.makeTempDir("areg-shim-cwd-");
 		const outputPath = join(tempRoot, "areg-shim");
 		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
 		const installHint = "just install-areg or just install-tools";

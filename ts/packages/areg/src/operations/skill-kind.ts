@@ -66,7 +66,7 @@ const skillKindApplyOperationResultSchema = z.object({
 	type: z.enum(APPLY_OPERATION_TYPES),
 	path: z.string(),
 	reason: z.string().optional(),
-	applied: z.boolean(),
+	isApplied: z.boolean(),
 });
 
 const skillKindApplyOperationStatusSchema = z.object({
@@ -329,7 +329,7 @@ function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult
 }
 
 function renderApplyOperation(operation: SkillKindApplyResult["skills"][number]["operations"][number], dryRun: boolean): string | undefined {
-	if (!("applied" in operation)) return undefined;
+	if (!("isApplied" in operation)) return undefined;
 	switch (operation.type) {
 		case "write":
 			return `${dryRun ? "Would write" : "Wrote"} ${operation.path}`;
@@ -339,7 +339,7 @@ function renderApplyOperation(operation: SkillKindApplyResult["skills"][number][
 			return `${dryRun ? "Would delete" : "Deleted"} ${operation.path}`;
 		case "remove_empty_dir":
 			if (dryRun) return `Would remove ${operation.path} if empty`;
-			return operation.applied ? `Removed ${operation.path}` : undefined;
+			return operation.isApplied ? `Removed ${operation.path}` : undefined;
 	}
 }
 

@@ -208,6 +208,7 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("- Automation-like discussion comments excluded: 4");
 		expect(prompt.indexOf("## Instructions before responding")).toBeGreaterThan(prompt.indexOf("## Summary"));
 		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
+		expect(prompt).toContain("single omnibus follow-up PR at the current stack tip");
 		expect(prompt.trim()).toMatch(/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u);
 		expect(ctx.notifications.at(-1)).toEqual({ message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.", level: "info" });
 		expect(ctx.statuses.at(0)).toEqual({ key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, value: "PR stack feedback: discovering stack…" });

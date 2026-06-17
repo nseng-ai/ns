@@ -26,7 +26,7 @@ export interface PlannedApplyOperationBase {
 export interface PlannedWriteOperation extends PlannedApplyOperationBase {
 	type: "write";
 	content: string;
-	createParent: boolean;
+	shouldCreateParent: boolean;
 }
 
 export interface PlannedSkipOperation extends PlannedApplyOperationBase {
@@ -54,7 +54,7 @@ export interface SkillKindApplyOperationResult {
 	type: ApplyOperationType;
 	path: string;
 	reason?: string | undefined;
-	applied: boolean;
+	isApplied: boolean;
 }
 
 export interface SkillKindApplySkipStatusResult {
@@ -121,7 +121,7 @@ export function planSidecarOperations(skill: AregSkillKindSkillInspection, kind:
 			return { ok: true, value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml already current" }] };
 		}
 		if (skill.openaiPolicy.type !== "missing") return err({ code: "path_not_file", message: `${relativePath} exists but is not a file.` });
-		return { ok: true, value: [{ type: "write", relativePath, description: "Codex openai.yaml", content: MANAGED_OPENAI_POLICY, createParent: true }] };
+		return { ok: true, value: [{ type: "write", relativePath, description: "Codex openai.yaml", content: MANAGED_OPENAI_POLICY, shouldCreateParent: true }] };
 	}
 	if (skill.openaiPolicy.type === "missing") return { ok: true, value: [{ type: "skip", relativePath, description: "Codex openai.yaml", reason: "Codex openai.yaml absent" }] };
 	if (skill.openaiPolicy.type === "symlink") return err({ code: "path_symlink", message: `${relativePath} is a symlink; refusing to delete it.` });
@@ -144,7 +144,7 @@ export function planPiSettingsOperation(skillName: string, kind: SkillInvocation
 	const nextData: Record<string, unknown> = settings.data === undefined ? {} : { ...settings.data };
 	const nextSkills = shouldExclude ? [...currentExclusions, entry] : currentExclusions.filter((candidate) => candidate !== entry);
 	nextData.skills = nextSkills;
-	return { ok: true, value: { type: "write", relativePath, description: "Pi settings", content: `${JSON.stringify(nextData, null, 2)}\n`, createParent: settings.text === undefined } };
+	return { ok: true, value: { type: "write", relativePath, description: "Pi settings", content: `${JSON.stringify(nextData, null, 2)}\n`, shouldCreateParent: settings.text === undefined } };
 }
 
 export function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {
@@ -157,7 +157,7 @@ export function deletionPrompt(plan: SkillKindApplyPlan): string {
 }
 
 export function plannedWrites(plan: SkillKindApplyPlan): readonly AregSkillKindTextWritePlan[] {
-	return plan.operations.flatMap((operation) => operation.type === "write" ? [{ relativePath: operation.relativePath, content: operation.content, description: operation.description, createParent: operation.createParent }] : []);
+	return plan.operations.flatMap((operation) => operation.type === "write" ? [{ relativePath: operation.relativePath, content: operation.content, description: operation.description, createParent: operation.shouldCreateParent }] : []);
 }
 
 export function plannedDeletes(plan: SkillKindApplyPlan): readonly AregSkillKindDeletePlan[] {
@@ -173,7 +173,7 @@ export function toApplyResult(operation: PlannedApplyOperation, hasAppliedOperat
 		type: operation.type,
 		path: operation.relativePath,
 		reason: operation.type === "skip" ? operation.reason : undefined,
-		applied: operation.type === "skip" ? false : operation.type === "remove_empty_dir" ? hasRemovedEmptyDir : hasAppliedOperation,
+		isApplied: operation.type === "skip" ? false : operation.type === "remove_empty_dir" ? hasRemovedEmptyDir : hasAppliedOperation,
 	};
 }
 

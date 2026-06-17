@@ -376,6 +376,8 @@ function renderStackInstructions(): string[] {
 		"## Instructions before responding",
 		"Triage and group the feedback above across the entire Graphite stack. Identify shared fixes, per-PR fixes, ordering constraints, and ambiguous feedback.",
 		"",
+		"Default implementation shape: if the user asks you to address the stack feedback, put all resulting changes in a single omnibus follow-up PR at the current stack tip rather than rewriting downstack PRs, unless the user explicitly asks for downstack surgery.",
+		"",
 		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads from this prompt.",
 	];
 }
