@@ -149,7 +149,7 @@ export interface RunSubmitCommandOptions {
 	gateway: SubmitGateway;
 	metadataGateway: SubmitMetadataGateway;
 	restack: boolean;
-	forwardCommandOutput?: boolean;
+	shouldForwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
@@ -386,10 +386,10 @@ async function runRestackBeforeSubmit(
 	return undefined;
 }
 
-function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "forwardCommandOutput" | "onOutput">): SubmitCommandParams {
+function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "shouldForwardCommandOutput" | "onOutput">): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
-		...(options.forwardCommandOutput === false || options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
+		...(options.shouldForwardCommandOutput === false || options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
 	};
 }
 

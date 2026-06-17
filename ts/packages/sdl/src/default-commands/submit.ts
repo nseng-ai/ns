@@ -58,7 +58,7 @@ The command owns its output and exit code. It does not support --format.`,
 			gateway: new RealSubmitGateway(runner),
 			metadataGateway: new RealSubmitMetadataGateway(runner),
 			restack: request.restack,
-			forwardCommandOutput: request.verbose,
+			shouldForwardCommandOutput: request.verbose,
 			prDescription: {
 				githubPr: new RealGithubPrGateway(runner),
 				textGeneration: ctx.model,
