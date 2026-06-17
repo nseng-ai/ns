@@ -6,10 +6,15 @@ import { ClinkrGroup, isClinkrHumanOutputInvocation, resolveIo } from "@asdl/cli
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
 import { createRealSlotContext, type SlotCliContext } from "./context.ts";
+import { RealSlotGtGateway } from "./gateways/gt.ts";
 import { checkoutRequestSchema, checkoutResultSchema, renderCheckout, runCheckout } from "./operations/checkout.ts";
 import { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./operations/claim.ts";
 import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
 import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
+import { gtDownRequestSchema, gtDownResultSchema, renderGtNavigation as renderGtDownNavigation, runGtDown } from "./operations/gt/down.ts";
+import { gtFreeStackRequestSchema, gtFreeStackResultSchema, renderGtFreeStack, runGtFreeStack } from "./operations/gt/free-stack.ts";
+import { gtStackBranchesRequestSchema, gtStackBranchesResultSchema, renderStackBranches, runGtStackBranches } from "./operations/gt/exec/stack-branches.ts";
+import { gtNavigationResultSchema, gtUpRequestSchema, renderGtNavigation as renderGtUpNavigation, runGtUp } from "./operations/gt/up.ts";
 import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";
 import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
@@ -123,7 +128,47 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		handler: runResize,
 		renderHuman: renderResize,
 	});
+	root.group(buildGtGroup());
 	return root;
+}
+
+function buildGtGroup(): ClinkrGroup<SlotCliContext> {
+	const gt = new ClinkrGroup<SlotCliContext>({ name: "gt", description: "Navigate and free Graphite-aware slot stacks." });
+	gt.command({
+		name: "up",
+		description: "Print/copy a cd command for the immediate upstack Graphite branch.",
+		schema: gtUpRequestSchema,
+		resultSchema: gtNavigationResultSchema,
+		handler: runGtUp,
+		renderHuman: renderGtUpNavigation,
+	});
+	gt.command({
+		name: "down",
+		description: "Print/copy a cd command for the immediate downstack Graphite branch.",
+		schema: gtDownRequestSchema,
+		resultSchema: gtDownResultSchema,
+		handler: runGtDown,
+		renderHuman: renderGtDownNavigation,
+	});
+	gt.command({
+		name: "free-stack",
+		description: "Release every assigned slot in the current Graphite stack except the current branch.",
+		schema: gtFreeStackRequestSchema,
+		resultSchema: gtFreeStackResultSchema,
+		handler: runGtFreeStack,
+		renderHuman: renderGtFreeStack,
+	});
+	const exec = new ClinkrGroup<SlotCliContext>({ name: "exec", description: "Skill-invoked Graphite operations.", isHidden: true });
+	exec.command({
+		name: "stack-branches",
+		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
+		schema: gtStackBranchesRequestSchema,
+		resultSchema: gtStackBranchesResultSchema,
+		handler: runGtStackBranches,
+		renderHuman: renderStackBranches,
+	});
+	gt.group(exec);
+	return gt;
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {
