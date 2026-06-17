@@ -88,22 +88,28 @@
     `already_installed` detection; trailing-newline handling; and the clipboard tri-state with
     `backend_missing`/`subprocess_error` reasons.
   - Tests MUST redirect HOME / rc paths and the directive file to a fake; never touch the operator's
-    real rc file. Include a deliberate, documented real-shell parity check (install the wrapper in a
-    throwaway rc, run a navigation command, confirm the shell `cd`s).
+    real rc file. This row's completion evidence is automated fake/tmp scenario coverage for
+    shell/completion install, cd-directive suppression, and clipboard non-fatal/skipped behavior; the
+    deliberate manual real-shell parity check is deferred to the cutover/distribution gate.
   - Policy: steer-first slice. Preview required; ask before changing the env-var name, marker
     strings, or the JSON-mode cd suppression rule.
-  - Evidence: fake-driven scenario tests for show/install/cd-directive/clipboard plus a real-shell
-    parity note, and a Semantic Update.
+  - Evidence: fake-driven scenario tests for show/install/cd-directive/clipboard, minimal Clinkr
+    static shell-completion support, explicit manual real-shell parity deferral, and a Semantic
+    Update.
 
 - [ ] Cut over public docs, wrapper, and distribution to the TypeScript default.
   - Make the standalone TypeScript `slot` CLI the default surface; add `just install-slot`
     (`_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" ...`), route `install-tools` through it,
     and remove the editable-uv-tool install of `packages/asdl-slots`; remove any stale uv tool/script
     as `handoff`/`areg` did. Update the package `README.md` / docs to name the TypeScript path.
+  - Include the deferred manual real-shell parity gate before considering distribution complete:
+    install/source the wrapper in a throwaway rc, run navigation, confirm the shell `cd`s, and confirm
+    JSON/json-schema invocations do not `cd`.
   - Policy: docs, wrapper behavior/tests, and local-checkout behavior are directly executable after
     preview. npm/PyPI publishing and checkout-free bundling are out of scope unless newly accepted.
   - Evidence: shim recipe, wrapper tests (enclosing-checkout/canonical/missing-dep/no-checkout),
-    `install-tools` routing, docs refresh, manual rendered-shim smoke, and a Semantic Update.
+    `install-tools` routing, docs refresh, manual rendered-shim smoke, manual real-shell parity
+    transcript, and a Semantic Update.
 
 - [ ] Retire the Python fallback and delete `packages/asdl-slots` from active paths.
   - Gate on full 17-command parity, worktree-state parity, shell-integration parity (incl. real-shell

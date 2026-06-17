@@ -8,6 +8,7 @@ import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
 import { RealSlotPRGateway, type SlotPRGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } from "./repo-context.ts";
+import { RealRcFilesystem, type RcFilesystem } from "./shell/rc-block.ts";
 
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
@@ -15,6 +16,7 @@ export interface SlotCliContext {
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
 	pr: SlotPRGateway;
+	rc: RcFilesystem;
 	stdin: () => Promise<string>;
 	stderr: (text: string) => void;
 	cwd: string;
@@ -36,6 +38,7 @@ export async function createRealSlotContext(options: { cwd: string; env?: NodeJS
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		pr: new RealSlotPRGateway({ cwd: options.cwd, env }),
+		rc: new RealRcFilesystem(),
 		stdin: readStdin,
 		stderr: (text) => process.stderr.write(text),
 		cwd: options.cwd,

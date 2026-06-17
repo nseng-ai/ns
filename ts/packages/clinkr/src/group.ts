@@ -87,6 +87,8 @@ export interface ClinkrRunOptions<TContext> {
 	io?: ClinkrIo;
 }
 
+export type ClinkrCompletionShell = "zsh" | "bash";
+
 interface RegisteredCommand<TContext> {
 	name: string;
 	description: string | undefined;
@@ -135,8 +137,8 @@ export class ClinkrGroup<TContext> {
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
-	private registeredCommands: RegisteredCommand<TContext>[];
-	private subgroups: ClinkrGroup<TContext>[];
+	private readonly registeredCommands: RegisteredCommand<TContext>[];
+	private readonly subgroups: ClinkrGroup<TContext>[];
 
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
@@ -174,6 +176,26 @@ export class ClinkrGroup<TContext> {
 	group(child: ClinkrGroup<TContext>): this {
 		this.subgroups.push(child);
 		return this;
+	}
+
+	shellCompletionScript(shell: ClinkrCompletionShell, commandName: string = this.name): string {
+		const spec = this.buildCompletionSpec();
+		return shell === "zsh" ? renderZshCompletion(commandName, spec) : renderBashCompletion(commandName, spec);
+	}
+
+	private buildCompletionSpec(): CompletionCommandSpec {
+		return {
+			name: this.name,
+			options: [],
+			children: [
+				...this.registeredCommands.map((command) => ({
+					name: command.name,
+					options: command.plan.options.map((option) => flagNameOf(option)),
+					children: [],
+				})),
+				...this.subgroups.map((child) => child.buildCompletionSpec()),
+			],
+		};
 	}
 
 	/**
@@ -482,4 +504,54 @@ function surfaceNameForIssue(plan: SurfacePlan, issue: z.core.$ZodIssue): string
 function flagNameOf(option: OptionPlan): string {
 	const [name] = option.flag.split(" ");
 	return name ?? option.flag;
+}
+
+interface CompletionCommandSpec {
+	name: string;
+	options: readonly string[];
+	children: readonly CompletionCommandSpec[];
+}
+
+function renderZshCompletion(commandName: string, spec: CompletionCommandSpec): string {
+	const lines = [`#compdef ${commandName}`, "", `_${shellIdentifier(commandName)}_completion() {`, "  local -a commands", `  commands=(${spec.children.map((child) => shellQuote(child.name)).join(" ")})`, "", "  if [[ $CURRENT -eq 2 ]]; then", "    _describe 'command' commands", "    return", "  fi"];
+	const groupedChildren = spec.children.filter((child) => child.children.length > 0 || child.options.length > 0);
+	if (groupedChildren.length > 0) {
+		lines.push("", "  case ${words[2]} in");
+		for (const child of groupedChildren) {
+			lines.push(`    ${child.name})`);
+			if (child.children.length > 0) {
+				lines.push("      local -a subcommands", `      subcommands=(${child.children.map((sub) => shellQuote(sub.name)).join(" ")})`, "      _describe 'subcommand' subcommands", "      return");
+			} else if (child.options.length > 0) {
+				lines.push("      local -a options", `      options=(${child.options.map(shellQuote).join(" ")})`, "      _describe 'option' options", "      return");
+			}
+			lines.push("      ;;");
+		}
+		lines.push("  esac");
+	}
+	lines.push("}", "", `compdef _${shellIdentifier(commandName)}_completion ${commandName}`, "");
+	return lines.join("\n");
+}
+
+function renderBashCompletion(commandName: string, spec: CompletionCommandSpec): string {
+	const commandWords = spec.children.map((child) => child.name).join(" ");
+	const lines = [`_${shellIdentifier(commandName)}_completion() {`, "  local cur command", "  cur=\"${COMP_WORDS[COMP_CWORD]}\"", "  command=\"${COMP_WORDS[1]}\"", "", "  if [[ $COMP_CWORD -eq 1 ]]; then", `    COMPREPLY=( $(compgen -W ${shellQuote(commandWords)} -- \"$cur\") )`, "    return", "  fi"];
+	const groupedChildren = spec.children.filter((child) => child.children.length > 0 || child.options.length > 0);
+	if (groupedChildren.length > 0) {
+		lines.push("", "  case \"$command\" in");
+		for (const child of groupedChildren) {
+			const words = child.children.length > 0 ? child.children.map((sub) => sub.name).join(" ") : child.options.join(" ");
+			lines.push(`    ${child.name})`, `      COMPREPLY=( $(compgen -W ${shellQuote(words)} -- \"$cur\") )`, "      return", "      ;;");
+		}
+		lines.push("  esac");
+	}
+	lines.push("}", "", `complete -F _${shellIdentifier(commandName)}_completion ${commandName}`, "");
+	return lines.join("\n");
+}
+
+function shellIdentifier(commandName: string): string {
+	return commandName.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+function shellQuote(value: string): string {
+	return `'${value.replaceAll("'", "'\\''")}'`;
 }
