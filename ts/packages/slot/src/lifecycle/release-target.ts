@@ -25,13 +25,20 @@ export function freedSlotFromRecord(record: SlotRecord): FreedSlot {
 	return { slot_name: record.slotName, branch_name: record.branch, worktree_path: record.path };
 }
 
-export async function releaseAssignedSlotTarget(git: SlotGitGateway, inventory: SlotInventory, target: FreedSlot, trunkBranch: string): Promise<FreedSlot | ReleaseTargetFailure> {
-	const record = findBySlot(inventory, target.slot_name);
-	if (record === null || record.branch === null || record.branch !== target.branch_name) return failure("slot_not_assigned", target, { worktreePath: record?.path });
-	if (record.operation !== null) return failure("operation_in_progress", target, { worktreePath: record.path, operation: record.operation });
-	if (await git.hasUncommittedChanges(record.path)) return failure("dirty_worktree", target, { worktreePath: record.path });
-	const detachFailure = await git.detachHead(record.path, trunkBranch);
-	if (detachFailure !== null) return failure("detach_failed", target, { worktreePath: record.path, detachRef: trunkBranch, detachError: detachFailure.message });
+export interface ReleaseAssignedSlotTargetOptions {
+	git: SlotGitGateway;
+	inventory: SlotInventory;
+	target: FreedSlot;
+	trunkBranch: string;
+}
+
+export async function releaseAssignedSlotTarget(options: ReleaseAssignedSlotTargetOptions): Promise<FreedSlot | ReleaseTargetFailure> {
+	const record = findBySlot(options.inventory, options.target.slot_name);
+	if (record === null || record.branch === null || record.branch !== options.target.branch_name) return failure("slot_not_assigned", options.target, { worktreePath: record?.path });
+	if (record.operation !== null) return failure("operation_in_progress", options.target, { worktreePath: record.path, operation: record.operation });
+	if (await options.git.hasUncommittedChanges(record.path)) return failure("dirty_worktree", options.target, { worktreePath: record.path });
+	const detachFailure = await options.git.detachHead(record.path, options.trunkBranch);
+	if (detachFailure !== null) return failure("detach_failed", options.target, { worktreePath: record.path, detachRef: options.trunkBranch, detachError: detachFailure.message });
 	return freedSlotFromRecord(record);
 }
 

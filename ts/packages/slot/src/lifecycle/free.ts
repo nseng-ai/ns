@@ -25,7 +25,7 @@ export async function executeFreePlan(ctx: RepoSlotContext, plan: SlotFreePlan):
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const freed: FreedSlot[] = [];
 	for (const target of plan.targets) {
-		const result = await releaseAssignedSlotTarget(ctx.git, inventory, target, plan.trunk_branch);
+		const result = await releaseAssignedSlotTarget({ git: ctx.git, inventory, target, trunkBranch: plan.trunk_branch });
 		if ("reason" in result) return { type: "failure", failure: { error_type: result.error_type, message: partialFailureMessage(freeExecutionFailureMessage(result), freed) } };
 		freed.push(result);
 	}

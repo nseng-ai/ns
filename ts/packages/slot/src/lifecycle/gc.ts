@@ -69,7 +69,7 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 export async function planGcCleanup(ctx: RepoSlotContext, plan: SlotGcPlan, cleanupActions: readonly SlotFreeCleanupAction[]): Promise<readonly SlotFreeCleanupResult[]> {
 	const targets = gcFreeTargets(plan.entries);
 	if (targets.length === 0 || cleanupActions.length === 0) return [];
-	return await planReleaseCleanup(ctx, targets, cleanupActions, { trunkBranch: await ctx.git.getTrunkBranch() });
+	return await planReleaseCleanup({ ctx, targets, cleanupActions, trunkBranch: await ctx.git.getTrunkBranch() });
 }
 
 export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, options: { cleanupActions?: readonly SlotFreeCleanupAction[] | undefined } = {}): Promise<SlotGcOutcome> {
@@ -82,7 +82,7 @@ export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, opti
 			entries.push(entry);
 			continue;
 		}
-		const result = await releaseAssignedSlotTarget(ctx.git, inventory, freedSlotFromGcEntry(entry), trunk);
+		const result = await releaseAssignedSlotTarget({ git: ctx.git, inventory, target: freedSlotFromGcEntry(entry), trunkBranch: trunk });
 		if ("reason" in result) {
 			entries.push(entryFromReleaseFailure(entry, result));
 			continue;
@@ -93,7 +93,7 @@ export async function executeGcPlan(ctx: RepoSlotContext, plan: SlotGcPlan, opti
 	}
 	const cleanupActions = options.cleanupActions ?? [];
 	if (cleanupActions.length > 0 && freedEntries.length > 0) {
-		const cleanup = await executeReleaseCleanup(ctx, gcFreeTargets(freedEntries), cleanupActions, { trunkBranch: trunk });
+		const cleanup = await executeReleaseCleanup({ ctx, targets: gcFreeTargets(freedEntries), cleanupActions, trunkBranch: trunk });
 		entries = withCleanupBySlot(entries, cleanup);
 	}
 	return outcomeFromEntries(entries, false);

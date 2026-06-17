@@ -14,7 +14,7 @@ const target: FreedSlot = { slot_name: "slot-01", branch_name: "feature/a", work
 describe("release cleanup", () => {
 	it("plans PR and local branch cleanup without mutation", async () => {
 		const ctx = context({ pr: new FakeSlotPrGateway({ prsByBranch: { "feature/a": { number: 7, state: "OPEN" } } }) });
-		const cleanup = await planReleaseCleanup(ctx, [target], ["pr", "local_branch"], { trunkBranch: "master" });
+		const cleanup = await planReleaseCleanup({ ctx, targets: [target], cleanupActions: ["pr", "local_branch"], trunkBranch: "master" });
 		expect(cleanup).toMatchObject([{ action: "pr", status: "planned", pr_number: 7 }, { action: "local_branch", status: "planned" }]);
 		expect(ctx.git.operations()).toEqual([]);
 		expect(ctx.pr.operations()).toEqual([{ type: "get-pr-for-branch", branch: "feature/a" }]);
@@ -22,7 +22,7 @@ describe("release cleanup", () => {
 
 	it("executes in action order and stops on first error", async () => {
 		const ctx = context({ pr: new FakeSlotPrGateway({ prsByBranch: { "feature/a": { number: 7, state: "OPEN" } }, closeFailures: { 7: "close failed" } }) });
-		const cleanup = await executeReleaseCleanup(ctx, [target], ["pr", "local_branch"], { trunkBranch: "master" });
+		const cleanup = await executeReleaseCleanup({ ctx, targets: [target], cleanupActions: ["pr", "local_branch"], trunkBranch: "master" });
 		expect(cleanup).toMatchObject([{ action: "pr", status: "error", message: "close failed" }]);
 		expect(ctx.git.operations()).toEqual([]);
 	});

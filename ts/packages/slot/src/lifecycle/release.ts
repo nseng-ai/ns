@@ -22,14 +22,14 @@ export interface SlotGcReleasePreview {
 export async function planFreeRelease(ctx: RepoSlotContext, slotNames: readonly string[], options: { preflightErrors?: readonly string[] | undefined; cleanupActions?: readonly SlotFreeCleanupAction[] | undefined } = {}) {
 	const plan = await planFreeSlots(ctx, slotNames, { preflightErrors: options.preflightErrors });
 	if (plan.type === "failure") return plan;
-	const cleanup = await planReleaseCleanup(ctx, plan.outcome.targets, options.cleanupActions ?? [], { trunkBranch: plan.outcome.trunk_branch });
+	const cleanup = await planReleaseCleanup({ ctx, targets: plan.outcome.targets, cleanupActions: options.cleanupActions ?? [], trunkBranch: plan.outcome.trunk_branch });
 	return { type: "ok" as const, outcome: { plan: plan.outcome, cleanup } };
 }
 
 export async function executeFreeRelease(ctx: RepoSlotContext, plan: SlotFreePlan, cleanupActions: readonly SlotFreeCleanupAction[] = []) {
 	const freed = await executeFreePlan(ctx, plan);
 	if (freed.type === "failure") return freed;
-	const cleanup = await executeReleaseCleanup(ctx, freed.outcome.freed, cleanupActions, { trunkBranch: plan.trunk_branch });
+	const cleanup = await executeReleaseCleanup({ ctx, targets: freed.outcome.freed, cleanupActions, trunkBranch: plan.trunk_branch });
 	return { type: "ok" as const, outcome: { outcome: freed.outcome, cleanup } };
 }
 
