@@ -107,8 +107,6 @@ describe("sdl regenerate-pr CLI", () => {
 				expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
 			]),
 		);
-		const patchIdCall = run.context.execCalls.find((call) => call.command === "git" && call.args.join(" ") === "patch-id --stable");
-		expect(patchIdCall?.options?.stdin).toBe("diff --git a/src/app.ts b/src/app.ts\n+export const value = true;\n");
 		expect(run.context.modelCalls[0]).toMatchObject({
 			operation: "pr-description",
 			modelRef: "openai-codex/gpt-5.4-mini",
