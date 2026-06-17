@@ -1,6 +1,6 @@
 ---
 name: ccc-sidebar
-description: Use when /ccc:sidebar:pr-summary asks a Pi session to update the caller cmux sidebar/workspace card from current PR work; generate compact title and one-line Goal description, then run one asdl exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
+description: Use when /ccc:sidebar:session-summary asks a Pi session to update the caller cmux sidebar/workspace card; generate compact title and one-line Goal description, then run one asdl exec command. /ccc:sidebar:objective-summary is handled directly by deterministic extension code and should not invoke this skill.
 metadata:
   internal: true
 ---
@@ -11,13 +11,13 @@ Update the caller cmux workspace entry so the sidebar distinguishes this Pi sess
 
 ## Input contract
 
-The invoking extension prompt provides the target workspace through `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and requests the PR sidebar variant.
+The invoking extension prompt provides the target workspace through `CMUX_WORKSPACE_ID` or `CMUX_TAB_ID` and requests the session sidebar summary command.
 
 Do not target the focused workspace unless it is the same environment-provided caller workspace.
 
 ## Choose the source to summarize
 
-Summarize the current PR, branch, or active implementation work. Use PR/branch/session evidence already visible in the active Pi conversation context. The goal should describe the PR outcome, not the cmux update itself.
+Summarize this Pi session's current task, progress, and likely next action from the active Pi conversation context. The goal should describe what this session is trying to accomplish, not the cmux update itself.
 
 `/ccc:sidebar:objective-summary` is not skill-driven. It is handled directly by deterministic extension code from an Objective slug/path or UI picker selection; do not use this skill for Objective sidebar work.
 
@@ -25,13 +25,13 @@ Summarize the current PR, branch, or active implementation work. Use PR/branch/s
 
 Use the active Pi conversation context already available to you. Do not serialize, request, or inspect the full session file. Do not use local cmux source under `~/code/githubs/manaflow-ai/cmux`; if cmux command behavior is unclear, inspect the installed CLI help.
 
-Do not summarize this control prompt as the subject of the session. Summarize the PR work.
+Do not summarize this control prompt as the subject of the session. Summarize the requested session work.
 
 ## Required fields
 
 Produce these two fields and self-check the character limits before running commands:
 
-- `title`: max 45 chars; short action/object phrase.
+- `title`: exactly `summary:<slug>`, where `<slug>` is a concise lowercase hyphen slug for the session topic. Keep the full title at max 45 chars.
 - `description`: exactly one short line with the `Goal:` prefix.
 
 If any field is too long, rewrite it shorter before running `asdl exec`. If possible, avoid apostrophes in generated fields so single-quote shell quoting stays simple; rewrite contractions rather than escaping them.
@@ -44,7 +44,7 @@ Use this command shape:
 
 ```bash
 asdl exec cmux-workspace-summary \
-  --title '...' \
+  --title 'summary:<slug>' \
   --description 'Goal: ...' \
   --format json
 ```
