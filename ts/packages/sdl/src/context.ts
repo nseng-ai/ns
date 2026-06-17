@@ -28,6 +28,7 @@ export function createRealSdlCommandContext(options: RealSdlCommandContextOption
 				cwd,
 				env,
 				...(execOptions.timeoutMs === undefined ? {} : { timeout: execOptions.timeoutMs }),
+				...(execOptions.stdin === undefined ? {} : { stdin: execOptions.stdin }),
 				...(execOptions.onStdout === undefined ? {} : { onStdout: execOptions.onStdout }),
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),
 			});
