@@ -7,6 +7,7 @@ import { withTempRepoSkill } from "@asdl/core/testing";
 import { buildSlugModelArgs } from "@asdl/plans";
 import registerCccExtension from "../src/ccc.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
+import { registerCccSlotDispatchFromTrunkCommand } from "../src/cmux/dispatch-from-trunk.ts";
 import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
 import { registerCccSlotDispatchPlanCommand } from "../src/cmux/slot-dispatch-plan.ts";
 import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
@@ -48,6 +49,7 @@ const SAVED_PLAN_FILE_NAME = `${SAVED_PLAN_FILENAME_SLUG}.md`;
 const PLAN_CONTENT = "# Plan\n";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";
 const DISPATCH_PROMPT_KEY = "prompt.md";
+const TRUNK_BRANCH = "master";
 
 function dispatchPromptPutJson(sourceFile: string): string {
 	return JSON.stringify({
@@ -75,6 +77,7 @@ describe("CCC cmux command suite", () => {
 			"ccc:claude-plan-tab",
 			"ccc:sidebar:objective-summary",
 			"ccc:sidebar:session-summary",
+			"ccc:workspace:dispatch-from-trunk",
 			"ccc:workspace:dispatch-plan",
 			"ccc:workspace:dispatch-prompt",
 			"ccc:workspace:open-branch",
@@ -401,6 +404,126 @@ describe("CCC cmux command suite", () => {
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ccc:workspace:dispatch-from-trunk stores payload from refreshed Graphite trunk and opens cmux", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const launchCommand = `payload="$(brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH})" && exec pi --provider anthropic --model claude-sonnet-4-5 --thinking medium "$payload"`;
+		const pi = new FakePi({
+			script: [
+				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("gt", ["get", TRUNK_BRANCH, "--no-restack", "--no-checkout", "--force", "--no-interactive"], {}),
+				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, TRUNK_BRANCH], {}),
+				step("gt", ["track", BRANCH, "--parent", TRUNK_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: brmemCheckJson(false) }),
+				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
+					stdout: dispatchPromptPutJson(stagedPromptFile),
+				}),
+				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
+				step("cmux", [
+					"new-workspace",
+					"--name",
+					BRANCH,
+					"--description",
+					`dispatch-from-trunk from ${TRUNK_BRANCH}`,
+					"--cwd",
+					WORKTREE,
+					"--command",
+					launchCommand,
+				], {}),
+			],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi, { stagingDir, now: () => 123, shouldCleanupStagingFile: false });
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		const promptText = await readFile(stagedPromptFile, "utf8");
+		expect(promptText).toContain("Implement the cmux dispatch flow");
+		expect(promptText).toContain("created from refreshed Graphite trunk");
+		expect(promptText).toContain("!sdl submit");
+		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
+		expect(notificationMessages(ctx).join("\n")).toContain(`Parent: ${TRUNK_BRANCH}`);
+		expect(notificationMessages(ctx).join("\n")).toContain(`Start point: ${START_POINT}`);
+		expect(notificationMessages(ctx).join("\n")).toContain(`${DISPATCH_PROMPT_NAMESPACE}/${DISPATCH_PROMPT_KEY}`);
+		expect(pi.sentUserMessages).toEqual([]);
+		expect(pi.setModels).toEqual([]);
+		expect(pi.thinkingLevels).toEqual([]);
+	});
+
+	test("ccc:workspace:dispatch-from-trunk requires inline prompt args", async () => {
+		const pi = new FakePi();
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("", ctx);
+
+		expect(ctx.waitCount).toBe(0);
+		expect(notificationMessages(ctx)).toContain("Usage: /ccc:workspace:dispatch-from-trunk <prompt>");
+		expect(pi.execCalls).toEqual([]);
+	});
+
+	test("ccc:workspace:dispatch-from-trunk stops when Graphite trunk cannot be resolved", async () => {
+		const pi = new FakePi({
+			script: [step("gt", ["trunk", "--no-interactive"], { code: 1, stderr: "no trunk\n" })],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("Could not resolve Graphite trunk");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
+	});
+
+	test("ccc:workspace:dispatch-from-trunk stops when Graphite trunk output is empty", async () => {
+		const pi = new FakePi({
+			script: [step("gt", ["trunk", "--no-interactive"], { stdout: "\n" })],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("gt trunk --no-interactive returned no branch");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
+	});
+
+	test("ccc:workspace:dispatch-from-trunk stops when trunk refresh fails", async () => {
+		const pi = new FakePi({
+			script: [
+				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("gt", ["get", TRUNK_BRANCH, "--no-restack", "--no-checkout", "--force", "--no-interactive"], {
+					code: 1,
+					stderr: "fetch failed\n",
+				}),
+			],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi);
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(notificationMessages(ctx).join("\n")).toContain("Graphite trunk refresh failed");
+		expect(notificationMessages(ctx).join("\n")).toContain("no branch was created");
+		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 
 	test("ccc:workspace:dispatch-prompt refuses to overwrite an existing Branch Memory payload", async () => {
