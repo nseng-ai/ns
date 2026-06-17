@@ -1,21 +1,24 @@
 # pr-address exec CLI reference notes
 
-`pr-address exec` is now a retained single-PR helper surface plus read-only download helpers used by Pi PR triage commands.
+`pr-address exec` is now a transitional read-only feedback-download helper surface.
 
 ## JSON envelope
 
-All `pr-address exec <command> --format json` helpers emit a machine envelope:
+All retained `pr-address exec <command> --format json` helpers emit a machine envelope:
 
 - success: `{ "exit_code": 0, "data": ... }`
 - negative/validation: `{ "exit_code": 1, "message": ..., "data": ... }`
 - invalid request/failure: `{ "exit_code": 2, "error_type": ..., "message": ... }`
 
-Use `--json-schema` to print the helper's input/output schema. Unknown commands and malformed raw CLI arguments are usage errors on stderr.
+Use `--json-schema` before relying on a retained helper shape.
 
-## Active operation families
+## Retained operation families
 
-- Collection/setup: `prepare-run`, `get-feedback`, `download-feedback`, `map-branch-prs`, `classification-template`, `read-feedback-detail`, `read-feedback-details`.
-- Planning: `validate-feedback-classification`, `plan-feedback`.
-- Mutation support: `build-resolve-thread-batch-payload`, `resolve-thread-batch`, `resolve-thread-with-reply`, `reply-to-review`, `reply-to-discussion`, `record-batch-checkpoint`, `finalize-run`.
+- Feedback download: `download-feedback`.
+- Stack download plumbing: `map-branch-prs`, only as needed to map structured branch lists to PRs before per-PR downloads.
 
-Agent-authored JSON files such as classifications and resolver decisions should live outside the worktree. Worktree-local `--classification-file` paths are rejected to prevent accidental commits of scratch decisions.
+## Retired operation families
+
+The old workflow engine is retired: payload sessions, classification templates, classification validation, planning, payload detail lookup, resolver-payload construction, GitHub mutation helpers, checkpoints, and finalization should not be used for new agent workflows and are scheduled for deletion.
+
+Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback`, inspect the downloaded Markdown, ask for confirmation before code changes, and treat any future addressing workflow as a rebuild on top of the downloader foundation.
