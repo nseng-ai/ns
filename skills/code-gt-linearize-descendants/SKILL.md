@@ -57,8 +57,8 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 9. If conflicts occur, use `code-resolve-merge-conflicts` as the conflict-resolution driver and return unresolved/product decisions to this workflow.
 10. Once the rewrite succeeds and status is clean, run:
 
-   ```bash
-   gt submit --no-interactive
-   ```
+```bash
+gt submit --no-interactive
+```
 
 11. Report final stack, updated PR URLs from submit output, backup ref prefix, close candidates, and any deviations from the confirmed proposal.
