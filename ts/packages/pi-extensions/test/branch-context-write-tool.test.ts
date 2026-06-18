@@ -46,7 +46,9 @@ describe("write_saved_plan_file tool", () => {
 		expect(contentParameter?.description).toContain("external research");
 		expect(parameters.required).toEqual(["content"]);
 		expect(parameters.additionalProperties).toBe(false);
-		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary"]);
+		const tagsParameter = parameters.properties?.tags as { description?: string } | undefined;
+		expect(tagsParameter?.description).toContain("lowercase kebab-case");
+		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary", "tags"]);
 	});
 
 	test("derives the saved-plan filename slug with the Codex slug model before writing", async () => {

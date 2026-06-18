@@ -139,8 +139,8 @@ function replaceOrInsertTagsBlock(frontmatter: string, tagsBlock: string): strin
 		break;
 	}
 
-	const updated = [...lines.slice(0, tagsLineIndex), ...tagsBlock.trimEnd().split("\n"), ...lines.slice(endIndex)].join("\n");
-	return updated.endsWith("\n") ? updated : `${updated}\n`;
+	const updatedFrontmatter = [...lines.slice(0, tagsLineIndex), ...tagsBlock.trimEnd().split("\n"), ...lines.slice(endIndex)].join("\n");
+	return updatedFrontmatter.endsWith("\n") ? updatedFrontmatter : `${updatedFrontmatter}\n`;
 }
 
 function formatTagsBlock(tags: readonly string[]): string {
