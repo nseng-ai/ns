@@ -69,16 +69,25 @@
     #1721 (supporting shared confirmation/GitHub runner slice) submitted via Graphite; validation
     recorded in `updates/20260617T115119Z-slot-release-free-gc.md`.
 
-- [ ] Port the Graphite subgroup: `slot gt up|down|free-stack` and hidden `slot gt exec
-      stack-branches|stack-map-branches`.
+- [x] Port the Graphite subgroup subset: `slot gt up|down|free-stack` and hidden `slot gt exec
+      stack-branches`.
   - Reuse-or-checkout navigation for `up`/`down`; `free-stack` stack collection excluding current and
     trunk, with `--downstack`; `on_trunk`/`no_slots` noop reasons; `gt_*` error types and the
-    `gt_untracked_branch` path. Drive Graphite only through `GtGateway` plumbing
-    (`parent_of`/`children_of`/`stack`/`trunk`); never parse human `gt` output. Emit the exec JSON
-    shapes for stack-branches / stack-map-branches.
+    `gt_untracked_branch` path. Drive Graphite only through package-local `GtGateway` plumbing
+    (`parentOf`/`childrenOf`/`stack`/`trunk`); never parse human `gt` output. Emit the hidden exec
+    branch-list JSON shape for `stack-branches`.
   - Policy: directly executable after preview behind the `slot gt` Graphite-named boundary. Ask
     before broadening the Graphite dependency beyond `slot gt`.
-  - Evidence: scenario tests with a fake GtGateway for up/down/free-stack/exec, and a Semantic Update.
+  - Evidence: `ts/packages/slot` fake-backed scenario/unit tests for up/down/free-stack/exec,
+    real read-only `RealSlotGtGateway`, validation recorded in
+    `updates/20260617T145941Z-slot-gt-subgroup.md`.
+
+- [ ] Port hidden `slot gt exec stack-map-branches`.
+  - Deferred from the Graphite subgroup slice because the prework found no current wired consumer and
+    the accepted plan explicitly parked it. Preserve the Graphite-only boundary and avoid parsing
+    human-facing Graphite display output when this is revived.
+  - Policy: preview before reviving; ask if a live consumer appears and changes the deferral risk.
+  - Evidence: future scenario tests and Semantic Update.
 
 - [ ] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
       parent-shell `cd` directive, and clipboard. (Novel-risk slice.)

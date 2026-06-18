@@ -5,6 +5,7 @@ import { readStdin } from "@asdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
+import type { SlotGtGateway } from "./gateways/gt.ts";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } from "./repo-context.ts";
@@ -12,6 +13,7 @@ import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } fr
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
 	git: SlotGitGateway;
+	gt?: SlotGtGateway | undefined;
 	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
