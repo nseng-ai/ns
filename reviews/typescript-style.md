@@ -1,10 +1,12 @@
 ---
 description: |
-  Enforce asdl's TypeScript style guide on the supplied diff. Flag concrete,
-  mechanically detectable violations: non-erasable TypeScript, ordinary `any`,
-  broad casts, top-level arrow module logic, mutation of owned-boundary data,
-  naming hygiene, suppression hygiene, and other Tier A rules. Intended for
-  cheap, per-diff detection; resolution stays with the engineer in a later,
+  Enforce asdl's TypeScript style guide and asdl-tools TypeScript overlay on the
+  supplied diff. Flag concrete, mechanically detectable violations:
+  non-erasable TypeScript, ordinary `any`, banned double-casts, import-boundary
+  drift, strict-indexed-access bypasses, exact-optional-property drift, broad
+  casts, top-level arrow module logic, mutation of owned-boundary data, naming
+  hygiene, suppression hygiene, and other Tier A rules. Intended for cheap,
+  per-diff detection; resolution stays with the engineer in a later,
   higher-context workflow.
 default_model: haiku
 applies_to:
@@ -21,11 +23,12 @@ diff and tie to one of the active Tier A rules below. Do not invent findings
 about unchanged code.
 
 Only flag violations in TypeScript-family files (`.ts`, `.tsx`, `.mts`,
-`.cts`) unless the diff makes a TypeScript rule relevant in another file. Do
-not flag package-manager, formatter, linter, test-runner, or import-suffix
-choices. Do not propose fixes; report the violated rule and why the changed
-line is suspicious. If context is ambiguous, skip the finding rather than
-inventing intent.
+`.cts`) unless the diff makes a TypeScript rule relevant in another file. This
+review combines the portable `typescript-style` guide with the repo-specific
+`asdl-typescript` overlay for asdl-tools. Do not flag package-manager,
+formatter, linter, or test-runner choices. Do not propose fixes; report the
+violated rule and why the changed line is suspicious. If context is ambiguous,
+skip the finding rather than inventing intent.
 
 ## Active Tier A rules
 
@@ -46,10 +49,11 @@ to each rule's exceptions.
    justification is missing. Do not flag if the same or immediately adjacent
    line clearly documents an isolated library-forced seam and containment is
    obvious.
-3. **Double-cast laundering.** Flag `as unknown as SomeType` or equivalent
-   double-cast patterns used to force a type. Severity: `warning`. The style
-   guide expects runtime validation, guards, or narrow wrappers rather than
-   laundering values through `unknown` and then a target type.
+3. **Banned double-cast laundering.** Flag `as unknown as SomeType` or
+   equivalent double-cast patterns used to force a type, including tests.
+   Severity: `error`. The asdl-tools overlay hard-bans this pattern everywhere;
+   values should be complete typed fixtures, derived from a source of truth,
+   runtime-validated, or cast only at a narrow justified library seam.
 4. **Plain object shape written as a `type` alias.** Flag `type` aliases whose
    right-hand side is a plain object shape, such as
    `type UserOptions = { name: string }`. Severity: `warning`. Do not flag
@@ -113,16 +117,41 @@ to each rule's exceptions.
     `DURATION`, `MAX_SIZE`, `LIMIT`, or `MAX_PAYLOAD` that imply time or size
     without a unit suffix. Severity: `warning`. The style guide prefers names
     like `TIMEOUT_MS`, `RETRY_DELAY_MS`, and `MAX_BYTES`.
-15. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
+15. **ASDL TypeScript import convention drift.** Flag relative imports in
+    `ts/` TypeScript source that omit the explicit `.ts` suffix or use the
+    wrong source suffix, such as `from "./thing"`, `from "../thing"`, or
+    `from "./thing.js"` when importing project TypeScript. Severity:
+    `warning`. Do not flag bare package imports (`node:fs`, `zod`,
+    `@asdl/core/primitives`), type-only imports that already use `.ts`, or
+    non-TypeScript assets where the project has an existing pattern.
+16. **Cross-package `src/` deep imports.** Flag imports that bypass curated
+    workspace package exports by reaching into another package's `src/` tree,
+    including `@asdl/<pkg>/src/...` and relative paths that cross from one
+    `ts/packages/<pkg>` package into another package's `src`. Severity:
+    `warning`. Intra-package relative imports are fine when they stay inside
+    the same package and use the explicit `.ts` suffix.
+17. **Optional-property `undefined` drift under `exactOptionalPropertyTypes`.**
+    Flag object literals for options/config/request values that explicitly set
+    an optional property to `undefined`, or replace a conditional-spread omission
+    pattern with `prop: maybeUndefined`. Severity: `warning`. Do not flag the
+    intentional asdl pattern `...(value === undefined ? {} : { prop: value })`;
+    under this compiler setting, omitting a key is different from setting it to
+    `undefined`.
+18. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
+    that bypass `noUncheckedIndexedAccess` on array/record lookups, such as
+    `items[index]!`, `handlers[key]!`, or `(record[key] as Handler)` without a
+    nearby guard. Severity: `warning`. Do not flag a lookup followed by an
+    explicit `undefined` guard that stores the narrowed value in a local.
+19. **Mega-barrels or sweeping exports.** Flag `export * from "..."`,
     especially in `index.ts` or package public roots. Severity: `warning`. Do
-    not flag explicit curated exports such as `export { Foo } from "./foo"` or
-    `export type { FooOptions } from "./foo"`.
+    not flag explicit curated exports such as `export { Foo } from "./foo.ts"`
+    or `export type { FooOptions } from "./foo.ts"`.
 
 ## Severity
 
 - `error` — hard mechanical violations of core rules that should fail review
   outright, such as non-erasable TypeScript constructs, ordinary explicit
-  `any`, and `@ts-ignore`.
+  `any`, banned `as unknown as` double-casts, and `@ts-ignore`.
 - `warning` — enforceable style conventions and likely violations that should
   be reviewed but may require human judgment.
 - `info` — use sparingly; most findings should be `warning` or `error`.
@@ -140,5 +169,8 @@ NOT ACTIVE — future Tier B ideas only. Do not flag these yet.
 - Mutation of returned/shared collections where ownership is unclear.
 - Backend/runtime sniffing via name substring checks instead of capability flags.
 - Hidden globals where a collaborator should be injected.
+- Third-party SDK/client/library shapes leaking through core instead of a project-owned seam.
+- Hand-authored parallel identity, slug, type, schema, or registry key that should be derived from one source of truth.
+- New public API surface without a contract comment or test coverage for the promised behavior.
 - Error-handling boundary/model findings after the deferred error-handling standard is settled.
 -->
