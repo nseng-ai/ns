@@ -27,12 +27,18 @@ Gaps to triage, drawn from the Eve report:
 - **Linter** — Eve runs oxlint (`--fix`); `ts/` has no TS linter at all.
 - **Formatter** — Eve runs oxfmt + a pre-commit hook; `ts/` has no TS formatter
   (dprint covers only Markdown/TOML).
-- **`tsconfig` strictness delta** — Eve sets flags `ts/` omits:
-  `moduleDetection: force`, `noImplicitOverride`, `noUnusedLocals`,
-  `noUnusedParameters`, `noFallthroughCasesInSwitch`,
-  `useUnknownInCatchVariables`, `noUncheckedSideEffectImports`,
-  `forceConsistentCasingInFileNames`, `resolveJsonModule`. (`ts/` is conversely
-  stricter on one axis Eve does not list: `exactOptionalPropertyTypes`.)
+- **`tsconfig` strictness delta** — Eve sets flags the `ts/` subtree omitted
+  when this Objective was created: `moduleDetection: force`,
+  `noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`,
+  `noFallthroughCasesInSwitch`, `useUnknownInCatchVariables`,
+  `noUncheckedSideEffectImports`, `forceConsistentCasingInFileNames`,
+  `resolveJsonModule`. Six of those flags have since landed in
+  `ts/tsconfig.json` (`moduleDetection: force`, `noImplicitOverride`,
+  `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`,
+  `noUncheckedSideEffectImports`), so this gap now requires both retroactive
+  verdict/rationale for the landed flags and explicit decisions for the
+  remaining flags. (`ts/` is conversely stricter on one axis Eve does not list:
+  `exactOptionalPropertyTypes`.)
 - **Dependency governance** — Eve uses a pnpm `catalog:` version
   source-of-truth, syncpack lint/fix, `minimumReleaseAge` supply-chain aging,
   and an `allowBuilds` install-script allowlist; `ts/` has plain per-package
@@ -94,6 +100,10 @@ Gaps to triage, drawn from the Eve report:
   large public API surface; adopting them wholesale could add ceremony that an
   internal toolkit does not need. The default posture is skeptical adoption,
   not parity for its own sake.
+- *Implementation-before-decision drift* — part of the `tsconfig` strictness
+  delta landed before this triage record captured a verdict. Treat the landed
+  flags as evidence to reconcile, not as a substitute for the Objective's
+  adopt/defer/reject decision record.
 
 ## Open Questions
 

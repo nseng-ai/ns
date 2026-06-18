@@ -8,12 +8,15 @@
 - [ ] Triage **TS formatter** adoption — oxfmt vs biome vs prettier vs none,
       plus whether to add a pre-commit format hook. Recommend adopt; weigh the
       one-time noisy reformat diff across `ts/packages/*`.
-- [ ] Triage **`tsconfig` strictness delta** — verdict on each Eve-only flag
-      (`moduleDetection: force`, `noImplicitOverride`, `noUnusedLocals`,
-      `noUnusedParameters`, `noFallthroughCasesInSwitch`,
-      `useUnknownInCatchVariables`, `noUncheckedSideEffectImports`,
-      `forceConsistentCasingInFileNames`, `resolveJsonModule`). Recommend adopt
-      the safe subset; the `noUnused*` pair may produce real cleanup work.
+- [~] Triage **`tsconfig` strictness delta** — six Eve-delta flags have already
+      landed in `ts/tsconfig.json` (`moduleDetection: force`,
+      `noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`,
+      `noFallthroughCasesInSwitch`, `noUncheckedSideEffectImports`). Remaining
+      triage work: record explicit adopt-now rationale for those landed flags;
+      decide whether `useUnknownInCatchVariables` and
+      `forceConsistentCasingInFileNames` should be explicit/default-only/reject;
+      and decide whether `resolveJsonModule` is useful for `ts/`. Do not mark
+      complete until every listed flag has a verdict.
 - [ ] Triage **dependency governance** — pnpm `catalog:` + syncpack +
       `minimumReleaseAge` + `allowBuilds`. Recommend adopt catalog + syncpack;
       lean defer on release-age aging for an internal workspace.
