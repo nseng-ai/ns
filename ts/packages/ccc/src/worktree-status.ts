@@ -2,7 +2,18 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
-import { normalizeExecResult, type PiExecResultLike } from "@asdl/core/exec";
+import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
+import { runGitHubCli } from "@asdl/core/github-cli";
+import {
+	githubPrIdentityFromUrl,
+	githubReviewThreadCountsArgs,
+	parseGithubPrStatusViewJson,
+	parseGithubReviewThreadCountsJson,
+	tallyGithubStatusChecks,
+	type GithubPrStatusView,
+	type GithubReviewThreadCounts,
+} from "@asdl/core/github-status";
+import { formatErrorMessage } from "@asdl/core/primitives";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
 import {
 	customMessageText,
@@ -20,17 +31,10 @@ import {
 } from "./worktree-status/graphite-metadata.ts";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
-const EMPTY_BRANCH_ICON = "∅";
 const COMMAND_TIMEOUT_MS = 5_000;
 const EXCLUDED_BRMEM_NAMESPACES = new Set(["objectives-archive"]);
 
 export type ExecResult = PiExecResultLike;
-
-interface ExecOptions {
-	cwd?: string;
-	timeout?: number;
-	signal?: AbortSignal;
-}
 
 export interface ExecGateway {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
@@ -50,10 +54,15 @@ interface GitPaths {
 
 type GitFileParseResult = { type: "found"; paths: GitPaths | undefined } | { type: "not-gitdir-file" };
 
+export type GtCommitStatus =
+	| { type: "count"; count: number }
+	| { type: "unknown" }
+	| { type: "not-applicable" };
+
 export interface GtStatus {
 	down: string | undefined;
 	up: string;
-	commits: "yes" | "no" | "?" | "n/a";
+	commits: GtCommitStatus;
 	dirty: "yes" | "no";
 }
 
@@ -79,9 +88,25 @@ export interface LoadWorktreeStatusOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
+export interface GhStatus {
+	type: "available";
+	prNumber: number;
+	url?: string | undefined;
+	unresolvedThreads: number;
+	totalThreads: number;
+	hasMoreThreads: boolean;
+	passingChecks: number;
+	pendingChecks: number;
+	failingChecks: number;
+	unknownChecks: number;
+}
+
+export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable"; message?: string | undefined };
+
 export interface WorktreeStatus {
 	brmem: string | undefined;
 	gt: GtStatus;
+	gh: WorktreeGhStatus;
 	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
 }
 
@@ -111,7 +136,7 @@ export async function loadWorktreeStatus(
 		gtMetadataDiagnostic = diagnostic;
 		options.onDiagnostic?.(diagnostic);
 	};
-	const [brmem, gt] = await Promise.all([
+	const [brmem, gt, gh] = await Promise.all([
 		loadBrmemStatus(pi, cwd, options.signal),
 		loadGtStatus({
 			pi,
@@ -120,9 +145,10 @@ export async function loadWorktreeStatus(
 			metadataLoader: options.metadataLoader,
 			onDiagnostic,
 		}),
+		loadGhStatus(pi, cwd, options.signal),
 	]);
 
-	const status: WorktreeStatus = { brmem, gt };
+	const status: WorktreeStatus = { brmem, gt, gh };
 	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
 	return status;
 }
@@ -276,21 +302,21 @@ async function loadHasCommits(
 	cwd: string,
 	down: string | undefined,
 	signal?: AbortSignal,
-): Promise<"yes" | "no" | "?" | "n/a"> {
-	if (down === undefined) return "n/a";
-	if (down === "-" || signal?.aborted) return "?";
+): Promise<GtCommitStatus> {
+	if (down === undefined) return { type: "not-applicable" };
+	if (down === "-" || signal?.aborted) return { type: "unknown" };
 
 	try {
 		const result = normalizeExecResult(
 			await pi.exec("git", ["rev-list", "--count", `${down}..HEAD`], execOptions(cwd, signal)),
 		);
-		if (result.code !== 0) return "?";
+		if (result.code !== 0) return { type: "unknown" };
 
 		const count = Number.parseInt(result.stdout.trim(), 10);
-		if (!Number.isFinite(count)) return "?";
-		return count > 0 ? "yes" : "no";
+		if (!Number.isFinite(count) || count < 0) return { type: "unknown" };
+		return { type: "count", count };
 	} catch {
-		return "?";
+		return { type: "unknown" };
 	}
 }
 
@@ -303,6 +329,72 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	} catch {
 		return "no";
 	}
+}
+
+async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
+	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
+
+	const ghPrViewArgs = ["pr", "view", "--json", "number,url,statusCheckRollup"];
+	const view = await runGitHubCli({
+		runner: execApiToCommandRunner(githubCliExecApi(pi)),
+		cwd,
+		signal,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		args: ghPrViewArgs,
+	});
+	if (view.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(view.message) };
+	if (view.result.code !== 0) return { type: "no-pr" };
+
+	const pr = parseGithubPrStatusViewJson(view.result.stdout);
+	if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
+
+	const reviewThreads = await loadUnresolvedReviewThreadCount({ pi, cwd, pr, signal });
+	if (reviewThreads.type === "unavailable") return reviewThreads;
+	const checks = tallyGithubStatusChecks(pr.statusCheckRollup);
+
+	return {
+		type: "available",
+		prNumber: pr.number,
+		url: pr.url,
+		unresolvedThreads: reviewThreads.counts.unresolved,
+		totalThreads: reviewThreads.counts.total,
+		hasMoreThreads: reviewThreads.counts.hasMore,
+		passingChecks: checks.passing,
+		pendingChecks: checks.pending,
+		failingChecks: checks.failing,
+		unknownChecks: checks.unknown,
+	};
+}
+
+type ReviewThreadLoadResult = { type: "available"; counts: GithubReviewThreadCounts } | { type: "unavailable"; message: string };
+
+interface LoadUnresolvedReviewThreadCountOptions {
+	readonly pi: ExecGateway;
+	readonly cwd: string;
+	readonly pr: GithubPrStatusView;
+	readonly signal?: AbortSignal | undefined;
+}
+
+async function loadUnresolvedReviewThreadCount(options: LoadUnresolvedReviewThreadCountOptions): Promise<ReviewThreadLoadResult> {
+	const { pi, cwd, pr, signal } = options;
+	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
+	if (identity === undefined) return { type: "unavailable", message: "could not identify GitHub repository from PR URL" };
+
+	const args = githubReviewThreadCountsArgs(identity);
+	const result = await runGitHubCli({
+		runner: execApiToCommandRunner(githubCliExecApi(pi)),
+		cwd,
+		signal,
+		timeoutMs: COMMAND_TIMEOUT_MS,
+		args,
+	});
+	if (result.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(result.message) };
+	if (result.result.code !== 0) {
+		return { type: "unavailable", message: compactCommandFailureMessage(compactGithubCommandName(args), result.result) };
+	}
+	const counts = parseGithubReviewThreadCountsJson(result.result.stdout);
+	if (counts === undefined) return { type: "unavailable", message: "could not parse gh review thread output" };
+	return { type: "available", counts };
 }
 
 function currentBranchName(gitPaths: GitPaths): string | undefined {
@@ -322,6 +414,33 @@ function execOptions(cwd: string, signal?: AbortSignal) {
 	return signal === undefined
 		? { cwd, timeout: COMMAND_TIMEOUT_MS }
 		: { cwd, signal, timeout: COMMAND_TIMEOUT_MS };
+}
+
+function githubCliExecApi(pi: ExecGateway): CommandExecApi {
+	return {
+		async exec(command, args, options) {
+			return normalizeExecResult(await pi.exec(command, args, options));
+		},
+	};
+}
+
+function compactGithubCommandName(args: readonly string[]): string {
+	return formatCommand("gh", args.slice(0, 2));
+}
+
+function compactCommandFailureMessage(command: string, result: ExecResult): string {
+	const detail = compactStatusDetail((result.stderr ?? "").trim() || (result.stdout ?? "").trim());
+	if (detail.length === 0) return `${command} exited ${result.code}`;
+	return `${command} exited ${result.code}: ${detail}`;
+}
+
+function compactErrorMessage(error: unknown): string {
+	const message = compactStatusDetail(formatErrorMessage(error));
+	return message.length > 0 ? message : "unexpected error";
+}
+
+function compactStatusDetail(message: string): string {
+	return tailText(message.trim().replace(/\s+/g, " "), { maxChars: 160, maxLines: 1 });
 }
 
 export function renderWorktreeStatusMessage(
@@ -362,6 +481,21 @@ export function formatWorktreeStatus(status: WorktreeStatus, theme?: StatusTheme
 		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
 	}
 	lines.push(formatGtStatus(status.gt, theme));
+	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	return lines;
+}
+
+export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: StatusTheme): string[] {
+	const lines: string[] = [];
+	if (status.brmem !== undefined) {
+		lines.push(formatStatusSegment(`[brmem] ${status.brmem}`, theme));
+	}
+	lines.push(...formatWorktreeStatusForFooterTail(status, theme));
+	return lines;
+}
+
+function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
+	const lines = [formatGhStatus(status.gh, theme)];
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
 	}
@@ -386,22 +520,77 @@ function formatGraphiteMetadataDiagnostic(diagnostic: GraphiteMetadataWorkerDiag
 }
 
 export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
-	const down = status.down === undefined ? "" : ` (↓: ${status.down})`;
-	const commits =
-		status.commits === "n/a"
-			? ""
-			: status.commits === "yes"
-				? " (commits)"
-				: status.commits === "?"
-					? " (commits: ?)"
-					: ` ${EMPTY_BRANCH_ICON}`;
-	const dirty = status.dirty === "yes" ? " (x)" : "";
-	const rest = `${down} (↑: ${status.up})${commits}${dirty}`;
-	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(rest, theme)}`;
+	const parts: string[] = [];
+	if (status.down !== undefined) parts.push(`↓ ${status.down}`);
+	parts.push(`↑ ${status.up}`);
+	const commits = formatGtCommitStatus(status.commits);
+	if (commits !== undefined) parts.push(commits);
+	if (status.dirty === "yes") parts.push("✗");
+	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(` ${parts.join(" · ")}`, theme)}`;
+}
+
+function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
+	switch (commits.type) {
+		case "count":
+			return `${commits.count} ${commits.count === 1 ? "commit" : "commits"}`;
+		case "unknown":
+			return "commits ?";
+		case "not-applicable":
+			return undefined;
+	}
+}
+
+export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
+	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
+	if (status.type === "unavailable") {
+		const detail = status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);
+		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
+	}
+
+	const resolvedThreads = Math.max(0, status.totalThreads - status.unresolvedThreads);
+	const commentsValue = `${resolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
+	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0;
+	const pieces = [
+		formatColoredSegment("[gh]", "dim", theme),
+		formatColoredSegment(" ", "dim", theme),
+		formatColoredSegment(`#${status.prNumber}`, "accent", theme),
+		formatColoredSegment(" · comments ", "dim", theme),
+		formatColoredSegment(commentsValue, status.unresolvedThreads > 0 ? "warning" : "dim", theme),
+		formatColoredSegment(" · actions ", "dim", theme),
+		...formatActionBucketSegments(status, theme),
+	];
+	if (isLandable) {
+		pieces.push(formatColoredSegment(" · ", "dim", theme), formatColoredSegment("landable", "accent", theme));
+	}
+	return pieces.join("");
+}
+
+function formatActionBucketSegments(status: GhStatus, theme?: StatusTheme): string[] {
+	if (status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0) {
+		return [formatColoredSegment(`${status.passingChecks}✓`, "accent", theme)];
+	}
+	const buckets: string[] = [];
+	if (status.pendingChecks > 0) buckets.push(formatColoredSegment(`${status.pendingChecks}⏳`, "warning", theme));
+	if (status.failingChecks > 0) buckets.push(formatColoredSegment(`${status.failingChecks}✗`, "error", theme));
+	if (status.unknownChecks > 0) buckets.push(formatColoredSegment(`${status.unknownChecks}?`, "warning", theme));
+	return intersperseActionBucketSpaces(buckets, theme);
+}
+
+function intersperseActionBucketSpaces(buckets: readonly string[], theme?: StatusTheme): string[] {
+	const segments: string[] = [];
+	for (const [index, bucket] of buckets.entries()) {
+		if (index > 0) segments.push(formatColoredSegment(" ", "dim", theme));
+		segments.push(bucket);
+	}
+	return segments;
 }
 
 function formatStatusSegment(text: string, theme: StatusTheme | undefined): string {
-	return theme ? theme.fg("dim", text) : text;
+	return formatColoredSegment(text, "dim", theme);
+}
+
+function formatColoredSegment(text: string, color: string, theme: StatusTheme | undefined): string {
+	return theme ? theme.fg(color, text) : text;
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {

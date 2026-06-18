@@ -1,6 +1,7 @@
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
+import { githubPrIdentityFromUrl, type GithubPrIdentity as CoreGithubPrIdentity } from "@asdl/core/github-status";
 import { formatElapsedMs } from "@asdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -68,10 +69,7 @@ export interface IgnoredFeedbackItem {
 	reason: IgnoredFeedbackReason;
 }
 
-export interface GithubPrIdentity {
-	owner: string;
-	repo: string;
-	number: number;
+export interface GithubPrIdentity extends CoreGithubPrIdentity {
 	url?: string | undefined;
 }
 
@@ -459,19 +457,8 @@ export function feedbackItemKeysFromFingerprint(items: readonly FeedbackFingerpr
 
 export function parseGitHubPullRequestUrl(url: string | undefined, fallbackNumber: number | undefined): GithubPrIdentity | undefined {
 	if (url === undefined) return undefined;
-	let parsed: URL;
-	try {
-		parsed = new URL(url);
-	} catch {
-		return undefined;
-	}
-	if (parsed.hostname !== "github.com") return undefined;
-	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
-	if (parts.length !== 4 || parts[2] !== "pull") return undefined;
-	const number = Number(parts[3]);
-	if (!Number.isInteger(number) || number <= 0) return undefined;
-	if (fallbackNumber !== undefined && fallbackNumber !== number) return undefined;
-	return { owner: parts[0] as string, repo: parts[1] as string, number, url };
+	const identity = githubPrIdentityFromUrl(url, fallbackNumber);
+	return identity === undefined ? undefined : { ...identity, url };
 }
 
 export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFingerprintItem[] {

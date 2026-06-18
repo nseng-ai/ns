@@ -6,12 +6,16 @@ import type { CustomMessageContent } from "@asdl/pi-extension-runtime/terminal-p
 
 import {
 	formatWorktreeStatus,
+	formatWorktreeStatusForFooter,
 	loadWorktreeStatus,
 	renderWorktreeStatusMessage,
 	WORKTREE_STATUS_UI_KEY,
 	type ExecGateway,
 	type ExecResult,
+	type GtCommitStatus,
+	type GtStatus,
 	type StatusTheme,
+	type WorktreeStatus,
 } from "@asdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
@@ -21,6 +25,7 @@ export const worktreeStatusParity = definePiSurfaceParity([] as const);
 
 const WATCH_DEBOUNCE_MS = 500;
 const WATCH_RETRY_DELAY_MS = 5_000;
+const REMOTE_STATUS_REFRESH_MS = 30_000;
 const MUTATING_TOOL_NAMES = new Set(["bash", "edit", "write", "multi_tool_use.parallel"]);
 const IGNORED_WORKTREE_PATH_PARTS = new Set([
 	".git",
@@ -84,6 +89,20 @@ interface StatusFooterRenderOptions {
 	footerData: StatusFooterData;
 	theme: StatusTheme;
 	width: number;
+	worktreeStatus?: WorktreeStatus | undefined;
+}
+
+interface FormatFooterIdentityOptions {
+	readonly cwd: string;
+	readonly branch: string;
+	readonly home?: string | undefined;
+	readonly width: number;
+	readonly gt?: GtStatus | undefined;
+	readonly theme: StatusTheme;
+}
+
+interface FooterExtensionStatusLines {
+	activity: string[];
 }
 
 type StatusFooterFactory = (
@@ -176,6 +195,7 @@ interface ActiveSession {
 	hasUI: boolean;
 	abortController: AbortController;
 	closed: boolean;
+	worktreeStatus?: WorktreeStatus | undefined;
 }
 
 export default function worktreeStatusExtension(pi: ExtensionAPI) {
@@ -187,6 +207,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 	let refreshInFlightSession: ActiveSession | undefined;
 	let refreshPendingSession: ActiveSession | undefined;
+	let periodicRefreshTimer: ReturnType<typeof setInterval> | undefined;
 	let gitWatcherRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatcherRescanTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatchers: FSWatcher[] = [];
@@ -238,6 +259,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const status = await loadWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
 		if (sequence !== refreshSequence || !isActiveSession(session)) return;
 
+		session.worktreeStatus = status;
 		const lines = formatWorktreeStatus(status, session.ctx.ui.theme);
 		const linesKey = JSON.stringify(lines);
 		if (linesKey === lastLinesKey) return;
@@ -299,7 +321,21 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearTimeout(refreshTimer);
 			refreshTimer = undefined;
 		}
+		if (periodicRefreshTimer !== undefined) {
+			clearInterval(periodicRefreshTimer);
+			periodicRefreshTimer = undefined;
+		}
 		refreshPendingSession = undefined;
+	}
+
+	function startPeriodicRefresh(session: ActiveSession): void {
+		if (!session.hasUI || !isActiveSession(session) || periodicRefreshTimer !== undefined) return;
+		periodicRefreshTimer = setInterval(() => {
+			if (!isActiveSession(session)) return;
+			scheduleRefresh(session);
+		}, REMOTE_STATUS_REFRESH_MS);
+		const maybeTimer = periodicRefreshTimer as { unref?: () => void };
+		maybeTimer.unref?.();
 	}
 
 	function renderSessionLines(session: ActiveSession, lines: string[]): boolean {
@@ -323,7 +359,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 				dispose: unsubscribe,
 				invalidate() {},
 				render(width) {
-					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width }) : [];
+					return isActiveSession(session) ? renderStatusFooter({ ctx: session.ctx, footerData, theme, width, worktreeStatus: session.worktreeStatus }) : [];
 				},
 			};
 		});
@@ -511,6 +547,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		setupGitWatchers(session);
+		startPeriodicRefresh(session);
 		await refreshImmediately(session);
 	});
 
@@ -532,20 +569,33 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 }
 
 function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
-	const { ctx, footerData, theme, width } = options;
+	const { ctx, footerData, theme, width, worktreeStatus } = options;
 	const cwd = ctx.sessionManager?.getCwd() ?? ctx.cwd;
-	const branch = currentFooterBranch(cwd, footerData);
-	const sessionName = ctx.sessionManager?.getSessionName();
-	let pwd = formatFooterCwd(cwd, process.env.HOME || process.env.USERPROFILE);
-	if (branch) pwd = `${pwd} (${branch})`;
-	if (sessionName) pwd = `${pwd} • ${sessionName}`;
+	const branch = currentFooterBranch(cwd, footerData) ?? "unknown";
+	const identity = formatFooterIdentity({
+		cwd,
+		branch,
+		home: process.env.HOME || process.env.USERPROFILE,
+		width,
+		gt: worktreeStatus?.gt,
+		theme,
+	});
 
-	const statsLine = formatFooterStats({ ctx, footerData, theme, width });
-	const lines = [truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "...")), statsLine];
-	for (const statusLine of formatExtensionStatusLines(footerData.getExtensionStatuses())) {
+	const footerStatusLines = formatFooterExtensionStatusLines(footerData.getExtensionStatuses());
+	const statsLine = formatFooterStats({ ctx, footerData, theme, width, worktreeStatus });
+	const lines = [identity];
+	for (const statusLine of formatStructuredFooterWorktreeLines(worktreeStatus, theme)) {
+		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
+	}
+	lines.push(statsLine);
+	for (const statusLine of footerStatusLines.activity) {
 		lines.push(truncateToWidth(statusLine, width, theme.fg("dim", "...")));
 	}
 	return lines;
+}
+
+function formatStructuredFooterWorktreeLines(status: WorktreeStatus | undefined, theme: StatusTheme): string[] {
+	return status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
 }
 
 function currentFooterBranch(cwd: string, footerData: StatusFooterData): string | null {
@@ -555,6 +605,122 @@ function currentFooterBranch(cwd: string, footerData: StatusFooterData): string 
 		if (branch !== undefined) return branch;
 	}
 	return footerData.getGitBranch();
+}
+
+function formatFooterIdentity(options: FormatFooterIdentityOptions): string {
+	const { cwd, branch, home, width, gt, theme } = options;
+	const identity = footerIdentityParts(cwd, branch, home);
+	const rawLeft = `[wt] repo:${identity.repo} wt:${identity.slot} pwd:${identity.relativePath}${gt?.dirty === "yes" ? " (✗)" : ""}`;
+	const rawRight = `br:${identity.branch}${formatGtBranchSuffix(gt)}`;
+	const rawFullIdentity = `${rawLeft} | ${rawRight}`;
+	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentity(identity, gt, theme);
+
+	return theme.fg("dim", truncateToWidth(rawFullIdentity, width, "..."));
+}
+
+function colorFooterIdentity(identity: FooterIdentityParts, gt: GtStatus | undefined, theme: StatusTheme): string {
+	const parts = [
+		theme.fg("dim", "[wt]"),
+		theme.fg("dim", " "),
+		theme.fg("dim", "repo:"),
+		theme.fg("accent", identity.repo),
+		theme.fg("dim", " "),
+		theme.fg("dim", "wt:"),
+		theme.fg("accent", identity.slot),
+		theme.fg("dim", " "),
+		theme.fg("dim", "pwd:"),
+		theme.fg("dim", identity.relativePath),
+	];
+	if (gt?.dirty === "yes") {
+		parts.push(
+			theme.fg("dim", " ("),
+			theme.fg("error", "✗"),
+			theme.fg("dim", ")"),
+		);
+	}
+	parts.push(
+		theme.fg("dim", " | "),
+		theme.fg("dim", "br:"),
+		theme.fg("accent", identity.branch),
+		...colorGtBranchSegments(gt, theme),
+	);
+	return parts.join("");
+}
+
+function formatGtBranchSuffix(gt: GtStatus | undefined): string {
+	if (gt === undefined) return "";
+	const commits = formatFooterCommitStatus(gt.commits);
+	return ` ↓:${gt.down ?? "-"} ${commits} ↑:${gt.up}`;
+}
+
+function colorGtBranchSegments(gt: GtStatus | undefined, theme: StatusTheme): string[] {
+	if (gt === undefined) return [];
+	return [
+		theme.fg("dim", " "),
+		theme.fg("dim", "↓:"),
+		theme.fg("accent", gt.down ?? "-"),
+		theme.fg("dim", " "),
+		theme.fg("dim", "commits:"),
+		theme.fg("accent", footerCommitCount(gt.commits)),
+		theme.fg("dim", " "),
+		theme.fg("dim", "↑:"),
+		theme.fg("accent", gt.up),
+	];
+}
+
+function formatFooterCommitStatus(commits: GtCommitStatus): string {
+	return `commits:${footerCommitCount(commits)}`;
+}
+
+function footerCommitCount(commits: GtCommitStatus): string {
+	switch (commits.type) {
+		case "count":
+			return commits.count.toString();
+		case "unknown":
+			return "?";
+		case "not-applicable":
+			return "-";
+	}
+}
+
+interface FooterIdentityParts {
+	repo: string;
+	slot: string;
+	branch: string;
+	relativePath: string;
+}
+
+function footerIdentityParts(cwd: string, branch: string, home: string | undefined): FooterIdentityParts {
+	const slotInfo = slotInfoFromCwd(cwd);
+	if (slotInfo !== undefined) {
+		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
+		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+	}
+	return { repo: fallbackRepoName(cwd), slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
+}
+
+function fallbackRepoName(cwd: string): string {
+	const gitPaths = findGitPaths(cwd);
+	if (gitPaths !== undefined) return basename(gitPaths.repoDir);
+	return basename(resolve(cwd)) || "unknown";
+}
+
+function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
+	const resolvedCwd = resolve(cwd);
+	const parts = resolvedCwd.split(sep);
+	for (let index = 0; index < parts.length - 4; index++) {
+		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
+		const repo = parts[index + 2];
+		const slot = parts[index + 4];
+		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
+		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
+	}
+	return undefined;
+}
+
+function pathFromParts(parts: readonly string[]): string {
+	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
+	return join(...parts);
 }
 
 function formatFooterCwd(cwd: string, home: string | undefined): string {
@@ -654,27 +820,29 @@ function formatFooterTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
-function formatExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): string[] {
-	const statusLines: string[] = [];
-	let compactStatusParts: string[] = [];
+function formatFooterExtensionStatusLines(extensionStatuses: ReadonlyMap<string, string>): FooterExtensionStatusLines {
+	const activity: string[] = [];
+	let compactActivityParts: string[] = [];
 
-	for (const [, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+	for (const [key, text] of Array.from(extensionStatuses.entries()).sort(([a], [b]) => a.localeCompare(b))) {
 		const sanitizedLines = sanitizeStatusLines(text);
+		if (key === WORKTREE_STATUS_UI_KEY) continue;
+
 		if (sanitizedLines.length <= 1) {
 			const line = sanitizedLines[0];
-			if (line !== undefined) compactStatusParts.push(line);
+			if (line !== undefined) compactActivityParts.push(line);
 			continue;
 		}
 
-		if (compactStatusParts.length > 0) {
-			statusLines.push(compactStatusParts.join(" "));
-			compactStatusParts = [];
+		if (compactActivityParts.length > 0) {
+			activity.push(compactActivityParts.join(" "));
+			compactActivityParts = [];
 		}
-		statusLines.push(...sanitizedLines);
+		activity.push(...sanitizedLines);
 	}
 
-	if (compactStatusParts.length > 0) statusLines.push(compactStatusParts.join(" "));
-	return statusLines;
+	if (compactActivityParts.length > 0) activity.push(compactActivityParts.join(" "));
+	return { activity };
 }
 
 function sanitizeStatusLines(text: string): string[] {

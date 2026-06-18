@@ -59,7 +59,11 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
-  packages/asdl-core: {}
+  packages/asdl-core:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/branch-context:
     dependencies:
