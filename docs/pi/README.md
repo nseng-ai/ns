@@ -220,6 +220,12 @@ The local runner subagent helper lets project extensions await a fresh runner su
 
 See [Runner Subagent Helper](./runner-subagent-helper.md).
 
+## External case study: how `flue` consumes pi
+
+A contrasting consumption pattern from another project (`withastro/flue`), kept as external reference. flue **embeds** pi as a runtime engine (`pi-agent-core` + `pi-ai`, constructing and driving an `Agent`), whereas asdl **extends** pi as a host (`pi-coding-agent` + `pi-tui`, registering extensions). The genuine overlap is pi-ai's model layer and `completeSimple`, which asdl's `sdl` package also uses. Not a description of anything asdl ships.
+
+See [flue pi consumption case study](./flue-pi-consumption-case-study.md).
+
 ## Checked-in extensions and worktrees
 
 If a project-local extension participates in worktree switching, it must be present in the target worktree too.
