@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";
@@ -20,7 +20,8 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: Partial<ExecResult> | Promise<Partial<ExecResult>> | undefined;
+	onCall?: (() => void) | undefined;
 }
 
 class OrderlessFakePi {
@@ -42,7 +43,9 @@ class OrderlessFakePi {
 		}
 
 		const [expected] = this.script.splice(index, 1);
-		return execResult(expected?.result);
+		const result = execResult(await expected?.result);
+		expected?.onCall?.();
+		return result;
 	}
 
 	assertDone(): void {
@@ -53,6 +56,7 @@ class OrderlessFakePi {
 
 type RegisteredEventName = "session_start" | "tool_result" | "agent_end" | "session_shutdown";
 type SessionStartHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
+type ToolResultHandler = (event: { toolName: string }) => Promise<void> | void;
 type SessionShutdownHandler = () => Promise<void> | void;
 
 class RegistrationFakePi {
@@ -79,10 +83,14 @@ class RegistrationFakePi {
 
 class LifecycleFakePi extends OrderlessFakePi {
 	sessionStart: SessionStartHandler | undefined;
+	toolResult: ToolResultHandler | undefined;
+	agentEnd: SessionShutdownHandler | undefined;
 	sessionShutdown: SessionShutdownHandler | undefined;
 
 	on(event: RegisteredEventName, handler: unknown): void {
 		if (event === "session_start") this.sessionStart = handler as SessionStartHandler;
+		if (event === "tool_result") this.toolResult = handler as ToolResultHandler;
+		if (event === "agent_end") this.agentEnd = handler as SessionShutdownHandler;
 		if (event === "session_shutdown") this.sessionShutdown = handler as SessionShutdownHandler;
 	}
 }
@@ -100,8 +108,22 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: Partial<ExecResult> | Promise<Partial<ExecResult>>): ScriptedExec {
 	return { command, args, result };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
+	let resolvePromise: ((value: T) => void) | undefined;
+	const promise = new Promise<T>((resolve) => {
+		resolvePromise = resolve;
+	});
+	return {
+		promise,
+		resolve(value) {
+			if (resolvePromise === undefined) throw new Error("deferred promise was not initialized");
+			resolvePromise(value);
+		},
+	};
 }
 
 function revListStep(base: string, count: number): ScriptedExec {
@@ -124,6 +146,10 @@ function ghNoPrStep(): ScriptedExec {
 	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
 }
 
+async function flushPromises(): Promise<void> {
+	for (let index = 0; index < 10; index++) await Promise.resolve();
+}
+
 const TEST_THEME: StatusTheme = {
 	fg(color, value) {
 		const code = color === "accent" ? "36" : color === "error" ? "31" : "90";
@@ -131,12 +157,6 @@ const TEST_THEME: StatusTheme = {
 	},
 	underline(value) {
 		return `\x1B[4m${value}\x1B[24m`;
-	},
-};
-
-const MARKER_THEME: StatusTheme = {
-	fg(color, value) {
-		return `<${color}>${value}</${color}>`;
 	},
 };
 
@@ -226,6 +246,116 @@ describe("worktree status extension registration", () => {
 			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 			);
+			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("paints local status before slow gh status resolves", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const ghResult = deferred<Partial<ExecResult>>();
+			const localDirtyChecked = deferred<void>();
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], ghResult.promise),
+				revListStep("main", 1),
+				{ ...dirtyStep(), onCall: () => localDirtyChecked.resolve() },
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			const sessionStart = pi.sessionStart?.({}, ctx);
+			await localDirtyChecked.promise;
+			await flushPromises();
+
+			const earlyStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
+
+			ghResult.resolve({ code: 1, stderr: "no pull request found" });
+			await sessionStart;
+			pi.assertDone();
+			await pi.sessionShutdown?.();
+
+			expect(earlyStatus).toBe("[gt] ↓ main · ↑ - · 1 commit");
+		});
+	});
+
+	test("mutating tool refreshes local status without invoking gh", async () => {
+		vi.useFakeTimers();
+		try {
+			await withTempRoot(makeGraphiteRepo(), async (root) => {
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					ghNoPrStep(),
+					...basicGitStatusScript(),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...basicGitStatusScript("main", 2, " M file.txt\n"),
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI);
+				await pi.sessionStart?.({}, ctx);
+				await pi.toolResult?.({ toolName: "edit" });
+				await vi.advanceTimersByTimeAsync(501);
+				await flushPromises();
+
+				expect(pi.errors).toEqual([]);
+				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
+				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain("[gh] no PR");
+				await pi.sessionShutdown?.();
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test("agent end refreshes remote gh status intentionally", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghNoPrStep(),
+				...basicGitStatusScript(),
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghNoPrStep(),
+				...basicGitStatusScript(),
+			]);
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus() {},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			await pi.sessionStart?.({}, ctx);
+			await pi.agentEnd?.();
+
+			pi.assertDone();
+			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
 			await pi.sessionShutdown?.();
 		});
 	});
@@ -368,7 +498,7 @@ describe("worktree status extension registration", () => {
 
 			const footer = footerFactory(
 				{ requestRender() {} },
-				MARKER_THEME,
+				TEST_THEME,
 				{
 					getGitBranch() {
 						return "stale-branch";
@@ -386,16 +516,16 @@ describe("worktree status extension registration", () => {
 			);
 
 			const wideFooterRaw = footer.render(200)[0] ?? "";
-			expect(wideFooterRaw).toContain("<dim>[wt]</dim><dim> </dim><dim>repo:</dim><accent>asdl-tools</accent>");
-			expect(wideFooterRaw).toContain("<dim>wt:</dim><accent>slot-02</accent>");
-			expect(wideFooterRaw).toContain("<dim>pwd:</dim><dim>ts/packages/pi-extensions</dim>");
-			expect(wideFooterRaw).toContain("<dim>br:</dim><accent>feature/slot-identity</accent>");
-			expect(wideFooterRaw).toContain("<error>✗</error>");
-			const wideFooterLines = [wideFooterRaw.replace(/<[^>]+>/g, "")];
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158m[wt]\x1B[39m\x1B[38;2;95;102;115m \x1B[39m\x1B[38;2;139;148;158mrepo:\x1B[39m\x1B[38;2;125;211;252masdl-tools\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mwt:\x1B[39m\x1B[38;2;125;211;252mslot-02\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mpwd:\x1B[39m\x1B[38;2;167;139;250mts/packages/pi-extensions\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mbr:\x1B[39m\x1B[38;2;251;191;36mfeature/slot-identity\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[38;2;239;68;68m✗\x1B[39m");
+			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
 			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/packages/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
 			expect(wideFooterLines[0]).not.toContain("stale-branch");
-			const narrowIdentity = footer.render(46).map((line) => line.replace(/<[^>]+>/g, ""))[0] ?? "";
+			const narrowIdentity = footer.render(46).map(stripTerminalEscapes)[0] ?? "";
 			expect(narrowIdentity).toContain("[wt] repo:asdl-tools wt:slot-02");
 			expect(narrowIdentity).toContain("...");
 			await pi.sessionShutdown?.();
