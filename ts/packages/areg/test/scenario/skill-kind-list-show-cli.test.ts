@@ -87,8 +87,8 @@ describe("areg skill list/show CLI", () => {
 	});
 
 	test("list renderer propagates color capability", () => {
-		const colorOutput = renderSkillKindList(sampleSkillKindListResult, { color: true });
-		const plainOutput = renderSkillKindList(sampleSkillKindListResult, { color: false });
+		const colorOutput = renderSkillKindList(sampleSkillKindListResult, { canEmitAnsi: true });
+		const plainOutput = renderSkillKindList(sampleSkillKindListResult, { canEmitAnsi: false });
 		expect(colorOutput).toContain(String.fromCharCode(0x1b));
 		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});

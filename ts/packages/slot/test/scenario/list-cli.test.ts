@@ -62,8 +62,8 @@ describe("slot list CLI", () => {
 	});
 
 	it("propagates color capability to the list table renderer", () => {
-		const colorOutput = renderList(sampleListResult, { color: true });
-		const plainOutput = renderList(sampleListResult, { color: false });
+		const colorOutput = renderList(sampleListResult, { canEmitAnsi: true });
+		const plainOutput = renderList(sampleListResult, { canEmitAnsi: false });
 		expect(colorOutput).toContain(String.fromCharCode(0x1b));
 		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
 	});

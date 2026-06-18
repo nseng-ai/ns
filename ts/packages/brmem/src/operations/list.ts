@@ -77,13 +77,13 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	});
 }
 
-export function renderList(result: ListResult, caps: RenderCapabilities = { color: false }): string {
+export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.entries.length === 0) return "";
 	return renderTextTable({
 		columns: [{ header: "NAMESPACE", style: "bold-cyan" }, { header: "ENTRY KEY" }, { header: "BRANCH" }],
 		rows: result.entries.map((entry) => [namespaceDisplayLabel(entry.namespace), entry.key, entry.branch]),
-		color: caps.color,
-		rule: true,
+		canEmitAnsi: caps.canEmitAnsi,
+		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
 	});
 }

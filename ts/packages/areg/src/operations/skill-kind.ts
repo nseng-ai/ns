@@ -246,7 +246,7 @@ function skillKindRecordsFailure<T>(error: { code: string; message: string }, sh
 	return failure("skill_records_invalid", error.message);
 }
 
-export function renderSkillKindList(result: SkillKindListResult, caps: RenderCapabilities = { color: false }): string {
+export function renderSkillKindList(result: SkillKindListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.skills.length === 0) return "No local skills found.";
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
@@ -264,8 +264,8 @@ export function renderSkillKindList(result: SkillKindListResult, caps: RenderCap
 			if (includeNotes) base.push(record.notes.join("; "));
 			return base;
 		}),
-		color: caps.color,
-		rule: true,
+		canEmitAnsi: caps.canEmitAnsi,
+		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
 	});
 }
