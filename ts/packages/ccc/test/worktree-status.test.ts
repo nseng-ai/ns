@@ -16,14 +16,18 @@ import {
 import {
 	formatGhStatus,
 	formatGtStatus,
+	combineWorktreeStatus,
 	formatWorktreeStatus,
 	loadGtStatus,
 	loadLocalWorktreeStatus,
-	loadWorktreeStatus,
+	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
+	type ExecGateway,
 	type ExecResult,
 	type GraphiteMetadataLoader,
+	type LoadLocalWorktreeStatusOptions,
 	type StatusTheme,
+	type WorktreeStatus,
 } from "@asdl/ccc/worktree-status";
 
 const ROOT = "/repo";
@@ -129,6 +133,16 @@ async function loadFormattedStatus(script: ScriptedExec[], root: string): Promis
 	const pi = new FakePi(script);
 	const status = await loadGtStatus({ pi, cwd: root });
 	return { pi, formatted: formatGtStatus(status) };
+}
+
+async function loadComposedWorktreeStatus(
+	pi: ExecGateway,
+	cwd: string,
+	options?: LoadLocalWorktreeStatusOptions,
+): Promise<WorktreeStatus> {
+	const local = await loadLocalWorktreeStatus(pi, cwd, options);
+	const gh = await loadWorktreeGhStatus(pi, cwd, { signal: options?.signal });
+	return combineWorktreeStatus(local, gh);
 }
 
 function basicGitStatusScript(base = "main", count = 1, dirtyStdout = ""): ScriptedExec[] {
@@ -331,16 +345,15 @@ describe("worktree status formatting", () => {
 
 });
 
-describe("loadWorktreeStatus", () => {
+describe("composed local and gh worktree status loading", () => {
 	test("returns unavailable brmem status without throwing when the CLI is unavailable", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -353,11 +366,10 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ code: 127, stderr: "brmem: command not found" }),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -379,11 +391,10 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -408,11 +419,10 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -426,11 +436,10 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 2, message: "candidate failed", data: {} }) }),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -438,7 +447,7 @@ describe("loadWorktreeStatus", () => {
 		});
 	});
 
-	test("surfaces graphite metadata diagnostics from the convenience loader", async () => {
+	test("surfaces graphite metadata diagnostics from the local loader", async () => {
 		const diagnostics: GraphiteMetadataWorkerDiagnostic[] = [];
 		const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
 			diagnostics.push(diagnostic);
@@ -453,22 +462,23 @@ describe("loadWorktreeStatus", () => {
 				isCurrentTrunk: false,
 			};
 		};
-		const pi = new OrderlessFakePi([brmemListStep({}), ghNoPrStep(), ...basicGitStatusScript()]);
+		const pi = new OrderlessFakePi([brmemListStep({}), ...basicGitStatusScript()]);
 
-		const status = await loadWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
+		const status = await loadLocalWorktreeStatus(pi, ROOT, { metadataLoader, onDiagnostic });
 
 		pi.assertDone();
 		expectNoGtCalls(pi);
 		expect(status.gtMetadataDiagnostic).toEqual({ type: "worker-timeout", timeoutMs: 7 });
 		expect(diagnostics).toEqual([{ type: "worker-timeout", timeoutMs: 7 }]);
-		expect(formatWorktreeStatus(status).at(-1)).toBe("[gt] metadata worker timed out after 7ms");
+		const fullStatus = combineWorktreeStatus(status, { type: "no-pr" });
+		expect(formatWorktreeStatus(fullStatus).at(-1)).toBe("[gt] metadata worker timed out after 7ms");
 	});
 
 	test("degrades malformed brmem JSON output nonfatally", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ghNoPrStep(), ...basicGitStatusScript()]);
+			const pi = new OrderlessFakePi([brmemListStep({ stdout: "not json" }), ...basicGitStatusScript()]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -494,11 +504,10 @@ describe("loadWorktreeStatus", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -510,11 +519,10 @@ describe("loadWorktreeStatus", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: "nope" } }) }),
-				ghNoPrStep(),
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadLocalWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -532,7 +540,7 @@ describe("loadWorktreeStatus", () => {
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -555,7 +563,7 @@ describe("loadWorktreeStatus", () => {
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
@@ -589,7 +597,7 @@ describe("loadWorktreeStatus", () => {
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expect(status.gh).toEqual({ type: "no-pr" });
@@ -604,7 +612,7 @@ describe("loadWorktreeStatus", () => {
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expect(status.gh).toEqual({ type: "unavailable", message: "gh pr view exited 1: HTTP 401: Bad credentials" });
@@ -623,7 +631,7 @@ describe("loadWorktreeStatus", () => {
 				...basicGitStatusScript(),
 			]);
 
-			const status = await loadWorktreeStatus(pi, root);
+			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
 			expectNoGtCalls(pi);

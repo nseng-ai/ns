@@ -83,10 +83,14 @@ export interface LoadGtStatusOptions {
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
-export interface LoadWorktreeStatusOptions {
+export interface LoadLocalWorktreeStatusOptions {
 	signal?: AbortSignal | undefined;
 	metadataLoader?: GraphiteMetadataLoader | undefined;
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+}
+
+export interface LoadWorktreeGhStatusOptions {
+	signal?: AbortSignal | undefined;
 }
 
 export interface GhStatus {
@@ -128,25 +132,11 @@ interface RenderComponent {
 	invalidate(): void;
 }
 
-export async function loadWorktreeStatus(
-	pi: ExecGateway,
-	cwd: string,
-	optionsOrSignal?: AbortSignal | LoadWorktreeStatusOptions,
-): Promise<WorktreeStatus> {
-	const options = normalizeLoadWorktreeStatusOptions(optionsOrSignal);
-	const [local, gh] = await Promise.all([
-		loadLocalWorktreeStatus(pi, cwd, options),
-		loadWorktreeGhStatus(pi, cwd, options.signal),
-	]);
-	return combineWorktreeStatus(local, gh);
-}
-
 export async function loadLocalWorktreeStatus(
 	pi: ExecGateway,
 	cwd: string,
-	optionsOrSignal?: AbortSignal | LoadWorktreeStatusOptions,
+	options: LoadLocalWorktreeStatusOptions = {},
 ): Promise<LocalWorktreeStatus> {
-	const options = normalizeLoadWorktreeStatusOptions(optionsOrSignal);
 	let gtMetadataDiagnostic: GraphiteMetadataWorkerDiagnostic | undefined;
 	const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
 		gtMetadataDiagnostic = diagnostic;
@@ -168,24 +158,16 @@ export async function loadLocalWorktreeStatus(
 	return status;
 }
 
-export async function loadWorktreeGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
-	return loadGhStatus(pi, cwd, signal);
+export async function loadWorktreeGhStatus(
+	pi: ExecGateway,
+	cwd: string,
+	options: LoadWorktreeGhStatusOptions = {},
+): Promise<WorktreeGhStatus> {
+	return loadGhStatus(pi, cwd, options.signal);
 }
 
 export function combineWorktreeStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus {
 	return { ...local, gh };
-}
-
-function normalizeLoadWorktreeStatusOptions(
-	optionsOrSignal: AbortSignal | LoadWorktreeStatusOptions | undefined,
-): LoadWorktreeStatusOptions {
-	if (optionsOrSignal === undefined) return {};
-	if (isAbortSignal(optionsOrSignal)) return { signal: optionsOrSignal };
-	return optionsOrSignal;
-}
-
-function isAbortSignal(value: AbortSignal | LoadWorktreeStatusOptions): value is AbortSignal {
-	return "aborted" in value && "addEventListener" in value;
 }
 
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
@@ -605,7 +587,7 @@ function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
 }
 
 function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusTheme): string[] {
-	if (checks.pending === 0 && checks.failing === 0 && checks.unknown === 0) {
+	if (hasNoBlockingChecks(checks)) {
 		return [formatColoredSegment(`${checks.passing}✓`, "accent", theme)];
 	}
 	const buckets: string[] = [];

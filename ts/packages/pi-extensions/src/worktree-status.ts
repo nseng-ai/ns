@@ -264,7 +264,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	async function refreshRemoteNow(session: ActiveSession): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
-		const status = await loadWorktreeGhStatus(pi, session.cwd, session.abortController.signal);
+		const status = await loadWorktreeGhStatus(pi, session.cwd, { signal: session.abortController.signal });
 		if (!isActiveSession(session)) return;
 
 		session.ghStatus = status;
