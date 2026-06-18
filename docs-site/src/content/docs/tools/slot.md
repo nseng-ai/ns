@@ -46,19 +46,17 @@ slot metadata.
 
 ## Install
 
-Install the standalone console script:
+Install the standalone console script from an asdl checkout:
 
 ```bash
-uv tool install asdl-slots
+just install-slot
 slot --help
 ```
 
-If your environment exposes the umbrella command, the same tool is also
-available as:
-
-```bash
-asdl slot --help
-```
+The source shim requires the checkout and TypeScript workspace dependencies. Run
+`just ts-install` or `pnpm --dir ts install` if dependencies are missing. npm
+registry publishing and checkout-free bundling are not part of the current
+`slot` distribution model.
 
 ## Common commands
 

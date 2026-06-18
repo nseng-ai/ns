@@ -43,8 +43,8 @@ def test_discover_plugins_no_plugins() -> None:
 def test_discover_plugins_skips_entry_point_that_returns_group_not_plugin_spec() -> None:
     parent = click.Group("test")
     ep = FakePluginEntryPoint(
-        name="legacy_slots",
-        value="asdl_slots.cli.slot.group:build_slot_group",
+        name="click_group",
+        value="click:Group",
     )
 
     discover_plugins(parent, source=_entry_point_source(ep))

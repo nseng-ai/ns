@@ -87,9 +87,9 @@ code patch.
 
 ### 4. Worktree slots — friction
 
-`asdl-slots` is built on plain `git worktree`
-(`packages/asdl-slots/src/asdl_slots/inventory.py`, plus `GitGateway.add_worktree` /
-`remove_worktree` / `list_worktrees`). jj's native equivalent is the *workspace*
+The TypeScript `slot` CLI is built on plain `git worktree`
+(`ts/packages/slot/src/inventory.ts`, plus `GitGateway.addWorktree` /
+`removeWorktree` / `listWorktrees`). jj's native equivalent is the *workspace*
 (`jj workspace add`). Colocated *secondary* workspaces, with `git`/`gt` run inside the slot
 directory, are jj's roughest and least-mature area. Slots currently rely on each slot being a
 real git worktree so that `gt`/git tooling works inside it.

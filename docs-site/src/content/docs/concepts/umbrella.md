@@ -22,10 +22,9 @@ tool independently adoptable.
 ## Umbrella form
 
 ```bash
-asdl slot list
 asdl brmem get plan.md
 ```
 
 The umbrella discovers plugin subcommands and gives teams one entry point when
 that is more convenient. It should not be required to understand or use a single
-tool.
+tool. The TypeScript `slot` CLI is standalone-only and is invoked as `slot`.

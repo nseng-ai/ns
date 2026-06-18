@@ -10,31 +10,31 @@ not have to adopt the whole suite first.
 
 ## Standalone tools
 
-Python package tools can be installed with `uv tool install`:
-
-```bash
-uv tool install asdl-slots
-uv tool install aretro
-```
-
 TypeScript tools are installed from an asdl checkout with source shims. These
-require Node 24 or newer:
+require Node 24 or newer and workspace dependencies installed with `just ts-install`
+or `pnpm --dir ts install` when needed:
 
 ```bash
+just install-slot
 just install-objective
 just install-pr-address
 just install-roaster
 ```
 
+Python package tools can be installed with `uv tool install`:
+
+```bash
+uv tool install aretro
+```
+
 Each tool provides its own console script, such as `slot`, `objective`,
-`pr-address`, or `roaster`.
+`pr-address`, `roaster`, or `aretro`.
 
 ## Umbrella command
 
-Some environments also expose the plugin umbrella:
+Some environments also expose the plugin umbrella for plugin-backed tools:
 
 ```bash
-asdl slot --help
 asdl brmem --help
 ```
 

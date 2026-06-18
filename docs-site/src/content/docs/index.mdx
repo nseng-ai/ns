@@ -4,11 +4,11 @@ description: Documentation for asdl's standalone CLI tools.
 ---
 
 asdl is a collection of small CLI tools for branch-local development workflows.
-Each tool is installable and usable on its own. Where the umbrella command is
-available, the same tools can also be invoked as `asdl <tool>`.
+Each tool is installable and usable on its own. Install each tool directly; plugin-backed tools may also appear under an optional
+umbrella command.
 
 ```bash
-uv tool install asdl-slots
+just install-slot
 slot init --size 3
 slot checkout feature-x
 ```

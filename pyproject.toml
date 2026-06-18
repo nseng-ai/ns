@@ -58,7 +58,7 @@ src = [
   "packages/packagechk/src",
   "packages/vibechk/src",
 ]
-exclude = [".git/", ".claude/", ".agents/skills/", "packages/asdl-slots/"]
+exclude = [".git/", ".claude/", ".agents/skills/"]
 force-exclude = true
 
 [tool.ruff.lint]
