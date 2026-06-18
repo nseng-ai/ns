@@ -2,6 +2,8 @@
 
 ## Work
 
+Pause note: remaining uncompleted v1 product feature work is blocked on `.asdl/objectives/vibechk-typescript-port/`, which owns the TypeScript migration of the already-implemented surface. Do not implement `publish`, `codex`, `pi`, or final publish-smoke closure work in Python while that migration is active.
+
 - [x] Scaffold the standalone `packages/vibechk` workspace package and `vibechk` CLI with help/version behavior.
 - [x] Implement a thin `run -> show -> diff` walking skeleton that can run the same plan in two prepared workdirs and render comparison evidence, even with one real runner, minimal bundle metadata, no `publish`, and some metrics as `null`.
 - [x] Add only the bundle store and run-id support required by the walking skeleton: store root resolution, 8-character ids, plan snapshot, raw transcript/artifacts, basic metadata, diff patch, and enough prefix resolution for `show`/`diff`.
