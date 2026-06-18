@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../../context.ts";
 import type { ChildrenCorruption, StackFork, StackInfo, TrunkMarkerStatus, WalkTermination } from "../../../gateways/gt.ts";
+import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches, collectStackEdges } from "../stack-walk.ts";
 
 const edgeSchema = z.object({ parent: z.string(), child: z.string() });
@@ -24,11 +25,9 @@ export type GtStackBranchesRequest = z.infer<typeof gtStackBranchesRequestSchema
 export type GtStackBranchesResult = z.infer<typeof gtStackBranchesResultSchema>;
 
 export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBranchesRequest) {
-	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	const currentResult = await ctx.git.getCurrentBranch(ctx.repo.root);
-	if (currentResult.type === "failure") return failure("git_current_branch_failed", currentResult.failure.message);
-	if (currentResult.type === "detached") return failure("detached_head", `HEAD at ${ctx.repo.root} is detached. Check out a branch first.`);
-	const stackResult = await ctx.gt.stack(ctx.repo.root);
+	const resolved = await resolveRepoAndCurrentBranch(ctx);
+	if (resolved.type !== "ok") return resolved;
+	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
 	if (stackResult.type === "untracked_branch") return failure("untracked_branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure") return failure("gt_stack_read_failed", stackResult.failure.message);
 	const integrity = validateStackIntegrity(stackResult.stack, { downstack: request.downstack });

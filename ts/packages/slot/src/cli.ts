@@ -111,7 +111,7 @@ export function buildCli(): ClinkrGroup<SlotCliContext> {
 		handler: runGc,
 		renderHuman: renderGc,
 	});
-	root.command({ 
+	root.command({
 		name: "init",
 		description: "Initialize the worktree pool with N detached slots at trunk.",
 		schema: initRequestSchema,

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";
 import { buildGtNavigationResult, renderGtNavigation, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
+import { resolveRepoAndCurrentBranch } from "./shared.ts";
 
 export const gtUpRequestSchema = z.object({
 	clipboard: z.boolean().default(true).describe("Copy the cd command to the clipboard."),
@@ -23,15 +24,13 @@ export const gtNavigationResultSchema = z.object({
 export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
 
 export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
-	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	const currentResult = await ctx.git.getCurrentBranch(ctx.repo.root);
-	if (currentResult.type === "failure") return failure("git_current_branch_failed", currentResult.failure.message);
-	if (currentResult.type === "detached") return failure("detached_head", `HEAD at ${ctx.repo.root} is detached. Check out a branch first.`);
-	const children = await ctx.gt.childrenOf(ctx.repo.root);
-	if (children.type === "untracked_branch") return failure("untracked_branch", `Current branch '${currentResult.branch}' is not tracked by Graphite. ${children.message}`);
+	const resolved = await resolveRepoAndCurrentBranch(ctx);
+	if (resolved.type !== "ok") return resolved;
+	const children = await ctx.gt.childrenOf(resolved.repoCtx.repo.root);
+	if (children.type === "untracked_branch") return failure("untracked_branch", `Current branch '${resolved.currentBranch}' is not tracked by Graphite. ${children.message}`);
 	if (children.type === "failure") return failure("gt_children_failed", children.failure.message);
-	if (children.branches.length === 0) return negative(`No upstack branch for '${currentResult.branch}'.`);
-	if (children.branches.length > 1) return negative(`Multiple upstack branches for '${currentResult.branch}': ${children.branches.join(", ")}. Run \`slot checkout <branch>\` for the branch you want.`);
+	if (children.branches.length === 0) return negative(`No upstack branch for '${resolved.currentBranch}'.`);
+	if (children.branches.length > 1) return negative(`Multiple upstack branches for '${resolved.currentBranch}': ${children.branches.join(", ")}. Run \`slot checkout <branch>\` for the branch you want.`);
 	const branch = children.branches[0] ?? "";
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, branch);
 	if (resolution.type === "failure") return resolution;

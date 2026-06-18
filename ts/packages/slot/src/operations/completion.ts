@@ -1,28 +1,22 @@
-import { z } from "zod";
+import type { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
-import { buildMarkerInstallSurface } from "../shell/marker-install-surface.ts";
+import {
+	buildMarkerInstallSurface,
+	markerSurfaceInstallRequestSchema,
+	markerSurfaceInstallResultSchema,
+	markerSurfaceShowRequestSchema,
+	markerSurfaceShowResultSchema,
+} from "../shell/marker-install-surface.ts";
 import type { SupportedShell } from "../shell/rc-install.ts";
 
 export const completionBeginMarker = "# >>> slot completion >>>";
 export const completionEndMarker = "# <<< slot completion <<<";
 
-export const completionShowRequestSchema = z.object({
-	shell: z.string().optional().describe("Shell to render completion for (zsh or bash). Defaults from $SHELL, then zsh."),
-});
-
-export const completionInstallRequestSchema = completionShowRequestSchema;
-
-export const completionShowResultSchema = z.object({
-	shell: z.union([z.literal("zsh"), z.literal("bash")]),
-	script: z.string(),
-});
-
-export const completionInstallResultSchema = z.object({
-	shell: z.union([z.literal("zsh"), z.literal("bash")]),
-	rc_path: z.string(),
-	already_installed: z.boolean(),
-});
+export const completionShowRequestSchema = markerSurfaceShowRequestSchema;
+export const completionInstallRequestSchema = markerSurfaceInstallRequestSchema;
+export const completionShowResultSchema = markerSurfaceShowResultSchema;
+export const completionInstallResultSchema = markerSurfaceInstallResultSchema;
 
 export type CompletionShowRequest = z.infer<typeof completionShowRequestSchema>;
 export type CompletionInstallRequest = z.infer<typeof completionInstallRequestSchema>;
