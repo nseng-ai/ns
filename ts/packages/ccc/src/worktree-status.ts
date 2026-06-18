@@ -10,6 +10,7 @@ import {
 	parseGithubPrStatusViewJson,
 	parseGithubReviewThreadCountsJson,
 	tallyGithubStatusChecks,
+	type GithubCheckTally,
 	type GithubPrStatusView,
 	type GithubReviewThreadCounts,
 } from "@asdl/core/github-status";
@@ -92,22 +93,20 @@ export interface GhStatus {
 	type: "available";
 	prNumber: number;
 	url?: string | undefined;
-	unresolvedThreads: number;
-	totalThreads: number;
-	hasMoreThreads: boolean;
-	passingChecks: number;
-	pendingChecks: number;
-	failingChecks: number;
-	unknownChecks: number;
+	threads: GithubReviewThreadCounts;
+	checks: GithubCheckTally;
 }
 
 export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable"; message?: string | undefined };
 
-export interface WorktreeStatus {
+export interface LocalWorktreeStatus {
 	brmem: string | undefined;
 	gt: GtStatus;
-	gh: WorktreeGhStatus;
 	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
+}
+
+export interface WorktreeStatus extends LocalWorktreeStatus {
+	gh: WorktreeGhStatus;
 }
 
 interface CustomMessage {
@@ -131,12 +130,25 @@ export async function loadWorktreeStatus(
 	optionsOrSignal?: AbortSignal | LoadWorktreeStatusOptions,
 ): Promise<WorktreeStatus> {
 	const options = normalizeLoadWorktreeStatusOptions(optionsOrSignal);
+	const [local, gh] = await Promise.all([
+		loadLocalWorktreeStatus(pi, cwd, options),
+		loadWorktreeGhStatus(pi, cwd, options.signal),
+	]);
+	return combineWorktreeStatus(local, gh);
+}
+
+export async function loadLocalWorktreeStatus(
+	pi: ExecGateway,
+	cwd: string,
+	optionsOrSignal?: AbortSignal | LoadWorktreeStatusOptions,
+): Promise<LocalWorktreeStatus> {
+	const options = normalizeLoadWorktreeStatusOptions(optionsOrSignal);
 	let gtMetadataDiagnostic: GraphiteMetadataWorkerDiagnostic | undefined;
 	const onDiagnostic = (diagnostic: GraphiteMetadataWorkerDiagnostic): void => {
 		gtMetadataDiagnostic = diagnostic;
 		options.onDiagnostic?.(diagnostic);
 	};
-	const [brmem, gt, gh] = await Promise.all([
+	const [brmem, gt] = await Promise.all([
 		loadBrmemStatus(pi, cwd, options.signal),
 		loadGtStatus({
 			pi,
@@ -145,12 +157,19 @@ export async function loadWorktreeStatus(
 			metadataLoader: options.metadataLoader,
 			onDiagnostic,
 		}),
-		loadGhStatus(pi, cwd, options.signal),
 	]);
 
-	const status: WorktreeStatus = { brmem, gt, gh };
+	const status: LocalWorktreeStatus = { brmem, gt };
 	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
 	return status;
+}
+
+export async function loadWorktreeGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
+	return loadGhStatus(pi, cwd, signal);
+}
+
+export function combineWorktreeStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus {
+	return { ...local, gh };
 }
 
 function normalizeLoadWorktreeStatusOptions(
@@ -343,7 +362,7 @@ async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 		args: ghPrViewArgs,
 	});
 	if (view.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(view.message) };
-	if (view.result.code !== 0) return { type: "no-pr" };
+	if (view.result.code !== 0) return ghPrViewNonzeroStatus(view.result);
 
 	const pr = parseGithubPrStatusViewJson(view.result.stdout);
 	if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
@@ -356,14 +375,15 @@ async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal):
 		type: "available",
 		prNumber: pr.number,
 		url: pr.url,
-		unresolvedThreads: reviewThreads.counts.unresolved,
-		totalThreads: reviewThreads.counts.total,
-		hasMoreThreads: reviewThreads.counts.hasMore,
-		passingChecks: checks.passing,
-		pendingChecks: checks.pending,
-		failingChecks: checks.failing,
-		unknownChecks: checks.unknown,
+		threads: reviewThreads.counts,
+		checks,
 	};
+}
+
+function ghPrViewNonzeroStatus(result: ExecResult): WorktreeGhStatus {
+	const detail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`.toLowerCase();
+	if (detail.includes("no pull request found") || detail.includes("no pull requests found")) return { type: "no-pr" };
+	return { type: "unavailable", message: compactCommandFailureMessage("gh pr view", result) };
 }
 
 type ReviewThreadLoadResult = { type: "available"; counts: GithubReviewThreadCounts } | { type: "unavailable"; message: string };
@@ -547,32 +567,40 @@ export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): s
 		return `${formatColoredSegment("[gh] unavailable", "warning", theme)}${detail}`;
 	}
 
-	const resolvedThreads = Math.max(0, status.totalThreads - status.unresolvedThreads);
-	const commentsValue = `${resolvedThreads}/${status.totalThreads}${status.hasMoreThreads ? "+" : ""}`;
-	const isLandable = status.unresolvedThreads === 0 && status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0;
+	const resolvedThreads = Math.max(0, status.threads.total - status.threads.unresolved);
+	const commentsValue = `${resolvedThreads}/${status.threads.total}${status.threads.hasMore ? "+" : ""}`;
 	const pieces = [
 		formatColoredSegment("[gh]", "dim", theme),
 		formatColoredSegment(" ", "dim", theme),
 		formatColoredSegment(`#${status.prNumber}`, "accent", theme),
 		formatColoredSegment(" · comments ", "dim", theme),
-		formatColoredSegment(commentsValue, status.unresolvedThreads > 0 ? "warning" : "dim", theme),
+		formatColoredSegment(commentsValue, status.threads.unresolved > 0 ? "warning" : "dim", theme),
 		formatColoredSegment(" · actions ", "dim", theme),
-		...formatActionBucketSegments(status, theme),
+		...formatActionBucketSegments(status.checks, theme),
 	];
-	if (isLandable) {
+	if (isGhStatusLandable(status)) {
 		pieces.push(formatColoredSegment(" · ", "dim", theme), formatColoredSegment("landable", "accent", theme));
 	}
 	return pieces.join("");
 }
 
-function formatActionBucketSegments(status: GhStatus, theme?: StatusTheme): string[] {
-	if (status.pendingChecks === 0 && status.failingChecks === 0 && status.unknownChecks === 0) {
-		return [formatColoredSegment(`${status.passingChecks}✓`, "accent", theme)];
+function isGhStatusLandable(status: GhStatus): boolean {
+	return status.threads.unresolved === 0 && hasNoBlockingChecks(status.checks);
+}
+
+function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
+	// Zero configured checks are treated as no blocking checks.
+	return checks.pending === 0 && checks.failing === 0 && checks.unknown === 0;
+}
+
+function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusTheme): string[] {
+	if (checks.pending === 0 && checks.failing === 0 && checks.unknown === 0) {
+		return [formatColoredSegment(`${checks.passing}✓`, "accent", theme)];
 	}
 	const buckets: string[] = [];
-	if (status.pendingChecks > 0) buckets.push(formatColoredSegment(`${status.pendingChecks}⏳`, "warning", theme));
-	if (status.failingChecks > 0) buckets.push(formatColoredSegment(`${status.failingChecks}✗`, "error", theme));
-	if (status.unknownChecks > 0) buckets.push(formatColoredSegment(`${status.unknownChecks}?`, "warning", theme));
+	if (checks.pending > 0) buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
+	if (checks.failing > 0) buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
+	if (checks.unknown > 0) buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
 	return intersperseActionBucketSpaces(buckets, theme);
 }
 

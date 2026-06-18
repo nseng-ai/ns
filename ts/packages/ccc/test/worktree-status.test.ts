@@ -18,6 +18,7 @@ import {
 	formatGtStatus,
 	formatWorktreeStatus,
 	loadGtStatus,
+	loadLocalWorktreeStatus,
 	loadWorktreeStatus,
 	renderWorktreeStatusMessage,
 	type ExecResult,
@@ -289,17 +290,20 @@ describe("worktree status formatting", () => {
 	});
 
 	test("formats gh landability from unresolved comments and condensed action buckets", () => {
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 })).toBe(
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
 			"[gh] #1736 · comments 8/8 · actions 16✓ · landable",
 		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 18, totalThreads: 18, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 })).toBe(
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 18, total: 18, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
 			"[gh] #1736 · comments 0/18 · actions 16✓",
 		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1, unknownChecks: 0 })).toBe(
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 2, total: 100, hasMore: true }, checks: { passing: 16, pending: 3, failing: 1, unknown: 0 } })).toBe(
 			"[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗",
 		);
-		expect(formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 2 })).toBe(
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 2 } })).toBe(
 			"[gh] #1736 · comments 8/8 · actions 2?",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 0, hasMore: false }, checks: { passing: 0, pending: 0, failing: 0, unknown: 0 } })).toBe(
+			"[gh] #1736 · comments 0/0 · actions 0✓ · landable",
 		);
 		expect(formatGhStatus({ type: "no-pr" })).toBe("[gh] no PR");
 		expect(formatGhStatus({ type: "unavailable" })).toBe("[gh] unavailable");
@@ -309,14 +313,14 @@ describe("worktree status formatting", () => {
 	});
 
 	test("colors gh landability by state without changing stripped text", () => {
-		const blocked = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 2, totalThreads: 100, hasMoreThreads: true, passingChecks: 16, pendingChecks: 3, failingChecks: 1, unknownChecks: 0 }, MARKER_THEME);
+		const blocked = formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 2, total: 100, hasMore: true }, checks: { passing: 16, pending: 3, failing: 1, unknown: 0 } }, MARKER_THEME);
 		expect(blocked).toContain("<dim>[gh]</dim>");
 		expect(blocked).toContain("<accent>#1736</accent>");
 		expect(blocked).toContain("<warning>98/100+</warning>");
 		expect(blocked).toContain("<warning>3⏳</warning>");
 		expect(blocked).toContain("<error>1✗</error>");
 
-		const landable = formatGhStatus({ type: "available", prNumber: 1736, unresolvedThreads: 0, totalThreads: 8, hasMoreThreads: false, passingChecks: 16, pendingChecks: 0, failingChecks: 0, unknownChecks: 0 }, MARKER_THEME);
+		const landable = formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } }, MARKER_THEME);
 		expect(landable).toContain("<accent>16✓</accent>");
 		expect(landable).toContain("<accent>landable</accent>");
 		expect(formatGhStatus({ type: "no-pr" }, MARKER_THEME)).toBe("<dim>[gh] no PR</dim>");
@@ -535,13 +539,8 @@ describe("loadWorktreeStatus", () => {
 			expect(status.gh).toMatchObject({
 				type: "available",
 				prNumber: 1736,
-				unresolvedThreads: 3,
-				totalThreads: 5,
-				hasMoreThreads: false,
-				passingChecks: 4,
-				pendingChecks: 2,
-				failingChecks: 1,
-				unknownChecks: 0,
+				threads: { unresolved: 3, total: 5, hasMore: false },
+				checks: { passing: 4, pending: 2, failing: 1, unknown: 0 },
 			});
 			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
 		});
@@ -560,10 +559,56 @@ describe("loadWorktreeStatus", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
-			expect(status.gh).toMatchObject({ type: "available", unknownChecks: 1 });
+			expect(status.gh).toMatchObject({ type: "available", checks: { unknown: 1 } });
 			const formatted = formatWorktreeStatus(status);
 			expect(formatted).toContain("[gh] #1736 · comments 0/0 · actions 1?");
 			expect(formatted.join("\n")).not.toContain("landable");
+		});
+	});
+
+	test("loads local worktree status without invoking gh", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadLocalWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
+			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+		});
+	});
+
+	test("classifies known gh pr view no-PR failures narrowly", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				ghNoPrStep(),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.gh).toEqual({ type: "no-pr" });
+		});
+	});
+
+	test("reports gh pr view auth failures as unavailable instead of no PR", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "HTTP 401: Bad credentials" }),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.gh).toEqual({ type: "unavailable", message: "gh pr view exited 1: HTTP 401: Bad credentials" });
+			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh pr view exited 1: HTTP 401: Bad credentials");
 		});
 	});
 
