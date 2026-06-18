@@ -1,4 +1,20 @@
 ---
+# Provenance: this is the asdl-tools-specific Roaster review definition produced
+# by merging the portable TypeScript style guide (`skills/typescript-style/`,
+# especially `core-rules.md`, `checklist.md`, and
+# `references/review-taste-and-process.md`) with the project overlay
+# (`skills/asdl-typescript/SKILL.md`). It is intentionally not a generic
+# TypeScript review; use `reviews/asdl-typescript-style.md` when reviewing this
+# repo's TypeScript diffs.
+#
+# Regeneration instructions: when either source skill changes, refresh this file
+# by re-reading those source documents, keep only diff-grounded/mechanically
+# reviewable rules in the Active Tier A section, move higher-context design rules
+# to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
+# Roaster, and then run:
+#
+#   dprint check reviews/asdl-typescript-style.md
+#   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
 description: |
   Enforce asdl's TypeScript style guide and asdl-tools TypeScript overlay on the
   supplied diff. Flag concrete, mechanically detectable violations:

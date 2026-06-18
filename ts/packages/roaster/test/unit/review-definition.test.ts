@@ -19,8 +19,8 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 		expectedApplicability: { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] },
 	},
 	{
-		path: "../../../../../reviews/typescript-style.md",
-		name: "typescript-style",
+		path: "../../../../../reviews/asdl-typescript-style.md",
+		name: "asdl-typescript-style",
 		expectedModel: "haiku",
 		expectedApplicability: { include: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"], exclude: [] },
 	},
