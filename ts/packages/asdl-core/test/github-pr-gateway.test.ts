@@ -112,6 +112,35 @@ describe("RealGithubPrGateway", () => {
 		]);
 	});
 
+	test("computes stable patch ids from local diff fallback when GitHub diff is oversized", async () => {
+		const diff = "diff --git a/src/app.ts b/src/app.ts\n+local\n";
+		const runner = new ScriptedCommandRunner([
+			step("gh", ["pr", "diff", "12"], {
+				exitCode: 1,
+				stderr:
+					"HTTP 406: Sorry, the diff exceeded the maximum number of files (300)\nPullRequest.diff too_large",
+			}),
+			step("git", ["diff", "main...feature/demo"], { stdout: diff }),
+			step("git", ["patch-id", "--stable"], {
+				stdout: "abc123 0000000000000000000000000000000000000000\n",
+			}),
+		]);
+		const gateway = new RealGithubPrGateway(runner.runner);
+
+		expect(
+			await gateway.stablePatchIdForPr({
+				cwd: "/repo",
+				number: 12,
+				baseRefName: "main",
+				headRefName: "feature/demo",
+			}),
+		).toEqual({
+			ok: true,
+			value: { patchId: "abc123", diff },
+		});
+		runner.assertDone();
+	});
+
 	test("rejects empty stable patch-id output", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),

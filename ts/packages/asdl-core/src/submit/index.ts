@@ -57,6 +57,7 @@ export {
 	hashPrDescriptionPrompt,
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
+	MAX_DIFF_CHARS,
 	parseManagedGeneratedRegion,
 	parsePrDescriptionOutput,
 	PR_DESCRIPTION_GENERATOR_VERSION,

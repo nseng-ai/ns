@@ -16,7 +16,7 @@ interface RunGitOptions {
 	args: readonly string[];
 	cwd: string;
 	timeoutMs: number;
-	stdin?: string | undefined;
+	stdin?: string;
 }
 
 export interface GithubPrDetails {
@@ -48,12 +48,14 @@ export interface GithubPrGateway {
 	getPrDiff(params: {
 		cwd: string;
 		number: number;
-		baseRefName?: string | undefined;
-		headRefName?: string | undefined;
+		baseRefName?: string;
+		headRefName?: string;
 	}): Promise<GatewayResult<string>>;
 	stablePatchIdForPr(params: {
 		cwd: string;
 		number: number;
+		baseRefName?: string;
+		headRefName?: string;
 	}): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: {
 		cwd: string;
@@ -119,8 +121,8 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	async getPrDiff(params: {
 		cwd: string;
 		number: number;
-		baseRefName?: string | undefined;
-		headRefName?: string | undefined;
+		baseRefName?: string;
+		headRefName?: string;
 	}): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
 		const result = await this.runGh(args, params.cwd, DIFF_TIMEOUT_MS);
@@ -151,6 +153,8 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	async stablePatchIdForPr(params: {
 		cwd: string;
 		number: number;
+		baseRefName?: string;
+		headRefName?: string;
 	}): Promise<GatewayResult<StablePatchIdForPrResult>> {
 		const diff = await this.getPrDiff(params);
 		if (!diff.ok) return diff;

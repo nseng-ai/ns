@@ -22,7 +22,7 @@ export const GENERATED_BODY_MARKER = "<!-- generated-by: asdl-dev pr-description
 export const MANAGED_BODY_BEGIN_MARKER = "<!-- asdl-pr-description:begin";
 export const MANAGED_BODY_END_MARKER = "<!-- asdl-pr-description:end -->";
 export const PR_DESCRIPTION_GENERATOR_VERSION = "asdl-pr-description-v2";
-export const MAX_DIFF_CHARS = 1_000_000;
+export const MAX_DIFF_CHARS = 120_000;
 
 const LOCKFILE_BASENAMES = new Set([
 	"pnpm-lock.yaml",

@@ -48,6 +48,35 @@ When the engine's Driver contract asks for overrides, use:
   returns the engine's structured escalation payload to the parent, and does
   not run `gt continue`.
 
+<!-- TEMPORARY (TS toolchain rollout) — remove once the oxlint/oxfmt/tsgo
+     toolchain commits have fully landed and no longer sit unrebased under
+     active stacks. -->
+
+## TEMPORARY: TS toolchain-rollout conflicts
+
+While the TypeScript toolchain rollout (the pnpm 11 / oxlint / oxfmt / tsgo
+governance commits) is still propagating through stacks, restacks will hit a
+recurring conflict shape: a **formatting-only** commit (oxfmt reflow of the
+*old* code shape) replays onto a base that meanwhile gained real feature logic
+touching the same statements. Taking the incoming side silently **reverts the
+feature**; taking the base side **drops the formatting**.
+
+For this specific shape only, the resolution is deterministic — **keep the
+changes, then reformat**:
+
+1. Keep the base (HEAD / new-base) logic verbatim — the feature must survive.
+   Discard the incoming side's reverted pre-feature code; it carried no logic
+   the base lacks.
+2. Re-apply the formatting commit's actual intent by **running the project
+   formatter** (`just ts-format-fix`) over the kept code, rather than
+   hand-wrapping conflict regions.
+3. Verify with `just ts-check` and stage before `gt continue`.
+
+This is the only conflict shape the driver may resolve via "keep + reformat"
+without escalating. If a conflict mixes genuine incoming logic with the
+toolchain reflow (i.e. the incoming side is not purely formatting), it falls
+outside this rule — escalate per the normal engine policy.
+
 ## When to use
 
 - "restack and resolve conflicts", "intelligent restack", "auto restack"
@@ -210,6 +239,14 @@ Orchestrator-decided facts:
 
 Follow skills/code-resolve-merge-conflicts/SKILL.md as the conflict-resolution
 engine with those driver parameters.
+
+TEMPORARY (TS toolchain rollout): if a conflict is purely a formatting-only
+oxfmt/toolchain reflow of the OLD code shape replaying onto a base that gained
+real feature logic on the same statements, resolve it deterministically by
+KEEPING the base (HEAD) logic verbatim, discarding the reverted incoming code,
+then re-applying formatting by running `just ts-format-fix` (not by
+hand-wrapping). This is the only "keep + reformat" auto-resolution allowed; any
+conflict where the incoming side carries genuine logic still escalates.
 
 Agent-decided work:
 - Inspect git status and identify the current stopped commit and conflicted
