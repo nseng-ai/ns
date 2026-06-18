@@ -236,8 +236,12 @@ Risks:
   redirect planning with reflog/trunk/detach strategies in `checkout_planning.plan_current_wt_redirect`).
   Each carries exit-code and abort-path contracts that need explicit tests.
 - `slot gt` must depend on Graphite only through plumbing (`gt parent_of`/`children_of`/`stack`/
-  `trunk`), never by parsing human `gt` output, and plain `slot` must never touch Graphite. A careless
-  shared helper could leak a Graphite dependency into the plain path and violate repo policy.
+  `trunk`), never by parsing human `gt` output, and plain `slot` must never touch Graphite. The
+  Graphite metadata remediation centralized private `.graphite_metadata.db` parsing and topology
+  walking in `@asdl/core/graphite-metadata` for the slot and ccc Graphite-named consumers, reducing
+  copy-drift from the earlier slot-local reader. The remaining accepted risk is Graphite private DB
+  schema drift, which is now guarded in one shared parser with consumer-specific fail-open/fail-closed
+  adapters.
 - Some Python tests or fixtures may encode accidental implementation behavior (Click/Clinkr rendering,
   Rich markup) rather than durable contract; each slice must distinguish the two before pinning a
   fixture.
