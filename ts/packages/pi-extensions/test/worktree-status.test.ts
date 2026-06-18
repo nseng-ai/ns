@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
 
@@ -10,6 +10,7 @@ import { stripTerminalEscapes } from "@asdl/core/exec";
 import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
+	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
 } from "../src/worktree-status.ts";
@@ -57,10 +58,14 @@ class OrderlessFakePi {
 	}
 }
 
-type RegisteredEventName = "session_start" | "tool_result" | "agent_end" | "session_shutdown";
+type RegisteredEventName = "session_start" | "session_shutdown";
 type SessionStartHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
-type ToolResultHandler = (event: { toolName: string }) => Promise<void> | void;
 type SessionShutdownHandler = () => Promise<void> | void;
+
+interface RegisteredCommand {
+	description: string;
+	handler: (args: string, ctx: ExtensionContext) => Promise<void> | void;
+}
 
 class RegistrationFakePi {
 	readonly commands: string[] = [];
@@ -85,15 +90,16 @@ class RegistrationFakePi {
 }
 
 class LifecycleFakePi extends OrderlessFakePi {
+	readonly commands = new Map<string, RegisteredCommand>();
 	sessionStart: SessionStartHandler | undefined;
-	toolResult: ToolResultHandler | undefined;
-	agentEnd: SessionShutdownHandler | undefined;
 	sessionShutdown: SessionShutdownHandler | undefined;
+
+	registerCommand(name: string, command: RegisteredCommand): void {
+		this.commands.set(name, command);
+	}
 
 	on(event: RegisteredEventName, handler: unknown): void {
 		if (event === "session_start") this.sessionStart = handler as SessionStartHandler;
-		if (event === "tool_result") this.toolResult = handler as ToolResultHandler;
-		if (event === "agent_end") this.agentEnd = handler as SessionShutdownHandler;
 		if (event === "session_shutdown") this.sessionShutdown = handler as SessionShutdownHandler;
 	}
 }
@@ -149,7 +155,7 @@ function basicGitStatusScript(base = "main", count = 1, dirtyStdout = "", oid = 
 	return [revListStep(base, count), dirtyStep(dirtyStdout), headOidStep(oid)];
 }
 
-function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
+function brmemListStep(result: Partial<ExecResult> | Promise<Partial<ExecResult>>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
@@ -190,13 +196,13 @@ const TEST_THEME: StatusTheme = {
 };
 
 describe("worktree status extension registration", () => {
-	test("registers automatic status hooks without visible slash commands", () => {
+	test("registers startup/shutdown hooks and a manual refresh command", () => {
 		const pi = new RegistrationFakePi();
 		worktreeStatusExtension(pi as ExtensionAPI);
 
-		expect(pi.commands).toEqual([]);
+		expect(pi.commands).toEqual([WORKTREE_STATUS_REFRESH_COMMAND_NAME]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
-		expect(pi.events).toEqual(["session_start", "tool_result", "agent_end", "session_shutdown"]);
+		expect(pi.events).toEqual(["session_start", "session_shutdown"]);
 	});
 
 	test("sets brmem and gt footer status on separate lines", async () => {
@@ -386,121 +392,60 @@ describe("worktree status extension registration", () => {
 		});
 	});
 
-	test("identity-changing local refresh clears stale gh and refreshes immediately", async () => {
-		vi.useFakeTimers();
-		try {
-			await withTempRoot(makeGraphiteRepo(), async (root) => {
-				const secondGhResult = deferred<Partial<ExecResult>>();
-				const secondDirtyChecked = deferred<void>();
-				const pi = new LifecycleFakePi([
-					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-					...ghNoPrSteps(),
-					...basicGitStatusScript(),
-					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-					revListStep("main", 2),
-					{ ...dirtyStep(), onCall: () => secondDirtyChecked.resolve() },
-					headOidStep("def456"),
-					remoteOriginStep(),
-					step(
-						"gh",
-						[
-							"api",
-							"graphql",
-							"-f",
-							`query=${githubWorktreePrStatusQuery}`,
-							"-f",
-							"owner=dagster-io",
-							"-f",
-							"repo=asdl-tools",
-							"-f",
-							"headRefName=feature/current",
-						],
-						secondGhResult.promise,
-					),
-				]);
-				const statuses = new Map<string, string | undefined>();
-				const ctx: ExtensionContext = {
-					cwd: root,
-					hasUI: true,
-					ui: {
-						theme: TEST_THEME,
-						setStatus(key, value) {
-							statuses.set(key, value);
-						},
-						setWidget() {},
-					},
-				};
-
-				worktreeStatusExtension(pi as ExtensionAPI);
-				await pi.sessionStart?.({}, ctx);
-				await pi.toolResult?.({ toolName: "edit" });
-				await vi.advanceTimersByTimeAsync(501);
-				await secondDirtyChecked.promise;
-				await flushPromises();
-
-				const pendingStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
-				expect(pendingStatus).toContain("[gt] ↓ main · ↑ - · 2 commits");
-				expect(pendingStatus).toContain("[gh] checking…");
-				expect(pendingStatus).not.toContain("[gh] no PR");
-
-				secondGhResult.resolve({ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) });
-				await flushPromises();
-
-				expect(pi.errors).toEqual([]);
-				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
-				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain("[gh] no PR");
-				await pi.sessionShutdown?.();
-			});
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	test("mutating tool refreshes local status without invoking gh", async () => {
-		vi.useFakeTimers();
-		try {
-			await withTempRoot(makeGraphiteRepo(), async (root) => {
-				const pi = new LifecycleFakePi([
-					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-					...ghNoPrSteps(),
-					...basicGitStatusScript(),
-					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-					...basicGitStatusScript("main", 2, " M file.txt\n"),
-				]);
-				const statuses = new Map<string, string | undefined>();
-				const ctx: ExtensionContext = {
-					cwd: root,
-					hasUI: true,
-					ui: {
-						theme: TEST_THEME,
-						setStatus(key, value) {
-							statuses.set(key, value);
-						},
-						setWidget() {},
-					},
-				};
-
-				worktreeStatusExtension(pi as ExtensionAPI);
-				await pi.sessionStart?.({}, ctx);
-				await pi.toolResult?.({ toolName: "edit" });
-				await vi.advanceTimersByTimeAsync(501);
-				await flushPromises();
-
-				expect(pi.errors).toEqual([]);
-				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
-				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
-				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain("[gh] no PR");
-				await pi.sessionShutdown?.();
-			});
-		} finally {
-			vi.useRealTimers();
-		}
-	});
-
-	test("agent end refreshes remote gh status intentionally", async () => {
+	test("manual refresh reruns full local and remote status", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				...ghNoPrSteps(),
+				...basicGitStatusScript(),
+				brmemListStep({
+					stdout: JSON.stringify({
+						exit_code: 0,
+						data: { entries: [{ namespace: "branch-context", key: "manual-refresh-plan.md" }] },
+					}),
+				}),
+				...ghNoPrSteps(),
+				...basicGitStatusScript("main", 2, " M file.txt\n"),
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+			expect(command).toBeDefined();
+			if (command === undefined) throw new Error("expected manual refresh command");
+			await pi.sessionStart?.({}, ctx);
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+			);
+
+			await command.handler("", ctx);
+
+			pi.assertDone();
+			expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
+			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
+			expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+				"[brmem] (branch-context: manual-refresh-plan.md)\n[gt] ↓ main · ↑ - · 2 commits · ✗\n[gh] no PR",
+			);
+			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("coalesces manual refresh while startup refresh is in flight", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const firstBrmemResult = deferred<Partial<ExecResult>>();
+			const pi = new LifecycleFakePi([
+				brmemListStep(firstBrmemResult.promise),
 				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
@@ -518,11 +463,22 @@ describe("worktree status extension registration", () => {
 			};
 
 			worktreeStatusExtension(pi as ExtensionAPI);
-			await pi.sessionStart?.({}, ctx);
-			await pi.agentEnd?.();
+			const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+			expect(command).toBeDefined();
+			if (command === undefined) throw new Error("expected manual refresh command");
+			const sessionStart = pi.sessionStart?.({}, ctx);
+			await flushPromises();
 
+			expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(1);
+			const commandRefresh = command.handler("", ctx);
+			await flushPromises();
+			expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(1);
+
+			firstBrmemResult.resolve({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) });
+			await Promise.all([sessionStart, commandRefresh]);
+
+			expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
 			pi.assertDone();
-			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
 			await pi.sessionShutdown?.();
 		});
 	});
