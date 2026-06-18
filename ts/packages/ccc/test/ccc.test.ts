@@ -574,7 +574,8 @@ describe("CCC cmux command suite", () => {
 		const pi = new FakePi({
 			script: [
 				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
-				step("gt", ["get", TRUNK_BRANCH, "--no-restack", "--no-checkout", "--force", "--no-interactive"], {}),
+				step("git", ["worktree", "list", "--porcelain"], { stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n" }),
+				step("git", ["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`], {}),
 				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
 				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
@@ -663,11 +664,57 @@ describe("CCC cmux command suite", () => {
 		expect(pi.execCalls.some((call) => call.command === "cmux")).toBe(false);
 	});
 
+	test("ccc:workspace:dispatch-from-trunk pulls trunk when it is checked out elsewhere", async () => {
+		const stagingDir = await makeTempDir();
+		const stagedPromptFile = join(stagingDir, `123-${BRANCH}.md`);
+		const trunkWorktree = "/repo-trunk";
+		const launchCommand = `payload="$(brmem get ${DISPATCH_PROMPT_KEY} --namespace ${DISPATCH_PROMPT_NAMESPACE} --branch ${BRANCH})" && exec pi --provider anthropic --model claude-sonnet-4-5 --thinking medium "$payload"`;
+		const pi = new FakePi({
+			script: [
+				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
+				step("git", ["worktree", "list", "--porcelain"], {
+					stdout: [`worktree ${trunkWorktree}`, "HEAD abc123", `branch refs/heads/${TRUNK_BRANCH}`, ""].join("\n"),
+				}),
+				step("git", ["pull", "--ff-only", "origin", TRUNK_BRANCH], {}),
+				step("git", ["rev-parse", TRUNK_BRANCH], { stdout: `${START_POINT}\n` }),
+				step("pi", buildGptNanoTextArgs(buildSlugPrompt({ kind: "task", content: "Implement the cmux dispatch flow" })), { stdout: `${BRANCH}\n` }),
+				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
+				step("git", ["branch", BRANCH, TRUNK_BRANCH], {}),
+				step("gt", ["track", BRANCH, "--parent", TRUNK_BRANCH, "--no-interactive"], {}),
+				step("brmem", ["check", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: brmemCheckJson(false) }),
+				step("brmem", ["put", DISPATCH_PROMPT_KEY, "--namespace", DISPATCH_PROMPT_NAMESPACE, "--branch", BRANCH, "--file", stagedPromptFile, "--format", "json"], {
+					stdout: dispatchPromptPutJson(stagedPromptFile),
+				}),
+				step("slot", ["checkout", BRANCH, "--format", "json", "--no-clipboard"], { stdout: slotCheckoutJson(BRANCH) }),
+				step("cmux", [
+					"new-workspace",
+					"--name",
+					BRANCH,
+					"--description",
+					`dispatch-from-trunk from ${TRUNK_BRANCH}`,
+					"--cwd",
+					WORKTREE,
+					"--command",
+					launchCommand,
+				], {}),
+			],
+		});
+		registerCccSlotDispatchFromTrunkCommand(pi, { stagingDir, now: () => 123, shouldCleanupStagingFile: false });
+		const ctx = new FakeCommandContext({ model: PREVIOUS_MODEL });
+
+		await pi.commands.get("ccc:workspace:dispatch-from-trunk")?.handler("Implement the cmux dispatch flow", ctx);
+
+		pi.assertDone();
+		expect(pi.execCalls.find((call) => call.command === "git" && call.args[0] === "pull")?.options?.cwd).toBe(trunkWorktree);
+		expect(notificationMessages(ctx).some((message) => message.includes(`Opened cmux workspace: ${BRANCH}`))).toBe(true);
+	});
+
 	test("ccc:workspace:dispatch-from-trunk stops when trunk refresh fails", async () => {
 		const pi = new FakePi({
 			script: [
 				step("gt", ["trunk", "--no-interactive"], { stdout: `${TRUNK_BRANCH}\n` }),
-				step("gt", ["get", TRUNK_BRANCH, "--no-restack", "--no-checkout", "--force", "--no-interactive"], {
+				step("git", ["worktree", "list", "--porcelain"], { stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n" }),
+				step("git", ["fetch", "origin", `refs/heads/${TRUNK_BRANCH}:refs/heads/${TRUNK_BRANCH}`], {
 					code: 1,
 					stderr: "fetch failed\n",
 				}),
@@ -681,6 +728,7 @@ describe("CCC cmux command suite", () => {
 		pi.assertDone();
 		expect(notificationMessages(ctx).join("\n")).toContain("Graphite trunk refresh failed");
 		expect(notificationMessages(ctx).join("\n")).toContain("no branch was created");
+		expect(notificationMessages(ctx).join("\n")).toContain("fetch failed");
 		expect(pi.execCalls.some((call) => call.command === "git" && call.args[0] === "branch")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);

@@ -1,3 +1,5 @@
+import { parseGitWorktreePorcelain } from "@asdl/core/git";
+
 import {
 	buildBrmemPayloadPiLaunchCommand,
 	buildLaunchPrompt,
@@ -11,9 +13,10 @@ import {
 } from "./dispatch-prompt.ts";
 import { getPiLaunchOptions } from "./pi-launch.ts";
 import { openBranchInCmuxSlot } from "./slot.ts";
-import type { CommandContext, ExtensionAPI } from "./types.ts";
+import type { CommandContext, ExecResult, ExtensionAPI } from "./types.ts";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
+const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
@@ -109,14 +112,7 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 	}
 
 	notify?.("Refreshing Graphite trunk…");
-	const refresh = await runText(pi, cwd, "gt", [
-		"get",
-		trunkBranch,
-		"--no-restack",
-		"--no-checkout",
-		"--force",
-		"--no-interactive",
-	]);
+	const refresh = await refreshLocalTrunkBranch({ pi, cwd, trunkBranch });
 	if (!refresh.ok) {
 		return {
 			error: [
@@ -141,6 +137,58 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 		startRef: trunkBranch,
 		createFailureContext: `from refreshed trunk ${trunkBranch}`,
 	});
+}
+
+async function refreshLocalTrunkBranch(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	trunkBranch: string;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+	const { pi, cwd, trunkBranch } = options;
+	const worktrees = await pi.exec("git", ["worktree", "list", "--porcelain"], {
+		cwd,
+		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
+	});
+	if (!commandSucceeded(worktrees)) {
+		return {
+			ok: false,
+			message: formatCommandFailure("Could not inspect Git worktrees.", "git worktree list --porcelain", worktrees),
+		};
+	}
+
+	const checkedOutPath = parseGitWorktreePorcelain(worktrees.stdout).find((entry) => entry.branch === trunkBranch)?.path;
+	if (checkedOutPath !== undefined) {
+		const pull = await pi.exec("git", ["pull", "--ff-only", "origin", trunkBranch], {
+			cwd: checkedOutPath,
+			timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
+		});
+		if (commandSucceeded(pull)) return { ok: true };
+		return {
+			ok: false,
+			message: formatCommandFailure(`Could not pull checked-out trunk branch ${trunkBranch}.`, `git pull --ff-only origin ${trunkBranch}`, pull),
+		};
+	}
+
+	const fetchArgs = ["fetch", "origin", `refs/heads/${trunkBranch}:refs/heads/${trunkBranch}`];
+	const fetch = await pi.exec("git", fetchArgs, { cwd, timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS });
+	if (commandSucceeded(fetch)) return { ok: true };
+	return {
+		ok: false,
+		message: formatCommandFailure(`Could not fetch trunk branch ${trunkBranch}.`, `git ${fetchArgs.join(" ")}`, fetch),
+	};
+}
+
+function commandSucceeded(result: ExecResult): boolean {
+	return result.code === 0 && !result.killed;
+}
+
+function formatCommandFailure(intro: string, command: string, result: ExecResult): string {
+	return [intro, `Command: ${command}`, `Exit: ${result.code}`, `Killed: ${result.killed}`, "stdout:", formatOutput(result.stdout), "stderr:", formatOutput(result.stderr)].join("\n");
+}
+
+function formatOutput(output: string): string {
+	if (output.length === 0) return "<empty>";
+	return output.endsWith("\n") ? output.trimEnd() : output;
 }
 
 function firstNonEmptyLine(text: string): string | undefined {
