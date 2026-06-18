@@ -18,15 +18,15 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 		kind: "command",
 		surface: PR_FEEDBACK_WATCH_COMMAND_NAME,
 		workflow:
-			"Watch the current branch PR for new feedback and dispatch constrained pr-address runs",
+			"Watch the current branch PR for new feedback and inject downloader-only triage prompts",
 		parity: "WAIVED",
 		fallback:
-			"Use the pr-address skill/CLI manually when PR feedback is detected or requested outside Pi.",
+			"Use /pr:download-feedback or pr-address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "pr-feedback-watch",
 		notes:
-			"Pi owns opt-in live polling and prompt injection; pr-address owns the portable feedback normalization and mutation workflow.",
+			"Pi owns opt-in live polling and prompt injection; pr-address owns portable read-only feedback download and normalization.",
 	},
 ] as const);
 export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "code-pr-feedback-watch";

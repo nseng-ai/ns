@@ -24,9 +24,9 @@ pr-address exec download-feedback --pr-number <pr-number> --format json
 
 The JSON result includes a `markdown` field intended for editor/session prefill. It is triage-only: ask the human before making code changes, and do not resolve or reply to GitHub threads from the download result alone.
 
-## Transitional retained helpers
+## Retained implementation helper
 
-During the deletion transition, `map-branch-prs` may remain as implementation plumbing for stack downloads:
+`map-branch-prs` remains as implementation plumbing for stack downloads:
 
 ```bash
 slot gt exec stack-branches --format json \

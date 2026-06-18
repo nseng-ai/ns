@@ -19,6 +19,6 @@ Use `--json-schema` before relying on a retained helper shape.
 
 ## Retired operation families
 
-The old workflow engine is retired: payload sessions, classification templates, classification validation, planning, payload detail lookup, resolver-payload construction, GitHub mutation helpers, checkpoints, and finalization should not be used for new agent workflows and are scheduled for deletion.
+The old workflow engine is retired and deleted from the current CLI: payload sessions, classification templates, classification validation, planning, payload detail lookup, resolver-payload construction, GitHub mutation helpers, checkpoints, and finalization should not be used for new agent workflows.
 
 Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback`, inspect the downloaded Markdown, ask for confirmation before code changes, and treat any future addressing workflow as a rebuild on top of the downloader foundation.

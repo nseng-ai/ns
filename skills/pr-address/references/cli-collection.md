@@ -1,6 +1,6 @@
 # Download helpers
 
-`pr-address` is retained only as read-only feedback-download plumbing while the old addressing workflow is deleted.
+`pr-address` is retained only as read-only feedback-download plumbing after deletion of the old addressing workflow.
 
 ## `download-feedback`
 
@@ -20,7 +20,7 @@ The result includes `markdown` for editor/session prefill plus target/count meta
 
 ## Stack download support
 
-`/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. During the transition, `map-branch-prs` may remain as minimal branch-to-PR lookup plumbing:
+`/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. `map-branch-prs` remains as minimal branch-to-PR lookup plumbing:
 
 ```bash
 slot gt exec stack-branches --format json \

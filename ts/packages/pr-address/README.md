@@ -2,7 +2,7 @@
 
 Transitional TypeScript package for the `pr-address` standalone CLI.
 
-`pr-address` is being reduced to a tiny read-only feedback downloader. The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, GitHub mutation orchestration, checkpoints, finalization, and detail lookup — is retired and scheduled for deletion.
+`pr-address` is now a tiny read-only feedback downloader. The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, GitHub mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
 
 ## Retained contract
 
