@@ -174,17 +174,19 @@ async function makeHomeTempDir(): Promise<string> {
 	return tempDirs.makeHomeTempDir(".plans-cli-scenario-");
 }
 
-async function writePlanFile(
-	fixture: Fixture,
-	fileName: string,
-	modifiedTimeMs = MODIFIED_TIME_MS,
-	content?: string,
-): Promise<string> {
-	const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
+interface WritePlanFileOptions {
+	readonly fixture: Fixture;
+	readonly fileName: string;
+	readonly modifiedTimeMs?: number;
+	readonly content?: string;
+}
+
+async function writePlanFile(options: WritePlanFileOptions): Promise<string> {
+	const directory = join(options.fixture.planStoreRoot, options.fixture.repoKey, options.fixture.branchKey);
 	await mkdir(directory, { recursive: true });
-	const filePath = join(directory, fileName);
-	await writeFile(filePath, content ?? `# ${fileName}\n`, "utf8");
-	const modified = new Date(modifiedTimeMs);
+	const filePath = join(directory, options.fileName);
+	await writeFile(filePath, options.content ?? `# ${options.fileName}\n`, "utf8");
+	const modified = new Date(options.modifiedTimeMs ?? MODIFIED_TIME_MS);
 	await utimes(filePath, modified, modified);
 	return filePath;
 }
@@ -314,7 +316,7 @@ describe("plans list CLI pins", () => {
 
 	test("prints one-plan JSON and human list byte-exactly", async () => {
 		const fixture = await makeFixture();
-		const filePath = await writePlanFile(fixture, "first-useful-saved-plan.md");
+		const filePath = await writePlanFile({ fixture, fileName: "first-useful-saved-plan.md" });
 		const json = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
 			{ cwd: fixture.repoRoot, git: fixture.git },
@@ -362,19 +364,19 @@ describe("plans list CLI pins", () => {
 
 	test("filters by repeatable tags with AND semantics", async () => {
 		const fixture = await makeFixture();
-		await writePlanFile(
+		await writePlanFile({
 			fixture,
-			"follow-up-architecture-plan.md",
-			3_000,
-			["---", "tags:", "  - follow-up", "  - architecture", "---", "", "# Both", ""].join("\n"),
-		);
-		await writePlanFile(
+			fileName: "follow-up-architecture-plan.md",
+			modifiedTimeMs: 3_000,
+			content: ["---", "tags:", "  - follow-up", "  - architecture", "---", "", "# Both", ""].join("\n"),
+		});
+		await writePlanFile({
 			fixture,
-			"follow-up-only-plan.md",
-			2_000,
-			["---", "tags:", "  - follow-up", "---", "", "# Follow", ""].join("\n"),
-		);
-		await writePlanFile(fixture, "untagged-plan-file.md", 1_000);
+			fileName: "follow-up-only-plan.md",
+			modifiedTimeMs: 2_000,
+			content: ["---", "tags:", "  - follow-up", "---", "", "# Follow", ""].join("\n"),
+		});
+		await writePlanFile({ fixture, fileName: "untagged-plan-file.md", modifiedTimeMs: 1_000 });
 
 		const followUp = await runWithFakes(
 			[
@@ -431,10 +433,10 @@ describe("plans list CLI pins", () => {
 		const fixture = await makeFixture();
 		const relativeRoot = "relative-store";
 		const absoluteRoot = join(fixture.repoRoot, relativeRoot);
-		const filePath = await writePlanFile(
-			{ ...fixture, planStoreRoot: absoluteRoot },
-			"relative-root-plan-file.md",
-		);
+		const filePath = await writePlanFile({
+			fixture: { ...fixture, planStoreRoot: absoluteRoot },
+			fileName: "relative-root-plan-file.md",
+		});
 
 		const run = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", relativeRoot],
@@ -920,8 +922,8 @@ describe("plans exec resolve pins", () => {
 
 	test("resolves latest plan JSON and human output byte-exactly", async () => {
 		const fixture = await makeFixture();
-		await writePlanFile(fixture, "older-saved-plan-file.md", 1_000);
-		const newer = await writePlanFile(fixture, "newer-saved-plan-file.md", 2_000);
+		await writePlanFile({ fixture, fileName: "older-saved-plan-file.md", modifiedTimeMs: 1_000 });
+		const newer = await writePlanFile({ fixture, fileName: "newer-saved-plan-file.md", modifiedTimeMs: 2_000 });
 		const json = await runWithFakes(["exec", "resolve", "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
