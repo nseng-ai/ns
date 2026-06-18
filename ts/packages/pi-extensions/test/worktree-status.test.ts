@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, sep } from "node:path";
 
 import { describe, expect, test, vi } from "vitest";
 
@@ -471,6 +471,133 @@ describe("worktree status extension registration", () => {
 				expect(refreshedStatus).not.toContain("✗");
 				await pi.sessionShutdown?.();
 				expect(closed.length).toBeGreaterThan(0);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	test("git metadata watcher ignores self-written index and reflog paths", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const gitDir = join(root, ".git");
+			// Materialize the paths the original watcher subscribed to. `git status` (run on
+			// every refresh) rewrites `index`, and every git operation churns `logs/*`;
+			// watching either turned the refresh into a self-triggering feedback loop. They
+			// must stay excluded even when present on disk.
+			mkdirSync(join(gitDir, "logs", "refs", "heads", "feature"), { recursive: true });
+			mkdirSync(join(gitDir, "refs", "heads", "feature"), { recursive: true });
+			writeFileSync(join(gitDir, "index"), "");
+			writeFileSync(join(gitDir, "logs", "HEAD"), "");
+			writeFileSync(join(gitDir, "logs", "refs", "heads", "feature", "current"), "");
+			writeFileSync(join(gitDir, "refs", "heads", "feature", "current"), "abc123\n");
+			writeFileSync(join(gitDir, "packed-refs"), "");
+
+			const watched: string[] = [];
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				...ghNoPrSteps(),
+				...basicGitStatusScript(),
+			]);
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus() {},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI, {
+				watchPath(path) {
+					watched.push(path);
+					return { close() {} };
+				},
+			});
+			await pi.sessionStart?.({}, ctx);
+			pi.assertDone();
+
+			// Watches the commit/ref-update signals our read-only refresh never writes.
+			expect(watched).toContain(join(gitDir, "HEAD"));
+			expect(watched).toContain(join(gitDir, "refs", "heads", "feature", "current"));
+			expect(watched).toContain(join(gitDir, "packed-refs"));
+			// Never watches the self-written / high-churn paths.
+			expect(watched.some((path) => path.endsWith(`${sep}index`))).toBe(false);
+			expect(watched.some((path) => path.split(sep).includes("logs"))).toBe(false);
+			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("git metadata watcher defers events during cooldown into one coalesced rerun", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const watched: Array<{ path: string; callback: () => void }> = [];
+				const refresh1Dirty = deferred<void>();
+				const refresh2Dirty = deferred<void>();
+				const emptyBrmem = { stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) };
+				const refreshSteps = (dirtyChecked: () => void): ScriptedExec[] => [
+					brmemListStep(emptyBrmem),
+					...ghNoPrSteps(),
+					revListStep("main", 1),
+					{ ...dirtyStep(), onCall: dirtyChecked },
+					headOidStep(),
+				];
+				const pi = new LifecycleFakePi([
+					// Initial startup refresh.
+					brmemListStep(emptyBrmem),
+					...ghNoPrSteps(),
+					...basicGitStatusScript(),
+					// Watcher refresh #1.
+					...refreshSteps(() => refresh1Dirty.resolve()),
+					// Watcher refresh #2 — the single coalesced rerun of every cooldown event.
+					...refreshSteps(() => refresh2Dirty.resolve()),
+				]);
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					ui: {
+						theme: TEST_THEME,
+						setStatus() {},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI, {
+					watchPath(path, callback) {
+						watched.push({ path, callback });
+						return { close() {} };
+					},
+				});
+				await pi.sessionStart?.({}, ctx);
+				const brmemCount = (): number => pi.calls.filter((call) => call.command === "brmem").length;
+				expect(brmemCount()).toBe(1);
+
+				// First event runs refresh #1 to completion, leaving the watcher in cooldown.
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100); // debounce
+				await refresh1Dirty.promise;
+				await flushPromises();
+				expect(brmemCount()).toBe(2);
+
+				// Several events arriving during the cooldown window must not each spawn a
+				// refresh — they collapse into one pending rerun.
+				watched[0]?.callback();
+				watched[0]?.callback();
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100); // debounce elapses, cooldown still active
+				await flushPromises();
+				expect(brmemCount()).toBe(2);
+
+				// Cooldown elapses → exactly one coalesced rerun fires.
+				await vi.advanceTimersByTimeAsync(250); // cooldown
+				await refresh2Dirty.promise;
+				await flushPromises();
+
+				expect(pi.errors).toEqual([]);
+				expect(brmemCount()).toBe(3);
+				pi.assertDone();
+				await pi.sessionShutdown?.();
 			} finally {
 				vi.useRealTimers();
 			}

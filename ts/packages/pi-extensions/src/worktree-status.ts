@@ -27,6 +27,10 @@ import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
 const GIT_STATUS_WATCH_DEBOUNCE_MS = 100;
+// Quiet window enforced after each watcher-driven refresh. Bounds the worst-case refresh
+// rate to one per (refresh duration + cooldown) even if a refresh ever re-trips a watched
+// path, so a feedback loop can never storm the host event loop.
+const GIT_STATUS_WATCH_COOLDOWN_MS = 250;
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -458,9 +462,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 			watchPath: dependencies.watchPath ?? watchExistingPath,
 			setTimeout: dependencies.setTimeout ?? setTimeout,
 			clearTimeout: dependencies.clearTimeout ?? clearTimeout,
-			onChange: () => {
-				void fullRefreshChannel.run(session);
-			},
+			onChange: () => fullRefreshChannel.run(session),
 		});
 		await fullRefreshChannel.run(session);
 	});
@@ -494,7 +496,7 @@ interface StartGitStatusWatcherOptions {
 	watchPath(path: string, callback: () => void): WatchHandle | undefined;
 	setTimeout(callback: () => void, ms: number): ReturnType<typeof setTimeout>;
 	clearTimeout(timeout: ReturnType<typeof setTimeout>): void;
-	onChange(): void;
+	onChange(): Promise<void>;
 }
 
 function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWatcherOptions): WorktreeStatusWatcher | undefined {
@@ -503,12 +505,45 @@ function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWa
 
 	const handles: WatchHandle[] = [];
 	let pending: ReturnType<typeof setTimeout> | undefined;
+	let cooldown: ReturnType<typeof setTimeout> | undefined;
+	let running = false;
+	let rerunRequested = false;
 	let isClosed = false;
 
+	// Watch events that arrive while a refresh is in flight, or during the cooldown that
+	// follows one, collapse into a single follow-up refresh. This keeps a burst of writes
+	// (e.g. `gt pr` rewriting many refs) — or any stray self-triggered event — from
+	// spawning a refresh per file and saturating the host event loop.
 	function flush(): void {
 		pending = undefined;
 		if (isClosed || !isActiveSessionForWatcher(session)) return;
-		options.onChange();
+		if (running || cooldown !== undefined) {
+			rerunRequested = true;
+			return;
+		}
+		void runRefresh();
+	}
+
+	async function runRefresh(): Promise<void> {
+		running = true;
+		try {
+			await options.onChange();
+		} finally {
+			running = false;
+			if (!isClosed) {
+				cooldown = options.setTimeout(endCooldown, GIT_STATUS_WATCH_COOLDOWN_MS);
+				unrefTimer(cooldown);
+			}
+		}
+	}
+
+	function endCooldown(): void {
+		cooldown = undefined;
+		if (isClosed || !isActiveSessionForWatcher(session)) return;
+		if (rerunRequested) {
+			rerunRequested = false;
+			void runRefresh();
+		}
 	}
 
 	function schedule(): void {
@@ -526,9 +561,14 @@ function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWa
 	return {
 		close() {
 			isClosed = true;
+			rerunRequested = false;
 			if (pending !== undefined) {
 				options.clearTimeout(pending);
 				pending = undefined;
+			}
+			if (cooldown !== undefined) {
+				options.clearTimeout(cooldown);
+				cooldown = undefined;
 			}
 			for (const handle of handles) handle.close();
 		},
@@ -550,22 +590,26 @@ function watchExistingPath(path: string, callback: () => void): WatchHandle | un
 	}
 }
 
+// Only watch paths that signal a commit or ref update *and* are never written by
+// our own status refresh. `git status` (run on every refresh) rewrites `.git/index`,
+// and `logs/*` churn on every git operation; watching either turns the refresh into a
+// self-triggering feedback loop that storms the host event loop. HEAD and the current
+// branch ref capture checkpoint commits and ref updates without that hazard.
 function watchedGitStatusPaths(cwd: string): string[] {
 	const gitPaths = findGitPaths(cwd);
 	if (gitPaths === undefined) return [];
 
 	const paths = new Set<string>([
 		gitPaths.headPath,
-		join(gitPaths.gitDir, "index"),
 		join(gitPaths.commonGitDir, "packed-refs"),
-		join(gitPaths.commonGitDir, "logs", "HEAD"),
 	]);
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch !== undefined) {
 		const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...currentBranch.split("/"));
 		paths.add(refPath);
+		// Watch the containing directory too: a ref update writes the ref via temp-file
+		// rename, which can detach a file-level watch after the first commit.
 		paths.add(dirname(refPath));
-		paths.add(join(gitPaths.commonGitDir, "logs", "refs", "heads", ...currentBranch.split("/")));
 	}
 
 	return [...paths].filter((path) => existsSync(path));
