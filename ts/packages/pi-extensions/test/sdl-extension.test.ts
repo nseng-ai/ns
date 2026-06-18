@@ -104,6 +104,7 @@ describe("sdl Pi extension", () => {
 			"sdl:code:autoslot",
 			"sdl:code:land",
 			"sdl:code:push",
+			"sdl:code:pull-trunk",
 		]);
 		expect(pi.commands.has("code:changes")).toBe(false);
 		expect(pi.commands.has("code:cp")).toBe(false);
@@ -132,6 +133,7 @@ describe("sdl Pi extension", () => {
 		expect(pi.commands.get("sdl:code:autoslot")?.description).toContain("managed slot worktree");
 		expect(pi.commands.get("sdl:code:land")?.description).toBe("Land the current PR or Graphite stack into trunk");
 		expect(pi.commands.get("sdl:code:push")?.description).toContain("git push");
+		expect(pi.commands.get("sdl:code:pull-trunk")?.description).toBe("Pull Graphite trunk without running full gt sync");
 		expect(pi.commands.get("sdl:code:regenerate-pr")?.description).toBe(
 			"sdl regenerate-pr: Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		);
