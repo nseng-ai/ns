@@ -211,23 +211,21 @@ Assumptions:
   fake/real split.
 - The current TypeScript workspace is the right home: pnpm workspaces, Node ESM, strict TypeScript,
   Vitest, and command shells built through `@asdl/clinkr`.
-- The run-from-source shim accepted for prior ports is an adequate installed model for `slot`;
-  checkout-free bundling and npm publish are not required for cutover. (Note: `slot` is currently
-  installed as an *editable uv tool* by `install-tools`, unlike the already-shimmed siblings — the
-  cutover replaces that uv tool with a `just install-slot` TS shim; justfile lines ~120–126.)
-- No installed skill currently shells out to `slot` (the hidden `slot gt exec stack-branches` /
-  `stack-map-branches` commands are skill-ready JSON surfaces but have no current skill consumer), so
-  the cutover's consumer-migration surface is small. Confirm during inventory.
+- The run-from-source shim accepted for prior ports is the installed model for `slot`; checkout-free
+  bundling and npm publish are not required for cutover. `just install-slot` / `install-tools` now
+  install the TypeScript source shim instead of the retired editable `asdl-slots` uv tool.
+- Hidden `slot gt exec stack-map-branches` has live consumers in `sdlcc` and the
+  `objective-bulk-refresh` skill; it was ported at full fidelity under the explicit `slot gt`
+  Graphite boundary.
 
 Risks:
 
-- **Shell-integration parity is the central, novel migration risk.** The parent-shell wrapper reads
+- **Shell-integration parity was the central, novel migration risk.** The parent-shell wrapper reads
   `$SLOT_CD_DIRECTIVE_FILE`, navigation commands write the destination only when that env var is set
   and the command is human-format, and `slot shell install` / `slot completion install` append
-  idempotent marker blocks to the user's real rc file. The fake-backed TypeScript shell/completion
-  slice de-risks env-var naming, marker/idempotency behavior, redirected rc writes, and JSON-mode cd
-  suppression; the deliberate real-shell parity check is still required before this risk is fully
-  retired.
+  idempotent marker blocks to the user's rc file. The TypeScript cutover preserved env-var naming,
+  marker/idempotency behavior, redirected rc-write tests, JSON-mode cd suppression, and deliberate
+  throwaway real-shell parity evidence; this risk is retired for the completed cutover.
 - `git worktree` semantics are load-bearing and easy to approximate incorrectly: detached-worktree
   creation, removal, dirty detection (`has_uncommitted_changes`), and in-progress operation detection
   via branch occupancies (rebasing/bisecting) all drive `assigned`/`available`/`operation` status and
@@ -256,30 +254,33 @@ Risks:
 
 ## Open Questions
 
-- Standalone-only vs. `asdl slot` plugin: the Python package registers an `asdl.plugins` entry point
-  (`pyproject.toml`), but the `areg` port resolved that **no TypeScript `asdl.plugins` analog exists**
-  and shipped standalone-only. Default to standalone-only and park the plugin surface; confirm no live
-  consumer depends on `asdl slot` before retiring it.
-- cd-directive protocol fidelity: keep the `$SLOT_CD_DIRECTIVE_FILE` env-var name and single-line
-  destination-file contract verbatim (the installed wrapper depends on it), or redesign? Default:
-  keep verbatim while a shell wrapper consumes it; resolve in `prework/05`.
-- rc-block byte parity: the TypeScript shell wrapper preserves the user-visible marker/idempotency
-  contract, while completion activation intentionally uses package-local static completion scripts
-  instead of Python's Click `_SLOT_COMPLETE` activation because `@asdl/clinkr` does not implement that
-  protocol. Keep the real-shell parity check pending before treating this decision as cutover-ready.
-- Clipboard fallback semantics: preserve the `backend_missing` / `subprocess_error` reason tags and
-  the `copied`/`skipped`/`failure` tri-state in the JSON envelope verbatim. Confirm whether any
-  consumer branches on the reason tag.
-- Distribution: shim name `slot` via `just install-slot`, replacing the current editable-uv-tool
-  install in `install-tools`; confirm the `ts-install` precondition and the stale-uv-tool removal
-  step.
-- `slot gt exec stack-map-branches` consumer: it is designed for a stack-map skill/agent but has no
-  current wired consumer; confirm during inventory whether to port it at full fidelity now or park it.
+- Resolved: `slot` is standalone-only. The historical `asdl slot` plugin was retired with the Python
+  package; no TypeScript `asdl.plugins` analog was created, and active callers use the standalone
+  `slot` CLI.
+- Resolved: the `$SLOT_CD_DIRECTIVE_FILE` env-var name and single-line destination-file contract were
+  preserved for installed shell wrappers.
+- Resolved: shell and completion installs preserve marker/idempotency and user-visible behavior.
+  Static TypeScript completion intentionally replaces Python Click `_SLOT_COMPLETE` activation because
+  `@asdl/clinkr` has no TS analog; throwaway zsh parity and best-effort bash parity passed.
+- Resolved: clipboard fallback semantics preserve the `backend_missing` / `subprocess_error` reason
+  tags and `copied`/`skipped`/`failure` tri-state.
+- Resolved: `just install-slot` / `install-tools` install the TypeScript source shim; active editable
+  `asdl-slots` tool and Python fallback paths were removed or documented as historical provenance.
+- Resolved: `slot gt exec stack-map-branches` was ported after live consumers were found in `sdlcc`
+  and the `objective-bulk-refresh` skill; it remains under the explicit `slot gt` Graphite boundary.
 
 ## Closure
 
-Pending. This section will record completion once the roadmap rows are done: the standalone
-TypeScript `slot` CLI as the sole active surface for all 17 commands, run-from-source shim installed
-by `just install-slot` / `install-tools`, deletion of `packages/asdl-slots` from active paths with a
-recorded rollback reference, verified parent-shell `cd` / rc-block / clipboard parity, and umbrella
-playbook + ledger feedback.
+Closed after all roadmap rows completed. The standalone TypeScript `@asdl/slot` CLI is the sole
+active surface for all 17 commands, including pool lifecycle, allocation/movement, release,
+Graphite-named subgroup commands, hidden `slot gt exec` JSON surfaces, shell/completion integration,
+and clipboard behavior.
+
+Distribution is the accepted TypeScript source-shim model through `just install-slot` and
+`install-tools`. The Python `packages/asdl-slots/` fallback was deleted from active paths with
+rollback/reference commit `9164ef9ea562`. Shell/rc/clipboard parity is recorded through redirected
+fake coverage plus throwaway zsh real-shell parity and best-effort bash parity. Hidden
+`stack-map-branches` support was ported for live `sdlcc` and `objective-bulk-refresh` consumers.
+Reusable OS/worktree/shell-coupled port lessons were fed back into the umbrella TypeScript migration
+ledger, roadmap, playbook, and Semantic Update
+`.asdl/objectives/port-asdl-toolkit-to-typescript/updates/2026-06-18T172324Z-slot-cutover-playbook-lessons.md`.
