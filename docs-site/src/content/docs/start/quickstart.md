@@ -10,9 +10,14 @@ CLI with predictable human output, optional machine output, and no hidden state.
 
 ## 1. Install slot
 
+From an asdl checkout, install the TypeScript source shim:
+
 ```bash
-uv tool install asdl-slots
+just install-slot
 ```
+
+Run `just ts-install` or `pnpm --dir ts install` first if the checkout is missing
+TypeScript workspace dependencies.
 
 ## 2. Create a pool of worktrees
 

@@ -132,7 +132,7 @@
     package from `publish`, added `ts/packages/slot/README.md`, marked `packages/asdl-slots` dormant,
     and recorded validation in `updates/20260618T112132Z-slot-shell-parity-distribution-cutover.md`.
 
-- [ ] Retire the Python fallback and delete `packages/asdl-slots` from active paths.
+- [x] Retire the Python fallback and delete `packages/asdl-slots` from active paths.
   - Gate on full 17-command parity, worktree-state parity, shell-integration parity (incl. real-shell
     check), run-from-source distribution evidence, and docs naming the TypeScript CLI as the sole
     surface. The console script + `asdl.plugins` entry wiring and active root config references are
@@ -140,8 +140,12 @@
     scrub remaining fallback references, and record the post-deletion rollback reference commit.
   - Policy: the final gated deletion is directly executable once the gates are evidenced; otherwise
     ask before broad deletion. Validate with full `just`, not just the TS package.
-  - Evidence: deletion diff, scrubbed references, rollback commit hash, full-repo validation, and a
-    Semantic Update.
+  - Evidence: deleted `packages/asdl-slots/`, removed active `asdl_slots` / `asdl slot` /
+    `uv tool install asdl-slots` references from config, tests, docs, and TypeScript README, and
+    recorded rollback reference `9164ef9ea562` in
+    `updates/20260618T170849Z-python-slot-fallback-retired.md`. Validation passed with
+    `uv lock --check`, `just python-check`, `just python-test`, `just dprint-check`,
+    `just docs-check`, and `just check`.
 
 - [ ] Feed lessons into the umbrella porting playbook and reconcile the migration ledger.
   - Record reusable worktree-pool and shell-integration/OS-coupling lessons (the first such port) for
