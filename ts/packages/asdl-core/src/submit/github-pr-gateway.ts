@@ -35,7 +35,7 @@ export interface GithubPrGateway {
 	viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>>;
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
 	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>>;
-	getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>>;
+	getPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>>;
 	stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>>;
 }
@@ -84,7 +84,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(messages);
 	}
 
-	async getPrDiff(params: { cwd: string; number: number }): Promise<GatewayResult<string>> {
+	async getPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
 		const result = await this.runGh(args, params.cwd, DIFF_TIMEOUT_MS);
 		const failure = commandFailure({
@@ -94,8 +94,12 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			code: "github_pr_diff_failed",
 			message: `Could not read diff for PR #${params.number}.`,
 		});
-		if (failure !== undefined) return err(failure);
-		return ok(result.stdout);
+		if (failure === undefined) return ok(result.stdout);
+
+		if (params.baseRefName !== undefined && params.headRefName !== undefined && isGithubDiffTooLarge(result)) {
+			return await this.getLocalPrDiff(params);
+		}
+		return err(failure);
 	}
 
 	async stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<StablePatchIdForPrResult>> {
@@ -152,9 +156,35 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(parsed.value);
 	}
 
+	private async getLocalPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>> {
+		const baseRefName = params.baseRefName;
+		const headRefName = params.headRefName;
+		if (baseRefName === undefined || headRefName === undefined) {
+			return err({ code: "github_pr_diff_failed", message: `Could not read diff for PR #${params.number}.` });
+		}
+
+		const args = ["diff", `${baseRefName}...${headRefName}`];
+		const result = await this.runner("git", args, { cwd: params.cwd, timeout: DIFF_TIMEOUT_MS });
+		const failure = commandFailure({
+			command: "git",
+			args,
+			result,
+			code: "github_pr_local_diff_failed",
+			message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${baseRefName}...${headRefName}.`,
+		});
+		if (failure !== undefined) return err(failure);
+		return ok(result.stdout);
+	}
+
 	private async runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
 		return this.runner("gh", args, { cwd, timeout: timeoutMs });
 	}
+
+}
+
+function isGithubDiffTooLarge(result: ExecResult): boolean {
+	const output = `${result.stderr}\n${result.stdout}`;
+	return result.code === 1 && /diff exceeded the maximum number of lines|PullRequest\.diff too_large|HTTP 406/i.test(output);
 }
 
 function parseGithubPrDetails(stdout: string): GatewayResult<GithubPrDetails> {
