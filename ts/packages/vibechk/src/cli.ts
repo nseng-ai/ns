@@ -2,7 +2,7 @@
 
 import process from "node:process";
 
-import { ClinkrGroup, ok, resolveIo } from "@asdl/clinkr";
+import { ClinkrGroup, ok, resolveIo, type RenderCapabilities } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { z } from "zod";
@@ -141,14 +141,14 @@ async function runRuns(ctx: VibechkCliContext, request: RunsRequest) {
 	return ok<RunsResult>({ type: "table", loaded });
 }
 
-function renderRuns(result: RunsResult): string {
+function renderRuns(result: RunsResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.type === "json") {
 		return JSON.stringify(result.entries);
 	}
 	if (result.loaded.length === 0) {
 		return "No vibechk runs found.";
 	}
-	return renderRunsTable(result.loaded);
+	return renderRunsTable(result.loaded, caps);
 }
 
 async function runShow(ctx: VibechkCliContext, request: ShowRequest) {
@@ -157,7 +157,10 @@ async function runShow(ctx: VibechkCliContext, request: ShowRequest) {
 	return ok<ShowResult>({ loaded });
 }
 
-function renderShow(result: ShowResult): string {
+function renderShow(
+	result: ShowResult,
+	_caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	return renderRunReport(result.loaded);
 }
 
@@ -168,7 +171,10 @@ async function runDiff(ctx: VibechkCliContext, request: DiffRequest) {
 	return ok<DiffResult>({ baseline, treatment });
 }
 
-function renderDiff(result: DiffResult): string {
+function renderDiff(
+	result: DiffResult,
+	_caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	return renderComparisonReport(result.baseline, result.treatment);
 }
 

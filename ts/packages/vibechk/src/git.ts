@@ -5,6 +5,12 @@ import {
 	type CommandExecApi,
 	type ExecResult,
 } from "@asdl/core/exec";
+import {
+	RealGitGateway as CoreRealGitGateway,
+	type GitGateway as CoreGitGateway,
+	type GitOperationResult,
+	type GitResult,
+} from "@asdl/core/git";
 
 import { VibechkError } from "./store.ts";
 
@@ -32,40 +38,27 @@ export interface GitGateway {
 export class RealGitGateway implements GitGateway {
 	private readonly workdir: string;
 	private readonly execApi: CommandExecApi;
+	private readonly coreGit: CoreGitGateway;
 
 	constructor(workdir: string, execApi: CommandExecApi = new NodeCommandExecApi()) {
 		this.workdir = workdir;
 		this.execApi = execApi;
+		this.coreGit = new CoreRealGitGateway(execApi);
 	}
 
 	async repoRoot(): Promise<string> {
-		const result = await this.runGitRaw(["rev-parse", "--show-toplevel"]);
-		if (result.code !== 0 || result.killed) {
-			throw new VibechkError(`Workdir ${this.workdir} is not a git repository.`);
-		}
-		const root = result.stdout.trim();
-		if (root === "") {
-			throw new VibechkError(`Workdir ${this.workdir} is not a git repository.`);
-		}
-		return root;
+		const result = await this.coreGit.repoRoot({ cwd: this.workdir });
+		return this.unwrapGitResult(result, `Workdir ${this.workdir} is not a git repository.`);
 	}
 
 	async currentBranch(): Promise<string> {
-		const branch = await this.runGit(
-			["rev-parse", "--abbrev-ref", "HEAD"],
-			`Could not determine current branch in ${this.workdir}`,
-		);
-		if (branch === "HEAD") {
-			throw new VibechkError(`Workdir ${this.workdir} is in detached HEAD state.`);
-		}
-		return branch;
+		const result = await this.coreGit.currentBranch({ cwd: this.workdir });
+		return this.unwrapGitResult(result, `Could not determine current branch in ${this.workdir}`);
 	}
 
 	async currentCommit(): Promise<string> {
-		return await this.runGit(
-			["rev-parse", "HEAD"],
-			`Could not determine current commit in ${this.workdir}`,
-		);
+		const result = await this.coreGit.headCommit({ cwd: this.workdir });
+		return this.unwrapGitResult(result, `Could not determine current commit in ${this.workdir}`);
 	}
 
 	async remotes(): Promise<Record<string, string>> {
@@ -89,8 +82,7 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async isClean(): Promise<boolean> {
-		const status = await this.statusPorcelain();
-		return status === "";
+		return !(await this.hasChanges());
 	}
 
 	async diffPatch(): Promise<string> {
@@ -107,12 +99,17 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async hasChanges(): Promise<boolean> {
-		const status = await this.statusPorcelain();
-		return status !== "";
+		const result = await this.coreGit.hasUncommittedChangesUnder({
+			cwd: this.workdir,
+			relativePath: ".",
+		});
+		return this.unwrapGitResult(result, `Could not read git status in ${this.workdir}`);
 	}
 
 	async createResultBranchAndCommit(branch: string, message: string): Promise<void> {
-		await this.runGit(["switch", "-c", branch], `Could not create result branch ${branch}`);
+		const branchResult = await this.coreGit.createBranchAtHead({ cwd: this.workdir, branch });
+		this.unwrapGitOperationResult(branchResult, `Could not create result branch ${branch}`);
+		await this.runGit(["switch", branch], `Could not switch to result branch ${branch}`);
 		await this.runGit(["add", "-A"], `Could not stage vibechk changes on ${branch}`);
 		await this.runGit(["commit", "-m", message], `Could not commit vibechk changes on ${branch}`);
 	}
@@ -121,11 +118,20 @@ export class RealGitGateway implements GitGateway {
 		await this.runGit(["switch", branch], `Could not switch back to branch ${branch}`);
 	}
 
-	private async statusPorcelain(): Promise<string> {
-		return await this.runGit(
-			["status", "--porcelain=v1"],
-			`Could not read git status in ${this.workdir}`,
-		);
+	private unwrapGitResult<T>(result: GitResult<T>, errorMessage: string): T {
+		if (result.ok) return result.value;
+		if (isMissingExecutableError(result.error.message)) {
+			throw new VibechkError("git is not installed or not on PATH.");
+		}
+		throw new VibechkError(`${errorMessage}\n${result.error.message}`);
+	}
+
+	private unwrapGitOperationResult(result: GitOperationResult, errorMessage: string): void {
+		if (result.ok) return;
+		if (isMissingExecutableError(result.error.message)) {
+			throw new VibechkError("git is not installed or not on PATH.");
+		}
+		throw new VibechkError(`${errorMessage}\n${result.error.message}`);
 	}
 
 	private async runGit(args: readonly string[], errorMessage: string): Promise<string> {

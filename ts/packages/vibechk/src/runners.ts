@@ -40,7 +40,8 @@ export class RunnerRegistry {
 		if (runner !== undefined) {
 			return runner;
 		}
-		const available = Array.from(this.runners.keys()).sort().join(", ") || "none";
+		const availableNames = Array.from(this.runners.keys()).sort().join(", ");
+		const available = availableNames === "" ? "none" : availableNames;
 		throw new VibechkError(`Unsupported runner '${name}'. Available runners: ${available}.`);
 	}
 
@@ -69,7 +70,7 @@ export class ClaudeRunner implements Runner {
 		const wallTimeSeconds = Math.round((performance.now() - started) / 10) / 100;
 
 		return {
-			exitCode: result.exitCode,
+			exitCode: result.code,
 			transcript: "",
 			metrics: {
 				wallTimeSeconds,
@@ -83,26 +84,21 @@ export class ClaudeRunner implements Runner {
 		};
 	}
 
-	private buildCommand(request: RunnerRequest): readonly string[] {
+	private buildCommand(request: RunnerRequest): readonly [string, ...string[]] {
 		const command = ["claude", "--print", "--permission-mode", "acceptEdits"];
 		if (request.model !== null) {
 			command.push("--model", request.model);
 		}
 		command.push(request.planText);
-		return command;
+		return [command[0] ?? "claude", ...command.slice(1)];
 	}
 
 	private async executeCommand(
-		command: readonly string[],
+		command: readonly [string, ...string[]],
 		workdir: string,
 		transcriptSink: (text: string) => void,
 		stdoutSink: (text: string) => void,
-	): Promise<{ exitCode: number }> {
-		const executable = command[0];
-		if (executable === undefined) {
-			throw new VibechkError("Runner 'claude' command is empty.");
-		}
-
+	): Promise<ExecResult> {
 		const streamText = (text: string): void => {
 			stdoutSink(text);
 			transcriptSink(text);
@@ -110,7 +106,7 @@ export class ClaudeRunner implements Runner {
 
 		let result: ExecResult;
 		try {
-			result = await this.execApi.exec(executable, command.slice(1), {
+			result = await this.execApi.exec(command[0], command.slice(1), {
 				cwd: workdir,
 				onStdout: streamText,
 				onStderr: streamText,
@@ -128,7 +124,7 @@ export class ClaudeRunner implements Runner {
 			}
 			throw new VibechkError(`Runner 'claude' failed to start: ${result.startupError}`);
 		}
-		return { exitCode: result.code };
+		return result;
 	}
 }
 

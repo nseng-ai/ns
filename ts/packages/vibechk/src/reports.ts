@@ -1,3 +1,6 @@
+import type { RenderCapabilities } from "@asdl/clinkr";
+import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
+
 import type { LoadedBundle } from "./models.ts";
 
 type MetricRow = [string, keyof LoadedBundle["bundle"]["metrics"]];
@@ -10,21 +13,21 @@ const METRIC_ROWS: MetricRow[] = [
 	["Cost USD", "costUsd"],
 ];
 
-const RUNS_TABLE_HEADERS = [
-	"RUN ID",
-	"STARTED AT",
-	"STATUS",
-	"RUNNER",
-	"MODEL",
-	"BRANCH",
-	"WORKDIR",
-];
+const RUNS_TABLE_COLUMNS = [
+	{ header: "RUN ID" },
+	{ header: "STARTED AT" },
+	{ header: "STATUS" },
+	{ header: "RUNNER" },
+	{ header: "MODEL" },
+	{ header: "BRANCH" },
+	{ header: "WORKDIR" },
+] satisfies readonly TextTableColumn[];
 
 export function renderRunReport(loaded: LoadedBundle): string {
 	const bundle = loaded.bundle;
 	const resultBranch = bundle.resultBranch ?? "null";
 	const diffPatch = diffBody(loaded.diffPatch);
-	const transcript = loaded.transcript || "_No transcript captured._";
+	const transcript = transcriptBody(loaded.transcript);
 
 	const lines = [
 		`# Vibechk Run \`${bundle.runId}\``,
@@ -82,20 +85,15 @@ export function renderRunReport(loaded: LoadedBundle): string {
 	return lines.join("\n");
 }
 
-export function renderRunsTable(loadedBundles: LoadedBundle[]): string {
-	const rows = loadedBundles.map((loaded) => runsTableRow(loaded));
-
-	const widths = RUNS_TABLE_HEADERS.map((header, index) => {
-		const rowWidths = rows.map((row) => (row[index] ?? "").length);
-		return Math.max(header.length, ...rowWidths);
+export function renderRunsTable(
+	loadedBundles: LoadedBundle[],
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	return renderTextTable({
+		columns: RUNS_TABLE_COLUMNS,
+		rows: loadedBundles.map((loaded) => runsTableRow(loaded)),
+		canEmitAnsi: caps.canEmitAnsi,
 	});
-
-	const lines = [formatTableRow(RUNS_TABLE_HEADERS, widths)];
-	for (const row of rows) {
-		lines.push(formatTableRow(row, widths));
-	}
-
-	return lines.join("\n");
 }
 
 export function runListEntryToJson(loaded: LoadedBundle): Record<string, unknown> {
@@ -288,10 +286,10 @@ function runsTableRow(loaded: LoadedBundle): string[] {
 	];
 }
 
-function formatTableRow(row: readonly string[], widths: number[]): string {
-	return row.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join("  ");
+function transcriptBody(transcript: string): string {
+	return transcript === "" ? "_No transcript captured._" : transcript;
 }
 
 function diffBody(diffPatch: string): string {
-	return diffPatch || "_No workdir changes._";
+	return diffPatch === "" ? "_No workdir changes._" : diffPatch;
 }
