@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
@@ -96,10 +96,10 @@ export class RealSlotGitGateway implements SlotGitGateway {
 
 	async listBranchOccupancies(): Promise<readonly WorktreeOccupancy[]> {
 		const result = await this.git(["worktree", "list", "--porcelain"], this.cwd);
-		const occupancies = await Promise.all(parseGitWorktreePorcelain(result.stdout).map(async (worktree) => {
+		const occupancies = parseGitWorktreePorcelain(result.stdout).map((worktree) => {
 			if (worktree.branch === null) return null;
-			return { path: worktree.path, branch: worktree.branch, operation: await this.worktreeOperation(worktree.path) ?? "checked-out" };
-		}));
+			return { path: worktree.path, branch: worktree.branch, operation: this.worktreeOperation(worktree.path) ?? "checked-out" };
+		});
 		return occupancies.filter((occupancy) => occupancy !== null);
 	}
 
@@ -177,21 +177,15 @@ export class RealSlotGitGateway implements SlotGitGateway {
 		await this.git(["worktree", "remove", path], this.cwd);
 	}
 
-	private async worktreeOperation(worktreePath: string): Promise<string | null> {
+	private worktreeOperation(worktreePath: string): string | null {
+		const adminDir = resolveWorktreeAdminDir(worktreePath);
+		if (adminDir === null) return null;
 		for (const marker of GIT_OPERATION_MARKERS) {
 			for (const path of marker.paths) {
-				if (await this.gitPathExists(worktreePath, path)) return marker.operation;
+				if (existsSync(resolve(adminDir, path))) return marker.operation;
 			}
 		}
 		return null;
-	}
-
-	private async gitPathExists(cwd: string, path: string): Promise<boolean> {
-		const result = await this.git(["rev-parse", "--git-path", path], cwd, { allowFailure: true });
-		if (!result.isOk) return false;
-		const rawPath = result.stdout.trim();
-		if (rawPath.length === 0) return false;
-		return existsSync(isAbsolute(rawPath) ? rawPath : resolve(cwd, rawPath));
 	}
 
 	private async git(args: readonly string[], cwd: string, options: { allowFailure?: boolean | undefined } = {}): Promise<CommandResult> {
@@ -213,6 +207,44 @@ interface CommandResult {
 function failureFromResult(result: CommandResult): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
 	return { message: output };
+}
+
+function resolveWorktreeAdminDir(worktreePath: string): string | null {
+	const dotGit = resolve(worktreePath, ".git");
+	if (isDirectory(dotGit)) return dotGit;
+	const content = readTextFile(dotGit)?.trim();
+	if (content === undefined) return null;
+	const prefix = "gitdir:";
+	if (!content.startsWith(prefix)) return null;
+	const raw = content.slice(prefix.length).trim();
+	if (raw.length === 0) return null;
+	return isAbsolute(raw) ? raw : resolve(worktreePath, raw);
+}
+
+function readTextFile(path: string): string | undefined {
+	if (!isFile(path)) return undefined;
+	try {
+		return readFileSync(path, "utf8");
+	} catch {
+		return undefined;
+	}
+}
+
+function isDirectory(path: string): boolean {
+	return statMatches(path, (stats) => stats.isDirectory());
+}
+
+function isFile(path: string): boolean {
+	return statMatches(path, (stats) => stats.isFile());
+}
+
+function statMatches(path: string, predicate: (stats: Stats) => boolean): boolean {
+	if (!existsSync(path)) return false;
+	try {
+		return predicate(statSync(path));
+	} catch {
+		return false;
+	}
 }
 
 export function mainRepoRootFromGitCommonDir(gitCommonDir: string): string {
