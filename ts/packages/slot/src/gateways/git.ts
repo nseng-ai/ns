@@ -237,6 +237,7 @@ function readTextFile(path: string): string | undefined {
 	try {
 		return readFileSync(path, "utf8");
 	} catch {
+		// Treat races and permission errors as unreadable files; callers only need best-effort path facts.
 		return undefined;
 	}
 }
@@ -254,6 +255,7 @@ function statMatches(path: string, predicate: (stats: Stats) => boolean): boolea
 	try {
 		return predicate(statSync(path));
 	} catch {
+		// Treat races and permission errors as non-matches; callers only need best-effort path facts.
 		return false;
 	}
 }

@@ -35,7 +35,7 @@ describe("RealSlotGtGateway stack metadata adapter", () => {
 	});
 
 	fixtureIt("reports a missing metadata database", async () => {
-		await withMetadataDb({ currentBranch: "feature/a", rows: [trunk("master")], skipDb: true }, async ({ gateway, commonDir }) => {
+		await withMetadataDb({ currentBranch: "feature/a", rows: [trunk("master")], shouldSkipDb: true }, async ({ gateway, commonDir }) => {
 			await expect(gateway.stack("/repo")).resolves.toMatchObject({ type: "failure", failure: { message: `Graphite metadata store not found at ${join(commonDir, ".graphite_metadata.db")}`, returnCode: null } });
 		});
 	});
@@ -134,9 +134,9 @@ function trunk(branch: string, options: Omit<MetadataRow, "branch" | "validation
 	return row(branch, { ...options, validation: "TRUNK" });
 }
 
-async function withMetadataDb(options: { currentBranch: string; rows: readonly MetadataRow[]; skipDb?: boolean | undefined }, run: (context: { gateway: RealSlotGtGateway; commonDir: string }) => Promise<void>): Promise<void> {
+async function withMetadataDb(options: { currentBranch: string; rows: readonly MetadataRow[]; shouldSkipDb?: boolean | undefined }, run: (context: { gateway: RealSlotGtGateway; commonDir: string }) => Promise<void>): Promise<void> {
 	await withTempDir(async (commonDir) => {
-		if (options.skipDb !== true) createMetadataDb(join(commonDir, ".graphite_metadata.db"), options.rows);
+		if (options.shouldSkipDb !== true) createMetadataDb(join(commonDir, ".graphite_metadata.db"), options.rows);
 		await run({ gateway: gatewayFor(commonDir, options.currentBranch), commonDir });
 	});
 }

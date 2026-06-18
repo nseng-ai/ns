@@ -18,7 +18,7 @@ export const markerSurfaceShowResultSchema = z.object({
 export const markerSurfaceInstallResultSchema = z.object({
 	shell: z.union([z.literal("zsh"), z.literal("bash")]),
 	rc_path: z.string(),
-	already_installed: z.boolean(),
+	is_already_installed: z.boolean(),
 });
 
 export type MarkerSurfaceShowRequest = z.infer<typeof markerSurfaceShowRequestSchema>;
@@ -51,13 +51,13 @@ export function buildMarkerInstallSurface(config: MarkerInstallSurfaceConfig) {
 			const payload = config.renderPayload(selected.shell);
 			const rcPath = rcPathForShell(selected.shell, ctx.env);
 			const installed = await installMarkerBlock({ rcPath, beginMarker: config.beginMarker, payload, endMarker: config.endMarker });
-			return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.isAlreadyInstalled });
+			return ok({ shell: selected.shell, rc_path: installed.rcPath, is_already_installed: installed.isAlreadyInstalled });
 		},
 		renderShow(result: MarkerSurfaceShowResult): string {
 			return result.script;
 		},
 		renderInstall(result: MarkerSurfaceInstallResult): string {
-			if (result.already_installed) return config.alreadyInstalledMessage(result);
+			if (result.is_already_installed) return config.alreadyInstalledMessage(result);
 			return config.installedMessage(result);
 		},
 	};
