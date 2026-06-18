@@ -28,7 +28,7 @@ interface CliRealDeps extends CliIoDeps {
 	context?: undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
-	stdin?: (() => Promise<string>) | undefined;
+	stdin?: (() => Promise<string | null>) | undefined;
 }
 
 export type CliDeps = CliContextDeps | CliRealDeps;

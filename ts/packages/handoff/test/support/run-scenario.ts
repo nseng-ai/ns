@@ -12,7 +12,7 @@ export interface ScenarioRunOptions {
 	gitState?: InMemoryGitGatewayState | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
-	stdin?: string | (() => Promise<string>) | undefined;
+	stdin?: string | (() => Promise<string | null>) | undefined;
 }
 
 export interface ScenarioRun {
@@ -27,13 +27,18 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const stderrWriter = (text: string) => stderr.push(text);
-	const stdin = options.stdin;
+	let stdin = options.stdin;
 	const context: HandoffCliContext = {
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		git: options.git ?? new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"], ...(options.gitState ?? {}) }),
 		brmem: options.brmem ?? new FakeBrmemGateway(options.fake),
-		stdin: async () => (typeof stdin === "function" ? await stdin() : (stdin ?? "")),
+		stdin: async () => {
+			if (typeof stdin === "function") return await stdin();
+			const value = stdin ?? null;
+			stdin = undefined;
+			return value;
+		},
 		stderr: stderrWriter,
 	};
 	const deps: CliDeps = {

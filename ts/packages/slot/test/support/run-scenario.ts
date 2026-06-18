@@ -12,7 +12,7 @@ export interface ScenarioRunOptions {
 	gt?: FakeSlotGtGatewayOptions | undefined;
 	pr?: FakeSlotPrGatewayOptions | undefined;
 	cwd?: string | undefined;
-	stdin?: string | (() => Promise<string>) | undefined;
+	stdin?: string | (() => Promise<string | null>) | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
 	clipboardResult?: ClipboardCopyResult | undefined;
@@ -37,7 +37,7 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 	const gt = new FakeSlotGtGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
-	const stdin = options.stdin;
+	let stdin = options.stdin;
 	const repo = options.repo ?? repoContext();
 	const context: SlotCliContext = {
 		repo,
@@ -47,7 +47,12 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		storage,
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		cwd,
-		stdin: async () => (typeof stdin === "function" ? await stdin() : stdin ?? ""),
+		stdin: async () => {
+			if (typeof stdin === "function") return await stdin();
+			const value = stdin ?? null;
+			stdin = undefined;
+			return value;
+		},
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",

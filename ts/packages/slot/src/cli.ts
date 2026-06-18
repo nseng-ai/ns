@@ -29,7 +29,7 @@ export interface CliDeps {
 	env?: NodeJS.ProcessEnv | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
-	stdin?: (() => Promise<string>) | undefined;
+	stdin?: (() => Promise<string | null>) | undefined;
 }
 
 export function buildCli(): ClinkrGroup<SlotCliContext> {

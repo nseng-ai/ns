@@ -1,14 +1,14 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@asdl/brmem";
 import { NodeCommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { readStdin } from "@asdl/core/stdin";
+import { readStdinLine } from "@asdl/core/stdin";
 
 export interface HandoffCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	git: GitGateway;
 	brmem: BrmemGateway;
-	stdin: () => Promise<string>;
+	stdin: () => Promise<string | null>;
 	// Interactive prompt/status sink; Clinkr framework stderr is supplied separately through runCli IO.
 	stderr: (text: string) => void;
 }
@@ -22,7 +22,7 @@ export function createRealHandoffContext(options: { cwd?: string | undefined; en
 		env,
 		git: new RealGitGateway(execApi),
 		brmem: new RealGitBrmemGateway(cwd, execApi),
-		stdin: readStdin,
+		stdin: readStdinLine,
 		stderr: (text) => process.stderr.write(text),
 	};
 }

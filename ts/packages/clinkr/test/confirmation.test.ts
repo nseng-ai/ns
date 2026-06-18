@@ -4,8 +4,25 @@ import { confirmFromStdin } from "../src/index.ts";
 
 async function confirm(input: string, defaultAnswer: "yes" | "no") {
 	const stderr: string[] = [];
+	let unreadInput: string | null = input;
 	const result = await confirmFromStdin({
-		stdin: async () => input,
+		stdin: async () => {
+			const value = unreadInput;
+			unreadInput = null;
+			return value;
+		},
+		stderr: (text) => stderr.push(text),
+		prompt: "Continue? ",
+		defaultAnswer,
+	});
+	return { result, stderr };
+}
+
+async function confirmLines(inputLines: readonly string[], defaultAnswer: "yes" | "no") {
+	const stderr: string[] = [];
+	const lines = [...inputLines];
+	const result = await confirmFromStdin({
+		stdin: async () => lines.shift() ?? null,
 		stderr: (text) => stderr.push(text),
 		prompt: "Continue? ",
 		defaultAnswer,
@@ -29,6 +46,12 @@ describe("confirmFromStdin", () => {
 
 	test("reprompts after invalid input and consumes the next answer", async () => {
 		const result = await confirm("maybe\ny\n", "no");
+		expect(result.result).toBe("yes");
+		expect(result.stderr).toEqual(["Continue? ", "Error: invalid input\n", "Continue? "]);
+	});
+
+	test("reprompts when stdin provides one interactive line at a time", async () => {
+		const result = await confirmLines(["maybe", "y"], "no");
 		expect(result.result).toBe("yes");
 		expect(result.stderr).toEqual(["Continue? ", "Error: invalid input\n", "Continue? "]);
 	});
