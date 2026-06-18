@@ -40,6 +40,15 @@ const REAL_REVIEW_CASES: readonly RealReviewCase[] = [
 			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", "**/test_*.py", ".agents/skills/**"],
 		},
 	},
+	{
+		path: "../../../../../reviews/dry-but-not-too-dry.md",
+		name: "dry-but-not-too-dry",
+		expectedModel: "sonnet",
+		expectedApplicability: {
+			include: ["**/*.ts", "**/*.tsx", "**/*.py"],
+			exclude: ["**/tests/**", "**/test/**", "**/*.test.ts", "**/test_*.py", ".agents/skills/**", ".claude/skills/**", "skills/**"],
+		},
+	},
 ];
 
 describe("parseReviewDefinition", () => {
