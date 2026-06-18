@@ -60,6 +60,21 @@ describe("derivePiReplacementCommand", () => {
 	])("derives %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
 	});
+
+	test("parses specialized and derived command metadata from the command surface", () => {
+		expect(derivePiReplacementCommand("branch-context-from-plan")).toEqual({
+			surface: "sdl:branch-context:from-plan",
+			skillName: "branch-context-from-plan",
+			namespace: "sdl",
+			command: "branch-context:from-plan",
+		});
+		expect(derivePiReplacementCommand("objective-stack-impl")).toEqual({
+			surface: "objective:stack-impl",
+			skillName: "objective-stack-impl",
+			namespace: "objective",
+			command: "stack-impl",
+		});
+	});
 });
 
 describe("genericBackingSkillCommandSpecs", () => {

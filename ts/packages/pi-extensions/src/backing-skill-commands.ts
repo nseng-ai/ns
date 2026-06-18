@@ -106,13 +106,7 @@ export function derivePiReplacementCommand(skillName: string): DerivedPiCommand 
 	const specializedSurface =
 		SPECIALIZED_SKILL_REPLACEMENTS[skillName as keyof typeof SPECIALIZED_SKILL_REPLACEMENTS];
 	if (specializedSurface !== undefined) {
-		const separator = specializedSurface.indexOf(":");
-		return {
-			surface: specializedSurface,
-			skillName,
-			namespace: specializedSurface.slice(0, separator),
-			command: specializedSurface.slice(separator + 1),
-		};
+		return buildDerivedPiCommand({ skillName, surface: specializedSurface });
 	}
 
 	const namespaces = [...KNOWN_PI_COMMAND_NAMESPACES].sort(
@@ -120,10 +114,7 @@ export function derivePiReplacementCommand(skillName: string): DerivedPiCommand 
 	);
 	for (const namespace of namespaces) {
 		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) {
-			const command = skillName.slice(prefix.length);
-			return { surface: `${namespace}:${command}`, skillName, namespace, command };
-		}
+		if (skillName.startsWith(prefix)) return buildDerivedPiCommand({ skillName, surface: `${namespace}:${skillName.slice(prefix.length)}` });
 	}
 
 	const firstHyphen = skillName.indexOf("-");
@@ -131,9 +122,19 @@ export function derivePiReplacementCommand(skillName: string): DerivedPiCommand 
 		return undefined;
 	}
 
-	const namespace = skillName.slice(0, firstHyphen);
-	const command = skillName.slice(firstHyphen + 1);
-	return { surface: `${namespace}:${command}`, skillName, namespace, command };
+	return buildDerivedPiCommand({ skillName, surface: `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}` });
+}
+
+function buildDerivedPiCommand(options: { skillName: string; surface: string }): DerivedPiCommand | undefined {
+	const { skillName, surface } = options;
+	const separator = surface.indexOf(":");
+	if (separator <= 0 || separator === surface.length - 1) return undefined;
+	return {
+		surface,
+		skillName,
+		namespace: surface.slice(0, separator),
+		command: surface.slice(separator + 1),
+	};
 }
 
 export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
