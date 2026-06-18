@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { LoadedBundle, RunBundle } from "./models.ts";
-import { parseRunBundle } from "./models.ts";
+import { encodeRunBundle, parseRunBundle } from "./models.ts";
 
 export const RUNS_DIR_NAME = "runs";
 export const BUNDLE_FILE_NAME = "bundle.json";
@@ -210,36 +210,6 @@ export async function writeBundle(runDir: string, bundle: RunBundle): Promise<vo
 	const bundlePath = join(runDir, BUNDLE_FILE_NAME);
 	const tempPath = join(runDir, `${BUNDLE_FILE_NAME}.tmp`);
 
-	const snakeCaseBundle = {
-		schema_version: bundle.schemaVersion,
-		run_id: bundle.runId,
-		status: bundle.status,
-		started_at: bundle.startedAt.toISOString(),
-		finished_at: bundle.finishedAt.toISOString(),
-		runner: bundle.runner,
-		runner_version: bundle.runnerVersion,
-		model: bundle.model,
-		plan_source: bundle.planSource,
-		workdir: bundle.workdir,
-		git: {
-			repo_root: bundle.git.repoRoot,
-			starting_branch: bundle.git.startingBranch,
-			starting_commit: bundle.git.startingCommit,
-			remotes: bundle.git.remotes,
-		},
-		metrics: {
-			wall_time_seconds: bundle.metrics.wallTimeSeconds,
-			input_tokens: bundle.metrics.inputTokens,
-			output_tokens: bundle.metrics.outputTokens,
-			total_tokens: bundle.metrics.totalTokens,
-			cost_usd: bundle.metrics.costUsd,
-		},
-		result_branch: bundle.resultBranch,
-		branch_created: bundle.branchCreated,
-		runner_exit_code: bundle.runnerExitCode,
-		error: bundle.error,
-	};
-
-	await writeFile(tempPath, JSON.stringify(snakeCaseBundle, null, 2) + "\n", "utf-8");
+	await writeFile(tempPath, JSON.stringify(encodeRunBundle(bundle), null, 2) + "\n", "utf-8");
 	await rename(tempPath, bundlePath);
 }

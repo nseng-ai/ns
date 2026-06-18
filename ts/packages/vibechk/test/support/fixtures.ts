@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { Metrics } from "../../src/models.ts";
+import type { Metrics, RunBundle } from "../../src/models.ts";
+import { encodeRunBundle } from "../../src/models.ts";
 
 export interface BundleFixtureOptions {
 	runId: string;
@@ -27,37 +28,41 @@ export async function writeTestBundle(
 	const startedAt = options.startedAt ?? new Date("2026-05-23T12:00:00Z");
 	const finishedAt = new Date(startedAt.getTime() + 1000);
 
-	const bundle: Record<string, unknown> = {
-		schema_version: 1,
-		run_id: options.runId,
+	const bundle: RunBundle = {
+		schemaVersion: 1,
+		runId: options.runId,
 		status: options.status ?? "success",
-		started_at: startedAt.toISOString(),
-		finished_at: finishedAt.toISOString(),
+		startedAt,
+		finishedAt,
 		runner: options.runner ?? "fake",
-		runner_version: "fake-1",
+		runnerVersion: "fake-1",
 		model: options.model === undefined ? null : options.model,
-		plan_source: "/tmp/plan.md",
+		planSource: "/tmp/plan.md",
 		workdir: "/tmp/repo",
 		git: {
-			repo_root: "/tmp/repo",
-			starting_branch: "main",
-			starting_commit: "abc123",
+			repoRoot: "/tmp/repo",
+			startingBranch: "main",
+			startingCommit: "abc123",
 			remotes: {},
 		},
 		metrics: {
-			wall_time_seconds: options.metrics?.wallTimeSeconds ?? null,
-			input_tokens: options.metrics?.inputTokens ?? null,
-			output_tokens: options.metrics?.outputTokens ?? null,
-			total_tokens: options.metrics?.totalTokens ?? null,
-			cost_usd: options.metrics?.costUsd ?? null,
+			wallTimeSeconds: options.metrics?.wallTimeSeconds ?? null,
+			inputTokens: options.metrics?.inputTokens ?? null,
+			outputTokens: options.metrics?.outputTokens ?? null,
+			totalTokens: options.metrics?.totalTokens ?? null,
+			costUsd: options.metrics?.costUsd ?? null,
 		},
-		result_branch: options.resultBranch === undefined ? null : options.resultBranch,
-		branch_created: options.branchCreated ?? false,
-		runner_exit_code: 0,
+		resultBranch: options.resultBranch === undefined ? null : options.resultBranch,
+		branchCreated: options.branchCreated ?? false,
+		runnerExitCode: 0,
 		error: null,
 	};
 
-	await writeFile(join(runDir, "bundle.json"), JSON.stringify(bundle, null, 2) + "\n", "utf-8");
+	await writeFile(
+		join(runDir, "bundle.json"),
+		JSON.stringify(encodeRunBundle(bundle), null, 2) + "\n",
+		"utf-8",
+	);
 
 	if (options.planText !== undefined) {
 		await writeFile(join(runDir, "plan.md"), options.planText, "utf-8");
