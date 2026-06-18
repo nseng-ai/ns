@@ -67,6 +67,24 @@ export interface GitWorktreePorcelainEntry {
 	branch: string | null;
 }
 
+export type LocalBranchRefreshPlan =
+	| {
+			type: "pull-checked-out-branch";
+			cwd: string;
+			args: string[];
+	  }
+	| {
+			type: "fetch-local-branch";
+			cwd: string;
+			args: string[];
+	  };
+
+export interface LocalBranchRefreshPlanOptions {
+	branch: string;
+	cwd: string;
+	worktreePorcelain: string;
+}
+
 interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
@@ -315,6 +333,15 @@ function nonEmptyLines(value: string): string[] {
 		.split(/\r?\n/u)
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0);
+}
+
+export function planLocalBranchRefreshFromWorktrees(options: LocalBranchRefreshPlanOptions): LocalBranchRefreshPlan {
+	const checkedOutPath = parseGitWorktreePorcelain(options.worktreePorcelain).find((entry) => entry.branch === options.branch)?.path;
+	if (checkedOutPath !== undefined) {
+		return { type: "pull-checked-out-branch", cwd: checkedOutPath, args: ["pull", "--ff-only", "origin", options.branch] };
+	}
+
+	return { type: "fetch-local-branch", cwd: options.cwd, args: ["fetch", "origin", `refs/heads/${options.branch}:refs/heads/${options.branch}`] };
 }
 
 export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainEntry[] {

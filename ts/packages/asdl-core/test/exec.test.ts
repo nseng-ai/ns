@@ -10,6 +10,7 @@ import {
 	formatCommandStartupFailure,
 	formatOutputSection,
 	formatShellArg,
+	isSuccessfulExecResult,
 	normalizeExecResult,
 	runCommand,
 	shellQuote,
@@ -66,6 +67,12 @@ describe("exec presentation helpers", () => {
 			killed: true,
 			startupError: "spawn missing",
 		});
+	});
+
+	test("classifies successful exec results", () => {
+		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
+		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 1, killed: false })).toBe(false);
+		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: true })).toBe(false);
 	});
 
 	test("formats command displays with shell quoting", () => {

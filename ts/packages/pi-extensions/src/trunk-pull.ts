@@ -1,4 +1,11 @@
-import { parseGitWorktreePorcelain } from "@asdl/core/git";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatOutputSection,
+	isSuccessfulExecResult,
+	type ExecResult as CoreExecResult,
+} from "@asdl/core/exec";
+import { planLocalBranchRefreshFromWorktrees } from "@asdl/core/git";
 
 import { definePiSurfaceParity } from "./parity.ts";
 
@@ -22,12 +29,7 @@ export const trunkPullParity = definePiSurfaceParity([
 
 type NotifyLevel = "info" | "warning" | "error";
 
-export interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed: boolean;
-}
+export type ExecResult = CoreExecResult;
 
 export interface CommandContext {
 	cwd: string;
@@ -66,8 +68,8 @@ export async function runTrunkPull(pi: Pick<ExtensionAPI, "exec">, ctx: CommandC
 	await ctx.waitForIdle();
 
 	const trunkResult = await pi.exec("gt", ["trunk", "--no-interactive"], { cwd: ctx.cwd, timeout: GT_TIMEOUT_MS });
-	if (!commandSucceeded(trunkResult)) {
-		ctx.ui.notify(formatFailure("Could not resolve Graphite trunk. Local trunk was not updated.", "gt trunk --no-interactive", trunkResult), "error");
+	if (!isSuccessfulExecResult(trunkResult)) {
+		ctx.ui.notify(formatCommandFailure("Could not resolve Graphite trunk. Local trunk was not updated.", "gt trunk --no-interactive", trunkResult), "error");
 		return false;
 	}
 
@@ -84,8 +86,8 @@ export async function runTrunkPull(pi: Pick<ExtensionAPI, "exec">, ctx: CommandC
 	}
 
 	const updateResult = await pi.exec("git", planResult.args, { cwd: planResult.cwd, timeout: GIT_TIMEOUT_MS });
-	if (!commandSucceeded(updateResult)) {
-		ctx.ui.notify(formatFailure(`Could not update local trunk branch \`${trunk}\`.`, formatCommand("git", planResult.args), updateResult), "error");
+	if (!isSuccessfulExecResult(updateResult)) {
+		ctx.ui.notify(formatCommandFailure(`Could not update local trunk branch \`${trunk}\`.`, formatCommand("git", planResult.args), updateResult), "error");
 		return false;
 	}
 
@@ -95,31 +97,19 @@ export async function runTrunkPull(pi: Pick<ExtensionAPI, "exec">, ctx: CommandC
 
 async function planTrunkPull(pi: Pick<ExtensionAPI, "exec">, cwd: string, trunk: string): Promise<{ ok: true; args: string[]; cwd: string } | { ok: false; message: string }> {
 	const worktreeResult = await pi.exec("git", ["worktree", "list", "--porcelain"], { cwd, timeout: GIT_TIMEOUT_MS });
-	if (!commandSucceeded(worktreeResult)) {
+	if (!isSuccessfulExecResult(worktreeResult)) {
 		return {
 			ok: false,
-			message: formatFailure("Could not inspect Git worktrees. Local trunk was not updated.", "git worktree list --porcelain", worktreeResult),
+			message: formatCommandFailure("Could not inspect Git worktrees. Local trunk was not updated.", "git worktree list --porcelain", worktreeResult),
 		};
 	}
 
-	const checkedOutPath = findWorktreePathForBranch(worktreeResult.stdout, trunk);
-	if (checkedOutPath !== undefined) {
-		return { ok: true, args: ["pull", "--ff-only", "origin", trunk], cwd: checkedOutPath };
-	}
-
-	return { ok: true, args: ["fetch", "origin", `refs/heads/${trunk}:refs/heads/${trunk}`], cwd };
-}
-
-function commandSucceeded(result: ExecResult): boolean {
-	return result.code === 0 && !result.killed;
+	const plan = planLocalBranchRefreshFromWorktrees({ branch: trunk, cwd, worktreePorcelain: worktreeResult.stdout });
+	return { ok: true, args: plan.args, cwd: plan.cwd };
 }
 
 function firstNonEmptyLine(text: string): string | undefined {
 	return text.split("\n").map((line) => line.trim()).find((line) => line.length > 0);
-}
-
-function findWorktreePathForBranch(porcelain: string, branch: string): string | undefined {
-	return parseGitWorktreePorcelain(porcelain).find((entry) => entry.branch === branch)?.path;
 }
 
 interface FormatSuccessOptions {
@@ -135,22 +125,7 @@ function formatSuccess(options: FormatSuccessOptions): string {
 		"No full `gt sync` was run.",
 		`Command: ${formatCommand("git", options.args)}`,
 		`Cwd: ${options.cwd}`,
-		"stdout:",
-		formatOutput(options.result.stdout),
-		"stderr:",
-		formatOutput(options.result.stderr),
+		formatOutputSection("stdout", options.result.stdout, { maxChars: 4_000, maxLines: 80 }),
+		formatOutputSection("stderr", options.result.stderr, { maxChars: 4_000, maxLines: 80 }),
 	].join("\n");
-}
-
-function formatFailure(intro: string, command: string, result: ExecResult): string {
-	return [intro, `Command: ${command}`, `Exit: ${result.code}`, `Killed: ${result.killed}`, "stdout:", formatOutput(result.stdout), "stderr:", formatOutput(result.stderr)].join("\n");
-}
-
-function formatCommand(command: string, args: readonly string[]): string {
-	return [command, ...args].join(" ");
-}
-
-function formatOutput(output: string): string {
-	if (output === "") return "<empty>";
-	return output.endsWith("\n") ? output.trimEnd() : output;
 }
