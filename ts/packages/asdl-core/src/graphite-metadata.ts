@@ -21,6 +21,7 @@ export interface GraphiteBranchTopology {
 	readonly branch: string;
 	readonly parent: string | undefined;
 	readonly children: readonly string[];
+	readonly validationResult: string | undefined;
 	readonly isTrunkMarked: boolean;
 	readonly childrenCorruption: GraphiteChildrenCorruption | undefined;
 }
@@ -70,11 +71,13 @@ export function parseGraphiteBranchMetadataRows(value: unknown): GraphiteTopolog
 
 		const parsedChildren = parseGraphiteChildren(branch, row.children);
 		if (parsedChildren.corruption !== undefined) childrenCorruptions.push(parsedChildren.corruption);
+		const validationResult = metadataText(row.validation_result);
 		topology.set(branch, {
 			branch,
 			parent: metadataText(row.parent_branch_name),
 			children: parsedChildren.children,
-			isTrunkMarked: metadataText(row.validation_result)?.toUpperCase() === GRAPHITE_TRUNK_VALIDATION_RESULT,
+			validationResult,
+			isTrunkMarked: validationResult?.toUpperCase() === GRAPHITE_TRUNK_VALIDATION_RESULT,
 			childrenCorruption: parsedChildren.corruption,
 		});
 	}

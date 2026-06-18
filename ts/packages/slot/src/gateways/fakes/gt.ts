@@ -1,16 +1,18 @@
-import type { ChildrenOfResult, ParentOfResult, SlotGtGateway, StackInfo, StackResult, TrunkResult } from "../gt.ts";
+import type { ChildrenOfResult, ParentOfResult, SlotGtGateway, StackGraphInfo, StackGraphResult, StackInfo, StackResult, TrunkResult } from "../gt.ts";
 
 export type FakeSlotGtOperation =
 	| { type: "parent-of"; cwd: string }
 	| { type: "children-of"; cwd: string }
 	| { type: "trunk"; cwd: string }
-	| { type: "stack"; cwd: string };
+	| { type: "stack"; cwd: string }
+	| { type: "stack-graph"; cwd: string };
 
 export interface FakeSlotGtGatewayOptions {
 	parent?: ParentOfResult | undefined;
 	children?: ChildrenOfResult | undefined;
 	trunk?: TrunkResult | undefined;
 	stack?: StackResult | undefined;
+	stackGraph?: StackGraphResult | undefined;
 }
 
 export class FakeSlotGtGateway implements SlotGtGateway {
@@ -18,6 +20,7 @@ export class FakeSlotGtGateway implements SlotGtGateway {
 	private readonly childrenResult: ChildrenOfResult;
 	private readonly trunkResult: TrunkResult;
 	private readonly stackResult: StackResult;
+	private readonly stackGraphResult: StackGraphResult;
 	private readonly log: FakeSlotGtOperation[] = [];
 
 	constructor(options: FakeSlotGtGatewayOptions = {}) {
@@ -25,6 +28,7 @@ export class FakeSlotGtGateway implements SlotGtGateway {
 		this.childrenResult = options.children ?? { type: "children", branches: [] };
 		this.trunkResult = options.trunk ?? { type: "trunk", branch: "master" };
 		this.stackResult = options.stack ?? { type: "stack", stack: fakeStackInfo() };
+		this.stackGraphResult = options.stackGraph ?? { type: "graph", graph: fakeStackGraphInfo() };
 	}
 
 	async parentOf(cwd: string): Promise<ParentOfResult> {
@@ -47,6 +51,11 @@ export class FakeSlotGtGateway implements SlotGtGateway {
 		return copyStackResult(this.stackResult);
 	}
 
+	async stackGraph(cwd: string): Promise<StackGraphResult> {
+		this.log.push({ type: "stack-graph", cwd });
+		return copyStackGraphResult(this.stackGraphResult);
+	}
+
 	operations(): readonly FakeSlotGtOperation[] {
 		return this.log.map((operation) => ({ ...operation }));
 	}
@@ -61,6 +70,16 @@ export function fakeStackInfo(overrides: Partial<StackInfo> = {}): StackInfo {
 		ancestorTermination: overrides.ancestorTermination ?? { type: "completed" },
 		descendantWalk: overrides.descendantWalk ?? { forks: [], childrenCorruptions: [], termination: { type: "completed" } },
 		trunkMarker: overrides.trunkMarker ?? { type: "clean" },
+	};
+}
+
+export function fakeStackGraphInfo(overrides: Partial<StackGraphInfo> = {}): StackGraphInfo {
+	return {
+		topology: overrides.topology ?? new Map([
+			["master", { branch: "master", parent: undefined, children: ["feature/current"], validationResult: "TRUNK", isTrunkMarked: true, childrenCorruption: undefined }],
+			["feature/current", { branch: "feature/current", parent: "master", children: [], validationResult: "VALID", isTrunkMarked: false, childrenCorruption: undefined }],
+		]),
+		diagnostics: overrides.diagnostics ?? { emptyBranchNameRows: 0, childrenCorruptions: [] },
 	};
 }
 
@@ -89,4 +108,10 @@ function copyStackResult(result: StackResult): StackResult {
 	if (result.type === "untracked_branch") return { type: "untracked_branch", message: result.message };
 	if (result.type === "failure") return { type: "failure", failure: { ...result.failure } };
 	return { type: "stack", stack: fakeStackInfo(result.stack) };
+}
+
+function copyStackGraphResult(result: StackGraphResult): StackGraphResult {
+	if (result.type === "git_common_dir_missing") return { type: "git_common_dir_missing", message: result.message };
+	if (result.type === "failure") return { type: "failure", failure: { ...result.failure } };
+	return { type: "graph", graph: fakeStackGraphInfo({ topology: new Map(result.graph.topology), diagnostics: { emptyBranchNameRows: result.graph.diagnostics.emptyBranchNameRows, childrenCorruptions: result.graph.diagnostics.childrenCorruptions.map((corruption) => ({ ...corruption })) } }) };
 }

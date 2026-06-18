@@ -27,6 +27,11 @@ export interface WorktreeOccupancy {
 	operation: string;
 }
 
+export interface LocalBranchTip {
+	name: string;
+	headIso: string | null;
+}
+
 export interface GitCommandFailure {
 	message: string;
 }
@@ -50,6 +55,8 @@ export interface SlotGitGateway {
 	getRepositoryRoot(cwd: string): Promise<string>;
 	listWorktrees(): Promise<readonly WorktreeInfo[]>;
 	listBranchOccupancies(): Promise<readonly WorktreeOccupancy[]>;
+	listLocalBranches(): Promise<readonly string[]>;
+	listLocalBranchTips(): Promise<readonly LocalBranchTip[]>;
 	hasUncommittedChanges(path: string): Promise<boolean>;
 	getTrunkBranch(): Promise<string>;
 	getCurrentBranch(cwd: string): Promise<CurrentBranchResult>;
@@ -105,6 +112,15 @@ export class RealSlotGitGateway implements SlotGitGateway {
 			return { path: worktree.path, branch: worktree.branch, operation: this.worktreeOperation(worktree.path) ?? "checked-out" };
 		});
 		return occupancies.filter((occupancy) => occupancy !== null);
+	}
+
+	async listLocalBranches(): Promise<readonly string[]> {
+		return (await this.listLocalBranchTips()).map((tip) => tip.name);
+	}
+
+	async listLocalBranchTips(): Promise<readonly LocalBranchTip[]> {
+		const result = await this.git(["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"], this.cwd, { operation: "slot.git.list_local_branch_tips" });
+		return parseLocalBranchTips(result.stdout);
 	}
 
 	async hasUncommittedChanges(path: string): Promise<boolean> {
@@ -218,6 +234,17 @@ interface CommandResult {
 function failureFromResult(result: CommandResult): GitCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "git command was killed" : "git command failed");
 	return { message: output };
+}
+
+function parseLocalBranchTips(stdout: string): readonly LocalBranchTip[] {
+	const tips: LocalBranchTip[] = [];
+	for (const line of stdout.split(/\r?\n/)) {
+		if (line.trim().length === 0) continue;
+		const [name, headIso] = line.split("\t", 2);
+		if (name === undefined || name.length === 0) continue;
+		tips.push({ name, headIso: headIso === undefined || headIso.trim().length === 0 ? null : headIso.trim() });
+	}
+	return tips;
 }
 
 function resolveWorktreeAdminDir(worktreePath: string): string | null {

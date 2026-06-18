@@ -93,6 +93,7 @@ describe("loadStackMapModel", () => {
 		]);
 		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/a", "feature/recent"]);
 		expect(model.trunk.children?.[0]?.slots?.[0]?.slotName).toBe("slot-04");
+		expect(model.trunk.children?.[0]?.children?.[0]?.graphiteNote).toBe("needs restack");
 		expect(model.trunk.children?.[0]?.cmuxTabs?.[0]?.match).toEqual({ type: "slot-worktree", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04" });
 	});
 });
@@ -411,14 +412,16 @@ describe("renderStackMapFrame", () => {
 function stackMapGraphFixture(): unknown {
 	return {
 		branches: [
-			{ name: "main", parent: null, children: ["feature/a", "feature/recent"], needs_restack: false },
-			{ name: "feature/a", parent: "main", children: [], needs_restack: false },
-			{ name: "feature/recent", parent: "main", children: [], needs_restack: false },
+			{ name: "main", parent: null, children: ["feature/a", "feature/recent"], validation_result: "TRUNK", needs_restack: false },
+			{ name: "feature/a", parent: "main", children: ["feature/restack"], validation_result: "VALID", needs_restack: false },
+			{ name: "feature/restack", parent: "feature/a", children: [], validation_result: "BAD_PARENT_NAME", needs_restack: true },
+			{ name: "feature/recent", parent: "main", children: [], validation_result: "VALID", needs_restack: false },
 		],
 		trunk: "main",
 		current: "feature/a",
 		edges: [
 			{ parent: "main", child: "feature/a" },
+			{ parent: "feature/a", child: "feature/restack" },
 			{ parent: "main", child: "feature/recent" },
 		],
 		slots: [{ slot_name: "slot-04", branch: "feature/a", worktree_path: "/repo/worktrees/slot-04", status: "assigned" }],

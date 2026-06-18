@@ -87,12 +87,16 @@
     private Graphite metadata parsing/walking in `@asdl/core/graphite-metadata` and keeps slot's
     Graphite dependency behind the `slot gt` boundary.
 
-- [ ] Port hidden `slot gt exec stack-map-branches`.
-  - Deferred from the Graphite subgroup slice because the prework found no current wired consumer and
-    the accepted plan explicitly parked it. Preserve the Graphite-only boundary and avoid parsing
-    human-facing Graphite display output when this is revived.
-  - Policy: preview before reviving; ask if a live consumer appears and changes the deferral risk.
-  - Evidence: future scenario tests and Semantic Update.
+- [x] Port hidden `slot gt exec stack-map-branches`.
+  - Revived because live consumers now exist: `sdlcc` shells out to this hidden exec surface for stack
+    maps, and `objective-bulk-refresh` documents it as the full Graphite topology/worktree-map source.
+    The TypeScript port preserves the explicit `slot gt` Graphite boundary and reads Graphite metadata
+    through the sqlite-backed metadata gateway rather than parsing human-facing Graphite display output.
+  - Policy: shipped as a hidden skill/agent JSON surface under `slot gt exec`; plain `slot` commands do
+    not construct or use Graphite.
+  - Evidence: fake-backed slot scenario coverage for selection/filtering/warnings/failures, targeted
+    `sdlcc` loader coverage for `validation_result` plus `needs_restack`, and Semantic Update
+    `updates/20260618T125016Z-stack-map-branches-typescript-port.md`.
 
 - [x] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
       parent-shell `cd` directive, and clipboard. (Novel-risk slice.)

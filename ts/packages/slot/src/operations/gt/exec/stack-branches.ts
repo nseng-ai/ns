@@ -2,9 +2,10 @@ import { failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../context.ts";
-import type { ChildrenCorruption, StackFork, StackInfo, TrunkMarkerStatus, WalkTermination } from "../../../gateways/gt.ts";
+import type { StackFork, StackInfo } from "../../../gateways/gt.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches, collectStackEdges } from "../stack-walk.ts";
+import { renderChildrenCorruption, renderTrunkMarkerWarnings, renderWalkTerminationWarning } from "./metadata-warnings.ts";
 
 const edgeSchema = z.object({ parent: z.string(), child: z.string() });
 
@@ -57,14 +58,14 @@ function resultForStack(stack: StackInfo, options: { downstack: boolean; branche
 }
 
 function validateStackIntegrity(stack: StackInfo, options: { downstack: boolean }): { type: "ok"; warnings: readonly string[] } | { type: "failure"; errorType: string; message: string } {
-	const markerWarnings = renderTrunkMarkerProblem(stack.trunkMarker);
+	const markerWarnings = renderTrunkMarkerWarnings(stack.trunkMarker);
 	if (markerWarnings.length > 0) return { type: "failure", errorType: "stack_metadata_inconsistent", message: markerWarnings.join("; ") };
 	if (stack.current === stack.trunk) return { type: "ok", warnings: [] };
-	const ancestorProblem = renderTermination("ancestor", stack.ancestorTermination);
+	const ancestorProblem = renderWalkTerminationWarning({ kind: "ancestor", termination: stack.ancestorTermination, label: "walk" });
 	if (options.downstack) {
 		if (ancestorProblem !== null) return { type: "failure", errorType: "stack_metadata_inconsistent", message: ancestorProblem };
 		const warnings = [...stack.descendantWalk.forks.map(renderStackFork)];
-		const descendantProblem = renderTermination("descendant", stack.descendantWalk.termination);
+		const descendantProblem = renderWalkTerminationWarning({ kind: "descendant", termination: stack.descendantWalk.termination, label: "walk" });
 		if (descendantProblem !== null) warnings.push(descendantProblem);
 		return { type: "ok", warnings };
 	}
@@ -72,7 +73,7 @@ function validateStackIntegrity(stack: StackInfo, options: { downstack: boolean 
 	if (fork !== undefined) return { type: "failure", errorType: "forked_stack", message: forkedStackMessage(fork) };
 	const messages = [...stack.descendantWalk.childrenCorruptions.map(renderChildrenCorruption)];
 	if (ancestorProblem !== null) messages.push(ancestorProblem);
-	const descendantProblem = renderTermination("descendant", stack.descendantWalk.termination);
+	const descendantProblem = renderWalkTerminationWarning({ kind: "descendant", termination: stack.descendantWalk.termination, label: "walk" });
 	if (descendantProblem !== null) messages.push(descendantProblem);
 	if (messages.length > 0) return { type: "failure", errorType: "stack_metadata_inconsistent", message: messages.join("; ") };
 	return { type: "ok", warnings: [] };
@@ -84,29 +85,4 @@ function forkedStackMessage(fork: StackFork): string {
 
 function renderStackFork(fork: StackFork): string {
 	return `branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`;
-}
-
-function renderTermination(kind: "ancestor" | "descendant", termination: WalkTermination): string | null {
-	if (termination.type === "completed") return null;
-	if (termination.type === "cycle") return `cycle detected in Graphite ${kind === "ancestor" ? "parent" : "children"} metadata at ${termination.branch}; ${kind} walk stopped`;
-	return `${kind === "ancestor" ? "parent" : "child"} branch ${termination.branch} is missing from Graphite metadata; ${kind} walk stopped`;
-}
-
-function renderChildrenCorruption(corruption: ChildrenCorruption): string {
-	switch (corruption.kind) {
-		case "not_text": return `children metadata for ${corruption.branch} is not JSON text; treating as no children`;
-		case "invalid_json": return `children metadata for ${corruption.branch} is not valid JSON; treating as no children`;
-		case "not_list": return `children metadata for ${corruption.branch} is not a JSON list; treating as no children`;
-		case "non_string": return `children metadata for ${corruption.branch} contains non-string entries`;
-	}
-}
-
-function renderTrunkMarkerProblem(marker: TrunkMarkerStatus): readonly string[] {
-	if (marker.type === "clean") return [];
-	if (marker.terminusState === "row_missing") return ["trunk row marker missing"];
-	const warnings: string[] = [];
-	if (marker.terminusState === "unmarked") warnings.push("trunk row marker missing");
-	if (marker.markedTrunks.length > 1) warnings.push("multiple Graphite metadata rows are marked as trunk");
-	if (marker.markedTrunks.length > 0 && !marker.markedTrunks.includes(marker.terminus)) warnings.push(`Graphite metadata trunk marker differs from ancestor-walk terminus: ${marker.markedTrunks[0]} != ${marker.terminus}`);
-	return warnings;
 }

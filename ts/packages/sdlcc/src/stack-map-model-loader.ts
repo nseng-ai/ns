@@ -32,6 +32,7 @@ interface StackMapGraphBranch {
 	readonly name: string;
 	readonly parent: string | undefined;
 	readonly children: readonly string[];
+	readonly validationResult?: string | undefined;
 	readonly needsRestack: boolean;
 }
 
@@ -169,9 +170,10 @@ function branchArrayField(record: Record<string, unknown>, key: string): readonl
 		const name = stringField(item, "name");
 		const parent = optionalStringField(item, "parent");
 		const children = stringArrayField(item, "children");
+		const validationResult = optionalStringField(item, "validation_result");
 		const needsRestack = booleanField(item, "needs_restack");
 		if (name === undefined || children === undefined || needsRestack === undefined) return undefined;
-		branches.push({ name, parent, children, needsRestack });
+		branches.push({ name, parent, children, validationResult, needsRestack });
 	}
 	return branches;
 }
@@ -311,7 +313,7 @@ function buildGraphBranchTree(
 		readonly visited: Set<string>;
 	},
 ): StackMapBranchNode {
-	const branch = options.branchesByName.get(branchName) ?? { name: branchName, parent: undefined, children: [], needsRestack: false };
+	const branch = options.branchesByName.get(branchName) ?? { name: branchName, parent: undefined, children: [], validationResult: undefined, needsRestack: false };
 	if (options.visited.has(branchName)) return leafBranchNode(branch, options, options.slotsByBranch);
 	options.visited.add(branchName);
 	const children = (options.childrenByParent.get(branchName) ?? [])
