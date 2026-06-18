@@ -9,7 +9,7 @@ The primitives should reduce systemic complexity by making small GitHub operatio
 ## Scope
 
 - Define a low-level reusable primitive layer in `@asdl/core` for GitHub PR feedback interactions needed by PR-address workflows.
-- Cover the specific operations currently required by `download-feedback` and the anticipated stack variant: PR lookup/details, review-thread page fetching and comment hydration, PR review bodies, discussion comments, and review-thread mutations such as resolving a thread when needed.
+- Cover the specific operations currently required by `download-feedback` and the anticipated stack variant: PR lookup/details, review-thread page fetching and comment hydration, PR review bodies, discussion comments, and review-thread mutations such as replying to and resolving a thread when needed.
 - Route `pr-address` through the shared primitive layer while preserving its package-local gateway boundary and workflow-specific selection/formatting behavior.
 - Keep GraphQL text, `gh` invocation details, pagination, response parsing, and malformed-response handling in tested TypeScript source rather than in agent prompts or shell snippets.
 - Preserve arbitrary agent composition above the primitive layer: callers should be able to combine the primitives into single-PR download, stack download, remediation, or follow-up flows without depending on a monolithic workflow API.
@@ -28,7 +28,7 @@ The primitives should reduce systemic complexity by making small GitHub operatio
 
 - `@asdl/core` exposes a small, typed GitHub PR feedback primitive surface backed by `runGitHubCli()` or an equivalent shared GitHub CLI seam.
 - The primitive surface returns structured success/failure values for normal GitHub/CLI/parse failures, including nonzero `gh` exits, startup errors, malformed GraphQL JSON, pagination defects, and mutation failures.
-- Review-thread fetching/hydration and review-thread mutation GraphQL live in tested source modules, not in agent-facing shell snippets.
+- Review-thread fetching/hydration and review-thread mutation GraphQL, including thread reply and resolve mutations, live in tested source modules rather than agent-facing shell snippets.
 - `pr-address` consumes the shared primitives through its gateway or an adapter layer while keeping workflow-specific filtering and Markdown generation local to `pr-address`.
 - `download-feedback` behavior remains compatible with its current single-PR use cases, and the resulting primitive shape can support a stack variant without duplicating GraphQL mechanics.
 - Tests cover the new primitive layer, PR-address adapter behavior, and at least one evidence-producing composition path relevant to single-PR or stack feedback.
@@ -42,6 +42,7 @@ Assumptions:
 - `@asdl/core` is the right home for low-level GitHub PR feedback primitives because it already owns shared GitHub CLI execution helpers and PR gateway code, while higher-level workflow composition can remain in `pr-address` or CCC/package-specific code.
 - Existing `pr-address` gateway types can be adapted incrementally without forcing a full package rewrite.
 - A primitive API can stay small if it is shaped around current concrete operations rather than a comprehensive GitHub GraphQL client.
+- PR review-thread triage commonly needs separate primitives for replying to a thread and resolving it; a workflow may compose those primitives, but the core layer should not collapse them into one PR-address-specific remediation workflow.
 
 Risks:
 
@@ -53,6 +54,6 @@ Risks:
 ## Open Questions
 
 - What is the smallest exported primitive set that supports both existing `download-feedback` behavior and the first stack feedback composition without overgeneralizing?
-- Should review-thread resolution be part of the first primitive slice or follow immediately after read-side feedback primitives are extracted?
+- Should review-thread reply and resolution mutations be part of the first primitive slice or follow immediately after read-side feedback primitives are extracted?
 - What result and error vocabulary should the core primitive layer use so `pr-address`, skills, and future stack workflows can present failures consistently?
 - What concrete evidence should be saved for the follow-on CLI-pushdown documentation Objective: duplicated command removal, lines of GraphQL removed from workflow code, simpler skill instructions, or agent-session examples?
