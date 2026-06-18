@@ -113,7 +113,7 @@ describe("worktree status refresh lifecycle", () => {
 					commandRefreshLoaded.resolve(),
 				),
 			],
-			ghStatuses: [queued({ type: "no-pr" })],
+			ghStatuses: [queued({ type: "no-pr" }), queued({ type: "no-pr" })],
 		});
 		const statuses = new Map<string, string | undefined>();
 		const ctx = testContext(statuses);
@@ -135,7 +135,7 @@ describe("worktree status refresh lifecycle", () => {
 		await flushPromises();
 
 		pi.assertDone();
-		expect(loaders.ghCalls).toHaveLength(1);
+		expect(loaders.ghCalls).toHaveLength(2);
 		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
 			"[gt] ↓ main · ↑ - · 1 commit · ✗\n[gh] no PR",
 		);

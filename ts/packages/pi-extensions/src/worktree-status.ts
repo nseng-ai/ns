@@ -355,7 +355,7 @@ export default function worktreeStatusExtension(
 			timers,
 			clock,
 			isActive: () => isActiveSession(session),
-			onTick: () => fullRefreshChannel.run(session),
+			onTick: () => refreshSession(session),
 			intervalMs: dependencies.refreshIntervalMs ?? WORKTREE_STATUS_ACTIVE_REFRESH_INTERVAL_MS,
 		});
 		session.activityController = createWorktreeStatusActivityController({
@@ -371,7 +371,7 @@ export default function worktreeStatusExtension(
 				renderSessionStatus(session);
 			},
 			onWakeRefresh: () => {
-				void fullRefreshChannel.run(session, { shouldForceRemote: true });
+				void refreshSession(session, { shouldForceRemote: true });
 			},
 		});
 		countdownRenderTimer = createWorktreeStatusRefreshTimer({
@@ -612,15 +612,23 @@ export default function worktreeStatusExtension(
 		recordSessionActivity(session);
 	}
 
-	function refreshActiveSession(): void {
+	function refreshSession(
+		session: ActiveSession,
+		options: WorktreeStatusRefreshOptions = {},
+	): Promise<void> {
+		if (!isActiveSession(session)) return Promise.resolve();
+		return fullRefreshChannel.run(session, options);
+	}
+
+	function refreshActiveSession(options: WorktreeStatusRefreshOptions = {}): Promise<void> {
 		const session = activeSession;
-		if (session === undefined || !isActiveSession(session)) return;
-		void fullRefreshChannel.run(session);
+		if (session === undefined) return Promise.resolve();
+		return refreshSession(session, options);
 	}
 
 	function refreshActiveSessionAfterToolExecution(event: unknown): void {
 		if (!shouldRefreshAfterToolExecution(event)) return;
-		refreshActiveSession();
+		void refreshActiveSession();
 	}
 
 	function recordSessionActivity(
@@ -642,7 +650,7 @@ export default function worktreeStatusExtension(
 			const session = activeSession;
 			if (session === undefined) return;
 			recordSessionActivity(session, { shouldRefreshOnWake: false });
-			await fullRefreshChannel.run(session, { shouldForceRemote: true });
+			await refreshSession(session, { shouldForceRemote: true });
 		},
 	});
 
@@ -676,10 +684,10 @@ export default function worktreeStatusExtension(
 	registerWorktreeStatusActivityHandler("agent_start");
 	registerWorktreeStatusActivityHandler("agent_end");
 	registerWorktreeStatusActivityHandler("turn_start");
-	registerWorktreeStatusActivityHandler("turn_end", () => refreshActiveSession());
+	registerWorktreeStatusActivityHandler("turn_end", () => void refreshActiveSession());
 	registerWorktreeStatusActivityHandler("message_start");
 	registerWorktreeStatusActivityHandler("message_end", (payload) => {
-		if (shouldRefreshAfterUserMessageEnd(payload)) refreshActiveSession();
+		if (shouldRefreshAfterUserMessageEnd(payload)) void refreshActiveSession();
 	});
 	registerWorktreeStatusActivityHandler("tool_execution_start");
 	registerWorktreeStatusActivityHandler(
@@ -688,13 +696,15 @@ export default function worktreeStatusExtension(
 	);
 	registerWorktreeStatusActivityHandler("model_select");
 	registerWorktreeStatusActivityHandler("thinking_level_select");
-	registerExtensionCommandActivityHandler(() => refreshActiveSession());
+	registerExtensionCommandActivityHandler(
+		() => void refreshActiveSession({ shouldForceRemote: true }),
+	);
 
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
 		installActivityTracking(session);
-		await fullRefreshChannel.run(session, { shouldForceRemote: true });
+		await refreshSession(session, { shouldForceRemote: true });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();
 			countdownRenderTimer?.resume();

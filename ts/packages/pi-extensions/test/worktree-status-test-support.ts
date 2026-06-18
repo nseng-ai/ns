@@ -190,26 +190,41 @@ export function brmemListStep(
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
+export function ghPrStatusStep(
+	headRefName: string,
+	nodes: readonly Record<string, unknown>[],
+): ScriptedExec {
+	return step(
+		"gh",
+		[
+			"api",
+			"graphql",
+			"-f",
+			`query=${githubWorktreePrStatusQuery}`,
+			"-f",
+			"owner=dagster-io",
+			"-f",
+			"repo=sdl-tools",
+			"-f",
+			`headRefName=${headRefName}`,
+		],
+		{ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes } } } }) },
+	);
+}
+
+export function ghPrNode(headRefOid: string): Record<string, unknown> {
+	return {
+		number: 1795,
+		url: "https://github.com/dagster-io/sdl-tools/pull/1795",
+		headRefName: "feature/current",
+		headRefOid,
+		statusCheckRollup: { contexts: { pageInfo: { hasNextPage: false }, nodes: [] } },
+		reviewThreads: { totalCount: 0, pageInfo: { hasNextPage: false }, nodes: [] },
+	};
+}
+
 export function ghNoPrSteps(headRefName = "feature/current"): ScriptedExec[] {
-	return [
-		remoteOriginStep(),
-		step(
-			"gh",
-			[
-				"api",
-				"graphql",
-				"-f",
-				`query=${githubWorktreePrStatusQuery}`,
-				"-f",
-				"owner=dagster-io",
-				"-f",
-				"repo=sdl-tools",
-				"-f",
-				`headRefName=${headRefName}`,
-			],
-			{ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) },
-		),
-	];
+	return [remoteOriginStep(), ghPrStatusStep(headRefName, [])];
 }
 
 export async function flushPromises(): Promise<void> {

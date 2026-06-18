@@ -78,6 +78,42 @@ describe("worktree status extension registration and rendering", () => {
 		await pi.sessionShutdown?.();
 	});
 
+	test("manual refresh command refreshes stale GitHub head-mismatch status", async () => {
+		const pi = new LifecycleFakePi([]);
+		const loaders = fakeWorktreeStatusLoaders({
+			ghStatuses: [
+				queued({ type: "head-mismatch" }),
+				queued({
+					type: "available",
+					prNumber: 1795,
+					url: "https://github.com/dagster-io/asdl-tools/pull/1795",
+					threads: { unresolved: 0, total: 0, hasMore: false },
+					checks: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+				}),
+			],
+		});
+		const statuses = new Map<string, string | undefined>();
+		const ctx = testContext({ statuses });
+
+		worktreeStatusExtension(pi as ExtensionAPI, { loaders });
+		await pi.sessionStart?.({}, ctx);
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
+			"[gh] local ahead of PR",
+		);
+		const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+		expect(command).toBeDefined();
+		if (command === undefined) throw new Error("expected manual refresh command");
+
+		await command.handler("", ctx);
+
+		pi.assertDone();
+		expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
+			"[gh] #1795 · comments 0/0 · actions 0✓ · landable",
+		);
+		expect(loaders.ghCalls).toHaveLength(2);
+		await pi.sessionShutdown?.();
+	});
+
 	test("renders singular handoff footer scope before gt on the next line", async () => {
 		const pi = new LifecycleFakePi([]);
 		const loaders = fakeWorktreeStatusLoaders({
