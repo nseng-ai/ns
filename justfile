@@ -62,6 +62,13 @@ docs-check: docs-install
 
 js-test: ts-test
 
+# Install the slot shim to ~/.local/bin so `slot` on PATH runs the
+# TypeScript CLI from source: the enclosing checkout's sources when invoked
+# inside an asdl checkout, this checkout's sources everywhere else.
+install-slot: (_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" "just install-slot or just install-tools")
+    rm -f "{{justfile_directory()}}/.venv/bin/slot"
+    @echo "removed stale project venv slot script if present"
+
 # Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an asdl checkout, this checkout's sources everywhere else.
@@ -132,11 +139,9 @@ areg-check: ts-install
 refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
-# Install public tools: slot as an editable uv tool;
-# brmem, handoff, areg, and objective via TypeScript source shims.
-install-tools: install-brmem install-handoff install-areg install-objective
-    uv tool install --force --editable {{justfile_directory()}}/packages/asdl-slots
-    @echo "installed: slot, brmem (TypeScript shim), handoff (TypeScript shim), areg (TypeScript shim), objective (TypeScript shim)"
+# Install public tools via TypeScript source shims.
+install-tools: install-slot install-brmem install-handoff install-areg install-objective
+    @echo "installed: slot, brmem, handoff, areg, and objective (TypeScript shims)"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
