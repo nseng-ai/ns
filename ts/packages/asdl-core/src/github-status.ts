@@ -12,6 +12,11 @@ export interface GithubPrIdentity {
 	number: number;
 }
 
+export interface GithubRepositoryIdentity {
+	owner: string;
+	repo: string;
+}
+
 export interface GithubReviewThreadCounts {
 	unresolved: number;
 	total: number;
@@ -25,10 +30,29 @@ export interface GithubCheckTally {
 	pending: number;
 	failing: number;
 	unknown: number;
+	hasMore?: boolean | undefined;
+}
+
+export interface GithubWorktreePrStatusArgs {
+	owner: string;
+	repo: string;
+	headRefName: string;
+}
+
+export interface GithubWorktreePrStatus {
+	number: number;
+	url?: string | undefined;
+	headRefName: string;
+	headRefOid: string;
+	threads: GithubReviewThreadCounts;
+	checks: GithubCheckTally;
 }
 
 export const githubReviewThreadCountsQuery =
 	"query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}";
+
+export const githubWorktreePrStatusQuery =
+	"query($owner:String!,$repo:String!,$headRefName:String!){repository(owner:$owner,name:$repo){pullRequests(first:2,states:OPEN,headRefName:$headRefName,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{number url headRefName headRefOid statusCheckRollup{contexts(first:100){pageInfo{hasNextPage} nodes{__typename ... on CheckRun{status conclusion} ... on StatusContext{state}}}} reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}}";
 
 const githubPrStatusViewSchema = z
 	.object({
@@ -40,18 +64,56 @@ const githubPrStatusViewSchema = z
 
 const githubGraphqlErrorsSchema = z.object({ errors: z.array(z.unknown()).optional() }).loose();
 
+const githubReviewThreadConnectionSchema = z
+	.object({
+		totalCount: z.number().int().nonnegative().optional(),
+		pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
+		nodes: z.array(z.object({ isResolved: z.boolean() }).loose()).default([]),
+	})
+	.loose();
+
 const githubReviewThreadCountsResponseSchema = z
 	.object({
 		data: z.object({
 			repository: z.object({
 				pullRequest: z.object({
-					reviewThreads: z
-						.object({
-							totalCount: z.number().int().nonnegative().optional(),
-							pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
-							nodes: z.array(z.object({ isResolved: z.boolean() }).loose()).default([]),
-						})
-						.loose(),
+					reviewThreads: githubReviewThreadConnectionSchema,
+				}),
+			}),
+		}),
+	})
+	.loose();
+
+const githubWorktreePrStatusResponseSchema = z
+	.object({
+		data: z.object({
+			repository: z.object({
+				pullRequests: z.object({
+					nodes: z
+						.array(
+							z
+								.object({
+									number: z.number().int().positive(),
+									url: z.string().optional(),
+									headRefName: z.string(),
+									headRefOid: z.string(),
+									statusCheckRollup: z
+										.object({
+											contexts: z
+												.object({
+													pageInfo: z.object({ hasNextPage: z.boolean().default(false) }).loose().default({ hasNextPage: false }),
+													nodes: z.array(z.unknown()).default([]),
+												})
+												.loose()
+												.nullish(),
+										})
+										.loose()
+										.nullish(),
+									reviewThreads: githubReviewThreadConnectionSchema,
+								})
+								.loose(),
+						)
+						.default([]),
 				}),
 			}),
 		}),
@@ -85,6 +147,21 @@ export function githubReviewThreadCountsArgs(identity: GithubPrIdentity): string
 	];
 }
 
+export function githubWorktreePrStatusArgs(identity: GithubWorktreePrStatusArgs): string[] {
+	return [
+		"api",
+		"graphql",
+		"-f",
+		`query=${githubWorktreePrStatusQuery}`,
+		"-f",
+		`owner=${identity.owner}`,
+		"-f",
+		`repo=${identity.repo}`,
+		"-f",
+		`headRefName=${identity.headRefName}`,
+	];
+}
+
 export function parseGithubPrStatusViewJson(stdout: string): GithubPrStatusView | undefined {
 	const parsed = parseJson(stdout);
 	if (parsed === undefined) return undefined;
@@ -115,23 +192,51 @@ export function githubPrIdentityFromUrl(url: string, expectedNumber?: number): G
 	return { owner, repo, number };
 }
 
+export function githubRepositoryIdentityFromRemoteUrl(url: string): GithubRepositoryIdentity | undefined {
+	const trimmed = url.trim();
+	if (trimmed.length === 0) return undefined;
+
+	const scpLikeMatch = /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/u.exec(trimmed);
+	if (scpLikeMatch !== null) return repositoryIdentityFromParts(scpLikeMatch[1], scpLikeMatch[2]);
+
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		return undefined;
+	}
+	if (parsed.hostname !== "github.com") return undefined;
+	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
+	if (parts.length !== 2) return undefined;
+	return repositoryIdentityFromParts(parts[0], parts[1]);
+}
+
 export function parseGithubReviewThreadCountsJson(stdout: string): GithubReviewThreadCounts | undefined {
-	const parsed = parseJson(stdout);
+	const parsed = parseGraphqlJson(stdout);
 	if (parsed === undefined) return undefined;
-	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed);
-	if (!errorsResult.success) return undefined;
-	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0) return undefined;
 
 	const result = githubReviewThreadCountsResponseSchema.safeParse(parsed);
 	if (!result.success) return undefined;
-	const reviewThreads = result.data.data.repository.pullRequest.reviewThreads;
-	const hasMore = reviewThreads.pageInfo.hasNextPage;
-	const totalCount = reviewThreads.totalCount ?? reviewThreads.nodes.length;
-	return {
-		unresolved: reviewThreads.nodes.filter((node) => !node.isResolved).length,
-		total: hasMore ? reviewThreads.nodes.length : totalCount,
-		hasMore,
-	};
+	return reviewThreadCountsFromConnection(result.data.data.repository.pullRequest.reviewThreads);
+}
+
+export function parseGithubWorktreePrStatusJson(stdout: string): GithubWorktreePrStatus[] | undefined {
+	const parsed = parseGraphqlJson(stdout);
+	if (parsed === undefined) return undefined;
+
+	const result = githubWorktreePrStatusResponseSchema.safeParse(parsed);
+	if (!result.success) return undefined;
+	return result.data.data.repository.pullRequests.nodes.map((node) => {
+		const contexts = node.statusCheckRollup?.contexts;
+		return {
+			number: node.number,
+			url: node.url,
+			headRefName: node.headRefName,
+			headRefOid: node.headRefOid,
+			threads: reviewThreadCountsFromConnection(node.reviewThreads),
+			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], { hasMore: contexts?.pageInfo.hasNextPage ?? false }),
+		};
+	});
 }
 
 export function classifyGithubStatusCheck(value: unknown): GithubCheckBucket {
@@ -142,13 +247,43 @@ export function classifyGithubStatusCheck(value: unknown): GithubCheckBucket {
 	return "unknown";
 }
 
-export function tallyGithubStatusChecks(items: readonly unknown[]): GithubCheckTally {
+export function tallyGithubStatusChecks(
+	items: readonly unknown[],
+	options: { hasMore?: boolean | undefined } = {},
+): GithubCheckTally {
 	const tally: GithubCheckTally = { passing: 0, pending: 0, failing: 0, unknown: 0 };
 	for (const item of items) {
 		const bucket = classifyGithubStatusCheck(item);
 		tally[bucket] += 1;
 	}
+	if (options.hasMore === true) tally.hasMore = true;
 	return tally;
+}
+
+function repositoryIdentityFromParts(owner: string | undefined, repoWithSuffix: string | undefined): GithubRepositoryIdentity | undefined {
+	if (owner === undefined || repoWithSuffix === undefined || owner.length === 0 || repoWithSuffix.length === 0) return undefined;
+	const repo = repoWithSuffix.endsWith(".git") ? repoWithSuffix.slice(0, -4) : repoWithSuffix;
+	if (repo.length === 0 || repo.includes("/")) return undefined;
+	return { owner, repo };
+}
+
+function reviewThreadCountsFromConnection(connection: z.infer<typeof githubReviewThreadConnectionSchema>): GithubReviewThreadCounts {
+	const hasMore = connection.pageInfo.hasNextPage;
+	const totalCount = connection.totalCount ?? connection.nodes.length;
+	return {
+		unresolved: connection.nodes.filter((node) => !node.isResolved).length,
+		total: hasMore ? connection.nodes.length : totalCount,
+		hasMore,
+	};
+}
+
+function parseGraphqlJson(text: string): unknown | undefined {
+	const parsed = parseJson(text);
+	if (parsed === undefined) return undefined;
+	const errorsResult = githubGraphqlErrorsSchema.safeParse(parsed);
+	if (!errorsResult.success) return undefined;
+	if (errorsResult.data.errors !== undefined && errorsResult.data.errors.length > 0) return undefined;
+	return parsed;
 }
 
 function classifyCheckRun(value: Record<string, unknown>): GithubCheckBucket {

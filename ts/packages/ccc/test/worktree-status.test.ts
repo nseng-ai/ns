@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
+import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
 import type { GraphiteMetadataWorkerDiagnostic } from "@asdl/ccc/worktree-status/graphite-metadata";
 import {
 	makeGitRepo,
@@ -31,6 +32,7 @@ import {
 } from "@asdl/ccc/worktree-status";
 
 const ROOT = "/repo";
+const HEAD_OID = "abc123";
 
 interface ExecCall {
 	command: string;
@@ -141,12 +143,20 @@ async function loadComposedWorktreeStatus(
 	options?: LoadLocalWorktreeStatusOptions,
 ): Promise<WorktreeStatus> {
 	const local = await loadLocalWorktreeStatus(pi, cwd, options);
-	const gh = await loadWorktreeGhStatus(pi, cwd, { signal: options?.signal });
+	const gh = await loadWorktreeGhStatus(pi, cwd, { identity: local.identity, signal: options?.signal });
 	return combineWorktreeStatus(local, gh);
 }
 
+function headOidStep(oid = HEAD_OID): ScriptedExec {
+	return step("git", ["rev-parse", "--verify", "HEAD"], { stdout: `${oid}\n` });
+}
+
+function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {
+	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
+}
+
 function basicGitStatusScript(base = "main", count = 1, dirtyStdout = ""): ScriptedExec[] {
-	return [revListStep(base, count), dirtyStep(dirtyStdout)];
+	return [revListStep(base, count), dirtyStep(dirtyStdout), headOidStep()];
 }
 
 function expectNoGtCalls(pi: { calls: readonly ExecCall[] }): void {
@@ -157,79 +167,112 @@ function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
-function ghNoPrStep(): ScriptedExec {
-	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
+function ghNoPrSteps(): ScriptedExec[] {
+	return [remoteOriginStep(), ghWorktreePrStep({ nodes: [] })];
 }
 
-function ghPrViewStep(options: { number: number; passingChecks?: number; pendingChecks?: number; failingChecks?: number; unknownChecks?: number }): ScriptedExec {
-	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], {
-		stdout: JSON.stringify({
-			number: options.number,
-			url: `https://github.com/dagster-io/asdl-tools/pull/${options.number}`,
-			statusCheckRollup: [
-				...Array.from({ length: options.passingChecks ?? 0 }, (_value, index) => ({
-					__typename: "CheckRun",
-					conclusion: "SUCCESS",
-					name: `passing-${index}`,
-					status: "COMPLETED",
-				})),
-				...Array.from({ length: options.pendingChecks ?? 0 }, (_value, index) => ({
-					__typename: "CheckRun",
-					name: `pending-${index}`,
-					status: "IN_PROGRESS",
-				})),
-				...Array.from({ length: options.failingChecks ?? 0 }, (_value, index) => ({
-					__typename: "CheckRun",
-					conclusion: "FAILURE",
-					name: `failed-${index}`,
-					status: "COMPLETED",
-				})),
-				...Array.from({ length: options.unknownChecks ?? 0 }, (_value, index) => ({
-					__typename: "CheckRun",
-					conclusion: "MYSTERY",
-					name: `unknown-${index}`,
-					status: "COMPLETED",
-				})),
-			],
-		}),
-	});
-}
-
-function ghReviewThreadsStep(options: { number: number; unresolvedThreads: number; totalThreads: number; hasMore?: boolean }): ScriptedExec {
-	const resolvedThreads = Math.max(0, options.totalThreads - options.unresolvedThreads);
+function ghWorktreePrStep(options: {
+	nodes: Array<{
+		number: number;
+		headOid?: string;
+		passingChecks?: number;
+		pendingChecks?: number;
+		failingChecks?: number;
+		unknownChecks?: number;
+		unresolvedThreads?: number;
+		totalThreads?: number;
+		threadsHasMore?: boolean;
+		checksHasMore?: boolean;
+	}>;
+	result?: Partial<ExecResult> | undefined;
+}): ScriptedExec {
 	return step(
 		"gh",
 		[
 			"api",
 			"graphql",
 			"-f",
-			"query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){totalCount pageInfo{hasNextPage} nodes{isResolved}}}}}",
+			`query=${githubWorktreePrStatusQuery}`,
 			"-f",
 			"owner=dagster-io",
 			"-f",
 			"repo=asdl-tools",
-			"-F",
-			`number=${options.number}`,
+			"-f",
+			"headRefName=feature/current",
 		],
-		{
+		options.result ?? {
 			stdout: JSON.stringify({
 				data: {
 					repository: {
-						pullRequest: {
-							reviewThreads: {
-								totalCount: options.totalThreads,
-								pageInfo: { hasNextPage: options.hasMore ?? false },
-								nodes: [
-									...Array.from({ length: options.unresolvedThreads }, () => ({ isResolved: false })),
-									...Array.from({ length: resolvedThreads }, () => ({ isResolved: true })),
-								],
-							},
+						pullRequests: {
+							nodes: options.nodes.map((node) => worktreePrNode(node)),
 						},
 					},
 				},
 			}),
 		},
 	);
+}
+
+function worktreePrNode(options: {
+	number: number;
+	headOid?: string;
+	passingChecks?: number;
+	pendingChecks?: number;
+	failingChecks?: number;
+	unknownChecks?: number;
+	unresolvedThreads?: number;
+	totalThreads?: number;
+	threadsHasMore?: boolean;
+	checksHasMore?: boolean;
+}): unknown {
+	const unresolvedThreads = options.unresolvedThreads ?? 0;
+	const totalThreads = options.totalThreads ?? unresolvedThreads;
+	const resolvedThreads = Math.max(0, totalThreads - unresolvedThreads);
+	return {
+		number: options.number,
+		url: `https://github.com/dagster-io/asdl-tools/pull/${options.number}`,
+		headRefName: "feature/current",
+		headRefOid: options.headOid ?? HEAD_OID,
+		statusCheckRollup: {
+			contexts: {
+				pageInfo: { hasNextPage: options.checksHasMore ?? false },
+				nodes: [
+					...Array.from({ length: options.passingChecks ?? 0 }, (_value, index) => ({
+						__typename: "CheckRun",
+						conclusion: "SUCCESS",
+						name: `passing-${index}`,
+						status: "COMPLETED",
+					})),
+					...Array.from({ length: options.pendingChecks ?? 0 }, (_value, index) => ({
+						__typename: "CheckRun",
+						name: `pending-${index}`,
+						status: "IN_PROGRESS",
+					})),
+					...Array.from({ length: options.failingChecks ?? 0 }, (_value, index) => ({
+						__typename: "CheckRun",
+						conclusion: "FAILURE",
+						name: `failed-${index}`,
+						status: "COMPLETED",
+					})),
+					...Array.from({ length: options.unknownChecks ?? 0 }, (_value, index) => ({
+						__typename: "CheckRun",
+						conclusion: "MYSTERY",
+						name: `unknown-${index}`,
+						status: "COMPLETED",
+					})),
+				],
+			},
+		},
+		reviewThreads: {
+			totalCount: totalThreads,
+			pageInfo: { hasNextPage: options.threadsHasMore ?? false },
+			nodes: [
+				...Array.from({ length: unresolvedThreads }, () => ({ isResolved: false })),
+				...Array.from({ length: resolvedThreads }, () => ({ isResolved: true })),
+			],
+		},
+	};
 }
 
 const TEST_THEME: StatusTheme = {
@@ -309,6 +352,12 @@ describe("worktree status formatting", () => {
 		);
 		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 18, total: 18, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
 			"[gh] #1736 · comments 0/18 · actions 16✓",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 100, hasMore: true }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0 } })).toBe(
+			"[gh] #1736 · comments 100/100+ · actions 16✓",
+		);
+		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 0, total: 8, hasMore: false }, checks: { passing: 16, pending: 0, failing: 0, unknown: 0, hasMore: true } })).toBe(
+			"[gh] #1736 · comments 8/8 · actions 16✓ +",
 		);
 		expect(formatGhStatus({ type: "available", prNumber: 1736, threads: { unresolved: 2, total: 100, hasMore: true }, checks: { passing: 16, pending: 3, failing: 1, unknown: 0 } })).toBe(
 			"[gh] #1736 · comments 98/100+ · actions 3⏳ 1✗",
@@ -535,8 +584,8 @@ describe("composed local and gh worktree status loading", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghPrViewStep({ number: 1736, passingChecks: 4, pendingChecks: 2, failingChecks: 1 }),
-				ghReviewThreadsStep({ number: 1736, unresolvedThreads: 3, totalThreads: 5 }),
+				remoteOriginStep(),
+				ghWorktreePrStep({ nodes: [{ number: 1736, passingChecks: 4, pendingChecks: 2, failingChecks: 1, unresolvedThreads: 3, totalThreads: 5 }] }),
 				...basicGitStatusScript(),
 			]);
 
@@ -544,13 +593,31 @@ describe("composed local and gh worktree status loading", () => {
 
 			pi.assertDone();
 			expectNoGtCalls(pi);
+			expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
 			expect(status.gh).toMatchObject({
 				type: "available",
 				prNumber: 1736,
 				threads: { unresolved: 3, total: 5, hasMore: false },
 				checks: { passing: 4, pending: 2, failing: 1, unknown: 0 },
 			});
-			expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
+				expect(formatWorktreeStatus(status)).toContain("[gh] #1736 · comments 2/5 · actions 2⏳ 1✗");
+		});
+	});
+
+	test("treats a PR head OID mismatch as unavailable", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				remoteOriginStep(),
+				ghWorktreePrStep({ nodes: [{ number: 1736, headOid: "different", passingChecks: 4, unresolvedThreads: 0, totalThreads: 0 }] }),
+				...basicGitStatusScript(),
+			]);
+
+			const status = await loadComposedWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.gh).toEqual({ type: "unavailable", message: "PR head differs from local HEAD" });
+			expect(formatWorktreeStatus(status).join("\n")).not.toContain("landable");
 		});
 	});
 
@@ -558,8 +625,8 @@ describe("composed local and gh worktree status loading", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghPrViewStep({ number: 1736, passingChecks: 4, unknownChecks: 1 }),
-				ghReviewThreadsStep({ number: 1736, unresolvedThreads: 0, totalThreads: 0 }),
+				remoteOriginStep(),
+				ghWorktreePrStep({ nodes: [{ number: 1736, passingChecks: 4, unknownChecks: 1, unresolvedThreads: 0, totalThreads: 0 }] }),
 				...basicGitStatusScript(),
 			]);
 
@@ -593,7 +660,7 @@ describe("composed local and gh worktree status loading", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 
@@ -608,26 +675,25 @@ describe("composed local and gh worktree status loading", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "HTTP 401: Bad credentials" }),
+				remoteOriginStep(),
+				ghWorktreePrStep({ nodes: [], result: { code: 1, stderr: "HTTP 401: Bad credentials" } }),
 				...basicGitStatusScript(),
 			]);
 
 			const status = await loadComposedWorktreeStatus(pi, root);
 
 			pi.assertDone();
-			expect(status.gh).toEqual({ type: "unavailable", message: "gh pr view exited 1: HTTP 401: Bad credentials" });
-			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh pr view exited 1: HTTP 401: Bad credentials");
+			expect(status.gh).toEqual({ type: "unavailable", message: "gh api graphql exited 1: HTTP 401: Bad credentials" });
+			expect(formatWorktreeStatus(status)).toContain("[gh] unavailable: gh api graphql exited 1: HTTP 401: Bad credentials");
 		});
 	});
 
 	test("includes a dim unavailable message when gh review thread loading fails", async () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
-			const failedReviewThreads = ghReviewThreadsStep({ number: 1736, unresolvedThreads: 0, totalThreads: 0 });
-			failedReviewThreads.result = { code: 1, stderr: "GraphQL: API rate limit exceeded" };
 			const pi = new OrderlessFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghPrViewStep({ number: 1736, passingChecks: 4 }),
-				failedReviewThreads,
+				remoteOriginStep(),
+				ghWorktreePrStep({ nodes: [], result: { code: 1, stderr: "GraphQL: API rate limit exceeded" } }),
 				...basicGitStatusScript(),
 			]);
 

@@ -1,17 +1,14 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { resolveBrmemCommandCandidates, runBrmemCandidate } from "@asdl/core/brmem-cli";
 import { execApiToCommandRunner, formatCommand, normalizeExecResult, tailText, type CommandExecApi, type ExecOptions, type PiExecResultLike } from "@asdl/core/exec";
 import { runGitHubCli } from "@asdl/core/github-cli";
 import {
-	githubPrIdentityFromUrl,
-	githubReviewThreadCountsArgs,
-	parseGithubPrStatusViewJson,
-	parseGithubReviewThreadCountsJson,
-	tallyGithubStatusChecks,
+	githubRepositoryIdentityFromRemoteUrl,
+	githubWorktreePrStatusArgs,
+	parseGithubWorktreePrStatusJson,
 	type GithubCheckTally,
-	type GithubPrStatusView,
 	type GithubReviewThreadCounts,
 } from "@asdl/core/github-status";
 import { formatErrorMessage } from "@asdl/core/primitives";
@@ -91,6 +88,13 @@ export interface LoadLocalWorktreeStatusOptions {
 
 export interface LoadWorktreeGhStatusOptions {
 	signal?: AbortSignal | undefined;
+	identity?: WorktreeStatusIdentity | undefined;
+}
+
+export interface WorktreeStatusIdentity {
+	readonly cwd: string;
+	readonly head: { type: "branch"; name: string } | { type: "detached" } | { type: "unknown" };
+	readonly headOid?: string | undefined;
 }
 
 export interface GhStatus {
@@ -108,6 +112,7 @@ export type WorktreeGhStatus =
 	| { type: "unavailable"; message?: string | undefined };
 
 export interface LocalWorktreeStatus {
+	identity: WorktreeStatusIdentity;
 	brmem: string | undefined;
 	gt: GtStatus;
 	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
@@ -142,7 +147,7 @@ export async function loadLocalWorktreeStatus(
 		gtMetadataDiagnostic = diagnostic;
 		options.onDiagnostic?.(diagnostic);
 	};
-	const [brmem, gt] = await Promise.all([
+	const [brmem, gt, identity] = await Promise.all([
 		loadBrmemStatus(pi, cwd, options.signal),
 		loadGtStatus({
 			pi,
@@ -151,9 +156,10 @@ export async function loadLocalWorktreeStatus(
 			metadataLoader: options.metadataLoader,
 			onDiagnostic,
 		}),
+		loadWorktreeStatusIdentity(pi, cwd, options.signal),
 	]);
 
-	const status: LocalWorktreeStatus = { brmem, gt };
+	const status: LocalWorktreeStatus = { identity, brmem, gt };
 	if (gtMetadataDiagnostic !== undefined) status.gtMetadataDiagnostic = gtMetadataDiagnostic;
 	return status;
 }
@@ -163,11 +169,16 @@ export async function loadWorktreeGhStatus(
 	cwd: string,
 	options: LoadWorktreeGhStatusOptions = {},
 ): Promise<WorktreeGhStatus> {
-	return loadGhStatus(pi, cwd, options.signal);
+	const identity = options.identity ?? (await loadWorktreeStatusIdentity(pi, cwd, options.signal));
+	return loadGhStatus(pi, cwd, identity, options.signal);
 }
 
 export function combineWorktreeStatus(local: LocalWorktreeStatus, gh: WorktreeGhStatus): WorktreeStatus {
 	return { ...local, gh };
+}
+
+export function sameWorktreeStatusIdentity(left: WorktreeStatusIdentity, right: WorktreeStatusIdentity): boolean {
+	return left.cwd === right.cwd && sameHeadIdentity(left.head, right.head) && left.headOid === right.headOid;
 }
 
 export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStatus> {
@@ -336,57 +347,43 @@ async function loadDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Pr
 	}
 }
 
-async function loadGhStatus(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<WorktreeGhStatus> {
+async function loadWorktreeStatusIdentity(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<WorktreeStatusIdentity> {
+	const gitPaths = findGitPaths(cwd);
+	const head = gitPaths === undefined ? { type: "unknown" as const } : currentHeadIdentity(gitPaths);
+	const headOid = await loadHeadOid(pi, cwd, signal);
+	const identity: WorktreeStatusIdentity = { cwd: resolve(cwd), head };
+	return headOid === undefined ? identity : { ...identity, headOid };
+}
+
+async function loadHeadOid(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
+	if (signal?.aborted) return undefined;
+	try {
+		const result = normalizeExecResult(await pi.exec("git", ["rev-parse", "--verify", "HEAD"], execOptions(cwd, signal)));
+		if (result.code !== 0) return undefined;
+		const oid = result.stdout.trim();
+		return oid.length > 0 ? oid : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+async function loadGhStatus(
+	pi: ExecGateway,
+	cwd: string,
+	identity: WorktreeStatusIdentity,
+	signal?: AbortSignal,
+): Promise<WorktreeGhStatus> {
 	if (signal?.aborted) return { type: "unavailable", message: "request aborted" };
+	if (identity.head.type !== "branch") return { type: "unavailable", message: "not on a branch" };
 
-	const ghPrViewArgs = ["pr", "view", "--json", "number,url,statusCheckRollup"];
-	const view = await runGitHubCli({
-		runner: execApiToCommandRunner(githubCliExecApi(pi)),
-		cwd,
-		signal,
-		timeoutMs: COMMAND_TIMEOUT_MS,
-		args: ghPrViewArgs,
-	});
-	if (view.type === "startup_error") return { type: "unavailable", message: compactErrorMessage(view.message) };
-	if (view.result.code !== 0) return ghPrViewNonzeroStatus(view.result);
+	const repository = await loadGitHubRepositoryIdentity(pi, cwd, signal);
+	if (repository === undefined) return { type: "unavailable", message: "could not identify GitHub repository from origin remote" };
 
-	const pr = parseGithubPrStatusViewJson(view.result.stdout);
-	if (pr === undefined) return { type: "unavailable", message: "could not parse gh pr view output" };
-
-	const reviewThreads = await loadUnresolvedReviewThreadCount({ pi, cwd, pr, signal });
-	if (reviewThreads.type === "unavailable") return reviewThreads;
-	const checks = tallyGithubStatusChecks(pr.statusCheckRollup);
-
-	return {
-		type: "available",
-		prNumber: pr.number,
-		url: pr.url,
-		threads: reviewThreads.counts,
-		checks,
-	};
-}
-
-function ghPrViewNonzeroStatus(result: ExecResult): WorktreeGhStatus {
-	const detail = `${result.stderr ?? ""}\n${result.stdout ?? ""}`.toLowerCase();
-	if (detail.includes("no pull request found") || detail.includes("no pull requests found")) return { type: "no-pr" };
-	return { type: "unavailable", message: compactCommandFailureMessage("gh pr view", result) };
-}
-
-type ReviewThreadLoadResult = { type: "available"; counts: GithubReviewThreadCounts } | { type: "unavailable"; message: string };
-
-interface LoadUnresolvedReviewThreadCountOptions {
-	readonly pi: ExecGateway;
-	readonly cwd: string;
-	readonly pr: GithubPrStatusView;
-	readonly signal?: AbortSignal | undefined;
-}
-
-async function loadUnresolvedReviewThreadCount(options: LoadUnresolvedReviewThreadCountOptions): Promise<ReviewThreadLoadResult> {
-	const { pi, cwd, pr, signal } = options;
-	const identity = githubPrIdentityFromUrl(pr.url, pr.number);
-	if (identity === undefined) return { type: "unavailable", message: "could not identify GitHub repository from PR URL" };
-
-	const args = githubReviewThreadCountsArgs(identity);
+	const args = githubWorktreePrStatusArgs({ ...repository, headRefName: identity.head.name });
 	const result = await runGitHubCli({
 		runner: execApiToCommandRunner(githubCliExecApi(pi)),
 		cwd,
@@ -398,22 +395,61 @@ async function loadUnresolvedReviewThreadCount(options: LoadUnresolvedReviewThre
 	if (result.result.code !== 0) {
 		return { type: "unavailable", message: compactCommandFailureMessage(compactGithubCommandName(args), result.result) };
 	}
-	const counts = parseGithubReviewThreadCountsJson(result.result.stdout);
-	if (counts === undefined) return { type: "unavailable", message: "could not parse gh review thread output" };
-	return { type: "available", counts };
+
+	const prs = parseGithubWorktreePrStatusJson(result.result.stdout);
+	if (prs === undefined) return { type: "unavailable", message: "could not parse gh worktree status output" };
+	if (prs.length === 0) return { type: "no-pr" };
+	if (identity.headOid === undefined) return { type: "unavailable", message: "could not verify local HEAD" };
+
+	const pr = prs.find((candidate) => candidate.headRefOid === identity.headOid);
+	if (pr === undefined) return { type: "unavailable", message: "PR head differs from local HEAD" };
+	return {
+		type: "available",
+		prNumber: pr.number,
+		url: pr.url,
+		threads: pr.threads,
+		checks: pr.checks,
+	};
 }
 
-function currentBranchName(gitPaths: GitPaths): string | undefined {
+async function loadGitHubRepositoryIdentity(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<{ owner: string; repo: string } | undefined> {
+	if (signal?.aborted) return undefined;
 	try {
-		const head = readFileSync(gitPaths.headPath, "utf8").trim();
-		const refPrefix = "ref: refs/heads/";
-		if (!head.startsWith(refPrefix)) return undefined;
-
-		const branch = head.slice(refPrefix.length).trim();
-		return branch.length > 0 ? branch : undefined;
+		const result = normalizeExecResult(await pi.exec("git", ["config", "--get", "remote.origin.url"], execOptions(cwd, signal)));
+		if (result.code !== 0) return undefined;
+		return githubRepositoryIdentityFromRemoteUrl(result.stdout);
 	} catch {
 		return undefined;
 	}
+}
+
+function currentHeadIdentity(gitPaths: GitPaths): WorktreeStatusIdentity["head"] {
+	try {
+		const head = readFileSync(gitPaths.headPath, "utf8").trim();
+		const refPrefix = "ref: refs/heads/";
+		if (head.startsWith(refPrefix)) {
+			const branch = head.slice(refPrefix.length).trim();
+			return branch.length > 0 ? { type: "branch", name: branch } : { type: "unknown" };
+		}
+		return head.length > 0 ? { type: "detached" } : { type: "unknown" };
+	} catch {
+		return { type: "unknown" };
+	}
+}
+
+function currentBranchName(gitPaths: GitPaths): string | undefined {
+	const head = currentHeadIdentity(gitPaths);
+	return head.type === "branch" ? head.name : undefined;
+}
+
+function sameHeadIdentity(left: WorktreeStatusIdentity["head"], right: WorktreeStatusIdentity["head"]): boolean {
+	if (left.type !== right.type) return false;
+	if (left.type !== "branch" || right.type !== "branch") return true;
+	return left.name === right.name;
 }
 
 function execOptions(cwd: string, signal?: AbortSignal) {
@@ -501,9 +537,7 @@ export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: St
 }
 
 function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
-	const lines: string[] = [];
-	const ghLine = formatGhStatusLine(status.gh, theme);
-	if (ghLine !== undefined) lines.push(ghLine);
+	const lines: string[] = [formatGhStatus(status.gh, theme)];
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
 	}
@@ -578,7 +612,12 @@ function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): stri
 }
 
 function isGhStatusLandable(status: GhStatus): boolean {
-	return status.threads.unresolved === 0 && hasNoBlockingChecks(status.checks);
+	return (
+		status.threads.unresolved === 0 &&
+		!status.threads.hasMore &&
+		hasNoBlockingChecks(status.checks) &&
+		!hasMoreStatusChecks(status.checks)
+	);
 }
 
 function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
@@ -586,14 +625,20 @@ function hasNoBlockingChecks(checks: GithubCheckTally): boolean {
 	return checks.pending === 0 && checks.failing === 0 && checks.unknown === 0;
 }
 
+function hasMoreStatusChecks(checks: GithubCheckTally): boolean {
+	return checks.hasMore === true;
+}
+
 function formatActionBucketSegments(checks: GithubCheckTally, theme?: StatusTheme): string[] {
-	if (hasNoBlockingChecks(checks)) {
-		return [formatColoredSegment(`${checks.passing}✓`, "accent", theme)];
-	}
 	const buckets: string[] = [];
-	if (checks.pending > 0) buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
-	if (checks.failing > 0) buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
-	if (checks.unknown > 0) buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
+	if (hasNoBlockingChecks(checks)) {
+		buckets.push(formatColoredSegment(`${checks.passing}✓`, "accent", theme));
+	} else {
+		if (checks.pending > 0) buckets.push(formatColoredSegment(`${checks.pending}⏳`, "warning", theme));
+		if (checks.failing > 0) buckets.push(formatColoredSegment(`${checks.failing}✗`, "error", theme));
+		if (checks.unknown > 0) buckets.push(formatColoredSegment(`${checks.unknown}?`, "warning", theme));
+	}
+	if (hasMoreStatusChecks(checks)) buckets.push(formatColoredSegment("+", "warning", theme));
 	return intersperseActionBucketSpaces(buckets, theme);
 }
 
@@ -612,6 +657,144 @@ function formatStatusSegment(text: string, theme: StatusTheme | undefined): stri
 
 function formatColoredSegment(text: string, color: string, theme: StatusTheme | undefined): string {
 	return theme ? theme.fg(color, text) : text;
+}
+
+export interface WorktreeFooterIdentityOptions {
+	readonly cwd: string;
+	readonly branch: string;
+	readonly fallbackRepo: string;
+	readonly home?: string | undefined;
+	readonly width: number;
+	readonly status?: WorktreeStatus | undefined;
+	readonly theme: StatusTheme;
+}
+
+interface FooterIdentityParts {
+	repo: string;
+	slot: string;
+	branch: string;
+	relativePath: string;
+}
+
+interface FooterIdentitySegment {
+	text: string;
+	color: string;
+}
+
+export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOptions): string {
+	const identity = footerIdentityParts(options.cwd, options.branch, options.fallbackRepo, options.home);
+	const segments = buildFooterIdentitySegments(identity, options.status?.gt);
+	const rawFullIdentity = rawFooterIdentity(segments);
+	if (rawFullIdentity.length <= options.width) return colorFooterIdentitySegments(segments, options.theme);
+	return options.theme.fg("dim", truncateFooterIdentity(rawFullIdentity, options.width));
+}
+
+function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
+	const segments: FooterIdentitySegment[] = [
+		{ text: "[wt]", color: "dim" },
+		{ text: " ", color: "dim" },
+		{ text: "repo:", color: "dim" },
+		{ text: identity.repo, color: "accent" },
+		{ text: " ", color: "dim" },
+		{ text: "wt:", color: "dim" },
+		{ text: identity.slot, color: "accent" },
+		{ text: " ", color: "dim" },
+		{ text: "pwd:", color: "dim" },
+		{ text: identity.relativePath, color: "accent" },
+	];
+	if (gt?.dirty === "yes") {
+		segments.push(
+			{ text: " (", color: "dim" },
+			{ text: "✗", color: "error" },
+			{ text: ")", color: "dim" },
+		);
+	}
+	segments.push(
+		{ text: " | ", color: "dim" },
+		{ text: "br:", color: "dim" },
+		{ text: identity.branch, color: "warning" },
+	);
+	if (gt !== undefined) {
+		segments.push(
+			{ text: " ", color: "dim" },
+			{ text: "↓:", color: "dim" },
+			{ text: gt.down ?? "-", color: "accent" },
+			{ text: " ", color: "dim" },
+			{ text: "commits:", color: "dim" },
+			{ text: footerCommitCount(gt.commits), color: "accent" },
+			{ text: " ", color: "dim" },
+			{ text: "↑:", color: "dim" },
+			{ text: gt.up, color: "accent" },
+		);
+	}
+	return segments;
+}
+
+function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
+	return segments.map((segment) => segment.text).join("");
+}
+
+function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[], theme: StatusTheme): string {
+	return segments.map((segment) => theme.fg(segment.color, segment.text)).join("");
+}
+
+function footerCommitCount(commits: GtCommitStatus): string {
+	switch (commits.type) {
+		case "count":
+			return commits.count.toString();
+		case "unknown":
+			return "?";
+		case "not-applicable":
+			return "-";
+	}
+}
+
+function footerIdentityParts(cwd: string, branch: string, fallbackRepo: string, home: string | undefined): FooterIdentityParts {
+	const slotInfo = slotInfoFromCwd(cwd);
+	if (slotInfo !== undefined) {
+		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
+		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+	}
+	return { repo: fallbackRepo, slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
+}
+
+function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
+	const resolvedCwd = resolve(cwd);
+	const parts = resolvedCwd.split(sep);
+	for (let index = 0; index < parts.length - 4; index++) {
+		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
+		const repo = parts[index + 2];
+		const slot = parts[index + 4];
+		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
+		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
+	}
+	return undefined;
+}
+
+function pathFromParts(parts: readonly string[]): string {
+	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
+	return join(...parts);
+}
+
+function formatFooterCwd(cwd: string, home: string | undefined): string {
+	if (!home) return cwd;
+
+	const resolvedCwd = resolve(cwd);
+	const resolvedHome = resolve(home);
+	const relativeToHome = relative(resolvedHome, resolvedCwd);
+	const isInsideHome =
+		relativeToHome === "" ||
+		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
+
+	if (!isInsideHome) return cwd;
+	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
+}
+
+function truncateFooterIdentity(text: string, width: number): string {
+	if (width <= 0) return "";
+	if (text.length <= width) return text;
+	if (width <= 3) return ".".repeat(width);
+	return `${text.slice(0, width - 3)}...`;
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {

@@ -1,12 +1,9 @@
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
-
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import {
+	formatWorktreeFooterIdentity,
 	formatWorktreeStatusForFooter,
 	WORKTREE_STATUS_UI_KEY,
-	type GtCommitStatus,
-	type GtStatus,
 	type StatusTheme,
 	type WorktreeStatus,
 } from "@asdl/ccc/worktree-status";
@@ -71,55 +68,19 @@ export interface StatusFooterRenderOptions {
 	worktreeStatus?: WorktreeStatus | undefined;
 }
 
-interface FormatFooterIdentityOptions {
-	readonly cwd: string;
-	readonly branch: string;
-	readonly fallbackRepo: string;
-	readonly home?: string | undefined;
-	readonly width: number;
-	readonly gt?: GtStatus | undefined;
-	readonly theme: StatusTheme;
-}
-
 interface FooterExtensionStatusLines {
 	activity: string[];
 }
 
-const FOOTER_IDENTITY_COLORS = {
-	punctuation: "#5f6673",
-	label: "#8b949e",
-	repo: "#7dd3fc",
-	slot: "#7dd3fc",
-	branch: "#fbbf24",
-	path: "#a78bfa",
-	topology: "#7dd3fc",
-	commit: "#7dd3fc",
-	dirty: "#ef4444",
-};
-
-interface FooterIdentityParts {
-	repo: string;
-	slot: string;
-	branch: string;
-	relativePath: string;
-}
-
-type FooterIdentityColor = keyof typeof FOOTER_IDENTITY_COLORS;
-
-interface FooterIdentitySegment {
-	text: string;
-	color: FooterIdentityColor;
-}
-
 export function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width, cwd, branch, fallbackRepo, worktreeStatus } = options;
-	const identity = formatFooterIdentity({
+	const identity = formatWorktreeFooterIdentity({
 		cwd,
 		branch,
 		fallbackRepo,
 		home: process.env.HOME || process.env.USERPROFILE,
 		width,
-		gt: worktreeStatus?.gt,
+		status: worktreeStatus,
 		theme,
 	});
 
@@ -138,124 +99,6 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 
 function formatStructuredFooterWorktreeLines(status: WorktreeStatus | undefined, theme: StatusTheme): string[] {
 	return status === undefined ? [] : formatWorktreeStatusForFooter(status, theme);
-}
-
-function formatFooterIdentity(options: FormatFooterIdentityOptions): string {
-	const { cwd, branch, fallbackRepo, home, width, gt } = options;
-	const identity = footerIdentityParts(cwd, branch, fallbackRepo, home);
-	const segments = buildFooterIdentitySegments(identity, gt);
-	const rawFullIdentity = rawFooterIdentity(segments);
-	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentitySegments(segments);
-
-	return ansiHex(FOOTER_IDENTITY_COLORS.punctuation, truncateToWidth(rawFullIdentity, width, "..."));
-}
-
-function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
-	const segments: FooterIdentitySegment[] = [
-		{ text: "[wt]", color: "label" },
-		{ text: " ", color: "punctuation" },
-		{ text: "repo:", color: "label" },
-		{ text: identity.repo, color: "repo" },
-		{ text: " ", color: "punctuation" },
-		{ text: "wt:", color: "label" },
-		{ text: identity.slot, color: "slot" },
-		{ text: " ", color: "punctuation" },
-		{ text: "pwd:", color: "label" },
-		{ text: identity.relativePath, color: "path" },
-	];
-	if (gt?.dirty === "yes") {
-		segments.push(
-			{ text: " (", color: "punctuation" },
-			{ text: "✗", color: "dirty" },
-			{ text: ")", color: "punctuation" },
-		);
-	}
-	segments.push(
-		{ text: " | ", color: "punctuation" },
-		{ text: "br:", color: "label" },
-		{ text: identity.branch, color: "branch" },
-	);
-	if (gt !== undefined) {
-		segments.push(
-			{ text: " ", color: "punctuation" },
-			{ text: "↓:", color: "label" },
-			{ text: gt.down ?? "-", color: "topology" },
-			{ text: " ", color: "punctuation" },
-			{ text: "commits:", color: "label" },
-			{ text: footerCommitCount(gt.commits), color: "commit" },
-			{ text: " ", color: "punctuation" },
-			{ text: "↑:", color: "label" },
-			{ text: gt.up, color: "topology" },
-		);
-	}
-	return segments;
-}
-
-function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
-	return segments.map((segment) => segment.text).join("");
-}
-
-function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[]): string {
-	return segments.map((segment) => ansiHex(FOOTER_IDENTITY_COLORS[segment.color], segment.text)).join("");
-}
-
-function footerCommitCount(commits: GtCommitStatus): string {
-	switch (commits.type) {
-		case "count":
-			return commits.count.toString();
-		case "unknown":
-			return "?";
-		case "not-applicable":
-			return "-";
-	}
-}
-
-function ansiHex(hex: string, text: string): string {
-	const red = Number.parseInt(hex.slice(1, 3), 16);
-	const green = Number.parseInt(hex.slice(3, 5), 16);
-	const blue = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1B[38;2;${red};${green};${blue}m${text}\x1B[39m`;
-}
-
-function footerIdentityParts(cwd: string, branch: string, fallbackRepo: string, home: string | undefined): FooterIdentityParts {
-	const slotInfo = slotInfoFromCwd(cwd);
-	if (slotInfo !== undefined) {
-		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
-		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
-	}
-	return { repo: fallbackRepo, slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
-}
-
-function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
-	const resolvedCwd = resolve(cwd);
-	const parts = resolvedCwd.split(sep);
-	for (let index = 0; index < parts.length - 4; index++) {
-		if (parts[index] !== ".slots" || parts[index + 1] !== "repos" || parts[index + 3] !== "worktrees") continue;
-		const repo = parts[index + 2];
-		const slot = parts[index + 4];
-		if (repo === undefined || repo.length === 0 || slot === undefined || slot.length === 0) return undefined;
-		return { repo, slot, worktreeRoot: pathFromParts(parts.slice(0, index + 5)) };
-	}
-	return undefined;
-}
-
-function pathFromParts(parts: readonly string[]): string {
-	if (parts[0] === "") return `${sep}${join(...parts.slice(1))}`;
-	return join(...parts);
-}
-
-function formatFooterCwd(cwd: string, home: string | undefined): string {
-	if (!home) return cwd;
-
-	const resolvedCwd = resolve(cwd);
-	const resolvedHome = resolve(home);
-	const relativeToHome = relative(resolvedHome, resolvedCwd);
-	const isInsideHome =
-		relativeToHome === "" ||
-		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
-
-	if (!isInsideHome) return cwd;
-	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
 }
 
 function formatFooterStats(options: Pick<StatusFooterRenderOptions, "ctx" | "footerData" | "theme" | "width">): string {

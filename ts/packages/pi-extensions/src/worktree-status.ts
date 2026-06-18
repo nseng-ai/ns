@@ -9,6 +9,7 @@ import {
 	loadLocalWorktreeStatus,
 	loadWorktreeGhStatus,
 	renderWorktreeStatusMessage,
+	sameWorktreeStatusIdentity,
 	WORKTREE_STATUS_UI_KEY,
 	type ExecGateway,
 	type ExecResult,
@@ -16,6 +17,7 @@ import {
 	type StatusTheme,
 	type WorktreeGhStatus,
 	type WorktreeStatus,
+	type WorktreeStatusIdentity,
 } from "@asdl/ccc/worktree-status";
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
@@ -168,6 +170,12 @@ interface GitPaths {
 	headPath: string;
 }
 
+interface GhStatusSnapshot {
+	readonly identity: WorktreeStatusIdentity;
+	readonly status: WorktreeGhStatus;
+	readonly fetchedAtMs: number;
+}
+
 interface ActiveSession {
 	id: number;
 	ctx: ExtensionContext;
@@ -176,7 +184,7 @@ interface ActiveSession {
 	abortController: AbortController;
 	closed: boolean;
 	localStatus?: LocalWorktreeStatus | undefined;
-	ghStatus?: WorktreeGhStatus | undefined;
+	ghStatusSnapshot?: GhStatusSnapshot | undefined;
 }
 
 interface RefreshChannel {
@@ -237,8 +245,13 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	}
 
 	function combinedSessionStatus(session: ActiveSession): WorktreeStatus | undefined {
-		if (session.localStatus === undefined) return undefined;
-		return combineWorktreeStatus(session.localStatus, session.ghStatus ?? { type: "pending" });
+		const localStatus = session.localStatus;
+		if (localStatus === undefined) return undefined;
+		const ghSnapshot = session.ghStatusSnapshot;
+		if (ghSnapshot === undefined || !sameWorktreeStatusIdentity(localStatus.identity, ghSnapshot.identity)) {
+			return combineWorktreeStatus(localStatus, { type: "pending" });
+		}
+		return combineWorktreeStatus(localStatus, ghSnapshot.status);
 	}
 
 	function renderSessionStatus(session: ActiveSession): void {
@@ -254,20 +267,35 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	async function refreshLocalNow(session: ActiveSession): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
+		const previousIdentity = session.localStatus?.identity;
 		const status = await loadLocalWorktreeStatus(pi, session.cwd, { signal: session.abortController.signal });
 		if (!isActiveSession(session)) return;
 
+		const identityChanged = previousIdentity !== undefined && !sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
+		if (identityChanged) {
+			session.ghStatusSnapshot = undefined;
+			renderSessionStatus(session);
+			void remoteRefreshChannel.run(session);
+			return;
+		}
 		renderSessionStatus(session);
 	}
 
 	async function refreshRemoteNow(session: ActiveSession): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
-		const status = await loadWorktreeGhStatus(pi, session.cwd, { signal: session.abortController.signal });
+		const identity = session.localStatus?.identity;
+		if (identity === undefined) return;
+		const status = await loadWorktreeGhStatus(pi, session.cwd, { identity, signal: session.abortController.signal });
 		if (!isActiveSession(session)) return;
+		const currentIdentity = session.localStatus?.identity;
+		if (currentIdentity === undefined || !sameWorktreeStatusIdentity(currentIdentity, identity)) {
+			renderSessionStatus(session);
+			return;
+		}
 
-		session.ghStatus = status;
+		session.ghStatusSnapshot = { identity, status, fetchedAtMs: Date.now() };
 		renderSessionStatus(session);
 	}
 
@@ -344,7 +372,8 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearTimeout(localRefreshTimer);
 			localRefreshTimer = undefined;
 		}
-		await Promise.all([localRefreshChannel.run(session), remoteRefreshChannel.run(session)]);
+		await localRefreshChannel.run(session);
+		await remoteRefreshChannel.run(session);
 	}
 
 	function stopRefreshTimers(): void {

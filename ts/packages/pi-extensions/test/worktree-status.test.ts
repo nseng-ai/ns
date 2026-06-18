@@ -5,6 +5,7 @@ import { basename, join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 
 import { stripTerminalEscapes } from "@asdl/core/exec";
+import { githubWorktreePrStatusQuery } from "@asdl/core/github-status";
 import { makeGraphiteRepo, withTempRoot } from "./worktree-status-fixtures.ts";
 import worktreeStatusExtension, {
 	type ExtensionAPI,
@@ -134,16 +135,42 @@ function dirtyStep(stdout = ""): ScriptedExec {
 	return step("git", ["status", "--porcelain=v1"], { stdout });
 }
 
-function basicGitStatusScript(base = "main", count = 1, dirtyStdout = ""): ScriptedExec[] {
-	return [revListStep(base, count), dirtyStep(dirtyStdout)];
+function headOidStep(oid = "abc123"): ScriptedExec {
+	return step("git", ["rev-parse", "--verify", "HEAD"], { stdout: `${oid}\n` });
+}
+
+function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {
+	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
+}
+
+function basicGitStatusScript(base = "main", count = 1, dirtyStdout = "", oid = "abc123"): ScriptedExec[] {
+	return [revListStep(base, count), dirtyStep(dirtyStdout), headOidStep(oid)];
 }
 
 function brmemListStep(result: Partial<ExecResult>): ScriptedExec {
 	return step("brmem", ["list", "--format", "json"], result);
 }
 
-function ghNoPrStep(): ScriptedExec {
-	return step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], { code: 1, stderr: "no pull request found" });
+function ghNoPrSteps(headRefName = "feature/current"): ScriptedExec[] {
+	return [
+		remoteOriginStep(),
+		step(
+			"gh",
+			[
+				"api",
+				"graphql",
+				"-f",
+				`query=${githubWorktreePrStatusQuery}`,
+				"-f",
+				"owner=dagster-io",
+				"-f",
+				"repo=asdl-tools",
+				"-f",
+				`headRefName=${headRefName}`,
+			],
+			{ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) },
+		),
+	];
 }
 
 async function flushPromises(): Promise<void> {
@@ -181,7 +208,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string | undefined>();
@@ -223,7 +250,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string | undefined>();
@@ -256,9 +283,26 @@ describe("worktree status extension registration", () => {
 			const localDirtyChecked = deferred<void>();
 			const pi = new LifecycleFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], ghResult.promise),
 				revListStep("main", 1),
 				{ ...dirtyStep(), onCall: () => localDirtyChecked.resolve() },
+				headOidStep(),
+				remoteOriginStep(),
+				step(
+					"gh",
+					[
+						"api",
+						"graphql",
+						"-f",
+						`query=${githubWorktreePrStatusQuery}`,
+						"-f",
+						"owner=dagster-io",
+						"-f",
+						"repo=asdl-tools",
+						"-f",
+						"headRefName=feature/current",
+					],
+					ghResult.promise,
+				),
 			]);
 			const statuses = new Map<string, string | undefined>();
 			const ctx: ExtensionContext = {
@@ -280,13 +324,83 @@ describe("worktree status extension registration", () => {
 
 			const earlyStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
 
-			ghResult.resolve({ code: 1, stderr: "no pull request found" });
+			ghResult.resolve({ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) });
 			await sessionStart;
 			pi.assertDone();
 			await pi.sessionShutdown?.();
 
-			expect(earlyStatus).toBe("[gt] ↓ main · ↑ - · 1 commit");
+			expect(earlyStatus).toBe("[gt] ↓ main · ↑ - · 1 commit\n[gh] checking…");
 		});
+	});
+
+	test("identity-changing local refresh clears stale gh and refreshes immediately", async () => {
+		vi.useFakeTimers();
+		try {
+			await withTempRoot(makeGraphiteRepo(), async (root) => {
+				const secondGhResult = deferred<Partial<ExecResult>>();
+				const secondDirtyChecked = deferred<void>();
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript(),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					revListStep("main", 2),
+					{ ...dirtyStep(), onCall: () => secondDirtyChecked.resolve() },
+					headOidStep("def456"),
+					remoteOriginStep(),
+					step(
+						"gh",
+						[
+							"api",
+							"graphql",
+							"-f",
+							`query=${githubWorktreePrStatusQuery}`,
+							"-f",
+							"owner=dagster-io",
+							"-f",
+							"repo=asdl-tools",
+							"-f",
+							"headRefName=feature/current",
+						],
+						secondGhResult.promise,
+					),
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI);
+				await pi.sessionStart?.({}, ctx);
+				await pi.toolResult?.({ toolName: "edit" });
+				await vi.advanceTimersByTimeAsync(501);
+				await secondDirtyChecked.promise;
+				await flushPromises();
+
+				const pendingStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
+				expect(pendingStatus).toContain("[gt] ↓ main · ↑ - · 2 commits");
+				expect(pendingStatus).toContain("[gh] checking…");
+				expect(pendingStatus).not.toContain("[gh] no PR");
+
+				secondGhResult.resolve({ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) });
+				await flushPromises();
+
+				expect(pi.errors).toEqual([]);
+				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain("[gh] no PR");
+				await pi.sessionShutdown?.();
+			});
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	test("mutating tool refreshes local status without invoking gh", async () => {
@@ -295,7 +409,7 @@ describe("worktree status extension registration", () => {
 			await withTempRoot(makeGraphiteRepo(), async (root) => {
 				const pi = new LifecycleFakePi([
 					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-					ghNoPrStep(),
+					...ghNoPrSteps(),
 					...basicGitStatusScript(),
 					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 					...basicGitStatusScript("main", 2, " M file.txt\n"),
@@ -334,10 +448,10 @@ describe("worktree status extension registration", () => {
 		await withTempRoot(makeGraphiteRepo(), async (root) => {
 			const pi = new LifecycleFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 			const ctx: ExtensionContext = {
@@ -372,7 +486,7 @@ describe("worktree status extension registration", () => {
 						data: { entries: [] },
 					}),
 				}),
-				ghNoPrStep(),
+				...ghNoPrSteps("current-branch"),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
@@ -456,8 +570,9 @@ describe("worktree status extension registration", () => {
 			writeFileSync(join(worktreeRoot, ".git", "HEAD"), "ref: refs/heads/feature/slot-identity\n");
 			const pi = new LifecycleFakePi([
 				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
-				ghNoPrStep(),
+				...ghNoPrSteps("feature/slot-identity"),
 				dirtyStep(" M file.txt\n"),
+				headOidStep(),
 			]);
 			const statuses = new Map<string, string>();
 			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
@@ -516,11 +631,11 @@ describe("worktree status extension registration", () => {
 			);
 
 			const wideFooterRaw = footer.render(200)[0] ?? "";
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158m[wt]\x1B[39m\x1B[38;2;95;102;115m \x1B[39m\x1B[38;2;139;148;158mrepo:\x1B[39m\x1B[38;2;125;211;252masdl-tools\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mwt:\x1B[39m\x1B[38;2;125;211;252mslot-02\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mpwd:\x1B[39m\x1B[38;2;167;139;250mts/packages/pi-extensions\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;139;148;158mbr:\x1B[39m\x1B[38;2;251;191;36mfeature/slot-identity\x1B[39m");
-			expect(wideFooterRaw).toContain("\x1B[38;2;239;68;68m✗\x1B[39m");
+			expect(wideFooterRaw).not.toContain("\x1B[38;2");
+			expect(wideFooterRaw).toContain("\x1B[36masdl-tools\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[36mslot-02\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[36mts/packages/pi-extensions\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
 			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
 			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/packages/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
@@ -541,7 +656,7 @@ describe("worktree status extension registration", () => {
 						data: { entries: [] },
 					}),
 				}),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
@@ -624,7 +739,7 @@ describe("worktree status extension registration", () => {
 						},
 					}),
 				}),
-				ghNoPrStep(),
+				...ghNoPrSteps(),
 				...basicGitStatusScript(),
 			]);
 			const statuses = new Map<string, string>();
