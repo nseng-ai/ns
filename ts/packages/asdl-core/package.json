@@ -13,6 +13,7 @@
     "./cli-entry": "./src/cli-entry.ts",
     "./exec": "./src/exec.ts",
     "./github-cli": "./src/github-cli.ts",
+    "./graphite-metadata": "./src/graphite-metadata.ts",
     "./stdin": "./src/stdin.ts",
     "./temp-files": "./src/temp-files.ts",
     "./git": "./src/git/index.ts",

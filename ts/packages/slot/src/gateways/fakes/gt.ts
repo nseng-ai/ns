@@ -57,13 +57,10 @@ export function fakeStackInfo(overrides: Partial<StackInfo> = {}): StackInfo {
 		trunk: overrides.trunk ?? "master",
 		current: overrides.current ?? "feature/current",
 		ancestors: [...(overrides.ancestors ?? ["master"])],
-		children: [...(overrides.children ?? [])],
 		descendants: [...(overrides.descendants ?? [])],
 		ancestorTermination: overrides.ancestorTermination ?? { type: "completed" },
 		descendantWalk: overrides.descendantWalk ?? { forks: [], childrenCorruptions: [], termination: { type: "completed" } },
 		trunkMarker: overrides.trunkMarker ?? { type: "clean" },
-		unwalkedChildrenCorruptions: [...(overrides.unwalkedChildrenCorruptions ?? [])],
-		emptyBranchNameRows: overrides.emptyBranchNameRows ?? 0,
 	};
 }
 

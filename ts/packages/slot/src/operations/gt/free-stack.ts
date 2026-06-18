@@ -38,13 +38,13 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 	if (stackResult.type === "untracked_branch") return failure("gt_untracked_branch", "current branch is not tracked by Graphite — run `gt track` first");
 	const branches = collectStackBranches(stackResult.stack, { current: currentResult.branch, trunk: trunkResult.branch, downstackOnly: request.downstack, includeCurrent: false });
 	const targets: string[] = [];
-	const seen = new Set<string>();
+	const seenSlotNames = new Set<string>();
 	for (const branch of branches) {
 		if (branch === currentResult.branch || branch === trunkResult.branch) continue;
 		const match = findByBranch(inventory, branch);
 		if (match?.kind !== "slot") continue;
-		if (seen.has(match.record.slotName)) continue;
-		seen.add(match.record.slotName);
+		if (seenSlotNames.has(match.record.slotName)) continue;
+		seenSlotNames.add(match.record.slotName);
 		targets.push(match.record.slotName);
 	}
 	if (targets.length === 0) return ok(buildResult({ current: currentResult.branch, trunk: trunkResult.branch, freed: [], noopReason: "no_slots", downstack: request.downstack }));

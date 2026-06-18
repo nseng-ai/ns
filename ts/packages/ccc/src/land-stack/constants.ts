@@ -12,7 +12,6 @@ export const SQLITE_TIMEOUT_MS = 30_000;
 
 export const BACKUP_REF_NAMESPACE = "refs/ccc/land-backup";
 export const BACKUP_REF_PREV_NAMESPACE = "refs/ccc/land-backup-prev";
-export const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
 export const PR_FIELDS = "number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 
 export const MAX_OUTPUT_TAIL_LINES = 40;

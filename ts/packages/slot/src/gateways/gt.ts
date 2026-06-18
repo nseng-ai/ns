@@ -1,15 +1,29 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
+import {
+	graphiteBranchMetadataQuery,
+	graphiteBranchMetadataSchemaQuery,
+	graphiteMetadataDbPath,
+	graphiteTrunkMarkerStatus,
+	hasExpectedGraphiteBranchMetadataSchema,
+	parseGraphiteBranchMetadataRows,
+	selectGraphiteBranch,
+	walkFirstChildGraphiteDescendants,
+	walkGraphiteAncestors,
+	type GraphiteChildrenCorruption,
+	type GraphiteChildrenCorruptionKind,
+	type GraphiteFork,
+	type GraphiteTrunkMarkerStatus,
+	type GraphiteTopology,
+	type GraphiteWalkTermination,
+} from "@asdl/core/graphite-metadata";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 
 import type { SlotGitGateway } from "./git.ts";
 
 const SLOT_GT_TIMEOUT_MS = 10_000;
 const SQLITE_QUERY_TIMEOUT_MS = 1_000;
-const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
-const REQUIRED_BRANCH_METADATA_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
 
 export interface GtCommandFailure {
 	message: string;
@@ -36,19 +50,10 @@ export type StackResult =
 	| { type: "untracked_branch"; message: string }
 	| { type: "failure"; failure: GtCommandFailure };
 
-export type WalkTermination = { type: "completed" } | { type: "cycle"; branch: string } | { type: "row_missing"; branch: string };
-
-export type ChildrenCorruptionKind = "not_text" | "invalid_json" | "not_list" | "non_string";
-
-export interface ChildrenCorruption {
-	branch: string;
-	kind: ChildrenCorruptionKind;
-}
-
-export interface StackFork {
-	branch: string;
-	children: readonly string[];
-}
+export type WalkTermination = GraphiteWalkTermination;
+export type ChildrenCorruptionKind = GraphiteChildrenCorruptionKind;
+export type ChildrenCorruption = GraphiteChildrenCorruption;
+export type StackFork = GraphiteFork;
 
 export interface DescendantWalk {
 	forks: readonly StackFork[];
@@ -56,19 +61,16 @@ export interface DescendantWalk {
 	termination: WalkTermination;
 }
 
-export type TrunkMarkerStatus = { type: "clean" } | { type: "problem"; terminus: string; terminusState: "row_missing" | "unmarked" | "marked"; markedTrunks: readonly string[] };
+export type TrunkMarkerStatus = GraphiteTrunkMarkerStatus;
 
 export interface StackInfo {
 	trunk: string;
 	current: string;
 	ancestors: readonly string[];
-	children: readonly string[];
 	descendants: readonly string[];
 	ancestorTermination: WalkTermination;
 	descendantWalk: DescendantWalk;
 	trunkMarker: TrunkMarkerStatus;
-	unwalkedChildrenCorruptions: readonly ChildrenCorruption[];
-	emptyBranchNameRows: number;
 }
 
 export interface SlotGtGateway {
@@ -137,7 +139,7 @@ export class RealSlotGtGateway implements SlotGtGateway {
 		const current = await this.resolveCurrentBranch(cwd);
 		if (current.type === "failure") return { type: "failure", failure: current.failure };
 		if (current.type === "detached") return { type: "failure", failure: { message: `HEAD at ${cwd} is detached. Check out a branch first.`, returnCode: null } };
-		return readStackFromMetadataDb(join(commonDir, GRAPHITE_METADATA_DB_NAME), current.branch, this.sqliteRunner);
+		return readStackFromMetadataDb(graphiteMetadataDbPath(commonDir), current.branch, this.sqliteRunner);
 	}
 
 	private async resolveGitCommonDir(cwd: string): Promise<string | null> {
@@ -165,14 +167,6 @@ interface CommandResult {
 	killed: boolean;
 }
 
-interface BranchMetadataRow {
-	name: string;
-	parent: string | null;
-	children: readonly string[];
-	validationResult: string | null;
-	childrenCorruption: ChildrenCorruption | null;
-}
-
 function failureFromCommandResult(result: CommandResult): GtCommandFailure {
 	const output = result.stderr.trim() || result.stdout.trim() || (result.killed ? "command was killed" : "command failed");
 	return { message: output, returnCode: result.code };
@@ -197,48 +191,39 @@ function readStackFromMetadataDb(dbPath: string, currentBranch: string, sqliteRu
 	if (!existsSync(dbPath)) return { type: "failure", failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null } };
 	const loaded = loadBranchMetadata(dbPath, sqliteRunner);
 	if (loaded.type === "failure") return { type: "failure", failure: loaded.failure };
-	const row = loaded.rows.get(currentBranch);
+	const row = selectGraphiteBranch(loaded.topology, currentBranch);
 	if (row === undefined) return { type: "untracked_branch", message: `current branch is not tracked by Graphite: ${currentBranch}` };
-	const ancestors = walkAncestors(loaded.rows, currentBranch);
-	const descendants = walkFirstChildDescendants(loaded.rows, currentBranch);
-	const trunkMarker = trunkMarkerStatus(loaded.rows, ancestors.terminusBranch);
-	const consumed = new Set(descendants.walk.childrenCorruptions.map((corruption) => corruption.branch));
-	const unwalked = [...loaded.rows.values()].flatMap((candidate) => candidate.childrenCorruption !== null && !consumed.has(candidate.childrenCorruption.branch) ? [candidate.childrenCorruption] : []);
+	const ancestors = walkGraphiteAncestors(loaded.topology, currentBranch);
+	const descendantWalk = walkFirstChildGraphiteDescendants(loaded.topology, currentBranch);
+	const trunkMarker = graphiteTrunkMarkerStatus(loaded.topology, ancestors.terminusBranch);
 	return {
 		type: "stack",
 		stack: {
 			trunk: ancestors.ancestors[0] ?? currentBranch,
 			current: currentBranch,
 			ancestors: ancestors.ancestors,
-			children: row.children,
-			descendants: descendants.descendants,
+			descendants: descendantWalk.descendants,
 			ancestorTermination: ancestors.termination,
-			descendantWalk: descendants.walk,
+			descendantWalk: {
+				forks: descendantWalk.forks,
+				childrenCorruptions: descendantWalk.childrenCorruptions,
+				termination: descendantWalk.termination,
+			},
 			trunkMarker,
-			unwalkedChildrenCorruptions: unwalked,
-			emptyBranchNameRows: loaded.emptyBranchNameRows,
 		},
 	};
 }
 
-function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; rows: Map<string, BranchMetadataRow>; emptyBranchNameRows: number } | { type: "failure"; failure: GtCommandFailure } {
-	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, "PRAGMA table_info(branch_metadata)");
+function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; topology: GraphiteTopology } | { type: "failure"; failure: GtCommandFailure } {
+	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, graphiteBranchMetadataSchemaQuery());
 	if (schemaRows.type === "failure") return schemaRows;
-	if (!hasExpectedBranchMetadataSchema(schemaRows.data)) return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
-	const result = runSqliteJsonQuery(sqliteRunner, dbPath, "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata");
+	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data)) return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
+	const result = runSqliteJsonQuery(sqliteRunner, dbPath, graphiteBranchMetadataQuery());
 	if (result.type === "failure") return result;
-	const rows = new Map<string, BranchMetadataRow>();
-	let emptyBranchNameRows = 0;
-	for (const record of metadataRowsFromValue(result.data)) {
-		const branchName = metadataText(record.branch_name);
-		if (branchName === null) {
-			emptyBranchNameRows += 1;
-			continue;
-		}
-		const parsedChildren = parseChildren(branchName, record.children);
-		rows.set(branchName, { name: branchName, parent: metadataText(record.parent_branch_name), children: parsedChildren.children, validationResult: metadataText(record.validation_result), childrenCorruption: parsedChildren.corruption });
-	}
-	return { type: "ok", rows, emptyBranchNameRows };
+	const parsed = parseGraphiteBranchMetadataRows(result.data);
+	if (parsed.type === "not_array") return { type: "failure", failure: { message: "Graphite metadata sqlite output was not an array", returnCode: null } };
+	if (parsed.type === "schema_mismatch") return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
+	return { type: "ok", topology: parsed.topology };
 }
 
 function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, query: string): { type: "ok"; data: unknown } | { type: "failure"; failure: GtCommandFailure } {
@@ -250,84 +235,6 @@ function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, quer
 	} catch {
 		return { type: "failure", failure: { message: "Graphite metadata sqlite output was not valid JSON", returnCode: null } };
 	}
-}
-
-function hasExpectedBranchMetadataSchema(value: unknown): boolean {
-	if (!Array.isArray(value)) return false;
-	const names = new Set<string>();
-	for (const row of value) {
-		if (isRecord(row) && typeof row.name === "string") names.add(row.name);
-	}
-	return REQUIRED_BRANCH_METADATA_COLUMNS.every((column) => names.has(column));
-}
-
-function metadataRowsFromValue(value: unknown): readonly Record<string, unknown>[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter(isRecord);
-}
-
-function parseChildren(branch: string, value: unknown): { children: readonly string[]; corruption: ChildrenCorruption | null } {
-	if (value === null || value === undefined || value === "") return { children: [], corruption: null };
-	if (typeof value !== "string") return { children: [], corruption: { branch, kind: "not_text" } };
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		return { children: [], corruption: { branch, kind: "invalid_json" } };
-	}
-	if (!Array.isArray(parsed)) return { children: [], corruption: { branch, kind: "not_list" } };
-	const children = parsed.filter((child): child is string => typeof child === "string");
-	return { children, corruption: children.length === parsed.length ? null : { branch, kind: "non_string" } };
-}
-
-function walkAncestors(rows: ReadonlyMap<string, BranchMetadataRow>, currentBranch: string): { ancestors: readonly string[]; terminusBranch: string; termination: WalkTermination } {
-	const reversed: string[] = [];
-	let branch = currentBranch;
-	const visited = new Set([currentBranch]);
-	while (true) {
-		const row = rows.get(branch);
-		if (row === undefined) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "row_missing", branch } };
-		const parent = row.parent;
-		if (parent === null) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "completed" } };
-		if (visited.has(parent)) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "cycle", branch: parent } };
-		reversed.push(parent);
-		if (!rows.has(parent)) return { ancestors: [...reversed].reverse(), terminusBranch: parent, termination: { type: "row_missing", branch: parent } };
-		visited.add(parent);
-		branch = parent;
-	}
-}
-
-function walkFirstChildDescendants(rows: ReadonlyMap<string, BranchMetadataRow>, currentBranch: string): { descendants: readonly string[]; walk: DescendantWalk } {
-	const descendants: string[] = [];
-	const forks: StackFork[] = [];
-	const childrenCorruptions: ChildrenCorruption[] = [];
-	let branch = currentBranch;
-	const visited = new Set([currentBranch]);
-	while (true) {
-		const row = rows.get(branch);
-		if (row === undefined) return { descendants, walk: { forks, childrenCorruptions, termination: { type: "row_missing", branch } } };
-		if (row.childrenCorruption !== null) childrenCorruptions.push(row.childrenCorruption);
-		if (row.children.length > 1) forks.push({ branch, children: row.children });
-		const child = row.children[0];
-		if (child === undefined) return { descendants, walk: { forks, childrenCorruptions, termination: { type: "completed" } } };
-		if (visited.has(child)) return { descendants, walk: { forks, childrenCorruptions, termination: { type: "cycle", branch: child } } };
-		descendants.push(child);
-		if (!rows.has(child)) return { descendants, walk: { forks, childrenCorruptions, termination: { type: "row_missing", branch: child } } };
-		visited.add(child);
-		branch = child;
-	}
-}
-
-function trunkMarkerStatus(rows: ReadonlyMap<string, BranchMetadataRow>, terminus: string): TrunkMarkerStatus {
-	const markedTrunks = [...rows.values()].filter((row) => row.validationResult === "TRUNK").map((row) => row.name);
-	const terminusRow = rows.get(terminus);
-	if (terminusRow === undefined) return { type: "problem", terminus, terminusState: "row_missing", markedTrunks };
-	const terminusState = terminusRow.validationResult === "TRUNK" ? "marked" : "unmarked";
-	return terminusState === "marked" && markedTrunks.length === 1 && markedTrunks[0] === terminus ? { type: "clean" } : { type: "problem", terminus, terminusState, markedTrunks };
-}
-
-function metadataText(value: unknown): string | null {
-	return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,8 +1,7 @@
-import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
-import { installMarkerBlock, rcPathForShell, resolveRequestedShell } from "../shell/rc-install.ts";
+import { buildMarkerInstallSurface } from "../shell/marker-install-surface.ts";
 
 export const shellIntegrationBeginMarker = "# >>> slot shell integration >>>";
 export const shellIntegrationEndMarker = "# <<< slot shell integration <<<";
@@ -29,27 +28,28 @@ export type ShellInstallRequest = z.infer<typeof shellInstallRequestSchema>;
 export type ShellShowResult = z.infer<typeof shellShowResultSchema>;
 export type ShellInstallResult = z.infer<typeof shellInstallResultSchema>;
 
+const shellSurface = buildMarkerInstallSurface({
+	beginMarker: shellIntegrationBeginMarker,
+	endMarker: shellIntegrationEndMarker,
+	renderPayload: () => renderShellWrapperScript(),
+	alreadyInstalledMessage: (result) => `slot shell integration already installed in ${result.rc_path}`,
+	installedMessage: (result) => `Installed slot shell integration for ${result.shell} in ${result.rc_path}`,
+});
+
 export async function runShellShow(ctx: SlotCliContext, request: ShellShowRequest) {
-	const selected = resolveRequestedShell(request.shell, ctx.env);
-	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	return ok({ shell: selected.shell, script: renderShellWrapperScript() });
+	return await shellSurface.runShow(ctx, request);
 }
 
 export async function runShellInstall(ctx: SlotCliContext, request: ShellInstallRequest) {
-	const selected = resolveRequestedShell(request.shell, ctx.env);
-	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	const rcPath = rcPathForShell(selected.shell, ctx.env);
-	const installed = await installMarkerBlock({ rcPath, beginMarker: shellIntegrationBeginMarker, payload: renderShellWrapperScript(), endMarker: shellIntegrationEndMarker });
-	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.isAlreadyInstalled });
+	return await shellSurface.runInstall(ctx, request);
 }
 
 export function renderShellShow(result: ShellShowResult): string {
-	return result.script;
+	return shellSurface.renderShow(result);
 }
 
 export function renderShellInstall(result: ShellInstallResult): string {
-	if (result.already_installed) return `slot shell integration already installed in ${result.rc_path}`;
-	return `Installed slot shell integration for ${result.shell} in ${result.rc_path}`;
+	return shellSurface.renderInstall(result);
 }
 
 export function renderShellWrapperScript(): string {

@@ -80,7 +80,9 @@
     before broadening the Graphite dependency beyond `slot gt`.
   - Evidence: `ts/packages/slot` fake-backed scenario/unit tests for up/down/free-stack/exec,
     real read-only `RealSlotGtGateway`, validation recorded in
-    `updates/20260617T145941Z-slot-gt-subgroup.md`.
+    `updates/20260617T145941Z-slot-gt-subgroup.md`; follow-up remediation in PR #1756 centralizes
+    private Graphite metadata parsing/walking in `@asdl/core/graphite-metadata` and keeps slot's
+    Graphite dependency behind the `slot gt` boundary.
 
 - [ ] Port hidden `slot gt exec stack-map-branches`.
   - Deferred from the Graphite subgroup slice because the prework found no current wired consumer and
@@ -103,8 +105,10 @@
     strings, or the JSON-mode cd suppression rule.
   - Evidence: fake-backed TypeScript `slot shell show|install`, `slot completion show|install`,
     marker/idempotency behavior, and clipboard skip/failure coverage are implemented and tested;
-    validation recorded in `updates/20260617T142400Z-slot-shell-completion-fake-backed.md`. Keep this
-    row in progress until the deliberate real-shell parity check is documented.
+    validation recorded in `updates/20260617T142400Z-slot-shell-completion-fake-backed.md`. PR #1756
+    also factors the shared marker-block show/install scaffolding while preserving shell/completion
+    marker constants and payload rendering. Keep this row in progress until the deliberate real-shell
+    parity check is documented.
 
 - [ ] Cut over public docs, wrapper, and distribution to the TypeScript default.
   - Make the standalone TypeScript `slot` CLI the default surface; add `just install-slot`

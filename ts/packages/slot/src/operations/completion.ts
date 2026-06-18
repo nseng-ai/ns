@@ -1,8 +1,8 @@
-import { failure, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
-import { installMarkerBlock, rcPathForShell, resolveRequestedShell, type SupportedShell } from "../shell/rc-install.ts";
+import { buildMarkerInstallSurface } from "../shell/marker-install-surface.ts";
+import type { SupportedShell } from "../shell/rc-install.ts";
 
 export const completionBeginMarker = "# >>> slot completion >>>";
 export const completionEndMarker = "# <<< slot completion <<<";
@@ -29,28 +29,28 @@ export type CompletionInstallRequest = z.infer<typeof completionInstallRequestSc
 export type CompletionShowResult = z.infer<typeof completionShowResultSchema>;
 export type CompletionInstallResult = z.infer<typeof completionInstallResultSchema>;
 
+const completionSurface = buildMarkerInstallSurface({
+	beginMarker: completionBeginMarker,
+	endMarker: completionEndMarker,
+	renderPayload: renderCompletionScript,
+	alreadyInstalledMessage: (result) => `slot completion already installed in ${result.rc_path}`,
+	installedMessage: (result) => `Installed slot completion for ${result.shell} in ${result.rc_path}`,
+});
+
 export async function runCompletionShow(ctx: SlotCliContext, request: CompletionShowRequest) {
-	const selected = resolveRequestedShell(request.shell, ctx.env);
-	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	return ok({ shell: selected.shell, script: renderCompletionScript(selected.shell) });
+	return await completionSurface.runShow(ctx, request);
 }
 
 export async function runCompletionInstall(ctx: SlotCliContext, request: CompletionInstallRequest) {
-	const selected = resolveRequestedShell(request.shell, ctx.env);
-	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	const script = renderCompletionScript(selected.shell);
-	const rcPath = rcPathForShell(selected.shell, ctx.env);
-	const installed = await installMarkerBlock({ rcPath, beginMarker: completionBeginMarker, payload: script, endMarker: completionEndMarker });
-	return ok({ shell: selected.shell, rc_path: installed.rcPath, already_installed: installed.isAlreadyInstalled });
+	return await completionSurface.runInstall(ctx, request);
 }
 
 export function renderCompletionShow(result: CompletionShowResult): string {
-	return result.script;
+	return completionSurface.renderShow(result);
 }
 
 export function renderCompletionInstall(result: CompletionInstallResult): string {
-	if (result.already_installed) return `slot completion already installed in ${result.rc_path}`;
-	return `Installed slot completion for ${result.shell} in ${result.rc_path}`;
+	return completionSurface.renderInstall(result);
 }
 
 export function renderCompletionScript(shell: SupportedShell): string {
