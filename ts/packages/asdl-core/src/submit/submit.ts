@@ -7,6 +7,7 @@ import {
 	formatPostSubmitFailureOutput,
 	formatPreflightFailureOutput,
 	formatPrewriteFailureOutput,
+	formatTrunkOutOfDatePreflightOutput,
 	formatReadinessRecheckFailureOutput,
 	formatRestackConfirmationPrompt,
 	formatRestackConflictOutput,
@@ -26,6 +27,10 @@ const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view
 const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
+const SUBMIT_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive";
+const SUBMIT_DRY_RUN_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive --dry-run";
+const RESTACK_COMMAND_DISPLAY = "gt restack --no-interactive";
+const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
 const SUBMIT_TIMEOUT_MS = 600_000;
@@ -66,6 +71,23 @@ interface RunGtOptions {
 export type SubmitSemanticFailureCause = { kind: "empty_branch_skipped"; branchName?: string | undefined };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
+export type SubmitPreflightFailureCause = "trunk_out_of_date";
+export type SubmitFailurePresentation = "deterministic" | "unknown";
+
+export interface SubmitFailureTranscriptCommand {
+	commandDisplay?: string | undefined;
+	stdout: string;
+	stderr: string;
+	exitCode: number;
+	startupError?: string | undefined;
+	killed?: boolean | undefined;
+}
+
+export interface SubmitFailureTranscript {
+	phase: string;
+	summary?: string | undefined;
+	commands: readonly SubmitFailureTranscriptCommand[];
+}
 
 export type SubmitPreflightResult =
 	| {
@@ -79,6 +101,7 @@ export type SubmitPreflightResult =
 	| {
 			kind: "failed";
 			output: SubmitCommandOutput;
+			cause?: SubmitPreflightFailureCause | undefined;
 	  };
 
 export type SubmitRestackResult =
@@ -136,6 +159,8 @@ export interface SubmitCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
+	failurePresentation?: SubmitFailurePresentation | undefined;
+	rawFailureTranscript?: SubmitFailureTranscript | undefined;
 }
 
 export interface SubmitPrDescriptionOptions {
@@ -175,6 +200,9 @@ export class RealSubmitGateway implements SubmitGateway {
 		}
 		if (!output.startupError && !output.killed && detectRestackNeeded(joinOutput(output))) {
 			return { kind: "restack_required", output };
+		}
+		if (!output.startupError && !output.killed && detectTrunkOutOfDate(joinOutput(output))) {
+			return { kind: "failed", output, cause: "trunk_out_of_date" };
 		}
 		return { kind: "failed", output };
 	}
@@ -282,16 +310,25 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	emitSubmitProgress(options, "checking Graphite submit readiness");
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
-		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output));
+		if (readiness.cause === "trunk_out_of_date") {
+			return failure(normalizedFailureExitCode(readiness.output), formatTrunkOutOfDatePreflightOutput(readiness.output), {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript("preflight", SUBMIT_DRY_RUN_COMMAND_DISPLAY, readiness.output),
+			});
+		}
+		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output), {
+			failurePresentation: "unknown",
+			rawFailureTranscript: commandFailureTranscript("preflight", SUBMIT_DRY_RUN_COMMAND_DISPLAY, readiness.output),
+		});
 	}
 	if (readiness.kind === "restack_required") {
 		emitSubmitProgress(options, "Graphite requires a restack before submit");
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
-			return failure(1, formatRestackRequiredOutput(readiness.output));
+			return failure(1, formatRestackRequiredOutput(readiness.output), { failurePresentation: "deterministic" });
 		}
 		if (restackDecision === "declined") {
-			return failure(1, formatRestackDeclinedOutput(readiness.output));
+			return failure(1, formatRestackDeclinedOutput(readiness.output), { failurePresentation: "deterministic" });
 		}
 
 		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
@@ -301,7 +338,10 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
 		if (rechecked.kind !== "ready") {
-			return failure(normalizedFailureExitCode(rechecked.output), formatReadinessRecheckFailureOutput(rechecked.output));
+			return failure(normalizedFailureExitCode(rechecked.output), formatReadinessRecheckFailureOutput(rechecked.output), {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript("readiness recheck", SUBMIT_DRY_RUN_COMMAND_DISPLAY, rechecked.output),
+			});
 		}
 	}
 
@@ -315,25 +355,33 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		onProgress: (message) => emitSubmitProgress(options, message),
 	});
 	if (prewrite.kind === "failed") {
-		return failure(prewrite.exitCode ?? 1, formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches));
+		const stderr = formatPrewriteFailureOutput(prewrite.error, prewrite.amendedBranches);
+		return failure(prewrite.exitCode ?? 1, stderr, {
+			failurePresentation: "unknown",
+			rawFailureTranscript: textFailureTranscript("pre-submit metadata", stderr),
+		});
 	}
 
 	emitSubmitProgress(options, "running gt submit");
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
-		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output, prewrite.prepared));
+		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output, prewrite.prepared), {
+			failurePresentation: "unknown",
+			rawFailureTranscript: commandFailureTranscript("submit", SUBMIT_COMMAND_DISPLAY, submitted.output),
+		});
 	}
 
 	emitSubmitProgress(options, "verifying submitted PRs");
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
 	if (submitted.semanticFailureCause !== undefined || shouldFailPostSubmitVerification(submitted, currentPr)) {
-		return failure(
-			1,
-			formatPostSubmitFailureOutput({
-				submitted,
-				currentPr,
-			}),
-		);
+		const stderr = formatPostSubmitFailureOutput({
+			submitted,
+			currentPr,
+		});
+		return failure(1, stderr, {
+			failurePresentation: isDeterministicPostSubmitFailure(submitted, currentPr) ? "deterministic" : "unknown",
+			rawFailureTranscript: postSubmitFailureTranscript(stderr, submitted, currentPr),
+		});
 	}
 
 	const prLinks = currentPr.kind === "present" ? mergePrLinks(submitted.prLinks, currentPr.prLinks) : mergePrLinks(submitted.prLinks, []);
@@ -346,7 +394,11 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		onProgress: (message) => emitSubmitProgress(options, message),
 	});
 	if (!descriptionResult.ok) {
-		return failure(1, formatPrDescriptionFailureText(prLinks, descriptionResult.failures));
+		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
+		return failure(1, stderr, {
+			failurePresentation: "deterministic",
+			rawFailureTranscript: textFailureTranscript("PR description", stderr),
+		});
 	}
 
 	const successText = prLinks.length > 0
@@ -380,10 +432,16 @@ async function runRestackBeforeSubmit(
 	emitSubmitProgress(options, "running gt restack");
 	const restack = await options.gateway.restackCurrentStack(commandParams);
 	if (restack.kind === "conflict") {
-		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles));
+		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles), {
+			failurePresentation: "deterministic",
+			rawFailureTranscript: commandFailureTranscript("restack", RESTACK_COMMAND_DISPLAY, restack.output),
+		});
 	}
 	if (restack.kind === "failed") {
-		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output));
+		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output), {
+			failurePresentation: "unknown",
+			rawFailureTranscript: commandFailureTranscript("restack", RESTACK_COMMAND_DISPLAY, restack.output),
+		});
 	}
 	return undefined;
 }
@@ -432,6 +490,10 @@ function shouldFailPostSubmitVerification(submitted: Extract<SubmitRunResult, { 
 	return true;
 }
 
+function isDeterministicPostSubmitFailure(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {
+	return submitted.semanticFailureCause === undefined && currentPr.kind === "no_current_pr";
+}
+
 function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
 	return {
 		stdout: result.stdout,
@@ -460,11 +522,67 @@ function success(stdout: string): SubmitCommandResult {
 	};
 }
 
-function failure(exitCode: number, stderr: string): SubmitCommandResult {
+interface SubmitFailureResultOptions {
+	failurePresentation: SubmitFailurePresentation;
+	rawFailureTranscript?: SubmitFailureTranscript | undefined;
+}
+
+function failure(exitCode: number, stderr: string, options?: SubmitFailureResultOptions): SubmitCommandResult {
 	return {
 		exitCode,
 		stdout: "",
 		stderr: stderr.endsWith("\n") ? stderr : `${stderr}\n`,
+		...(options?.failurePresentation === undefined ? {} : { failurePresentation: options.failurePresentation }),
+		...(options?.rawFailureTranscript === undefined ? {} : { rawFailureTranscript: options.rawFailureTranscript }),
+	};
+}
+
+function commandFailureTranscript(phase: string, commandDisplay: string, output: SubmitCommandOutput): SubmitFailureTranscript {
+	return {
+		phase,
+		commands: [
+			{
+				commandDisplay,
+				stdout: output.stdout,
+				stderr: output.stderr,
+				exitCode: normalizedFailureExitCode(output),
+				...(output.startupError === undefined ? {} : { startupError: output.startupError }),
+				...(output.killed === true ? { killed: true } : {}),
+			},
+		],
+	};
+}
+
+function textFailureTranscript(phase: string, summary: string): SubmitFailureTranscript {
+	return { phase, summary, commands: [] };
+}
+
+function postSubmitFailureTranscript(
+	summary: string,
+	submitted: Extract<SubmitRunResult, { kind: "success" }>,
+	currentPr: CurrentPrVerificationResult,
+): SubmitFailureTranscript {
+	return {
+		phase: "post-submit verification",
+		summary,
+		commands: [
+			{
+				commandDisplay: SUBMIT_COMMAND_DISPLAY,
+				stdout: submitted.output.stdout,
+				stderr: submitted.output.stderr,
+				exitCode: submitted.output.exitCode,
+				...(submitted.output.startupError === undefined ? {} : { startupError: submitted.output.startupError }),
+				...(submitted.output.killed === true ? { killed: true } : {}),
+			},
+			{
+				commandDisplay: CURRENT_PR_COMMAND_DISPLAY,
+				stdout: currentPr.output.stdout,
+				stderr: currentPr.output.stderr,
+				exitCode: currentPr.output.exitCode,
+				...(currentPr.output.startupError === undefined ? {} : { startupError: currentPr.output.startupError }),
+				...(currentPr.output.killed === true ? { killed: true } : {}),
+			},
+		],
 	};
 }
 
@@ -500,6 +618,10 @@ function detectRestackNeeded(output: string): boolean {
 		/restack (?:is )?required/i.test(strippedOutput);
 
 	return mentionsRestack && requiresRestackBeforeSubmit;
+}
+
+function detectTrunkOutOfDate(output: string): boolean {
+	return /trunk branch is out of date and could not be updated/i.test(stripTerminalEscapes(output));
 }
 
 function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {

@@ -9,7 +9,7 @@ import {
 
 import { RealCheckpointGateway, runCheckpointIfPending } from "../checkpoint.ts";
 import { failed, ok, z, type SdlCommand, type SdlContext } from "../sdk.ts";
-import { maybeAppendSubmitFailureInterpretation } from "../submit-failure-interpretation.ts";
+import { maybeFormatUnknownSubmitFailureWithModel } from "../submit-failure-interpretation.ts";
 import { createSdlCommandRunner, SdlCommandExecApi } from "./command-runner.ts";
 
 const submitSchema = z.object({
@@ -25,7 +25,8 @@ Environment:
   ASDL_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
   ASDL_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
-  SDL_SUBMIT_FAILURE_MODEL     Model reference for interpreting failed submit output.
+  SDL_SUBMIT_FAILURE_MODEL     Model reference for interpreting unknown submit failures.
+  SDL_SUBMIT_FAILURE_LOG_DIR   Optional directory for raw unknown-failure logs.
 
 The command owns its output and exit code. It does not support --format.`,
 	schema: submitSchema,
@@ -41,7 +42,7 @@ The command owns its output and exit code. It does not support --format.`,
 			textGeneration: ctx.model,
 		});
 		if (checkpoint.kind === "failed") {
-			const checkpointFailure = await maybeAppendSubmitFailureInterpretation(
+			const checkpointFailure = await maybeFormatUnknownSubmitFailureWithModel(
 				{ stdout: "", stderr: formatCheckpointBeforeSubmitFailure(checkpoint.output.stderr), exitCode: checkpoint.output.exitCode },
 				ctx,
 			);
@@ -72,7 +73,7 @@ The command owns its output and exit code. It does not support --format.`,
 						confirmRestack: (prompt: SubmitRestackConfirmationPrompt) => ctx.confirm?.(prompt.title, prompt.message) ?? false,
 					}),
 		});
-		const interpretedResult = await maybeAppendSubmitFailureInterpretation(result, ctx);
+		const interpretedResult = await maybeFormatUnknownSubmitFailureWithModel(result, ctx);
 		writeCommandResultOutput(interpretedResult, ctx);
 		return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
 	},
