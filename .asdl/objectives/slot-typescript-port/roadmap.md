@@ -147,12 +147,13 @@
     `uv lock --check`, `just python-check`, `just python-test`, `just dprint-check`,
     `just docs-check`, and `just check`.
 
-- [ ] Feed lessons into the umbrella porting playbook and reconcile the migration ledger.
+- [x] Feed lessons into the umbrella porting playbook and reconcile the migration ledger.
   - Record reusable worktree-pool and shell-integration/OS-coupling lessons (the first such port) for
     later capability ports; recommend any second-consumer-proven seam to `ts-cli-foundation`. Update
     the umbrella ledger/roadmap to mark `slot` TS-default and reconcile any stale sibling rows.
   - Policy: directly executable once repeated evidence exists; do not generalize from a single slice.
-  - Evidence: playbook + ledger edits and an umbrella Semantic Update.
+  - Evidence: umbrella ledger/roadmap/playbook edits and Semantic Update
+    `.asdl/objectives/port-asdl-toolkit-to-typescript/updates/2026-06-18T172324Z-slot-cutover-playbook-lessons.md`.
 
 ## Parked
 
