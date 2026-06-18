@@ -49,21 +49,21 @@ The Objective can close when future code work demonstrates all of the following:
 
 Assumptions:
 
-- Existing stack-map cmux parsing and branch/slot matching are reusable enough to seed the dashboard model or provide a trustworthy baseline for a rebaseline.
-- cmux exposes enough current-window and focus data to identify workspaces, selected/active surfaces, and focus targets without heuristic scraping.
-- A discardable prototype can remain throwaway and will not prematurely harden around the wrong app-shell shape.
-- The dashboard can be useful with conservative attention buckets even when it under-detects some intervention needs.
+- Existing stack-map cmux parsing and branch/slot matching are reusable enough to seed the dashboard model or provide a trustworthy baseline for a rebaseline. Confirmed: the dashboard model loader reuses the stack-map model for per-workspace branch evidence, and `sdlcc stack-map` shares the stack-map data paths.
+- cmux exposes enough current-window and focus data to identify workspaces, selected/active surfaces, and focus targets without heuristic scraping. Holding: the model loads `cmux tree --json` and focuses via `cmux rpc surface.focus`; no transcript/heuristic scraping was needed.
+- A discardable prototype can remain throwaway and will not prematurely harden around the wrong app-shell shape. Bypassed: implementation built the real app shell directly without a separate throwaway prototype/debrief phase, so this assumption was not exercised as planned (see roadmap notes and the landed-state update).
+- The dashboard can be useful with conservative attention buckets even when it under-detects some intervention needs. Still active: only structural buckets (`here`, `active`, `selected`, `multi-surface`, `unmatched-branch`, `idle/open`) are emitted; richer attention detection remains future work.
 
 Risks:
 
-- Refactoring `sdlcc` into a shared app shell may grow beyond a simple mode split if rendering, key handling, activation, or model refresh assumptions are too stack-map-specific.
-- Conservative attention may under-detect workspaces that need intervention, reducing dashboard usefulness until richer evidence sources are designed.
-- Current-window-only scope may need a later all-windows toggle once same-window utility is proven.
-- Focus routing could expose ambiguous cmux states; the chooser path needs to be clear enough that ambiguity does not feel like a broken Enter key.
+- Refactoring `sdlcc` into a shared app shell may grow beyond a simple mode split if rendering, key handling, activation, or model refresh assumptions are too stack-map-specific. Largely de-risked: dashboard and stack map ship as two modes in one shell sharing a single `StyledText` frame, one `interpretAppKey` map, shared model loading, and a shared activation path.
+- Conservative attention may under-detect workspaces that need intervention, reducing dashboard usefulness until richer evidence sources are designed. Still open and accepted for v1.
+- Current-window-only scope may need a later all-windows toggle once same-window utility is proven. Still open; tracked as deferred future work.
+- Focus routing could expose ambiguous cmux states; the chooser path needs to be clear enough that ambiguity does not feel like a broken Enter key. Partially materialized: a chooser is modeled in the dashboard reducer, but the app shell does not yet surface it — ambiguous Enter currently shows a status message instead of an interactive chooser. Carried as a remaining v1 risk and roadmap follow-up.
 
 ## Open Questions
 
-- What exact temporary command or screen name should host the discardable prototype?
-- What final key should switch between dashboard and stack-map modes in the shared app shell?
-- What polling interval best balances freshness with UI stability and command overhead?
-- If future layout mutation becomes desirable, should it belong in `sdlcc`, CCC, or a separate launcher?
+- ~~What exact temporary command or screen name should host the discardable prototype?~~ Resolved/mooted: no separate prototype command was hosted; the dashboard was built directly as the no-args `sdlcc` app shell.
+- ~~What final key should switch between dashboard and stack-map modes in the shared app shell?~~ Resolved: `Tab`/`Shift+Tab` switch modes, with `1`/`2` jumping directly to Dashboard/Stack Map.
+- ~~What polling interval best balances freshness with UI stability and command overhead?~~ Resolved for v1: automatic polling every 3 seconds plus manual `r`.
+- If future layout mutation becomes desirable, should it belong in `sdlcc`, CCC, or a separate launcher? Still open; deferred with the other layout-mutation future work.
