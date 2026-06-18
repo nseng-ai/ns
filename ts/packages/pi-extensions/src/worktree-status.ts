@@ -179,16 +179,19 @@ interface ActiveSession {
 	ghStatus?: WorktreeGhStatus | undefined;
 }
 
+interface RefreshChannel {
+	run(session: ActiveSession): Promise<void>;
+	markPendingIfInFlight(session: ActiveSession): boolean;
+	clearSession(session: ActiveSession): void;
+	clearPending(): void;
+}
+
 export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	let nextSessionId = 0;
 	let activeSession: ActiveSession | undefined;
 	let localRefreshTimer: ReturnType<typeof setTimeout> | undefined;
-	let localRefreshInFlightSession: ActiveSession | undefined;
-	let localRefreshPendingSession: ActiveSession | undefined;
-	let remoteRefreshInFlightSession: ActiveSession | undefined;
-	let remoteRefreshPendingSession: ActiveSession | undefined;
 	let periodicRefreshTimer: ReturnType<typeof setInterval> | undefined;
 	let gitWatcherRetryTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatcherRescanTimer: ReturnType<typeof setTimeout> | undefined;
@@ -218,10 +221,8 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			session.closed = true;
 			session.abortController.abort();
 			session.ctx.ui.setFooter?.(undefined);
-			if (localRefreshInFlightSession === session) localRefreshInFlightSession = undefined;
-			if (localRefreshPendingSession === session) localRefreshPendingSession = undefined;
-			if (remoteRefreshInFlightSession === session) remoteRefreshInFlightSession = undefined;
-			if (remoteRefreshPendingSession === session) remoteRefreshPendingSession = undefined;
+			localRefreshChannel.clearSession(session);
+			remoteRefreshChannel.clearSession(session);
 		}
 
 		activeSession = undefined;
@@ -270,73 +271,71 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 		renderSessionStatus(session);
 	}
 
-	async function runLocalRefresh(session: ActiveSession): Promise<void> {
-		if (!isActiveSession(session)) return;
-		if (localRefreshInFlightSession === session) {
-			localRefreshPendingSession = session;
-			return;
-		}
-		if (localRefreshInFlightSession !== undefined) {
-			if (isActiveSession(localRefreshInFlightSession)) {
-				localRefreshPendingSession = session;
+	function makeRefreshChannel(
+		work: (session: ActiveSession) => Promise<void>,
+		onPending: (session: ActiveSession, run: (session: ActiveSession) => Promise<void>) => void,
+	): RefreshChannel {
+		let inFlightSession: ActiveSession | undefined;
+		let pendingSession: ActiveSession | undefined;
+
+		async function run(session: ActiveSession): Promise<void> {
+			if (!isActiveSession(session)) return;
+			if (inFlightSession === session) {
+				pendingSession = session;
 				return;
 			}
-			localRefreshInFlightSession = undefined;
-		}
+			if (inFlightSession !== undefined) {
+				if (isActiveSession(inFlightSession)) {
+					pendingSession = session;
+					return;
+				}
+				inFlightSession = undefined;
+			}
 
-		localRefreshInFlightSession = session;
-		try {
-			await refreshLocalNow(session);
-		} catch {
-			// Background status refresh must never crash pi.
-		} finally {
-			if (localRefreshInFlightSession === session) localRefreshInFlightSession = undefined;
-			if (localRefreshPendingSession === session) {
-				localRefreshPendingSession = undefined;
-				if (isActiveSession(session)) scheduleLocalRefresh(session);
+			inFlightSession = session;
+			try {
+				await work(session);
+			} catch {
+				// Background status refresh must never crash pi.
+			} finally {
+				if (inFlightSession === session) inFlightSession = undefined;
+				if (pendingSession === session) {
+					pendingSession = undefined;
+					if (isActiveSession(session)) onPending(session, run);
+				}
 			}
 		}
+
+		return {
+			run,
+			markPendingIfInFlight(session) {
+				if (inFlightSession !== session) return false;
+				pendingSession = session;
+				return true;
+			},
+			clearSession(session) {
+				if (inFlightSession === session) inFlightSession = undefined;
+				if (pendingSession === session) pendingSession = undefined;
+			},
+			clearPending() {
+				pendingSession = undefined;
+			},
+		};
 	}
 
-	async function runRemoteRefresh(session: ActiveSession): Promise<void> {
-		if (!isActiveSession(session)) return;
-		if (remoteRefreshInFlightSession === session) {
-			remoteRefreshPendingSession = session;
-			return;
-		}
-		if (remoteRefreshInFlightSession !== undefined) {
-			if (isActiveSession(remoteRefreshInFlightSession)) {
-				remoteRefreshPendingSession = session;
-				return;
-			}
-			remoteRefreshInFlightSession = undefined;
-		}
-
-		remoteRefreshInFlightSession = session;
-		try {
-			await refreshRemoteNow(session);
-		} catch {
-			// Background status refresh must never crash pi.
-		} finally {
-			if (remoteRefreshInFlightSession === session) remoteRefreshInFlightSession = undefined;
-			if (remoteRefreshPendingSession === session) {
-				remoteRefreshPendingSession = undefined;
-				if (isActiveSession(session)) void runRemoteRefresh(session);
-			}
-		}
-	}
+	const localRefreshChannel = makeRefreshChannel(refreshLocalNow, scheduleLocalRefresh);
+	const remoteRefreshChannel = makeRefreshChannel(refreshRemoteNow, (session, run) => {
+		void run(session);
+	});
 
 	function scheduleLocalRefresh(session: ActiveSession): void {
 		if (!session.hasUI || !isActiveSession(session)) return;
 		if (localRefreshTimer !== undefined) return;
-		if (localRefreshInFlightSession === session) {
-			localRefreshPendingSession = session;
-			return;
-		}
+		if (localRefreshChannel.markPendingIfInFlight(session)) return;
 
 		localRefreshTimer = setTimeout(() => {
 			localRefreshTimer = undefined;
-			void runLocalRefresh(session);
+			void localRefreshChannel.run(session);
 		}, WATCH_DEBOUNCE_MS);
 	}
 
@@ -345,7 +344,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearTimeout(localRefreshTimer);
 			localRefreshTimer = undefined;
 		}
-		await Promise.all([runLocalRefresh(session), runRemoteRefresh(session)]);
+		await Promise.all([localRefreshChannel.run(session), remoteRefreshChannel.run(session)]);
 	}
 
 	function stopRefreshTimers(): void {
@@ -357,15 +356,15 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 			clearInterval(periodicRefreshTimer);
 			periodicRefreshTimer = undefined;
 		}
-		localRefreshPendingSession = undefined;
-		remoteRefreshPendingSession = undefined;
+		localRefreshChannel.clearPending();
+		remoteRefreshChannel.clearPending();
 	}
 
 	function startPeriodicRemoteRefresh(session: ActiveSession): void {
 		if (!session.hasUI || !isActiveSession(session) || periodicRefreshTimer !== undefined) return;
 		periodicRefreshTimer = setInterval(() => {
 			if (!isActiveSession(session)) return;
-			void runRemoteRefresh(session);
+			void remoteRefreshChannel.run(session);
 		}, REMOTE_STATUS_REFRESH_MS);
 		const maybeTimer = periodicRefreshTimer as { unref?: () => void };
 		maybeTimer.unref?.();
