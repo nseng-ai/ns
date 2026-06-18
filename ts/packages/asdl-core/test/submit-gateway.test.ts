@@ -200,11 +200,11 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack skips local diff reads for existing PR branches", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◉ feature/demo (current)\n│\n◯ master\n" }),
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◯ master\n│\n◉ feature/demo (current)\n" }),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
 			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], {
 				stdout: "feature/demo\n\nPR #456 (Open) Demo PR\nhttps://github.com/acme/project/pull/456\n\nParent: master\n",
 			}),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "master"], { stdout: "master\n" }),
 		]);
 		const gateway = new RealSubmitMetadataGateway(runner.runner);
 
@@ -229,7 +229,8 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack fails when branch info reports a PR without a link", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◉ feature/demo (current)\n│\n◯ master\n" }),
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◯ master\n│\n◉ feature/demo (current)\n" }),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
 			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], { stdout: "feature/demo\n\nPR #456 (Open) Demo PR\n\nParent: master\n" }),
 		]);
 		const gateway = new RealSubmitMetadataGateway(runner.runner);
@@ -242,11 +243,11 @@ describe("RealSubmitMetadataGateway", () => {
 
 	test("inspectSubmitStack reads local diffs and commits for new submit branches", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◯ feature/demo (current)\n│\n◯ master\n" }),
+			step("gt", ["log", "--stack", "--reverse", "--no-interactive"], { stdout: "◯ master\n│\n◯ feature/demo (current)\n" }),
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
 			step("gt", ["branch", "info", "--no-interactive", "--branch", "feature/demo"], { stdout: "feature/demo\n\nParent: master\n" }),
 			step("git", ["log", "--format=%B%x00", "master..feature/demo"], { stdout: "Add widget\n\nImplement widget.\0" }),
 			step("git", ["diff", "master..feature/demo"], { stdout: "diff --git a/src/widget.ts b/src/widget.ts\n+code\n" }),
-			step("gt", ["branch", "info", "--no-interactive", "--branch", "master"], { stdout: "master\n" }),
 		]);
 		const gateway = new RealSubmitMetadataGateway(runner.runner);
 

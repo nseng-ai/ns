@@ -68,7 +68,8 @@ function successfulSubmitResponses(): ScriptedExecResponse[] {
 	return [
 		...cleanCheckpointResponses(),
 		{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-		{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+		{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+		{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 		{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 		{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
 		{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
@@ -157,6 +158,7 @@ describe("sdl submit CLI", () => {
 		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: "ready\n" });
 		expect(run.liveOutput).not.toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		expect(formattedExecCalls(run.context)).toContain("gt branch info --no-interactive");
+		expect(formattedExecCalls(run.context)).not.toContain("gt branch info --no-interactive --branch main");
 		expect(formattedExecCalls(run.context)).toContain("gh pr diff 123");
 		expect(formattedExecCalls(run.context)).toContainEqual(expect.stringMatching(/^gh pr edit 123 --title Generated PR --body-file /));
 	});
@@ -188,7 +190,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
 					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
@@ -237,7 +240,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ feature/base\n◉ feature/top (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◯ feature/base\n◉ feature/top (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/base", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{ match: "gt branch info --no-interactive --branch feature/top", result: { stdout: "Parent: feature/base\n" } },
 					{ match: "git log --format=%B%x00 feature/base..feature/top", result: { stdout: "Add top branch\0" } },
@@ -305,7 +309,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{
 						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
@@ -349,7 +354,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${GRAPHITE_PR_URL}\n` } },
 					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
@@ -378,7 +384,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: "Submitted stack without PR URL\n" } },
 					{ match: "gt branch info --no-interactive", result: { code: 1, stderr: "No PR found for current branch.\n" } },
@@ -586,7 +593,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{
 						match: "gt submit -nps --no-ai --no-interactive --no-view --no-web",
@@ -626,7 +634,8 @@ describe("sdl submit CLI", () => {
 				exec: [
 					...cleanCheckpointResponses(),
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web --dry-run", result: { stdout: "ready\n" } },
-					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◉ feature/demo (current)\n" } },
+					{ match: "gt log --stack --reverse --no-interactive", result: { stdout: "◯ main\n◉ feature/demo (current)\n" } },
+					{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
 					{ match: "gt branch info --no-interactive --branch feature/demo", result: { stdout: `Parent: main\nPR: ${PR_URL}\n` } },
 					{ match: "gt submit -nps --no-ai --no-interactive --no-view --no-web", result: { stdout: `Submitted ${PR_URL}\n` } },
 					{ match: "gt branch info --no-interactive", result: { stdout: `Current PR: ${PR_URL}\n` } },
