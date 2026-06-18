@@ -7,7 +7,8 @@ import {
 	type StackMapCommandOptions,
 	type StackMapCommandOutput,
 } from "../../src/stack-map-model-loader.ts";
-import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor, interpretStackMapKey, printableCharacterFromStackMapKey } from "../../src/stack-map-renderer.ts";
+import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-effects.ts";
+import { interpretStackMapKey, printableCharacterFromStackMapKey } from "../../src/stack-map-tab.ts";
 import {
 	buildVisibleStackMapRows,
 	choicesForCmuxActivationPlan,
@@ -354,7 +355,8 @@ describe("renderStackMapFrame", () => {
 		const header = tableLines[0];
 		const trunkLine = lines.find((line) => /^\s*◯\s+main/.test(line));
 
-		expect(frame).toContain("Diagnostics:\n- loaded");
+		expect(frame).not.toContain("Diagnostics:");
+		expect(frame).toContain("d show diagnostics (1)");
 		expect(header).toContain("TOPO");
 		expect(header).toContain("  BRANCH");
 		expect(header).not.toContain("TOPO │ BRANCH");
@@ -369,6 +371,30 @@ describe("renderStackMapFrame", () => {
 		expect(frame).not.toContain("│ main");
 		expect(tableLines.length).toBe(4);
 		expect(tableLines.map(tableSeparatorIndexes)).toEqual(tableLines.map(() => tableSeparatorIndexes(header ?? "")));
+	});
+
+	test("toggles the diagnostics block via toggle-diagnostics", () => {
+		const initial = createInitialStackMapState(MODEL);
+		expect(initial.areDiagnosticsShown).toBe(false);
+
+		const shown = reduceStackMapState(MODEL, initial, { type: "toggle-diagnostics" });
+		const shownFrame = renderStackMapFrame(MODEL, shown);
+		expect(shown.areDiagnosticsShown).toBe(true);
+		expect(shownFrame).toContain("Diagnostics:\n- loaded");
+		expect(shownFrame).toContain("d hide diagnostics");
+
+		const hiddenAgain = reduceStackMapState(MODEL, shown, { type: "toggle-diagnostics" });
+		const hiddenFrame = renderStackMapFrame(MODEL, hiddenAgain);
+		expect(hiddenAgain.areDiagnosticsShown).toBe(false);
+		expect(hiddenFrame).not.toContain("Diagnostics:");
+		expect(hiddenFrame).toContain("d show diagnostics (1)");
+	});
+
+	test("maps the d key to toggle-diagnostics in rows mode", () => {
+		expect(interpretStackMapKey(createInitialStackMapState(MODEL), { name: "d", sequence: "d" })).toEqual({
+			type: "action",
+			action: { type: "toggle-diagnostics" },
+		});
 	});
 
 	test("renders query mode and empty-result feedback", () => {

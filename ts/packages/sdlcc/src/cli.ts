@@ -7,7 +7,6 @@ import { rawCommand } from "@asdl/clinkr/raw";
 
 import { runRealCommand, type StackMapCommandRunner } from "./command-runner.ts";
 import { formatSdlccCmuxReportHuman, formatSdlccCmuxReportJson, runSdlccCmuxReport } from "./cmux-report.ts";
-import { loadStackMapModel } from "./stack-map-model-loader.ts";
 
 const VERSION = "0.1.0";
 
@@ -74,25 +73,36 @@ export async function runSdlccCli(args: readonly string[], deps: SdlccCliDeps = 
 	const env = deps.env ?? process.env;
 	const runCommand = deps.runCommand ?? runRealCommand;
 
+	const context: SdlccCliContext = { cwd, env, runCommand, stdout, stderr };
+
 	if (args.length === 0) {
-		await (deps.startTui ?? startDefaultTui)();
+		if (deps.startTui !== undefined) {
+			await deps.startTui();
+		} else {
+			await startDefaultTui(context);
+		}
 		return 0;
 	}
 
 	const io = resolveIo({ stdout, stderr });
-	return await buildCli().run(args, { context: { cwd, env, runCommand, stdout, stderr }, io });
+	return await buildCli().run(args, { context, io });
 }
 
 function runtimeInfo(): string {
 	return "runtime: bun\nentry_point: sdlcc bin sdlcc -> ts/packages/sdlcc/src/cli.ts\n";
 }
 
-async function startDefaultTui(): Promise<void> {
-	const [{ startStackMapTui }, model] = await Promise.all([
-		import("./stack-map-renderer.ts"),
-		loadStackMapModel(),
+async function startDefaultTui(context: SdlccCliContext): Promise<void> {
+	const [{ startTabHostTui }, { createTabController }, { tabModules }] = await Promise.all([
+		import("./tabs/tab-host-renderer.ts"),
+		import("./tabs/tab-controller.ts"),
+		import("./tabs/registry.ts"),
 	]);
-	await startStackMapTui({ model });
+	const controllers = tabModules.map(createTabController);
+	await startTabHostTui({
+		controllers,
+		deps: { cwd: context.cwd, env: context.env, runCommand: context.runCommand },
+	});
 }
 
 if (import.meta.main) {
