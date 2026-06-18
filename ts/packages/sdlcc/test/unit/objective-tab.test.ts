@@ -40,11 +40,11 @@ describe("objectiveTabModule.loadModel", () => {
 			return {
 				code: 0,
 				stdout: envelope({
-					trunk_branch: "master",
-					root_path: ".asdl/objectives",
-					status_filter: "active",
-					names_only: false,
-					records: [{ slug: "alpha", status: "open", latest_update_iso: "2026-06-01T00:00:00Z" }],
+					trunkBranch: "master",
+					rootPath: ".asdl/objectives",
+					statusFilter: "active",
+					namesOnly: false,
+					records: [{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-01T00:00:00Z", hasOutstandingChanges: false }],
 				}),
 				stderr: "",
 				killed: false,
