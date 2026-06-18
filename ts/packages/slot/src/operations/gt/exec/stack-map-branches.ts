@@ -1,7 +1,8 @@
 import { failure, ok } from "@asdl/clinkr";
-import type { GraphiteBranchTopology, GraphiteTopology, GraphiteTopologyParseDiagnostics } from "@asdl/core/graphite-metadata";
+import { walkGraphiteAncestors, type GraphiteBranchTopology, type GraphiteTopology, type GraphiteTopologyParseDiagnostics } from "@asdl/core/graphite-metadata";
 import { z } from "zod";
 
+import { deduplicateOrderedStrings } from "../../../collections.ts";
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip } from "../../../gateways/git.ts";
 import type { StackInfo } from "../../../gateways/gt.ts";
@@ -77,11 +78,11 @@ export async function runGtStackMapBranches(ctx: SlotCliContext, request: GtStac
 		recentBranches,
 		localBranches,
 	});
-	const warnings = dedupeWarnings([
+	const warnings = [...deduplicateOrderedStrings([
 		...renderGraphWarnings(graphResult.graph.diagnostics),
 		...renderStackWarnings(stackResult.stack),
 		...selection.warnings,
-	]);
+	])];
 	if (ctx.shouldWriteCdDirective) {
 		for (const warning of warnings) ctx.stderr(`${warning}\n`);
 	}
@@ -163,27 +164,16 @@ function selectVisibleBranches(options: {
 }
 
 function collectAncestors(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
-	const branches: string[] = [];
-	const warnings: string[] = [];
-	const visited = new Set<string>();
-	let cursor: string | undefined = options.branch;
-	while (cursor !== undefined) {
-		if (visited.has(cursor)) {
-			warnings.push(`cycle detected in Graphite parent metadata at ${cursor}; ancestor selection stopped`);
-			return { branches, warnings };
-		}
-		visited.add(cursor);
-		const row = options.topology.get(cursor);
-		if (row === undefined) {
-			warnings.push(`parent branch ${cursor} is missing from Graphite metadata; ancestor selection stopped`);
-			return { branches, warnings };
-		}
-		branches.push(cursor);
-		cursor = row.parent;
-	}
-	return { branches, warnings };
+	const walk = walkGraphiteAncestors(options.topology, options.branch);
+	const warning = renderWalkTerminationWarning({ kind: "ancestor", termination: walk.termination, label: "selection" });
+	return {
+		branches: [options.branch, ...walk.ancestors.filter((branch) => options.topology.has(branch))],
+		warnings: warning === null ? [] : [warning],
+	};
 }
 
+// Keep this stack-map-specific traversal local: walkGraphiteSubtree does not report missing child rows,
+// but this command preserves Python-compatible descendant-selection warnings for missing metadata rows.
 function collectDescendants(options: { readonly branch: string; readonly topology: GraphiteTopology }): { readonly branches: readonly string[]; readonly warnings: readonly string[] } {
 	const branches: string[] = [];
 	const warnings: string[] = [];
@@ -251,15 +241,4 @@ function renderStackWarnings(stack: StackInfo): string[] {
 	if (descendantProblem !== null) warnings.push(descendantProblem);
 	warnings.push(...renderTrunkMarkerWarnings(stack.trunkMarker));
 	return warnings;
-}
-
-function dedupeWarnings(warnings: readonly string[]): string[] {
-	const seen = new Set<string>();
-	const deduped: string[] = [];
-	for (const warning of warnings) {
-		if (seen.has(warning)) continue;
-		seen.add(warning);
-		deduped.push(warning);
-	}
-	return deduped;
 }
