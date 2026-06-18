@@ -35,7 +35,8 @@ describe("dashboard", () => {
 		expect(model.windows[0]!.workspaces[0]!.statusBuckets).toContain("here");
 		expect(model.windows[0]!.workspaces[1]!.statusBuckets).toContain("multi-surface");
 		expect(model.windows[0]!.workspaces[1]!.statusBuckets).toContain("unmatched-branch");
-		expect(renderDashboardFrame(model, createInitialDashboardState(model))).toContain("Keys:");
+		const frameText = renderDashboardFrame(model, createInitialDashboardState(model)).chunks.map((chunk) => chunk.text).join("");
+		expect(frameText).toContain("Keys:");
 	});
 
 	test("keeps selection by workspace ref across refresh", () => {

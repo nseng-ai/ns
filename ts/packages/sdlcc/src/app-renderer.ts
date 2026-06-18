@@ -1,6 +1,7 @@
-import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
+import { BoxRenderable, createCliRenderer, StyledText, stringToStyledText, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
 
 import { runRealCommand } from "./command-runner.ts";
+import { bold, dim, fg, PALETTE, plain, stackFrames } from "./frame-style.ts";
 import { loadDashboardModel } from "./dashboard-model-loader.ts";
 import { createInitialDashboardState, planDashboardActivation, reduceDashboardState, renderDashboardFrame, type DashboardActivationTarget, type DashboardModel, type DashboardState } from "./dashboard.ts";
 import { loadStackMapModel } from "./stack-map-model-loader.ts";
@@ -54,8 +55,8 @@ export async function startAppShell(options: StartAppShellOptions): Promise<void
 
 	try {
 		renderer = await createCliRenderer({ exitOnCtrlC: true });
-		const root = new BoxRenderable(renderer, { id: "sdlcc-app-root", width: "100%", height: "100%", flexDirection: "column", border: true, borderStyle: "rounded", padding: 1, title: "sdlcc", titleAlignment: "center" });
-		const frame = new TextRenderable(renderer, { id: "sdlcc-app-frame", content: renderAppFrame(activeTab, dashboardModel, dashboardState, stackMapModel, stackMapState), width: "100%", height: "100%" });
+		const root = new BoxRenderable(renderer, { id: "sdlcc-app-root", width: "100%", height: "100%", flexDirection: "column", border: true, borderStyle: "rounded", borderColor: PALETTE.accent, padding: 1, title: " sdlcc ", titleAlignment: "center" });
+		const frame = new TextRenderable(renderer, { id: "sdlcc-app-frame", content: renderAppFrame(activeTab, dashboardModel, dashboardState, stackMapModel, stackMapState), width: "100%", height: "100%", fg: PALETTE.text });
 		root.add(frame);
 		renderer.root.add(root);
 		const rerender = (): void => {
@@ -196,6 +197,12 @@ function createDashboardActivationExecutor(): DashboardActivationExecutor {
 	};
 }
 
-function renderAppFrame(activeTab: "dashboard" | "stack-map", dashboardModel: DashboardModel, dashboardState: DashboardState, stackMapModel: Awaited<ReturnType<typeof loadStackMapModel>>, stackMapState: StackMapState): string {
-	return [`Tabs: [${activeTab === "dashboard" ? "*" : " "}] Dashboard  [${activeTab === "stack-map" ? "*" : " "}] Stack Map`, "", activeTab === "dashboard" ? renderDashboardFrame(dashboardModel, dashboardState) : renderStackMapFrame(stackMapModel, stackMapState)].join("\n");
+function renderAppFrame(activeTab: "dashboard" | "stack-map", dashboardModel: DashboardModel, dashboardState: DashboardState, stackMapModel: Awaited<ReturnType<typeof loadStackMapModel>>, stackMapState: StackMapState): StyledText {
+	const body = activeTab === "dashboard" ? renderDashboardFrame(dashboardModel, dashboardState) : stringToStyledText(renderStackMapFrame(stackMapModel, stackMapState));
+	return stackFrames([renderAppTabs(activeTab), body]);
+}
+
+function renderAppTabs(activeTab: "dashboard" | "stack-map"): StyledText {
+	const tab = (label: string, active: boolean): StyledText["chunks"][number] => active ? bold(fg(PALETTE.mauve)(`● ${label}`)) : dim(fg(PALETTE.muted)(`○ ${label}`));
+	return new StyledText([tab("Dashboard", activeTab === "dashboard"), plain("    "), tab("Stack Map", activeTab === "stack-map")]);
 }

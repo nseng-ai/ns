@@ -1,3 +1,6 @@
+import type { StyledText, TextChunk } from "@opentui/core";
+
+import { bold, dim, fg, highlightRow, joinLines, pad, PALETTE, plain } from "./frame-style.ts";
 import type { StackMapModel, StackMapBranchNode } from "./stack-map.ts";
 
 export type DashboardStatusBucket = "here" | "active" | "selected" | "idle/open" | "multi-surface" | "unmatched-branch" | "diagnostic";
@@ -144,82 +147,169 @@ export function planDashboardActivation(model: DashboardModel, state: DashboardS
 	return { type: "choose-surface", workspaceRef: workspace.ref, choices: surfaces.map((surface) => ({ target: surfaceTarget(workspace, surface), title: surface.title, type: surface.type, tty: surface.tty, selected: surface.selected, focused: surface.focused, here: surface.here })) };
 }
 
-export function renderDashboardFrame(model: DashboardModel, state: DashboardState): string {
+const DASHBOARD_KEYS: readonly (readonly [string, string])[] = [
+	["↑/k", "previous"],
+	["↓/j", "next"],
+	["Enter", "focus"],
+	["r", "refresh"],
+	["Tab", "switch"],
+	["q", "quit"],
+];
+
+export function renderDashboardFrame(model: DashboardModel, state: DashboardState): StyledText {
 	const window = selectedWindow(model);
 	const rows = window?.workspaces ?? [];
 	const selected = selectedWorkspace(model, state);
-	const lines: string[] = [];
-	const titleParts = [model.title, `window=${window?.ref ?? "none"}`];
-	if (window?.key !== undefined) titleParts.push(`key=${window.key}`);
-	lines.push(titleParts.join("  "));
-	if (model.diagnostics.length > 0) {
-		lines.push("Diagnostics:");
-		for (const diagnostic of model.diagnostics) lines.push(`- ${diagnostic}`);
-	}
-	lines.push("");
+	const lines: TextChunk[][] = [];
+	lines.push(renderDashboardHero(model, window, rows));
+	if (model.diagnostics.length > 0) lines.push(...renderDiagnostics(model.diagnostics));
+	lines.push([]);
+	lines.push([bold(fg(PALETTE.accent)("Workspaces"))]);
 	lines.push(formatWorkspaceHeader(rows));
 	lines.push(formatWorkspaceRule(rows));
 	if (rows.length === 0) {
-		lines.push("  No cmux workspaces are visible in the current window.");
+		lines.push([dim(fg(PALETTE.muted)("  No cmux workspaces are visible in the current window."))]);
 	} else {
-		for (const workspace of rows) {
-			const cursor = workspace.ref === state.selectedWorkspaceRef ? "› " : "  ";
-			lines.push(`${cursor}${formatWorkspaceRow(workspace, rows)}`);
-		}
+		for (const workspace of rows) lines.push(formatWorkspaceRow(workspace, rows, workspace.ref === state.selectedWorkspaceRef));
 	}
-	lines.push("");
+	lines.push([]);
 	lines.push(...renderSelectedWorkspaceDetails(selected));
 	if (state.statusMessage !== undefined) {
-		lines.push("");
-		lines.push(`State: ${state.statusMessage}`);
+		lines.push([]);
+		lines.push([bold(fg(PALETTE.yellow)("Status  ")), plain(state.statusMessage)]);
 	}
-	lines.push("");
-	lines.push("Keys: ↑/k previous  ↓/j next  Enter focus  r refresh  Tab switch  q quit");
-	return lines.join("\n");
+	lines.push([]);
+	lines.push(renderKeysFooter());
+	return joinLines(lines);
 }
 
-function formatWorkspaceHeader(rows: readonly DashboardWorkspace[]): string {
-	const widths = dashboardTableWidths(rows);
-	return `  ${"WORKSPACE".padEnd(widths.workspace)}  ${"STATE".padEnd(widths.state)}  ${"CMUX".padEnd(widths.cmux)}  BRANCH`;
+function renderKeysFooter(): TextChunk[] {
+	const chunks: TextChunk[] = [dim(fg(PALETTE.muted)("Keys: "))];
+	DASHBOARD_KEYS.forEach(([key, label], index) => {
+		if (index > 0) chunks.push(dim(fg(PALETTE.muted)("  ")));
+		chunks.push(bold(fg(PALETTE.subtle)(key)));
+		chunks.push(dim(fg(PALETTE.muted)(` ${label}`)));
+	});
+	return chunks;
 }
 
-function formatWorkspaceRule(rows: readonly DashboardWorkspace[]): string {
-	const widths = dashboardTableWidths(rows);
-	return `  ${"─".repeat(widths.workspace)}  ${"─".repeat(widths.state)}  ${"─".repeat(widths.cmux)}  ${"─".repeat(24)}`;
+function renderDashboardHero(model: DashboardModel, window: DashboardWindow | undefined, rows: readonly DashboardWorkspace[]): TextChunk[] {
+	const surfaceCount = rows.reduce((count, workspace) => count + workspace.surfaces.length, 0);
+	const branchCount = new Set(rows.flatMap((workspace) => workspace.surfaces.flatMap((surface) => surface.branch === undefined ? [] : [surface.branch]))).size;
+	const windowLabel = window === undefined ? "no window" : `window ${window.ref}${window.key === undefined ? "" : ` · key ${window.key}`}`;
+	return [
+		bold(fg(PALETTE.accent)(model.title)),
+		dim(fg(PALETTE.subtle)(` · ${windowLabel} · ${rows.length} workspaces · ${surfaceCount} surfaces · ${branchCount} branches`)),
+	];
 }
 
-function formatWorkspaceRow(workspace: DashboardWorkspace, rows: readonly DashboardWorkspace[]): string {
+function renderDiagnostics(diagnostics: readonly string[]): TextChunk[][] {
+	return [[], [bold(fg(PALETTE.red)("Diagnostics"))], ...diagnostics.map((diagnostic): TextChunk[] => [fg(PALETTE.red)(`  ! ${diagnostic}`)])];
+}
+
+function formatWorkspaceHeader(rows: readonly DashboardWorkspace[]): TextChunk[] {
 	const widths = dashboardTableWidths(rows);
-	return `${workspace.title.padEnd(widths.workspace)}  ${formatWorkspaceState(workspace).padEnd(widths.state)}  ${formatCmuxSummary(workspace).padEnd(widths.cmux)}  ${formatBranchSummary(workspace)}`;
+	const text = `  ${"".padEnd(2)} ${"Workspace".padEnd(widths.workspace)}  ${"Status".padEnd(widths.state)}  ${"Cmux".padEnd(widths.cmux)}  Branch`;
+	return [bold(fg(PALETTE.subtle)(text))];
+}
+
+function formatWorkspaceRule(rows: readonly DashboardWorkspace[]): TextChunk[] {
+	const widths = dashboardTableWidths(rows);
+	const text = `  ${"─".repeat(2)} ${"─".repeat(widths.workspace)}  ${"─".repeat(widths.state)}  ${"─".repeat(widths.cmux)}  ${"─".repeat(28)}`;
+	return [dim(fg(PALETTE.muted)(text))];
+}
+
+function formatWorkspaceRow(workspace: DashboardWorkspace, rows: readonly DashboardWorkspace[], selected: boolean): TextChunk[] {
+	const widths = dashboardTableWidths(rows);
+	const stateText = formatWorkspaceState(workspace);
+	const cmuxText = formatCmuxSummary(workspace);
+	const chunks: TextChunk[] = [
+		plain("  "),
+		bold(fg(PALETTE.accent)(selected ? "▶" : " ")),
+		plain("  "),
+		selected ? bold(fg(PALETTE.text)(workspace.title)) : fg(PALETTE.text)(workspace.title),
+		pad(widths.workspace, workspace.title.length),
+		plain("  "),
+		...formatWorkspaceStateChunks(workspace),
+		pad(widths.state, stateText.length),
+		plain("  "),
+		...formatCmuxSummaryChunks(cmuxText),
+		pad(widths.cmux, cmuxText.length),
+		plain("  "),
+		formatBranchSummaryChunk(formatBranchSummary(workspace)),
+	];
+	return selected ? highlightRow(chunks) : chunks;
 }
 
 function dashboardTableWidths(rows: readonly DashboardWorkspace[]): { readonly workspace: number; readonly state: number; readonly cmux: number } {
 	return {
-		workspace: Math.max("WORKSPACE".length, ...rows.map((workspace) => workspace.title.length)),
-		state: Math.max("STATE".length, ...rows.map((workspace) => formatWorkspaceState(workspace).length)),
-		cmux: Math.max("CMUX".length, ...rows.map((workspace) => formatCmuxSummary(workspace).length)),
+		workspace: Math.max("Workspace".length, ...rows.map((workspace) => workspace.title.length)),
+		state: Math.max("Status".length, ...rows.map((workspace) => formatWorkspaceState(workspace).length)),
+		cmux: Math.max("Cmux".length, ...rows.map((workspace) => formatCmuxSummary(workspace).length)),
 	};
 }
 
+function bucketLabel(bucket: DashboardStatusBucket): string {
+	switch (bucket) {
+		case "here":
+			return "here";
+		case "active":
+			return "active";
+		case "selected":
+			return "selected";
+		case "idle/open":
+			return "idle";
+		case "multi-surface":
+			return "multi";
+		case "unmatched-branch":
+			return "branch?";
+		case "diagnostic":
+			return "diag";
+	}
+}
+
+function bucketColor(bucket: DashboardStatusBucket): string {
+	switch (bucket) {
+		case "here":
+			return PALETTE.accent;
+		case "active":
+			return PALETTE.green;
+		case "selected":
+			return PALETTE.mauve;
+		case "idle/open":
+			return PALETTE.muted;
+		case "multi-surface":
+			return PALETTE.yellow;
+		case "unmatched-branch":
+			return PALETTE.peach;
+		case "diagnostic":
+			return PALETTE.red;
+	}
+}
+
 function formatWorkspaceState(workspace: DashboardWorkspace): string {
-	const labels = workspace.statusBuckets.map((bucket) => {
-		switch (bucket) {
-			case "idle/open":
-				return "idle";
-			case "multi-surface":
-				return "multi";
-			case "unmatched-branch":
-				return "branch?";
-			default:
-				return bucket;
-		}
+	return workspace.statusBuckets.map((bucket) => bucketLabel(bucket)).join(" · ") || "idle";
+}
+
+function formatWorkspaceStateChunks(workspace: DashboardWorkspace): TextChunk[] {
+	if (workspace.statusBuckets.length === 0) return [dim(fg(PALETTE.muted)("idle"))];
+	const chunks: TextChunk[] = [];
+	workspace.statusBuckets.forEach((bucket, index) => {
+		if (index > 0) chunks.push(dim(fg(PALETTE.muted)(" · ")));
+		chunks.push(fg(bucketColor(bucket))(bucketLabel(bucket)));
 	});
-	return labels.join(", ") || "idle";
+	return chunks;
 }
 
 function formatCmuxSummary(workspace: DashboardWorkspace): string {
 	const noun = workspace.surfaces.length === 1 ? "surface" : "surfaces";
 	return `${workspace.surfaces.length} ${noun}`;
+}
+
+function formatCmuxSummaryChunks(text: string): TextChunk[] {
+	const separatorIndex = text.indexOf(" ");
+	if (separatorIndex === -1) return [fg(PALETTE.accent)(text)];
+	return [fg(PALETTE.accent)(text.slice(0, separatorIndex)), dim(fg(PALETTE.muted)(text.slice(separatorIndex)))];
 }
 
 function formatBranchSummary(workspace: DashboardWorkspace): string {
@@ -229,29 +319,71 @@ function formatBranchSummary(workspace: DashboardWorkspace): string {
 	return "—";
 }
 
-function renderSelectedWorkspaceDetails(workspace: DashboardWorkspace | undefined): readonly string[] {
-	if (workspace === undefined) return ["Selected: none"];
-	const lines = [`Selected: ${workspace.title}  ${workspace.ref}`];
-	if (workspace.description !== undefined && workspace.description.trim() !== "") lines.push(`Description: ${workspace.description}`);
+function formatBranchSummaryChunk(text: string): TextChunk {
+	return text === "—" ? dim(fg(PALETTE.muted)(text)) : fg(PALETTE.subtle)(text);
+}
+
+function renderSelectedWorkspaceDetails(workspace: DashboardWorkspace | undefined): TextChunk[][] {
+	if (workspace === undefined) return [[bold(fg(PALETTE.accent)("Selected workspace"))], [dim(fg(PALETTE.muted)("  none"))]];
+	const lines: TextChunk[][] = [[
+		bold(fg(PALETTE.accent)("Selected workspace")),
+		plain("  "),
+		fg(PALETTE.text)(workspace.title),
+		dim(fg(PALETTE.muted)(` · ${workspace.ref}`)),
+	]];
+	if (workspace.description !== undefined && workspace.description.trim() !== "") lines.push([dim(fg(PALETTE.subtle)(`  ${workspace.description}`))]);
 	if (workspace.surfaces.length === 0) {
-		lines.push("  No surfaces.");
+		lines.push([dim(fg(PALETTE.muted)("  No surfaces."))]);
 		return lines;
 	}
-	lines.push("  SURFACE                         TYPE       TTY       STATE");
-	lines.push("  ─────────────────────────────── ────────── ───────── ─────────────────");
+	const widths = surfaceTableWidths(workspace.surfaces);
+	lines.push([bold(fg(PALETTE.subtle)(`  ${"Surface".padEnd(widths.title)}  ${"Type".padEnd(widths.type)}  ${"TTY".padEnd(widths.tty)}  State`))]);
+	lines.push([dim(fg(PALETTE.muted)(`  ${"─".repeat(widths.title)}  ${"─".repeat(widths.type)}  ${"─".repeat(widths.tty)}  ${"─".repeat(20)}`))]);
 	for (const surface of workspace.surfaces) {
-		lines.push(`  ${surface.title.padEnd(31)} ${surface.type.padEnd(10)} ${(surface.tty ?? "—").padEnd(9)} ${formatSurfaceState(surface)}`);
+		const tty = surface.tty ?? "—";
+		lines.push([
+			plain("  "),
+			fg(PALETTE.text)(surface.title),
+			pad(widths.title, surface.title.length),
+			plain("  "),
+			dim(fg(PALETTE.subtle)(surface.type)),
+			pad(widths.type, surface.type.length),
+			plain("  "),
+			dim(fg(PALETTE.muted)(tty)),
+			pad(widths.tty, tty.length),
+			plain("  "),
+			...formatSurfaceStateChunks(surface),
+		]);
 	}
 	return lines;
 }
 
-function formatSurfaceState(surface: DashboardSurface): string {
-	const labels = [];
-	if (surface.here) labels.push("here");
-	if (surface.focused) labels.push("focused");
-	if (surface.selected || surface.selectedInPane) labels.push("selected");
-	if (surface.active) labels.push("active");
-	return labels.join(", ") || "idle";
+function surfaceTableWidths(surfaces: readonly DashboardSurface[]): { readonly title: number; readonly type: number; readonly tty: number } {
+	return {
+		title: Math.max("Surface".length, ...surfaces.map((surface) => surface.title.length)),
+		type: Math.max("Type".length, ...surfaces.map((surface) => surface.type.length)),
+		tty: Math.max("TTY".length, ...surfaces.map((surface) => (surface.tty ?? "—").length)),
+	};
+}
+
+function surfaceStateParts(surface: DashboardSurface): readonly (readonly [string, string])[] {
+	const parts: (readonly [string, string])[] = [];
+	if (surface.here) parts.push(["here", PALETTE.accent]);
+	if (surface.focused) parts.push(["focused", PALETTE.accent]);
+	if (surface.selected || surface.selectedInPane) parts.push(["selected", PALETTE.mauve]);
+	if (surface.active) parts.push(["active", PALETTE.green]);
+	return parts;
+}
+
+function formatSurfaceStateChunks(surface: DashboardSurface): TextChunk[] {
+	const parts = surfaceStateParts(surface);
+	if (parts.length === 0) return [dim(fg(PALETTE.muted)("idle"))];
+	const chunks: TextChunk[] = [];
+	parts.forEach(([label, color], index) => {
+		if (index > 0) chunks.push(dim(fg(PALETTE.muted)(" · ")));
+		chunks.push(fg(color)(label));
+	});
+	return chunks;
 }
 
 function refreshDashboardState(previousModel: DashboardModel, state: DashboardState, nextModel: DashboardModel): DashboardState {
