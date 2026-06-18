@@ -1,19 +1,20 @@
 ---
 name: ccc-branch-triage
-description: Use when the user wants to triage outstanding Graphite/GitHub branches or stacks for landing, retirement, restacking, or deferral with cmux workspace awareness; detect branches open in cmux by workspace cwd + Git branch; preserve the root checkout and prompt the user to switch to a slot for mutations.
+description: Use when the user wants to triage outstanding Graphite/GitHub branches or stacks for landing, retirement, restacking, or deferral with cmux workspace awareness; detect branches open in cmux by workspace cwd + Git branch; preserve the root checkout; ask the user to confirm a target branch; and, on confirmation, open that branch in a new cmux workspace.
 ---
 
 # ccc-branch-triage
 
-Process outstanding Graphite/GitHub branches one at a time for landing, retirement/freeing/deletion, restacking, or deferral. The distinguishing safety gate is cmux occupancy: before recommending or mutating, join each cmux workspace's current directory to the Git branch checked out there. Workspace titles and descriptions are advisory only.
+Process outstanding Graphite/GitHub branches one at a time for landing, retirement/freeing/deletion, restacking, deferral, or opening a focused cmux workspace for follow-up work. The distinguishing safety gate is cmux occupancy: before recommending or mutating, join each cmux workspace's current directory to the Git branch checked out there. Workspace titles and descriptions are advisory only.
 
 ## Safety contract
 
 - Inventory, classification, and option presentation are read-only.
+- Opening a cmux workspace for a selected branch is a supervised handoff action, not a landing/restack/delete action. It is allowed from the root checkout only when it does not change the root repository checkout's branch.
 - Never change the root repository checkout's branch. Read-only inventory may run from root, but branch-changing mutations from root are refused.
-- Before any mutation, refresh PR, Graphite, Git, slot/worktree, and cmux facts.
-- Ask for explicit user confirmation before every mutation.
-- If this session is in the root checkout and a mutation would require branch-specific state, stop and tell the user which slot/worktree to switch to, then rerun this workflow there. If no suitable slot exists, report that a slot/worktree is needed; do not allocate one automatically in v1.
+- Before any mutation or cmux workspace opening, refresh PR, Graphite, Git, slot/worktree, and cmux facts.
+- Ask for explicit user confirmation before every mutation and before opening a cmux workspace.
+- If this session is in the root checkout and a mutation would require branch-specific state, first offer to open a cmux workspace for the target branch. If the user wants to mutate immediately instead, stop and tell the user which slot/worktree to switch to, then rerun this workflow there.
 - Dirty or active cmux workspaces are `Do not touch automatically` unless the user explicitly chooses to inspect from that workspace.
 - Dirty detached workspaces are high risk; never free, delete, overwrite, or retarget them automatically.
 - Do not parse `gt ls`, `gt log`, or other human-facing Graphite display output for machine topology. Use plumbing/structured sources where possible; use display commands only as human visual confirmation.
@@ -110,6 +111,49 @@ These merged or closed PR branches/local slots may be freed or deleted only afte
 
 These are active, dirty, dirty detached, duplicate-active, or otherwise high-risk workspaces. Do not free/delete/overwrite them automatically.
 
+## Confirmed cmux open procedure
+
+After presenting the branch classifications, choose a single recommended target branch when there is an obvious next branch. If there is no obvious target, present the top candidates and ask the user to choose one. Do not stop at a passive `cd <slot>` instruction.
+
+Before opening anything, ask an explicit confirmation question with this information:
+
+```text
+Open a new cmux workspace for this branch?
+
+Target branch: <branch>
+PR: <number/state or none>
+Reason: <why this is the recommended target>
+Slot/worktree: <existing clean slot, or "will check out into a clean managed slot">
+cmux status: <not open, or open refs/badges>
+```
+
+On confirmation:
+
+1. Refresh target facts only: PR view, `git worktree list --porcelain`, `git -C <candidate-cwd> status --porcelain`, cmux tree/workspace list, and Graphite parent/children or structured stack inventory where relevant.
+2. If the target branch is already open in cmux, do not silently create a duplicate workspace. Offer to use the existing workspace, or ask a second explicit confirmation before opening a duplicate.
+3. If any associated worktree is dirty, active, detached, or ambiguous, stop and report the risk instead of opening a new workspace automatically.
+4. Resolve a worktree for the branch without changing the root checkout:
+
+   ```bash
+   uv run asdl slot checkout <branch> --format json --no-clipboard
+   ```
+
+   Use the returned `data.worktree_path` and `data.branch_name`. If checkout fails, report the failure and stop.
+
+5. Open a focused cmux workspace for that worktree:
+
+   ```bash
+   cmux new-workspace \
+     --name '<branch>' \
+     --description 'asdl-tools/<branch>' \
+     --cwd '<worktree_path>' \
+     --focus true
+   ```
+
+6. Report the opened branch and worktree. Do not land, restack, free, delete, or close PRs as part of this open action.
+
+If the active environment exposes the CCC Pi command surface and the user explicitly confirmed the same branch, `/ccc:workspace:open-branch <branch>` is an acceptable equivalent to steps 4-5 because it owns the same slot-checkout plus `cmux new-workspace` behavior.
+
 ## Mutation procedures
 
 Mutations are supervised. Always perform the final freshness check first, present the exact action and risk, then ask for explicit confirmation.
@@ -178,7 +222,9 @@ Use this shape when the appropriate action would mutate branch-specific state fr
 ```text
 This action would require changing branch state, and this session is running in the root checkout.
 I will not change the root workspace checkout.
-Switch to the branch's slot/worktree and rerun this workflow:
+I can open a new cmux workspace for the target branch instead, after your confirmation.
+
+To mutate directly, switch to the branch's slot/worktree and rerun this workflow:
 
   cd <slot-worktree>
   # rerun your branch-triage command/request here
