@@ -39,6 +39,10 @@ export interface SlotGcOutcome {
 export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<SlotGcPlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	if (inventory.records.length === 0) return { type: "failure", failure: { error_type: "pool_empty", message: "No managed slots configured. Run `slot init --size N` first." } };
+	const prRecords = inventory.records.filter((record) => record.branch !== null && record.operation === null);
+	const prBranches = prRecords.flatMap((record) => record.branch === null ? [] : [record.branch]);
+	const prLookup = await ctx.pr.getPrsForBranches(prBranches);
+	if (prLookup.type === "failure") return { type: "failure", failure: { error_type: "pr_lookup_failed", message: prFailureMessage(prLookup.failure, "gh api graphql exited") } };
 	const entries: SlotGcEntry[] = [];
 	let wouldFreeCount = 0;
 	for (const record of inventory.records) {
@@ -47,15 +51,13 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 			entries.push(entryFromRecord(record, "skipped_operation", { message: slotOperationMessage(record, { action: "running slot gc" }) }));
 			continue;
 		}
-		const lookup = await ctx.pr.getPrForBranch(record.branch);
+		const lookup = prLookup.resultsByBranch.get(record.branch);
+		if (lookup === undefined) return { type: "failure", failure: { error_type: "pr_lookup_failed", message: `PR lookup did not return a result for ${record.branch}` } };
 		if (lookup.type === "miss") {
 			entries.push(entryFromRecord(record, "kept_no_pr"));
 			continue;
 		}
-		if (lookup.type === "failure") {
-			entries.push(entryFromRecord(record, "error", { message: prFailureMessage(lookup.failure, "gh pr view exited") }));
-			continue;
-		}
+		if (lookup.type === "failure") return { type: "failure", failure: { error_type: "pr_lookup_failed", message: prFailureMessage(lookup.failure, "gh api graphql exited") } };
 		if (lookup.pr.state === "OPEN") {
 			entries.push(entryFromRecord(record, "kept_open_pr", { pr: lookup.pr }));
 			continue;

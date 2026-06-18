@@ -16,6 +16,18 @@ describe("slot gc CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { freed_count: 1, kept_count: 2, dry_run: true, entries: [{ action: "would_free" }, { action: "kept_open_pr" }, { action: "kept_no_pr" }] } });
+		expect(run.pr.operations()).toEqual([{ type: "get-prs-for-branches", branches: ["feature/merged", "feature/open", "feature/no-pr"] }]);
+		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("fails the command when batch PR lookup fails", async () => {
+		const run = runScenario(["gc", "--dry-run", "--format", "json"], {
+			git: { worktrees: [slotWorktree("slot-01", "feature/merged")], localBranches: ["master", "feature/merged"] },
+			pr: { batchLookupFailure: "GraphQL failed" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({ error_type: "pr_lookup_failed", message: "GraphQL failed" });
+		expect(run.pr.operations()).toEqual([{ type: "get-prs-for-branches", branches: ["feature/merged"] }]);
 		expect(run.git.operations()).toEqual([]);
 	});
 
