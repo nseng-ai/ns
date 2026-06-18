@@ -4,7 +4,7 @@
 
 - [ ] Inventory concrete GitHub feedback interactions used by PR-address and the planned stack variant.
   - Include `download-feedback`, `PrAddressGitHubGateway`, review-thread pagination/comment hydration, PR reviews, discussion comments, PR lookup, and direct review-thread mutation needs such as replying to and resolving review threads.
-  - Evidence: summarize the current duplicated or prompt-level GraphQL/`gh` mechanics that the primitive layer is meant to remove, including the observed `addPullRequestReviewThreadReply` + `resolveReviewThread` shell-loop pattern used during PR #1750 feedback triage.
+  - Evidence: summarize the current duplicated or prompt-level GraphQL/`gh` mechanics that the primitive layer is meant to remove, including the observed case where an agent handled multiple roaster inline findings by pairing review-thread IDs with reply bodies, invoking `addPullRequestReviewThreadReply`, then invoking `resolveReviewThread` for each thread from shell. PRs and review-thread links may be cited as provenance, but the Objective record should inline enough context that they are not required reading.
 
 - [ ] Design the narrow `@asdl/core` primitive surface for PR feedback operations.
   - Favor small composable operations over a workflow-level download API.
@@ -21,6 +21,7 @@
 
 - [ ] Capture primitive-pushdown evidence for follow-on documentation work.
   - Record what complexity moved from prompts/workflows into tested primitives, what composition remains flexible, and what tradeoffs or failed assumptions appeared.
+  - Keep evidence self-contained: cite PRs, review threads, or transcripts only as provenance after inlining the relevant mechanics, decisions, and before/after comparison in the Objective record.
 
 ## Parked
 
