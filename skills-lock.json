@@ -182,6 +182,16 @@
       "sourceType": "local",
       "computedHash": "2025b093bc9958510d3bbd0995a57489dcb010b7d6ca0a3546748b1b4fbcd9e8"
     },
+    "objective-branch-refresh": {
+      "source": "skills/objective-branch-refresh",
+      "sourceType": "local",
+      "computedHash": "ab4aadd2406a8b9115dd6e12806fdbf3099bda271ef6bbbfc633fad97af8dec3"
+    },
+    "objective-bulk-refresh": {
+      "source": "skills/objective-bulk-refresh",
+      "sourceType": "local",
+      "computedHash": "d469da6f11ca44f7b8bddf9544ac5601bf49a4a03b79454c98a6b088827d3463"
+    },
     "objective-close": {
       "source": "skills/objective-close",
       "sourceType": "local",
