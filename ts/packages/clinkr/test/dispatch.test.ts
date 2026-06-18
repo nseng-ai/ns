@@ -76,7 +76,9 @@ describe("json mode", () => {
 	});
 
 	test("negative keeps semantic envelope exit_code 1 under --shell-exit-code", async () => {
-		const run = await runForTest(buildGroup(), ["no", "--format", "json", "--shell-exit-code"], { context: null });
+		const run = await runForTest(buildGroup(), ["no", "--format", "json", "--shell-exit-code"], {
+			context: null,
+		});
 		expect(run.exitCode).toBe(1);
 		expect(parseEnvelope(run.stdout)).toEqual({ exit_code: 1, message: "nothing to do" });
 	});

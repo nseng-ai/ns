@@ -74,7 +74,9 @@ export interface EpisodeAnalysisPayload {
 }
 
 export function parseEpisodeAnalysisResponseText(text: string): EpisodeAnalysisParseResult {
-	const analysis = parseLmJson(text, episodeAnalysisSchema, { invalidShapeError: "response JSON has no valid verdict pair" });
+	const analysis = parseLmJson(text, episodeAnalysisSchema, {
+		invalidShapeError: "response JSON has no valid verdict pair",
+	});
 	if (!analysis.ok) return analysis;
 	const summary = analysis.value.summary?.trim() ?? "";
 	return {
@@ -87,9 +89,12 @@ export function parseEpisodeAnalysisResponseText(text: string): EpisodeAnalysisP
 	};
 }
 
-export function buildEpisodeAnalysisPayload(options: EpisodeAnalysisPayloadOptions): EpisodeAnalysisPayload {
+export function buildEpisodeAnalysisPayload(
+	options: EpisodeAnalysisPayloadOptions,
+): EpisodeAnalysisPayload {
 	const episode = options.episodes[options.episodeIndex];
-	if (episode === undefined) throw new Error(`episode index ${options.episodeIndex} is out of range`);
+	if (episode === undefined)
+		throw new Error(`episode index ${options.episodeIndex} is out of range`);
 	const targetTurns = turnsInRange(options.profile.liveTurns, episode.turnRange);
 	const targetDelegations = delegationsInSpan(options.delegations, episode.turnRange);
 	// No per-turn clamp by design: per-episode requests keep the dominant path
@@ -132,7 +137,13 @@ export function buildEpisodeAnalysisPayload(options: EpisodeAnalysisPayloadOptio
 	};
 }
 
-function serializeTurn(turn: LiveTurn): { turn: number; role: string; tokens: number; tools: readonly string[]; text: string } {
+function serializeTurn(turn: LiveTurn): {
+	turn: number;
+	role: string;
+	tokens: number;
+	tools: readonly string[];
+	text: string;
+} {
 	return {
 		turn: turn.index,
 		role: turn.role,
@@ -142,6 +153,10 @@ function serializeTurn(turn: LiveTurn): { turn: number; role: string; tokens: nu
 	};
 }
 
-function serializeDelegation(claim: DelegationClaim): { turn: number; label: string; confidence: string } {
+function serializeDelegation(claim: DelegationClaim): {
+	turn: number;
+	label: string;
+	confidence: string;
+} {
 	return { turn: claim.turn, label: claim.label, confidence: claim.confidence };
 }

@@ -14,7 +14,11 @@ export type AregToolCheckResult =
 	| { type: "missing"; tool: AregHostToolName; message: string };
 
 export interface AregHostGateway {
-	checkTool(options: { tool: AregHostToolName; cwd: string; env: NodeJS.ProcessEnv }): Promise<AregToolCheckResult>;
+	checkTool(options: {
+		tool: AregHostToolName;
+		cwd: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregToolCheckResult>;
 }
 
 export type AregGithubSkillListResult =
@@ -24,7 +28,11 @@ export type AregGithubSkillListResult =
 	| { type: "error"; error: AregErrorInfo };
 
 export interface AregGithubGateway {
-	listSkillDirectoryNames(options: { repo: string; ref?: string | undefined; env: NodeJS.ProcessEnv }): Promise<AregGithubSkillListResult>;
+	listSkillDirectoryNames(options: {
+		repo: string;
+		ref?: string | undefined;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregGithubSkillListResult>;
 }
 
 export interface AregNpxSkillsAddRequest {
@@ -173,7 +181,9 @@ export interface AregSkillKindResolveRequest {
 	env: NodeJS.ProcessEnv;
 }
 
-export type AregSkillKindResolveResult = { type: "ok"; skillName: string } | { type: "error"; error: AregErrorInfo };
+export type AregSkillKindResolveResult =
+	| { type: "ok"; skillName: string }
+	| { type: "error"; error: AregErrorInfo };
 
 export type AregProjectMutationPolicy = "init" | "skill-kind";
 
@@ -204,7 +214,9 @@ export interface AregProjectRemoveEmptyDirRequest {
 }
 
 export type AregProjectMutationResult = { ok: true } | { ok: false; error: AregErrorInfo };
-export type AregProjectRemoveEmptyDirResult = { ok: true; removed: boolean } | { ok: false; error: AregErrorInfo };
+export type AregProjectRemoveEmptyDirResult =
+	| { ok: true; removed: boolean }
+	| { ok: false; error: AregErrorInfo };
 
 /**
  * Areg's project-resource gateway.
@@ -222,15 +234,21 @@ export interface AregProjectGateway {
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
 	inspectLocalSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
-	inspectPairingDirectories(request: AregProjectDirRequest): Promise<readonly AregCheckPairingDirectory[]>;
+	inspectPairingDirectories(
+		request: AregProjectDirRequest,
+	): Promise<readonly AregCheckPairingDirectory[]>;
 	readLocallyExcludedSkillNames(request: AregProjectDirRequest): Promise<readonly string[]>;
 	resolveLocalSkillSpec(request: AregSkillKindResolveRequest): Promise<AregSkillKindResolveResult>;
 	preflightWriteTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	preflightDeleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
-	preflightRemoveEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectMutationResult>;
+	preflightRemoveEmptyDir(
+		request: AregProjectRemoveEmptyDirRequest,
+	): Promise<AregProjectMutationResult>;
 	writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult>;
 	deleteFile(request: AregProjectFileDeleteRequest): Promise<AregProjectMutationResult>;
-	removeEmptyDir(request: AregProjectRemoveEmptyDirRequest): Promise<AregProjectRemoveEmptyDirResult>;
+	removeEmptyDir(
+		request: AregProjectRemoveEmptyDirRequest,
+	): Promise<AregProjectRemoveEmptyDirResult>;
 }
 
 export interface AregInitTextWritePlan {

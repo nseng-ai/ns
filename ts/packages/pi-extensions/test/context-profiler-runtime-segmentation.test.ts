@@ -1,8 +1,17 @@
 import { describe, expect, test } from "vitest";
 
-import { createSegmentationCacheCell, startSegmentationBatch } from "../src/context-profiler/runtime.ts";
-import { computeSegmentationFingerprint, type SegmentationState } from "../src/context-profiler/segmentation.ts";
-import type { AnalysisModelGateway, SegmentationCallResult } from "../src/context-profiler/analysis-model-gateway.ts";
+import {
+	createSegmentationCacheCell,
+	startSegmentationBatch,
+} from "../src/context-profiler/runtime.ts";
+import {
+	computeSegmentationFingerprint,
+	type SegmentationState,
+} from "../src/context-profiler/segmentation.ts";
+import type {
+	AnalysisModelGateway,
+	SegmentationCallResult,
+} from "../src/context-profiler/analysis-model-gateway.ts";
 import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */
@@ -27,7 +36,10 @@ const SUCCESS: SegmentationCallResult = {
 	},
 };
 
-function collectUpdates(): { updates: SegmentationState[]; onUpdate: (state: SegmentationState) => void } {
+function collectUpdates(): {
+	updates: SegmentationState[];
+	onUpdate: (state: SegmentationState) => void;
+} {
 	const updates: SegmentationState[] = [];
 	return { updates, onUpdate: (state) => updates.push(state) };
 }
@@ -46,21 +58,38 @@ describe("startSegmentationBatch", () => {
 		const profile = makeProfile(sequentialTurns(5));
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile, cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
 		expect(updates).toHaveLength(2);
 		expect(updates[0]).toEqual({
 			type: "ready",
-			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 } }],
+			episodes: [
+				{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 } },
+			],
 			summary: "A short session.",
 			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["loading"],
 		});
 		expect(updates[1]).toEqual({
 			type: "ready",
-			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
+			episodes: [
+				{
+					label: "the work",
+					kind: "edit",
+					outcome: "active",
+					turnRange: { start: 1, end: 5 },
+					efficiency: "efficient",
+					relevance: "load-bearing",
+				},
+			],
 			summary: "A short session.",
 			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["ready"],
@@ -78,15 +107,36 @@ describe("startSegmentationBatch", () => {
 		const cell = createSegmentationCacheCell();
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const profile = makeProfile(sequentialTurns(5));
-		const seeded = startSegmentationBatch({ gateway, profile, cache: cell, force: false, onUpdate: () => {} });
+		const seeded = startSegmentationBatch({
+			gateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
 		expect(seeded.initial.type).toBe("loading");
 		await settled();
 
 		const { updates, onUpdate } = collectUpdates();
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({
 			type: "ready",
-			episodes: [{ label: "the work", kind: "edit", outcome: "active", turnRange: { start: 1, end: 5 }, efficiency: "efficient", relevance: "load-bearing" }],
+			episodes: [
+				{
+					label: "the work",
+					kind: "edit",
+					outcome: "active",
+					turnRange: { start: 1, end: 5 },
+					efficiency: "efficient",
+					relevance: "load-bearing",
+				},
+			],
 			summary: "A short session.",
 			delegations: [{ turn: 3, label: "delegate investigation", confidence: "high" }],
 			analysis: ["ready"],
@@ -105,21 +155,47 @@ describe("startSegmentationBatch", () => {
 			summary: "A short session.",
 			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			episodes: [
-				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+				{
+					label: "setup",
+					kind: "explore",
+					outcome: "completed",
+					turnRange: { start: 1, end: 4 },
+					efficiency: "efficient",
+					relevance: "load-bearing",
+				},
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
 			],
 		});
-		const gateway = new FakeSegmentationGateway({ result: SUCCESS, analysisResult: { ok: true, value: { efficiency: "mixed", relevance: "still-useful", summary: null } } });
+		const gateway = new FakeSegmentationGateway({
+			result: SUCCESS,
+			analysisResult: {
+				ok: true,
+				value: { efficiency: "mixed", relevance: "still-useful", summary: null },
+			},
+		});
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile, cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile,
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({
 			type: "ready",
 			summary: "A short session.",
 			delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 			analysis: ["ready", "loading"],
 			episodes: [
-				{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
+				{
+					label: "setup",
+					kind: "explore",
+					outcome: "completed",
+					turnRange: { start: 1, end: 4 },
+					efficiency: "efficient",
+					relevance: "load-bearing",
+				},
 				{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 } },
 			],
 		});
@@ -127,7 +203,9 @@ describe("startSegmentationBatch", () => {
 
 		expect(gateway.calls).toHaveLength(0);
 		expect(gateway.analysisCalls).toHaveLength(1);
-		expect(JSON.parse(gateway.analysisCalls[0]?.json ?? "{}").targetEpisode.delegations).toEqual([{ turn: 6, label: "delegate fix", confidence: "low" }]);
+		expect(JSON.parse(gateway.analysisCalls[0]?.json ?? "{}").targetEpisode.delegations).toEqual([
+			{ turn: 6, label: "delegate fix", confidence: "low" },
+		]);
 		expect(updates).toEqual([
 			{
 				type: "ready",
@@ -135,8 +213,22 @@ describe("startSegmentationBatch", () => {
 				delegations: [{ turn: 6, label: "delegate fix", confidence: "low" }],
 				analysis: ["ready", "ready"],
 				episodes: [
-					{ label: "setup", kind: "explore", outcome: "completed", turnRange: { start: 1, end: 4 }, efficiency: "efficient", relevance: "load-bearing" },
-					{ label: "fix", kind: "edit", outcome: "active", turnRange: { start: 5, end: 8 }, efficiency: "mixed", relevance: "still-useful" },
+					{
+						label: "setup",
+						kind: "explore",
+						outcome: "completed",
+						turnRange: { start: 1, end: 4 },
+						efficiency: "efficient",
+						relevance: "load-bearing",
+					},
+					{
+						label: "fix",
+						kind: "edit",
+						outcome: "active",
+						turnRange: { start: 5, end: 8 },
+						efficiency: "mixed",
+						relevance: "still-useful",
+					},
 				],
 			},
 		]);
@@ -147,11 +239,20 @@ describe("startSegmentationBatch", () => {
 		const summary = "t1-t5 land the edit directly; ≈minimal churn, one decisive bash run at t3.";
 		const gateway = new FakeSegmentationGateway({
 			result: SUCCESS,
-			analysisResult: { ok: true, value: { efficiency: "efficient", relevance: "load-bearing", summary } },
+			analysisResult: {
+				ok: true,
+				value: { efficiency: "efficient", relevance: "load-bearing", summary },
+			},
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		await settled();
 
 		expect(updates[1]).toMatchObject({
@@ -166,25 +267,49 @@ describe("startSegmentationBatch", () => {
 		const cell = createSegmentationCacheCell();
 		const gateway = new FakeSegmentationGateway({
 			result: SUCCESS,
-			analysisResult: { ok: false, error: { code: "invalid-response", message: "response JSON has no valid verdict pair" } },
+			analysisResult: {
+				ok: false,
+				error: { code: "invalid-response", message: "response JSON has no valid verdict pair" },
+			},
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		await settled();
 
 		expect(updates[0]).toMatchObject({ type: "ready", analysis: ["loading"] });
-		expect(updates[1]).toMatchObject({ type: "ready", analysis: [{ type: "error", message: "response JSON has no valid verdict pair" }] });
+		expect(updates[1]).toMatchObject({
+			type: "ready",
+			analysis: [{ type: "error", message: "response JSON has no valid verdict pair" }],
+		});
 		expect(cell.read()?.episodes[0]).not.toHaveProperty("efficiency");
 	});
 
 	test("a changed snapshot misses the cache", async () => {
 		const cell = createSegmentationCacheCell();
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate: () => {} });
+		startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
 		await settled();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(6)), cache: cell, force: false, onUpdate: () => {} });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(6)),
+			cache: cell,
+			force: false,
+			onUpdate: () => {},
+		});
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
@@ -199,7 +324,13 @@ describe("startSegmentationBatch", () => {
 		await settled();
 		const firstCache = cell.read();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: true, onUpdate: () => {} });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: true,
+			onUpdate: () => {},
+		});
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 		expect(gateway.calls).toHaveLength(2);
@@ -210,15 +341,29 @@ describe("startSegmentationBatch", () => {
 	test("error: onUpdate(error) with the verbatim message, nothing cached", async () => {
 		const cell = createSegmentationCacheCell();
 		const gateway = new FakeSegmentationGateway({
-			result: { ok: false, error: { code: "auth", message: "no openai-codex auth found; run /login or configure Pi auth" } },
+			result: {
+				ok: false,
+				error: {
+					code: "auth",
+					message: "no openai-codex auth found; run /login or configure Pi auth",
+				},
+			},
 		});
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 
-		expect(updates).toEqual([{ type: "error", message: "no openai-codex auth found; run /login or configure Pi auth" }]);
+		expect(updates).toEqual([
+			{ type: "error", message: "no openai-codex auth found; run /login or configure Pi auth" },
+		]);
 		expect(cell.read()).toBeNull();
 	});
 
@@ -227,7 +372,13 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS });
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(2)), cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(2)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({ type: "idle" });
 		await settled();
 		expect(updates).toEqual([]);
@@ -243,7 +394,13 @@ describe("startSegmentationBatch", () => {
 		const gateway = new FakeSegmentationGateway({ result: SUCCESS, gate });
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial, detach } = startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		const { initial, detach } = startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({ type: "loading" });
 		detach();
 		release();
@@ -255,10 +412,18 @@ describe("startSegmentationBatch", () => {
 
 	test("a gateway aborted result is swallowed even without a local abort", async () => {
 		const cell = createSegmentationCacheCell();
-		const gateway = new FakeSegmentationGateway({ result: { ok: false, error: { code: "aborted", message: "segmentation request aborted" } } });
+		const gateway = new FakeSegmentationGateway({
+			result: { ok: false, error: { code: "aborted", message: "segmentation request aborted" } },
+		});
 		const { updates, onUpdate } = collectUpdates();
 
-		startSegmentationBatch({ gateway, profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		startSegmentationBatch({
+			gateway,
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		await settled();
 		expect(updates).toEqual([]);
 	});
@@ -267,7 +432,13 @@ describe("startSegmentationBatch", () => {
 		const cell = createSegmentationCacheCell();
 		const { updates, onUpdate } = collectUpdates();
 
-		const { initial } = startSegmentationBatch({ gateway: new RejectingSegmentationGateway(), profile: makeProfile(sequentialTurns(5)), cache: cell, force: false, onUpdate });
+		const { initial } = startSegmentationBatch({
+			gateway: new RejectingSegmentationGateway(),
+			profile: makeProfile(sequentialTurns(5)),
+			cache: cell,
+			force: false,
+			onUpdate,
+		});
 		expect(initial).toEqual({ type: "loading" });
 		await settled();
 

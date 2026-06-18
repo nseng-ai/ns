@@ -18,10 +18,14 @@ const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts"
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;
 
-export function registerCccClaudePlanTabCommand(pi: ExtensionAPI, options: PromptFileOptions = {}): void {
+export function registerCccClaudePlanTabCommand(
+	pi: ExtensionAPI,
+	options: PromptFileOptions = {},
+): void {
 	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
+		description:
+			"Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
 		argumentHint: "[seed prompt]",
 		handler: async (args, ctx) => {
 			await handleCccClaudePlanTab({ pi, ctx, args, promptOptions });
@@ -46,7 +50,11 @@ async function handleCccClaudePlanTab(options: {
 
 	let promptFile: string;
 	try {
-		promptFile = await writeTimestampedPromptFile({ ...promptOptions, stem: "claude-plan", content: seed });
+		promptFile = await writeTimestampedPromptFile({
+			...promptOptions,
+			stem: "claude-plan",
+			content: seed,
+		});
 	} catch (error) {
 		ctx.ui.notify(`Failed to write Claude plan prompt file: ${formatErrorMessage(error)}`, "error");
 		return;

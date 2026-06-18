@@ -5,8 +5,19 @@ import {
 	renderCommandStreamMessage,
 	withCommandStreaming,
 } from "./land-stack/command-stream.ts";
-import { AUTO_CHUNK_LANDING_SIZE, AUTO_CHUNK_LANDING_THRESHOLD, COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
-import { failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./land-stack/errors.ts";
+import {
+	AUTO_CHUNK_LANDING_SIZE,
+	AUTO_CHUNK_LANDING_THRESHOLD,
+	COMMAND_NAME,
+	COMMAND_STREAM_MESSAGE_TYPE,
+} from "./land-stack/constants.ts";
+import {
+	failure,
+	landStackFailure,
+	success,
+	type LandStackFailure,
+	type LandStackResult,
+} from "./land-stack/errors.ts";
 import { buildLandingPlan } from "./land-stack/landing-plan.ts";
 import {
 	confirmAndFreeManagedSlots,
@@ -49,11 +60,15 @@ export interface ExecuteStackLandingOptions {
 	initialShape?: LandingShape;
 }
 
-export function registerLandStackRenderer(pi: Pick<LandStackExtensionAPI, "registerMessageRenderer">): void {
+export function registerLandStackRenderer(
+	pi: Pick<LandStackExtensionAPI, "registerMessageRenderer">,
+): void {
 	pi.registerMessageRenderer?.(COMMAND_STREAM_MESSAGE_TYPE, renderCommandStreamMessage);
 }
 
-export function landArgumentCompletions(prefix: string): Array<{ value: string; label: string }> | null {
+export function landArgumentCompletions(
+	prefix: string,
+): Array<{ value: string; label: string }> | null {
 	const options = ["--yes", "--dry-run", "--help"];
 	const token = prefix.trim().split(/\s+/).pop() ?? "";
 	const filtered = options.filter((option) => option.startsWith(token));
@@ -78,14 +93,27 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		const shape = options.initialShape ? success(options.initialShape) : await loadLandingShape(runtimePi, ctx.cwd);
+		const shape = options.initialShape
+			? success(options.initialShape)
+			: await loadLandingShape(runtimePi, ctx.cwd);
 		if (shape.type === "failure") {
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: shape.failure });
 			return;
 		}
 
 		if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-			await executeChunkedStackLanding({ pi, runtimePi, ctx, parsedArgs, options, commandStream, initialShape: shape.value, landed, landedChunks, warnings });
+			await executeChunkedStackLanding({
+				pi,
+				runtimePi,
+				ctx,
+				parsedArgs,
+				options,
+				commandStream,
+				initialShape: shape.value,
+				landed,
+				landedChunks,
+				warnings,
+			});
 			return;
 		}
 
@@ -97,7 +125,18 @@ export async function executeStackLanding(
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: plan.failure });
 			return;
 		}
-		await executeSinglePlanLanding({ pi, runtimePi, ctx, parsedArgs, options, commandStream, plan: plan.value, landed, landedChunks, warnings });
+		await executeSinglePlanLanding({
+			pi,
+			runtimePi,
+			ctx,
+			parsedArgs,
+			options,
+			commandStream,
+			plan: plan.value,
+			landed,
+			landedChunks,
+			warnings,
+		});
 	} catch (error) {
 		presentLandStackFailure({
 			ctx,
@@ -124,8 +163,21 @@ interface ExecuteSinglePlanLandingOptions {
 	warnings: LandingWarning[];
 }
 
-async function executeSinglePlanLanding(singleOptions: ExecuteSinglePlanLandingOptions): Promise<LandStackResult<void>> {
-	const { pi, runtimePi, ctx, parsedArgs, options, commandStream, plan, landed, landedChunks, warnings } = singleOptions;
+async function executeSinglePlanLanding(
+	singleOptions: ExecuteSinglePlanLandingOptions,
+): Promise<LandStackResult<void>> {
+	const {
+		pi,
+		runtimePi,
+		ctx,
+		parsedArgs,
+		options,
+		commandStream,
+		plan,
+		landed,
+		landedChunks,
+		warnings,
+	} = singleOptions;
 	const planText = formatPlan(plan);
 
 	if (parsedArgs.dryRun) {
@@ -136,19 +188,30 @@ async function executeSinglePlanLanding(singleOptions: ExecuteSinglePlanLandingO
 
 	if (!parsedArgs.yes && !options.skipMainConfirmation) {
 		if (!ctx.hasUI) {
-			const landFailure = landStackFailure(`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`);
+			const landFailure = landStackFailure(
+				`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,
+			);
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
 			return failure(landFailure);
 		}
 		const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
 		if (!confirmed) {
-			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" });
+			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
+				level: "info",
+			});
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
 			return failure(landFailure);
 		}
 	}
 
-	const readyPlan = await preparePlanForMerge({ runtimePi, ctx, plan, landed, landedChunks, commandStream });
+	const readyPlan = await preparePlanForMerge({
+		runtimePi,
+		ctx,
+		plan,
+		landed,
+		landedChunks,
+		commandStream,
+	});
 	if (readyPlan.type === "failure") return readyPlan;
 
 	const mergeOutcome = await runMergeLoop(runtimePi, ctx, readyPlan.value, landed, warnings, {
@@ -156,16 +219,32 @@ async function executeSinglePlanLanding(singleOptions: ExecuteSinglePlanLandingO
 		unstreamedPi: pi,
 	});
 	if (mergeOutcome.type === "failure") {
-		presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: mergeOutcome.failure });
+		presentLandStackFailure({
+			ctx,
+			commandStream,
+			landed,
+			landedChunks,
+			failure: mergeOutcome.failure,
+		});
 		return mergeOutcome;
 	}
 
-	const successSummary = formatSuccessSummary(landed, readyPlan.value.descendantMaintenance, warnings, mergeOutcome.value);
+	const successSummary = formatSuccessSummary(
+		landed,
+		readyPlan.value.descendantMaintenance,
+		warnings,
+		mergeOutcome.value,
+	);
 	const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
 	const completionLevel = hasWarnings ? "warning" : "success";
 	const commandStreamDetails = commandStreamDetailsForLanded(landed);
 	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
+	presentBrief(
+		ctx,
+		successSummary,
+		completionLevel,
+		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
+	);
 	return success(undefined);
 }
 
@@ -182,15 +261,34 @@ interface ExecuteChunkedStackLandingOptions {
 	warnings: LandingWarning[];
 }
 
-async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLandingOptions): Promise<void> {
-	const { pi, runtimePi, ctx, parsedArgs, options, commandStream, initialShape, landed, landedChunks, warnings } = chunkedOptions;
+async function executeChunkedStackLanding(
+	chunkedOptions: ExecuteChunkedStackLandingOptions,
+): Promise<void> {
+	const {
+		pi,
+		runtimePi,
+		ctx,
+		parsedArgs,
+		options,
+		commandStream,
+		initialShape,
+		landed,
+		landedChunks,
+		warnings,
+	} = chunkedOptions;
 	const initialPlan = await buildLandingPlan(runtimePi, ctx.cwd, {
 		allowSubmitRequiredState: true,
 		preloadedShape: initialShape,
 		landingBranchLimit: AUTO_CHUNK_LANDING_SIZE,
 	});
 	if (initialPlan.type === "failure") {
-		presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: initialPlan.failure });
+		presentLandStackFailure({
+			ctx,
+			commandStream,
+			landed,
+			landedChunks,
+			failure: initialPlan.failure,
+		});
 		return;
 	}
 
@@ -208,7 +306,9 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 				commandStream,
 				landed,
 				landedChunks,
-				failure: landStackFailure(`Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`),
+				failure: landStackFailure(
+					`Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
+				),
 			});
 			return;
 		}
@@ -259,10 +359,24 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 		finalPlan = readyPlan.value;
 
 		if (!mergeState) {
-			const backupBranches = [...initialShape.stack.landingBranches, ...initialShape.stack.descendantBranches];
-			const prepared = await prepareMergeLoopState(runtimePi, readyPlan.value.repoRoot, backupBranches, warnings);
+			const backupBranches = [
+				...initialShape.stack.landingBranches,
+				...initialShape.stack.descendantBranches,
+			];
+			const prepared = await prepareMergeLoopState(
+				runtimePi,
+				readyPlan.value.repoRoot,
+				backupBranches,
+				warnings,
+			);
 			if (prepared.type === "failure") {
-				presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: prepared.failure });
+				presentLandStackFailure({
+					ctx,
+					commandStream,
+					landed,
+					landedChunks,
+					failure: prepared.failure,
+				});
 				return;
 			}
 			mergeState = prepared.value;
@@ -274,10 +388,21 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 			unstreamedPi: pi,
 			mergeState,
 		});
-		appendLandedChunk(landedChunks, chunkIndex, readyPlan.value.stack.landingTargetBranch, landed.slice(landedStart));
+		appendLandedChunk(
+			landedChunks,
+			chunkIndex,
+			readyPlan.value.stack.landingTargetBranch,
+			landed.slice(landedStart),
+		);
 		finalCleanup = mergeState.cleanup;
 		if (mergeOutcome.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: mergeOutcome.failure });
+			presentLandStackFailure({
+				ctx,
+				commandStream,
+				landed,
+				landedChunks,
+				failure: mergeOutcome.failure,
+			});
 			return;
 		}
 
@@ -287,12 +412,22 @@ async function executeChunkedStackLanding(chunkedOptions: ExecuteChunkedStackLan
 		chunkIndex += 1;
 	}
 
-	const successSummary = formatChunkedSuccessSummary(landedChunks, finalPlan.descendantMaintenance, warnings, finalCleanup);
+	const successSummary = formatChunkedSuccessSummary(
+		landedChunks,
+		finalPlan.descendantMaintenance,
+		warnings,
+		finalCleanup,
+	);
 	const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
 	const completionLevel = hasWarnings ? "warning" : "success";
 	const commandStreamDetails = commandStreamDetailsForLanded(landed);
 	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief(ctx, successSummary, completionLevel, formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }));
+	presentBrief(
+		ctx,
+		successSummary,
+		completionLevel,
+		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
+	);
 }
 
 interface PreparePlanForMergeOptions {
@@ -305,21 +440,45 @@ interface PreparePlanForMergeOptions {
 	preMergeConfirmation?: PreMergeConfirmation;
 }
 
-async function preparePlanForMerge(options: PreparePlanForMergeOptions): Promise<LandStackResult<LandingPlan>> {
+async function preparePlanForMerge(
+	options: PreparePlanForMergeOptions,
+): Promise<LandStackResult<LandingPlan>> {
 	const { runtimePi, ctx, plan, landed, landedChunks, commandStream } = options;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
-		const slotOutcome = await confirmAndFreeManagedSlots({ pi: runtimePi, ctx, plan, confirmation: preMergeConfirmation });
+		const slotOutcome = await confirmAndFreeManagedSlots({
+			pi: runtimePi,
+			ctx,
+			plan,
+			confirmation: preMergeConfirmation,
+		});
 		if (slotOutcome.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: slotOutcome.failure });
+			presentLandStackFailure({
+				ctx,
+				commandStream,
+				landed,
+				landedChunks,
+				failure: slotOutcome.failure,
+			});
 			return slotOutcome;
 		}
 	}
 
 	if (plan.prSubmitRequirements.length > 0) {
-		const submitOutcome = await confirmAndSubmitRequiredPrUpdates({ pi: runtimePi, ctx, plan, confirmation: preMergeConfirmation });
+		const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
+			pi: runtimePi,
+			ctx,
+			plan,
+			confirmation: preMergeConfirmation,
+		});
 		if (submitOutcome.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: submitOutcome.failure });
+			presentLandStackFailure({
+				ctx,
+				commandStream,
+				landed,
+				landedChunks,
+				failure: submitOutcome.failure,
+			});
 			return submitOutcome;
 		}
 		setStatus(ctx, "rechecking preflight...");
@@ -328,12 +487,24 @@ async function preparePlanForMerge(options: PreparePlanForMergeOptions): Promise
 			landingBranchLimit: plan.stack.landingBranches.length,
 		});
 		if (rechecked.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: rechecked.failure });
+			presentLandStackFailure({
+				ctx,
+				commandStream,
+				landed,
+				landedChunks,
+				failure: rechecked.failure,
+			});
 			return rechecked;
 		}
 		const residualFailure = residualPreMergeFailure(rechecked.value);
 		if (residualFailure) {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: residualFailure });
+			presentLandStackFailure({
+				ctx,
+				commandStream,
+				landed,
+				landedChunks,
+				failure: residualFailure,
+			});
 			return failure(residualFailure);
 		}
 		return rechecked;
@@ -342,7 +513,12 @@ async function preparePlanForMerge(options: PreparePlanForMergeOptions): Promise
 	return success(plan);
 }
 
-function appendLandedChunk(chunks: LandedChunk[], index: number, landingTargetBranch: string, landed: LandedPr[]): void {
+function appendLandedChunk(
+	chunks: LandedChunk[],
+	index: number,
+	landingTargetBranch: string,
+	landed: LandedPr[],
+): void {
 	if (landed.length === 0) return;
 	chunks.push({ index, landingTargetBranch, landed });
 }

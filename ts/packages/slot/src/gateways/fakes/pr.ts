@@ -1,4 +1,12 @@
-import type { PrBatchLookupResult, PrCloseResult, PrGatewayFailure, PrLookupResult, PrState, PrSummary, SlotPrGateway } from "../pr.ts";
+import type {
+	PrBatchLookupResult,
+	PrCloseResult,
+	PrGatewayFailure,
+	PrLookupResult,
+	PrState,
+	PrSummary,
+	SlotPrGateway,
+} from "../pr.ts";
 
 export type FakeSlotPrOperation =
 	| { type: "get-pr-for-branch"; branch: string }
@@ -27,7 +35,12 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 	private readonly log: FakeSlotPrOperation[] = [];
 
 	constructor(options: FakeSlotPrGatewayOptions = {}) {
-		this.prsByBranch = new Map(Object.entries(options.prsByBranch ?? {}).map(([branch, pr]) => [branch, prSummary(branch, pr)]));
+		this.prsByBranch = new Map(
+			Object.entries(options.prsByBranch ?? {}).map(([branch, pr]) => [
+				branch,
+				prSummary(branch, pr),
+			]),
+		);
 		this.lookupFailures = options.lookupFailures ?? {};
 		this.batchLookupFailure = options.batchLookupFailure;
 		this.closeFailures = options.closeFailures ?? {};
@@ -40,7 +53,8 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 
 	async getPrsForBranches(branches: readonly string[]): Promise<PrBatchLookupResult> {
 		this.log.push({ type: "get-prs-for-branches", branches: [...branches] });
-		if (this.batchLookupFailure !== undefined) return { type: "failure", failure: failure(this.batchLookupFailure) };
+		if (this.batchLookupFailure !== undefined)
+			return { type: "failure", failure: failure(this.batchLookupFailure) };
 		const results = new Map<string, PrLookupResult>();
 		for (const branch of branches) {
 			results.set(branch, this.lookupBranch(branch));
@@ -59,7 +73,11 @@ export class FakeSlotPrGateway implements SlotPrGateway {
 	}
 
 	operations(): readonly FakeSlotPrOperation[] {
-		return this.log.map((operation) => operation.type === "get-prs-for-branches" ? { type: operation.type, branches: [...operation.branches] } : { ...operation });
+		return this.log.map((operation) =>
+			operation.type === "get-prs-for-branches"
+				? { type: operation.type, branches: [...operation.branches] }
+				: { ...operation },
+		);
 	}
 
 	private lookupBranch(branch: string): PrLookupResult {

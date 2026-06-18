@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { managedRegionBounds } from "@asdl/core/managed-region";
 
 export const SUPPORTED_SHELLS = ["zsh", "bash"] as const;
-export type SupportedShell = typeof SUPPORTED_SHELLS[number];
+export type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
 
 export interface UnsupportedShellFailure {
 	type: "unsupported_shell";
@@ -25,7 +25,10 @@ export interface InstallMarkerBlockResult {
 	isAlreadyInstalled: boolean;
 }
 
-export function resolveRequestedShell(raw: string | undefined, env: NodeJS.ProcessEnv): { type: "ok"; shell: SupportedShell } | { type: "failure"; failure: UnsupportedShellFailure } {
+export function resolveRequestedShell(
+	raw: string | undefined,
+	env: NodeJS.ProcessEnv,
+): { type: "ok"; shell: SupportedShell } | { type: "failure"; failure: UnsupportedShellFailure } {
 	if (raw === undefined) return { type: "ok", shell: detectShell(env) };
 	if (isSupportedShell(raw)) return { type: "ok", shell: raw };
 	return { type: "failure", failure: unsupportedShellFailure(raw) };
@@ -42,13 +45,23 @@ export function rcPathForShell(shell: SupportedShell, env: NodeJS.ProcessEnv): s
 	return join(home, shell === "zsh" ? ".zshrc" : ".bashrc");
 }
 
-export function buildMarkerBlock(options: { beginMarker: string; payload: string; endMarker: string }): string {
+export function buildMarkerBlock(options: {
+	beginMarker: string;
+	payload: string;
+	endMarker: string;
+}): string {
 	return `\n${options.beginMarker}\n${trimTrailingNewline(options.payload)}\n${options.endMarker}\n`;
 }
 
-export async function installMarkerBlock(options: InstallMarkerBlockOptions): Promise<InstallMarkerBlockResult> {
+export async function installMarkerBlock(
+	options: InstallMarkerBlockOptions,
+): Promise<InstallMarkerBlockResult> {
 	const existing = existsSync(options.rcPath) ? await readFile(options.rcPath, "utf8") : "";
-	const bounds = managedRegionBounds({ text: existing, startMarker: options.beginMarker, endMarker: options.endMarker });
+	const bounds = managedRegionBounds({
+		text: existing,
+		startMarker: options.beginMarker,
+		endMarker: options.endMarker,
+	});
 	if (bounds.type !== "missing") return { rcPath: options.rcPath, isAlreadyInstalled: true };
 	await mkdir(dirname(options.rcPath), { recursive: true });
 	const block = buildMarkerBlock(options);
@@ -62,7 +75,10 @@ function isSupportedShell(value: string): value is SupportedShell {
 }
 
 function unsupportedShellFailure(shell: string): UnsupportedShellFailure {
-	return { type: "unsupported_shell", message: `Shell '${shell}' is not supported. Supported shells: zsh, bash.` };
+	return {
+		type: "unsupported_shell",
+		message: `Shell '${shell}' is not supported. Supported shells: zsh, bash.`,
+	};
 }
 
 function trimTrailingNewline(value: string): string {

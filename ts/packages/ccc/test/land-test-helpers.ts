@@ -6,7 +6,9 @@ export function topologyArgs(dbPath: string): string[] {
 	return ["-readonly", "-json", dbPath, TOPOLOGY_QUERY];
 }
 
-export function metadataDbJson(rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>): string {
+export function metadataDbJson(
+	rows: Array<{ branch: string; parent?: string; children?: string[]; trunk?: boolean }>,
+): string {
 	return JSON.stringify(
 		rows.map((row) => ({
 			branch_name: row.branch,

@@ -1,7 +1,14 @@
 import { join } from "node:path";
 
 import { runCli } from "@asdl/sdl/cli";
-import type { ExecOptions, ExecResult, SdlConfirmPrompt, SdlContext, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/sdk";
+import type {
+	ExecOptions,
+	ExecResult,
+	SdlConfirmPrompt,
+	SdlContext,
+	TextGenerationRequest,
+	TextGenerationResult,
+} from "@asdl/sdl/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 
@@ -83,7 +90,11 @@ export class ScriptedSdlTestContext implements SdlContext {
 	readonly model = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.modelCalls.push({ ...request });
-			return await (this.modelResults.shift() ?? this.missingTextGenerationResult?.() ?? { ok: false, error: "missing scripted text result" });
+			return await (this.modelResults.shift() ??
+				this.missingTextGenerationResult?.() ?? {
+					ok: false,
+					error: "missing scripted text result",
+				});
 		},
 	};
 }

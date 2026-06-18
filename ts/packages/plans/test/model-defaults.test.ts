@@ -30,18 +30,28 @@ describe("parseModelRef", () => {
 describe("resolveModelRef", () => {
 	test("falls back to the default when the env var is unset", () => {
 		const result = resolveModelRef({}, ENV_VAR, DEFAULT_FAST_MODEL_REF);
-		expect(result).toEqual({ ok: true, value: { provider: "openai-codex", modelId: "gpt-5.4-mini" } });
+		expect(result).toEqual({
+			ok: true,
+			value: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+		});
 	});
 
 	test("uses a trimmed env override", () => {
-		const result = resolveModelRef({ [ENV_VAR]: "  acme/fast-1  " }, ENV_VAR, DEFAULT_FAST_MODEL_REF);
+		const result = resolveModelRef(
+			{ [ENV_VAR]: "  acme/fast-1  " },
+			ENV_VAR,
+			DEFAULT_FAST_MODEL_REF,
+		);
 		expect(result).toEqual({ ok: true, value: { provider: "acme", modelId: "fast-1" } });
 	});
 
 	test("falls back to the default for empty or whitespace env values", () => {
 		for (const value of ["", "   "]) {
 			const result = resolveModelRef({ [ENV_VAR]: value }, ENV_VAR, DEFAULT_FAST_MODEL_REF);
-			expect(result).toEqual({ ok: true, value: { provider: "openai-codex", modelId: "gpt-5.4-mini" } });
+			expect(result).toEqual({
+				ok: true,
+				value: { provider: "openai-codex", modelId: "gpt-5.4-mini" },
+			});
 		}
 	});
 

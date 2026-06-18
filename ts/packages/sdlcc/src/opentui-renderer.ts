@@ -1,4 +1,10 @@
-import { BoxRenderable, createCliRenderer, TextRenderable, type CliRenderer, type KeyEvent } from "@opentui/core";
+import {
+	BoxRenderable,
+	createCliRenderer,
+	TextRenderable,
+	type CliRenderer,
+	type KeyEvent,
+} from "@opentui/core";
 
 import { buildHelloWorldModel, type SdlccHelloWorldModel } from "./hello-world.ts";
 
@@ -50,9 +56,13 @@ function mountHelloWorldScreen(renderer: CliRenderer, model: SdlccHelloWorldMode
 		titleAlignment: "center",
 	});
 
-	root.add(new TextRenderable(renderer, { id: "sdlcc-title", content: model.title, fg: "#a6e3a1" }));
+	root.add(
+		new TextRenderable(renderer, { id: "sdlcc-title", content: model.title, fg: "#a6e3a1" }),
+	);
 	root.add(new TextRenderable(renderer, { id: "sdlcc-body", content: model.body, fg: "#cdd6f4" }));
-	root.add(new TextRenderable(renderer, { id: "sdlcc-footer", content: model.footer, fg: "#f9e2af" }));
+	root.add(
+		new TextRenderable(renderer, { id: "sdlcc-footer", content: model.footer, fg: "#f9e2af" }),
+	);
 
 	renderer.root.add(root);
 	renderer.requestRender();

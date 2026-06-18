@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { validateBranchName, validateEntryKey, validateKeyGlob, validateNamespaceName } from "../../src/validation.ts";
+import {
+	validateBranchName,
+	validateEntryKey,
+	validateKeyGlob,
+	validateNamespaceName,
+} from "../../src/validation.ts";
 
 function expectValid(result: { type: string }): void {
 	expect(result.type).toBe("valid");
@@ -12,13 +17,46 @@ function expectInvalid(result: { type: string }): void {
 
 describe("validation", () => {
 	it("accepts durable Entry Key examples", () => {
-		for (const key of ["plan", "plan.md", "plan/plan.md", "a/b/c/d/e", "a---b", "a-b_c.d", "UPPER", "with.dots.many", "foo..bar", "a.locker", ".lockfile", "unicode-é-ok"]) {
+		for (const key of [
+			"plan",
+			"plan.md",
+			"plan/plan.md",
+			"a/b/c/d/e",
+			"a---b",
+			"a-b_c.d",
+			"UPPER",
+			"with.dots.many",
+			"foo..bar",
+			"a.locker",
+			".lockfile",
+			"unicode-é-ok",
+		]) {
 			expectValid(validateEntryKey(key));
 		}
 	});
 
 	it("rejects invalid Entry Keys", () => {
-		for (const key of ["", "/leading", "trailing/", "a//b", "a:b", "has space", "a~b", "a^b", "a?b", "a*b", "a[b", "a\\b", "line\nbreak", "nul\0byte", "del\u007fbyte", "..", "a/../b", "a.lock", "a/b.lock"]) {
+		for (const key of [
+			"",
+			"/leading",
+			"trailing/",
+			"a//b",
+			"a:b",
+			"has space",
+			"a~b",
+			"a^b",
+			"a?b",
+			"a*b",
+			"a[b",
+			"a\\b",
+			"line\nbreak",
+			"nul\0byte",
+			"del\u007fbyte",
+			"..",
+			"a/../b",
+			"a.lock",
+			"a/b.lock",
+		]) {
 			expectInvalid(validateEntryKey(key));
 		}
 	});

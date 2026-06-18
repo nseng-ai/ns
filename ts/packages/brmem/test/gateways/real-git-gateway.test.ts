@@ -7,21 +7,39 @@ import { createTempGitRepo } from "../support/temp-git-repo.ts";
 
 describe("RealGitBrmemGateway", () => {
 	it("runs git through the injected command executor", async () => {
-		const commands = new RecordingCommands([{ command: "git", args: ["branch", "--show-current"], result: { stdout: "feat/x\n" } }]);
+		const commands = new RecordingCommands([
+			{ command: "git", args: ["branch", "--show-current"], result: { stdout: "feat/x\n" } },
+		]);
 		const gateway = new RealGitBrmemGateway("/work", commands);
 
 		expect(await gateway.currentBranch()).toEqual({ type: "ok", value: "feat/x" });
-		expect(commands.calls).toEqual([{ command: "git", args: ["branch", "--show-current"], options: { cwd: "/work", env: process.env } }]);
+		expect(commands.calls).toEqual([
+			{
+				command: "git",
+				args: ["branch", "--show-current"],
+				options: { cwd: "/work", env: process.env },
+			},
+		]);
 	});
 
 	it("normalizes UTC timestamps from Git when listing Entries", async () => {
 		const commands = new RecordingCommands([
-			{ command: "git", args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"], result: { stdout: "refs/brmem/base/feat---x\n" } },
-			{ command: "git", args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/feat---x"], result: { stdout: "body.md\tbody-sha\nnested/plan.md\tplan-sha\n" } },
+			{
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"],
+				result: { stdout: "refs/brmem/base/feat---x\n" },
+			},
+			{
+				command: "git",
+				args: ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", "refs/brmem/base/feat---x"],
+				result: { stdout: "body.md\tbody-sha\nnested/plan.md\tplan-sha\n" },
+			},
 			{
 				command: "git",
 				args: ["log", "--format=%cI", "--name-status", "refs/brmem/base/feat---x"],
-				result: { stdout: "2026-02-03T04:06:07Z\nA\tnested/plan.md\n\n2026-02-03T04:05:06Z\nA\tbody.md\n" },
+				result: {
+					stdout: "2026-02-03T04:06:07Z\nA\tnested/plan.md\n\n2026-02-03T04:05:06Z\nA\tbody.md\n",
+				},
 			},
 		]);
 		const gateway = new RealGitBrmemGateway("/work", commands);
@@ -40,15 +58,34 @@ describe("RealGitBrmemGateway", () => {
 		const commands = new RecordingCommands([
 			{ command: "git", args: ["check-ref-format", "--branch", "feat/x"] },
 			{ command: "git", args: ["cat-file", "-e", "refs/brmem/base/feat---x:body.md"] },
-			{ command: "git", args: ["rev-parse", "refs/brmem/base/feat---x:body.md"], result: { stdout: "blob-sha\n" } },
-			{ command: "git", args: ["cat-file", "-s", "refs/brmem/base/feat---x:body.md"], result: { stdout: "5\n" } },
-			{ command: "git", args: ["log", "-1", "--format=%H%x09%cI", "refs/brmem/base/feat---x"], result: { stdout: "commit-sha\t2026-02-03T04:05:06.000Z\n" } },
+			{
+				command: "git",
+				args: ["rev-parse", "refs/brmem/base/feat---x:body.md"],
+				result: { stdout: "blob-sha\n" },
+			},
+			{
+				command: "git",
+				args: ["cat-file", "-s", "refs/brmem/base/feat---x:body.md"],
+				result: { stdout: "5\n" },
+			},
+			{
+				command: "git",
+				args: ["log", "-1", "--format=%H%x09%cI", "refs/brmem/base/feat---x"],
+				result: { stdout: "commit-sha\t2026-02-03T04:05:06.000Z\n" },
+			},
 		]);
 		const gateway = new RealGitBrmemGateway("/work", commands);
 
-		const checked = await gateway.checkEntry({ namespace: "base", branch: "feat/x", key: "body.md" });
+		const checked = await gateway.checkEntry({
+			namespace: "base",
+			branch: "feat/x",
+			key: "body.md",
+		});
 
-		expect(checked).toMatchObject({ type: "found", value: { headDate: "2026-02-03T04:05:06+00:00" } });
+		expect(checked).toMatchObject({
+			type: "found",
+			value: { headDate: "2026-02-03T04:05:06+00:00" },
+		});
 	});
 
 	it("writes Snapshot Refs and reads/checks/lists Entries in a throwaway repository", async () => {
@@ -56,20 +93,44 @@ describe("RealGitBrmemGateway", () => {
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
 			await withCommitterDate("2026-02-03T04:05:06+00:00", async () => {
-				expect((await gateway.putEntry({ namespace: "base", branch: "feat/x", key: "body.md", content: "hello" })).type).toBe("ok");
+				expect(
+					(
+						await gateway.putEntry({
+							namespace: "base",
+							branch: "feat/x",
+							key: "body.md",
+							content: "hello",
+						})
+					).type,
+				).toBe("ok");
 			});
 			await withCommitterDate("2026-02-03T04:06:07+00:00", async () => {
-				expect((await gateway.putEntry({ namespace: "base", branch: "feat/x", key: "nested/plan.md", content: "nested" })).type).toBe("ok");
+				expect(
+					(
+						await gateway.putEntry({
+							namespace: "base",
+							branch: "feat/x",
+							key: "nested/plan.md",
+							content: "nested",
+						})
+					).type,
+				).toBe("ok");
 			});
 			const read = await gateway.getEntry({ namespace: "base", branch: "feat/x", key: "body.md" });
 			expect(read).toMatchObject({ type: "found", value: { content: "hello" } });
 			const listed = await gateway.listEntries({ namespace: "base", branch: "feat/x" });
 			if (listed.type !== "ok") throw new Error("unexpected list error");
-			expect(listed.value.map((entry) => ({ key: entry.key, updatedAt: entry.updatedAt }))).toEqual([
-				{ key: "body.md", updatedAt: "2026-02-03T04:05:06+00:00" },
-				{ key: "nested/plan.md", updatedAt: "2026-02-03T04:06:07+00:00" },
-			]);
-			const checked = await gateway.checkEntry({ namespace: "base", branch: "feat/x", key: "body.md" });
+			expect(listed.value.map((entry) => ({ key: entry.key, updatedAt: entry.updatedAt }))).toEqual(
+				[
+					{ key: "body.md", updatedAt: "2026-02-03T04:05:06+00:00" },
+					{ key: "nested/plan.md", updatedAt: "2026-02-03T04:06:07+00:00" },
+				],
+			);
+			const checked = await gateway.checkEntry({
+				namespace: "base",
+				branch: "feat/x",
+				key: "body.md",
+			});
 			expect(checked).toMatchObject({ type: "found", value: { sizeBytes: 5 } });
 			expect(repo.runGit(["show", "refs/brmem/base/feat---x:body.md"])).toBe("hello");
 		} finally {
@@ -83,11 +144,21 @@ describe("RealGitBrmemGateway", () => {
 			const gateway = new RealGitBrmemGateway(repo.path);
 			await gateway.putEntry({ namespace: "base", branch: "main", key: "a", content: "A" });
 			await gateway.putEntry({ namespace: "base", branch: "main", key: "b", content: "B" });
-			expect((await gateway.deleteEntry({ namespace: "base", branch: "main", key: "a" })).type).toBe("ok");
-			expect(await gateway.getEntry({ namespace: "base", branch: "main", key: "b" })).toMatchObject({ type: "found" });
-			const deletedLast = await gateway.deleteEntry({ namespace: "base", branch: "main", key: "b" });
+			expect(
+				(await gateway.deleteEntry({ namespace: "base", branch: "main", key: "a" })).type,
+			).toBe("ok");
+			expect(await gateway.getEntry({ namespace: "base", branch: "main", key: "b" })).toMatchObject(
+				{ type: "found" },
+			);
+			const deletedLast = await gateway.deleteEntry({
+				namespace: "base",
+				branch: "main",
+				key: "b",
+			});
 			expect(deletedLast).toMatchObject({ type: "ok", value: { isSnapshotEmpty: true } });
-			expect(repo.runGit(["rev-parse", "--verify", "refs/brmem/base/main"]).trim()).toMatch(/^[0-9a-f]{40}$/u);
+			expect(repo.runGit(["rev-parse", "--verify", "refs/brmem/base/main"]).trim()).toMatch(
+				/^[0-9a-f]{40}$/u,
+			);
 			expect(repo.runGit(["ls-tree", "-r", "refs/brmem/base/main"])).toBe("");
 		} finally {
 			repo.cleanup();
@@ -98,9 +169,19 @@ describe("RealGitBrmemGateway", () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
-			await gateway.putEntry({ namespace: "notes", branch: "source", key: "body.md", content: "source" });
+			await gateway.putEntry({
+				namespace: "notes",
+				branch: "source",
+				key: "body.md",
+				content: "source",
+			});
 			const sourceSha = repo.runGit(["rev-parse", "refs/brmem/ns/notes/source"]).trim();
-			const copied = await gateway.copyEntries({ namespace: "notes", fromBranch: "source", toBranch: "dest", shouldOverwrite: true });
+			const copied = await gateway.copyEntries({
+				namespace: "notes",
+				fromBranch: "source",
+				toBranch: "dest",
+				shouldOverwrite: true,
+			});
 			expect(copied).toMatchObject({ type: "ok" });
 			expect(repo.runGit(["rev-parse", "refs/brmem/ns/notes/dest"]).trim()).toBe(sourceSha);
 		} finally {
@@ -112,14 +193,58 @@ describe("RealGitBrmemGateway", () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
-			await gateway.putEntry({ namespace: "base", branch: "source", key: "foo/body.md", content: "source" });
-			await gateway.putEntry({ namespace: "base", branch: "source", key: "foo/sub/x.md", content: "nested" });
-			await gateway.putEntry({ namespace: "base", branch: "dest", key: "foo/body.md", content: "dest" });
-			await gateway.putEntry({ namespace: "base", branch: "dest", key: "keep.txt", content: "keep" });
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: true, keyGlob: "foo/*" })).type).toBe("ok");
-			expect(await gateway.getEntry({ namespace: "base", branch: "dest", key: "keep.txt" })).toMatchObject({ type: "found" });
-			expect(await gateway.getEntry({ namespace: "base", branch: "dest", key: "foo/sub/x.md" })).toMatchObject({ type: "found" });
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "source",
+				key: "foo/body.md",
+				content: "source",
+			});
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "source",
+				key: "foo/sub/x.md",
+				content: "nested",
+			});
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "dest",
+				key: "foo/body.md",
+				content: "dest",
+			});
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "dest",
+				key: "keep.txt",
+				content: "keep",
+			});
+			expect(
+				(
+					await gateway.copyEntries({
+						namespace: "base",
+						fromBranch: "source",
+						toBranch: "dest",
+						shouldOverwrite: false,
+						keyGlob: "foo/*",
+					})
+				).type,
+			).toBe("error");
+			expect(
+				(
+					await gateway.copyEntries({
+						namespace: "base",
+						fromBranch: "source",
+						toBranch: "dest",
+						shouldOverwrite: true,
+						keyGlob: "foo/*",
+					})
+				).type,
+			).toBe("ok");
+			expect(
+				await gateway.getEntry({ namespace: "base", branch: "dest", key: "keep.txt" }),
+			).toMatchObject({ type: "found" });
+			expect(
+				await gateway.getEntry({ namespace: "base", branch: "dest", key: "foo/sub/x.md" }),
+			).toMatchObject({ type: "found" });
 		} finally {
 			repo.cleanup();
 		}
@@ -129,9 +254,29 @@ describe("RealGitBrmemGateway", () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
-			await gateway.putEntry({ namespace: "base", branch: "source", key: "foo/body.md", content: "source" });
-			await gateway.putEntry({ namespace: "base", branch: "dest", key: "foo/orphan.md", content: "orphan" });
-			expect((await gateway.copyEntries({ namespace: "base", fromBranch: "source", toBranch: "dest", shouldOverwrite: false, keyGlob: "foo/*" })).type).toBe("error");
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "source",
+				key: "foo/body.md",
+				content: "source",
+			});
+			await gateway.putEntry({
+				namespace: "base",
+				branch: "dest",
+				key: "foo/orphan.md",
+				content: "orphan",
+			});
+			expect(
+				(
+					await gateway.copyEntries({
+						namespace: "base",
+						fromBranch: "source",
+						toBranch: "dest",
+						shouldOverwrite: false,
+						keyGlob: "foo/*",
+					})
+				).type,
+			).toBe("error");
 		} finally {
 			repo.cleanup();
 		}
@@ -141,9 +286,21 @@ describe("RealGitBrmemGateway", () => {
 		const repo = createTempGitRepo();
 		try {
 			const gateway = new RealGitBrmemGateway(repo.path);
-			expect((await gateway.putEntry({ namespace: "base", branch: "bad---branch", key: "a", content: "A" })).type).toBe("error");
+			expect(
+				(
+					await gateway.putEntry({
+						namespace: "base",
+						branch: "bad---branch",
+						key: "a",
+						content: "A",
+					})
+				).type,
+			).toBe("error");
 			repo.runGit(["checkout", "--detach"]);
-			expect(await gateway.currentBranch()).toMatchObject({ type: "error", error: { code: "detached_head" } });
+			expect(await gateway.currentBranch()).toMatchObject({
+				type: "error",
+				error: { code: "detached_head" },
+			});
 		} finally {
 			repo.cleanup();
 		}
@@ -164,7 +321,15 @@ describe("RealGitBrmemGateway", () => {
 				},
 			});
 
-			expect((await gateway.addRemoteRefspecs("origin", ["HEAD", "refs/brmem/*:refs/brmem/*"], ["refs/brmem/*:refs/brmem/*"])).type).toBe("ok");
+			expect(
+				(
+					await gateway.addRemoteRefspecs(
+						"origin",
+						["HEAD", "refs/brmem/*:refs/brmem/*"],
+						["refs/brmem/*:refs/brmem/*"],
+					)
+				).type,
+			).toBe("ok");
 
 			const updated = await gateway.getRemoteConfig("origin");
 			expect(updated).toMatchObject({

@@ -40,7 +40,10 @@ class FakeCommandContext implements CommandContext {
 	readonly mode = "tui";
 	readonly hasUI: boolean;
 	readonly selectedLabels: string[];
-	readonly notifications: Array<{ message: string; level: "info" | "warning" | "error" | undefined }> = [];
+	readonly notifications: Array<{
+		message: string;
+		level: "info" | "warning" | "error" | undefined;
+	}> = [];
 	editorText: string | undefined;
 	waitForIdleCalls = 0;
 
@@ -73,7 +76,9 @@ describe("code workflows extension", () => {
 
 		expect(CODE_WORKFLOWS_COMMAND_NAME).toBe("code-workflows");
 		expect([...pi.commands.keys()]).toEqual(["code-workflows"]);
-		expect(pi.commands.get("code-workflows")?.description).toContain("without starting a model turn");
+		expect(pi.commands.get("code-workflows")?.description).toContain(
+			"without starting a model turn",
+		);
 		expect(pi.renderers.has(CODE_WORKFLOWS_MESSAGE_TYPE)).toBe(true);
 	});
 

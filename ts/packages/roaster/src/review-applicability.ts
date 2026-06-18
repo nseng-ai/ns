@@ -10,7 +10,9 @@ export interface ReviewDefinitionWithApplicability {
 }
 
 export function applicableReviewKeys(
-	definitionsByKey: ReadonlyMap<string, ReviewDefinitionWithApplicability> | Readonly<Record<string, ReviewDefinitionWithApplicability>>,
+	definitionsByKey:
+		| ReadonlyMap<string, ReviewDefinitionWithApplicability>
+		| Readonly<Record<string, ReviewDefinitionWithApplicability>>,
 	options: { readonly changedPaths: readonly string[] },
 ): string[] {
 	const definitions = mapFromRecordOrMap(definitionsByKey);
@@ -21,7 +23,10 @@ export function applicableReviewKeys(
 	return keys;
 }
 
-export function reviewAppliesToPaths(applicability: ReviewApplicability, changedPaths: readonly string[]): boolean {
+export function reviewAppliesToPaths(
+	applicability: ReviewApplicability,
+	changedPaths: readonly string[],
+): boolean {
 	if (applicability.include.length === 0) return true;
 	return changedPaths.some((path) => pathContributes(path, applicability));
 }
@@ -48,7 +53,10 @@ function splitPath(path: string): readonly string[] | null {
 	return segments;
 }
 
-function segmentsMatch(pathSegments: readonly string[], patternSegments: readonly string[]): boolean {
+function segmentsMatch(
+	pathSegments: readonly string[],
+	patternSegments: readonly string[],
+): boolean {
 	if (patternSegments.length === 0) return pathSegments.length === 0;
 
 	const patternHead = patternSegments[0];

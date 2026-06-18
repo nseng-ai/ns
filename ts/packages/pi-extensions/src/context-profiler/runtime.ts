@@ -21,7 +21,12 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { buildEpisodeAnalysisPayload } from "./analysis.ts";
 import type { AnalysisModelGateway } from "./analysis-model-gateway.ts";
-import { buildBundleSnapshot, buildEpisodesFileJson, type BundlePersistenceState, type PersistedBundle } from "./bundle.ts";
+import {
+	buildBundleSnapshot,
+	buildEpisodesFileJson,
+	type BundlePersistenceState,
+	type PersistedBundle,
+} from "./bundle.ts";
 import type { BundleStore, WriteEpisodesFileResult } from "./bundle-store.ts";
 import { errorMessage } from "./errors.ts";
 import {
@@ -67,7 +72,10 @@ export function createProfilerState(): ProfilerState {
 	};
 }
 
-export function handleBeforeAgentStart(event: BeforeAgentStartEvent, state: ProfilerState): ProfilerState {
+export function handleBeforeAgentStart(
+	event: BeforeAgentStartEvent,
+	state: ProfilerState,
+): ProfilerState {
 	return {
 		...state,
 		lastPromptOptions: event.systemPromptOptions,
@@ -102,7 +110,10 @@ export function capturePromptState(ctx: ExtensionContext, state: ProfilerState):
 export function captureCurrentState(ctx: ExtensionContext, state: ProfilerState): ProfilerState {
 	const promptState = capturePromptState(ctx, state);
 	if (promptState.latestContext !== null) return promptState;
-	const sessionContext = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId());
+	const sessionContext = buildSessionContext(
+		ctx.sessionManager.getEntries(),
+		ctx.sessionManager.getLeafId(),
+	);
 	return {
 		...promptState,
 		latestContext: { messages: [...sessionContext.messages], source: "session-context" },
@@ -162,22 +173,26 @@ export function startBundlePersist(options: StartBundlePersistOptions): {
 		liveSource: options.profile.liveSource,
 	});
 	if (!snapshot.ok) {
-		const skipped: BundlePersistenceState = snapshot.error.code === "empty-context"
-			? { type: "skipped", reason: "empty-context" }
-			: { type: "failed", message: snapshot.error.message };
+		const skipped: BundlePersistenceState =
+			snapshot.error.code === "empty-context"
+				? { type: "skipped", reason: "empty-context" }
+				: { type: "failed", message: snapshot.error.message };
 		return { initial: skipped, whenPersisted: Promise.resolve(null) };
 	}
-	const whenPersisted = options.store.persistBundle(snapshot.value).then((result): PersistedBundle | null => {
-		if (!result.ok) {
-			options.onUpdate({ type: "failed", message: result.error.message });
+	const whenPersisted = options.store.persistBundle(snapshot.value).then(
+		(result): PersistedBundle | null => {
+			if (!result.ok) {
+				options.onUpdate({ type: "failed", message: result.error.message });
+				return null;
+			}
+			options.onUpdate({ type: "persisted", ...result.value });
+			return result.value;
+		},
+		(error: unknown) => {
+			options.onUpdate({ type: "failed", message: errorMessage(error) });
 			return null;
-		}
-		options.onUpdate({ type: "persisted", ...result.value });
-		return result.value;
-	}, (error: unknown) => {
-		options.onUpdate({ type: "failed", message: errorMessage(error) });
-		return null;
-	});
+		},
+	);
 	return { initial: { type: "pending" }, whenPersisted };
 }
 
@@ -226,7 +241,11 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 		isDetached = true;
 	};
 	if (profile.liveTurns.length < MIN_TURNS_FOR_SEGMENTATION) {
-		return { initial: { type: "idle" }, detach, completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }) };
+		return {
+			initial: { type: "idle" },
+			detach,
+			completion: Promise.resolve({ type: "skipped", reason: "too-few-turns" }),
+		};
 	}
 	const fingerprint = computeSegmentationFingerprint(profile);
 	// Detach-only model: keep LM calls running for episodes.json; gateways still require a signal.
@@ -236,7 +255,12 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			if (isDetached) return;
 			// New batches synchronously detach previous batches before this factory returns;
 			// `.finally()` cleanup is only a later idempotent backstop.
-			cache.write({ fingerprint, episodes: [...data.episodes], summary: data.summary, delegations: [...data.delegations] });
+			cache.write({
+				fingerprint,
+				episodes: [...data.episodes],
+				summary: data.summary,
+				delegations: [...data.delegations],
+			});
 			onUpdate(readyState(data));
 		},
 		emitError(message) {
@@ -257,7 +281,16 @@ export function startSegmentationBatch(options: StartSegmentationOptions): {
 			delegations: cached.delegations,
 			analysisInput: analysis,
 		});
-		return { initial: readyState({ episodes: cached.episodes, summary: cached.summary, delegations: cached.delegations, analysis }), detach, completion };
+		return {
+			initial: readyState({
+				episodes: cached.episodes,
+				summary: cached.summary,
+				delegations: cached.delegations,
+				analysis,
+			}),
+			detach,
+			completion,
+		};
 	}
 	const completion = runFreshSegmentation({ gateway, profile, signal, sink });
 	return { initial: { type: "loading" }, detach, completion };
@@ -270,7 +303,9 @@ interface FreshSegmentationOptions {
 	sink: SegmentationSink;
 }
 
-async function runFreshSegmentation(options: FreshSegmentationOptions): Promise<SegmentationBatchOutcome> {
+async function runFreshSegmentation(
+	options: FreshSegmentationOptions,
+): Promise<SegmentationBatchOutcome> {
 	const { gateway, profile, signal, sink } = options;
 	const payload = buildSegmentationPayload(profile);
 	let result: Awaited<ReturnType<AnalysisModelGateway["segmentTurns"]>>;
@@ -313,8 +348,11 @@ interface MissingEpisodeAnalysisOptions {
 	analysisInput: readonly EpisodeAnalysisStatus[];
 }
 
-async function runMissingEpisodeAnalysis(options: MissingEpisodeAnalysisOptions): Promise<SegmentationBatchOutcome> {
-	const { gateway, profile, signal, sink, episodesInput, summary, delegations, analysisInput } = options;
+async function runMissingEpisodeAnalysis(
+	options: MissingEpisodeAnalysisOptions,
+): Promise<SegmentationBatchOutcome> {
+	const { gateway, profile, signal, sink, episodesInput, summary, delegations, analysisInput } =
+		options;
 	const episodes = episodesInput.map((episode) => ({ ...episode }));
 	const analysis = [...analysisInput];
 	const tasks = episodes.map(async (episode, episodeIndex) => {
@@ -395,7 +433,11 @@ export function startProfilerWork(options: StartProfilerWorkOptions): {
 		analysisModel: options.gateway.analysisModel,
 		onResult: options.onEpisodesWriteResult,
 	});
-	return { initialSegmentation: segmentation.initial, initialPersistence: persist.initial, detach: segmentation.detach };
+	return {
+		initialSegmentation: segmentation.initial,
+		initialPersistence: persist.initial,
+		detach: segmentation.detach,
+	};
 }
 
 interface ScheduleEpisodesWriteOptions {
@@ -407,14 +449,20 @@ interface ScheduleEpisodesWriteOptions {
 }
 
 function scheduleEpisodesWrite(options: ScheduleEpisodesWriteOptions): void {
-	void Promise.all([options.whenPersisted, options.completion]).then(async ([bundle, outcome]) => {
-		if (bundle === null) return;
-		const json = buildEpisodesFileJson({ outcome, contentHash: bundle.manifest.contentHash, analysisModel: options.analysisModel });
-		const result = await options.store.writeEpisodesFile({ bundleDir: bundle.dir, json });
-		options.onResult?.(result);
-	}).catch((error: unknown) => {
-		options.onResult?.({ ok: false, error: { code: "io-error", message: errorMessage(error) } });
-	});
+	void Promise.all([options.whenPersisted, options.completion])
+		.then(async ([bundle, outcome]) => {
+			if (bundle === null) return;
+			const json = buildEpisodesFileJson({
+				outcome,
+				contentHash: bundle.manifest.contentHash,
+				analysisModel: options.analysisModel,
+			});
+			const result = await options.store.writeEpisodesFile({ bundleDir: bundle.dir, json });
+			options.onResult?.(result);
+		})
+		.catch((error: unknown) => {
+			options.onResult?.({ ok: false, error: { code: "io-error", message: errorMessage(error) } });
+		});
 }
 
 interface ReadyStateOptions {
@@ -435,7 +483,9 @@ function readyState(options: ReadyStateOptions): SegmentationState {
 }
 
 function initialAnalysisStatuses(episodes: readonly EpisodeAnnotation[]): EpisodeAnalysisStatus[] {
-	return episodes.map((episode): EpisodeAnalysisStatus => hasAnalysisVerdicts(episode) ? "ready" : "loading");
+	return episodes.map(
+		(episode): EpisodeAnalysisStatus => (hasAnalysisVerdicts(episode) ? "ready" : "loading"),
+	);
 }
 
 function hasAnalysisVerdicts(episode: EpisodeAnnotation): boolean {

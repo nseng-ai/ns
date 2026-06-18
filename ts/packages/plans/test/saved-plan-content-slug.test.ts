@@ -10,7 +10,8 @@ import type { ExecResult } from "@asdl/core/exec";
 import type { CommandExecApi, ExecOptions } from "@asdl/core/exec";
 
 const CWD = "/repo";
-const SAVED_PLAN_CONTENT = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+const SAVED_PLAN_CONTENT =
+	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 
 interface ExecCall {
 	command: string;
@@ -43,15 +44,22 @@ class FakeSlugPi implements CommandExecApi {
 
 function expectSavedPlanNoFallback(error: unknown): void {
 	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain("Failed to derive saved-plan filename slug from plan content.");
-	expect((error as Error).message).toContain("No assistant-generated slug or deterministic fallback was attempted.");
+	expect((error as Error).message).toContain(
+		"Failed to derive saved-plan filename slug from plan content.",
+	);
+	expect((error as Error).message).toContain(
+		"No assistant-generated slug or deterministic fallback was attempted.",
+	);
 }
 
 describe("deriveSavedPlanContentSlug", () => {
 	test("successful model output becomes a valid saved-plan filename slug", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "branch-scoped-plan-extension\n" } });
 
-		const evidence = await deriveSavedPlanContentSlug(pi, { content: SAVED_PLAN_CONTENT, cwd: CWD });
+		const evidence = await deriveSavedPlanContentSlug(pi, {
+			content: SAVED_PLAN_CONTENT,
+			cwd: CWD,
+		});
 
 		expect(evidence).toEqual({
 			slug: "branch-scoped-plan-extension",
@@ -61,7 +69,9 @@ describe("deriveSavedPlanContentSlug", () => {
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args).toEqual(buildSlugModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)));
+		expect(pi.calls[0]?.args).toEqual(
+			buildSlugModelArgs(buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT)),
+		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
@@ -73,7 +83,9 @@ describe("deriveSavedPlanContentSlug", () => {
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectSavedPlanNoFallback(error);
-			expect((error as Error).message).toContain("Pi slug model output normalized to an invalid saved-plan filename slug.");
+			expect((error as Error).message).toContain(
+				"Pi slug model output normalized to an invalid saved-plan filename slug.",
+			);
 			expect((error as Error).message).toContain("Normalized slug: work-plan-task");
 		}
 	});
@@ -82,7 +94,9 @@ describe("deriveSavedPlanContentSlug", () => {
 		const prompt = buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT);
 
 		expect(prompt).toContain(SAVED_PLAN_CONTENT.trim());
-		expect(prompt).toContain("Do not use the current branch, repository name, request text, filename, or path.");
+		expect(prompt).toContain(
+			"Do not use the current branch, repository name, request text, filename, or path.",
+		);
 		expect(prompt).not.toContain("branch-contexts/add-widget");
 		expect(prompt).not.toContain("/tmp/saved-plan.md");
 	});

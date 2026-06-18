@@ -25,22 +25,54 @@ function parseRows(rows: unknown[]): GraphiteTopology {
 
 describe("Graphite metadata core", () => {
 	test("validates required branch_metadata schema columns", () => {
-		expect(hasExpectedGraphiteBranchMetadataSchema(schemaRows(["branch_name", "parent_branch_name", "children", "validation_result"]))).toBe(true);
-		expect(hasExpectedGraphiteBranchMetadataSchema(schemaRows(["branch_name", "children", "validation_result"]))).toBe(false);
+		expect(
+			hasExpectedGraphiteBranchMetadataSchema(
+				schemaRows(["branch_name", "parent_branch_name", "children", "validation_result"]),
+			),
+		).toBe(true);
+		expect(
+			hasExpectedGraphiteBranchMetadataSchema(
+				schemaRows(["branch_name", "children", "validation_result"]),
+			),
+		).toBe(false);
 		expect(hasExpectedGraphiteBranchMetadataSchema({})).toBe(false);
 	});
 
 	test("parses rows with normalized parents, trunk markers, diagnostics, and corrupt children", () => {
 		const result = parseGraphiteBranchMetadataRows([
-			{ branch_name: "main", parent_branch_name: "", children: '["feature"]', validation_result: "trunk" },
+			{
+				branch_name: "main",
+				parent_branch_name: "",
+				children: '["feature"]',
+				validation_result: "trunk",
+			},
 			{ branch_name: "", children: null },
-			{ branch_name: "feature", parent_branch_name: "main", children: "not json", validation_result: "VALID" },
+			{
+				branch_name: "feature",
+				parent_branch_name: "main",
+				children: "not json",
+				validation_result: "VALID",
+			},
 		]);
 
-		expect(result).toMatchObject({ type: "ok", diagnostics: { emptyBranchNameRows: 1, childrenCorruptions: [{ branch: "feature", kind: "invalid_json" }] } });
+		expect(result).toMatchObject({
+			type: "ok",
+			diagnostics: {
+				emptyBranchNameRows: 1,
+				childrenCorruptions: [{ branch: "feature", kind: "invalid_json" }],
+			},
+		});
 		if (result.type !== "ok") throw new Error("expected parse success");
-		expect(result.topology.get("main")).toMatchObject({ parent: undefined, children: ["feature"], isTrunkMarked: true });
-		expect(result.topology.get("feature")).toMatchObject({ parent: "main", children: [], childrenCorruption: { branch: "feature", kind: "invalid_json" } });
+		expect(result.topology.get("main")).toMatchObject({
+			parent: undefined,
+			children: ["feature"],
+			isTrunkMarked: true,
+		});
+		expect(result.topology.get("feature")).toMatchObject({
+			parent: "main",
+			children: [],
+			childrenCorruption: { branch: "feature", kind: "invalid_json" },
+		});
 	});
 
 	test.each([
@@ -62,9 +94,21 @@ describe("Graphite metadata core", () => {
 			{ branch_name: "missing-parent", parent_branch_name: "missing", children: "[]" },
 		]);
 
-		expect(walkGraphiteAncestors(topology, "a")).toEqual({ ancestors: ["main"], terminusBranch: "main", termination: { type: "completed" } });
-		expect(walkGraphiteAncestors(topology, "missing-parent")).toEqual({ ancestors: ["missing"], terminusBranch: "missing", termination: { type: "row_missing", branch: "missing" } });
-		expect(walkGraphiteAncestors(topology, "cycle-a")).toEqual({ ancestors: ["cycle-b"], terminusBranch: "cycle-b", termination: { type: "cycle", branch: "cycle-a" } });
+		expect(walkGraphiteAncestors(topology, "a")).toEqual({
+			ancestors: ["main"],
+			terminusBranch: "main",
+			termination: { type: "completed" },
+		});
+		expect(walkGraphiteAncestors(topology, "missing-parent")).toEqual({
+			ancestors: ["missing"],
+			terminusBranch: "missing",
+			termination: { type: "row_missing", branch: "missing" },
+		});
+		expect(walkGraphiteAncestors(topology, "cycle-a")).toEqual({
+			ancestors: ["cycle-b"],
+			terminusBranch: "cycle-b",
+			termination: { type: "cycle", branch: "cycle-a" },
+		});
 	});
 
 	test("walks first-child descendants with forks, corruptions, missing rows, and cycles", () => {
@@ -76,9 +120,19 @@ describe("Graphite metadata core", () => {
 			{ branch_name: "cycle-b", children: '["cycle-a"]' },
 		]);
 
-		expect(walkFirstChildGraphiteDescendants(topology, "a")).toMatchObject({ descendants: ["b", "missing"], forks: [{ branch: "a", children: ["b", "sibling"] }], termination: { type: "row_missing", branch: "missing" } });
-		expect(walkFirstChildGraphiteDescendants(topology, "corrupt")).toMatchObject({ childrenCorruptions: [{ branch: "corrupt", kind: "invalid_json" }], termination: { type: "completed" } });
-		expect(walkFirstChildGraphiteDescendants(topology, "cycle-a")).toMatchObject({ descendants: ["cycle-b"], termination: { type: "cycle", branch: "cycle-a" } });
+		expect(walkFirstChildGraphiteDescendants(topology, "a")).toMatchObject({
+			descendants: ["b", "missing"],
+			forks: [{ branch: "a", children: ["b", "sibling"] }],
+			termination: { type: "row_missing", branch: "missing" },
+		});
+		expect(walkFirstChildGraphiteDescendants(topology, "corrupt")).toMatchObject({
+			childrenCorruptions: [{ branch: "corrupt", kind: "invalid_json" }],
+			termination: { type: "completed" },
+		});
+		expect(walkFirstChildGraphiteDescendants(topology, "cycle-a")).toMatchObject({
+			descendants: ["cycle-b"],
+			termination: { type: "cycle", branch: "cycle-a" },
+		});
 	});
 
 	test("walks subtrees and detects fork violations", () => {
@@ -91,9 +145,16 @@ describe("Graphite metadata core", () => {
 			{ branch_name: "side-child", children: "[]" },
 		]);
 
-		expect(walkGraphiteSubtree(topology, "a")).toEqual({ subtree: ["a", "b", "c", "side", "side-child"], cycleAt: undefined });
+		expect(walkGraphiteSubtree(topology, "a")).toEqual({
+			subtree: ["a", "b", "c", "side", "side-child"],
+			cycleAt: undefined,
+		});
 		expect(detectGraphiteForkViolations(topology, ["main", "a", "b"])).toEqual([
-			{ forkPoint: "a", expectedChild: "b", siblings: [{ branch: "side", subtree: ["side", "side-child"] }] },
+			{
+				forkPoint: "a",
+				expectedChild: "b",
+				siblings: [{ branch: "side", subtree: ["side", "side-child"] }],
+			},
 		]);
 	});
 
@@ -103,6 +164,11 @@ describe("Graphite metadata core", () => {
 			{ branch_name: "feature", parent_branch_name: "main", children: "[]" },
 		]);
 		expect(graphiteTrunkMarkerStatus(topology, "main")).toEqual({ type: "clean" });
-		expect(graphiteTrunkMarkerStatus(topology, "feature")).toEqual({ type: "problem", terminus: "feature", terminusState: "unmarked", markedTrunks: ["main"] });
+		expect(graphiteTrunkMarkerStatus(topology, "feature")).toEqual({
+			type: "problem",
+			terminus: "feature",
+			terminusState: "unmarked",
+			markedTrunks: ["main"],
+		});
 	});
 });

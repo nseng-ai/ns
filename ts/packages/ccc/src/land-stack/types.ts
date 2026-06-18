@@ -26,7 +26,11 @@ export interface RenderComponent {
 	invalidate(): void;
 }
 
-export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+export type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 export interface LandStackCommandContext {
 	cwd: string;
@@ -35,7 +39,11 @@ export interface LandStackCommandContext {
 		notify(message: string, level?: NotifyLevel): void;
 		confirm(title: string, message: string): Promise<boolean>;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
+		setWidget?(
+			key: string,
+			value: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -46,7 +54,11 @@ export interface LandStackExtensionAPI {
 		message: CustomMessage,
 		options?: { triggerTurn?: boolean; deliverAs?: "steer" | "followUp" | "nextTurn" },
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<PiExecResultLike>;
 }
 
 export interface ParsedArgs {
@@ -125,7 +137,7 @@ export type DescendantMaintenancePlan =
 			targetBranch: string | undefined;
 			conflicts: WorktreeConflict[];
 			reason: string;
-		};
+	  };
 
 export interface WorktreeEntry {
 	path: string;

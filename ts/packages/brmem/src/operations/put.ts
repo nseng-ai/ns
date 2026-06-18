@@ -42,11 +42,17 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 	if (!request.force) {
 		const sizeMessage = checkEntrySize(source.bytes);
 		if (sizeMessage !== undefined) {
-			return failure("entry_too_large", `${source.sourceFile} ${sizeMessage}. Pass -f / --force to override.`);
+			return failure(
+				"entry_too_large",
+				`${source.sourceFile} ${sizeMessage}. Pass -f / --force to override.`,
+			);
 		}
 		const binaryMessage = checkEntryNotBinary(source.bytes);
 		if (binaryMessage !== undefined) {
-			return failure("entry_appears_binary", `${source.sourceFile} ${binaryMessage}. Pass -f / --force to override.`);
+			return failure(
+				"entry_appears_binary",
+				`${source.sourceFile} ${binaryMessage}. Pass -f / --force to override.`,
+			);
 		}
 	}
 
@@ -89,8 +95,16 @@ type SourceReadResult =
 	| { type: "ok"; sourceFile: string; bytes: Uint8Array }
 	| { type: "failure"; failure: ReturnType<typeof failure> };
 
-async function readSourceBytes(ctx: BrmemCliContext, request: PutRequest): Promise<SourceReadResult> {
-	if (request.stdin) return { type: "ok", sourceFile: STDIN_SOURCE_FILE, bytes: await ctx.sourceReader.readStdinBytes() };
+async function readSourceBytes(
+	ctx: BrmemCliContext,
+	request: PutRequest,
+): Promise<SourceReadResult> {
+	if (request.stdin)
+		return {
+			type: "ok",
+			sourceFile: STDIN_SOURCE_FILE,
+			bytes: await ctx.sourceReader.readStdinBytes(),
+		};
 	const sourceFile = request.file ?? defaultSourceFromKey(request.key);
 	if (sourceFile === undefined) {
 		return {
@@ -104,11 +118,17 @@ async function readSourceBytes(ctx: BrmemCliContext, request: PutRequest): Promi
 	const source = await ctx.sourceReader.readFileBytes(sourceFile, { cwd: ctx.cwd });
 	if (source.type === "ok") return { type: "ok", sourceFile, bytes: source.bytes };
 	if (source.type === "missing") {
-		return { type: "failure", failure: failure("source_file_missing", `Source file not found: ${sourceFile}`) };
+		return {
+			type: "failure",
+			failure: failure("source_file_missing", `Source file not found: ${sourceFile}`),
+		};
 	}
 	return {
 		type: "failure",
-		failure: failure("source_file_unreadable", `Failed to read source file ${sourceFile}: ${source.message}`),
+		failure: failure(
+			"source_file_unreadable",
+			`Failed to read source file ${sourceFile}: ${source.message}`,
+		),
 	};
 }
 
@@ -119,13 +139,21 @@ function defaultSourceFromKey(key: string): string | undefined {
 	return basename.length === 0 ? undefined : basename;
 }
 
-type DecodeResult = { type: "ok"; content: string } | { type: "failure"; failure: ReturnType<typeof failure> };
+type DecodeResult =
+	| { type: "ok"; content: string }
+	| { type: "failure"; failure: ReturnType<typeof failure> };
 
 function decodeUtf8(bytes: Uint8Array, sourceFile: string): DecodeResult {
 	try {
 		return { type: "ok", content: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
 	} catch (error) {
-		return { type: "failure", failure: failure("entry_not_utf8", `${sourceFile} is not valid UTF-8: ${messageForError(error)}`) };
+		return {
+			type: "failure",
+			failure: failure(
+				"entry_not_utf8",
+				`${sourceFile} is not valid UTF-8: ${messageForError(error)}`,
+			),
+		};
 	}
 }
 

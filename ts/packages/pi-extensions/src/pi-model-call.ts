@@ -1,6 +1,8 @@
 import type * as PiAi from "@earendil-works/pi-ai";
 
-export type PiModelAuth = { ok: true; apiKey?: string; headers?: Record<string, string> } | { ok: false; error: string };
+export type PiModelAuth =
+	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: false; error: string };
 
 export interface PiModelRegistryLike {
 	find(provider: string, modelId: string): unknown | undefined;
@@ -9,9 +11,16 @@ export interface PiModelRegistryLike {
 
 export type CompleteSimpleFunction = typeof PiAi.completeSimple;
 
-export type PiModelCallFailureReason = "model-unavailable" | "auth" | "empty-auth" | "aborted" | "request-failed";
+export type PiModelCallFailureReason =
+	| "model-unavailable"
+	| "auth"
+	| "empty-auth"
+	| "aborted"
+	| "request-failed";
 
-export type PiModelTextResult = { ok: true; text: string } | { ok: false; reason: PiModelCallFailureReason; message: string | null };
+export type PiModelTextResult =
+	| { ok: true; text: string }
+	| { ok: false; reason: PiModelCallFailureReason; message: string | null };
 
 export interface CallPiModelTextOptions {
 	registry: PiModelRegistryLike;
@@ -31,7 +40,8 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 	if (model === undefined) return { ok: false, reason: "model-unavailable", message: null };
 	const auth = await options.registry.getApiKeyAndHeaders(model);
 	if (!auth.ok) return { ok: false, reason: "auth", message: auth.error };
-	if (auth.apiKey === undefined || auth.apiKey.length === 0) return { ok: false, reason: "empty-auth", message: null };
+	if (auth.apiKey === undefined || auth.apiKey.length === 0)
+		return { ok: false, reason: "empty-auth", message: null };
 
 	try {
 		const completeFn = options.completeFn ?? (await loadCompleteSimple());
@@ -39,7 +49,13 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 			model as PiAi.Model<PiAi.Api>,
 			{
 				systemPrompt: options.systemPrompt,
-				messages: [{ role: "user", content: [{ type: "text", text: options.userText }], timestamp: Date.now() }],
+				messages: [
+					{
+						role: "user",
+						content: [{ type: "text", text: options.userText }],
+						timestamp: Date.now(),
+					},
+				],
 			},
 			{
 				apiKey: auth.apiKey,
@@ -50,16 +66,25 @@ export async function callPiModelText(options: CallPiModelTextOptions): Promise<
 				...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
 			},
 		);
-		if (response.stopReason === "aborted") return { ok: false, reason: "aborted", message: response.errorMessage ?? null };
-		if (response.stopReason === "error") return { ok: false, reason: "request-failed", message: response.errorMessage ?? null };
+		if (response.stopReason === "aborted")
+			return { ok: false, reason: "aborted", message: response.errorMessage ?? null };
+		if (response.stopReason === "error")
+			return { ok: false, reason: "request-failed", message: response.errorMessage ?? null };
 		const text = response.content
-			.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+			.filter(
+				(part): part is { type: "text"; text: string } =>
+					part.type === "text" && typeof part.text === "string",
+			)
 			.map((part) => part.text)
 			.join("\n");
 		return { ok: true, text };
 	} catch (error) {
 		if (options.signal?.aborted) return { ok: false, reason: "aborted", message: null };
-		return { ok: false, reason: "request-failed", message: error instanceof Error ? error.message : String(error) };
+		return {
+			ok: false,
+			reason: "request-failed",
+			message: error instanceof Error ? error.message : String(error),
+		};
 	}
 }
 

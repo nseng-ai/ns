@@ -78,7 +78,9 @@ function createContext(options: { models?: readonly ModelInfo[]; hasUI?: boolean
 			hasUI: options.hasUI ?? true,
 			modelRegistry: {
 				find(provider, modelId) {
-					return options.models?.find((model) => model.provider === provider && model.id === modelId);
+					return options.models?.find(
+						(model) => model.provider === provider && model.id === modelId,
+					);
 				},
 			},
 			ui: {
@@ -96,7 +98,9 @@ describe("modelShortcutExtension", () => {
 
 		modelShortcutExtension(pi);
 
-		expect([...pi.commands.entries()].map(([name, command]) => [name, command.description])).toEqual(
+		expect(
+			[...pi.commands.entries()].map(([name, command]) => [name, command.description]),
+		).toEqual(
 			EXPECTED_SHORTCUTS.map((shortcut) => [shortcut.command, `Switch to ${modelRef(shortcut)}`]),
 		);
 	});
@@ -110,7 +114,9 @@ describe("modelShortcutExtension", () => {
 		await commandFor(pi, shortcut.command).handler("", ctx);
 
 		expect(pi.setModels).toEqual([model]);
-		expect(notifications).toEqual([{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" }]);
+		expect(notifications).toEqual([
+			{ message: `Switched model to ${modelRef(shortcut)}.`, level: "info" },
+		]);
 	});
 
 	test("notifies when a shortcut model is missing", async () => {
@@ -121,7 +127,9 @@ describe("modelShortcutExtension", () => {
 		await commandFor(pi, "model:spud").handler("", ctx);
 
 		expect(pi.setModels).toEqual([]);
-		expect(notifications).toEqual([{ message: "Model openai-codex/gpt-5.5 not found.", level: "error" }]);
+		expect(notifications).toEqual([
+			{ message: "Model openai-codex/gpt-5.5 not found.", level: "error" },
+		]);
 	});
 
 	test("notifies when a shortcut model cannot be selected", async () => {
@@ -134,7 +142,10 @@ describe("modelShortcutExtension", () => {
 
 		expect(pi.setModels).toEqual([model]);
 		expect(notifications).toEqual([
-			{ message: "Model anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.", level: "error" },
+			{
+				message: "Model anthropic/claude-opus-4-8 is unavailable; run /login or configure Pi auth.",
+				level: "error",
+			},
 		]);
 	});
 

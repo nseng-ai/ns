@@ -44,23 +44,38 @@ export async function detectWorktreeConflicts(
 	return success(conflicts);
 }
 
-export async function loadWorktrees(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<WorktreeEntry[]>> {
-	const result = await exec(pi, "git", ["worktree", "list", "--porcelain"], repoRoot, GIT_TIMEOUT_MS);
+export async function loadWorktrees(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandStackResult<WorktreeEntry[]>> {
+	const result = await exec(
+		pi,
+		"git",
+		["worktree", "list", "--porcelain"],
+		repoRoot,
+		GIT_TIMEOUT_MS,
+	);
 	if (result.code !== 0) {
 		return failure(
-			landStackFailure(`Could not inspect git worktrees.\n${formatCommandDetails(result, formatCommand("git", ["worktree", "list", "--porcelain"]))}`),
+			landStackFailure(
+				`Could not inspect git worktrees.\n${formatCommandDetails(result, formatCommand("git", ["worktree", "list", "--porcelain"]))}`,
+			),
 		);
 	}
 	return success(parseWorktreeList(result.stdout));
 }
 
 export function parseWorktreeList(output: string): WorktreeEntry[] {
-	return parseGitWorktreePorcelain(output).map((entry) => (entry.branch === null ? { path: entry.path } : { path: entry.path, branch: entry.branch }));
+	return parseGitWorktreePorcelain(output).map((entry) =>
+		entry.branch === null ? { path: entry.path } : { path: entry.path, branch: entry.branch },
+	);
 }
 
 export function isManagedSlotPath(path: string): boolean {
 	const normalized = path.replaceAll("\\", "/");
-	return normalized.includes("/.slots/repos/") && /\/worktrees\/slot-[^/]+(?:\/|$)/.test(normalized);
+	return (
+		normalized.includes("/.slots/repos/") && /\/worktrees\/slot-[^/]+(?:\/|$)/.test(normalized)
+	);
 }
 
 export function slotNameFromPath(path: string): string | undefined {
@@ -89,7 +104,9 @@ export function formatManualWorktreeConflict(conflicts: WorktreeConflict[]): str
 
 export function formatSlotConflict(conflict: WorktreeConflict): string {
 	const slot = slotNameFromPath(conflict.path);
-	return slot ? `${slot} ${conflict.branch} ${conflict.path}` : `${conflict.branch} ${conflict.path}`;
+	return slot
+		? `${slot} ${conflict.branch} ${conflict.path}`
+		: `${conflict.branch} ${conflict.path}`;
 }
 
 export function formatConflict(conflict: WorktreeConflict): string {

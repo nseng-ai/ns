@@ -36,14 +36,25 @@ describe("extension discovery", () => {
 		writeFile(join(root, "dir-js", "index.js"));
 		writeFile(
 			join(root, "package-ext", "package.json"),
-			JSON.stringify({ asdl: { commands: [{ name: "custom", description: "Custom command.", entry: "./src/index.ts" }] } }),
+			JSON.stringify({
+				asdl: {
+					commands: [{ name: "custom", description: "Custom command.", entry: "./src/index.ts" }],
+				},
+			}),
 		);
 		writeFile(join(root, "package-ext", "src", "index.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.diagnostics).toEqual([]);
-		expect(result.commands.map((command) => [command.kind, command.name, command.description, command.entryPath])).toEqual([
+		expect(
+			result.commands.map((command) => [
+				command.kind,
+				command.name,
+				command.description,
+				command.entryPath,
+			]),
+		).toEqual([
 			["file", "bare", "Run SDL command entry 'bare'.", join(root, "bare.ts")],
 			["dir-index", "dir-js", "Run SDL command entry 'dir-js'.", join(root, "dir-js", "index.js")],
 			["dir-index", "dir-ts", "Run SDL command entry 'dir-ts'.", join(root, "dir-ts", "index.ts")],
@@ -103,7 +114,10 @@ describe("extension discovery", () => {
 
 	test("manifest asdl.commands must be an array", async () => {
 		const root = await createTempDir();
-		writeFile(join(root, "bad", "package.json"), JSON.stringify({ asdl: { extensions: ["./src/index.ts"] } }));
+		writeFile(
+			join(root, "bad", "package.json"),
+			JSON.stringify({ asdl: { extensions: ["./src/index.ts"] } }),
+		);
 
 		const result = discoverExtensionsInRoot(root);
 
@@ -116,13 +130,18 @@ describe("extension discovery", () => {
 		const root = await createTempDir();
 		writeFile(
 			join(root, "bad", "package.json"),
-			JSON.stringify({ asdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] } }),
+			JSON.stringify({
+				asdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] },
+			}),
 		);
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.commands).toEqual([]);
-		expect(result.diagnostics[0]).toMatchObject({ code: "extension_manifest_entry_missing", commandName: "hello" });
+		expect(result.diagnostics[0]).toMatchObject({
+			code: "extension_manifest_entry_missing",
+			commandName: "hello",
+		});
 	});
 
 	test("direct entries with invalid inferred command names are malformed", async () => {
@@ -133,7 +152,10 @@ describe("extension discovery", () => {
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.commands).toEqual([]);
-		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(["extension_command_name_invalid", "extension_command_name_invalid"]);
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+			"extension_command_name_invalid",
+			"extension_command_name_invalid",
+		]);
 	});
 
 	test("directory without index or manifest is malformed", async () => {

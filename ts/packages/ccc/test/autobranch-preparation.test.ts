@@ -1,8 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { prepareAutobranchPlan, type AutobranchPreparationInput } from "../src/autobranch/preparation.ts";
+import {
+	prepareAutobranchPlan,
+	type AutobranchPreparationInput,
+} from "../src/autobranch/preparation.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@asdl/pi-extension-runtime/branch-slug";
 import { buildSlugModelArgs } from "@asdl/plans";
-import { eventIndex, fail, ok, type CommandResult, type PendingWorktreeSnapshot } from "./autobranch-test-helpers.ts";
+import {
+	eventIndex,
+	fail,
+	ok,
+	type CommandResult,
+	type PendingWorktreeSnapshot,
+} from "./autobranch-test-helpers.ts";
 
 interface ExecCall {
 	command: string;
@@ -36,7 +45,10 @@ function createHarness(options: HarnessOptions = {}) {
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const invalidBranches = options.invalidBranches ?? new Set<string>();
 	const untrackedFiles = options.untrackedFiles ?? {};
-	const prepareResult = options.prepareResult ?? { ok: true, message: "[cp] Update app\n\n- Add coverage" };
+	const prepareResult = options.prepareResult ?? {
+		ok: true,
+		message: "[cp] Update app\n\n- Add coverage",
+	};
 
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
@@ -46,7 +58,9 @@ function createHarness(options: HarnessOptions = {}) {
 			calls.push({ command, args });
 			events.push(`exec:${command} ${args.join(" ")}`);
 			if (command === "git" && args[0] === "ls-files") {
-				return options.shouldUntrackedListFail ? fail("ls-files failed") : ok(Object.keys(untrackedFiles).join("\0"));
+				return options.shouldUntrackedListFail
+					? fail("ls-files failed")
+					: ok(Object.keys(untrackedFiles).join("\0"));
 			}
 			if (command === "pi") {
 				return options.piResult ?? ok("model generated branch\n");
@@ -121,9 +135,13 @@ describe("prepareAutobranchPlan", () => {
 			warnings: [],
 		});
 		expect(harness.calls.some((call) => call.command === "pi")).toBe(false);
-		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "ls-files")).toBe(false);
+		expect(
+			harness.calls.some((call) => call.command === "git" && call.args[0] === "ls-files"),
+		).toBe(false);
 		expect(harness.readPaths).toEqual([]);
-		expect(eventIndex(harness.events, "exec:git check-ref-format")).toBeLessThan(eventIndex(harness.events, "prepare"));
+		expect(eventIndex(harness.events, "exec:git check-ref-format")).toBeLessThan(
+			eventIndex(harness.events, "prepare"),
+		);
 	});
 
 	test("explicit invalid slug fails before branch checks or checkpoint preparation", async () => {
@@ -132,8 +150,12 @@ describe("prepareAutobranchPlan", () => {
 		const result = await prepareAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "invalid_requested_slug", requestedSlug: "---" });
-		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "check-ref-format")).toBe(false);
-		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "show-ref")).toBe(false);
+		expect(
+			harness.calls.some((call) => call.command === "git" && call.args[0] === "check-ref-format"),
+		).toBe(false);
+		expect(
+			harness.calls.some((call) => call.command === "git" && call.args[0] === "show-ref"),
+		).toBe(false);
 		expect(harness.events).not.toContain("prepare");
 	});
 
@@ -160,8 +182,12 @@ describe("prepareAutobranchPlan", () => {
 		const prompt = piPrompt(harness.calls);
 		expect(piCall(harness.calls).args).toEqual(buildSlugModelArgs(prompt));
 		expect(prompt).toContain("## git status --porcelain\nM src/app.ts\n?? notes.txt");
-		expect(prompt).toContain("## git diff HEAD\ndiff --git a/src/app.ts b/src/app.ts\n+updated app");
-		expect(prompt).toContain("## untracked file contents\n## notes.txt\nnew idea from untracked file");
+		expect(prompt).toContain(
+			"## git diff HEAD\ndiff --git a/src/app.ts b/src/app.ts\n+updated app",
+		);
+		expect(prompt).toContain(
+			"## untracked file contents\n## notes.txt\nnew idea from untracked file",
+		);
 	});
 
 	test("model failure falls back to changed paths and returns a non-fatal warning", async () => {
@@ -180,7 +206,9 @@ describe("prepareAutobranchPlan", () => {
 				slugSource: "fallback",
 				hasSuffix: false,
 			});
-			expect(result.warnings).toEqual([{ kind: "slug_model_failed", fallbackSlug: "update-app-ts-notes-txt" }]);
+			expect(result.warnings).toEqual([
+				{ kind: "slug_model_failed", fallbackSlug: "update-app-ts-notes-txt" },
+			]);
 		}
 		expect(harness.events).toContain("prepare");
 	});
@@ -233,11 +261,20 @@ describe("prepareAutobranchPlan", () => {
 	});
 
 	test("checkpoint preparation failure returns typed failure", async () => {
-		const harness = createHarness({ slug: "test-branch", prepareResult: { ok: false, error: "checkpoint prep failed" } });
+		const harness = createHarness({
+			slug: "test-branch",
+			prepareResult: { ok: false, error: "checkpoint prep failed" },
+		});
 
 		const result = await prepareAutobranchPlan(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "checkpoint_prepare_failed", error: "checkpoint prep failed" });
-		expect(eventIndex(harness.events, "exec:git show-ref")).toBeLessThan(eventIndex(harness.events, "prepare"));
+		expect(result).toEqual({
+			ok: false,
+			kind: "checkpoint_prepare_failed",
+			error: "checkpoint prep failed",
+		});
+		expect(eventIndex(harness.events, "exec:git show-ref")).toBeLessThan(
+			eventIndex(harness.events, "prepare"),
+		);
 	});
 });

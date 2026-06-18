@@ -7,7 +7,11 @@ import {
 	type CommandOptions,
 	type CommandOutput,
 } from "../../src/stack-map-model-loader.ts";
-import { buildNewWorkspaceArgs, buildSdlccCmuxReportBootstrapCommand, createStackMapCmuxActivationExecutor } from "../../src/stack-map-effects.ts";
+import {
+	buildNewWorkspaceArgs,
+	buildSdlccCmuxReportBootstrapCommand,
+	createStackMapCmuxActivationExecutor,
+} from "../../src/stack-map-effects.ts";
 import { printableCharacterFromInput } from "../../src/tabs/key-input.ts";
 import { interpretStackMapKey } from "../../src/stack-map-tab.ts";
 import {
@@ -33,12 +37,21 @@ const MODEL: StackMapModel = {
 			{
 				name: "feature/current",
 				graphiteNote: "current",
-				slots: [{ slotName: "slot-04", branch: "feature/current", worktreePath: "/repo/slot-04", status: "assigned" }],
+				slots: [
+					{
+						slotName: "slot-04",
+						branch: "feature/current",
+						worktreePath: "/repo/slot-04",
+						status: "assigned",
+					},
+				],
 				children: [
 					{
 						name: "feature/child-with-longer-name",
 						graphiteNote: "needs restack",
-						slots: [{ slotName: "slot-02", branch: "feature/child-with-longer-name", status: "assigned" }],
+						slots: [
+							{ slotName: "slot-02", branch: "feature/child-with-longer-name", status: "assigned" },
+						],
 					},
 				],
 			},
@@ -50,9 +63,19 @@ describe("buildStackMapModelFromGraph", () => {
 	test("builds topology from sanctioned graph rows, slots, and needs_restack facts", () => {
 		const model = buildStackMapModelFromGraph({
 			branches: [
-				{ name: "main", parent: undefined, children: ["feature/current", "feature/slot"], needsRestack: false },
+				{
+					name: "main",
+					parent: undefined,
+					children: ["feature/current", "feature/slot"],
+					needsRestack: false,
+				},
 				{ name: "feature/current", parent: "main", children: [], needsRestack: false },
-				{ name: "feature/slot", parent: "main", children: ["feature/restack"], needsRestack: false },
+				{
+					name: "feature/slot",
+					parent: "main",
+					children: ["feature/restack"],
+					needsRestack: false,
+				},
 				{ name: "feature/restack", parent: "feature/slot", children: [], needsRestack: true },
 			],
 			trunk: "main",
@@ -61,15 +84,32 @@ describe("buildStackMapModelFromGraph", () => {
 				{ parent: "main", child: "feature/current" },
 				{ parent: "main", child: "feature/slot" },
 			],
-			slots: [{ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" }],
+			slots: [
+				{
+					branch: "feature/slot",
+					slotName: "slot-04",
+					worktreePath: "/repo/worktrees/slot-04",
+					status: "assigned",
+				},
+			],
 			warnings: ["graph warning"],
 		});
 
 		expect(model.title).toBe("sdlcc stack map");
-		expect(model.diagnostics).toContain("Loaded from `slot gt exec stack-map-branches --format json`.");
+		expect(model.diagnostics).toContain(
+			"Loaded from `slot gt exec stack-map-branches --format json`.",
+		);
 		expect(model.diagnostics).toContain("graph warning");
-		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/current", "feature/slot"]);
-		expect(model.trunk.children?.[1]?.slots?.[0]).toEqual({ branch: "feature/slot", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04", status: "assigned" });
+		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
+			"feature/current",
+			"feature/slot",
+		]);
+		expect(model.trunk.children?.[1]?.slots?.[0]).toEqual({
+			branch: "feature/slot",
+			slotName: "slot-04",
+			worktreePath: "/repo/worktrees/slot-04",
+			status: "assigned",
+		});
 		expect(model.trunk.children?.[1]?.children?.[0]?.graphiteNote).toBe("needs restack");
 	});
 });
@@ -79,10 +119,15 @@ describe("loadStackMapModel", () => {
 		const calls: string[] = [];
 		const model = await loadStackMapModel({
 			cwd: "/repo",
-			runCommand: async (command: string, args: readonly string[], options: CommandOptions = {}): Promise<CommandOutput> => {
+			runCommand: async (
+				command: string,
+				args: readonly string[],
+				options: CommandOptions = {},
+			): Promise<CommandOutput> => {
 				calls.push(`${options.cwd}$ ${command} ${args.join(" ")}`);
 				if (command === "slot") return successJson({ exit_code: 0, data: stackMapGraphFixture() });
-				if (command === "cmux") return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
+				if (command === "cmux")
+					return successJson(cmuxTreeFixture({ includeExplicitWorktree: true }));
 				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
 			},
 		});
@@ -91,16 +136,25 @@ describe("loadStackMapModel", () => {
 			"/repo$ cmux tree --json --all",
 			"/repo$ slot gt exec stack-map-branches --format json",
 		]);
-		expect(model.trunk.children?.map((branch) => branch.name)).toEqual(["feature/a", "feature/recent"]);
+		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
+			"feature/a",
+			"feature/recent",
+		]);
 		expect(model.trunk.children?.[0]?.slots?.[0]?.slotName).toBe("slot-04");
 		expect(model.trunk.children?.[0]?.children?.[0]?.graphiteNote).toBe("needs restack");
-		expect(model.trunk.children?.[0]?.cmuxTabs?.[0]?.match).toEqual({ type: "slot-worktree", slotName: "slot-04", worktreePath: "/repo/worktrees/slot-04" });
+		expect(model.trunk.children?.[0]?.cmuxTabs?.[0]?.match).toEqual({
+			type: "slot-worktree",
+			slotName: "slot-04",
+			worktreePath: "/repo/worktrees/slot-04",
+		});
 	});
 });
 
 describe("parseCmuxTreeTabs", () => {
 	test("extracts tab refs and optional explicit cwd evidence", () => {
-		const result = parseCmuxTreeTabs(JSON.stringify(cmuxTreeFixture({ includeExplicitWorktree: true })));
+		const result = parseCmuxTreeTabs(
+			JSON.stringify(cmuxTreeFixture({ includeExplicitWorktree: true })),
+		);
 
 		expect(result.type).toBe("success");
 		if (result.type !== "success") return;
@@ -121,13 +175,22 @@ describe("parseCmuxTreeTabs", () => {
 
 describe("matchCmuxTabsToBranches", () => {
 	test("rejects title-only cmux evidence as a strong activation target", () => {
-		const parsed = parseCmuxTreeTabs(JSON.stringify(cmuxTreeFixture({ includeExplicitWorktree: false })));
+		const parsed = parseCmuxTreeTabs(
+			JSON.stringify(cmuxTreeFixture({ includeExplicitWorktree: false })),
+		);
 		expect(parsed.type).toBe("success");
 		if (parsed.type !== "success") return;
 
 		const root = matchCmuxTabsToBranches({
 			root: MODEL.trunk,
-			slots: [{ slotName: "slot-04", branch: "feature/current", worktreePath: "/repo/slot-04", status: "assigned" }],
+			slots: [
+				{
+					slotName: "slot-04",
+					branch: "feature/current",
+					worktreePath: "/repo/slot-04",
+					status: "assigned",
+				},
+			],
 			tabs: parsed.tabs,
 		});
 
@@ -139,7 +202,16 @@ describe("planStackMapCmuxActivation", () => {
 	test("opens new when the selected branch has zero strong tab matches", () => {
 		const plan = planStackMapCmuxActivation(MODEL, createInitialStackMapState(MODEL));
 
-		expect(plan).toEqual({ type: "open-new", branch: "feature/current", slot: { slotName: "slot-04", branch: "feature/current", worktreePath: "/repo/slot-04", status: "assigned" } });
+		expect(plan).toEqual({
+			type: "open-new",
+			branch: "feature/current",
+			slot: {
+				slotName: "slot-04",
+				branch: "feature/current",
+				worktreePath: "/repo/slot-04",
+				status: "assigned",
+			},
+		});
 	});
 
 	test("focuses one target and chooses among multiple targets", () => {
@@ -148,17 +220,31 @@ describe("planStackMapCmuxActivation", () => {
 		const oneTargetModel = modelWithTabs([first]);
 		const twoTargetModel = modelWithTabs([first, second]);
 
-		expect(planStackMapCmuxActivation(oneTargetModel, createInitialStackMapState(oneTargetModel))).toEqual({ type: "focus-tab", branch: "feature/current", target: first });
-		const choosePlan = planStackMapCmuxActivation(twoTargetModel, createInitialStackMapState(twoTargetModel));
+		expect(
+			planStackMapCmuxActivation(oneTargetModel, createInitialStackMapState(oneTargetModel)),
+		).toEqual({ type: "focus-tab", branch: "feature/current", target: first });
+		const choosePlan = planStackMapCmuxActivation(
+			twoTargetModel,
+			createInitialStackMapState(twoTargetModel),
+		);
 		expect(choosePlan.type).toBe("choose-tab");
 		expect(choicesForCmuxActivationPlan(choosePlan)).toHaveLength(3);
-		expect(choicesForCmuxActivationPlan(choosePlan).at(-1)).toMatchObject({ type: "open-new", branch: "feature/current" });
+		expect(choicesForCmuxActivationPlan(choosePlan).at(-1)).toMatchObject({
+			type: "open-new",
+			branch: "feature/current",
+		});
 	});
 
 	test("does not activate a selected branch hidden by current filters", () => {
-		const plan = planStackMapCmuxActivation(MODEL, { ...createInitialStackMapState(MODEL), query: "does-not-match" });
+		const plan = planStackMapCmuxActivation(MODEL, {
+			...createInitialStackMapState(MODEL),
+			query: "does-not-match",
+		});
 
-		expect(plan).toEqual({ type: "unavailable", reason: "No selected branch is visible under the current scope/query." });
+		expect(plan).toEqual({
+			type: "unavailable",
+			reason: "No selected branch is visible under the current scope/query.",
+		});
 	});
 });
 
@@ -166,8 +252,17 @@ describe("reduceStackMapState", () => {
 	test("moves chooser selection and cancels without quitting rows", () => {
 		const first = cmuxTarget("surface:1");
 		const second = cmuxTarget("surface:2");
-		const choices = choicesForCmuxActivationPlan({ type: "choose-tab", branch: "feature/current", targets: [first, second], includeOpenNew: true });
-		const choosing = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), { type: "show-cmux-choice", branch: "feature/current", choices });
+		const choices = choicesForCmuxActivationPlan({
+			type: "choose-tab",
+			branch: "feature/current",
+			targets: [first, second],
+			includeOpenNew: true,
+		});
+		const choosing = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), {
+			type: "show-cmux-choice",
+			branch: "feature/current",
+			choices,
+		});
 		const moved = reduceStackMapState(MODEL, choosing, { type: "move-choice", delta: 1 });
 		const cancelled = reduceStackMapState(MODEL, moved, { type: "cancel-choice" });
 
@@ -176,9 +271,14 @@ describe("reduceStackMapState", () => {
 	});
 
 	test("query actions repair selection when possible and keep empty selections inert", () => {
-		const start = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), { type: "start-query" });
+		const start = reduceStackMapState(MODEL, createInitialStackMapState(MODEL), {
+			type: "start-query",
+		});
 		const childQuery = reduceStackMapState(MODEL, start, { type: "append-query", value: "main" });
-		const emptyQuery = reduceStackMapState(MODEL, childQuery, { type: "append-query", value: "-missing" });
+		const emptyQuery = reduceStackMapState(MODEL, childQuery, {
+			type: "append-query",
+			value: "-missing",
+		});
 		const accepted = reduceStackMapState(MODEL, emptyQuery, { type: "accept-query" });
 		const cleared = reduceStackMapState(MODEL, accepted, { type: "clear-query" });
 
@@ -203,7 +303,9 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			},
 		});
 
-		await expect(executor.focusTab(cmuxTarget("surface:117"))).resolves.toEqual({ type: "focused" });
+		await expect(executor.focusTab(cmuxTarget("surface:117"))).resolves.toEqual({
+			type: "focused",
+		});
 		expect(calls).toEqual([
 			'/repo$ cmux rpc surface.focus {"surface_id":"surface:117","workspace_id":"workspace:45","window_id":"window:1"}',
 		]);
@@ -219,11 +321,26 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			},
 		});
 
-		await expect(executor.openNew("feature/current", { slotName: "slot-04", branch: "feature/current", worktreePath: "/repo/slot-04", status: "assigned" })).resolves.toMatchObject({ type: "opened" });
+		await expect(
+			executor.openNew("feature/current", {
+				slotName: "slot-04",
+				branch: "feature/current",
+				worktreePath: "/repo/slot-04",
+				status: "assigned",
+			}),
+		).resolves.toMatchObject({ type: "opened" });
 		expect(calls).toHaveLength(1);
-		expect(calls[0]).toContain("/repo/slot-04$ cmux new-workspace --name feature/current --description sdlcc cmux workspace for feature/current --cwd /repo/slot-04 --command bun '");
+		expect(calls[0]).toContain(
+			"/repo/slot-04$ cmux new-workspace --name feature/current --description sdlcc cmux workspace for feature/current --cwd /repo/slot-04 --command bun '",
+		);
 		expect(calls[0]).toContain("/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
-		expect(buildNewWorkspaceArgs({ branchName: "feature/current", worktreePath: "/repo/slot-04", description: "desc" })).toEqual([
+		expect(
+			buildNewWorkspaceArgs({
+				branchName: "feature/current",
+				worktreePath: "/repo/slot-04",
+				description: "desc",
+			}),
+		).toEqual([
 			"new-workspace",
 			"--name",
 			"feature/current",
@@ -234,8 +351,12 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			"--command",
 			buildSdlccCmuxReportBootstrapCommand(),
 		]);
-		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe("bun '/repo/with space/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
-		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe("bun '/repo/with'\\''quote/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l");
+		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with space/src/cli.ts")).toBe(
+			"bun '/repo/with space/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l",
+		);
+		expect(buildSdlccCmuxReportBootstrapCommand("/repo/with'quote/src/cli.ts")).toBe(
+			"bun '/repo/with'\\''quote/src/cli.ts' cmux report || true; exec ${SHELL:-/bin/zsh} -l",
+		);
 	});
 });
 
@@ -257,7 +378,14 @@ describe("buildVisibleStackMapRows", () => {
 
 		const rows = buildVisibleStackMapRows(model, createInitialStackMapState(model));
 
-		expect(rows.map((row) => row.branch.name)).toEqual(["a-parent", "b-leaf", "b-child", "b-parent", "c-parent", "main"]);
+		expect(rows.map((row) => row.branch.name)).toEqual([
+			"a-parent",
+			"b-leaf",
+			"b-child",
+			"b-parent",
+			"c-parent",
+			"main",
+		]);
 		expect(rows.map((row) => row.topo)).toEqual(["◯", "│ ◉", "│ ◯", "│ ◯", "│ │ ◯", "◯─┴─┴"]);
 		expect(rows.at(-1)?.branch.name).toBe("main");
 		expect(rows.at(-1)?.topo).toBe("◯─┴─┴");
@@ -273,13 +401,27 @@ describe("buildVisibleStackMapRows", () => {
 				name: "main",
 				children: [
 					{ name: "a-parent" },
-					{ name: "b-parent", children: [{ name: "b-child", slots: [{ branch: "b-child", slotName: "slot-02", status: "assigned" }] }] },
-					{ name: "c-parent", children: [{ name: "c-child", cmuxTabs: [cmuxTarget("surface:3")] }] },
+					{
+						name: "b-parent",
+						children: [
+							{
+								name: "b-child",
+								slots: [{ branch: "b-child", slotName: "slot-02", status: "assigned" }],
+							},
+						],
+					},
+					{
+						name: "c-parent",
+						children: [{ name: "c-child", cmuxTabs: [cmuxTarget("surface:3")] }],
+					},
 				],
 			},
 		};
 
-		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), scope: "cmux" });
+		const rows = buildVisibleStackMapRows(model, {
+			...createInitialStackMapState(model),
+			scope: "cmux",
+		});
 
 		expect(rows.map((row) => row.branch.name)).toEqual(["c-child", "c-parent", "main"]);
 		expect(rows.map((row) => row.topo)).toEqual(["◯", "◯", "◯"]);
@@ -299,7 +441,10 @@ describe("buildVisibleStackMapRows", () => {
 			},
 		};
 
-		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), query: " NEEDLE " });
+		const rows = buildVisibleStackMapRows(model, {
+			...createInitialStackMapState(model),
+			query: " NEEDLE ",
+		});
 
 		expect(rows.map((row) => row.branch.name)).toEqual(["needle-child", "a-parent", "main"]);
 	});
@@ -320,7 +465,11 @@ describe("buildVisibleStackMapRows", () => {
 			},
 		};
 
-		const rows = buildVisibleStackMapRows(model, { ...createInitialStackMapState(model), scope: "cmux", query: "hit-with-tab" });
+		const rows = buildVisibleStackMapRows(model, {
+			...createInitialStackMapState(model),
+			scope: "cmux",
+			query: "hit-with-tab",
+		});
 
 		expect(rows.map((row) => row.branch.name)).toEqual(["feature/query-hit-with-tab", "main"]);
 	});
@@ -330,20 +479,48 @@ describe("interpretStackMapKey", () => {
 	test("maps row-mode keys to semantic intents", () => {
 		const state = createInitialStackMapState(MODEL);
 
-		expect(interpretStackMapKey(state, { name: "/", sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
-		expect(interpretStackMapKey(state, { sequence: "/" })).toEqual({ type: "action", action: { type: "start-query" } });
-		expect(interpretStackMapKey(state, { name: "o", sequence: "o" })).toEqual({ type: "action", action: { type: "toggle-scope" } });
-		expect(interpretStackMapKey(state, { name: "c", sequence: "c" })).toEqual({ type: "effect", effect: { type: "activate-cmux" } });
+		expect(interpretStackMapKey(state, { name: "/", sequence: "/" })).toEqual({
+			type: "action",
+			action: { type: "start-query" },
+		});
+		expect(interpretStackMapKey(state, { sequence: "/" })).toEqual({
+			type: "action",
+			action: { type: "start-query" },
+		});
+		expect(interpretStackMapKey(state, { name: "o", sequence: "o" })).toEqual({
+			type: "action",
+			action: { type: "toggle-scope" },
+		});
+		expect(interpretStackMapKey(state, { name: "c", sequence: "c" })).toEqual({
+			type: "effect",
+			effect: { type: "activate-cmux" },
+		});
 		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({ type: "quit" });
 	});
 
 	test("query mode consumes printable shortcuts as text", () => {
-		const state = { ...createInitialStackMapState(MODEL), mode: { type: "query" as const }, query: "fea" };
+		const state = {
+			...createInitialStackMapState(MODEL),
+			mode: { type: "query" as const },
+			query: "fea",
+		};
 
-		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({ type: "action", action: { type: "append-query", value: "q" } });
-		expect(interpretStackMapKey(state, { name: "backspace", sequence: "\x7F" })).toEqual({ type: "action", action: { type: "delete-query-char" } });
-		expect(interpretStackMapKey(state, { name: "enter", sequence: "\r" })).toEqual({ type: "action", action: { type: "accept-query" } });
-		expect(interpretStackMapKey(state, { name: "escape", sequence: "\x1B" })).toEqual({ type: "action", action: { type: "clear-query" } });
+		expect(interpretStackMapKey(state, { name: "q", sequence: "q" })).toEqual({
+			type: "action",
+			action: { type: "append-query", value: "q" },
+		});
+		expect(interpretStackMapKey(state, { name: "backspace", sequence: "\x7F" })).toEqual({
+			type: "action",
+			action: { type: "delete-query-char" },
+		});
+		expect(interpretStackMapKey(state, { name: "enter", sequence: "\r" })).toEqual({
+			type: "action",
+			action: { type: "accept-query" },
+		});
+		expect(interpretStackMapKey(state, { name: "escape", sequence: "\x1B" })).toEqual({
+			type: "action",
+			action: { type: "clear-query" },
+		});
 		expect(printableCharacterFromInput({ sequence: " " })).toBe(" ");
 		expect(printableCharacterFromInput({ ctrl: true, sequence: "a" })).toBeUndefined();
 	});
@@ -372,7 +549,9 @@ describe("renderStackMapFrame", () => {
 		expect(frame).not.toContain("◯ │ main");
 		expect(frame).not.toContain("│ main");
 		expect(tableLines.length).toBe(4);
-		expect(tableLines.map(tableSeparatorIndexes)).toEqual(tableLines.map(() => tableSeparatorIndexes(header ?? "")));
+		expect(tableLines.map(tableSeparatorIndexes)).toEqual(
+			tableLines.map(() => tableSeparatorIndexes(header ?? "")),
+		);
 	});
 
 	test("toggles the diagnostics block via toggle-diagnostics", () => {
@@ -393,17 +572,25 @@ describe("renderStackMapFrame", () => {
 	});
 
 	test("maps the d key to toggle-diagnostics in rows mode", () => {
-		expect(interpretStackMapKey(createInitialStackMapState(MODEL), { name: "d", sequence: "d" })).toEqual({
+		expect(
+			interpretStackMapKey(createInitialStackMapState(MODEL), { name: "d", sequence: "d" }),
+		).toEqual({
 			type: "action",
 			action: { type: "toggle-diagnostics" },
 		});
 	});
 
 	test("renders query mode and empty-result feedback", () => {
-		const frame = renderStackMapFrame(MODEL, { ...createInitialStackMapState(MODEL), query: "missing", mode: { type: "query" } });
+		const frame = renderStackMapFrame(MODEL, {
+			...createInitialStackMapState(MODEL),
+			query: "missing",
+			mode: { type: "query" },
+		});
 
 		expect(frame).toContain("No branches match the current scope/query.");
-		expect(frame).toContain('State: scope=all; query="missing"; visibleBranches=0; selected=<none>');
+		expect(frame).toContain(
+			'State: scope=all; query="missing"; visibleBranches=0; selected=<none>',
+		);
 		expect(frame).toContain("Action: c unavailable; no visible branch is selected");
 		expect(frame).toContain("Filter: type branch text  Backspace edit  Enter accept  Esc clear");
 	});
@@ -412,10 +599,34 @@ describe("renderStackMapFrame", () => {
 function stackMapGraphFixture(): unknown {
 	return {
 		branches: [
-			{ name: "main", parent: null, children: ["feature/a", "feature/recent"], validation_result: "TRUNK", needs_restack: false },
-			{ name: "feature/a", parent: "main", children: ["feature/restack"], validation_result: "VALID", needs_restack: false },
-			{ name: "feature/restack", parent: "feature/a", children: [], validation_result: "BAD_PARENT_NAME", needs_restack: true },
-			{ name: "feature/recent", parent: "main", children: [], validation_result: "VALID", needs_restack: false },
+			{
+				name: "main",
+				parent: null,
+				children: ["feature/a", "feature/recent"],
+				validation_result: "TRUNK",
+				needs_restack: false,
+			},
+			{
+				name: "feature/a",
+				parent: "main",
+				children: ["feature/restack"],
+				validation_result: "VALID",
+				needs_restack: false,
+			},
+			{
+				name: "feature/restack",
+				parent: "feature/a",
+				children: [],
+				validation_result: "BAD_PARENT_NAME",
+				needs_restack: true,
+			},
+			{
+				name: "feature/recent",
+				parent: "main",
+				children: [],
+				validation_result: "VALID",
+				needs_restack: false,
+			},
 		],
 		trunk: "main",
 		current: "feature/a",
@@ -424,7 +635,14 @@ function stackMapGraphFixture(): unknown {
 			{ parent: "feature/a", child: "feature/restack" },
 			{ parent: "main", child: "feature/recent" },
 		],
-		slots: [{ slot_name: "slot-04", branch: "feature/a", worktree_path: "/repo/worktrees/slot-04", status: "assigned" }],
+		slots: [
+			{
+				slot_name: "slot-04",
+				branch: "feature/a",
+				worktree_path: "/repo/worktrees/slot-04",
+				status: "assigned",
+			},
+		],
 		warnings: [],
 	};
 }
@@ -434,7 +652,9 @@ function modelWithTabs(tabs: readonly StackMapCmuxTabTarget[]): StackMapModel {
 		...MODEL,
 		trunk: {
 			...MODEL.trunk,
-			children: MODEL.trunk.children?.map((branch) => branch.name === "feature/current" ? { ...branch, cmuxTabs: tabs } : branch),
+			children: MODEL.trunk.children?.map((branch) =>
+				branch.name === "feature/current" ? { ...branch, cmuxTabs: tabs } : branch,
+			),
 		},
 	};
 }

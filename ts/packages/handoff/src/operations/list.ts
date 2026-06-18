@@ -10,7 +10,10 @@ import { resolveBranch } from "./shared.ts";
 export const listRequestSchema = z.object({
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
 	all: z.boolean().default(false).describe("List handoffs across every active branch."),
-	include_deleted: z.boolean().default(false).describe("Include handoffs whose local branch no longer exists."),
+	include_deleted: z
+		.boolean()
+		.default(false)
+		.describe("Include handoffs whose local branch no longer exists."),
 });
 
 export const listResultSchema = z.object({
@@ -49,12 +52,25 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	} satisfies ListResult);
 }
 
-export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
+export function renderList(
+	result: ListResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	if (result.handoffs.length === 0) return emptyMessage(result);
 	if (result.scope === "all-branches") {
 		const table = renderTextTable({
-			columns: [{ header: "BRANCH", style: "bold-cyan" }, { header: "STATE" }, { header: "HANDOFF" }, { header: "UPDATED", style: "dim" }],
-			rows: result.handoffs.map((handoff) => [handoff.branch, handoff.branch_state, handoff.slug, handoff.updated_at]),
+			columns: [
+				{ header: "BRANCH", style: "bold-cyan" },
+				{ header: "STATE" },
+				{ header: "HANDOFF" },
+				{ header: "UPDATED", style: "dim" },
+			],
+			rows: result.handoffs.map((handoff) => [
+				handoff.branch,
+				handoff.branch_state,
+				handoff.slug,
+				handoff.updated_at,
+			]),
 			canEmitAnsi: caps.canEmitAnsi,
 			shouldDrawRule: true,
 			headerStyle: "bold-cyan",
@@ -62,7 +78,10 @@ export function renderList(result: ListResult, caps: RenderCapabilities = { canE
 		return [allBranchesTitle(result), "", table].join("\n");
 	}
 	const table = renderTextTable({
-		columns: [{ header: "HANDOFF", style: "bold-cyan" }, { header: "UPDATED", style: "dim" }],
+		columns: [
+			{ header: "HANDOFF", style: "bold-cyan" },
+			{ header: "UPDATED", style: "dim" },
+		],
 		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updated_at]),
 		canEmitAnsi: caps.canEmitAnsi,
 		shouldDrawRule: true,
@@ -90,7 +109,9 @@ export function renderListMarkdown(result: ListResult): string {
 		"",
 		"| handoff | updated |",
 		"| --- | --- |",
-		...result.handoffs.map((handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updated_at)} |`),
+		...result.handoffs.map(
+			(handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updated_at)} |`,
+		),
 	].join("\n");
 }
 
@@ -99,7 +120,10 @@ function allBranchesTitle(result: ListResult): string {
 }
 
 function emptyMessage(result: ListResult): string {
-	if (result.scope === "all-branches") return result.include_deleted ? "No handoffs found across branches." : "No handoffs found across active branches.";
+	if (result.scope === "all-branches")
+		return result.include_deleted
+			? "No handoffs found across branches."
+			: "No handoffs found across active branches.";
 	return `No handoffs found on branch ${result.branch}.`;
 }
 

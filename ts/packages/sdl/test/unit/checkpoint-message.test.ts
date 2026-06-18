@@ -83,7 +83,10 @@ describe("validateCheckpointMessage", () => {
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.issues).toContainEqual({ code: "missing_cp_prefix", subject: "Update checkpoint tests" });
+			expect(result.issues).toContainEqual({
+				code: "missing_cp_prefix",
+				subject: "Update checkpoint tests",
+			});
 		}
 	});
 
@@ -94,7 +97,10 @@ describe("validateCheckpointMessage", () => {
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.issues).toContainEqual({ code: "subject_trailing_period", subject: "[cp] Update checkpoint tests." });
+			expect(result.issues).toContainEqual({
+				code: "subject_trailing_period",
+				subject: "[cp] Update checkpoint tests.",
+			});
 		}
 	});
 

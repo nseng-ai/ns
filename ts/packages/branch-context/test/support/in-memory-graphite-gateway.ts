@@ -37,7 +37,8 @@ export class InMemoryBranchContextGraphiteGateway implements BranchContextGraphi
 		this.checkFailure = state.checkFailure;
 		this.trackFailure = state.trackFailure;
 		this.untrackedBranches = new Set(state.untrackedBranches ?? []);
-		this.untrackedDetail = state.untrackedDetail ?? "ERROR: Cannot perform this operation on untracked branch.";
+		this.untrackedDetail =
+			state.untrackedDetail ?? "ERROR: Cannot perform this operation on untracked branch.";
 	}
 
 	get checkBranchTrackedCalls(): readonly GraphiteCheckBranchTrackedCall[] {
@@ -48,7 +49,9 @@ export class InMemoryBranchContextGraphiteGateway implements BranchContextGraphi
 		return this.trackBranchLog.map((call) => ({ ...call }));
 	}
 
-	async checkBranchTracked(params: GraphiteCheckBranchTrackedParams): Promise<GraphiteBranchTrackedResult> {
+	async checkBranchTracked(
+		params: GraphiteCheckBranchTrackedParams,
+	): Promise<GraphiteBranchTrackedResult> {
 		this.checkBranchTrackedLog.push({ cwd: params.cwd, branch: params.branch });
 		if (this.checkFailure !== undefined) {
 			return { ok: false, error: this.checkFailure };
@@ -60,7 +63,11 @@ export class InMemoryBranchContextGraphiteGateway implements BranchContextGraphi
 	}
 
 	async trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult> {
-		this.trackBranchLog.push({ cwd: params.cwd, branch: params.branch, parentBranch: params.parentBranch });
+		this.trackBranchLog.push({
+			cwd: params.cwd,
+			branch: params.branch,
+			parentBranch: params.parentBranch,
+		});
 		if (this.trackFailure !== undefined) {
 			return { ok: false, error: this.trackFailure };
 		}

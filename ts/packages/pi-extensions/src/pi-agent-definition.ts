@@ -73,7 +73,9 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 	try {
 		raw = readFileSync(filePath, "utf8");
 	} catch (error) {
-		throw new Error(`Failed to read Pi agent definition "${agentName}" at ${filePath}: ${formatErrorMessage(error)}`);
+		throw new Error(
+			`Failed to read Pi agent definition "${agentName}" at ${filePath}: ${formatErrorMessage(error)}`,
+		);
 	}
 
 	const definition = parsePiAgentDefinitionMarkdown(raw, filePath);
@@ -88,19 +90,28 @@ export function loadPiAgentDefinition(agentName: string, cwd: string): PiAgentDe
 export function parsePiAgentDefinitionMarkdown(raw: string, filePath: string): PiAgentDefinition {
 	const split = splitMarkdownFrontmatter(raw);
 	if (split.type === "not_found") {
-		throw new Error(`Pi agent definition ${filePath} must start with an opening frontmatter delimiter "---".`);
+		throw new Error(
+			`Pi agent definition ${filePath} must start with an opening frontmatter delimiter "---".`,
+		);
 	}
 	if (split.type === "missing_closing_fence") {
-		throw new Error(`Pi agent definition ${filePath} is missing a closing frontmatter delimiter "---".`);
+		throw new Error(
+			`Pi agent definition ${filePath} is missing a closing frontmatter delimiter "---".`,
+		);
 	}
 
-	const frontmatterLines = split.block.frontmatterLinesWithEndings.map((line) => stripLineEnding(line).replace(/\r$/u, ""));
+	const frontmatterLines = split.block.frontmatterLinesWithEndings.map((line) =>
+		stripLineEnding(line).replace(/\r$/u, ""),
+	);
 	const body = split.block.body.replace(/\r\n?/gu, "\n");
 	const fields = parseFrontmatterLines(frontmatterLines, filePath);
 	return validatePiAgentDefinition(fields, body, filePath);
 }
 
-export function composePiAgentPrompt(definition: PiAgentDefinition, input: { title: string; prompt: string }): string {
+export function composePiAgentPrompt(
+	definition: PiAgentDefinition,
+	input: { title: string; prompt: string },
+): string {
 	const body = definition.body.trim();
 	const hasPromptPlaceholder = body.includes("{{prompt}}");
 	const composed = body.replace(/\{\{(prompt|title)\}\}/g, (_match, key: string) => {
@@ -126,18 +137,24 @@ function parseFrontmatterLines(lines: string[], filePath: string): FrontmatterFi
 			continue;
 		}
 		if (/^\s/.test(line)) {
-			throw new Error(`Malformed frontmatter in ${filePath} on line ${lineNumber}: unexpected indented line.`);
+			throw new Error(
+				`Malformed frontmatter in ${filePath} on line ${lineNumber}: unexpected indented line.`,
+			);
 		}
 
 		const match = /^([A-Za-z][A-Za-z0-9]*):(?:\s*(.*))?$/.exec(line);
 		if (!match) {
-			throw new Error(`Malformed frontmatter in ${filePath} on line ${lineNumber}: expected "key: value".`);
+			throw new Error(
+				`Malformed frontmatter in ${filePath} on line ${lineNumber}: expected "key: value".`,
+			);
 		}
 
 		const key = match[1] ?? "";
 		const rawValue = match[2] ?? "";
 		if (!isSupportedFrontmatterField(key)) {
-			throw new Error(`Unsupported frontmatter field "${key}" in ${filePath} on line ${lineNumber}.`);
+			throw new Error(
+				`Unsupported frontmatter field "${key}" in ${filePath} on line ${lineNumber}.`,
+			);
 		}
 		if (fields[key] !== undefined) {
 			throw new Error(`Duplicate frontmatter field "${key}" in ${filePath} on line ${lineNumber}.`);
@@ -145,7 +162,9 @@ function parseFrontmatterLines(lines: string[], filePath: string): FrontmatterFi
 
 		if (key === "promptGuidelines") {
 			if (rawValue.trim().length > 0) {
-				throw new Error(`Field "promptGuidelines" in ${filePath} must be a list of "  - guideline" items.`);
+				throw new Error(
+					`Field "promptGuidelines" in ${filePath} must be a list of "  - guideline" items.`,
+				);
 			}
 			const { items, nextIndex } = parsePromptGuidelineList(lines, index + 1, filePath);
 			fields.promptGuidelines = items;
@@ -182,25 +201,35 @@ function parsePromptGuidelineList(
 
 		const match = /^  -\s+(.+)$/.exec(line);
 		if (!match) {
-			throw new Error(`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: expected "  - guideline".`);
+			throw new Error(
+				`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: expected "  - guideline".`,
+			);
 		}
 
 		const item = (match[1] ?? "").trim();
 		if (item.length === 0) {
-			throw new Error(`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: empty guideline.`);
+			throw new Error(
+				`Malformed promptGuidelines list in ${filePath} on line ${index + 2}: empty guideline.`,
+			);
 		}
 		items.push(item);
 		index += 1;
 	}
 
 	if (items.length === 0) {
-		throw new Error(`Field "promptGuidelines" in ${filePath} must include at least one list item when present.`);
+		throw new Error(
+			`Field "promptGuidelines" in ${filePath} must include at least one list item when present.`,
+		);
 	}
 
 	return { items, nextIndex: index };
 }
 
-function validatePiAgentDefinition(fields: FrontmatterFields, body: string, filePath: string): PiAgentDefinition {
+function validatePiAgentDefinition(
+	fields: FrontmatterFields,
+	body: string,
+	filePath: string,
+): PiAgentDefinition {
 	const schema = requiredScalarField(fields, "schema", filePath);
 	if (schema !== PI_AGENT_DEFINITION_SCHEMA) {
 		throw new Error(
@@ -228,7 +257,11 @@ function validatePiAgentDefinition(fields: FrontmatterFields, body: string, file
 	};
 }
 
-function requiredScalarField(fields: FrontmatterFields, key: SupportedFrontmatterField, filePath: string): string {
+function requiredScalarField(
+	fields: FrontmatterFields,
+	key: SupportedFrontmatterField,
+	filePath: string,
+): string {
 	const value = fields[key];
 	if (typeof value !== "string" || value.trim().length === 0) {
 		throw new Error(`Missing required field "${key}" in Pi agent definition ${filePath}.`);
@@ -236,19 +269,32 @@ function requiredScalarField(fields: FrontmatterFields, key: SupportedFrontmatte
 	return value.trim();
 }
 
-function optionalScalarField(fields: FrontmatterFields, key: SupportedFrontmatterField, filePath: string): string | undefined {
+function optionalScalarField(
+	fields: FrontmatterFields,
+	key: SupportedFrontmatterField,
+	filePath: string,
+): string | undefined {
 	const value = fields[key];
 	if (value === undefined) return undefined;
 	if (typeof value !== "string" || value.trim().length === 0) {
-		throw new Error(`Field "${key}" in Pi agent definition ${filePath} must be a non-empty string.`);
+		throw new Error(
+			`Field "${key}" in Pi agent definition ${filePath} must be a non-empty string.`,
+		);
 	}
 	return value.trim();
 }
 
-function optionalStringListField(fields: FrontmatterFields, key: SupportedFrontmatterField, filePath: string): string[] | undefined {
+function optionalStringListField(
+	fields: FrontmatterFields,
+	key: SupportedFrontmatterField,
+	filePath: string,
+): string[] | undefined {
 	const value = fields[key];
 	if (value === undefined) return undefined;
-	if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+	if (
+		!Array.isArray(value) ||
+		value.some((item) => typeof item !== "string" || item.trim().length === 0)
+	) {
 		throw new Error(`Field "${key}" in Pi agent definition ${filePath} must be a list of strings.`);
 	}
 	return value.map((item) => item.trim());

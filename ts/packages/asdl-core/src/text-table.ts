@@ -62,27 +62,36 @@ export function renderTextTable(options: RenderTextTableOptions): string {
 	const columnCount = options.columns.length;
 	for (const row of options.rows) {
 		if (row.length !== columnCount) {
-			throw new Error(`renderTextTable: row has ${row.length} cells but ${columnCount} columns were declared`);
+			throw new Error(
+				`renderTextTable: row has ${row.length} cells but ${columnCount} columns were declared`,
+			);
 		}
 	}
 
 	const cellLinesByRow = options.rows.map((row) => row.map((cell) => cell.split("\n")));
 	const widths = computeColumnWidths(options.columns, cellLinesByRow);
 
-	const headerCells = options.columns.map((column) => styled(column.header, column.headerStyle ?? options.headerStyle, canEmitAnsi));
+	const headerCells = options.columns.map((column) =>
+		styled(column.header, column.headerStyle ?? options.headerStyle, canEmitAnsi),
+	);
 	const lines = [composeLine({ cells: headerCells, columns: options.columns, widths, gap })];
 	if (options.shouldDrawRule === true) lines.push(composeRule(widths, gap));
 	for (const rowCellLines of cellLinesByRow) {
 		const height = Math.max(1, ...rowCellLines.map((cellLines) => cellLines.length));
 		for (let lineIndex = 0; lineIndex < height; lineIndex += 1) {
-			const cells = options.columns.map((column, columnIndex) => styled(rowCellLines[columnIndex]?.[lineIndex] ?? "", column.style, canEmitAnsi));
+			const cells = options.columns.map((column, columnIndex) =>
+				styled(rowCellLines[columnIndex]?.[lineIndex] ?? "", column.style, canEmitAnsi),
+			);
 			lines.push(composeLine({ cells, columns: options.columns, widths, gap }));
 		}
 	}
 	return lines.join("\n");
 }
 
-function computeColumnWidths(columns: readonly TextTableColumn[], cellLinesByRow: readonly (readonly string[][])[]): number[] {
+function computeColumnWidths(
+	columns: readonly TextTableColumn[],
+	cellLinesByRow: readonly (readonly string[][])[],
+): number[] {
 	const widths = columns.map((column) => displayWidth(column.header));
 	for (const rowCellLines of cellLinesByRow) {
 		for (let columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
@@ -102,7 +111,9 @@ interface ComposeLineOptions {
 }
 
 function composeLine(options: ComposeLineOptions): string {
-	const padded = options.cells.map((cell, columnIndex) => padCell(cell, options.widths[columnIndex] ?? 0, options.columns[columnIndex]?.align ?? "left"));
+	const padded = options.cells.map((cell, columnIndex) =>
+		padCell(cell, options.widths[columnIndex] ?? 0, options.columns[columnIndex]?.align ?? "left"),
+	);
 	return padded.join(options.gap).trimEnd();
 }
 

@@ -9,7 +9,9 @@ import { ScriptedCommandRunner, step } from "@asdl/core/testing";
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {
 		const args = ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"];
-		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "no pull requests found" })]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { exitCode: 1, stderr: "no pull requests found" }),
+		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.viewCurrentBranchPr({ cwd: "/repo" })).toEqual({
@@ -25,7 +27,9 @@ describe("RealGithubPrGateway", () => {
 
 	test("returns structured command failures when gh commit lookup fails", async () => {
 		const args = ["pr", "view", "12", "--json", "commits"];
-		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "not found" })]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { exitCode: 1, stderr: "not found" }),
+		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.getPrCommitMessages({ cwd: "/repo", number: 12 })).toEqual({
@@ -41,7 +45,9 @@ describe("RealGithubPrGateway", () => {
 
 	test("returns structured command failures when gh diff fails", async () => {
 		const args = ["pr", "diff", "12"];
-		const runner = new ScriptedCommandRunner([step("gh", args, { exitCode: 1, stderr: "diff unavailable" })]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { exitCode: 1, stderr: "diff unavailable" }),
+		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
 		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12 })).toEqual({
@@ -58,12 +64,22 @@ describe("RealGithubPrGateway", () => {
 	test("views current branch PR details as JSON", async () => {
 		const runner = new ScriptedCommandRunner([
 			step("gh", ["pr", "view", "--json", "number,url,title,body,headRefName,baseRefName"], {
-				stdout: JSON.stringify({ number: 12, url: "https://github.com/acme/project/pull/12", title: "Title", body: "Body", headRefName: "feature/demo", baseRefName: "main" }),
+				stdout: JSON.stringify({
+					number: 12,
+					url: "https://github.com/acme/project/pull/12",
+					title: "Title",
+					body: "Body",
+					headRefName: "feature/demo",
+					baseRefName: "main",
+				}),
 			}),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
-		expect(await gateway.viewCurrentBranchPr({ cwd: "/repo" })).toMatchObject({ ok: true, value: { number: 12, title: "Title" } });
+		expect(await gateway.viewCurrentBranchPr({ cwd: "/repo" })).toMatchObject({
+			ok: true,
+			value: { number: 12, title: "Title" },
+		});
 		runner.assertDone();
 	});
 
@@ -71,13 +87,25 @@ describe("RealGithubPrGateway", () => {
 		const diff = "diff --git a/src/app.ts b/src/app.ts\n+code\n";
 		const calls: Array<{ command: string; args: readonly string[]; stdin?: string }> = [];
 		const runner: CommandRunner = async (command, args, options = {}) => {
-			calls.push({ command, args: [...args], ...(options.stdin === undefined ? {} : { stdin: options.stdin }) });
+			calls.push({
+				command,
+				args: [...args],
+				...(options.stdin === undefined ? {} : { stdin: options.stdin }),
+			});
 			if (command === "gh") return { stdout: diff, stderr: "", code: 0, killed: false };
-			return { stdout: "abc123 0000000000000000000000000000000000000000\n", stderr: "", code: 0, killed: false };
+			return {
+				stdout: "abc123 0000000000000000000000000000000000000000\n",
+				stderr: "",
+				code: 0,
+				killed: false,
+			};
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
-		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: { patchId: "abc123", diff } });
+		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({
+			ok: true,
+			value: { patchId: "abc123", diff },
+		});
 		expect(calls).toEqual([
 			{ command: "gh", args: ["pr", "diff", "12"] },
 			{ command: "git", args: ["patch-id", "--stable"], stdin: diff },
@@ -93,20 +121,33 @@ describe("RealGithubPrGateway", () => {
 
 		expect(await gateway.stablePatchIdForPr({ cwd: "/repo", number: 12 })).toEqual({
 			ok: false,
-			error: { code: "git_patch_id_parse_failed", message: "Stable patch-id output for PR #12 was empty or malformed." },
+			error: {
+				code: "git_patch_id_parse_failed",
+				message: "Stable patch-id output for PR #12 was empty or malformed.",
+			},
 		});
 		runner.assertDone();
 	});
 
 	test("reads commit messages and diff for a PR", async () => {
 		const runner = new ScriptedCommandRunner([
-			step("gh", ["pr", "view", "12", "--json", "commits"], { stdout: JSON.stringify({ commits: [{ messageHeadline: "Add feature", messageBody: "Body" }] }) }),
+			step("gh", ["pr", "view", "12", "--json", "commits"], {
+				stdout: JSON.stringify({
+					commits: [{ messageHeadline: "Add feature", messageBody: "Body" }],
+				}),
+			}),
 			step("gh", ["pr", "diff", "12"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+code\n" }),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
-		expect(await gateway.getPrCommitMessages({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: [{ headline: "Add feature", body: "Body" }] });
-		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12 })).toEqual({ ok: true, value: "diff --git a/src/app.ts b/src/app.ts\n+code\n" });
+		expect(await gateway.getPrCommitMessages({ cwd: "/repo", number: 12 })).toEqual({
+			ok: true,
+			value: [{ headline: "Add feature", body: "Body" }],
+		});
+		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12 })).toEqual({
+			ok: true,
+			value: "diff --git a/src/app.ts b/src/app.ts\n+code\n",
+		});
 		runner.assertDone();
 	});
 
@@ -114,13 +155,23 @@ describe("RealGithubPrGateway", () => {
 		const runner = new ScriptedCommandRunner([
 			step("gh", ["pr", "diff", "12"], {
 				exitCode: 1,
-				stderr: "HTTP 406: Sorry, the diff exceeded the maximum number of lines (20000)\nPullRequest.diff too_large",
+				stderr:
+					"HTTP 406: Sorry, the diff exceeded the maximum number of lines (20000)\nPullRequest.diff too_large",
 			}),
-			step("git", ["diff", "main...feature/demo"], { stdout: "diff --git a/src/app.ts b/src/app.ts\n+local\n" }),
+			step("git", ["diff", "main...feature/demo"], {
+				stdout: "diff --git a/src/app.ts b/src/app.ts\n+local\n",
+			}),
 		]);
 		const gateway = new RealGithubPrGateway(runner.runner);
 
-		expect(await gateway.getPrDiff({ cwd: "/repo", number: 12, baseRefName: "main", headRefName: "feature/demo" })).toEqual({
+		expect(
+			await gateway.getPrDiff({
+				cwd: "/repo",
+				number: 12,
+				baseRefName: "main",
+				headRefName: "feature/demo",
+			}),
+		).toEqual({
 			ok: true,
 			value: "diff --git a/src/app.ts b/src/app.ts\n+local\n",
 		});
@@ -128,7 +179,8 @@ describe("RealGithubPrGateway", () => {
 	});
 
 	test("edits PR body through a temporary body file", async () => {
-		const calls: Array<{ command: string; args: string[]; cwd?: string; bodyFileText?: string }> = [];
+		const calls: Array<{ command: string; args: string[]; cwd?: string; bodyFileText?: string }> =
+			[];
 		const runner: CommandRunner = async (command, args, options = {}) => {
 			const bodyFileIndex = args.indexOf("--body-file");
 			const bodyFile = bodyFileIndex === -1 ? undefined : args[bodyFileIndex + 1];
@@ -142,16 +194,26 @@ describe("RealGithubPrGateway", () => {
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
-		expect(await gateway.editPr({ cwd: "/repo", number: 12, title: "New title", body: "New body" })).toEqual({ ok: true, value: undefined });
+		expect(
+			await gateway.editPr({ cwd: "/repo", number: 12, title: "New title", body: "New body" }),
+		).toEqual({ ok: true, value: undefined });
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gh");
-		expect(calls[0]?.args.slice(0, 6)).toEqual(["pr", "edit", "12", "--title", "New title", "--body-file"]);
+		expect(calls[0]?.args.slice(0, 6)).toEqual([
+			"pr",
+			"edit",
+			"12",
+			"--title",
+			"New title",
+			"--body-file",
+		]);
 		expect(calls[0]?.cwd).toBe("/repo");
 		expect(calls[0]?.bodyFileText).toBe("New body\n");
 	});
 
 	test("returns structured command failures when gh edit fails", async () => {
-		const calls: Array<{ command: string; args: string[]; cwd?: string; bodyFileText?: string }> = [];
+		const calls: Array<{ command: string; args: string[]; cwd?: string; bodyFileText?: string }> =
+			[];
 		const runner: CommandRunner = async (command, args, options = {}) => {
 			const bodyFileIndex = args.indexOf("--body-file");
 			const bodyFile = bodyFileIndex === -1 ? undefined : args[bodyFileIndex + 1];
@@ -165,7 +227,9 @@ describe("RealGithubPrGateway", () => {
 		};
 		const gateway = new RealGithubPrGateway(runner);
 
-		expect(await gateway.editPr({ cwd: "/repo", number: 12, title: "New title", body: "New body" })).toEqual({
+		expect(
+			await gateway.editPr({ cwd: "/repo", number: 12, title: "New title", body: "New body" }),
+		).toEqual({
 			ok: false,
 			error: {
 				code: "github_pr_edit_failed",
@@ -174,7 +238,14 @@ describe("RealGithubPrGateway", () => {
 			},
 		});
 		expect(calls).toHaveLength(1);
-		expect(calls[0]?.args.slice(0, 6)).toEqual(["pr", "edit", "12", "--title", "New title", "--body-file"]);
+		expect(calls[0]?.args.slice(0, 6)).toEqual([
+			"pr",
+			"edit",
+			"12",
+			"--title",
+			"New title",
+			"--body-file",
+		]);
 		expect(calls[0]?.cwd).toBe("/repo");
 		expect(calls[0]?.bodyFileText).toBe("New body\n");
 	});

@@ -29,10 +29,21 @@ export interface FakeGitRemoteConfig {
 }
 
 export interface FakeBrmemGatewayOptions {
-	currentBranch?: string | { type: "detached" } | { type: "error"; code: string; message: string } | undefined;
+	currentBranch?:
+		| string
+		| { type: "detached" }
+		| { type: "error"; code: string; message: string }
+		| undefined;
 	entries?: readonly FakeEntrySeed[] | undefined;
 	remotes?: Record<string, FakeGitRemoteConfig> | undefined;
-	operationErrors?: Partial<Record<"list" | "get" | "check" | "put" | "delete" | "copy" | "remoteConfig" | "addRefspecs", { code: string; message: string }>> | undefined;
+	operationErrors?:
+		| Partial<
+				Record<
+					"list" | "get" | "check" | "put" | "delete" | "copy" | "remoteConfig" | "addRefspecs",
+					{ code: string; message: string }
+				>
+		  >
+		| undefined;
 }
 
 interface StoredEntry {
@@ -61,10 +72,14 @@ export class FakeBrmemGateway implements BrmemGateway {
 
 	constructor(options: FakeBrmemGatewayOptions = {}) {
 		this.branchState = options.currentBranch ?? "main";
-		this.operationErrors = { ...(options.operationErrors ?? {}) };
+		this.operationErrors = { ...options.operationErrors };
 		this.snapshots = new Map();
 		this.snapshotsByCommit = new Map();
-		this.remotes = new Map(Object.entries(options.remotes ?? { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } }).map(([k, v]) => [k, { push: [...v.push], fetch: [...v.fetch] }]));
+		this.remotes = new Map(
+			Object.entries(
+				options.remotes ?? { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } },
+			).map(([k, v]) => [k, { push: [...v.push], fetch: [...v.fetch] }]),
+		);
 		this.sequence = 1;
 		this.timestampSequence = 1;
 		for (const entry of options.entries ?? []) this.seedEntry(entry);
@@ -72,11 +87,16 @@ export class FakeBrmemGateway implements BrmemGateway {
 
 	async currentBranch() {
 		if (typeof this.branchState === "string") return brmemOk(this.branchState);
-		if (this.branchState?.type === "error") return brmemError(this.branchState.code, this.branchState.message);
+		if (this.branchState?.type === "error")
+			return brmemError(this.branchState.code, this.branchState.message);
 		return brmemError("detached_head", "Could not resolve current branch; HEAD appears detached.");
 	}
 
-	async listEntries(options: { namespace: string; key?: string | undefined; branch?: string | undefined }) {
+	async listEntries(options: {
+		namespace: string;
+		key?: string | undefined;
+		branch?: string | undefined;
+	}) {
 		const error = this.operationErrors.list;
 		if (error !== undefined) return brmemError<readonly ListedEntry[]>(error.code, error.message);
 		return brmemOk(this.collectEntries({ allNamespaces: false, ...options }));
@@ -88,7 +108,12 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemOk(this.collectEntries({ allNamespaces: true, ...options }));
 	}
 
-	async getEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	async getEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		const error = this.operationErrors.get;
 		if (error !== undefined) return brmemOptionalError<EntryContent>(error.code, error.message);
 		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
@@ -96,7 +121,12 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemFound({ content: stored.content });
 	}
 
-	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	async checkEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		const error = this.operationErrors.check;
 		if (error !== undefined) return brmemOptionalError<EntryDiagnostic>(error.code, error.message);
 		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
@@ -124,7 +154,10 @@ export class FakeBrmemGateway implements BrmemGateway {
 			updatedAt,
 		});
 		this.recordSnapshot(commitSha, snapshot);
-		return brmemOk({ commitSha, entry: mustEntryRef(options.namespace, options.key, options.branch) });
+		return brmemOk({
+			commitSha,
+			entry: mustEntryRef(options.namespace, options.key, options.branch),
+		});
 	}
 
 	async deleteEntry(options: { namespace: string; key: string; branch: string }) {
@@ -165,11 +198,14 @@ export class FakeBrmemGateway implements BrmemGateway {
 			options.keyGlob === undefined ? true : keyGlobMatches(key, options.keyGlob),
 		);
 		if (conflicts.length > 0 && !options.shouldOverwrite) {
-			return brmemError("copy_conflict", `destination has conflicting entries: ${conflicts.sort().join(", ")}`);
+			return brmemError(
+				"copy_conflict",
+				`destination has conflicting entries: ${conflicts.sort().join(", ")}`,
+			);
 		}
 		if (options.keyGlob === undefined) dest.entries.clear();
 		else {
-			for (const key of [...dest.entries.keys()]) {
+			for (const key of Array.from(dest.entries.keys())) {
 				if (keyGlobMatches(key, options.keyGlob)) dest.entries.delete(key);
 			}
 		}
@@ -177,14 +213,18 @@ export class FakeBrmemGateway implements BrmemGateway {
 		dest.commitSha = this.nextSha("commit");
 		this.recordSnapshot(dest.commitSha, dest);
 		return brmemOk({
-			entries: sourcePairs.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries),
+			entries: sourcePairs
+				.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch))
+				.sort(compareEntries),
 		});
 	}
 
 	private seedEntry(seed: FakeEntrySeed): void {
 		const snapshot = this.ensureSnapshot(seed.namespace, seed.branch);
 		const commitSha = seed.headSha ?? this.nextSha("commit");
-		const updatedAt = normalizeBrmemTimestamp(seed.updatedAt ?? seed.headDate ?? this.nextTimestamp());
+		const updatedAt = normalizeBrmemTimestamp(
+			seed.updatedAt ?? seed.headDate ?? this.nextTimestamp(),
+		);
 		const headDate = normalizeBrmemTimestamp(seed.headDate ?? updatedAt);
 		snapshot.commitSha = commitSha;
 		snapshot.entries.set(seed.key, {
@@ -206,7 +246,11 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return created;
 	}
 
-	private resolveSnapshot(options: { namespace: string; branch: string; at?: string | undefined }): SnapshotState | undefined {
+	private resolveSnapshot(options: {
+		namespace: string;
+		branch: string;
+		at?: string | undefined;
+	}): SnapshotState | undefined {
 		if (options.at !== undefined) return this.snapshotsByCommit.get(options.at);
 		return this.snapshots.get(snapshotId(options.namespace, options.branch));
 	}
@@ -228,7 +272,10 @@ export class FakeBrmemGateway implements BrmemGateway {
 			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
 			for (const [key, stored] of snapshot.entries) {
 				if (options.key !== undefined && key !== options.key) continue;
-				entries.push({ ...mustEntryRef(parsed.namespace, key, parsed.branch), updatedAt: stored.updatedAt });
+				entries.push({
+					...mustEntryRef(parsed.namespace, key, parsed.branch),
+					updatedAt: stored.updatedAt,
+				});
 			}
 		}
 		return entries.sort(compareEntries).map((entry) => ({ ...entry }));
@@ -241,12 +288,16 @@ export class FakeBrmemGateway implements BrmemGateway {
 	}
 
 	private nextTimestamp(): string {
-		const value = normalizeBrmemTimestamp(new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString());
+		const value = normalizeBrmemTimestamp(
+			new Date(FAKE_EPOCH_MS + this.timestampSequence * 1000).toISOString(),
+		);
 		this.timestampSequence += 1;
 		return value;
 	}
 
-	async getRemoteConfig(remote: string): Promise<import("./contracts.ts").BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
+	async getRemoteConfig(
+		remote: string,
+	): Promise<import("./contracts.ts").BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
 		const error = this.operationErrors.remoteConfig;
 		if (error !== undefined) return brmemOptionalError(error.code, error.message);
 		const cfg = this.remotes.get(remote);
@@ -254,7 +305,11 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemFound({ push: [...cfg.push], fetch: [...cfg.fetch] });
 	}
 
-	async addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<import("./contracts.ts").BrmemResult<void>> {
+	async addRemoteRefspecs(
+		remote: string,
+		push: readonly string[],
+		fetch: readonly string[],
+	): Promise<import("./contracts.ts").BrmemResult<void>> {
 		const error = this.operationErrors.addRefspecs;
 		if (error !== undefined) return brmemError(error.code, error.message);
 		const cfg = this.remotes.get(remote);

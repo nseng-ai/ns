@@ -8,11 +8,21 @@ import {
 import { HANDOFF_NAMESPACE, handoffSlugToKey } from "@asdl/handoff/identity";
 import { formatPickupHandoffCommand } from "../handoff/identity.ts";
 import type { HandoffStartMessages } from "../handoff/shared.ts";
-import type { BaseRuntimeContext, CommandContext, ExtensionAPI, RenderComponent, ToolDefinition } from "../handoff/runtime-types.ts";
+import type {
+	BaseRuntimeContext,
+	CommandContext,
+	ExtensionAPI,
+	RenderComponent,
+	ToolDefinition,
+} from "../handoff/runtime-types.ts";
 import { definePiSurfaceParity } from "../parity.ts";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 
-export type { InteractiveClaudeInvocation, InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
+export type {
+	InteractiveClaudeInvocation,
+	InteractiveClaudeRunResult,
+	RunInteractiveClaude,
+} from "./interactive-claude.ts";
 
 export const CLAUDE_HANDOFF_COMMAND_NAME = "claude:handoff";
 export const CLAUDE_HANDOFF_LAUNCH_TOOL_NAME = "claude_handoff_launch";
@@ -24,11 +34,13 @@ export const claudeHandoffParity = definePiSurfaceParity([
 		surface: CLAUDE_HANDOFF_COMMAND_NAME,
 		workflow: "Create a handoff, then launch Claude Code to pick it up",
 		parity: "WAIVED",
-		fallback: "Create a handoff with handoff-create, then manually launch Claude Code or another harness and pick up the saved handoff.",
+		fallback:
+			"Create a handoff with handoff-create, then manually launch Claude Code or another harness and pick up the saved handoff.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "claude/handoff-command",
-		notes: "The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",
+		notes:
+			"The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",
 	},
 ] as const);
 
@@ -67,7 +79,8 @@ interface InteractiveClaudeContext extends BaseRuntimeContext {
 const CLAUDE_HANDOFF_PROMPT_COPY = {
 	commandName: CLAUDE_HANDOFF_COMMAND_NAME,
 	toolName: CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
-	intentSentence: "Create a directed handoff artifact for the current Pi session before launching Claude Code, then launch Claude Code to pick up that saved handoff.",
+	intentSentence:
+		"Create a directed handoff artifact for the current Pi session before launching Claude Code, then launch Claude Code to pick up that saved handoff.",
 	abortClause: "do not launch Claude",
 	previewHeading: "The Claude Code session will be asked to pick up:",
 	previewBody(branch: string): string {
@@ -80,7 +93,9 @@ const CLAUDE_HANDOFF_START_MESSAGES = {
 	fallbackLabel: "handoff-create workflow prompt",
 } satisfies HandoffStartMessages;
 
-export function scrubClaudeEnv(env: Record<string, string | undefined>): Record<string, string | undefined> {
+export function scrubClaudeEnv(
+	env: Record<string, string | undefined>,
+): Record<string, string | undefined> {
 	const scrubbed = { ...env };
 	delete scrubbed.ANTHROPIC_API_KEY;
 	delete scrubbed.ANTHROPIC_AUTH_TOKEN;
@@ -88,7 +103,10 @@ export function scrubClaudeEnv(env: Record<string, string | undefined>): Record<
 	return scrubbed;
 }
 
-export function buildClaudeHandoffPrompt(options: { skillBlock: string | undefined; request: ClaudeHandoffRequest }): string {
+export function buildClaudeHandoffPrompt(options: {
+	skillBlock: string | undefined;
+	request: ClaudeHandoffRequest;
+}): string {
 	return buildHandoffLaunchPrompt(CLAUDE_HANDOFF_PROMPT_COPY, options);
 }
 
@@ -117,7 +135,10 @@ export function deriveSourcePiSessionId(sessionFile: string | undefined): string
  * Includes the source Pi session id segment when available, otherwise falls back
  * to the prefix-and-handoff form without the session-id segment.
  */
-export function buildClaudeHandoffSessionName(slug: string, sessionFile: string | undefined): string {
+export function buildClaudeHandoffSessionName(
+	slug: string,
+	sessionFile: string | undefined,
+): string {
 	const handoff = `handoff: ${slug}`;
 	const sessionId = deriveSourcePiSessionId(sessionFile);
 	return sessionId === undefined
@@ -139,15 +160,23 @@ If a Pi slash-command equivalent is useful, the pickup target is ${formatPickupH
 Do not create a new handoff. Read and follow the existing handoff artifact from Branch Memory. If the handoff cannot be read, report the exact failure and stop.`;
 }
 
-export async function handleClaudeHandoffCommand(options: ClaudeHandoffCommandOptions): Promise<void> {
+export async function handleClaudeHandoffCommand(
+	options: ClaudeHandoffCommandOptions,
+): Promise<void> {
 	const { pi, args, ctx, launchToolRegistered } = options;
 	if (!canUseInteractiveClaude(ctx)) {
-		ctx.ui.notify("/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.", "error");
+		ctx.ui.notify(
+			"/claude:handoff requires interactive TUI mode so the terminal can be handed to Claude Code after the handoff is created.",
+			"error",
+		);
 		return;
 	}
 
 	if (!launchToolRegistered) {
-		ctx.ui.notify("/claude:handoff requires tool support so the saved handoff can launch Claude after creation.", "error");
+		ctx.ui.notify(
+			"/claude:handoff requires tool support so the saved handoff can launch Claude after creation.",
+			"error",
+		);
 		return;
 	}
 
@@ -158,19 +187,25 @@ export async function handleClaudeHandoffCommand(options: ClaudeHandoffCommandOp
 	});
 }
 
-export function buildClaudeHandoffLaunchTool(pi: ExtensionAPI, deps: ClaudeHandoffDeps): ToolDefinition {
+export function buildClaudeHandoffLaunchTool(
+	pi: ExtensionAPI,
+	deps: ClaudeHandoffDeps,
+): ToolDefinition {
 	return buildHandoffLaunchTool(pi, {
 		name: CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
 		label: "Launch Claude Handoff",
-		description: "Verify a saved handoff exists, then launch Claude Code to pick it up interactively.",
-		promptSnippet: "Launch Claude Code to pick up a saved handoff after the handoff has been saved successfully.",
+		description:
+			"Verify a saved handoff exists, then launch Claude Code to pick it up interactively.",
+		promptSnippet:
+			"Launch Claude Code to pick up a saved handoff after the handoff has been saved successfully.",
 		promptGuidelines: [
 			`Use ${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} only after a /${CLAUDE_HANDOFF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
 			`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} verifies the handoff exists before launching Claude; do not call it before brmem put succeeds.`,
 		],
 		statusKey: CLAUDE_HANDOFF_STATUS_KEY,
 		verifyStatus: (params) => `verifying ${params.slug}…`,
-		missingMessage: (params) => `Handoff ${params.slug} does not exist on branch ${params.branch}; not launching Claude.`,
+		missingMessage: (params) =>
+			`Handoff ${params.slug} does not exist on branch ${params.branch}; not launching Claude.`,
 		gate(ctx) {
 			return canUseInteractiveClaude(ctx)
 				? undefined
@@ -182,16 +217,34 @@ export function buildClaudeHandoffLaunchTool(pi: ExtensionAPI, deps: ClaudeHando
 				return handoffLaunchToolFailure(interactiveCtx.message);
 			}
 
-			onUpdate?.({ content: [{ type: "text", text: "Launching Claude Code to pick up the saved handoff…" }] });
+			onUpdate?.({
+				content: [{ type: "text", text: "Launching Claude Code to pick up the saved handoff…" }],
+			});
 			const prompt = buildClaudePickupPrompt(params.branch, params.slug);
-			const name = buildClaudeHandoffSessionName(params.slug, ctx.sessionManager?.getSessionFile?.());
-			const outcome = await runInteractiveClaudeInStoppedTui(interactiveCtx.ctx, prompt, name, deps, interactiveCtx.ctx.ui.custom);
+			const name = buildClaudeHandoffSessionName(
+				params.slug,
+				ctx.sessionManager?.getSessionFile?.(),
+			);
+			const outcome = await runInteractiveClaudeInStoppedTui(
+				interactiveCtx.ctx,
+				prompt,
+				name,
+				deps,
+				interactiveCtx.ctx.ui.custom,
+			);
 			if (outcome.type === "spawn-failed") {
-				return handoffLaunchToolFailure(`Failed to launch Claude Code: ${outcome.message}. Is Claude Code installed and on PATH?`);
+				return handoffLaunchToolFailure(
+					`Failed to launch Claude Code: ${outcome.message}. Is Claude Code installed and on PATH?`,
+				);
 			}
 
 			return {
-				content: [{ type: "text", text: `Claude Code exited after pickup${formatClaudeExitSuffix(outcome)}.` }],
+				content: [
+					{
+						type: "text",
+						text: `Claude Code exited after pickup${formatClaudeExitSuffix(outcome)}.`,
+					},
+				],
 				details: {
 					type: "launched",
 					branch: params.branch,
@@ -211,7 +264,8 @@ export function registerClaudeHandoffCommand(pi: ExtensionAPI, deps: ClaudeHando
 	}
 	pi.registerCommand(CLAUDE_HANDOFF_COMMAND_NAME, {
 		description: "Create a handoff, then pick it up in an interactive Claude Code session.",
-		handler: async (args, ctx) => handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),
+		handler: async (args, ctx) =>
+			handleClaudeHandoffCommand({ pi, args, ctx, launchToolRegistered }),
 	});
 }
 
@@ -219,10 +273,16 @@ function canUseInteractiveClaude(ctx: BaseRuntimeContext): boolean {
 	return ctx.mode === "tui" && ctx.ui.custom !== undefined;
 }
 
-function asInteractiveClaudeContext(ctx: BaseRuntimeContext): { type: "valid"; ctx: InteractiveClaudeContext } | { type: "invalid"; message: string } {
+function asInteractiveClaudeContext(
+	ctx: BaseRuntimeContext,
+): { type: "valid"; ctx: InteractiveClaudeContext } | { type: "invalid"; message: string } {
 	const custom = ctx.ui.custom;
 	if (ctx.mode !== "tui" || custom === undefined) {
-		return { type: "invalid", message: "Claude handoff launch requires interactive TUI mode so the terminal can be handed to Claude Code." };
+		return {
+			type: "invalid",
+			message:
+				"Claude handoff launch requires interactive TUI mode so the terminal can be handed to Claude Code.",
+		};
 	}
 	return { type: "valid", ctx: { ...ctx, mode: "tui", ui: { ...ctx.ui, custom } } };
 }
@@ -244,7 +304,9 @@ async function runInteractiveClaudeInStoppedTui(
 	});
 }
 
-function formatClaudeExitSuffix(outcome: Extract<InteractiveClaudeRunResult, { type: "exited" }>): string {
+function formatClaudeExitSuffix(
+	outcome: Extract<InteractiveClaudeRunResult, { type: "exited" }>,
+): string {
 	if (outcome.code !== null && outcome.code !== 0) {
 		return ` (exit code ${outcome.code})`;
 	}

@@ -1,6 +1,15 @@
-import type { GrillAskOption, GrillAskRemainingEstimate, NormalizedGrillAskInput } from "../grill-ui.ts";
+import type {
+	GrillAskOption,
+	GrillAskRemainingEstimate,
+	NormalizedGrillAskInput,
+} from "../grill-ui.ts";
 
-export const RESERVED_GRILL_ASK_VALUES = new Set(["__freeform__", "__status__", "__end_grill__", "__cancelled__"]);
+export const RESERVED_GRILL_ASK_VALUES = new Set([
+	"__freeform__",
+	"__status__",
+	"__end_grill__",
+	"__cancelled__",
+]);
 
 export type GrillAskValidationResult =
 	| { ok: true; input: NormalizedGrillAskInput }
@@ -91,7 +100,10 @@ export const GRILL_ASK_PARAMETERS = {
 					type: "object",
 					properties: {
 						kind: { type: "string", const: "unknown" },
-						basis: { type: "string", description: "Short explanation of why the remaining question count is unknown." },
+						basis: {
+							type: "string",
+							description: "Short explanation of why the remaining question count is unknown.",
+						},
 					},
 					required: ["kind", "basis"],
 					additionalProperties: false,
@@ -155,7 +167,10 @@ export function validateGrillAskInput(params: unknown): GrillAskValidationResult
 			}
 		}
 		if (rawRecommended.optionValue !== undefined) {
-			if (typeof rawRecommended.optionValue !== "string" || rawRecommended.optionValue.trim().length === 0) {
+			if (
+				typeof rawRecommended.optionValue !== "string" ||
+				rawRecommended.optionValue.trim().length === 0
+			) {
 				errors.push("recommended.optionValue must be a non-empty string when supplied.");
 			} else {
 				recommendedOptionValue = rawRecommended.optionValue.trim();
@@ -258,7 +273,10 @@ export function validateGrillAskInput(params: unknown): GrillAskValidationResult
 	};
 }
 
-function normalizeEstimatedRemaining(rawValue: unknown, errors: string[]): GrillAskRemainingEstimate | undefined {
+function normalizeEstimatedRemaining(
+	rawValue: unknown,
+	errors: string[],
+): GrillAskRemainingEstimate | undefined {
 	if (rawValue === undefined) return undefined;
 	if (!isRecord(rawValue)) {
 		errors.push("estimatedRemaining must be an object when supplied.");
@@ -284,8 +302,10 @@ function normalizeEstimatedRemaining(rawValue: unknown, errors: string[]): Grill
 	if (kind === "range") {
 		const min = nonNegativeInteger(rawValue.min);
 		const max = nonNegativeInteger(rawValue.max);
-		if (min === undefined) errors.push("estimatedRemaining.min must be a non-negative integer for range estimates.");
-		if (max === undefined) errors.push("estimatedRemaining.max must be a non-negative integer for range estimates.");
+		if (min === undefined)
+			errors.push("estimatedRemaining.min must be a non-negative integer for range estimates.");
+		if (max === undefined)
+			errors.push("estimatedRemaining.max must be a non-negative integer for range estimates.");
 		if (min !== undefined && max !== undefined && min > max) {
 			errors.push("estimatedRemaining.min must be less than or equal to estimatedRemaining.max.");
 		}
@@ -304,7 +324,11 @@ function normalizeEstimatedRemaining(rawValue: unknown, errors: string[]): Grill
 	return undefined;
 }
 
-function requiredTrimmedString(rawValue: unknown, name: string, errors: string[]): string | undefined {
+function requiredTrimmedString(
+	rawValue: unknown,
+	name: string,
+	errors: string[],
+): string | undefined {
 	if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
 		errors.push(`${name} must be a non-empty string.`);
 		return undefined;
@@ -312,7 +336,11 @@ function requiredTrimmedString(rawValue: unknown, name: string, errors: string[]
 	return rawValue.trim();
 }
 
-function optionalTrimmedString(rawValue: unknown, name: string, errors: string[]): string | undefined {
+function optionalTrimmedString(
+	rawValue: unknown,
+	name: string,
+	errors: string[],
+): string | undefined {
 	if (rawValue === undefined) return undefined;
 	if (typeof rawValue !== "string") {
 		errors.push(`${name} must be a string when supplied.`);

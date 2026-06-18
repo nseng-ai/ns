@@ -65,7 +65,9 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result);
-		expect(result.stdout).toContain(`imported ${PROJECT_EXTENSION_ADAPTERS.length} extension adapters`);
+		expect(result.stdout).toContain(
+			`imported ${PROJECT_EXTENSION_ADAPTERS.length} extension adapters`,
+		);
 	});
 
 	test("pi-extensions package imports workspace exports through package links under Node", () => {

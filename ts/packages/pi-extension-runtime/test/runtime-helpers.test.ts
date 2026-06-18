@@ -1,27 +1,44 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, formatCommandFailure, formatCommandStartupFailure, stripTerminalEscapes } from "@asdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatCommandStartupFailure,
+	stripTerminalEscapes,
+} from "@asdl/core/exec";
 
 import { parseMachineEnvelopeData } from "../src/index.ts";
-import { chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext } from "../src/objective-selection.ts";
+import {
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+} from "../src/objective-selection.ts";
 import type { CommandContext, ExecResult } from "../src/cmux/types.ts";
 
 describe("pi extension runtime helpers", () => {
 	test("formats command displays with shell quoting", () => {
-		expect(formatCommand("asdl", ["exec", "cmux-workspace-summary", "--title", "hello world"])).toBe(
-			"asdl exec cmux-workspace-summary --title 'hello world'",
-		);
+		expect(
+			formatCommand("asdl", ["exec", "cmux-workspace-summary", "--title", "hello world"]),
+		).toBe("asdl exec cmux-workspace-summary --title 'hello world'");
 	});
 
 	test("parses successful machine-envelope data", () => {
-		expect(parseMachineEnvelopeData(JSON.stringify({ exit_code: 0, data: { success: true } }), { label: "example JSON" })).toEqual({
+		expect(
+			parseMachineEnvelopeData(JSON.stringify({ exit_code: 0, data: { success: true } }), {
+				label: "example JSON",
+			}),
+		).toEqual({
 			type: "valid",
 			data: { success: true },
 		});
 	});
 
 	test("parses failure machine-envelope data", () => {
-		expect(parseMachineEnvelopeData(JSON.stringify({ exit_code: 3, error_type: "no_available_slot", message: "No slot." }), { label: "example JSON" })).toEqual({
+		expect(
+			parseMachineEnvelopeData(
+				JSON.stringify({ exit_code: 3, error_type: "no_available_slot", message: "No slot." }),
+				{ label: "example JSON" },
+			),
+		).toEqual({
 			type: "failure",
 			exitCode: 3,
 			errorType: "no_available_slot",
@@ -32,10 +49,18 @@ describe("pi extension runtime helpers", () => {
 
 	test("formats exec failures with the canonical command dialect", () => {
 		const result = { stdout: "", stderr: "boom", code: 2, killed: false };
-		expect(formatCommandFailure("objective command failed", "objective list", result).startsWith("objective command failed (exit code 2)."))
-			.toBe(true);
-		expect(formatCommandStartupFailure("objective command failed", "objective list", new Error("missing")).startsWith("objective command failed (failed before completion)."))
-			.toBe(true);
+		expect(
+			formatCommandFailure("objective command failed", "objective list", result).startsWith(
+				"objective command failed (exit code 2).",
+			),
+		).toBe(true);
+		expect(
+			formatCommandStartupFailure(
+				"objective command failed",
+				"objective list",
+				new Error("missing"),
+			).startsWith("objective command failed (failed before completion)."),
+		).toBe(true);
 	});
 
 	test("strips terminal escapes", () => {
@@ -99,14 +124,20 @@ describe("pi extension runtime helpers", () => {
 			},
 		};
 
-		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
-			statusKey: "objective:test",
-			selectionTitle: "Select an Objective",
-			compactDiffSuggestion: true,
-		});
+		const slug = await chooseActiveObjectiveSlug(
+			host,
+			objectiveSelectionContextFromCommandContext(ctx),
+			{
+				statusKey: "objective:test",
+				selectionTitle: "Select an Objective",
+				compactDiffSuggestion: true,
+			},
+		);
 
 		expect(slug).toBeUndefined();
-		expect(calls).toEqual([{ command: "objective", args: ["list", "--minimal", "--format", "json"] }]);
+		expect(calls).toEqual([
+			{ command: "objective", args: ["list", "--minimal", "--format", "json"] },
+		]);
 		expect(notifications).toEqual([]);
 	});
 
@@ -139,10 +170,14 @@ describe("pi extension runtime helpers", () => {
 			}),
 		};
 
-		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
-			statusKey: "objective:test",
-			selectionTitle: "Select an Objective",
-		});
+		const slug = await chooseActiveObjectiveSlug(
+			host,
+			objectiveSelectionContextFromCommandContext(ctx),
+			{
+				statusKey: "objective:test",
+				selectionTitle: "Select an Objective",
+			},
+		);
 
 		expect(slug).toBeUndefined();
 		expect(notifications).toEqual([]);
@@ -168,10 +203,14 @@ describe("pi extension runtime helpers", () => {
 			}),
 		};
 
-		const slug = await chooseActiveObjectiveSlug(host, objectiveSelectionContextFromCommandContext(ctx), {
-			statusKey: "objective:test",
-			selectionTitle: "Select an Objective",
-		});
+		const slug = await chooseActiveObjectiveSlug(
+			host,
+			objectiveSelectionContextFromCommandContext(ctx),
+			{
+				statusKey: "objective:test",
+				selectionTitle: "Select an Objective",
+			},
+		);
 
 		expect(slug).toBeUndefined();
 		expect(notifications).toEqual([]);

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import prExtension, { PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, type ExtensionAPI, type ExtensionContext, type ExecResult, type RegisteredCommand } from "../src/pr.ts";
+import prExtension, {
+	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
+	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+	type ExtensionAPI,
+	type ExtensionContext,
+	type ExecResult,
+	type RegisteredCommand,
+} from "../src/pr.ts";
 
 const ROOT = "/repo";
 
@@ -16,7 +23,9 @@ class FakePi implements ExtensionAPI {
 	private readonly fallbackResult: ExecResult;
 	private readonly results: ExecResult[];
 
-	constructor(result: ExecResult | ExecResult[] = execResult({ stdout: envelope({ markdown: "# Prompt" }) })) {
+	constructor(
+		result: ExecResult | ExecResult[] = execResult({ stdout: envelope({ markdown: "# Prompt" }) }),
+	) {
 		this.results = Array.isArray(result) ? [...result] : [result];
 		this.fallbackResult = this.results.at(-1) ?? execResult();
 	}
@@ -55,7 +64,12 @@ class FakeContext implements ExtensionContext {
 }
 
 function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
-	return { stdout: overrides.stdout ?? "", stderr: overrides.stderr ?? "", code: overrides.code ?? 0, killed: overrides.killed ?? false };
+	return {
+		stdout: overrides.stdout ?? "",
+		stderr: overrides.stderr ?? "",
+		code: overrides.code ?? 0,
+		killed: overrides.killed ?? false,
+	};
 }
 
 function envelope(data: object): string {
@@ -66,7 +80,19 @@ function negativeEnvelope(data: object): string {
 	return JSON.stringify({ exit_code: 1, message: "No PR found", data });
 }
 
-function counts(overrides: Partial<Record<"included_review_threads" | "included_reviews" | "included_discussion_comments" | "excluded_resolved_threads" | "excluded_empty_reviews" | "excluded_automation_comments", number>> = {}): object {
+function counts(
+	overrides: Partial<
+		Record<
+			| "included_review_threads"
+			| "included_reviews"
+			| "included_discussion_comments"
+			| "excluded_resolved_threads"
+			| "excluded_empty_reviews"
+			| "excluded_automation_comments",
+			number
+		>
+	> = {},
+): object {
 	return {
 		included_review_threads: overrides.included_review_threads ?? 0,
 		included_reviews: overrides.included_reviews ?? 0,
@@ -85,7 +111,11 @@ async function runStackCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand(pi, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, rawArgs);
 }
 
-async function runRegisteredCommand(pi: FakePi, commandName: string, rawArgs: string): Promise<FakeContext> {
+async function runRegisteredCommand(
+	pi: FakePi,
+	commandName: string,
+	rawArgs: string,
+): Promise<FakeContext> {
 	prExtension(pi);
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
@@ -100,7 +130,10 @@ describe("/pr:download-feedback", () => {
 
 		prExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual([PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME]);
+		expect([...pi.commands.keys()]).toEqual([
+			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
+			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		]);
 	});
 
 	test("downloads feedback and pre-fills the editor without sending a user message", async () => {
@@ -109,9 +142,14 @@ describe("/pr:download-feedback", () => {
 
 		const ctx = await runCommand(pi);
 
-		expect(pi.calls).toEqual([{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] }]);
+		expect(pi.calls).toEqual([
+			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+		]);
 		expect(ctx.editorTexts).toEqual([markdown]);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "Downloaded PR feedback into the editor. Review/edit, then press Enter.", level: "info" });
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Downloaded PR feedback into the editor. Review/edit, then press Enter.",
+			level: "info",
+		});
 		expect(ctx.statuses).toEqual([
 			{ key: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, value: "PR feedback: downloading…" },
 			{ key: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME, value: undefined },
@@ -124,7 +162,12 @@ describe("/pr:download-feedback", () => {
 
 		await runCommand(pi, "123");
 
-		expect(pi.calls).toEqual([{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "123", "--format", "json"] }]);
+		expect(pi.calls).toEqual([
+			{
+				command: "pr-address",
+				args: ["exec", "download-feedback", "--pr-number", "123", "--format", "json"],
+			},
+		]);
 	});
 
 	test("prefills returned markdown for a negative no-PR envelope", async () => {
@@ -156,40 +199,91 @@ describe("/pr:download-feedback", () => {
 
 		expect(pi.calls).toEqual([]);
 		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.notifications).toEqual([{ message: "Usage: /pr:download-feedback [pr-number]", level: "error" }]);
+		expect(ctx.notifications).toEqual([
+			{ message: "Usage: /pr:download-feedback [pr-number]", level: "error" },
+		]);
 	});
 });
 
 describe("/pr:download-stack-feedback", () => {
 	test("discovers stack branches, downloads each PR, and pre-fills one stack prompt", async () => {
-		const pr101Markdown = "# PR feedback triage request\n\n## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
-		const pr102Markdown = "# PR feedback triage request\n\n## Target PR\n- PR: 102\n\n## Discussion comments\n\nComment 102";
+		const pr101Markdown =
+			"# PR feedback triage request\n\n## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
+		const pr102Markdown =
+			"# PR feedback triage request\n\n## Target PR\n- PR: 102\n\n## Discussion comments\n\nComment 102";
 		const pi = new FakePi([
 			execResult({ stdout: envelope({ branches: ["branch-one", "branch-two"] }) }),
 			execResult({
 				stdout: envelope({
 					branch_prs: [
-						{ branch: "branch-one", pr_number: 101, title: "First", url: "https://example.test/pull/101", head_ref_name: "branch-one", base_ref_name: "main" },
-						{ branch: "branch-two", pr_number: 102, title: "Second", url: "https://example.test/pull/102", head_ref_name: "branch-two", base_ref_name: "branch-one" },
+						{
+							branch: "branch-one",
+							pr_number: 101,
+							title: "First",
+							url: "https://example.test/pull/101",
+							head_ref_name: "branch-one",
+							base_ref_name: "main",
+						},
+						{
+							branch: "branch-two",
+							pr_number: 102,
+							title: "Second",
+							url: "https://example.test/pull/102",
+							head_ref_name: "branch-two",
+							base_ref_name: "branch-one",
+						},
 					],
 				}),
 			}),
-			execResult({ stdout: envelope({ markdown: pr101Markdown, counts: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }) }) }),
-			execResult({ stdout: envelope({ markdown: pr102Markdown, counts: counts({ included_discussion_comments: 3, included_reviews: 1, excluded_empty_reviews: 1, excluded_automation_comments: 4 }) }) }),
+			execResult({
+				stdout: envelope({
+					markdown: pr101Markdown,
+					counts: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }),
+				}),
+			}),
+			execResult({
+				stdout: envelope({
+					markdown: pr102Markdown,
+					counts: counts({
+						included_discussion_comments: 3,
+						included_reviews: 1,
+						excluded_empty_reviews: 1,
+						excluded_automation_comments: 4,
+					}),
+				}),
+			}),
 		]);
 
 		const ctx = await runStackCommand(pi);
 
 		expect(pi.calls).toEqual([
 			{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] },
-			{ command: "pr-address", args: ["exec", "map-branch-prs", "--branches-json", JSON.stringify({ branches: ["branch-one", "branch-two"] }), "--format", "json"] },
-			{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "101", "--format", "json"] },
-			{ command: "pr-address", args: ["exec", "download-feedback", "--pr-number", "102", "--format", "json"] },
+			{
+				command: "pr-address",
+				args: [
+					"exec",
+					"map-branch-prs",
+					"--branches-json",
+					JSON.stringify({ branches: ["branch-one", "branch-two"] }),
+					"--format",
+					"json",
+				],
+			},
+			{
+				command: "pr-address",
+				args: ["exec", "download-feedback", "--pr-number", "101", "--format", "json"],
+			},
+			{
+				command: "pr-address",
+				args: ["exec", "download-feedback", "--pr-number", "102", "--format", "json"],
+			},
 		]);
 		expect(ctx.editorTexts).toHaveLength(1);
 		const prompt = ctx.editorTexts[0] ?? "";
 		expect(prompt).toContain("# PR stack feedback triage request");
-		expect(prompt).toContain("Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.");
+		expect(prompt).toContain(
+			"Downloaded PR feedback for the current Graphite stack is below. Review the summary and instructions at the bottom before responding.",
+		);
 		expect(prompt).toContain("## Stack PRs");
 		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
 		expect(prompt).toContain("## Feedback by PR");
@@ -199,20 +293,35 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("Comment 102");
 		expect(prompt.indexOf("## Summary")).toBeGreaterThan(prompt.indexOf("Comment 102"));
 		expect(prompt).toContain("Downloaded feedback for 2 PRs in the current Graphite stack.");
-		expect(prompt).toContain("Stack PRs:\n- #101 branch-one: First (https://example.test/pull/101)\n- #102 branch-two: Second (https://example.test/pull/102)");
+		expect(prompt).toContain(
+			"Stack PRs:\n- #101 branch-one: First (https://example.test/pull/101)\n- #102 branch-two: Second (https://example.test/pull/102)",
+		);
 		expect(prompt).toContain("- Unresolved review threads included: 1");
 		expect(prompt).toContain("- PR-level review bodies included: 1");
 		expect(prompt).toContain("- Discussion comments included: 3");
 		expect(prompt).toContain("- Resolved review threads excluded: 2");
 		expect(prompt).toContain("- Empty PR-level reviews excluded: 1");
 		expect(prompt).toContain("- Automation-like discussion comments excluded: 4");
-		expect(prompt.indexOf("## Instructions before responding")).toBeGreaterThan(prompt.indexOf("## Summary"));
+		expect(prompt.indexOf("## Instructions before responding")).toBeGreaterThan(
+			prompt.indexOf("## Summary"),
+		);
 		expect(prompt).toContain("shared fixes, per-PR fixes, ordering constraints");
 		expect(prompt).toContain("single omnibus follow-up PR at the current stack tip");
-		expect(prompt.trim()).toMatch(/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.", level: "info" });
-		expect(ctx.statuses.at(0)).toEqual({ key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, value: "PR stack feedback: discovering stack…" });
-		expect(ctx.statuses.at(-1)).toEqual({ key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME, value: undefined });
+		expect(prompt.trim()).toMatch(
+			/Do not edit files yet; propose a plan and wait for human confirmation\. Do not resolve or reply to GitHub threads from this prompt\.$/u,
+		);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
+			level: "info",
+		});
+		expect(ctx.statuses.at(0)).toEqual({
+			key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			value: "PR stack feedback: discovering stack…",
+		});
+		expect(ctx.statuses.at(-1)).toEqual({
+			key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			value: undefined,
+		});
 		expect(pi.userMessages).toEqual([]);
 	});
 
@@ -221,9 +330,14 @@ describe("/pr:download-stack-feedback", () => {
 
 		const ctx = await runStackCommand(pi);
 
-		expect(pi.calls).toEqual([{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] }]);
+		expect(pi.calls).toEqual([
+			{ command: "slot", args: ["gt", "exec", "stack-branches", "--format", "json"] },
+		]);
 		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "No Graphite stack branches found for the current checkout.", level: "warning" });
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "No Graphite stack branches found for the current checkout.",
+			level: "warning",
+		});
 	});
 
 	test("reports malformed stack branch output", async () => {
@@ -244,6 +358,8 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([]);
 		expect(ctx.editorTexts).toEqual([]);
-		expect(ctx.notifications).toEqual([{ message: "Usage: /pr:download-stack-feedback", level: "error" }]);
+		expect(ctx.notifications).toEqual([
+			{ message: "Usage: /pr:download-stack-feedback", level: "error" },
+		]);
 	});
 });

@@ -13,7 +13,12 @@ import { metadataDbJson, topologyArgs } from "./land-test-helpers.ts";
 const ROOT = "/repo";
 const CURRENT = "feature-branch";
 const TRUNK = "main";
-const PR_VIEW_ARGS = ["pr", "view", "--json", "number,headRefName,baseRefName,title,body,headRefOid"];
+const PR_VIEW_ARGS = [
+	"pr",
+	"view",
+	"--json",
+	"number,headRefName,baseRefName,title,body,headRefOid",
+];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 const GIT_TIMEOUT_MS = 30_000;
@@ -74,7 +79,11 @@ class FakePi implements LandExtensionAPI {
 		this.commands.set(name, command);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const expected = this.script.shift();
 		if (!expected) {
@@ -155,14 +164,20 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 	return { ctx, notifications, confirmations, printed, waitForIdleCalls: () => waits };
 }
 
-async function runLand(script: ScriptedExec[], options: { mode?: LandCommandContext["mode"]; stack?: string | false; args?: string } = {}): Promise<{
+async function runLand(
+	script: ScriptedExec[],
+	options: { mode?: LandCommandContext["mode"]; stack?: string | false; args?: string } = {},
+): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	confirmations: Confirmation[];
 	printed: string[];
 	waitForIdleCalls: () => number;
 }> {
-	const fullScript = options.stack === false ? script : [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
+	const fullScript =
+		options.stack === false
+			? script
+			: [...graphiteShapeSteps(options.stack ?? DB_SINGLE_BRANCH), ...script];
 	const pi = new FakePi(fullScript);
 	registerLandCommand(pi);
 	const command = pi.commands.get("sdl:code:land");
@@ -192,14 +207,16 @@ function expectedShapeCalls(): ExecCall[] {
 	];
 }
 
-function prView(overrides: {
-	number?: number;
-	headRefName?: string;
-	baseRefName?: string;
-	title?: string;
-	body?: string | null;
-	headRefOid?: string;
-} = {}): string {
+function prView(
+	overrides: {
+		number?: number;
+		headRefName?: string;
+		baseRefName?: string;
+		title?: string;
+		body?: string | null;
+		headRefOid?: string;
+	} = {},
+): string {
 	return JSON.stringify({
 		number: overrides.number ?? 42,
 		headRefName: overrides.headRefName ?? "feature-branch",
@@ -210,7 +227,9 @@ function prView(overrides: {
 	});
 }
 
-function expectedMergeArgs(options: { number?: number; sha?: string; title?: string; body?: string } = {}): string[] {
+function expectedMergeArgs(
+	options: { number?: number; sha?: string; title?: string; body?: string } = {},
+): string[] {
 	return [
 		"pr",
 		"merge",
@@ -254,7 +273,11 @@ describe("code land command", () => {
 		expect(pi.execCalls).toEqual([
 			...expectedShapeCalls(),
 			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
-			{ command: "gh", args: expectedMergeArgs(), options: { cwd: ROOT, timeout: PR_MERGE_TIMEOUT_MS } },
+			{
+				command: "gh",
+				args: expectedMergeArgs(),
+				options: { cwd: ROOT, timeout: PR_MERGE_TIMEOUT_MS },
+			},
 		]);
 		expect(notifications).toEqual([
 			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
@@ -295,7 +318,9 @@ describe("code land command", () => {
 			{ mode: "print" },
 		);
 
-		expect(printed).toEqual(["Refusing to land PR #42: base branch is 'develop', not Graphite trunk 'main'. Merge not attempted.\n"]);
+		expect(printed).toEqual([
+			"Refusing to land PR #42: base branch is 'develop', not Graphite trunk 'main'. Merge not attempted.\n",
+		]);
 		pi.assertDone();
 	});
 
@@ -314,10 +339,14 @@ describe("code land command", () => {
 			step("gh", PR_VIEW_ARGS, { stdout: prView({ baseRefName: "develop" }) }),
 		]);
 
-		expect(pi.execCalls).toEqual([...expectedShapeCalls(), { command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } }]);
+		expect(pi.execCalls).toEqual([
+			...expectedShapeCalls(),
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+		]);
 		expect(notifications).toEqual([
 			{
-				message: "Refusing to land PR #42: base branch is 'develop', not Graphite trunk 'main'. Merge not attempted.",
+				message:
+					"Refusing to land PR #42: base branch is 'develop', not Graphite trunk 'main'. Merge not attempted.",
 				level: "error",
 			},
 		]);
@@ -329,17 +358,21 @@ describe("code land command", () => {
 			step("gh", PR_VIEW_ARGS, { code: 1, stderr: "no pull requests found" }),
 		]);
 
-		expect(pi.execCalls).toEqual([...expectedShapeCalls(), { command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } }]);
+		expect(pi.execCalls).toEqual([
+			...expectedShapeCalls(),
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+		]);
 		expect(notifications).toEqual([{ message: "no pull requests found", level: "error" }]);
 		pi.assertDone();
 	});
 
 	test("reports malformed gh pr view JSON without attempting a merge", async () => {
-		const { pi, notifications } = await runLand([
-			step("gh", PR_VIEW_ARGS, { stdout: "not json" }),
-		]);
+		const { pi, notifications } = await runLand([step("gh", PR_VIEW_ARGS, { stdout: "not json" })]);
 
-		expect(pi.execCalls).toEqual([...expectedShapeCalls(), { command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } }]);
+		expect(pi.execCalls).toEqual([
+			...expectedShapeCalls(),
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+		]);
 		expect(notifications[0]?.message).toContain("Failed to parse gh pr view output");
 		expect(notifications[0]?.message).toContain("Merge not attempted.");
 		expect(notifications[0]?.level).toBe("error");
@@ -351,10 +384,14 @@ describe("code land command", () => {
 			step("gh", PR_VIEW_ARGS, { stdout: JSON.stringify({ number: 42, title: "Ship feature" }) }),
 		]);
 
-		expect(pi.execCalls).toEqual([...expectedShapeCalls(), { command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } }]);
+		expect(pi.execCalls).toEqual([
+			...expectedShapeCalls(),
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+		]);
 		expect(notifications).toEqual([
 			{
-				message: "gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
+				message:
+					"gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
 				level: "error",
 			},
 		]);
@@ -371,7 +408,8 @@ describe("code land command", () => {
 		expect(notifications).toEqual([
 			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
 			{
-				message: "merge stdout\nmerge stderr\ngh pr merge -s with PR title/body failed for PR #42 with exit code 1.",
+				message:
+					"merge stdout\nmerge stderr\ngh pr merge -s with PR title/body failed for PR #42 with exit code 1.",
 				level: "error",
 			},
 		]);
@@ -385,13 +423,18 @@ describe("code land command", () => {
 				step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
 				step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 				step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
-				step("sqlite3", TOPOLOGY_ARGS, { code: 1, stderr: "Error: unable to open database file\n" }),
+				step("sqlite3", TOPOLOGY_ARGS, {
+					code: 1,
+					stderr: "Error: unable to open database file\n",
+				}),
 			],
 			{ stack: false },
 		);
 
 		expect(pi.execCalls).toEqual(expectedShapeCalls());
-		expect(notifications[0]?.message).toContain(`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`);
+		expect(notifications[0]?.message).toContain(
+			`Graphite metadata DB at ${DB_PATH} is missing or unreadable; refusing to land.`,
+		);
 		pi.assertDone();
 	});
 
@@ -406,15 +449,24 @@ describe("code land command", () => {
 					"Land 1 PRs from feature-branch through feature-branch into main?\nDescendants above feature-branch will not be merged; this command will try to maintain them after landing.",
 			},
 		]);
-		expect(notifications).toEqual([{ message: "Cancelled before merge; no PRs were landed.", level: "info" }]);
+		expect(notifications).toEqual([
+			{ message: "Cancelled before merge; no PRs were landed.", level: "info" },
+		]);
 		pi.assertDone();
 	});
 
 	test("supports fast-path dry-run without merging", async () => {
-		const { pi, notifications } = await runLand([step("gh", PR_VIEW_ARGS, { stdout: prView() })], { args: "--dry-run" });
+		const { pi, notifications } = await runLand([step("gh", PR_VIEW_ARGS, { stdout: prView() })], {
+			args: "--dry-run",
+		});
 
-		expect(pi.execCalls).toEqual([...expectedShapeCalls(), { command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } }]);
-		expect(notifications).toEqual([{ message: "Dry run only; would merge PR #42 into main.", level: "info" }]);
+		expect(pi.execCalls).toEqual([
+			...expectedShapeCalls(),
+			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
+		]);
+		expect(notifications).toEqual([
+			{ message: "Dry run only; would merge PR #42 into main.", level: "info" },
+		]);
 		pi.assertDone();
 	});
 });
@@ -469,7 +521,8 @@ describe("gh land PR parsing", () => {
 
 	test("reports missing required fields without throwing", () => {
 		expect(parsePullRequestView({ number: 7, title: "Title" })).toEqual({
-			error: "gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
+			error:
+				"gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
 		});
 	});
 
@@ -482,7 +535,9 @@ describe("gh land PR parsing", () => {
 				title: "Title",
 				headRefOid: "abc123",
 			}),
-		).toEqual({ error: "gh pr view did not return required field(s): number. Merge not attempted." });
+		).toEqual({
+			error: "gh pr view did not return required field(s): number. Merge not attempted.",
+		});
 	});
 
 	test("rejects a present non-string, non-null body", () => {

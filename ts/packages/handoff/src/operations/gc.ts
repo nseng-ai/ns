@@ -34,7 +34,8 @@ export type GcResultEntry = z.infer<typeof gcResultEntrySchema>;
 export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
-	if (request.dry_run && request.force) return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
+	if (request.dry_run && request.force)
+		return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
 	const summaries = await loadAllSummaries(ctx);
 	if (summaries.type !== "resolved") return summaries;
 	const preview = previewResult(summaries.value, request.dry_run);
@@ -55,18 +56,24 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 
 export function renderGc(result: GcResult): string {
 	if (result.cancelled) return "Cancelled — no handoffs deleted.";
-	const candidates = result.entries.filter((entry) => entry.action === "would_delete" || entry.action === "deleted" || entry.action === "error");
+	const candidates = result.entries.filter(
+		(entry) =>
+			entry.action === "would_delete" || entry.action === "deleted" || entry.action === "error",
+	);
 	const lines: string[] = [];
 	if (candidates.length === 0) {
 		lines.push("No handoffs for deleted branches.");
 		lines.push(summaryLine(result));
 		return lines.join("\n");
 	}
-	if (result.would_delete_count > 0) lines.push(`Would delete ${result.would_delete_count} handoff(s) for deleted branches:`);
+	if (result.would_delete_count > 0)
+		lines.push(`Would delete ${result.would_delete_count} handoff(s) for deleted branches:`);
 	else lines.push(`Deleted ${result.deleted_count} handoff(s) for deleted branches:`);
 	for (const entry of candidates) {
 		const suffix = entry.message === null ? "" : `: ${entry.message}`;
-		lines.push(`  ${entry.action.replaceAll("_", " ")} ${entry.branch_state} ${entry.branch} ${entry.slug}${suffix}`);
+		lines.push(
+			`  ${entry.action.replaceAll("_", " ")} ${entry.branch_state} ${entry.branch} ${entry.slug}${suffix}`,
+		);
 	}
 	lines.push("");
 	lines.push(summaryLine(result));
@@ -84,12 +91,20 @@ async function loadAllSummaries(ctx: HandoffCliContext) {
 
 function previewResult(summaries: readonly HandoffSummary[], dryRun: boolean): GcResult {
 	return resultFromEntries(
-		summaries.map((summary) => entryFromSummary(summary, summary.branch_state === "deleted" ? "would_delete" : "kept_active")),
+		summaries.map((summary) =>
+			entryFromSummary(
+				summary,
+				summary.branch_state === "deleted" ? "would_delete" : "kept_active",
+			),
+		),
 		{ dryRun, cancelled: false },
 	);
 }
 
-async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: readonly HandoffSummary[]): Promise<GcResult> {
+async function deleteDeletedBranchHandoffs(
+	ctx: HandoffCliContext,
+	summaries: readonly HandoffSummary[],
+): Promise<GcResult> {
 	const entries: GcResultEntry[] = [];
 	for (const summary of summaries) {
 		if (summary.branch_state === "active") {
@@ -101,9 +116,10 @@ async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: re
 			{ branch: summary.branch, key: summary.key },
 		);
 		if (deleted.type === "error") {
-			const message = deleted.error.code === "handoff_not_found"
-				? `Handoff disappeared before deletion: ${deleted.error.message}`
-				: deleted.error.message;
+			const message =
+				deleted.error.code === "handoff_not_found"
+					? `Handoff disappeared before deletion: ${deleted.error.message}`
+					: deleted.error.message;
 			entries.push(entryFromSummary(summary, "error", { message }));
 			continue;
 		}
@@ -112,7 +128,11 @@ async function deleteDeletedBranchHandoffs(ctx: HandoffCliContext, summaries: re
 	return resultFromEntries(entries, { dryRun: false, cancelled: false });
 }
 
-function entryFromSummary(summary: HandoffSummary, action: GcAction, options: { commit?: string | undefined; message?: string | undefined } = {}): GcResultEntry {
+function entryFromSummary(
+	summary: HandoffSummary,
+	action: GcAction,
+	options: { commit?: string | undefined; message?: string | undefined } = {},
+): GcResultEntry {
 	return {
 		...summary,
 		action,
@@ -121,7 +141,10 @@ function entryFromSummary(summary: HandoffSummary, action: GcAction, options: { 
 	};
 }
 
-function resultFromEntries(entries: readonly GcResultEntry[], options: { dryRun: boolean; cancelled: boolean }): GcResult {
+function resultFromEntries(
+	entries: readonly GcResultEntry[],
+	options: { dryRun: boolean; cancelled: boolean },
+): GcResult {
 	return {
 		entries: [...entries],
 		would_delete_count: entries.filter((entry) => entry.action === "would_delete").length,

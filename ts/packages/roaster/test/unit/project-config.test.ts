@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { buildGitDiffArgs, parseRoasterProjectConfigToml, roasterExcludeGlobsToGitPathspecs, type ProjectConfigErrorCode } from "../../src/project-config.ts";
+import {
+	buildGitDiffArgs,
+	parseRoasterProjectConfigToml,
+	roasterExcludeGlobsToGitPathspecs,
+	type ProjectConfigErrorCode,
+} from "../../src/project-config.ts";
 
 describe("parseRoasterProjectConfigToml", () => {
 	test.each([
@@ -15,7 +20,11 @@ describe("parseRoasterProjectConfigToml", () => {
 	});
 
 	test("parses roaster diff excludes", () => {
-		const config = expectOk(parseRoasterProjectConfigToml('[roaster.diff]\nexclude = [".agents/skills/**/*.py", ".claude/skills/**/*.py"]\n'));
+		const config = expectOk(
+			parseRoasterProjectConfigToml(
+				'[roaster.diff]\nexclude = [".agents/skills/**/*.py", ".claude/skills/**/*.py"]\n',
+			),
+		);
 
 		expect(config.diff.exclude).toEqual([".agents/skills/**/*.py", ".claude/skills/**/*.py"]);
 	});
@@ -45,7 +54,11 @@ describe("parseRoasterProjectConfigToml", () => {
 		['[roaster.diff]\nexclude = [""]\n', "non-empty strings", "invalid_exclude"],
 		['[roaster.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid_exclude"],
 		['[roaster.diff]\nexclude = ["skills/../*.py"]\n', "path segments", "invalid_exclude"],
-		['[roaster.diff]\nexclude = [":(exclude,glob)vendor/**/*.py"]\n', "pathspecs", "invalid_exclude"],
+		[
+			'[roaster.diff]\nexclude = [":(exclude,glob)vendor/**/*.py"]\n',
+			"pathspecs",
+			"invalid_exclude",
+		],
 		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid_table"],
 		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid_table"],
 		["[roaster\n", "Invalid TOML", "invalid_toml"],
@@ -60,10 +73,9 @@ describe("parseRoasterProjectConfigToml", () => {
 
 describe("git diff pathspec helpers", () => {
 	test("converts plain exclude globs to git exclude pathspecs", () => {
-		expect(roasterExcludeGlobsToGitPathspecs([".agents/skills/**/*.py", ".claude/skills/**/*.py"])).toEqual([
-			":(exclude,glob).agents/skills/**/*.py",
-			":(exclude,glob).claude/skills/**/*.py",
-		]);
+		expect(
+			roasterExcludeGlobsToGitPathspecs([".agents/skills/**/*.py", ".claude/skills/**/*.py"]),
+		).toEqual([":(exclude,glob).agents/skills/**/*.py", ":(exclude,glob).claude/skills/**/*.py"]);
 	});
 
 	test("builds base git diff args without excludes", () => {
@@ -83,7 +95,12 @@ describe("git diff pathspec helpers", () => {
 	});
 
 	test("builds git diff args with pathspec excludes", () => {
-		expect(buildGitDiffArgs({ baseRef: "main", excludeGlobs: [".agents/skills/**/*.py", ".claude/skills/**/*.py"] })).toEqual([
+		expect(
+			buildGitDiffArgs({
+				baseRef: "main",
+				excludeGlobs: [".agents/skills/**/*.py", ".claude/skills/**/*.py"],
+			}),
+		).toEqual([
 			"-c",
 			"diff.noprefix=false",
 			"-c",
@@ -110,7 +127,10 @@ function expectOk(result: ParseResult): { readonly diff: { readonly exclude: rea
 	return result.config;
 }
 
-function expectError(result: ParseResult): { readonly code: ProjectConfigErrorCode; readonly message: string } {
+function expectError(result: ParseResult): {
+	readonly code: ProjectConfigErrorCode;
+	readonly message: string;
+} {
 	if (result.type === "ok") throw new Error("Expected project config parse to fail.");
 	return result.error;
 }

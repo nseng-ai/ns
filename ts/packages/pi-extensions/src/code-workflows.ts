@@ -1,5 +1,10 @@
 import { truncateDisplayLine } from "./terminal-presentation.ts";
-import type { CommandContext, CustomMessage, RenderComponent, RenderTheme } from "./handoff/runtime-types.ts";
+import type {
+	CommandContext,
+	CustomMessage,
+	RenderComponent,
+	RenderTheme,
+} from "./handoff/runtime-types.ts";
 import { definePiSurfaceParity } from "./parity.ts";
 
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
@@ -16,7 +21,8 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "code-workflows",
-		notes: "The command is a Pi picker/prompt insertion convenience over portable skills and references.",
+		notes:
+			"The command is a Pi picker/prompt insertion convenience over portable skills and references.",
 	},
 ] as const);
 
@@ -38,7 +44,11 @@ interface CodeWorkflowsExtensionAPI {
 	sendMessage?(message: CustomMessage): void;
 }
 
-type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 interface WorkflowRoute {
 	route: string;
@@ -146,18 +156,27 @@ export function completeWorkflowRoute(prefix: string): AutocompleteItem[] | null
 
 export function resolveWorkflowRoute(input: string): WorkflowRoute | undefined {
 	const normalized = input.trim().toLowerCase();
-	return ROUTES.find((route) => route.route === normalized || route.aliases.some((alias) => alias === normalized));
+	return ROUTES.find(
+		(route) => route.route === normalized || route.aliases.some((alias) => alias === normalized),
+	);
 }
 
 export function formatWorkflowMenu(): string {
-	return ["Available code workflows:", ...ROUTES.map((route) => `- ${route.route} — ${route.summary}`)].join("\n");
+	return [
+		"Available code workflows:",
+		...ROUTES.map((route) => `- ${route.route} — ${route.summary}`),
+	].join("\n");
 }
 
-export function formatWorkflowSelection(route: WorkflowRoute, options: { editorUpdated?: boolean } = {}): string {
+export function formatWorkflowSelection(
+	route: WorkflowRoute,
+	options: { editorUpdated?: boolean } = {},
+): string {
 	const prompt = buildWorkflowPrompt(route);
-	const nextStep = options.editorUpdated === true
-		? "The prompt has been placed in the editor. Press Enter when ready to run it."
-		: "To run this workflow, send this prompt when ready:";
+	const nextStep =
+		options.editorUpdated === true
+			? "The prompt has been placed in the editor. Press Enter when ready to run it."
+			: "To run this workflow, send this prompt when ready:";
 	return [
 		"## code-workflows",
 		"",
@@ -181,7 +200,9 @@ export function renderCodeWorkflowMessage(
 	const content = typeof message.content === "string" ? message.content : String(message.content);
 	return {
 		render(width: number): string[] {
-			return content.split("\n").map((line, index) => styleWorkflowLine(truncateDisplayLine(line, width), index, theme));
+			return content
+				.split("\n")
+				.map((line, index) => styleWorkflowLine(truncateDisplayLine(line, width), index, theme));
 		},
 		invalidate(): void {},
 	};

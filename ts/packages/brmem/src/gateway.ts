@@ -45,7 +45,10 @@ export interface BrmemGateway {
 		branch?: string | undefined;
 	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
-	listAllEntries(options: { key?: string | undefined; branch?: string | undefined }): Promise<BrmemResult<readonly ListedEntry[]>>;
+	listAllEntries(options: {
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	getEntry(options: {
 		namespace: string;
@@ -68,7 +71,11 @@ export interface BrmemGateway {
 		content: string;
 	}): Promise<BrmemResult<PutEntryResult>>;
 
-	deleteEntry(options: { namespace: string; key: string; branch: string }): Promise<BrmemResult<DeleteEntryResult>>;
+	deleteEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemResult<DeleteEntryResult>>;
 
 	copyEntries(options: {
 		namespace: string;
@@ -80,5 +87,9 @@ export interface BrmemGateway {
 
 	getRemoteConfig(remote: string): Promise<BrmemOptionalResult<GitRemoteConfig>>;
 
-	addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<BrmemResult<void>>;
+	addRemoteRefspecs(
+		remote: string,
+		push: readonly string[],
+		fetch: readonly string[],
+	): Promise<BrmemResult<void>>;
 }

@@ -41,7 +41,10 @@ interface ParseReviewDefinitionOptions {
 	readonly name: string;
 }
 
-export function parseReviewDefinition(source: string, options: ParseReviewDefinitionOptions): ReviewDefinitionParseResult {
+export function parseReviewDefinition(
+	source: string,
+	options: ParseReviewDefinitionOptions,
+): ReviewDefinitionParseResult {
 	const name = options.name.trim();
 	if (name === "") {
 		return failure("invalid_name", "Review definition `name` must be a non-empty string.");
@@ -54,7 +57,10 @@ export function parseReviewDefinition(source: string, options: ParseReviewDefini
 	try {
 		parsedFrontmatter = parseYaml(split.frontmatterText);
 	} catch (error) {
-		return failure("invalid_yaml", `Review definition frontmatter is not valid YAML: ${formatErrorMessage(error)}`);
+		return failure(
+			"invalid_yaml",
+			`Review definition frontmatter is not valid YAML: ${formatErrorMessage(error)}`,
+		);
 	}
 
 	if (parsedFrontmatter === null || parsedFrontmatter === undefined) {
@@ -85,7 +91,10 @@ export function parseReviewDefinition(source: string, options: ParseReviewDefini
 
 	const instructions = split.body.trim();
 	if (instructions === "") {
-		return failure("invalid_instructions", "Review definition body (instructions) must not be empty.");
+		return failure(
+			"invalid_instructions",
+			"Review definition body (instructions) must not be empty.",
+		);
 	}
 
 	return {
@@ -107,8 +116,16 @@ type FrontmatterSplitResult =
 function splitFrontmatter(source: string): FrontmatterSplitResult {
 	if (source.trim() === "") return failure("empty_source", "Review definition is empty.");
 	const split = splitMarkdownFrontmatter(source);
-	if (split.type === "not_found") return failure("missing_open_fence", "Review definition must begin with a `---` frontmatter fence.");
-	if (split.type === "missing_closing_fence") return failure("missing_close_fence", "Review definition frontmatter is missing a closing `---` fence.");
+	if (split.type === "not_found")
+		return failure(
+			"missing_open_fence",
+			"Review definition must begin with a `---` frontmatter fence.",
+		);
+	if (split.type === "missing_closing_fence")
+		return failure(
+			"missing_close_fence",
+			"Review definition frontmatter is missing a closing `---` fence.",
+		);
 	return {
 		type: "ok",
 		frontmatterText: split.block.frontmatterText.replace(/\r\n?/gu, "\n"),
@@ -120,13 +137,22 @@ type StringFieldResult =
 	| { readonly type: "ok"; readonly value: string }
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
-function requireStringField(frontmatter: Readonly<Record<string, unknown>>, field: string): StringFieldResult {
+function requireStringField(
+	frontmatter: Readonly<Record<string, unknown>>,
+	field: string,
+): StringFieldResult {
 	if (!(field in frontmatter)) {
-		return failure("invalid_description", `Review definition frontmatter is missing required field \`${field}\`.`);
+		return failure(
+			"invalid_description",
+			`Review definition frontmatter is missing required field \`${field}\`.`,
+		);
 	}
 	const value = frontmatter[field];
 	if (typeof value !== "string" || value.trim() === "") {
-		return failure("invalid_description", `Review definition field \`${field}\` must be a non-empty string.`);
+		return failure(
+			"invalid_description",
+			`Review definition field \`${field}\` must be a non-empty string.`,
+		);
 	}
 	return { type: "ok", value: value.trim() };
 }
@@ -139,7 +165,10 @@ function parseDefaultModel(frontmatter: Readonly<Record<string, unknown>>): Defa
 	if (!("default_model" in frontmatter)) return { type: "ok", value: null };
 	const value = frontmatter.default_model;
 	if (typeof value !== "string" || value.trim() === "") {
-		return failure("invalid_default_model", "Review definition field `default_model` must be a non-empty string.");
+		return failure(
+			"invalid_default_model",
+			"Review definition field `default_model` must be a non-empty string.",
+		);
 	}
 	return { type: "ok", value: value.trim() };
 }
@@ -152,18 +181,27 @@ function parseApplicability(frontmatter: Readonly<Record<string, unknown>>): App
 	if (!("applies_to" in frontmatter)) return { type: "ok", value: { include: [], exclude: [] } };
 	const value = frontmatter.applies_to;
 	if (!isRecord(value)) {
-		return failure("invalid_applicability", "Review definition field `applies_to` must be a YAML mapping.");
+		return failure(
+			"invalid_applicability",
+			"Review definition field `applies_to` must be a YAML mapping.",
+		);
 	}
 
 	const unknownKeys = sortedUnknownKeys(value, ALLOWED_APPLIES_TO_KEYS);
 	if (unknownKeys.length > 0) {
 		const unknownList = unknownKeys.map((key) => `\`${key}\``).join(", ");
-		return failure("invalid_applicability", `Review definition field \`applies_to\` contains unknown field(s): ${unknownList}.`);
+		return failure(
+			"invalid_applicability",
+			`Review definition field \`applies_to\` contains unknown field(s): ${unknownList}.`,
+		);
 	}
 
 	const include = requirePatternList(value, { field: "include", shouldAllowEmpty: false });
 	if (include.type === "error") return include;
-	const exclude = "exclude" in value ? requirePatternList(value, { field: "exclude", shouldAllowEmpty: true }) : { type: "ok" as const, value: [] };
+	const exclude =
+		"exclude" in value
+			? requirePatternList(value, { field: "exclude", shouldAllowEmpty: true })
+			: { type: "ok" as const, value: [] };
 	if (exclude.type === "error") return exclude;
 	return { type: "ok", value: { include: include.value, exclude: exclude.value } };
 }
@@ -177,17 +215,29 @@ type PatternListResult =
 	| { readonly type: "ok"; readonly value: readonly string[] }
 	| { readonly type: "error"; readonly error: ReviewDefinitionParseError };
 
-function requirePatternList(appliesTo: Readonly<Record<string, unknown>>, options: RequirePatternListOptions): PatternListResult {
+function requirePatternList(
+	appliesTo: Readonly<Record<string, unknown>>,
+	options: RequirePatternListOptions,
+): PatternListResult {
 	if (!(options.field in appliesTo)) {
-		return failure("invalid_applicability", `Review definition field \`applies_to.${options.field}\` is required.`);
+		return failure(
+			"invalid_applicability",
+			`Review definition field \`applies_to.${options.field}\` is required.`,
+		);
 	}
 
 	const value = appliesTo[options.field];
 	if (!Array.isArray(value)) {
-		return failure("invalid_applicability", `Review definition field \`applies_to.${options.field}\` must be a list of strings.`);
+		return failure(
+			"invalid_applicability",
+			`Review definition field \`applies_to.${options.field}\` must be a list of strings.`,
+		);
 	}
 	if (value.length === 0 && !options.shouldAllowEmpty) {
-		return failure("invalid_applicability", `Review definition field \`applies_to.${options.field}\` must not be empty.`);
+		return failure(
+			"invalid_applicability",
+			`Review definition field \`applies_to.${options.field}\` must not be empty.`,
+		);
 	}
 
 	const patterns: string[] = [];
@@ -199,31 +249,51 @@ function requirePatternList(appliesTo: Readonly<Record<string, unknown>>, option
 	return { type: "ok", value: patterns };
 }
 
-function validateApplicabilityPattern(pattern: unknown, field: "include" | "exclude"): StringFieldResult {
+function validateApplicabilityPattern(
+	pattern: unknown,
+	field: "include" | "exclude",
+): StringFieldResult {
 	if (typeof pattern !== "string" || pattern.trim() === "") {
-		return failure("invalid_applicability", `Review definition field \`applies_to.${field}\` must contain non-empty strings.`);
+		return failure(
+			"invalid_applicability",
+			`Review definition field \`applies_to.${field}\` must contain non-empty strings.`,
+		);
 	}
 
 	const normalized = pattern.trim().replaceAll("\\", "/");
 	if (normalized.startsWith(":(")) {
-		return failure("invalid_applicability", "Review definition applicability patterns must be globs, not git pathspecs.");
+		return failure(
+			"invalid_applicability",
+			"Review definition applicability patterns must be globs, not git pathspecs.",
+		);
 	}
 	if (normalized.startsWith("/")) {
-		return failure("invalid_applicability", "Review definition applicability patterns must be repo-relative.");
+		return failure(
+			"invalid_applicability",
+			"Review definition applicability patterns must be repo-relative.",
+		);
 	}
 	if (normalized.split("/").includes("..")) {
-		return failure("invalid_applicability", "Review definition applicability patterns must not contain `..` segments.");
+		return failure(
+			"invalid_applicability",
+			"Review definition applicability patterns must not contain `..` segments.",
+		);
 	}
 	return { type: "ok", value: normalized };
 }
 
-function failure(code: ReviewDefinitionParseErrorCode, message: string): { readonly type: "error"; readonly error: ReviewDefinitionParseError } {
+function failure(
+	code: ReviewDefinitionParseErrorCode,
+	message: string,
+): { readonly type: "error"; readonly error: ReviewDefinitionParseError } {
 	return { type: "error", error: { code, message } };
 }
 
-function sortedUnknownKeys(record: Readonly<Record<string, unknown>>, allowedKeys: readonly string[]): string[] {
+function sortedUnknownKeys(
+	record: Readonly<Record<string, unknown>>,
+	allowedKeys: readonly string[],
+): string[] {
 	return Object.keys(record)
 		.filter((key) => !allowedKeys.includes(key))
 		.sort();
 }
-

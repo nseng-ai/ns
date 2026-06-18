@@ -1,7 +1,13 @@
 import { formatCommand } from "@asdl/core/exec";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE, GIT_TIMEOUT_MS } from "./constants.ts";
 import { exec } from "./command-exec.ts";
-import { failure, landStackFailure, success, type LandStackOutcome, type LandStackResult } from "./errors.ts";
+import {
+	failure,
+	landStackFailure,
+	success,
+	type LandStackOutcome,
+	type LandStackResult,
+} from "./errors.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
@@ -15,7 +21,12 @@ export async function writeLandBackupRefs(
 	const rotate = await rotateBackupRefsToPrevious(pi, repoRoot);
 	if (rotate.type === "failure") return rotate;
 
-	const pruneCurrent = await pruneBackupNamespace(pi, repoRoot, BACKUP_REF_NAMESPACE, "current pre-land backup refs");
+	const pruneCurrent = await pruneBackupNamespace(
+		pi,
+		repoRoot,
+		BACKUP_REF_NAMESPACE,
+		"current pre-land backup refs",
+	);
 	if (pruneCurrent.type === "failure") return pruneCurrent;
 
 	const shas = new Map<string, string>();
@@ -23,7 +34,9 @@ export async function writeLandBackupRefs(
 		const sha = await loadLocalSha(pi, repoRoot, branch);
 		if (sha.type === "failure") {
 			return failure(
-				landStackFailure(`Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${sha.failure.message}`),
+				landStackFailure(
+					`Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${sha.failure.message}`,
+				),
 			);
 		}
 		const ref = `${BACKUP_REF_NAMESPACE}/${branch}`;
@@ -42,15 +55,28 @@ export async function writeLandBackupRefs(
 	return success(shas);
 }
 
-async function rotateBackupRefsToPrevious(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackOutcome> {
-	const args = ["fetch", "--quiet", "--prune", "--no-tags", ".", `+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`];
+async function rotateBackupRefsToPrevious(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandStackOutcome> {
+	const args = [
+		"fetch",
+		"--quiet",
+		"--prune",
+		"--no-tags",
+		".",
+		`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
+	];
 	const rotated = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
 	if (rotated.code !== 0) {
 		return failure(
-			landStackFailure("Could not rotate current pre-land backup refs to previous; no PRs were landed.", {
-				commandDisplay: formatCommand("git", args),
-				result: rotated,
-			}),
+			landStackFailure(
+				"Could not rotate current pre-land backup refs to previous; no PRs were landed.",
+				{
+					commandDisplay: formatCommand("git", args),
+					result: rotated,
+				},
+			),
 		);
 	}
 	return success(undefined);
@@ -72,7 +98,10 @@ async function pruneBackupNamespace(
 			}),
 		);
 	}
-	for (const ref of refs.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)) {
+	for (const ref of refs.stdout
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean)) {
 		const deleteArgs = ["update-ref", "-d", ref];
 		const deleted = await exec(pi, "git", deleteArgs, repoRoot, GIT_TIMEOUT_MS);
 		if (deleted.code !== 0) {

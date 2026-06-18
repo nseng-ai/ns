@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { buildRepoPlanStoreKey, encodeBranchForPlanPath, normalizeRepoOriginUrl } from "@asdl/plans";
+import {
+	buildRepoPlanStoreKey,
+	encodeBranchForPlanPath,
+	normalizeRepoOriginUrl,
+} from "@asdl/plans";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
@@ -72,20 +76,32 @@ export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, CommandDefinition>();
 	readonly execCalls: ExecCall[] = [];
 	readonly sentUserMessages: string[] = [];
-	readonly sentMessages: Array<{ customType: string; content: string | Array<{ type: "text"; text: string }>; display: boolean; details?: unknown }> = [];
+	readonly sentMessages: Array<{
+		customType: string;
+		content: string | Array<{ type: "text"; text: string }>;
+		display: boolean;
+		details?: unknown;
+	}> = [];
 	readonly setModels: ModelInfo[] = [];
 	readonly thinkingLevels: string[] = [];
 	readonly errors: string[] = [];
 	private readonly script: ScriptedExec[];
 	private readonly skillCommands: SkillCommandInfo[];
 	private readonly shouldRequireExpectedArgs: boolean;
-	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> = {
-		agent_end: [],
-		session_start: [],
-	};
+	private readonly eventHandlers: Record<EventName, Array<AgentEndHandler | SessionStartHandler>> =
+		{
+			agent_end: [],
+			session_start: [],
+		};
 	private thinkingLevel: ThinkingLevel = "medium";
 
-	constructor(options: { script?: ScriptedExec[]; skillCommands?: SkillCommandInfo[]; shouldRequireExpectedArgs?: boolean } = {}) {
+	constructor(
+		options: {
+			script?: ScriptedExec[];
+			skillCommands?: SkillCommandInfo[];
+			shouldRequireExpectedArgs?: boolean;
+		} = {},
+	) {
 		this.script = [...(options.script ?? [])];
 		this.skillCommands = [...(options.skillCommands ?? [])];
 		// Strict by default: undefined ScriptedExec args now count as a mismatch unless callers explicitly disable expected-arg checking.
@@ -139,7 +155,12 @@ export class FakePi implements ExtensionAPI {
 		this.sentUserMessages.push(content);
 	}
 
-	sendMessage(message: { customType: string; content: string | Array<{ type: "text"; text: string }>; display: boolean; details?: unknown }): void {
+	sendMessage(message: {
+		customType: string;
+		content: string | Array<{ type: "text"; text: string }>;
+		display: boolean;
+		details?: unknown;
+	}): void {
 		this.sentMessages.push(message);
 	}
 
@@ -167,7 +188,8 @@ export class FakeCommandContext implements CommandContext {
 	readonly notifications: Notification[] = [];
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly selections: Selection[] = [];
-	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> = [];
+	readonly autocompleteProviders: Array<(current: AutocompleteProvider) => AutocompleteProvider> =
+		[];
 	readonly ui: CommandContext["ui"];
 	readonly modelRegistry: CommandContext["modelRegistry"];
 	readonly sessionManager: NonNullable<CommandContext["sessionManager"]>;
@@ -187,7 +209,11 @@ export class FakeCommandContext implements CommandContext {
 		this.modelRegistry = {
 			find: (provider, modelId) => {
 				const fastModel = options.fastModel;
-				if (fastModel !== undefined && fastModel.provider === provider && fastModel.id === modelId) {
+				if (
+					fastModel !== undefined &&
+					fastModel.provider === provider &&
+					fastModel.id === modelId
+				) {
 					return fastModel;
 				}
 				return undefined;
@@ -277,7 +303,10 @@ export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExe
 		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
 	}
 
-	if (expected.command !== command || expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)) {
+	if (
+		expected.command !== command ||
+		expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)
+	) {
 		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
 		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
@@ -290,7 +319,11 @@ export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExe
 	return { result: execResult(expected.result) };
 }
 
-function expectedArgsMismatch(expectedArgs: string[] | undefined, actualArgs: string[], shouldRequireExpectedArgs: boolean): boolean {
+function expectedArgsMismatch(
+	expectedArgs: string[] | undefined,
+	actualArgs: string[],
+	shouldRequireExpectedArgs: boolean,
+): boolean {
 	if (expectedArgs === undefined) {
 		return shouldRequireExpectedArgs;
 	}
@@ -307,7 +340,11 @@ export function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-export function step(command: string, args: string[] | undefined, result?: Partial<ExecResult>): ScriptedExec {
+export function step(
+	command: string,
+	args: string[] | undefined,
+	result?: Partial<ExecResult>,
+): ScriptedExec {
 	return { command, ...(args === undefined ? {} : { args }), result };
 }
 
@@ -343,17 +380,30 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 }
 
 export function cmuxSummaryStep(title: string, description: string): ScriptedExec {
-	return step("asdl", ["exec", "cmux-workspace-summary", "--title", title, "--description", description, "--format", "json"], {
-		stdout: JSON.stringify({
-			exit_code: 0,
-			data: {
-				success: true,
-				title,
-				description,
-				status_key: "pi-summary",
-			},
-		}),
-	});
+	return step(
+		"asdl",
+		[
+			"exec",
+			"cmux-workspace-summary",
+			"--title",
+			title,
+			"--description",
+			description,
+			"--format",
+			"json",
+		],
+		{
+			stdout: JSON.stringify({
+				exit_code: 0,
+				data: {
+					success: true,
+					title,
+					description,
+					status_key: "pi-summary",
+				},
+			}),
+		},
+	);
 }
 
 export function slotCheckoutJson(branch: string): string {
@@ -397,7 +447,9 @@ export function gitCurrentBranchStep(): ScriptedExec {
 }
 
 export function gitOriginStep(): ScriptedExec {
-	return step("git", ["config", "--get", "remote.origin.url"], { stdout: "git@github.com:owner/repo.git\n" });
+	return step("git", ["config", "--get", "remote.origin.url"], {
+		stdout: "git@github.com:owner/repo.git\n",
+	});
 }
 
 export function headStep(): ScriptedExec {
@@ -425,7 +477,11 @@ export async function writeTempSkill(body: string): Promise<string> {
 	return writeTempSkillMarkdown("ccc-sidebar", body);
 }
 
-export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: string, options: { fileName?: string; content?: string } = {}): Promise<string> {
+export async function writeCmuxPlanStoreFile(
+	planStoreRoot: string,
+	repoRoot: string,
+	options: { fileName?: string; content?: string } = {},
+): Promise<string> {
 	const directoryPath = cmuxPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
 	const planFile = join(directoryPath, options.fileName ?? SAVED_PLAN_FILENAME);
@@ -434,7 +490,10 @@ export async function writeCmuxPlanStoreFile(planStoreRoot: string, repoRoot: st
 }
 
 export function cmuxPlanStoreDirectory(planStoreRoot: string, repoRoot: string): string {
-	const repoKey = buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl("git@github.com:owner/repo.git"));
+	const repoKey = buildRepoPlanStoreKey(
+		repoRoot,
+		normalizeRepoOriginUrl("git@github.com:owner/repo.git"),
+	);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
 	return join(planStoreRoot, repoKey, branchKey);
 }
@@ -444,7 +503,13 @@ export function dispatchValidationScript(repoRoot: string): ScriptedExec[] {
 }
 
 export function isDispatchMutationCommand(call: ExecCall): boolean {
-	return (call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current") || call.command === "gt" || call.command === "brmem" || call.command === "slot" || call.command === "cmux";
+	return (
+		(call.command === "git" && call.args[0] === "branch" && call.args[1] !== "--show-current") ||
+		call.command === "gt" ||
+		call.command === "brmem" ||
+		call.command === "slot" ||
+		call.command === "cmux"
+	);
 }
 
 export function skillCommand(skillName: string, path: string): SkillCommandInfo {
@@ -456,7 +521,11 @@ export function skillCommand(skillName: string, path: string): SkillCommandInfo 
 }
 
 export function branchContextOutputEntry(branch: string): unknown {
-	const slug = branch.split("/").filter((segment) => segment.length > 0).at(-1) ?? branch;
+	const slug =
+		branch
+			.split("/")
+			.filter((segment) => segment.length > 0)
+			.at(-1) ?? branch;
 	const key = PLAN_KEY;
 	const encodedBranch = branch.replaceAll("/", "---");
 	return {
@@ -481,7 +550,11 @@ export function branchContextOutputEntry(branch: string): unknown {
 	};
 }
 
-export function savedPlanEntry(repoRoot: string, planFile: string, overrides: Record<string, unknown> = {}): unknown {
+export function savedPlanEntry(
+	repoRoot: string,
+	planFile: string,
+	overrides: Record<string, unknown> = {},
+): unknown {
 	return {
 		type: "message",
 		message: {
@@ -491,7 +564,10 @@ export function savedPlanEntry(repoRoot: string, planFile: string, overrides: Re
 			details: {
 				slug: PLAN_SLUG,
 				repoRoot,
-				repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl("git@github.com:owner/repo.git")),
+				repoKey: buildRepoPlanStoreKey(
+					repoRoot,
+					normalizeRepoOriginUrl("git@github.com:owner/repo.git"),
+				),
 				repoIdentitySource: "origin-url",
 				sourceBranch: SOURCE_BRANCH,
 				branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),

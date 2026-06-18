@@ -17,9 +17,14 @@ export function reviewPromptTemplate(): string {
 	return readPromptAsset("review_prompt.md");
 }
 
-export function assembleReviewPrompt(request: Pick<HarnessReviewRequest, "reviewDefinition" | "target">): AssembledReviewPrompt {
+export function assembleReviewPrompt(
+	request: Pick<HarnessReviewRequest, "reviewDefinition" | "target">,
+): AssembledReviewPrompt {
 	const sizedDiff = promptSizedDiff(request.target.localDiff);
-	const changedPaths = request.target.localDiff.changedPaths.length === 0 ? "(no changed paths reported)" : request.target.localDiff.changedPaths.map((path) => `- ${path}`).join("\n");
+	const changedPaths =
+		request.target.localDiff.changedPaths.length === 0
+			? "(no changed paths reported)"
+			: request.target.localDiff.changedPaths.map((path) => `- ${path}`).join("\n");
 	const promptText = renderNamedTemplate(reviewPromptTemplate(), {
 		review_name: request.reviewDefinition.name,
 		review_description: request.reviewDefinition.description,

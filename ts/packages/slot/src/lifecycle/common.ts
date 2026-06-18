@@ -6,18 +6,29 @@ export interface SlotLifecycleFailure {
 	message: string;
 }
 
-export type LifecycleResult<T> = { type: "ok"; outcome: T } | { type: "failure"; failure: SlotLifecycleFailure };
+export type LifecycleResult<T> =
+	| { type: "ok"; outcome: T }
+	| { type: "failure"; failure: SlotLifecycleFailure };
 
 export function assignedSlotRecords(records: readonly SlotRecord[]): readonly SlotRecord[] {
 	return records.filter((record) => record.branch !== null);
 }
 
-export function poolFullFailure(assigned: readonly SlotRecord[], options: { action: string }): SlotLifecycleFailure {
+export function poolFullFailure(
+	assigned: readonly SlotRecord[],
+	options: { action: string },
+): SlotLifecycleFailure {
 	if (assigned.length === 0) {
-		return { error_type: "pool_full", message: `Pool is full (no slots available). Run \`slot init\` or \`slot resize\` before ${options.action}.` };
+		return {
+			error_type: "pool_full",
+			message: `Pool is full (no slots available). Run \`slot init\` or \`slot resize\` before ${options.action}.`,
+		};
 	}
 	const details = assigned.map(assignedSlotDetail).join("\n");
-	return { error_type: "pool_full", message: `Pool is full. Currently assigned:\n${details}\nFree a slot before ${options.action}.` };
+	return {
+		error_type: "pool_full",
+		message: `Pool is full. Currently assigned:\n${details}\nFree a slot before ${options.action}.`,
+	};
 }
 
 export function assignedSlotDetail(record: SlotRecord): string {
@@ -37,7 +48,8 @@ export function recoverySentence(operation: string): string {
 }
 
 export function branchOccupancyMessage(occupancy: WorktreeOccupancy): string {
-	if (occupancy.operation === "checked-out") return `Branch '${occupancy.branch}' is already checked out at ${occupancy.path}.`;
+	if (occupancy.operation === "checked-out")
+		return `Branch '${occupancy.branch}' is already checked out at ${occupancy.path}.`;
 	return `Branch '${occupancy.branch}' has a ${occupancy.operation} in progress at ${occupancy.path}. ${recoverySentence(occupancy.operation)}`;
 }
 

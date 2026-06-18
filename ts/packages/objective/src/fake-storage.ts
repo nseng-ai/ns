@@ -32,8 +32,18 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	private readonly unreadableFiles: ReadonlyMap<string, string>;
 
 	constructor(options: FakeObjectiveStorageGatewayOptions = {}) {
-		this.failures = new Map(Object.entries(options.failures ?? {}).map(([path, error]) => [normalizeRelativePath(path), { ...error }]));
-		this.unreadableFiles = new Map(Object.entries(options.unreadableFiles ?? {}).map(([path, message]) => [normalizeRelativePath(path), message]));
+		this.failures = new Map(
+			Object.entries(options.failures ?? {}).map(([path, error]) => [
+				normalizeRelativePath(path),
+				{ ...error },
+			]),
+		);
+		this.unreadableFiles = new Map(
+			Object.entries(options.unreadableFiles ?? {}).map(([path, message]) => [
+				normalizeRelativePath(path),
+				message,
+			]),
+		);
 		this.addDirectory(".");
 		for (const directory of options.directories ?? []) {
 			this.addDirectory(directory);
@@ -55,7 +65,9 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		return { ok: true, value: "missing" };
 	}
 
-	async listDirectory(relativePath: string): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>> {
+	async listDirectory(
+		relativePath: string,
+	): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>> {
 		const path = normalizeRelativePath(relativePath);
 		const failure = this.failures.get(path);
 		if (failure !== undefined) return { ok: false, error: { ...failure } };
@@ -88,7 +100,10 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		return { type: "ok", content };
 	}
 
-	async moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>> {
+	async moveDirectory(
+		sourceRelativePath: string,
+		destinationRelativePath: string,
+	): Promise<ObjectiveStorageResult<void>> {
 		const source = normalizeRelativePath(sourceRelativePath);
 		const destination = normalizeRelativePath(destinationRelativePath);
 		const sourceFailure = this.failures.get(source);
@@ -96,19 +111,32 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 		const destinationFailure = this.failures.get(destination);
 		if (destinationFailure !== undefined) return { ok: false, error: { ...destinationFailure } };
 		if (!this.directories.has(source)) {
-			return { ok: false, error: { code: "move-source-not-directory", message: `${source} is not a directory.` } };
+			return {
+				ok: false,
+				error: { code: "move-source-not-directory", message: `${source} is not a directory.` },
+			};
 		}
 		if (this.files.has(destination) || this.directories.has(destination)) {
-			return { ok: false, error: { code: "move-destination-exists", message: `${destination} already exists.` } };
+			return {
+				ok: false,
+				error: { code: "move-destination-exists", message: `${destination} already exists.` },
+			};
 		}
 
 		this.addDirectory(dirname(destination));
 		const directoryMoves = [...this.directories]
 			.filter((directory) => isSelfOrDescendant(source, directory))
-			.map((directory) => ({ from: directory, to: replacePathPrefix(directory, source, destination) }));
+			.map((directory) => ({
+				from: directory,
+				to: replacePathPrefix(directory, source, destination),
+			}));
 		const fileMoves = [...this.files.entries()]
 			.filter(([path]) => isSelfOrDescendant(source, path))
-			.map(([path, content]) => ({ from: path, to: replacePathPrefix(path, source, destination), content }));
+			.map(([path, content]) => ({
+				from: path,
+				to: replacePathPrefix(path, source, destination),
+				content,
+			}));
 
 		for (const move of directoryMoves) {
 			this.directories.delete(move.from);
@@ -128,8 +156,10 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
 		const root = `.asdl/objectives/${record.slug}`;
 		this.addDirectory(root);
-		if (record.objectiveMd !== null) this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);
-		if (record.roadmapMd !== null) this.addFile(`${root}/roadmap.md`, record.roadmapMd ?? "# Roadmap\n");
+		if (record.objectiveMd !== null)
+			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);
+		if (record.roadmapMd !== null)
+			this.addFile(`${root}/roadmap.md`, record.roadmapMd ?? "# Roadmap\n");
 		this.addDirectory(`${root}/updates`);
 		for (const [name, content] of Object.entries(record.updates ?? {})) {
 			this.addFile(`${root}/updates/${name}`, content);

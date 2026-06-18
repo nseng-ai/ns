@@ -28,16 +28,24 @@ export interface FormatZodErrorOptions extends FormatZodIssueOptions {
 	readonly issueSeparator?: string;
 }
 
-export function formatZodIssue(issue: ZodIssueLike | undefined, options: FormatZodIssueOptions = {}): string {
+export function formatZodIssue(
+	issue: ZodIssueLike | undefined,
+	options: FormatZodIssueOptions = {},
+): string {
 	if (issue === undefined) return options.fallback ?? "invalid value";
 	if (issue.path.length === 0 && options.rootPath === null) return issue.message;
-	const path = issue.path.length === 0 ? (options.rootPath ?? "<root>") : `${options.pathPrefix ?? ""}${issue.path.map((segment) => String(segment)).join(".")}`;
+	const path =
+		issue.path.length === 0
+			? (options.rootPath ?? "<root>")
+			: `${options.pathPrefix ?? ""}${issue.path.map((segment) => String(segment)).join(".")}`;
 	return `${path}: ${issue.message}`;
 }
 
 export function formatZodError(error: ZodErrorLike, options: FormatZodErrorOptions = {}): string {
 	if (error.issues.length === 0) return formatZodIssue(undefined, options);
-	return error.issues.map((issue) => formatZodIssue(issue, options)).join(options.issueSeparator ?? "; ");
+	return error.issues
+		.map((issue) => formatZodIssue(issue, options))
+		.join(options.issueSeparator ?? "; ");
 }
 
 export function isPathInside(parent: string, child: string): boolean {
@@ -53,7 +61,9 @@ export function truncatedSha256Digest(value: string): string {
 	return sha256Digest(value).slice(0, 32);
 }
 
-export function mapFromRecordOrMap<T>(source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined): Map<string, T> {
+export function mapFromRecordOrMap<T>(
+	source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined,
+): Map<string, T> {
 	if (source === undefined) return new Map();
 	if (source instanceof Map) return new Map(source);
 	return new Map(Object.entries(source));

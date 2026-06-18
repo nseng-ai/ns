@@ -18,7 +18,9 @@ describe("handoff CLI shape", () => {
 
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
-		expect(runtime.stdout.join("")).toBe("runtime: typescript\nentry_point: @asdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n");
+		expect(runtime.stdout.join("")).toBe(
+			"runtime: typescript\nentry_point: @asdl/handoff bin handoff -> ts/packages/handoff/src/cli.ts\n",
+		);
 	});
 
 	test("operation help exposes durable flags", async () => {
@@ -48,9 +50,18 @@ describe("handoff CLI shape", () => {
 
 	test("git failure is a clinkr failure in JSON mode", async () => {
 		const run = runScenario(["list", "--format", "json"], {
-			gitState: { currentBranch: { type: "failure", error: { code: "not-a-git-repo", message: "fatal: not a git repository" } } },
+			gitState: {
+				currentBranch: {
+					type: "failure",
+					error: { code: "not-a-git-repo", message: "fatal: not a git repository" },
+				},
+			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ exit_code: 2, error_type: "not-a-git-repo", message: "fatal: not a git repository" });
+		expect(parseJsonOutput(run)).toMatchObject({
+			exit_code: 2,
+			error_type: "not-a-git-repo",
+			message: "fatal: not a git repository",
+		});
 	});
 });

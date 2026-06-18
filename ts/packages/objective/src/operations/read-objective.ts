@@ -110,7 +110,10 @@ interface ReadObjectiveBaseResult {
 	updateCount: number;
 }
 
-export async function runReadObjective(ctx: ObjectiveCliContext, request: ReadObjectiveRequest): Promise<ClinkrExit<ReadObjectiveResult>> {
+export async function runReadObjective(
+	ctx: ObjectiveCliContext,
+	request: ReadObjectiveRequest,
+): Promise<ClinkrExit<ReadObjectiveResult>> {
 	const result = await readObjective(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	if (result.value.status === "missing_slug") {
@@ -123,7 +126,10 @@ export async function runReadObjective(ctx: ObjectiveCliContext, request: ReadOb
 		);
 	}
 	if (result.value.status === "not_found") {
-		return negative(`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`, result.value);
+		return negative(
+			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
+			result.value,
+		);
 	}
 	return ok(result.value);
 }
@@ -159,7 +165,10 @@ export function renderReadObjective(result: ReadObjectiveResult): string {
 async function readObjective(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
-): Promise<{ type: "ok"; value: ReadObjectiveResult } | { type: "storage-error"; error: { code: string; message: string } }> {
+): Promise<
+	| { type: "ok"; value: ReadObjectiveResult }
+	| { type: "storage-error"; error: { code: string; message: string } }
+> {
 	const root = activeRootRelativePath();
 	const rootPresence = await storage.activeRootExists();
 	if (!rootPresence.ok) return { type: "storage-error", error: rootPresence.error };
@@ -167,14 +176,28 @@ async function readObjective(
 	if (slug === undefined) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "missing_slug", error: "missing_slug", root, slug: null, path: null, hasRoot: rootPresence.value }),
+			value: emptyResult({
+				status: "missing_slug",
+				error: "missing_slug",
+				root,
+				slug: null,
+				path: null,
+				hasRoot: rootPresence.value,
+			}),
 		};
 	}
 
 	if (!isValidObjectiveSlug(slug)) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "invalid_slug", error: "invalid_slug", root, slug: null, path: null, hasRoot: rootPresence.value }),
+			value: emptyResult({
+				status: "invalid_slug",
+				error: "invalid_slug",
+				root,
+				slug: null,
+				path: null,
+				hasRoot: rootPresence.value,
+			}),
 		};
 	}
 
@@ -184,7 +207,14 @@ async function readObjective(
 	if (!exists.value) {
 		return {
 			type: "ok",
-			value: emptyResult({ status: "not_found", error: "not_found", root, slug, path: relativePath, hasRoot: rootPresence.value }),
+			value: emptyResult({
+				status: "not_found",
+				error: "not_found",
+				root,
+				slug,
+				path: relativePath,
+				hasRoot: rootPresence.value,
+			}),
 		};
 	}
 
@@ -246,7 +276,11 @@ function emptyResult(options: {
 	};
 }
 
-function appendMarkdownFile(parts: string[], displayPath: string, read: ObjectiveMarkdownReadResult): void {
+function appendMarkdownFile(
+	parts: string[],
+	displayPath: string,
+	read: ObjectiveMarkdownReadResult,
+): void {
 	parts.push(`## ${displayPath}\n\n`);
 	if (read.type === "missing") {
 		parts.push(`_Missing \`${displayPath}\`._\n\n`);

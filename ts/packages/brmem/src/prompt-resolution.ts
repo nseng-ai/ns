@@ -17,7 +17,13 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 	private readonly git: GitGateway;
 	private readonly env: NodeJS.ProcessEnv;
 
-	constructor(options: { commands?: CommandExecApi | undefined; env?: NodeJS.ProcessEnv | undefined; git?: GitGateway | undefined } = {}) {
+	constructor(
+		options: {
+			commands?: CommandExecApi | undefined;
+			env?: NodeJS.ProcessEnv | undefined;
+			git?: GitGateway | undefined;
+		} = {},
+	) {
 		const commands = options.commands ?? new NodeCommandExecApi();
 		this.git = options.git ?? new RealGitGateway(commands);
 		this.env = options.env ?? process.env;
@@ -50,4 +56,3 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 		}
 	}
 }
-

@@ -16,11 +16,13 @@ export const modelShortcutParity = definePiSurfaceParity(
 		surface: shortcut.command,
 		workflow: `Switch the current Pi session model to ${modelRef(shortcut)}`,
 		parity: "WAIVED",
-		fallback: "Use the target harness's own model-selection mechanism before continuing the workflow.",
+		fallback:
+			"Use the target harness's own model-selection mechanism before continuing the workflow.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "model-shortcuts",
-		notes: "Model shortcuts are Pi session-local conveniences rather than portable engineering workflow logic.",
+		notes:
+			"Model shortcuts are Pi session-local conveniences rather than portable engineering workflow logic.",
 	})),
 );
 
@@ -71,7 +73,11 @@ export default function modelShortcutExtension(pi: ExtensionAPI): void {
 	}
 }
 
-async function switchToModel(pi: ExtensionAPI, ctx: CommandContext, shortcut: ModelShortcut): Promise<void> {
+async function switchToModel(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	shortcut: ModelShortcut,
+): Promise<void> {
 	const ref = modelRef(shortcut);
 	const model = ctx.modelRegistry.find(shortcut.provider, shortcut.modelId);
 	if (model === undefined) {

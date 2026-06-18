@@ -117,29 +117,59 @@ function localBranchCheckStep(branch: string, result: Partial<ExecResult>): Scri
 }
 
 function brmemCheckStep(branch: string, key: string, result: Partial<ExecResult>): ScriptedExec {
-	return step("brmem", ["check", key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"], result);
+	return step(
+		"brmem",
+		["check", key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"],
+		result,
+	);
 }
 
 function gitBranchStep(branch: string, result: Partial<ExecResult> = {}): ScriptedExec {
 	return step("git", ["branch", branch, "HEAD"], result);
 }
 
-function currentBranchStep(branch: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+function currentBranchStep(
+	branch: string = SOURCE_BRANCH,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
 	return step("git", ["branch", "--show-current"], { stdout: `${branch}\n`, ...result });
 }
 
-function gtInfoStep(branch: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+function gtInfoStep(
+	branch: string = SOURCE_BRANCH,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
 	return step("gt", ["info", branch, "--no-interactive"], result);
 }
 
-function gtTrackStep(branch: string, parent: string = SOURCE_BRANCH, result: Partial<ExecResult> = {}): ScriptedExec {
+function gtTrackStep(
+	branch: string,
+	parent: string = SOURCE_BRANCH,
+	result: Partial<ExecResult> = {},
+): ScriptedExec {
 	return step("gt", ["track", branch, "--parent", parent, "--no-interactive"], result);
 }
 
-function brmemPutStep(branch: string, key: string, filePath: string, result: Partial<ExecResult>): ScriptedExec {
+function brmemPutStep(
+	branch: string,
+	key: string,
+	filePath: string,
+	result: Partial<ExecResult>,
+): ScriptedExec {
 	return step(
 		"brmem",
-		["put", key, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--file", filePath, "--format", "json"],
+		[
+			"put",
+			key,
+			"--namespace",
+			BRANCH_CONTEXT_NAMESPACE,
+			"--branch",
+			branch,
+			"--file",
+			filePath,
+			"--format",
+			"json",
+		],
 		result,
 	);
 }
@@ -161,21 +191,34 @@ function branchContext(pi: CommandExecApi): BranchContextContext {
 	return createBranchContextContext(pi);
 }
 
-function putEnvelope(input: { branch: string; key: string; filePath: string; commit?: string; refName?: string }): string {
+function putEnvelope(input: {
+	branch: string;
+	key: string;
+	filePath: string;
+	commit?: string;
+	refName?: string;
+}): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
 			namespace: BRANCH_CONTEXT_NAMESPACE,
 			key: input.key,
 			branch: input.branch,
-			ref_name: input.refName ?? `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
+			ref_name:
+				input.refName ??
+				`refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${input.branch.replaceAll("/", "---")}:${input.key}`,
 			commit: input.commit ?? "abc123",
 			source_file: input.filePath,
 		},
 	});
 }
 
-function successScript(input: { branch: string; key: string; filePath: string; putStdout?: string }): ScriptedExec[] {
+function successScript(input: {
+	branch: string;
+	key: string;
+	filePath: string;
+	putStdout?: string;
+}): ScriptedExec[] {
 	return [
 		gitRootStep(),
 		refFormatStep(input.branch),
@@ -184,12 +227,19 @@ function successScript(input: { branch: string; key: string; filePath: string; p
 		brmemCheckStep(input.branch, input.key, { stdout: brmemCheckJson(false) }),
 		gitBranchStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
-			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
+			stdout:
+				input.putStdout ??
+				putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
 		}),
 	];
 }
 
-function graphiteSuccessScript(input: { branch: string; key: string; filePath: string; putStdout?: string }): ScriptedExec[] {
+function graphiteSuccessScript(input: {
+	branch: string;
+	key: string;
+	filePath: string;
+	putStdout?: string;
+}): ScriptedExec[] {
 	return [
 		gitRootStep(),
 		refFormatStep(input.branch),
@@ -201,7 +251,9 @@ function graphiteSuccessScript(input: { branch: string; key: string; filePath: s
 		gitBranchStep(input.branch),
 		gtTrackStep(input.branch),
 		brmemPutStep(input.branch, input.key, input.filePath, {
-			stdout: input.putStdout ?? putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
+			stdout:
+				input.putStdout ??
+				putEnvelope({ branch: input.branch, key: input.key, filePath: input.filePath }),
 		}),
 	];
 }
@@ -211,7 +263,10 @@ async function runCreate(
 	script: ScriptedExec[],
 ): Promise<{ pi: FakePi; evidence: Awaited<ReturnType<typeof createBranchContextFromFile>> }> {
 	const pi = new FakePi(script);
-	const evidence = await createBranchContextFromFile(pi, params, { cwd: ROOT, context: branchContext(pi) });
+	const evidence = await createBranchContextFromFile(pi, params, {
+		cwd: ROOT,
+		context: branchContext(pi),
+	});
 	return { pi, evidence };
 }
 
@@ -219,11 +274,23 @@ describe("branch name helpers", () => {
 	test("deriveTargetBranch defaults to slug and trims explicit branch names", () => {
 		expect(deriveTargetBranch(undefined, PLAN_SLUG)).toBe(PLAN_SLUG);
 		expect(deriveTargetBranch("   ", PLAN_SLUG)).toBe(PLAN_SLUG);
-		expect(deriveTargetBranch("  branch-contexts/add-branch-core  ", PLAN_SLUG)).toBe("branch-contexts/add-branch-core");
+		expect(deriveTargetBranch("  branch-contexts/add-branch-core  ", PLAN_SLUG)).toBe(
+			"branch-contexts/add-branch-core",
+		);
 	});
 
 	test("validateTargetBranchName catches deterministic unsafe names", () => {
-		for (const branch of ["", "-bad", "bad branch", "/bad", "bad/", "bad//branch", "bad..branch", "bad@{1}", "bad.lock"]) {
+		for (const branch of [
+			"",
+			"-bad",
+			"bad branch",
+			"/bad",
+			"bad/",
+			"bad//branch",
+			"bad..branch",
+			"bad@{1}",
+			"bad.lock",
+		]) {
 			expect(validateTargetBranchName(branch)).toBeDefined();
 		}
 		expect(validateTargetBranchName("branch-contexts/add-branch-core")).toBeUndefined();
@@ -244,11 +311,34 @@ describe("createBranchContextFromFile", () => {
 			{ command: "git", args: ["check-ref-format", "--branch", PLAN_SLUG] },
 			{ command: "git", args: ["rev-parse", "HEAD"] },
 			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${PLAN_SLUG}`] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", PLAN_SLUG, "--format", "json"] },
+			{
+				command: "brmem",
+				args: [
+					"check",
+					PLAN_KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					PLAN_SLUG,
+					"--format",
+					"json",
+				],
+			},
 			{ command: "git", args: ["branch", PLAN_SLUG, "HEAD"] },
 			{
 				command: "brmem",
-				args: ["put", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", PLAN_SLUG, "--file", filePath, "--format", "json"],
+				args: [
+					"put",
+					PLAN_KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					PLAN_SLUG,
+					"--file",
+					filePath,
+					"--format",
+					"json",
+				],
 			},
 		]);
 		expect(evidence).toEqual({
@@ -323,14 +413,37 @@ describe("createBranchContextFromFile", () => {
 			{ command: "git", args: ["check-ref-format", "--branch", branch] },
 			{ command: "git", args: ["rev-parse", "HEAD"] },
 			{ command: "git", args: ["rev-parse", "--verify", `refs/heads/${branch}`] },
-			{ command: "brmem", args: ["check", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--format", "json"] },
+			{
+				command: "brmem",
+				args: [
+					"check",
+					PLAN_KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					branch,
+					"--format",
+					"json",
+				],
+			},
 			{ command: "git", args: ["branch", "--show-current"] },
 			{ command: "gt", args: ["info", SOURCE_BRANCH, "--no-interactive"] },
 			{ command: "git", args: ["branch", branch, "HEAD"] },
 			{ command: "gt", args: ["track", branch, "--parent", SOURCE_BRANCH, "--no-interactive"] },
 			{
 				command: "brmem",
-				args: ["put", PLAN_KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", branch, "--file", filePath, "--format", "json"],
+				args: [
+					"put",
+					PLAN_KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					branch,
+					"--file",
+					filePath,
+					"--format",
+					"json",
+				],
 			},
 		]);
 		expect(evidence.branchCreation).toBe("graphite");
@@ -350,13 +463,19 @@ describe("createBranchContextFromFile", () => {
 		]);
 
 		await expect(
-			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT, context: branchContext(pi) }),
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
 		).rejects.toThrow("Graphite branch creation requires a named current branch");
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", branch, "HEAD"]);
 		expect(pi.execCalls.some((call) => call.command === "gt")).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(
+			false,
+		);
 	});
 
 	test("refuses Graphite branch creation from an untracked parent before creating the branch", async () => {
@@ -369,17 +488,30 @@ describe("createBranchContextFromFile", () => {
 			localBranchCheckStep(branch, { code: 1 }),
 			brmemCheckStep(branch, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			currentBranchStep(),
-			gtInfoStep(SOURCE_BRANCH, { code: 1, stderr: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.` }),
+			gtInfoStep(SOURCE_BRANCH, {
+				code: 1,
+				stderr: `ERROR: Cannot perform this operation on untracked branch ${SOURCE_BRANCH}.`,
+			}),
 		]);
 
 		await expect(
-			createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" }, { cwd: ROOT, context: branchContext(pi) }),
-		).rejects.toThrow("Current branch is not tracked by Graphite; refusing to stack a branch context on it.");
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath, branchName: branch, branchCreation: "graphite" },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow(
+			"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
+		);
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", branch, "HEAD"]);
-		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "track")).toBe(false);
-		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "track")).toBe(
+			false,
+		);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(
+			false,
+		);
 	});
 
 	test("surfaces Graphite track failures before storing Branch Memory", async () => {
@@ -497,9 +629,13 @@ describe("createBranchContextFromFile", () => {
 			localBranchCheckStep(PLAN_SLUG, { code: 0, stdout: START_POINT }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
-			"Target branch already exists",
-		);
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow("Target branch already exists");
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual([
@@ -525,9 +661,13 @@ describe("createBranchContextFromFile", () => {
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 0, stdout: brmemCheckJson(true) }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
-			"Attached plan already exists on target branch",
-		);
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow("Attached plan already exists on target branch");
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
@@ -543,13 +683,19 @@ describe("createBranchContextFromFile", () => {
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { code: 127, stderr: "brmem: command not found" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
-			"No brmem command available",
-		);
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow("No brmem command available");
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.args)).not.toContainEqual(["branch", PLAN_SLUG, "HEAD"]);
-		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(false);
+		expect(pi.execCalls.some((call) => call.command === "brmem" && call.args[0] === "put")).toBe(
+			false,
+		);
 	});
 
 	test("surfaces branch creation failure", async () => {
@@ -563,9 +709,13 @@ describe("createBranchContextFromFile", () => {
 			gitBranchStep(PLAN_SLUG, { code: 128, stderr: "cannot lock ref" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
-			"git branch failed",
-		);
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow("git branch failed");
 
 		pi.assertDone();
 	});
@@ -582,8 +732,16 @@ describe("createBranchContextFromFile", () => {
 			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 2, stderr: "write failed" }),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
-			new RegExp(`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`),
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow(
+			new RegExp(
+				`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}`,
+			),
 		);
 
 		pi.assertDone();
@@ -598,10 +756,19 @@ describe("createBranchContextFromFile", () => {
 			localBranchCheckStep(PLAN_SLUG, { code: 1 }),
 			brmemCheckStep(PLAN_SLUG, PLAN_KEY, { stdout: brmemCheckJson(false) }),
 			gitBranchStep(PLAN_SLUG),
-			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, { code: 127, stderr: "brmem: command not found" }),
+			brmemPutStep(PLAN_SLUG, PLAN_KEY, filePath, {
+				code: 127,
+				stderr: "brmem: command not found",
+			}),
 		]);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow(
 			new RegExp(
 				`Partial failure:[\\s\\S]*Created branch: ${PLAN_SLUG}[\\s\\S]*Start point: ${START_POINT}[\\s\\S]*Namespace: ${BRANCH_CONTEXT_NAMESPACE}[\\s\\S]*Key: ${PLAN_KEY}[\\s\\S]*Source file: ${filePath}[\\s\\S]*No cleanup was attempted[\\s\\S]*No brmem command available`,
 			),
@@ -612,9 +779,17 @@ describe("createBranchContextFromFile", () => {
 
 	test("reports partial state when brmem put JSON is malformed after branch creation", async () => {
 		const filePath = await makePlanFile();
-		const pi = new FakePi(successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath, putStdout: "not json" }));
+		const pi = new FakePi(
+			successScript({ branch: PLAN_SLUG, key: PLAN_KEY, filePath, putStdout: "not json" }),
+		);
 
-		await expect(createBranchContextFromFile(pi, { slug: PLAN_SLUG, filePath }, { cwd: ROOT, context: branchContext(pi) })).rejects.toThrow(
+		await expect(
+			createBranchContextFromFile(
+				pi,
+				{ slug: PLAN_SLUG, filePath },
+				{ cwd: ROOT, context: branchContext(pi) },
+			),
+		).rejects.toThrow(
 			/Partial failure:[\s\S]*No cleanup was attempted[\s\S]*Malformed brmem put JSON/,
 		);
 

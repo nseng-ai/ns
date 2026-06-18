@@ -3,8 +3,17 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import handoffExtension, { type CommandContext, type ExecResult, type ExtensionAPI } from "../src/handoff.ts";
-import type { NewSessionOptions, RenderComponent, SendUserMessageOptions, TuiHandle } from "../src/handoff/runtime-types.ts";
+import handoffExtension, {
+	type CommandContext,
+	type ExecResult,
+	type ExtensionAPI,
+} from "../src/handoff.ts";
+import type {
+	NewSessionOptions,
+	RenderComponent,
+	SendUserMessageOptions,
+	TuiHandle,
+} from "../src/handoff/runtime-types.ts";
 
 export const ROOT = "/repo";
 export const BRANCH = "feature/handoff";
@@ -69,7 +78,11 @@ export class FakePi implements ExtensionAPI {
 	constructor(
 		script: ScriptedExec[] = [],
 		commandInfos: CommandInfo[] = [],
-		options: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean } = {},
+		options: {
+			registerMessageRenderer?: boolean;
+			sendMessage?: boolean;
+			registerTool?: boolean;
+		} = {},
 	) {
 		this.script = [...script];
 		this.commandInfos = [...commandInfos];
@@ -94,7 +107,11 @@ export class FakePi implements ExtensionAPI {
 		this.commands.set(name, options);
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		const expected = this.script.shift();
 		if (expected === undefined) {
@@ -148,15 +165,21 @@ export function branchStep(branch = BRANCH): ScriptedExec {
 
 export function checkStep(branch: string, key: string, exists: boolean): ScriptedExec {
 	const payload = { exit_code: 0, data: { key, namespace: "handoff", branch, present: exists } };
-	return step("brmem", ["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"], {
-		code: 0,
-		stdout: `${JSON.stringify(payload)}\n`,
-	});
+	return step(
+		"brmem",
+		["check", key, "--namespace", "handoff", "--branch", branch, "--format", "json"],
+		{
+			code: 0,
+			stdout: `${JSON.stringify(payload)}\n`,
+		},
+	);
 }
 
 export function cmuxIdentifyStep(): ScriptedExec {
 	return step("cmux", ["identify", "--json", "--id-format", "both"], {
-		stdout: JSON.stringify({ caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" } }),
+		stdout: JSON.stringify({
+			caller: { workspace_id: "workspace-1", pane_id: "pane-1", window_id: "window-1" },
+		}),
 	});
 }
 
@@ -239,7 +262,9 @@ export function listAllStep(entries: Array<{ key: string; branch: string }>): Sc
 }
 
 export function getStep(branch: string, key: string, artifact: string): ScriptedExec {
-	return step("brmem", ["get", key, "--namespace", "handoff", "--branch", branch], { stdout: artifact });
+	return step("brmem", ["get", key, "--namespace", "handoff", "--branch", branch], {
+		stdout: artifact,
+	});
 }
 
 export function createContext(
@@ -303,7 +328,12 @@ export function createContext(
 
 	if (options.hasCustomUi) {
 		ui.custom = async <T>(
-			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
+			factory: (
+				tui: TuiHandle,
+				theme: unknown,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => RenderComponent,
 		): Promise<T> => {
 			let doneCalled = false;
 			let doneValue: T | undefined;
@@ -361,7 +391,10 @@ export function createContext(
 						statuses.push(value);
 					},
 				},
-				async sendUserMessage(content: string, messageOptions?: SendUserMessageOptions): Promise<void> {
+				async sendUserMessage(
+					content: string,
+					messageOptions?: SendUserMessageOptions,
+				): Promise<void> {
 					replacementUserMessages.push({ content, options: messageOptions });
 				},
 			});
@@ -430,12 +463,21 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 }
 
 export async function runCommand(
-	commandName: "handoff:create" | "handoff:pickup" | "handoff:list" | "ccc:handoff-tab" | "handoff:self",
+	commandName:
+		| "handoff:create"
+		| "handoff:pickup"
+		| "handoff:list"
+		| "ccc:handoff-tab"
+		| "handoff:self",
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
 	commandInfos: CommandInfo[] = [],
-	piOptions: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean } = {},
+	piOptions: {
+		registerMessageRenderer?: boolean;
+		sendMessage?: boolean;
+		registerTool?: boolean;
+	} = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -459,7 +501,10 @@ export async function runCommand(
 	});
 }
 
-export function listJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
+export function listJson(
+	entries: Array<string | { key: string; branch: string }>,
+	branch: string | null = BRANCH,
+): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
@@ -482,7 +527,10 @@ export function listJson(entries: Array<string | { key: string; branch: string }
 	});
 }
 
-export function brmemListJson(entries: Array<string | { key: string; branch: string }>, branch: string | null = BRANCH): string {
+export function brmemListJson(
+	entries: Array<string | { key: string; branch: string }>,
+	branch: string | null = BRANCH,
+): string {
 	return JSON.stringify({
 		exit_code: 0,
 		data: {
@@ -500,7 +548,9 @@ export function brmemListJson(entries: Array<string | { key: string; branch: str
 	});
 }
 
-export async function withTempSkill<T>(callback: (skillPath: string, repoDir: string) => Promise<T>): Promise<T> {
+export async function withTempSkill<T>(
+	callback: (skillPath: string, repoDir: string) => Promise<T>,
+): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
 	const skillDir = join(dir, "skills", "handoff-create");
 	await mkdir(skillDir, { recursive: true });

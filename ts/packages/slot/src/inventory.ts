@@ -19,7 +19,9 @@ export interface SlotInventory {
 	branchOccupancies: readonly WorktreeOccupancy[];
 }
 
-export type SlotMatch = { kind: "slot"; record: SlotRecord } | { kind: "main"; worktree: WorktreeInfo };
+export type SlotMatch =
+	| { kind: "slot"; record: SlotRecord }
+	| { kind: "main"; worktree: WorktreeInfo };
 
 export function slotStatus(record: SlotRecord): SlotStatus {
 	return record.branch === null && record.operation === null ? "available" : "assigned";
@@ -36,11 +38,15 @@ export function poolSize(inventory: SlotInventory): number {
 export function findByBranch(inventory: SlotInventory, branch: string): SlotMatch | null {
 	const record = inventory.records.find((candidate) => candidate.branch === branch);
 	if (record !== undefined) return { kind: "slot", record };
-	if (inventory.mainWorktree?.branch === branch) return { kind: "main", worktree: inventory.mainWorktree };
+	if (inventory.mainWorktree?.branch === branch)
+		return { kind: "main", worktree: inventory.mainWorktree };
 	return null;
 }
 
-export function findOccupancyByBranch(inventory: SlotInventory, branch: string): WorktreeOccupancy | null {
+export function findOccupancyByBranch(
+	inventory: SlotInventory,
+	branch: string,
+): WorktreeOccupancy | null {
 	return inventory.branchOccupancies.find((occupancy) => occupancy.branch === branch) ?? null;
 }
 
@@ -48,16 +54,24 @@ export function findBySlot(inventory: SlotInventory, slotName: string): SlotReco
 	return inventory.records.find((record) => record.slotName === slotName) ?? null;
 }
 
-export async function lowestAvailable(inventory: SlotInventory, git: SlotGitGateway): Promise<SlotRecord | null> {
+export async function lowestAvailable(
+	inventory: SlotInventory,
+	git: SlotGitGateway,
+): Promise<SlotRecord | null> {
 	for (const record of inventory.records) {
 		if (isSlotAvailable(record) && !(await git.hasUncommittedChanges(record.path))) return record;
 	}
 	return null;
 }
 
-export async function buildSlotInventory(git: SlotGitGateway, options: { mainRepoRoot?: string | undefined } = {}): Promise<SlotInventory> {
+export async function buildSlotInventory(
+	git: SlotGitGateway,
+	options: { mainRepoRoot?: string | undefined } = {},
+): Promise<SlotInventory> {
 	const branchOccupancies = await git.listBranchOccupancies();
-	const occupancyByPath = new Map(branchOccupancies.map((occupancy) => [occupancy.path, occupancy]));
+	const occupancyByPath = new Map(
+		branchOccupancies.map((occupancy) => [occupancy.path, occupancy]),
+	);
 	let mainWorktree: WorktreeInfo | null = null;
 	const records: SlotRecord[] = [];
 	for (const worktree of await git.listWorktrees()) {

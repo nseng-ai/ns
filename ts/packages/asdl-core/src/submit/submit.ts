@@ -18,13 +18,34 @@ import {
 	formatSubmitSuccessFallbackText,
 	formatSubmitSuccessText,
 } from "./submit-format.ts";
-import { prepareSubmitPrMetadata, type SubmitMetadataGateway } from "./submit-pr-metadata-prewrite.ts";
-import { formatPrDescriptionFailureText, generateSubmitPrDescriptions } from "./submit-pr-descriptions.ts";
+import {
+	prepareSubmitPrMetadata,
+	type SubmitMetadataGateway,
+} from "./submit-pr-metadata-prewrite.ts";
+import {
+	formatPrDescriptionFailureText,
+	generateSubmitPrDescriptions,
+} from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
-const SUBMIT_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web"] as const;
-const SUBMIT_DRY_RUN_ARGS = ["submit", "-nps", "--no-ai", "--no-interactive", "--no-view", "--no-web", "--dry-run"] as const;
+const SUBMIT_ARGS = [
+	"submit",
+	"-nps",
+	"--no-ai",
+	"--no-interactive",
+	"--no-view",
+	"--no-web",
+] as const;
+const SUBMIT_DRY_RUN_ARGS = [
+	"submit",
+	"-nps",
+	"--no-ai",
+	"--no-interactive",
+	"--no-view",
+	"--no-web",
+	"--dry-run",
+] as const;
 const RESTACK_ARGS = ["restack", "--no-interactive"] as const;
 const CURRENT_PR_ARGS = ["branch", "info", "--no-interactive"] as const;
 const SUBMIT_COMMAND_DISPLAY = "gt submit -nps --no-ai --no-interactive";
@@ -54,7 +75,9 @@ export interface SubmitRestackConfirmationPrompt {
 	message: string;
 }
 
-export type SubmitRestackConfirmation = (prompt: SubmitRestackConfirmationPrompt) => Promise<boolean> | boolean;
+export type SubmitRestackConfirmation = (
+	prompt: SubmitRestackConfirmationPrompt,
+) => Promise<boolean> | boolean;
 
 export interface SubmitCommandParams {
 	cwd: string;
@@ -68,7 +91,10 @@ interface RunGtOptions {
 	onOutput?: SubmitOutputListener;
 }
 
-export type SubmitSemanticFailureCause = { kind: "empty_branch_skipped"; branchName?: string | undefined };
+export type SubmitSemanticFailureCause = {
+	kind: "empty_branch_skipped";
+	branchName?: string | undefined;
+};
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
 export type SubmitPreflightFailureCause = "trunk_out_of_date";
@@ -281,7 +307,10 @@ export class RealSubmitGateway implements SubmitGateway {
 		const unmerged = await this.runGit([...GIT_UNMERGED_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
 		const status = await this.runGit([...GIT_STATUS_PORCELAIN_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
 
-		return uniqueNonEmpty([...parseConflictedFiles(unmerged.stdout), ...parsePorcelainConflictedFiles(status.stdout)]);
+		return uniqueNonEmpty([
+			...parseConflictedFiles(unmerged.stdout),
+			...parsePorcelainConflictedFiles(status.stdout),
+		]);
 	}
 
 	private async runGt(options: RunGtOptions): Promise<SubmitCommandOutput> {
@@ -300,35 +329,61 @@ export class RealSubmitGateway implements SubmitGateway {
 		);
 	}
 
-	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<SubmitCommandOutput> {
+	private async runGit(
+		args: string[],
+		cwd: string,
+		timeoutMs: number,
+	): Promise<SubmitCommandOutput> {
 		return toSubmitCommandOutput(await this.runner("git", args, { cwd, timeout: timeoutMs }));
 	}
 }
 
-export async function runSubmitCommand(options: RunSubmitCommandOptions): Promise<SubmitCommandResult> {
+export async function runSubmitCommand(
+	options: RunSubmitCommandOptions,
+): Promise<SubmitCommandResult> {
 	const commandParams = submitCommandParams(options);
 	emitSubmitProgress(options, "checking Graphite submit readiness");
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
 		if (readiness.cause === "trunk_out_of_date") {
-			return failure(normalizedFailureExitCode(readiness.output), formatTrunkOutOfDatePreflightOutput(readiness.output), {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript("preflight", SUBMIT_DRY_RUN_COMMAND_DISPLAY, readiness.output),
-			});
+			return failure(
+				normalizedFailureExitCode(readiness.output),
+				formatTrunkOutOfDatePreflightOutput(readiness.output),
+				{
+					failurePresentation: "deterministic",
+					rawFailureTranscript: commandFailureTranscript(
+						"preflight",
+						SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+						readiness.output,
+					),
+				},
+			);
 		}
-		return failure(normalizedFailureExitCode(readiness.output), formatPreflightFailureOutput(readiness.output), {
-			failurePresentation: "unknown",
-			rawFailureTranscript: commandFailureTranscript("preflight", SUBMIT_DRY_RUN_COMMAND_DISPLAY, readiness.output),
-		});
+		return failure(
+			normalizedFailureExitCode(readiness.output),
+			formatPreflightFailureOutput(readiness.output),
+			{
+				failurePresentation: "unknown",
+				rawFailureTranscript: commandFailureTranscript(
+					"preflight",
+					SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+					readiness.output,
+				),
+			},
+		);
 	}
 	if (readiness.kind === "restack_required") {
 		emitSubmitProgress(options, "Graphite requires a restack before submit");
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
-			return failure(1, formatRestackRequiredOutput(readiness.output), { failurePresentation: "deterministic" });
+			return failure(1, formatRestackRequiredOutput(readiness.output), {
+				failurePresentation: "deterministic",
+			});
 		}
 		if (restackDecision === "declined") {
-			return failure(1, formatRestackDeclinedOutput(readiness.output), { failurePresentation: "deterministic" });
+			return failure(1, formatRestackDeclinedOutput(readiness.output), {
+				failurePresentation: "deterministic",
+			});
 		}
 
 		const restackFailure = await runRestackBeforeSubmit(options, commandParams);
@@ -338,10 +393,18 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
 		if (rechecked.kind !== "ready") {
-			return failure(normalizedFailureExitCode(rechecked.output), formatReadinessRecheckFailureOutput(rechecked.output), {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript("readiness recheck", SUBMIT_DRY_RUN_COMMAND_DISPLAY, rechecked.output),
-			});
+			return failure(
+				normalizedFailureExitCode(rechecked.output),
+				formatReadinessRecheckFailureOutput(rechecked.output),
+				{
+					failurePresentation: "deterministic",
+					rawFailureTranscript: commandFailureTranscript(
+						"readiness recheck",
+						SUBMIT_DRY_RUN_COMMAND_DISPLAY,
+						rechecked.output,
+					),
+				},
+			);
 		}
 	}
 
@@ -365,26 +428,42 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 	emitSubmitProgress(options, "running gt submit");
 	const submitted = await options.gateway.submitCurrentStack(commandParams);
 	if (submitted.kind === "failed") {
-		return failure(normalizedFailureExitCode(submitted.output), formatSubmitFailureOutput(submitted.output, prewrite.prepared), {
-			failurePresentation: "unknown",
-			rawFailureTranscript: commandFailureTranscript("submit", SUBMIT_COMMAND_DISPLAY, submitted.output),
-		});
+		return failure(
+			normalizedFailureExitCode(submitted.output),
+			formatSubmitFailureOutput(submitted.output, prewrite.prepared),
+			{
+				failurePresentation: "unknown",
+				rawFailureTranscript: commandFailureTranscript(
+					"submit",
+					SUBMIT_COMMAND_DISPLAY,
+					submitted.output,
+				),
+			},
+		);
 	}
 
 	emitSubmitProgress(options, "verifying submitted PRs");
 	const currentPr = await options.gateway.verifyCurrentPr(commandParams);
-	if (submitted.semanticFailureCause !== undefined || shouldFailPostSubmitVerification(submitted, currentPr)) {
+	if (
+		submitted.semanticFailureCause !== undefined ||
+		shouldFailPostSubmitVerification(submitted, currentPr)
+	) {
 		const stderr = formatPostSubmitFailureOutput({
 			submitted,
 			currentPr,
 		});
 		return failure(1, stderr, {
-			failurePresentation: isDeterministicPostSubmitFailure(submitted, currentPr) ? "deterministic" : "unknown",
+			failurePresentation: isDeterministicPostSubmitFailure(submitted, currentPr)
+				? "deterministic"
+				: "unknown",
 			rawFailureTranscript: postSubmitFailureTranscript(stderr, submitted, currentPr),
 		});
 	}
 
-	const prLinks = currentPr.kind === "present" ? mergePrLinks(submitted.prLinks, currentPr.prLinks) : mergePrLinks(submitted.prLinks, []);
+	const prLinks =
+		currentPr.kind === "present"
+			? mergePrLinks(submitted.prLinks, currentPr.prLinks)
+			: mergePrLinks(submitted.prLinks, []);
 	emitSubmitProgress(options, "generating or validating PR descriptions");
 	const descriptionResult = await generateSubmitPrDescriptions({
 		cwd: options.cwd,
@@ -401,14 +480,15 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 		});
 	}
 
-	const successText = prLinks.length > 0
-		? formatSubmitSuccessText(prLinks, {
-				generated: descriptionResult.generated,
-				skipped: descriptionResult.skipped,
-				prewritten: descriptionResult.prewritten,
-				prewriteFallbacks: descriptionResult.prewriteFallbacks,
-			})
-		: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
+	const successText =
+		prLinks.length > 0
+			? formatSubmitSuccessText(prLinks, {
+					generated: descriptionResult.generated,
+					skipped: descriptionResult.skipped,
+					prewritten: descriptionResult.prewritten,
+					prewriteFallbacks: descriptionResult.prewriteFallbacks,
+				})
+			: formatSubmitSuccessFallbackText(submitted.output.stdout, submitted.output.stderr);
 	return success(successText);
 }
 
@@ -434,26 +514,45 @@ async function runRestackBeforeSubmit(
 	if (restack.kind === "conflict") {
 		return failure(1, formatRestackConflictOutput(restack.output, restack.conflictedFiles), {
 			failurePresentation: "deterministic",
-			rawFailureTranscript: commandFailureTranscript("restack", RESTACK_COMMAND_DISPLAY, restack.output),
+			rawFailureTranscript: commandFailureTranscript(
+				"restack",
+				RESTACK_COMMAND_DISPLAY,
+				restack.output,
+			),
 		});
 	}
 	if (restack.kind === "failed") {
-		return failure(normalizedFailureExitCode(restack.output), formatRestackFailureOutput(restack.output), {
-			failurePresentation: "unknown",
-			rawFailureTranscript: commandFailureTranscript("restack", RESTACK_COMMAND_DISPLAY, restack.output),
-		});
+		return failure(
+			normalizedFailureExitCode(restack.output),
+			formatRestackFailureOutput(restack.output),
+			{
+				failurePresentation: "unknown",
+				rawFailureTranscript: commandFailureTranscript(
+					"restack",
+					RESTACK_COMMAND_DISPLAY,
+					restack.output,
+				),
+			},
+		);
 	}
 	return undefined;
 }
 
-function submitCommandParams(options: Pick<RunSubmitCommandOptions, "cwd" | "shouldForwardCommandOutput" | "onOutput">): SubmitCommandParams {
+function submitCommandParams(
+	options: Pick<RunSubmitCommandOptions, "cwd" | "shouldForwardCommandOutput" | "onOutput">,
+): SubmitCommandParams {
 	return {
 		cwd: options.cwd,
-		...(options.shouldForwardCommandOutput === false || options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
+		...(options.shouldForwardCommandOutput === false || options.onOutput === undefined
+			? {}
+			: { onOutput: options.onOutput }),
 	};
 }
 
-function emitSubmitProgress(options: Pick<RunSubmitCommandOptions, "onOutput">, message: string): void {
+function emitSubmitProgress(
+	options: Pick<RunSubmitCommandOptions, "onOutput">,
+	message: string,
+): void {
 	options.onOutput?.("stderr", formatSubmitProgressLine(message));
 }
 
@@ -484,13 +583,19 @@ function formatSubmitProgressMessage(message: string): string {
 	}
 }
 
-function shouldFailPostSubmitVerification(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {
+function shouldFailPostSubmitVerification(
+	submitted: Extract<SubmitRunResult, { kind: "success" }>,
+	currentPr: CurrentPrVerificationResult,
+): boolean {
 	if (currentPr.kind === "present") return false;
 	if (currentPr.kind === "no_current_pr" && submitted.prLinks.length > 0) return false;
 	return true;
 }
 
-function isDeterministicPostSubmitFailure(submitted: Extract<SubmitRunResult, { kind: "success" }>, currentPr: CurrentPrVerificationResult): boolean {
+function isDeterministicPostSubmitFailure(
+	submitted: Extract<SubmitRunResult, { kind: "success" }>,
+	currentPr: CurrentPrVerificationResult,
+): boolean {
 	return submitted.semanticFailureCause === undefined && currentPr.kind === "no_current_pr";
 }
 
@@ -527,17 +632,29 @@ interface SubmitFailureResultOptions {
 	rawFailureTranscript?: SubmitFailureTranscript | undefined;
 }
 
-function failure(exitCode: number, stderr: string, options?: SubmitFailureResultOptions): SubmitCommandResult {
+function failure(
+	exitCode: number,
+	stderr: string,
+	options?: SubmitFailureResultOptions,
+): SubmitCommandResult {
 	return {
 		exitCode,
 		stdout: "",
 		stderr: stderr.endsWith("\n") ? stderr : `${stderr}\n`,
-		...(options?.failurePresentation === undefined ? {} : { failurePresentation: options.failurePresentation }),
-		...(options?.rawFailureTranscript === undefined ? {} : { rawFailureTranscript: options.rawFailureTranscript }),
+		...(options?.failurePresentation === undefined
+			? {}
+			: { failurePresentation: options.failurePresentation }),
+		...(options?.rawFailureTranscript === undefined
+			? {}
+			: { rawFailureTranscript: options.rawFailureTranscript }),
 	};
 }
 
-function commandFailureTranscript(phase: string, commandDisplay: string, output: SubmitCommandOutput): SubmitFailureTranscript {
+function commandFailureTranscript(
+	phase: string,
+	commandDisplay: string,
+	output: SubmitCommandOutput,
+): SubmitFailureTranscript {
 	return {
 		phase,
 		commands: [
@@ -571,7 +688,9 @@ function postSubmitFailureTranscript(
 				stdout: submitted.output.stdout,
 				stderr: submitted.output.stderr,
 				exitCode: submitted.output.exitCode,
-				...(submitted.output.startupError === undefined ? {} : { startupError: submitted.output.startupError }),
+				...(submitted.output.startupError === undefined
+					? {}
+					: { startupError: submitted.output.startupError }),
 				...(submitted.output.killed === true ? { killed: true } : {}),
 			},
 			{
@@ -579,7 +698,9 @@ function postSubmitFailureTranscript(
 				stdout: currentPr.output.stdout,
 				stderr: currentPr.output.stderr,
 				exitCode: currentPr.output.exitCode,
-				...(currentPr.output.startupError === undefined ? {} : { startupError: currentPr.output.startupError }),
+				...(currentPr.output.startupError === undefined
+					? {}
+					: { startupError: currentPr.output.startupError }),
 				...(currentPr.output.killed === true ? { killed: true } : {}),
 			},
 		],
@@ -590,7 +711,10 @@ function joinOutput(output: Pick<SubmitCommandOutput, "stdout" | "stderr">): str
 	return `${output.stdout}\n${output.stderr}`;
 }
 
-function mergePrLinks(first: readonly SubmitPrLink[], second: readonly SubmitPrLink[]): SubmitPrLink[] {
+function mergePrLinks(
+	first: readonly SubmitPrLink[],
+	second: readonly SubmitPrLink[],
+): SubmitPrLink[] {
 	const links: SubmitPrLink[] = [];
 	const seenKeys = new Set<string>();
 	for (const link of [...first, ...second]) {
@@ -674,17 +798,23 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 	const strippedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n");
 	const emptyBranchWarning = /This branch does not introduce any changes:/i.test(strippedOutput);
 	const skippedSubmissionWarning =
-		/will not be submitted/i.test(strippedOutput) || /GitHub does not allow empty PRs/i.test(strippedOutput);
+		/will not be submitted/i.test(strippedOutput) ||
+		/GitHub does not allow empty PRs/i.test(strippedOutput);
 
 	if (emptyBranchWarning && skippedSubmissionWarning) {
-		return { kind: "empty_branch_skipped", branchName: parseSubmitValidationBranchName(strippedOutput) };
+		return {
+			kind: "empty_branch_skipped",
+			branchName: parseSubmitValidationBranchName(strippedOutput),
+		};
 	}
 
 	return undefined;
 }
 
 function parseSubmitValidationBranchName(output: string): string | undefined {
-	const validationBlock = output.match(/Validating that this Graphite stack is ready to submit\.\.\.(?<block>[\s\S]*?)(?:\n\s*📝|\n\s*WARNING:|$)/u)?.groups?.block;
+	const validationBlock = output.match(
+		/Validating that this Graphite stack is ready to submit\.\.\.(?<block>[\s\S]*?)(?:\n\s*📝|\n\s*WARNING:|$)/u,
+	)?.groups?.block;
 	if (validationBlock === undefined) return undefined;
 
 	for (const line of validationBlock.split("\n")) {

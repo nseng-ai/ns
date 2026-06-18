@@ -3,10 +3,16 @@ import { join } from "node:path";
 import { isRecord } from "./primitives.ts";
 
 const GRAPHITE_TRUNK_VALIDATION_RESULT = "TRUNK";
-const REQUIRED_BRANCH_METADATA_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
+const REQUIRED_BRANCH_METADATA_COLUMNS = [
+	"branch_name",
+	"parent_branch_name",
+	"children",
+	"validation_result",
+] as const;
 
 export const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
-export const GRAPHITE_BRANCH_METADATA_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
+export const GRAPHITE_BRANCH_METADATA_QUERY =
+	"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
 export const GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY = "PRAGMA table_info(branch_metadata)";
 
 export function graphiteMetadataDbPath(commonGitDir: string): string {
@@ -28,7 +34,11 @@ export interface GraphiteBranchTopology {
 
 export type GraphiteTopology = ReadonlyMap<string, GraphiteBranchTopology>;
 
-export type GraphiteChildrenCorruptionKind = "not_text" | "invalid_json" | "not_list" | "non_string";
+export type GraphiteChildrenCorruptionKind =
+	| "not_text"
+	| "invalid_json"
+	| "not_list"
+	| "non_string";
 
 export interface GraphiteChildrenCorruption {
 	readonly branch: string;
@@ -41,7 +51,11 @@ export interface GraphiteTopologyParseDiagnostics {
 }
 
 export type GraphiteTopologyParseResult =
-	| { readonly type: "ok"; readonly topology: GraphiteTopology; readonly diagnostics: GraphiteTopologyParseDiagnostics }
+	| {
+			readonly type: "ok";
+			readonly topology: GraphiteTopology;
+			readonly diagnostics: GraphiteTopologyParseDiagnostics;
+	  }
 	| { readonly type: "not_array" };
 
 export function hasExpectedGraphiteBranchMetadataSchema(value: unknown): boolean {
@@ -70,7 +84,8 @@ export function parseGraphiteBranchMetadataRows(value: unknown): GraphiteTopolog
 		}
 
 		const parsedChildren = parseGraphiteChildren(branch, row.children);
-		if (parsedChildren.corruption !== undefined) childrenCorruptions.push(parsedChildren.corruption);
+		if (parsedChildren.corruption !== undefined)
+			childrenCorruptions.push(parsedChildren.corruption);
 		const validationResult = metadataText(row.validation_result);
 		topology.set(branch, {
 			branch,
@@ -85,8 +100,15 @@ export function parseGraphiteBranchMetadataRows(value: unknown): GraphiteTopolog
 	return { type: "ok", topology, diagnostics: { emptyBranchNameRows, childrenCorruptions } };
 }
 
-export function parseGraphiteChildren(branch: string, value: unknown): { readonly children: readonly string[]; readonly corruption: GraphiteChildrenCorruption | undefined } {
-	if (value === null || value === undefined || value === "") return { children: [], corruption: undefined };
+export function parseGraphiteChildren(
+	branch: string,
+	value: unknown,
+): {
+	readonly children: readonly string[];
+	readonly corruption: GraphiteChildrenCorruption | undefined;
+} {
+	if (value === null || value === undefined || value === "")
+		return { children: [], corruption: undefined };
 	if (typeof value !== "string") return { children: [], corruption: { branch, kind: "not_text" } };
 
 	let parsed: unknown;
@@ -98,7 +120,10 @@ export function parseGraphiteChildren(branch: string, value: unknown): { readonl
 
 	if (!Array.isArray(parsed)) return { children: [], corruption: { branch, kind: "not_list" } };
 	const children = parsed.filter((child): child is string => typeof child === "string");
-	return { children, corruption: children.length === parsed.length ? undefined : { branch, kind: "non_string" } };
+	return {
+		children,
+		corruption: children.length === parsed.length ? undefined : { branch, kind: "non_string" },
+	};
 }
 
 export type GraphiteWalkTermination =
@@ -137,26 +162,57 @@ export interface GraphiteForkViolation {
 
 export type GraphiteTrunkMarkerStatus =
 	| { readonly type: "clean" }
-	| { readonly type: "problem"; readonly terminus: string; readonly terminusState: "row_missing" | "unmarked" | "marked"; readonly markedTrunks: readonly string[] };
+	| {
+			readonly type: "problem";
+			readonly terminus: string;
+			readonly terminusState: "row_missing" | "unmarked" | "marked";
+			readonly markedTrunks: readonly string[];
+	  };
 
-export function walkGraphiteAncestors(topology: GraphiteTopology, currentBranch: string): GraphiteAncestorWalk {
+export function walkGraphiteAncestors(
+	topology: GraphiteTopology,
+	currentBranch: string,
+): GraphiteAncestorWalk {
 	const reversed: string[] = [];
 	let branch = currentBranch;
 	const visited = new Set([currentBranch]);
 	while (true) {
 		const row = topology.get(branch);
-		if (row === undefined) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "row_missing", branch } };
+		if (row === undefined)
+			return {
+				ancestors: [...reversed].reverse(),
+				terminusBranch: branch,
+				termination: { type: "row_missing", branch },
+			};
 		const parent = row.parent;
-		if (parent === undefined) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "completed" } };
-		if (visited.has(parent)) return { ancestors: [...reversed].reverse(), terminusBranch: branch, termination: { type: "cycle", branch: parent } };
+		if (parent === undefined)
+			return {
+				ancestors: [...reversed].reverse(),
+				terminusBranch: branch,
+				termination: { type: "completed" },
+			};
+		if (visited.has(parent))
+			return {
+				ancestors: [...reversed].reverse(),
+				terminusBranch: branch,
+				termination: { type: "cycle", branch: parent },
+			};
 		reversed.push(parent);
-		if (!topology.has(parent)) return { ancestors: [...reversed].reverse(), terminusBranch: parent, termination: { type: "row_missing", branch: parent } };
+		if (!topology.has(parent))
+			return {
+				ancestors: [...reversed].reverse(),
+				terminusBranch: parent,
+				termination: { type: "row_missing", branch: parent },
+			};
 		visited.add(parent);
 		branch = parent;
 	}
 }
 
-export function walkFirstChildGraphiteDescendants(topology: GraphiteTopology, currentBranch: string): GraphiteDescendantWalk {
+export function walkFirstChildGraphiteDescendants(
+	topology: GraphiteTopology,
+	currentBranch: string,
+): GraphiteDescendantWalk {
 	const descendants: string[] = [];
 	const forks: GraphiteFork[] = [];
 	const childrenCorruptions: GraphiteChildrenCorruption[] = [];
@@ -164,14 +220,33 @@ export function walkFirstChildGraphiteDescendants(topology: GraphiteTopology, cu
 	const visited = new Set([currentBranch]);
 	while (true) {
 		const row = topology.get(branch);
-		if (row === undefined) return { descendants, forks, childrenCorruptions, termination: { type: "row_missing", branch } };
+		if (row === undefined)
+			return {
+				descendants,
+				forks,
+				childrenCorruptions,
+				termination: { type: "row_missing", branch },
+			};
 		if (row.childrenCorruption !== undefined) childrenCorruptions.push(row.childrenCorruption);
 		if (row.children.length > 1) forks.push({ branch, children: row.children });
 		const child = row.children[0];
-		if (child === undefined) return { descendants, forks, childrenCorruptions, termination: { type: "completed" } };
-		if (visited.has(child)) return { descendants, forks, childrenCorruptions, termination: { type: "cycle", branch: child } };
+		if (child === undefined)
+			return { descendants, forks, childrenCorruptions, termination: { type: "completed" } };
+		if (visited.has(child))
+			return {
+				descendants,
+				forks,
+				childrenCorruptions,
+				termination: { type: "cycle", branch: child },
+			};
 		descendants.push(child);
-		if (!topology.has(child)) return { descendants, forks, childrenCorruptions, termination: { type: "row_missing", branch: child } };
+		if (!topology.has(child))
+			return {
+				descendants,
+				forks,
+				childrenCorruptions,
+				termination: { type: "row_missing", branch: child },
+			};
 		visited.add(child);
 		branch = child;
 	}
@@ -196,7 +271,10 @@ export function walkGraphiteSubtree(topology: GraphiteTopology, root: string): G
 	return { subtree, cycleAt: undefined };
 }
 
-export function detectGraphiteForkViolations(topology: GraphiteTopology, landingPath: readonly string[]): readonly GraphiteForkViolation[] {
+export function detectGraphiteForkViolations(
+	topology: GraphiteTopology,
+	landingPath: readonly string[],
+): readonly GraphiteForkViolation[] {
 	const violations: GraphiteForkViolation[] = [];
 	for (let index = 0; index < landingPath.length; index += 1) {
 		const branch = landingPath[index];
@@ -206,28 +284,47 @@ export function detectGraphiteForkViolations(topology: GraphiteTopology, landing
 
 		if (expectedChild === undefined) {
 			if (children.length > 1) {
-				violations.push({ forkPoint: branch, expectedChild: undefined, siblings: children.map((child) => siblingSubtree(topology, child)) });
+				violations.push({
+					forkPoint: branch,
+					expectedChild: undefined,
+					siblings: children.map((child) => siblingSubtree(topology, child)),
+				});
 			}
 			continue;
 		}
 
 		const extras = children.filter((child) => child !== expectedChild);
 		if (extras.length > 0) {
-			violations.push({ forkPoint: branch, expectedChild, siblings: extras.map((child) => siblingSubtree(topology, child)) });
+			violations.push({
+				forkPoint: branch,
+				expectedChild,
+				siblings: extras.map((child) => siblingSubtree(topology, child)),
+			});
 		}
 	}
 	return violations;
 }
 
-export function graphiteTrunkMarkerStatus(topology: GraphiteTopology, terminus: string): GraphiteTrunkMarkerStatus {
-	const markedTrunks = [...topology.values()].filter((row) => row.isTrunkMarked).map((row) => row.branch);
+export function graphiteTrunkMarkerStatus(
+	topology: GraphiteTopology,
+	terminus: string,
+): GraphiteTrunkMarkerStatus {
+	const markedTrunks = [...topology.values()]
+		.filter((row) => row.isTrunkMarked)
+		.map((row) => row.branch);
 	const terminusRow = topology.get(terminus);
-	if (terminusRow === undefined) return { type: "problem", terminus, terminusState: "row_missing", markedTrunks };
+	if (terminusRow === undefined)
+		return { type: "problem", terminus, terminusState: "row_missing", markedTrunks };
 	const terminusState = terminusRow.isTrunkMarked ? "marked" : "unmarked";
-	return terminusState === "marked" && markedTrunks.length === 1 && markedTrunks[0] === terminus ? { type: "clean" } : { type: "problem", terminus, terminusState, markedTrunks };
+	return terminusState === "marked" && markedTrunks.length === 1 && markedTrunks[0] === terminus
+		? { type: "clean" }
+		: { type: "problem", terminus, terminusState, markedTrunks };
 }
 
-function siblingSubtree(topology: GraphiteTopology, sibling: string): { readonly branch: string; readonly subtree: readonly string[] } {
+function siblingSubtree(
+	topology: GraphiteTopology,
+	sibling: string,
+): { readonly branch: string; readonly subtree: readonly string[] } {
 	return { branch: sibling, subtree: walkGraphiteSubtree(topology, sibling).subtree };
 }
 

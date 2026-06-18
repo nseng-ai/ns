@@ -21,7 +21,9 @@ export interface SubmitFailureInterpretationInput {
 	rawFailureTranscript?: SubmitFailureTranscript | undefined;
 }
 
-export async function maybeFormatUnknownSubmitFailureWithModel<T extends SubmitFailureInterpretationInput>(result: T, ctx: SdlContext): Promise<T> {
+export async function maybeFormatUnknownSubmitFailureWithModel<
+	T extends SubmitFailureInterpretationInput,
+>(result: T, ctx: SdlContext): Promise<T> {
 	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
 	if (isDeterministicSubmitFailure(result)) return result;
 
@@ -79,7 +81,9 @@ function isDeterministicSubmitFailure(result: SubmitFailureInterpretationInput):
 	if (result.failurePresentation === "unknown") return false;
 
 	const failureText = result.stderr.trim();
-	return failureText.includes("Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.");
+	return failureText.includes(
+		"Graphite still requires restack after `sdl submit` already ran `gt restack --no-interactive`.",
+	);
 }
 
 function selectSubmitFailureModelRef(env: Record<string, string | undefined>): string {
@@ -87,7 +91,11 @@ function selectSubmitFailureModelRef(env: Record<string, string | undefined>): s
 	return modelRef === undefined || modelRef === "" ? DEFAULT_FAST_MODEL_REF : modelRef;
 }
 
-function buildSubmitFailureInterpretationPrompt(input: { rawTranscript: string; rawLogPath?: string | undefined; exitCode: number }): string {
+function buildSubmitFailureInterpretationPrompt(input: {
+	rawTranscript: string;
+	rawLogPath?: string | undefined;
+	exitCode: number;
+}): string {
 	const bounded = boundSubmitFailureTranscript(input.rawTranscript);
 	return [
 		"Interpret this `sdl submit` failure for the user.",
@@ -98,9 +106,13 @@ function buildSubmitFailureInterpretationPrompt(input: { rawTranscript: string; 
 		"Pay close attention to Graphite warning blocks and deterministic preamble lines that name branches. If the output says Graphite skipped submission because `branch <name> is empty`, repeat that exact branch name and tell the user to delete it, reparent around it, or add changes before resubmitting.",
 		"",
 		`Exit code: ${input.exitCode}`,
-		input.rawLogPath === undefined ? "Raw log path: unavailable" : `Raw log path: ${input.rawLogPath}`,
+		input.rawLogPath === undefined
+			? "Raw log path: unavailable"
+			: `Raw log path: ${input.rawLogPath}`,
 		`Transcript limit: ${SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS} characters`,
-		bounded.truncated ? `Truncation: transcript was truncated from ${input.rawTranscript.length} to ${bounded.text.length} characters.` : "Truncation: transcript was not truncated.",
+		bounded.truncated
+			? `Truncation: transcript was truncated from ${input.rawTranscript.length} to ${bounded.text.length} characters.`
+			: "Truncation: transcript was not truncated.",
 		"",
 		"Bounded transcript:",
 		"```text",
@@ -110,7 +122,8 @@ function buildSubmitFailureInterpretationPrompt(input: { rawTranscript: string; 
 }
 
 function boundSubmitFailureTranscript(output: string): { text: string; truncated: boolean } {
-	if (output.length <= SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS) return { text: output, truncated: false };
+	if (output.length <= SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS)
+		return { text: output, truncated: false };
 	const omittedChars = output.length - SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS;
 	return {
 		text: `${output.slice(0, SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS)}\n… ${omittedChars} trailing character(s) omitted`,
@@ -118,7 +131,10 @@ function boundSubmitFailureTranscript(output: string): { text: string; truncated
 	};
 }
 
-async function writeSubmitFailureRawLog(rawTranscript: string, env: Record<string, string | undefined>): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
+async function writeSubmitFailureRawLog(
+	rawTranscript: string,
+	env: Record<string, string | undefined>,
+): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
 	try {
 		const baseDir = env[SUBMIT_FAILURE_LOG_DIR_ENV]?.trim() || tmpdir();
 		const dir = await mkdtemp(join(baseDir, "sdl-submit-failure-"));
@@ -130,11 +146,18 @@ async function writeSubmitFailureRawLog(rawTranscript: string, env: Record<strin
 	}
 }
 
-function formatModelPrimaryFailure(input: { text: string; rawLog: { ok: true; path: string } | { ok: false; message: string } }): string {
-	return ["## Submit failed", "", input.text.trim(), "", ...formatRawLogLines(input.rawLog)].join("\n");
+function formatModelPrimaryFailure(input: {
+	text: string;
+	rawLog: { ok: true; path: string } | { ok: false; message: string };
+}): string {
+	return ["## Submit failed", "", input.text.trim(), "", ...formatRawLogLines(input.rawLog)].join(
+		"\n",
+	);
 }
 
-function formatModelUnavailableFailure(rawLog: { ok: true; path: string } | { ok: false; message: string }): string {
+function formatModelUnavailableFailure(
+	rawLog: { ok: true; path: string } | { ok: false; message: string },
+): string {
 	return [
 		"sdl submit failed, and the failure could not be interpreted automatically.",
 		...formatRawLogLines(rawLog),
@@ -142,7 +165,9 @@ function formatModelUnavailableFailure(rawLog: { ok: true; path: string } | { ok
 	].join("\n");
 }
 
-function formatRawLogLines(rawLog: { ok: true; path: string } | { ok: false; message: string }): string[] {
+function formatRawLogLines(
+	rawLog: { ok: true; path: string } | { ok: false; message: string },
+): string[] {
 	if (rawLog.ok) return [`Raw logs: ${rawLog.path}`];
 	return [`Raw logs: unavailable (${rawLog.message})`];
 }
@@ -153,15 +178,29 @@ function renderRawFailureTranscript(result: SubmitFailureInterpretationInput): s
 		return renderLegacyRawFailureTranscript(result);
 	}
 
-	const lines = ["sdl submit failure raw log", `phase: ${transcript.phase}`, `exit code: ${result.exitCode}`];
+	const lines = [
+		"sdl submit failure raw log",
+		`phase: ${transcript.phase}`,
+		`exit code: ${result.exitCode}`,
+	];
 	if (transcript.summary !== undefined && transcript.summary.trim() !== "") {
 		lines.push("", "summary:", transcript.summary.trimEnd());
 	}
 	for (const [index, command] of transcript.commands.entries()) {
-		lines.push("", `command ${index + 1}: ${command.commandDisplay ?? "unknown"}`, `exit code: ${command.exitCode}`);
+		lines.push(
+			"",
+			`command ${index + 1}: ${command.commandDisplay ?? "unknown"}`,
+			`exit code: ${command.exitCode}`,
+		);
 		if (command.startupError !== undefined) lines.push(`startup error: ${command.startupError}`);
 		if (command.killed === true) lines.push("killed: true");
-		lines.push("", "----- stdout -----", command.stdout === "" ? "(empty)" : command.stdout.trimEnd(), "----- stderr -----", command.stderr === "" ? "(empty)" : command.stderr.trimEnd());
+		lines.push(
+			"",
+			"----- stdout -----",
+			command.stdout === "" ? "(empty)" : command.stdout.trimEnd(),
+			"----- stderr -----",
+			command.stderr === "" ? "(empty)" : command.stderr.trimEnd(),
+		);
 	}
 	return `${lines.join("\n")}\n`;
 }

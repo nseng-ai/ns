@@ -16,7 +16,9 @@ import {
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {
 		execResponses: dirtySnapshotResponses,
-		textGenerationResults: () => [{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" }],
+		textGenerationResults: () => [
+			{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" },
+		],
 	});
 }
 
@@ -25,7 +27,10 @@ function dirtySnapshotResponses(): ScriptedExecResponse[] {
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
 		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n?? notes.md\n" } },
-		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" } },
+		{
+			match: "git diff HEAD --no-ext-diff",
+			result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+		},
 	];
 }
 
@@ -38,16 +43,23 @@ function cleanSnapshotResponses(): ScriptedExecResponse[] {
 	];
 }
 
-
 describe("sdl changes CLI", () => {
 	test("command metadata and help list changes", async () => {
 		expect(listSdlCommands()).toEqual([
-			{ name: "changes", description: "Summarize outstanding worktree changes without committing." },
+			{
+				name: "changes",
+				description: "Summarize outstanding worktree changes without committing.",
+			},
 			{ name: "cp", description: "Create a checkpoint commit for the current diff." },
-			{ name: "regenerate-pr", description: "Regenerate the current branch PR's title and description with the asdl PR-description prompt." },
+			{
+				name: "regenerate-pr",
+				description:
+					"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+			},
 			{
 				name: "submit",
-				description: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+				description:
+					"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 			},
 		]);
 
@@ -88,7 +100,9 @@ describe("sdl changes CLI", () => {
 	test("dirty worktree prints model bullets and raw status without mutation", async () => {
 		const run = runWithFakes({
 			args: ["changes"],
-			state: { textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }] },
+			state: {
+				textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -104,7 +118,9 @@ describe("sdl changes CLI", () => {
 			"git status --porcelain=v1",
 			"git diff HEAD --no-ext-diff",
 		]);
-		expect(formattedExecCalls(run.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call))).toBe(false);
+		expect(
+			formattedExecCalls(run.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call)),
+		).toBe(false);
 		expect(run.context.modelCalls).toEqual([
 			expect.objectContaining({
 				modelRef: "openai-codex/gpt-5.4-mini",
@@ -122,7 +138,10 @@ describe("sdl changes CLI", () => {
 		const selected = runWithFakes({
 			args: ["changes"],
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
-			env: { SDL_CHANGES_MODEL: "openai-codex/custom-mini", PI_DRAFT_MODEL: "openai-codex/legacy-mini" },
+			env: {
+				SDL_CHANGES_MODEL: "openai-codex/custom-mini",
+				PI_DRAFT_MODEL: "openai-codex/legacy-mini",
+			},
 		});
 		expect(await selected.exit).toBe(0);
 		expect(selected.context.modelCalls[0]?.modelRef).toBe("openai-codex/custom-mini");
@@ -137,7 +156,10 @@ describe("sdl changes CLI", () => {
 	});
 
 	test("model generation and validation failures exit 2 without mutation", async () => {
-		const invalid = runWithFakes({ args: ["changes"], state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] } });
+		const invalid = runWithFakes({
+			args: ["changes"],
+			state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] },
+		});
 		expect(await invalid.exit).toBe(2);
 		expect(invalid.stdout.join("")).toBe("");
 		expect(invalid.stderr.join("")).toContain("Model returned an invalid changes summary");
@@ -148,19 +170,35 @@ describe("sdl changes CLI", () => {
 			"git diff HEAD --no-ext-diff",
 		]);
 
-		const failed = runWithFakes({ args: ["changes"], state: { textGeneration: [{ ok: false, error: "auth failed" }] } });
+		const failed = runWithFakes({
+			args: ["changes"],
+			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
+		});
 		expect(await failed.exit).toBe(2);
 		expect(failed.stderr.join("")).toBe("auth failed\n");
-		expect(formattedExecCalls(failed.context).some((call) => /git (add|commit|stash)|^gt |^gh /.test(call))).toBe(false);
+		expect(
+			formattedExecCalls(failed.context).some((call) =>
+				/git (add|commit|stash)|^gt |^gh /.test(call),
+			),
+		).toBe(false);
 	});
 
 	test("git errors fail with command details", async () => {
 		const notGit = runWithFakes({
 			args: ["changes"],
-			state: { exec: [{ match: "git rev-parse --show-toplevel", result: { code: 128, stderr: "fatal: not a git repository" } }] },
+			state: {
+				exec: [
+					{
+						match: "git rev-parse --show-toplevel",
+						result: { code: 128, stderr: "fatal: not a git repository" },
+					},
+				],
+			},
 		});
 		expect(await notGit.exit).toBe(2);
-		expect(notGit.stderr.join("")).toBe("Not inside a git repository.\nexit 128: fatal: not a git repository\n");
+		expect(notGit.stderr.join("")).toBe(
+			"Not inside a git repository.\nexit 128: fatal: not a git repository\n",
+		);
 		expect(notGit.context.modelCalls).toEqual([]);
 
 		const statusFailed = runWithFakes({
@@ -174,17 +212,23 @@ describe("sdl changes CLI", () => {
 			},
 		});
 		expect(await statusFailed.exit).toBe(2);
-		expect(statusFailed.stderr.join("")).toBe("Could not inspect git status.\nexit 1: index locked\n");
+		expect(statusFailed.stderr.join("")).toBe(
+			"Could not inspect git status.\nexit 1: index locked\n",
+		);
 		expect(statusFailed.context.modelCalls).toEqual([]);
 	});
 });
 
 describe("changes summary helpers", () => {
 	test("validate summary accepts one outer code fence but rejects headers", () => {
-		expect(validateChangesSummary("```md\n- Valid bullet\n```")).toEqual({ ok: true, summaryText: "- Valid bullet" });
+		expect(validateChangesSummary("```md\n- Valid bullet\n```")).toEqual({
+			ok: true,
+			summaryText: "- Valid bullet",
+		});
 		expect(validateChangesSummary("Summary\n- Invalid bullet")).toEqual({
 			ok: false,
-			error: 'Model returned an invalid changes summary (expected 1–4 "- " bullets, no headers or code fences).',
+			error:
+				'Model returned an invalid changes summary (expected 1–4 "- " bullets, no headers or code fences).',
 		});
 	});
 
@@ -198,9 +242,14 @@ describe("changes summary helpers", () => {
 			clean: false,
 		};
 
-		const output = formatOutstandingChangesMessage({ snapshot, summaryText: "- Update many files" });
+		const output = formatOutstandingChangesMessage({
+			snapshot,
+			summaryText: "- Update many files",
+		});
 
-		expect(output).toContain("Outstanding changes on feature/demo\n\n- Update many files\n\nFiles:");
+		expect(output).toContain(
+			"Outstanding changes on feature/demo\n\n- Update many files\n\nFiles:",
+		);
 		expect(output).toContain(" M file-49.ts");
 		expect(output).not.toContain(" M file-50.ts");
 		expect(output).toContain("... 2 more file(s)");

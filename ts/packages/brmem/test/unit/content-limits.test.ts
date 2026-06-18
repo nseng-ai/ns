@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { BINARY_SNIFF_BYTES, MAX_ENTRY_BYTES, checkEntryNotBinary, checkEntrySize, formatBytes } from "../../src/content-limits.ts";
+import {
+	BINARY_SNIFF_BYTES,
+	MAX_ENTRY_BYTES,
+	checkEntryNotBinary,
+	checkEntrySize,
+	formatBytes,
+} from "../../src/content-limits.ts";
 
 describe("content limits", () => {
 	it("formats byte counts like Python brmem", () => {
@@ -17,7 +23,9 @@ describe("content limits", () => {
 	it("sniffs NUL bytes only within the first 8 KiB", () => {
 		const inside = new Uint8Array(BINARY_SNIFF_BYTES + 2).fill(65);
 		inside[BINARY_SNIFF_BYTES - 1] = 0;
-		expect(checkEntryNotBinary(inside)).toBe(`appears to be binary (NUL byte at offset ${BINARY_SNIFF_BYTES - 1})`);
+		expect(checkEntryNotBinary(inside)).toBe(
+			`appears to be binary (NUL byte at offset ${BINARY_SNIFF_BYTES - 1})`,
+		);
 
 		const outside = new Uint8Array(BINARY_SNIFF_BYTES + 2).fill(65);
 		outside[BINARY_SNIFF_BYTES] = 0;

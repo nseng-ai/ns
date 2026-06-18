@@ -2,14 +2,21 @@
   "name": "asdl-ts-workspace",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.14.0",
+  "packageManager": "pnpm@11.8.0",
   "engines": {
     "node": ">=24.12.0",
-    "pnpm": ">=10.14.0"
+    "pnpm": ">=11.8.0"
   },
   "scripts": {
-    "test": "vitest run --config vitest.config.ts",
-    "check": "tsc -p tsconfig.json"
+    "check": "tsgo -p tsconfig.json",
+    "check:legacy": "tsc -p tsconfig.json",
+    "deps:check": "syncpack lint",
+    "deps:fix": "syncpack fix",
+    "fmt": "oxfmt 'packages/**/*.ts' '*.ts'",
+    "fmt:check": "oxfmt --check 'packages/**/*.ts' '*.ts'",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
     "@asdl/branch-context": "workspace:*",
@@ -18,10 +25,14 @@
     "@asdl/plans": "workspace:*",
     "@asdl/sdl": "workspace:*",
     "@asdl/slot": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "catalog:",
     "sdlcc": "workspace:*",
-    "typescript": "^5.9.0",
-    "vitest": "^4.1.8"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "syncpack": "catalog:"
   },
   "workspaces": [
     "packages/*"

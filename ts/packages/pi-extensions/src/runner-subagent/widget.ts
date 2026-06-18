@@ -18,14 +18,22 @@ export function formatRunnerSubagentActivityWidgetLines(
 ): string[] {
 	const { fallbackTitle = "(untitled subagent session)", includeElapsed = true } = options;
 	const { progress, activity } = update;
-	const lines = [`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`, `State: ${progress.state}`];
+	const lines = [
+		`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
+		`State: ${progress.state}`,
+	];
 	if (progress.launch !== undefined) {
-		lines.push(`Model: ${formatRunnerSubagentModelText(progress.launch)}`, `Thinking: ${formatRunnerSubagentThinkingText(progress.launch)}`);
+		lines.push(
+			`Model: ${formatRunnerSubagentModelText(progress.launch)}`,
+			`Thinking: ${formatRunnerSubagentThinkingText(progress.launch)}`,
+		);
 	}
 
-	if (activity.assistantPreview !== undefined) lines.push(`Assistant: ${activity.assistantPreview}`);
+	if (activity.assistantPreview !== undefined)
+		lines.push(`Assistant: ${activity.assistantPreview}`);
 	if (progress.currentTool !== undefined) lines.push(`Tool: ${progress.currentTool}`);
-	if (activity.currentToolInputPreview !== undefined) lines.push(`Input: ${activity.currentToolInputPreview}`);
+	if (activity.currentToolInputPreview !== undefined)
+		lines.push(`Input: ${activity.currentToolInputPreview}`);
 	if (activity.lastToolResultPreview !== undefined) {
 		const label = activity.lastToolResultIsError === true ? "Last error" : "Last result";
 		const toolSuffix = activity.lastToolName === undefined ? "" : ` (${activity.lastToolName})`;

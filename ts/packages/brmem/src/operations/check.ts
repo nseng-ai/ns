@@ -92,4 +92,3 @@ function emptyResult(options: {
 		size_bytes: null,
 	};
 }
-

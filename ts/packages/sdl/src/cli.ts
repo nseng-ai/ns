@@ -8,7 +8,12 @@ import { ClinkrGroup, resolveIo } from "@asdl/clinkr";
 import { rawCommand } from "@asdl/clinkr/raw";
 import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 
-import { executeSdlCommand, listStaticSdlCommandInfos, type SdlCommandInfo, type SdlCommandCliInfo } from "./command-registry.ts";
+import {
+	executeSdlCommand,
+	listStaticSdlCommandInfos,
+	type SdlCommandInfo,
+	type SdlCommandCliInfo,
+} from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -53,12 +58,14 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 		name: "sdl",
 		description: "Source Development Lifecycle tools.",
 		version: VERSION,
-		runtimeInfo: () => "runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+		runtimeInfo: () =>
+			"runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
 	});
 
 	const commandInfos = options.commandInfos ?? listStaticSdlCommandInfos();
 	for (const commandInfo of commandInfos) {
-		const selectedCommand = options.selectedCommand?.name === commandInfo.name ? options.selectedCommand : undefined;
+		const selectedCommand =
+			options.selectedCommand?.name === commandInfo.name ? options.selectedCommand : undefined;
 		const commandName = commandInfo.name;
 		const schema = selectedCommand?.schema ?? z.object({});
 		group.command(
@@ -67,11 +74,14 @@ export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliCo
 				description: commandInfo.fullDescription,
 				summary: commandInfo.description,
 				schema,
-				...(selectedCommand?.positionals === undefined ? {} : { positionals: selectedCommand.positionals }),
+				...(selectedCommand?.positionals === undefined
+					? {}
+					: { positionals: selectedCommand.positionals }),
 				run: async (ctx, request) => {
-					const result = selectedCommand === undefined
-						? { ok: false as const, exitCode: 2, message: `Unknown SDL command: ${commandName}` }
-						: await executeSdlCommand(ctx.context, selectedCommand, request);
+					const result =
+						selectedCommand === undefined
+							? { ok: false as const, exitCode: 2, message: `Unknown SDL command: ${commandName}` }
+							: await executeSdlCommand(ctx.context, selectedCommand, request);
 					writeSdlResultOutput(result, ctx);
 					return result.ok ? 0 : result.exitCode;
 				},
@@ -88,18 +98,27 @@ export function listSdlCommands(): SdlCommandInfo[] {
 
 export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Promise<number> {
 	const injectedContext = deps.context;
-	const stdout = deps.stdout ?? injectedContext?.stdout ?? ((text: string) => {
-		process.stdout.write(text);
-	});
-	const stderr = deps.stderr ?? injectedContext?.stderr ?? ((text: string) => {
-		process.stderr.write(text);
-	});
+	const stdout =
+		deps.stdout ??
+		injectedContext?.stdout ??
+		((text: string) => {
+			process.stdout.write(text);
+		});
+	const stderr =
+		deps.stderr ??
+		injectedContext?.stderr ??
+		((text: string) => {
+			process.stderr.write(text);
+		});
 
 	const cwd = deps.cwd ?? injectedContext?.cwd ?? process.cwd();
 	const env = deps.env ?? injectedContext?.env ?? process.env;
 	const commandCatalog = await loadSdlCommandCatalog({ cwd, homeDir: deps.homeDir ?? env.HOME });
 	const selectedCommandName = requestedCommandName(args);
-	const selectedCandidate = selectedCommandName === undefined ? undefined : commandCatalog.candidates.get(selectedCommandName);
+	const selectedCandidate =
+		selectedCommandName === undefined
+			? undefined
+			: commandCatalog.candidates.get(selectedCommandName);
 	const diagnosticClassification = classifyExtensionDiagnosticsForInvocation({
 		diagnostics: commandCatalog.diagnostics,
 		requestedCommandName: selectedCommandName,
@@ -113,7 +132,8 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 		stderr(`${formatExtensionWarningDiagnostics(diagnosticClassification.warnings)}\n`);
 	}
 
-	const loadedSelectedCommand = selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
+	const loadedSelectedCommand =
+		selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
 	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
 		stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
 		return 2;
@@ -122,7 +142,9 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	const selectedSource = loadedSelectedCommand?.source;
 	const commandInfos = commandInfosForSelectedCommand(
 		commandCatalog.commandInfos,
-		selectedCommand === undefined || selectedSource === undefined ? undefined : { command: selectedCommand, source: selectedSource },
+		selectedCommand === undefined || selectedSource === undefined
+			? undefined
+			: { command: selectedCommand, source: selectedSource },
 	);
 
 	const baseContext = injectedContext ?? createRealSdlCommandContext({ cwd, env });
@@ -150,7 +172,10 @@ function requestedCommandName(args: readonly string[]): string | undefined {
 	return firstArg;
 }
 
-function writeSdlResultOutput(result: { ok: true; message: string } | { ok: false; message: string }, deps: Pick<SdlCliContext, "stdout" | "stderr">): void {
+function writeSdlResultOutput(
+	result: { ok: true; message: string } | { ok: false; message: string },
+	deps: Pick<SdlCliContext, "stdout" | "stderr">,
+): void {
 	if (result.message === "") return;
 	const output = `${result.message}\n`;
 	if (result.ok) {

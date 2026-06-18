@@ -60,7 +60,11 @@ export function createTabController<Model, State, Action, Effect>(
 		}
 	}
 
-	async function handleKey(key: TabKeyInput, deps: TabModuleDeps, onChange: () => void): Promise<TabKeyOutcome> {
+	async function handleKey(
+		key: TabKeyInput,
+		deps: TabModuleDeps,
+		onChange: () => void,
+	): Promise<TabKeyOutcome> {
 		if (lifecycle.type !== "loaded") return { type: "ignored" };
 		if (isBusy) return { type: "ignored" };
 

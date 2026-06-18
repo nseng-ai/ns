@@ -17,7 +17,15 @@ export const archiveObjectiveRequestSchema = z.object({
 });
 
 export const archiveObjectiveResultSchema = z.object({
-	status: z.enum(["archived", "unarchived", "missing_slug", "invalid_slug", "source_not_found", "source_not_directory", "destination_exists"]),
+	status: z.enum([
+		"archived",
+		"unarchived",
+		"missing_slug",
+		"invalid_slug",
+		"source_not_found",
+		"source_not_directory",
+		"destination_exists",
+	]),
 	error: z.string().nullable(),
 	slug: z.string().nullable(),
 	direction: z.enum(["archive", "unarchive"]),
@@ -42,10 +50,20 @@ export async function runArchiveObjective(
 		return negative("Missing Objective slug. Pass an explicit slug.", result.value);
 	}
 	if (result.value.status === "invalid_slug") {
-		return negative(`Invalid Objective slug ${pythonStringRepr(request.slug ?? "")}. Pass a single slug, not a path.`, result.value);
+		return negative(
+			`Invalid Objective slug ${pythonStringRepr(request.slug ?? "")}. Pass a single slug, not a path.`,
+			result.value,
+		);
 	}
 	if (result.value.status === "source_not_found") {
-		return negative(sourceNotFoundMessage(result.value.slug ?? "", result.value.direction, result.value.sourcePath), result.value);
+		return negative(
+			sourceNotFoundMessage(
+				result.value.slug ?? "",
+				result.value.direction,
+				result.value.sourcePath,
+			),
+			result.value,
+		);
 	}
 	if (result.value.status === "source_not_directory") {
 		return negative(
@@ -70,7 +88,10 @@ export function renderArchiveObjective(result: ArchiveObjectiveResult): string {
 async function archiveObjective(
 	storage: ObjectiveStorage,
 	request: ArchiveObjectiveRequest,
-): Promise<{ type: "ok"; value: ArchiveObjectiveResult } | { type: "storage-error"; error: { code: string; message: string } }> {
+): Promise<
+	| { type: "ok"; value: ArchiveObjectiveResult }
+	| { type: "storage-error"; error: { code: string; message: string } }
+> {
 	const direction: ObjectiveArchiveDirection = request.unarchive ? "unarchive" : "archive";
 	if (request.slug === undefined) {
 		return { type: "ok", value: emptyResult("missing_slug", "missing_slug", direction) };
@@ -153,7 +174,11 @@ async function archiveObjective(
 	};
 }
 
-function emptyResult(status: ArchiveObjectiveStatus, error: string, direction: ObjectiveArchiveDirection): ArchiveObjectiveResult {
+function emptyResult(
+	status: ArchiveObjectiveStatus,
+	error: string,
+	direction: ObjectiveArchiveDirection,
+): ArchiveObjectiveResult {
 	return {
 		status,
 		error,
@@ -191,8 +216,11 @@ function archiveResult(options: {
 	};
 }
 
-function sourceNotFoundMessage(slug: string, direction: ObjectiveArchiveDirection, sourcePath: string): string {
+function sourceNotFoundMessage(
+	slug: string,
+	direction: ObjectiveArchiveDirection,
+	sourcePath: string,
+): string {
 	const sourceLabel = direction === "unarchive" ? "archived" : "active";
 	return `No ${sourceLabel} Objective record found for slug ${pythonStringRepr(slug)} at ${sourcePath}.`;
 }
-

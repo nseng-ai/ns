@@ -116,7 +116,10 @@ interface BuildFlagOptions {
 function buildFlag(options: BuildFlagOptions): string {
 	const { key, kind, unwrapped, optionSpec } = options;
 	const kebab = kebabCase(key);
-	const longFlag = kind.type === "boolean" && unwrapped.hasDefault && unwrapped.defaultValue === true ? `--no-${kebab}` : `--${kebab}`;
+	const longFlag =
+		kind.type === "boolean" && unwrapped.hasDefault && unwrapped.defaultValue === true
+			? `--no-${kebab}`
+			: `--${kebab}`;
 	const valueSuffix = kind.type === "boolean" ? "" : " <value>";
 	if (optionSpec?.short === undefined) return `${longFlag}${valueSuffix}`;
 	return `${optionSpec.short}, ${longFlag}${valueSuffix}`;
@@ -184,7 +187,14 @@ export function buildSurfacePlan(input: BuildSurfacePlanOptions): SurfacePlan {
 			}
 			positionalEntries.push({
 				position: positionalSpec.position,
-				plan: { key, name: kebabCase(key), kind, isRequired, isVariadic: kind.type === "string-array", description },
+				plan: {
+					key,
+					name: kebabCase(key),
+					kind,
+					isRequired,
+					isVariadic: kind.type === "string-array",
+					description,
+				},
 			});
 			continue;
 		}

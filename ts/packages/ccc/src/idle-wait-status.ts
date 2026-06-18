@@ -9,7 +9,11 @@ export interface IdleWaitStatusUi {
 // stops the ticker; call it before the caller drives its own status.
 export function startIdleWaitStatus(ui: IdleWaitStatusUi, key: string): () => void {
 	const startedAt = Date.now();
-	const render = () => ui.setStatus(key, `waiting for Pi to finish responding (${formatElapsedMs(Date.now() - startedAt)})`);
+	const render = () =>
+		ui.setStatus(
+			key,
+			`waiting for Pi to finish responding (${formatElapsedMs(Date.now() - startedAt)})`,
+		);
 	render();
 	const timer = setInterval(render, 1_000);
 	return () => clearInterval(timer);

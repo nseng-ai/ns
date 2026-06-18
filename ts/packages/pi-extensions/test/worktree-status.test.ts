@@ -39,7 +39,9 @@ class OrderlessFakePi {
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args] });
-		const index = this.script.findIndex((expected) => expected.command === command && sameArgs(expected.args, args));
+		const index = this.script.findIndex(
+			(expected) => expected.command === command && sameArgs(expected.args, args),
+		);
 		if (index === -1) {
 			const message = `unexpected exec: ${command} ${args.join(" ")}`;
 			this.errors.push(message);
@@ -117,7 +119,11 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult> | Promise<Partial<ExecResult>>): ScriptedExec {
+function step(
+	command: string,
+	args: string[],
+	result?: Partial<ExecResult> | Promise<Partial<ExecResult>>,
+): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -151,7 +157,12 @@ function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): Scr
 	return step("git", ["config", "--get", "remote.origin.url"], { stdout: `${url}\n` });
 }
 
-function basicGitStatusScript(base = "main", count = 1, dirtyStdout = "", oid = "abc123"): ScriptedExec[] {
+function basicGitStatusScript(
+	base = "main",
+	count = 1,
+	dirtyStdout = "",
+	oid = "abc123",
+): ScriptedExec[] {
 	return [revListStep(base, count), dirtyStep(dirtyStdout), headOidStep(oid)];
 }
 
@@ -212,7 +223,12 @@ describe("worktree status extension registration", () => {
 					stdout: JSON.stringify({
 						exit_code: 0,
 						data: {
-							entries: [{ namespace: "branch-context", key: "model-only-checkpoint-message-text-generation.md" }],
+							entries: [
+								{
+									namespace: "branch-context",
+									key: "model-only-checkpoint-message-text-generation.md",
+								},
+							],
 						},
 					}),
 				}),
@@ -253,7 +269,10 @@ describe("worktree status extension registration", () => {
 							entries: [
 								{ namespace: "handoff", key: "document-local-github-pull-guidance.md" },
 								{ namespace: "handoff", key: "routing-docs-close-objective.md" },
-								{ namespace: "session-artifacts", key: "handoffs/resume-resource-audit-session.md" },
+								{
+									namespace: "session-artifacts",
+									key: "handoffs/resume-resource-audit-session.md",
+								},
 							],
 						},
 					}),
@@ -332,7 +351,9 @@ describe("worktree status extension registration", () => {
 
 			const earlyStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
 
-			ghResult.resolve({ stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }) });
+			ghResult.resolve({
+				stdout: JSON.stringify({ data: { repository: { pullRequests: { nodes: [] } } } }),
+			});
 			await sessionStart;
 			pi.assertDone();
 			await pi.sessionShutdown?.();
@@ -484,69 +505,68 @@ describe("worktree status extension registration", () => {
 	});
 
 	test("custom footer reads cwd branch from worktree instead of stale footer data", async () => {
-		await withTempRoot(makeGraphiteRepo("current-branch", [
-			{ branchName: "main", children: ["current-branch"], validationResult: "TRUNK" },
-			{ branchName: "current-branch", parentBranchName: "main" },
-		]), async (root) => {
-			const pi = new LifecycleFakePi([
-				brmemListStep({
-					stdout: JSON.stringify({
-						exit_code: 0,
-						data: { entries: [] },
+		await withTempRoot(
+			makeGraphiteRepo("current-branch", [
+				{ branchName: "main", children: ["current-branch"], validationResult: "TRUNK" },
+				{ branchName: "current-branch", parentBranchName: "main" },
+			]),
+			async (root) => {
+				const pi = new LifecycleFakePi([
+					brmemListStep({
+						stdout: JSON.stringify({
+							exit_code: 0,
+							data: { entries: [] },
+						}),
 					}),
-				}),
-				...ghNoPrSteps("current-branch"),
-				...basicGitStatusScript(),
-			]);
-			const statuses = new Map<string, string>();
-			let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
-			const ctx: ExtensionContext = {
-				cwd: root,
-				hasUI: true,
-				sessionManager: {
-					getEntries() {
-						return [];
+					...ghNoPrSteps("current-branch"),
+					...basicGitStatusScript(),
+				]);
+				const statuses = new Map<string, string>();
+				let footerFactory: Parameters<NonNullable<ExtensionContext["ui"]["setFooter"]>>[0];
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					sessionManager: {
+						getEntries() {
+							return [];
+						},
+						getCwd() {
+							return root;
+						},
+						getSessionName() {
+							return undefined;
+						},
 					},
-					getCwd() {
-						return root;
+					modelRegistry: {
+						isUsingOAuth() {
+							return false;
+						},
 					},
-					getSessionName() {
-						return undefined;
+					model: { id: "test-model", contextWindow: 272000 },
+					getContextUsage() {
+						return { contextWindow: 272000, percent: 18.2 };
 					},
-				},
-				modelRegistry: {
-					isUsingOAuth() {
-						return false;
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							if (value === undefined) statuses.delete(key);
+							else statuses.set(key, value);
+						},
+						setWidget() {},
+						setFooter(factory) {
+							footerFactory = factory;
+						},
 					},
-				},
-				model: { id: "test-model", contextWindow: 272000 },
-				getContextUsage() {
-					return { contextWindow: 272000, percent: 18.2 };
-				},
-				ui: {
-					theme: TEST_THEME,
-					setStatus(key, value) {
-						if (value === undefined) statuses.delete(key);
-						else statuses.set(key, value);
-					},
-					setWidget() {},
-					setFooter(factory) {
-						footerFactory = factory;
-					},
-				},
-			};
+				};
 
-			worktreeStatusExtension(pi as ExtensionAPI);
-			await pi.sessionStart?.({}, ctx);
+				worktreeStatusExtension(pi as ExtensionAPI);
+				await pi.sessionStart?.({}, ctx);
 
-			pi.assertDone();
-			expect(footerFactory).toBeDefined();
-			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+				pi.assertDone();
+				expect(footerFactory).toBeDefined();
+				if (footerFactory === undefined) throw new Error("expected custom footer factory");
 
-			const footer = footerFactory(
-				{ requestRender() {} },
-				TEST_THEME,
-				{
+				const footer = footerFactory({ requestRender() {} }, TEST_THEME, {
 					getGitBranch() {
 						return "stale-branch";
 					},
@@ -559,14 +579,16 @@ describe("worktree status extension registration", () => {
 					onBranchChange() {
 						return () => {};
 					},
-				},
-			);
+				});
 
-			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines[0]).toBe(`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:current-branch ↓:main commits:1 ↑:-`);
-			expect(footerLines[0]).not.toContain("stale-branch");
-			await pi.sessionShutdown?.();
-		});
+				const footerLines = footer.render(200).map(stripTerminalEscapes);
+				expect(footerLines[0]).toBe(
+					`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:current-branch ↓:main commits:1 ↑:-`,
+				);
+				expect(footerLines[0]).not.toContain("stale-branch");
+				await pi.sessionShutdown?.();
+			},
+		);
 	});
 
 	test("custom footer formats slot identity and truncates nested path before branch", async () => {
@@ -620,24 +642,20 @@ describe("worktree status extension registration", () => {
 			expect(footerFactory).toBeDefined();
 			if (footerFactory === undefined) throw new Error("expected custom footer factory");
 
-			const footer = footerFactory(
-				{ requestRender() {} },
-				TEST_THEME,
-				{
-					getGitBranch() {
-						return "stale-branch";
-					},
-					getExtensionStatuses() {
-						return statuses;
-					},
-					getAvailableProviderCount() {
-						return 1;
-					},
-					onBranchChange() {
-						return () => {};
-					},
+			const footer = footerFactory({ requestRender() {} }, TEST_THEME, {
+				getGitBranch() {
+					return "stale-branch";
 				},
-			);
+				getExtensionStatuses() {
+					return statuses;
+				},
+				getAvailableProviderCount() {
+					return 1;
+				},
+				onBranchChange() {
+					return () => {};
+				},
+			});
 
 			const wideFooterRaw = footer.render(200)[0] ?? "";
 			const truecolorPrefix = "\x1B[38;" + "2";
@@ -647,7 +665,9 @@ describe("worktree status extension registration", () => {
 			expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
 			expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
 			const wideFooterLines = [wideFooterRaw].map(stripTerminalEscapes);
-			expect(wideFooterLines[0]).toBe("[wt] repo:asdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-");
+			expect(wideFooterLines[0]).toBe(
+				"[wt] repo:asdl-tools wt:slot-02 pwd:ts/界面/pi-extensions (✗) | br:feature/slot-identity ↓:- commits:? ↑:-",
+			);
 			expect(wideFooterLines[0]).not.toContain("hidden-session-name");
 			expect(wideFooterLines[0]).not.toContain("stale-branch");
 			const narrowIdentityRaw = footer.render(46)[0] ?? "";
@@ -716,26 +736,27 @@ describe("worktree status extension registration", () => {
 			expect(footerFactory).toBeDefined();
 			if (footerFactory === undefined) throw new Error("expected custom footer factory");
 
-			const footer = footerFactory(
-				{ requestRender() {} },
-				TEST_THEME,
-				{
-					getGitBranch() {
-						return "main";
-					},
-					getExtensionStatuses() {
-						return statuses;
-					},
-					getAvailableProviderCount() {
-						return 1;
-					},
-					onBranchChange() {
-						return () => {};
-					},
+			const footer = footerFactory({ requestRender() {} }, TEST_THEME, {
+				getGitBranch() {
+					return "main";
 				},
-			);
+				getExtensionStatuses() {
+					return statuses;
+				},
+				getAvailableProviderCount() {
+					return 1;
+				},
+				onBranchChange() {
+					return () => {};
+				},
+			});
 
-			expect(footer.render(200).map(stripTerminalEscapes).some((line) => line.includes("?/272k (auto)"))).toBe(true);
+			expect(
+				footer
+					.render(200)
+					.map(stripTerminalEscapes)
+					.some((line) => line.includes("?/272k (auto)")),
+			).toBe(true);
 			await pi.sessionShutdown?.();
 		});
 	});
@@ -799,31 +820,29 @@ describe("worktree status extension registration", () => {
 			expect(footerFactory).toBeDefined();
 			if (footerFactory === undefined) throw new Error("expected custom footer factory");
 
-			const footer = footerFactory(
-				{ requestRender() {} },
-				TEST_THEME,
-				{
-					getGitBranch() {
-						return "handoffs-graphite-footer-lines";
-					},
-					getExtensionStatuses() {
-						return new Map([
-							...statuses,
-							["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
-							["sdl-submit", "/sdl:submit running CLI command (23s)"],
-						]);
-					},
-					getAvailableProviderCount() {
-						return 1;
-					},
-					onBranchChange() {
-						return () => {};
-					},
+			const footer = footerFactory({ requestRender() {} }, TEST_THEME, {
+				getGitBranch() {
+					return "handoffs-graphite-footer-lines";
 				},
-			);
+				getExtensionStatuses() {
+					return new Map([
+						...statuses,
+						["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
+						["sdl-submit", "/sdl:submit running CLI command (23s)"],
+					]);
+				},
+				getAvailableProviderCount() {
+					return 1;
+				},
+				onBranchChange() {
+					return () => {};
+				},
+			});
 
 			const footerLines = footer.render(200).map(stripTerminalEscapes);
-			expect(footerLines[0]).toBe(`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:feature/current ↓:main commits:1 ↑:-`);
+			expect(footerLines[0]).toBe(
+				`[wt] repo:${basename(root)} wt:no-slot pwd:${root} | br:feature/current ↓:main commits:1 ↑:-`,
+			);
 			expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
 			expect(footerLines[2]).toBe("[gh] no PR");
 			expect(footerLines[3]).toContain("18.2%/272k (auto)");

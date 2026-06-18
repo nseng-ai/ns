@@ -33,7 +33,12 @@ export class NodeBrmemSourceReader implements BrmemSourceReader {
 }
 
 function isNodeErrorWithCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as { code?: unknown }).code === code
+	);
 }
 
 function messageForError(error: unknown): string {

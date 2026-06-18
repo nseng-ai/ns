@@ -31,15 +31,31 @@ function fakePrLookupMissStderr(prNumber: number): string {
 }
 
 function fakeGatewayFailure(stderr: string, returncode: number): GatewayFailure {
-	return { code: "fake_gateway_failure", message: stderr, stdout: "", stderr, returncode, details: { stdout: "", stderr, returncode } };
+	return {
+		code: "fake_gateway_failure",
+		message: stderr,
+		stdout: "",
+		stderr,
+		returncode,
+		details: { stdout: "", stderr, returncode },
+	};
 }
 
 export interface InMemoryGitHubState {
 	prs?: readonly PRSummary[] | undefined;
 	prsByBranch?: ReadonlyMap<string, PRSummary> | Record<string, PRSummary> | undefined;
-	reviews?: ReadonlyMap<number, readonly PRReview[]> | Record<number, readonly PRReview[]> | undefined;
-	reviewThreads?: ReadonlyMap<number, readonly PRReviewThread[]> | Record<number, readonly PRReviewThread[]> | undefined;
-	discussionComments?: ReadonlyMap<number, readonly PRDiscussionComment[]> | Record<number, readonly PRDiscussionComment[]> | undefined;
+	reviews?:
+		| ReadonlyMap<number, readonly PRReview[]>
+		| Record<number, readonly PRReview[]>
+		| undefined;
+	reviewThreads?:
+		| ReadonlyMap<number, readonly PRReviewThread[]>
+		| Record<number, readonly PRReviewThread[]>
+		| undefined;
+	discussionComments?:
+		| ReadonlyMap<number, readonly PRDiscussionComment[]>
+		| Record<number, readonly PRDiscussionComment[]>
+		| undefined;
 	listOpenPrsFailure?: GatewayFailure | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
 	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
@@ -93,7 +109,8 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPr(prNumber: number, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailurePrNumbers.has(prNumber)) return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+		if (this.lookupFailurePrNumbers.has(prNumber))
+			return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		if (this.missingPrNumbers.has(prNumber)) return prLookupMiss(prNumber);
 		const pr = this.prsByNumber.get(prNumber);
 		if (pr === undefined) return prLookupMiss(prNumber);
@@ -101,30 +118,52 @@ export class InMemoryPrAddressGitHubGateway implements PrAddressGitHubGateway {
 	}
 
 	async getPrForBranch(branch: string, _options: GatewayOptions): Promise<PRLookupResult> {
-		if (this.lookupFailureBranches.has(branch)) return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+		if (this.lookupFailureBranches.has(branch))
+			return { type: "failure", failure: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		const pr = this.prsByBranch.get(branch);
 		if (pr === undefined) return lookupMiss();
 		return { type: "found", pr: clone(pr) };
 	}
 
 	async listOpenPrs(_options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>> {
-		if (this.listOpenPrsFailure !== undefined) return { ok: false, error: clone(this.listOpenPrsFailure) };
-		return { ok: true, value: clone([...this.prsByNumber.values()].filter((pr) => pr.state === "OPEN")) };
+		if (this.listOpenPrsFailure !== undefined)
+			return { ok: false, error: clone(this.listOpenPrsFailure) };
+		return {
+			ok: true,
+			value: clone([...this.prsByNumber.values()].filter((pr) => pr.state === "OPEN")),
+		};
 	}
 
-	async getReviews(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>> {
-		if (this.reviewsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+	async getReviews(
+		prNumber: number,
+		_options: GatewayOptions,
+	): Promise<GatewayResult<readonly PRReview[]>> {
+		if (this.reviewsFailurePrNumbers.has(prNumber))
+			return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		return { ok: true, value: clone(this.reviews.get(prNumber) ?? []) };
 	}
 
-	async getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>> {
-		if (this.reviewThreadsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+	async getReviewThreads(
+		prNumber: number,
+		options: GatewayOptions & { shouldIncludeResolved: boolean },
+	): Promise<GatewayResult<readonly PRReviewThread[]>> {
+		if (this.reviewThreadsFailurePrNumbers.has(prNumber))
+			return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		const threads = clone(this.reviewThreads.get(prNumber) ?? []);
-		return { ok: true, value: options.shouldIncludeResolved ? threads : threads.filter((thread) => !thread.is_resolved) };
+		return {
+			ok: true,
+			value: options.shouldIncludeResolved
+				? threads
+				: threads.filter((thread) => !thread.is_resolved),
+		};
 	}
 
-	async getDiscussionComments(prNumber: number, _options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
-		if (this.discussionCommentsFailurePrNumbers.has(prNumber)) return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
+	async getDiscussionComments(
+		prNumber: number,
+		_options: GatewayOptions,
+	): Promise<GatewayResult<readonly PRDiscussionComment[]>> {
+		if (this.discussionCommentsFailurePrNumbers.has(prNumber))
+			return { ok: false, error: fakeGatewayFailure(FAKE_GH_AUTH_FAILED_STDERR, 4) };
 		return { ok: true, value: clone(this.discussionComments.get(prNumber) ?? []) };
 	}
 }
@@ -143,13 +182,15 @@ export class InMemoryPrAddressGitGateway implements PrAddressGitGateway {
 	}
 
 	async getCurrentBranch(_options: GatewayOptions): Promise<CurrentBranchResult> {
-		if (this.currentBranchFailure !== undefined) return { type: "failure", failure: this.currentBranchFailure };
+		if (this.currentBranchFailure !== undefined)
+			return { type: "failure", failure: this.currentBranchFailure };
 		if (this.currentBranch === null) return { type: "detached" };
 		return { type: "branch", branch: this.currentBranch };
 	}
 
 	async isInsideWorkTree(_options: GatewayOptions): Promise<RepoContextResult> {
-		if (this.repoContextFailure !== undefined) return { type: "failure", failure: this.repoContextFailure };
+		if (this.repoContextFailure !== undefined)
+			return { type: "failure", failure: this.repoContextFailure };
 		return this.isConfiguredInsideWorkTree ? { type: "inside" } : { type: "outside" };
 	}
 }
@@ -162,13 +203,17 @@ function prLookupMiss(prNumber: number): PRLookupMiss {
 	return { type: "miss", stderr: fakePrLookupMissStderr(prNumber), returncode: 1 };
 }
 
-function numberMap<T>(value: ReadonlyMap<number, T> | Record<number, T> | undefined): ReadonlyMap<number, T> {
+function numberMap<T>(
+	value: ReadonlyMap<number, T> | Record<number, T> | undefined,
+): ReadonlyMap<number, T> {
 	if (value === undefined) return new Map();
 	if (value instanceof Map) return new Map(value);
 	return new Map(Object.entries(value).map(([key, item]) => [Number(key), item]));
 }
 
-function stringMap<T>(value: ReadonlyMap<string, T> | Record<string, T> | undefined): ReadonlyMap<string, T> {
+function stringMap<T>(
+	value: ReadonlyMap<string, T> | Record<string, T> | undefined,
+): ReadonlyMap<string, T> {
 	if (value === undefined) return new Map();
 	if (value instanceof Map) return new Map(value);
 	return new Map(Object.entries(value));
@@ -201,7 +246,9 @@ export function review(overrides: Partial<PRReview> = {}): PRReview {
 	};
 }
 
-export function reviewComment(overrides: Partial<PRReviewThread["comments"][number]> = {}): PRReviewThread["comments"][number] {
+export function reviewComment(
+	overrides: Partial<PRReviewThread["comments"][number]> = {},
+): PRReviewThread["comments"][number] {
 	return {
 		id: 10,
 		body: "Thread comment",
@@ -227,7 +274,9 @@ export function reviewThread(overrides: Partial<PRReviewThread> = {}): PRReviewT
 	};
 }
 
-export function discussionComment(overrides: Partial<PRDiscussionComment> = {}): PRDiscussionComment {
+export function discussionComment(
+	overrides: Partial<PRDiscussionComment> = {},
+): PRDiscussionComment {
 	return {
 		id: 90,
 		body: "Discussion comment",

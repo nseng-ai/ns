@@ -13,14 +13,23 @@ import {
 } from "@asdl/core/graphite-metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
-import { failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./errors.ts";
+import {
+	failure,
+	landStackFailure,
+	success,
+	type LandStackFailure,
+	type LandStackResult,
+} from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
 export type { GraphiteTopology } from "@asdl/core/graphite-metadata";
 
 export type ForkViolation = GraphiteForkViolation;
 
-export async function resolveMetadataDbPath(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
+export async function resolveMetadataDbPath(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandStackResult<string>> {
 	const args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
 	const result = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
 	if (result.code !== 0) {
@@ -58,26 +67,37 @@ export async function loadGraphiteTopology(
 		raw = JSON.parse(result.stdout.trim() || "[]");
 	} catch {
 		return failure(
-			landStackFailure(`sqlite3 returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`, {
-				commandDisplay: formatCommand("sqlite3", args),
-				result,
-			}),
+			landStackFailure(
+				`sqlite3 returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				{
+					commandDisplay: formatCommand("sqlite3", args),
+					result,
+				},
+			),
 		);
 	}
 	const parsed = parseGraphiteBranchMetadataRows(raw);
 	if (parsed.type === "not_array") {
 		return failure(
-			landStackFailure(`sqlite3 returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`, {
-				commandDisplay: formatCommand("sqlite3", args),
-				result,
-			}),
+			landStackFailure(
+				`sqlite3 returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
+				{
+					commandDisplay: formatCommand("sqlite3", args),
+					result,
+				},
+			),
 		);
 	}
 	if (parsed.diagnostics.emptyBranchNameRows > 0) {
-		return failure(landStackFailure(`Graphite metadata DB at ${dbPath} returned a row without a branch_name; refusing to land.`));
+		return failure(
+			landStackFailure(
+				`Graphite metadata DB at ${dbPath} returned a row without a branch_name; refusing to land.`,
+			),
+		);
 	}
 	const firstCorruption = parsed.diagnostics.childrenCorruptions[0];
-	if (firstCorruption !== undefined) return failure(unparsableChildrenFailure(firstCorruption.branch, dbPath));
+	if (firstCorruption !== undefined)
+		return failure(unparsableChildrenFailure(firstCorruption.branch, dbPath));
 	return success(parsed.topology);
 }
 
@@ -111,40 +131,62 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 	if (current === trunk) return success([]);
 	if (!topology.has(current)) {
 		return failure(
-			landStackFailure(`Current branch ${current} is not tracked in Graphite metadata (${dbPath}); run gt track or gt get before landing.`),
+			landStackFailure(
+				`Current branch ${current} is not tracked in Graphite metadata (${dbPath}); run gt track or gt get before landing.`,
+			),
 		);
 	}
 
 	const walked = walkGraphiteAncestors(topology, current);
 	const path = [...walked.ancestors, current].filter((branch) => branch !== trunk);
-	if (walked.termination.type === "completed" && walked.terminusBranch === trunk) return success(path);
+	if (walked.termination.type === "completed" && walked.terminusBranch === trunk)
+		return success(path);
 	if (walked.termination.type === "cycle") {
-		return failure(landStackFailure(`Graphite metadata parent chain from ${current} contains a cycle at ${walked.termination.branch}; refusing to land.`));
+		return failure(
+			landStackFailure(
+				`Graphite metadata parent chain from ${current} contains a cycle at ${walked.termination.branch}; refusing to land.`,
+			),
+		);
 	}
 	if (walked.termination.type === "row_missing") {
-		return failure(landStackFailure(`Graphite metadata (${dbPath}) has no entry for ${walked.termination.branch} on the path from ${current} to ${trunk}; refusing to land.`));
+		return failure(
+			landStackFailure(
+				`Graphite metadata (${dbPath}) has no entry for ${walked.termination.branch} on the path from ${current} to ${trunk}; refusing to land.`,
+			),
+		);
 	}
 	return failure(
-		landStackFailure(`Graphite metadata parent chain from ${current} ends at ${walked.terminusBranch} without reaching trunk ${trunk}; refusing to land.`, {
-			suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /sdl:code:land.`,
-		}),
+		landStackFailure(
+			`Graphite metadata parent chain from ${current} ends at ${walked.terminusBranch} without reaching trunk ${trunk}; refusing to land.`,
+			{
+				suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /sdl:code:land.`,
+			},
+		),
 	);
 }
 
 // gt restack --upstack rewrites the whole subtree above the current branch, so
 // worktree-conflict detection and the confirmation prompt must cover all of it,
 // not just the first-child chain.
-export function deriveDescendantSubtree(topology: GraphiteTopology, current: string): LandStackResult<string[]> {
+export function deriveDescendantSubtree(
+	topology: GraphiteTopology,
+	current: string,
+): LandStackResult<string[]> {
 	const walked = walkGraphiteSubtree(topology, current);
 	if (walked.cycleAt) {
 		return failure(
-			landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${walked.cycleAt}; refusing to land.`),
+			landStackFailure(
+				`Graphite metadata descendants of ${current} contain a cycle at ${walked.cycleAt}; refusing to land.`,
+			),
 		);
 	}
 	return success(walked.subtree.slice(1));
 }
 
-export function detectForkViolations(topology: GraphiteTopology, landingPath: string[]): ForkViolation[] {
+export function detectForkViolations(
+	topology: GraphiteTopology,
+	landingPath: string[],
+): ForkViolation[] {
 	return [...detectGraphiteForkViolations(topology, landingPath)];
 }
 

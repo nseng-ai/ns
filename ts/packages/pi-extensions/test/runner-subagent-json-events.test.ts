@@ -9,8 +9,18 @@ function jsonLine(value: unknown): string {
 describe("runner subagent JSON event parser", () => {
 	test("parses chunked JSONL and captures the session header", () => {
 		let now = 1_000;
-		const parser = createRunnerSubagentJsonEventParser({ title: "Child", sessionFile: "/tmp/child.jsonl", now: () => now });
-		const header = { type: "session", version: 3, id: "session-id", timestamp: "2026-05-23T00:00:00Z", cwd: "/repo" } as const;
+		const parser = createRunnerSubagentJsonEventParser({
+			title: "Child",
+			sessionFile: "/tmp/child.jsonl",
+			now: () => now,
+		});
+		const header = {
+			type: "session",
+			version: 3,
+			id: "session-id",
+			timestamp: "2026-05-23T00:00:00Z",
+			cwd: "/repo",
+		} as const;
 		const line = jsonLine(header);
 
 		parser.pushChunk(line.slice(0, 14));
@@ -39,7 +49,9 @@ describe("runner subagent JSON event parser", () => {
 			},
 		});
 
-		parser.pushChunk(jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }));
+		parser.pushChunk(
+			jsonLine({ type: "model_change", provider: "openai-codex", modelId: "gpt-5.4-mini" }),
+		);
 		parser.pushChunk(jsonLine({ type: "thinking_level_change", thinkingLevel: "medium" }));
 
 		expect(parser.getSnapshot().progress.launch).toEqual({
@@ -54,7 +66,13 @@ describe("runner subagent JSON event parser", () => {
 
 	test("sanitizes child-supplied launch model metadata", () => {
 		const parser = createRunnerSubagentJsonEventParser();
-		parser.pushChunk(jsonLine({ type: "model_change", provider: " openai\ncodex ", modelId: `${"x".repeat(200)}\r\nignored` }));
+		parser.pushChunk(
+			jsonLine({
+				type: "model_change",
+				provider: " openai\ncodex ",
+				modelId: `${"x".repeat(200)}\r\nignored`,
+			}),
+		);
 
 		expect(parser.getSnapshot().progress.launch?.model).toEqual({
 			provider: "openai codex",
@@ -68,7 +86,9 @@ describe("runner subagent JSON event parser", () => {
 
 		parser.pushChunk(jsonLine({ type: "agent_start" }));
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
-		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }));
+		parser.pushChunk(
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }),
+		);
 		now = 35;
 		expect(parser.getSnapshot().progress).toEqual({
 			state: "running",
@@ -78,8 +98,23 @@ describe("runner subagent JSON event parser", () => {
 			elapsedMs: 25,
 		});
 
-		parser.pushChunk(jsonLine({ type: "tool_execution_update", toolCallId: "tool-1", toolName: "bash", partialResult: {} }));
-		parser.pushChunk(jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "bash", result: {}, isError: false }));
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_update",
+				toolCallId: "tool-1",
+				toolName: "bash",
+				partialResult: {},
+			}),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "bash",
+				result: {},
+				isError: false,
+			}),
+		);
 		parser.pushChunk(
 			jsonLine({
 				type: "turn_end",
@@ -88,7 +123,12 @@ describe("runner subagent JSON event parser", () => {
 			}),
 		);
 		now = 60;
-		parser.pushChunk(jsonLine({ type: "agent_end", messages: [{ role: "assistant", content: [], stopReason: "end" }] }));
+		parser.pushChunk(
+			jsonLine({
+				type: "agent_end",
+				messages: [{ role: "assistant", content: [], stopReason: "end" }],
+			}),
+		);
 
 		const snapshot = parser.getSnapshot();
 		expect(snapshot.stopReason).toBe("end");
@@ -114,7 +154,10 @@ describe("runner subagent JSON event parser", () => {
 		parser.pushChunk(
 			jsonLine({
 				type: "message_end",
-				message: { role: "assistant", content: [{ type: "text", text: "Done.\nEvidence: tests passed." }] },
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Done.\nEvidence: tests passed." }],
+				},
 			}),
 		);
 		expect(parser.getSnapshot().activity.assistantPreview).toBe("Done. Evidence: tests passed.");
@@ -131,7 +174,12 @@ describe("runner subagent JSON event parser", () => {
 	test("ignores non-visible assistant activity blocks", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "message_update", message: { role: "user", content: [{ type: "text", text: "Nope." }] } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message_update",
+				message: { role: "user", content: [{ type: "text", text: "Nope." }] },
+			}),
+		);
 		parser.pushChunk(
 			jsonLine({
 				type: "message_update",
@@ -153,14 +201,37 @@ describe("runner subagent JSON event parser", () => {
 	test("captures current tool input and last tool result activity", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "read", args: { path: "README.md" } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "read",
+				args: { path: "README.md" },
+			}),
+		);
 		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md"}');
 
-		parser.pushChunk(jsonLine({ type: "tool_execution_update", toolCallId: "tool-1", toolName: "read", partialResult: {} }));
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_update",
+				toolCallId: "tool-1",
+				toolName: "read",
+				partialResult: {},
+			}),
+		);
 		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md"}');
 
-		parser.pushChunk(jsonLine({ type: "tool_execution_update", toolCallId: "tool-1", toolName: "read", input: { path: "README.md", offset: 10 } }));
-		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe('{"path":"README.md","offset":10}');
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_update",
+				toolCallId: "tool-1",
+				toolName: "read",
+				input: { path: "README.md", offset: 10 },
+			}),
+		);
+		expect(parser.getSnapshot().activity.currentToolInputPreview).toBe(
+			'{"path":"README.md","offset":10}',
+		);
 
 		parser.pushChunk(
 			jsonLine({
@@ -181,7 +252,14 @@ describe("runner subagent JSON event parser", () => {
 	test("records error tool result activity", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: { command: "exit 1" } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "bash",
+				args: { command: "exit 1" },
+			}),
+		);
 		parser.pushChunk(
 			jsonLine({
 				type: "tool_execution_end",
@@ -227,12 +305,21 @@ describe("runner subagent JSON event parser", () => {
 	});
 
 	test("detects terminal tool calls mixed with sibling tools in the same turn", () => {
-		const parser = createRunnerSubagentJsonEventParser({ terminalToolNames: ["complete_runner_subagent"] });
+		const parser = createRunnerSubagentJsonEventParser({
+			terminalToolNames: ["complete_runner_subagent"],
+		});
 
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
-		parser.pushChunk(jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }));
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-2", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "bash", args: {} }),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-2",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
 
 		const snapshot = parser.getSnapshot();
@@ -241,14 +328,26 @@ describe("runner subagent JSON event parser", () => {
 	});
 
 	test("captures terminal execution errors without treating them as malformed JSONL", () => {
-		const parser = createRunnerSubagentJsonEventParser({ terminalToolNames: ["complete_runner_subagent"] });
+		const parser = createRunnerSubagentJsonEventParser({
+			terminalToolNames: ["complete_runner_subagent"],
+		});
 
 		parser.pushChunk(jsonLine({ type: "turn_start" }));
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_start", toolCallId: "tool-1", toolName: "complete_runner_subagent", args: {} }),
+			jsonLine({
+				type: "tool_execution_start",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				args: {},
+			}),
 		);
 		parser.pushChunk(
-			jsonLine({ type: "tool_execution_end", toolCallId: "tool-1", toolName: "complete_runner_subagent", isError: true }),
+			jsonLine({
+				type: "tool_execution_end",
+				toolCallId: "tool-1",
+				toolName: "complete_runner_subagent",
+				isError: true,
+			}),
 		);
 
 		const snapshot = parser.getSnapshot();
@@ -282,7 +381,11 @@ describe("runner subagent JSON event parser", () => {
 		parser.pushChunk(
 			jsonLine({
 				type: "turn_end",
-				message: { role: "assistant", content: [{ type: "text", text: "Turn answer." }], stopReason: "stop" },
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Turn answer." }],
+					stopReason: "stop",
+				},
 				toolResults: [],
 			}),
 		);
@@ -299,7 +402,11 @@ describe("runner subagent JSON event parser", () => {
 				messages: [
 					{ role: "assistant", content: [{ type: "text", text: "Earlier answer." }] },
 					{ role: "user", content: [{ type: "text", text: "Ignore me." }] },
-					{ role: "assistant", content: [{ type: "text", text: "Final answer." }], stopReason: "stop" },
+					{
+						role: "assistant",
+						content: [{ type: "text", text: "Final answer." }],
+						stopReason: "stop",
+					},
 				],
 			}),
 		);
@@ -310,7 +417,12 @@ describe("runner subagent JSON event parser", () => {
 	test("ignores text from non-assistant messages", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "user", content: [{ type: "text", text: "Nope." }] } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "user", content: [{ type: "text", text: "Nope." }] },
+			}),
+		);
 
 		expect(parser.getSnapshot().finalAssistantText).toBeUndefined();
 	});
@@ -338,8 +450,18 @@ describe("runner subagent JSON event parser", () => {
 	test("preserves the latest non-empty assistant text across turns", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "First." }] } }));
-		parser.pushChunk(jsonLine({ type: "turn_end", message: { role: "assistant", content: [{ type: "text", text: "Second." }] } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "First." }] },
+			}),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "turn_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Second." }] },
+			}),
+		);
 
 		expect(parser.getSnapshot().finalAssistantText).toBe("Second.");
 	});
@@ -347,8 +469,18 @@ describe("runner subagent JSON event parser", () => {
 	test("does not clear final assistant text when later assistant content is empty", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "Useful." }] } }));
-		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: [{ type: "text", text: "   " }] } }));
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "Useful." }] },
+			}),
+		);
+		parser.pushChunk(
+			jsonLine({
+				type: "message_end",
+				message: { role: "assistant", content: [{ type: "text", text: "   " }] },
+			}),
+		);
 		parser.pushChunk(jsonLine({ type: "turn_end", message: { role: "assistant", content: [] } }));
 
 		expect(parser.getSnapshot().finalAssistantText).toBe("Useful.");
@@ -357,14 +489,24 @@ describe("runner subagent JSON event parser", () => {
 	test("handles string and malformed content defensively", () => {
 		const parser = createRunnerSubagentJsonEventParser();
 
-		parser.pushChunk(jsonLine({ type: "message_end", message: { role: "assistant", content: "plain string" } }));
+		parser.pushChunk(
+			jsonLine({ type: "message_end", message: { role: "assistant", content: "plain string" } }),
+		);
 		expect(parser.getSnapshot().error).toBeUndefined();
 		expect(parser.getSnapshot().finalAssistantText).toBeUndefined();
 
 		parser.pushChunk(
 			jsonLine({
 				type: "message_end",
-				message: { role: "assistant", content: [null, "bad", { type: "text", text: 42 }, { type: "text", text: " Recovered. " }] },
+				message: {
+					role: "assistant",
+					content: [
+						null,
+						"bad",
+						{ type: "text", text: 42 },
+						{ type: "text", text: " Recovered. " },
+					],
+				},
 			}),
 		);
 

@@ -56,15 +56,7 @@ describe("generated options end to end", () => {
 	});
 
 	test("string-array options accumulate across repeats", async () => {
-		const request = await echoedRequest([
-			"echo",
-			"--name",
-			"x",
-			"--tags",
-			"a",
-			"--tags",
-			"b",
-		]);
+		const request = await echoedRequest(["echo", "--name", "x", "--tags", "a", "--tags", "b"]);
 		expect(request).toMatchObject({ tags: ["a", "b"] });
 	});
 

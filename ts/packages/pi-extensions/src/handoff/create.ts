@@ -30,17 +30,21 @@ Treat this as an explicit request to run the handoff create workflow. The handof
 Before writing, confirm the branch unless the user explicitly named one, derive the slug from the final artifact content, and check for an existing key. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin:
 
 ${fencedBlock(
-		"bash",
-		`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>
+	"bash",
+	`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>
 brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF`,
-	)}
+)}
 
 Report the created handoff first. Include Branch Memory details only as technical storage evidence.`;
 }
 
-export async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+export async function handleCreateHandoffCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
@@ -52,7 +56,10 @@ export async function handleCreateHandoffCommand(pi: ExtensionAPI, args: string,
 	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES, skill, skillReadError), skill ? "info" : "warning");
+		ctx.ui.notify(
+			createHandoffStartMessage(CREATE_HANDOFF_START_MESSAGES, skill, skillReadError),
+			skill ? "info" : "warning",
+		);
 	}
 	pi.sendUserMessage(buildCreateHandoffPrompt(skill?.block, focus));
 }

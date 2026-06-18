@@ -1,11 +1,19 @@
 import { type JsonSchemaDocument } from "@asdl/clinkr";
 
-import { downloadFeedbackRequestSchema, downloadFeedbackResultSchema, mapBranchPrsRequestSchema, mapBranchPrsResultSchema } from "./collection.ts";
+import {
+	downloadFeedbackRequestSchema,
+	downloadFeedbackResultSchema,
+	mapBranchPrsRequestSchema,
+	mapBranchPrsResultSchema,
+} from "./collection.ts";
 import { schemaDocument } from "./shared.ts";
 
 // TypeScript-owned `--json-schema` documents for retained downloader-only pr-address exec operations.
 const SCHEMA_DOCUMENT_BUILDERS: ReadonlyMap<string, () => JsonSchemaDocument> = new Map([
-	["download-feedback", () => schemaDocument(downloadFeedbackRequestSchema, downloadFeedbackResultSchema)],
+	[
+		"download-feedback",
+		() => schemaDocument(downloadFeedbackRequestSchema, downloadFeedbackResultSchema),
+	],
 	["map-branch-prs", () => schemaDocument(mapBranchPrsRequestSchema, mapBranchPrsResultSchema)],
 ]);
 

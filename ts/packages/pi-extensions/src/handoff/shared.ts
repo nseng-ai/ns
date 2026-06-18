@@ -38,8 +38,14 @@ If review or editing is needed before creating, iterate in chat, structured UI, 
 
 Confirm the current branch before writing unless the user explicitly names a branch. Use a specific semantic slug based on the final artifact body, check for an existing artifact before writing, report the created handoff first, and include branch, namespace, entry, locator/ref, and commit as technical evidence.`;
 
-export type HandoffExistsResult = { type: "exists" } | { type: "missing" } | { type: "failed"; message: string };
-export type HandoffCreateSkillLoadResult = { type: "found"; skill: ExpandedSkillBlock } | { type: "missing" } | { type: "failed"; message: string };
+export type HandoffExistsResult =
+	| { type: "exists" }
+	| { type: "missing" }
+	| { type: "failed"; message: string };
+export type HandoffCreateSkillLoadResult =
+	| { type: "found"; skill: ExpandedSkillBlock }
+	| { type: "missing" }
+	| { type: "failed"; message: string };
 
 export interface HandoffCreateSkillLoader {
 	loadCreateHandoffSkill(cwd: string): Promise<HandoffCreateSkillLoadResult>;
@@ -50,7 +56,11 @@ export interface HandoffStartMessages {
 	fallbackLabel: string;
 }
 
-export async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<string | undefined> {
+export async function resolveCreateFocus(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+): Promise<string | undefined> {
 	const focus = rawArgs.trim();
 	if (focus.length > 0) {
 		return focus;
@@ -66,7 +76,9 @@ export async function resolveCreateFocus(pi: ExtensionAPI, rawArgs: string, ctx:
 		return undefined;
 	}
 
-	pi.sendUserMessage(`Ask the user exactly this question before creating a handoff: ${CREATE_FOCUS_QUESTION}\n\nDo not create a handoff until the user answers with a meaningful continuation focus.`);
+	pi.sendUserMessage(
+		`Ask the user exactly this question before creating a handoff: ${CREATE_FOCUS_QUESTION}\n\nDo not create a handoff until the user answers with a meaningful continuation focus.`,
+	);
 	return undefined;
 }
 
@@ -84,7 +96,10 @@ export const realHandoffCreateSkillLoader = {
 	},
 } satisfies HandoffCreateSkillLoader;
 
-export async function expandHandoffSkill(cwd: string, skillName: string): Promise<ExpandedSkillBlock | undefined> {
+export async function expandHandoffSkill(
+	cwd: string,
+	skillName: string,
+): Promise<ExpandedSkillBlock | undefined> {
 	try {
 		return await expandRepoSkillBlock({ cwd, skillName });
 	} catch (error) {
@@ -96,7 +111,11 @@ export async function expandHandoffSkill(cwd: string, skillName: string): Promis
 	}
 }
 
-export async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, action: "pick up" | "list" | "create"): Promise<string> {
+export async function currentBranch(
+	pi: ExtensionAPI,
+	ctx: Pick<CommandContext, "cwd">,
+	action: "pick up" | "list" | "create",
+): Promise<string> {
 	const commandArgs = ["branch", "--show-current"];
 	let result: ExecResult;
 	try {
@@ -110,13 +129,19 @@ export async function currentBranch(pi: ExtensionAPI, ctx: Pick<CommandContext, 
 
 	const branch = result.stdout.trim();
 	if (branch.length === 0) {
-		const recovery = action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
+		const recovery =
+			action === "list" ? "pass --branch <branch> or --all" : "pass --branch <branch>";
 		throw new Error(`Cannot ${action} handoffs in detached HEAD; ${recovery}.`);
 	}
 	return branch;
 }
 
-export async function checkHandoffExists(pi: ExtensionAPI, cwd: string, branch: string, key: string): Promise<HandoffExistsResult> {
+export async function checkHandoffExists(
+	pi: ExtensionAPI,
+	cwd: string,
+	branch: string,
+	key: string,
+): Promise<HandoffExistsResult> {
 	const result = await checkBrmemEntry({
 		gateway: pi,
 		cwd,
@@ -156,14 +181,20 @@ export function createHandoffStartMessage(
 }
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
-	const status = result.killed ? `exit code ${result.code}; process was killed or timed out` : `exit code ${result.code}`;
+	const status = result.killed
+		? `exit code ${result.code}; process was killed or timed out`
+		: `exit code ${result.code}`;
 	const stdout = result.stdout.trimEnd() || "(empty)";
 	const stderr = result.stderr.trimEnd() || "(empty)";
-	return truncateError(`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`);
+	return truncateError(
+		`command failed (${status}).\n\n$ ${commandDisplay}\n\nstdout:\n${stdout}\n\nstderr:\n${stderr}`,
+	);
 }
 
 export function formatStartupFailure(commandDisplay: string, error: unknown): string {
-	return truncateError(`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`);
+	return truncateError(
+		`command failed before completion.\n\n$ ${commandDisplay}\n\nerror:\n${formatErrorMessage(error)}`,
+	);
 }
 
 export function fencedBlock(language: string, content: string): string {

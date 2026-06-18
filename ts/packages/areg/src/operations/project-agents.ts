@@ -27,19 +27,34 @@ export function parseAsdlAregAgents(text: string, pathLabel = "asdl.toml"): Resu
 	try {
 		data = parseToml(text);
 	} catch (error) {
-		return err({ code: "asdl_toml_invalid", message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}` });
+		return err({
+			code: "asdl_toml_invalid",
+			message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
+		});
 	}
 	if (!isRecord(data)) return { ok: true, value: [] };
 	const areg = data.areg;
 	if (areg === undefined) return { ok: true, value: [] };
-	if (!isRecord(areg)) return err({ code: "asdl_toml_invalid", message: `[areg] in ${pathLabel} must be a TOML table.` });
+	if (!isRecord(areg))
+		return err({
+			code: "asdl_toml_invalid",
+			message: `[areg] in ${pathLabel} must be a TOML table.`,
+		});
 	const agents = areg.agents;
 	if (agents === undefined) return { ok: true, value: [] };
-	if (!Array.isArray(agents)) return err({ code: "asdl_toml_invalid", message: `${pathLabel} [areg].agents must be a string array.` });
+	if (!Array.isArray(agents))
+		return err({
+			code: "asdl_toml_invalid",
+			message: `${pathLabel} [areg].agents must be a string array.`,
+		});
 	if (agents.length === 0) return { ok: true, value: [] };
 	const result: string[] = [];
 	for (const agent of agents) {
-		if (typeof agent !== "string" || agent.trim().length === 0) return err({ code: "asdl_toml_invalid", message: `${pathLabel} [areg].agents must be a non-empty string list.` });
+		if (typeof agent !== "string" || agent.trim().length === 0)
+			return err({
+				code: "asdl_toml_invalid",
+				message: `${pathLabel} [areg].agents must be a non-empty string list.`,
+			});
 		result.push(agent);
 	}
 	return { ok: true, value: result };
@@ -50,14 +65,26 @@ export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
 	try {
 		data = JSON.parse(text);
 	} catch (error) {
-		return err({ code: "areg_json_invalid", message: `Invalid JSON in areg.json: ${formatErrorMessage(error)}` });
+		return err({
+			code: "areg_json_invalid",
+			message: `Invalid JSON in areg.json: ${formatErrorMessage(error)}`,
+		});
 	}
-	if (!isRecord(data)) return err({ code: "areg_json_invalid", message: "areg.json must contain a JSON object." });
+	if (!isRecord(data))
+		return err({ code: "areg_json_invalid", message: "areg.json must contain a JSON object." });
 	const agents = data.agents;
-	if (!Array.isArray(agents) || agents.length === 0) return err({ code: "areg_agents_invalid", message: "areg.json field `agents` must be a non-empty string list." });
+	if (!Array.isArray(agents) || agents.length === 0)
+		return err({
+			code: "areg_agents_invalid",
+			message: "areg.json field `agents` must be a non-empty string list.",
+		});
 	const result: string[] = [];
 	for (const agent of agents) {
-		if (typeof agent !== "string" || agent.trim().length === 0) return err({ code: "areg_agents_invalid", message: "areg.json field `agents` must be a non-empty string list." });
+		if (typeof agent !== "string" || agent.trim().length === 0)
+			return err({
+				code: "areg_agents_invalid",
+				message: "areg.json field `agents` must be a non-empty string list.",
+			});
 		result.push(agent);
 	}
 	return { ok: true, value: result };
@@ -65,12 +92,24 @@ export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
 
 function parseAsdlAregAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
-	if (state.type !== "file") return rejectTextState({ pathLabel: "asdl.toml", state, description: "asdl.toml", action: "manage it" });
+	if (state.type !== "file")
+		return rejectTextState({
+			pathLabel: "asdl.toml",
+			state,
+			description: "asdl.toml",
+			action: "manage it",
+		});
 	return parseAsdlAregAgents(state.text, "asdl.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {
 	if (state.type === "missing") return { ok: true, value: [] };
-	if (state.type !== "file") return rejectTextState({ pathLabel: "areg.json", state, description: "areg.json", action: "manage it" });
+	if (state.type !== "file")
+		return rejectTextState({
+			pathLabel: "areg.json",
+			state,
+			description: "areg.json",
+			action: "manage it",
+		});
 	return parseLegacyAregJsonAgents(state.text);
 }

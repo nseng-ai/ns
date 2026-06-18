@@ -5,7 +5,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "bin": {
     "branch-context": "./src/cli.ts"
   },
@@ -17,7 +19,7 @@
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "@asdl/plans": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   },
   "devDependencies": {}
 }

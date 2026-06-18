@@ -147,7 +147,8 @@ export class RunnerSubagentJsonEventParser {
 		if (this.sessionHeader) snapshot.sessionHeader = this.sessionHeader;
 		if (this.stopReason) snapshot.stopReason = this.stopReason;
 		if (this.errorMessage) snapshot.errorMessage = this.errorMessage;
-		if (this.finalAssistantText !== undefined) snapshot.finalAssistantText = this.finalAssistantText;
+		if (this.finalAssistantText !== undefined)
+			snapshot.finalAssistantText = this.finalAssistantText;
 		if (this.parseError) snapshot.error = this.parseError;
 		if (this.protocolError) snapshot.protocolError = this.protocolError;
 		if (this.terminalExecutionError) snapshot.terminalExecutionError = this.terminalExecutionError;
@@ -366,7 +367,9 @@ export class RunnerSubagentJsonEventParser {
 		// and fail a mixed terminal batch deterministically, but an earlier sibling may
 		// already have run before the terminal protocol violation is observable.
 		if (this.protocolError || this.terminalToolNames.size === 0) return;
-		const terminalStarts = this.currentTurnToolStarts.filter((start) => this.terminalToolNames.has(start.toolName));
+		const terminalStarts = this.currentTurnToolStarts.filter((start) =>
+			this.terminalToolNames.has(start.toolName),
+		);
 		if (terminalStarts.length === 0) return;
 		if (terminalStarts.length > 1) {
 			this.protocolError = {
@@ -425,7 +428,11 @@ export class RunnerSubagentJsonEventParser {
 	}
 
 	private fail(line: string, cause: unknown): void {
-		this.parseError = new RunnerSubagentJsonEventParserError(`Malformed runner subagent Pi JSONL output: ${formatErrorMessage(cause)}`, line, cause);
+		this.parseError = new RunnerSubagentJsonEventParserError(
+			`Malformed runner subagent Pi JSONL output: ${formatErrorMessage(cause)}`,
+			line,
+			cause,
+		);
 		this.markStopped();
 	}
 
@@ -467,7 +474,9 @@ function isJsonEvent(value: unknown): value is JsonEvent {
 function sanitizeLaunchMetadataText(value: string): string | undefined {
 	const sanitized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
 	if (sanitized.length === 0) return undefined;
-	return sanitized.length <= MAX_LAUNCH_METADATA_TEXT_CHARS ? sanitized : sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
+	return sanitized.length <= MAX_LAUNCH_METADATA_TEXT_CHARS
+		? sanitized
+		: sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
 export function isRecord(value: unknown): value is JsonRecord {
@@ -475,5 +484,7 @@ export function isRecord(value: unknown): value is JsonRecord {
 }
 
 function hasToolInputValue(event: JsonRecord): boolean {
-	return ["args", "arguments", "input"].some((key) => Object.prototype.hasOwnProperty.call(event, key));
+	return ["args", "arguments", "input"].some((key) =>
+		Object.prototype.hasOwnProperty.call(event, key),
+	);
 }

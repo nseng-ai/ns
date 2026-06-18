@@ -33,10 +33,20 @@ interface UpdateRun {
 }
 
 function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}): UpdateRun {
-	const host = new FakeAregHostGateway({ tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" } });
-	const npxSkills = new FakeAregNpxSkillsGateway({ failure: options.npxFailure, failures: options.npxFailures });
-	const defaultUpdateProject = { lockfile: lockfile({ beta: github("other/repo"), alpha: github("owner/repo") }) };
-	const projectGateway = new FakeAregProjectGateway({ ...defaultUpdateProject, ...options.project });
+	const host = new FakeAregHostGateway({
+		tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" },
+	});
+	const npxSkills = new FakeAregNpxSkillsGateway({
+		failure: options.npxFailure,
+		failures: options.npxFailures,
+	});
+	const defaultUpdateProject = {
+		lockfile: lockfile({ beta: github("other/repo"), alpha: github("owner/repo") }),
+	};
+	const projectGateway = new FakeAregProjectGateway({
+		...defaultUpdateProject,
+		...options.project,
+	});
 	const context: AregCliContext = {
 		host,
 		github: new FakeAregGithubGateway(),
@@ -66,38 +76,78 @@ function local(name: string): object {
 
 describe("areg update-skills CLI", () => {
 	test("updates GitHub-sourced skills one at a time in sorted skill order", async () => {
-		const run = runUpdate([], { project: { projectDir: "/repo/project", lockfile: lockfile({ zeta: github("owner/z"), local: local("local"), alpha: github("owner/a") }) } });
+		const run = runUpdate([], {
+			project: {
+				projectDir: "/repo/project",
+				lockfile: lockfile({
+					zeta: github("owner/z"),
+					local: local("local"),
+					alpha: github("owner/a"),
+				}),
+			},
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
 		expect(run.stdout.join("")).toContain("Updated 2 skill(s).");
 		expect(run.npxSkills.operations()).toEqual([
-			{ type: "add-skills", sourceRepo: "owner/a", skillNames: ["alpha"], targetAgents: ["codex", "claude-code"], cwd: "/repo/project" },
-			{ type: "add-skills", sourceRepo: "owner/z", skillNames: ["zeta"], targetAgents: ["codex", "claude-code"], cwd: "/repo/project" },
+			{
+				type: "add-skills",
+				sourceRepo: "owner/a",
+				skillNames: ["alpha"],
+				targetAgents: ["codex", "claude-code"],
+				cwd: "/repo/project",
+			},
+			{
+				type: "add-skills",
+				sourceRepo: "owner/z",
+				skillNames: ["zeta"],
+				targetAgents: ["codex", "claude-code"],
+				cwd: "/repo/project",
+			},
 		]);
 	});
 
 	test("filters by skill and source", async () => {
 		const bySkill = runUpdate(["--skill", "beta", "--skill", "alpha"]);
 		expect(await bySkill.exit).toBe(0);
-		expect(bySkill.npxSkills.operations().map((operation) => operation.skillNames[0])).toEqual(["alpha", "beta"]);
+		expect(bySkill.npxSkills.operations().map((operation) => operation.skillNames[0])).toEqual([
+			"alpha",
+			"beta",
+		]);
 
 		const bySource = runUpdate(["--source", "owner/repo"]);
 		expect(await bySource.exit).toBe(0);
-		expect(bySource.npxSkills.operations()).toEqual([{ type: "add-skills", sourceRepo: "owner/repo", skillNames: ["alpha"], targetAgents: ["codex", "claude-code"], cwd: "/repo" }]);
+		expect(bySource.npxSkills.operations()).toEqual([
+			{
+				type: "add-skills",
+				sourceRepo: "owner/repo",
+				skillNames: ["alpha"],
+				targetAgents: ["codex", "claude-code"],
+				cwd: "/repo",
+			},
+		]);
 	});
 
 	test("unknown requested skills fail before npx preflight or update calls", async () => {
 		const run = runUpdate(["--skill", "missing"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Skill(s) not found in lockfile (or not github-sourced): missing");
+		expect(run.stderr.join("")).toContain(
+			"Skill(s) not found in lockfile (or not github-sourced): missing",
+		);
 		expect(run.host.operations()).toEqual([]);
 		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
 	test("no match succeeds without resolving invalid config or checking npx", async () => {
-		const run = runUpdate([], { project: { lockfile: lockfile({ local: local("local") }), asdlToml: "[areg]\nagents = [1]\n" }, npxMissing: true });
+		const run = runUpdate([], {
+			project: {
+				lockfile: lockfile({ local: local("local") }),
+				asdlToml: "[areg]\nagents = [1]\n",
+			},
+			npxMissing: true,
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("No github-sourced skills match. Nothing to update.\n");
@@ -109,14 +159,18 @@ describe("areg update-skills CLI", () => {
 		const run = runUpdate(["--dry-run"], { npxMissing: true });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Updating 2 skill(s) with agents codex, claude-code [dry-run]:");
+		expect(run.stdout.join("")).toContain(
+			"Updating 2 skill(s) with agents codex, claude-code [dry-run]:",
+		);
 		expect(run.stdout.join("")).toContain("Planned: 2 skill(s). No changes made.");
 		expect(run.host.operations()).toEqual([]);
 		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
 	test("resolves agents from config precedence and explicit overrides", async () => {
-		const asdl = runUpdate([], { project: { asdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } } });
+		const asdl = runUpdate([], {
+			project: { asdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
+		});
 		expect(await asdl.exit).toBe(0);
 		expect(asdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
 
@@ -132,12 +186,16 @@ describe("areg update-skills CLI", () => {
 	test("selected updates fail on invalid config, missing lockfile, malformed lockfile, and missing npx before calls", async () => {
 		const invalidConfig = runUpdate([], { project: { asdlToml: "[areg]\nagents = [1]\n" } });
 		expect(await invalidConfig.exit).toBe(2);
-		expect(invalidConfig.stderr.join("")).toContain("asdl.toml [areg].agents must be a non-empty string list");
+		expect(invalidConfig.stderr.join("")).toContain(
+			"asdl.toml [areg].agents must be a non-empty string list",
+		);
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 
 		const missingLockfile = runUpdate([], { project: { lockfile: { type: "missing" } } });
 		expect(await missingLockfile.exit).toBe(2);
-		expect(missingLockfile.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
+		expect(missingLockfile.stderr.join("")).toContain(
+			"skills-lock.json not found in /repo. Is this an areg project?",
+		);
 
 		const malformed = runUpdate([], { project: { lockfile: "{" } });
 		expect(await malformed.exit).toBe(2);
@@ -150,10 +208,15 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("partial failures attempt all selected skills and return structured JSON details", async () => {
-		const run = runUpdate(["--format", "json"], { npxFailures: { "owner/repo:alpha": { code: "npx-failed", message: "alpha failed" } } });
+		const run = runUpdate(["--format", "json"], {
+			npxFailures: { "owner/repo:alpha": { code: "npx-failed", message: "alpha failed" } },
+		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.npxSkills.operations().map((operation) => operation.skillNames[0])).toEqual(["alpha", "beta"]);
+		expect(run.npxSkills.operations().map((operation) => operation.skillNames[0])).toEqual([
+			"alpha",
+			"beta",
+		]);
 		const body = JSON.parse(run.stdout.join(""));
 		expect(body).toMatchObject({
 			exit_code: 2,

@@ -23,7 +23,11 @@ export interface ClinkrFailureExit {
 	message: string;
 }
 
-export type ClinkrExit<T> = ClinkrOkExit<T> | ClinkrNegativeExit<T> | ClinkrShellNegativeExit<T> | ClinkrFailureExit;
+export type ClinkrExit<T> =
+	| ClinkrOkExit<T>
+	| ClinkrNegativeExit<T>
+	| ClinkrShellNegativeExit<T>
+	| ClinkrFailureExit;
 
 /**
  * The semantic machine envelope emitted under `--format json`, at exact parity
@@ -56,7 +60,9 @@ export interface BuildFailureMachineEnvelopeSchemaOptions {
 
 const machineEnvelopeHeaderSchema = machineEnvelopeSchema.pick({ exit_code: true });
 
-export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(dataSchema: DataSchema) {
+export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(
+	dataSchema: DataSchema,
+) {
 	return machineEnvelopeHeaderSchema
 		.extend({
 			exit_code: z.literal(0),
@@ -65,7 +71,9 @@ export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(
 		.strict();
 }
 
-export function buildFailureMachineEnvelopeSchema(options: BuildFailureMachineEnvelopeSchemaOptions = {}) {
+export function buildFailureMachineEnvelopeSchema(
+	options: BuildFailureMachineEnvelopeSchemaOptions = {},
+) {
 	return machineEnvelopeHeaderSchema
 		.extend({
 			exit_code: options.exitCodeSchema ?? z.union([z.literal(1), z.literal(2)]),
@@ -93,7 +101,10 @@ export function failure(errorType: string, message: string): ClinkrFailureExit {
 	return { type: "failure", errorType, message };
 }
 
-export function exitCodeForExit(exit: ClinkrExit<unknown>, options: ClinkrExitCodeOptions = {}): 0 | 1 | 2 {
+export function exitCodeForExit(
+	exit: ClinkrExit<unknown>,
+	options: ClinkrExitCodeOptions = {},
+): 0 | 1 | 2 {
 	switch (exit.type) {
 		case "ok":
 			return 0;

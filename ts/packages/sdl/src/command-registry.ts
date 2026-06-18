@@ -2,7 +2,14 @@ import { defaultChangesCommand } from "./default-commands/changes.ts";
 import { defaultCpCommand } from "./default-commands/cp.ts";
 import { defaultRegeneratePrCommand } from "./default-commands/regenerate-pr.ts";
 import { defaultSubmitCommand } from "./default-commands/submit.ts";
-import { failed, z, type SdlCommand, type SdlCommandSchema, type SdlContext, type SdlResult } from "./sdk.ts";
+import {
+	failed,
+	z,
+	type SdlCommand,
+	type SdlCommandSchema,
+	type SdlContext,
+	type SdlResult,
+} from "./sdk.ts";
 import {
 	CHANGES_MODEL_ENV,
 	CHECKPOINT_MODEL_ENV,
@@ -71,12 +78,14 @@ Environment:
 	},
 	"regenerate-pr": {
 		command: defaultRegeneratePrCommand,
-		summary: "Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
+		summary:
+			"Regenerate the current branch PR's title and description with the asdl PR-description prompt.",
 		description: defaultRegeneratePrCommand.description,
 	},
 	submit: {
 		command: defaultSubmitCommand,
-		summary: "Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
+		summary:
+			"Checkpoint outstanding changes, then submit the current Graphite stack with gt submit -nps --no-ai --no-interactive.",
 		description: defaultSubmitCommand.description,
 	},
 } as const satisfies Record<string, BuiltInCommandDefinition>;
@@ -111,15 +120,31 @@ export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] 
 }
 
 export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return listBuiltInSdlCommandCandidates().map(({ name, description, fullDescription }) => ({ name, description, fullDescription }));
+	return listBuiltInSdlCommandCandidates().map(({ name, description, fullDescription }) => ({
+		name,
+		description,
+		fullDescription,
+	}));
 }
 
-export function commandInfoForLoadedCommand(command: SdlCommand, sourceLevel: SdlCommandSourceLevel): SdlCommandCliInfo {
+export function commandInfoForLoadedCommand(
+	command: SdlCommand,
+	sourceLevel: SdlCommandSourceLevel,
+): SdlCommandCliInfo {
 	if (sourceLevel === "built-in" && Object.hasOwn(builtInCommandDefinitions, command.name)) {
-		const definition = builtInCommandDefinitions[command.name as keyof typeof builtInCommandDefinitions];
-		return { name: command.name, description: definition.summary, fullDescription: definition.description };
+		const definition =
+			builtInCommandDefinitions[command.name as keyof typeof builtInCommandDefinitions];
+		return {
+			name: command.name,
+			description: definition.summary,
+			fullDescription: definition.description,
+		};
 	}
-	return { name: command.name, description: command.description, fullDescription: command.description };
+	return {
+		name: command.name,
+		description: command.description,
+		fullDescription: command.description,
+	};
 }
 
 export function validateSdlExtensionContribution(
@@ -129,7 +154,10 @@ export function validateSdlExtensionContribution(
 ): { ok: true; command: SdlCommand } | { ok: false; message: string } {
 	const parsed = sdlExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
-		return { ok: false, message: `Invalid SDL extension contribution ${sourceLabel}: ${formatSdlExtensionIssue(parsed.error.issues[0])}` };
+		return {
+			ok: false,
+			message: `Invalid SDL extension contribution ${sourceLabel}: ${formatSdlExtensionIssue(parsed.error.issues[0])}`,
+		};
 	}
 
 	const command = findCommandEntry(parsed.data, expectedCommandName);
@@ -143,10 +171,17 @@ export function validateSdlExtensionContribution(
 	return { ok: true, command };
 }
 
-export async function executeSdlCommand(ctx: SdlContext, command: SdlCommand, request: unknown): Promise<SdlResult> {
+export async function executeSdlCommand(
+	ctx: SdlContext,
+	command: SdlCommand,
+	request: unknown,
+): Promise<SdlResult> {
 	const parsedRequest = (command.schema ?? z.object({})).safeParse(request);
 	if (!parsedRequest.success) {
-		return failed(`Invalid request for command ${command.name}: ${parsedRequest.error.issues[0]?.message ?? "request did not match command schema"}`, 2);
+		return failed(
+			`Invalid request for command ${command.name}: ${parsedRequest.error.issues[0]?.message ?? "request did not match command schema"}`,
+			2,
+		);
 	}
 
 	try {
@@ -173,7 +208,10 @@ export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function findCommandEntry(extension: { commands: readonly SdlCommand[] }, expectedName: string): SdlCommand | undefined {
+function findCommandEntry(
+	extension: { commands: readonly SdlCommand[] },
+	expectedName: string,
+): SdlCommand | undefined {
 	return extension.commands.find((command) => command.name === expectedName);
 }
 

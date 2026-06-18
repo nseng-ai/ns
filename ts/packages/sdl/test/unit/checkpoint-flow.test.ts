@@ -1,7 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import { buildCheckpointUserPrompt, createCommitWithPreparedMessage, prepareCheckpointMessage, type CommandResult } from "@asdl/sdl/checkpoint-flow";
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "@asdl/sdl/text-generation";
+import {
+	buildCheckpointUserPrompt,
+	createCommitWithPreparedMessage,
+	prepareCheckpointMessage,
+	type CommandResult,
+} from "@asdl/sdl/checkpoint-flow";
+import type {
+	TextGenerationGateway,
+	TextGenerationRequest,
+	TextGenerationResult,
+} from "@asdl/sdl/text-generation";
 
 const validMessage = `[cp] Update checkpoint tests
 
@@ -66,7 +75,10 @@ describe("buildCheckpointUserPrompt", () => {
 	});
 
 	test("large diff is compacted with paths and omitted markers", () => {
-		const prompt = buildCheckpointUserPrompt({ status: " M src/large-one.ts\n M src/large-two.ts\n", diff: largeDiffWithSentinel() });
+		const prompt = buildCheckpointUserPrompt({
+			status: " M src/large-one.ts\n M src/large-two.ts\n",
+			diff: largeDiffWithSentinel(),
+		});
 
 		expect(prompt.length).toBeLessThan(26_000);
 		expect(prompt).toContain("Large diff compacted for checkpoint message generation.");
@@ -212,7 +224,9 @@ describe("prepareCheckpointMessage", () => {
 
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.error).toContain("Model produced an invalid checkpoint message after 2 attempts.");
+			expect(result.error).toContain(
+				"Model produced an invalid checkpoint message after 2 attempts.",
+			);
 			expect(result.error).toContain("missing_cp_prefix");
 		}
 		expect(textGeneration.calls).toHaveLength(2);

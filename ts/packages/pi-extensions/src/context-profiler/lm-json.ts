@@ -8,7 +8,11 @@ interface SafeParseSchema<T> {
 	safeParse(input: unknown): SafeParseResult<T>;
 }
 
-export function parseLmJson<T>(text: string, schema: SafeParseSchema<T>, options: { invalidShapeError: string }): LmJsonParseResult<T> {
+export function parseLmJson<T>(
+	text: string,
+	schema: SafeParseSchema<T>,
+	options: { invalidShapeError: string },
+): LmJsonParseResult<T> {
 	const jsonText = extractJsonObjectText(text);
 	if (jsonText === null) return { ok: false, error: "response contains no JSON object" };
 	let parsed: unknown;

@@ -28,7 +28,11 @@ describe("renderTextTable", () => {
 		});
 
 		expect(rendered).toBe(
-			["OBJECTIVE             BRANCHES", "slot-typescript-port  ├ 1/2 alpha", "                      └ 2/2 beta"].join("\n"),
+			[
+				"OBJECTIVE             BRANCHES",
+				"slot-typescript-port  ├ 1/2 alpha",
+				"                      └ 2/2 beta",
+			].join("\n"),
 		);
 	});
 
@@ -68,7 +72,10 @@ describe("renderTextTable", () => {
 
 	test("applies ANSI styling only when color is enabled, keeping alignment", () => {
 		const esc = String.fromCharCode(0x1b);
-		const columns = [{ header: "OBJECTIVE", style: "bold-cyan" as const }, { header: "LATEST", style: "dim" as const }];
+		const columns = [
+			{ header: "OBJECTIVE", style: "bold-cyan" as const },
+			{ header: "LATEST", style: "dim" as const },
+		];
 		const rows = [["alpha", "2026-06-13"]];
 
 		const plain = renderTextTable({ columns, rows, headerStyle: "bold-cyan", canEmitAnsi: false });
@@ -103,7 +110,10 @@ describe("renderTextTable", () => {
 	test("does not wrap empty continuation cells in escape codes", () => {
 		const esc = String.fromCharCode(0x1b);
 		const rendered = renderTextTable({
-			columns: [{ header: "A", style: "bold-cyan" }, { header: "B", style: "dim" }],
+			columns: [
+				{ header: "A", style: "bold-cyan" },
+				{ header: "B", style: "dim" },
+			],
 			rows: [["x\ny", "one"]],
 			canEmitAnsi: true,
 		});
@@ -114,7 +124,9 @@ describe("renderTextTable", () => {
 	});
 
 	test("throws when a row's cell count does not match the columns", () => {
-		expect(() => renderTextTable({ columns: [{ header: "a" }, { header: "b" }], rows: [["only-one"]] })).toThrow(/2 columns/);
+		expect(() =>
+			renderTextTable({ columns: [{ header: "a" }, { header: "b" }], rows: [["only-one"]] }),
+		).toThrow(/2 columns/);
 	});
 });
 

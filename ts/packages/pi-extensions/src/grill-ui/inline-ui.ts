@@ -1,7 +1,15 @@
-import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskInput } from "../grill-ui.ts";
+import type {
+	GrillAskCustomComponent,
+	GrillAskToolContext,
+	NormalizedGrillAskInput,
+} from "../grill-ui.ts";
 import { GrillAskController, type GrillAskOutcome } from "./controller.ts";
 import { readGrillAskProgress } from "./progress.ts";
-import { renderGrillAskInlineUi, type GrillAskRenderPrimitives, type GrillAskRenderTheme } from "./render.ts";
+import {
+	renderGrillAskInlineUi,
+	type GrillAskRenderPrimitives,
+	type GrillAskRenderTheme,
+} from "./render.ts";
 
 interface EditorLike {
 	focused?: boolean;
@@ -21,7 +29,12 @@ export interface GrillAskInlineRuntime {
 	truncateToWidth(value: string, width: number, ellipsis?: string): string;
 	wrapTextWithAnsi?: (value: string, width: number) => string[];
 	visibleWidth?: (value: string) => number;
-	Markdown?: new (text: string, paddingX: number, paddingY: number, theme: unknown) => { render(width: number): string[] };
+	Markdown?: new (
+		text: string,
+		paddingX: number,
+		paddingY: number,
+		theme: unknown,
+	) => { render(width: number): string[] };
 	markdownTheme?: unknown;
 }
 
@@ -41,7 +54,14 @@ export function runGrillAskInlineUiWithRuntime(
 ): Promise<GrillAskOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
 	return ctx.ui.custom<GrillAskOutcome>((tui, theme, _keybindings, done) =>
-		createGrillAskInlineComponent(input, runtime, tui, grillAskRenderThemeFromValue(theme), done, ctx),
+		createGrillAskInlineComponent(
+			input,
+			runtime,
+			tui,
+			grillAskRenderThemeFromValue(theme),
+			done,
+			ctx,
+		),
 	);
 }
 
@@ -80,7 +100,11 @@ export function grillAskInlineRuntimeFromModule(
 	const Editor = moduleValue.Editor;
 	const matchesKey = moduleValue.matchesKey;
 	const truncateToWidth = moduleValue.truncateToWidth;
-	if (!isEditorConstructor(Editor) || !isMatchesKeyFunction(matchesKey) || !isTruncateToWidthFunction(truncateToWidth)) {
+	if (
+		!isEditorConstructor(Editor) ||
+		!isMatchesKeyFunction(matchesKey) ||
+		!isTruncateToWidthFunction(truncateToWidth)
+	) {
 		throw missingInlineRuntimeError();
 	}
 
@@ -92,8 +116,10 @@ export function grillAskInlineRuntimeFromModule(
 
 	const Key = keyMapFromValue(moduleValue.Key);
 	if (Key !== undefined) runtime.Key = Key;
-	if (isWrapTextWithAnsiFunction(moduleValue.wrapTextWithAnsi)) runtime.wrapTextWithAnsi = moduleValue.wrapTextWithAnsi;
-	if (isVisibleWidthFunction(moduleValue.visibleWidth)) runtime.visibleWidth = moduleValue.visibleWidth;
+	if (isWrapTextWithAnsiFunction(moduleValue.wrapTextWithAnsi))
+		runtime.wrapTextWithAnsi = moduleValue.wrapTextWithAnsi;
+	if (isVisibleWidthFunction(moduleValue.visibleWidth))
+		runtime.visibleWidth = moduleValue.visibleWidth;
 	if (isMarkdownConstructor(moduleValue.Markdown)) runtime.Markdown = moduleValue.Markdown;
 	if (markdownTheme !== undefined) runtime.markdownTheme = markdownTheme;
 
@@ -251,12 +277,15 @@ function renderPrimitives(runtime: GrillAskInlineRuntime): GrillAskRenderPrimiti
 	const markdownTheme = runtime.markdownTheme;
 	return {
 		truncateToWidth: runtime.truncateToWidth,
-		...(runtime.wrapTextWithAnsi === undefined ? {} : { wrapTextWithAnsi: runtime.wrapTextWithAnsi }),
+		...(runtime.wrapTextWithAnsi === undefined
+			? {}
+			: { wrapTextWithAnsi: runtime.wrapTextWithAnsi }),
 		...(runtime.visibleWidth === undefined ? {} : { visibleWidth: runtime.visibleWidth }),
 		...(Markdown === undefined || markdownTheme === undefined
 			? {}
 			: {
-					renderMarkdown: (markdown: string, width: number) => new Markdown(markdown, 0, 0, markdownTheme).render(width),
+					renderMarkdown: (markdown: string, width: number) =>
+						new Markdown(markdown, 0, 0, markdownTheme).render(width),
 				}),
 	};
 }
@@ -266,7 +295,11 @@ function rowShortcutIndex(data: string): number | undefined {
 	return Number.parseInt(data, 10);
 }
 
-function matches(runtime: GrillAskInlineRuntime, data: string, keyName: "up" | "down" | "enter" | "escape"): boolean {
+function matches(
+	runtime: GrillAskInlineRuntime,
+	data: string,
+	keyName: "up" | "down" | "enter" | "escape",
+): boolean {
 	const key = runtime.Key?.[keyName] ?? keyName;
 	if (runtime.matchesKey(data, key)) return true;
 	if (keyName === "enter") return runtime.matchesKey(data, "return");
@@ -290,7 +323,9 @@ async function loadMarkdownTheme(): Promise<unknown | undefined> {
 }
 
 function missingInlineRuntimeError(): Error {
-	return new Error("Pi TUI runtime does not provide the components required by grill_ask inline UI");
+	return new Error(
+		"Pi TUI runtime does not provide the components required by grill_ask inline UI",
+	);
 }
 
 function keyMapFromValue(value: unknown): Record<string, string> | undefined {
@@ -311,19 +346,27 @@ function isMatchesKeyFunction(value: unknown): value is GrillAskInlineRuntime["m
 	return typeof value === "function";
 }
 
-function isTruncateToWidthFunction(value: unknown): value is GrillAskInlineRuntime["truncateToWidth"] {
+function isTruncateToWidthFunction(
+	value: unknown,
+): value is GrillAskInlineRuntime["truncateToWidth"] {
 	return typeof value === "function";
 }
 
-function isWrapTextWithAnsiFunction(value: unknown): value is NonNullable<GrillAskInlineRuntime["wrapTextWithAnsi"]> {
+function isWrapTextWithAnsiFunction(
+	value: unknown,
+): value is NonNullable<GrillAskInlineRuntime["wrapTextWithAnsi"]> {
 	return typeof value === "function";
 }
 
-function isVisibleWidthFunction(value: unknown): value is NonNullable<GrillAskInlineRuntime["visibleWidth"]> {
+function isVisibleWidthFunction(
+	value: unknown,
+): value is NonNullable<GrillAskInlineRuntime["visibleWidth"]> {
 	return typeof value === "function";
 }
 
-function isMarkdownConstructor(value: unknown): value is NonNullable<GrillAskInlineRuntime["Markdown"]> {
+function isMarkdownConstructor(
+	value: unknown,
+): value is NonNullable<GrillAskInlineRuntime["Markdown"]> {
 	return typeof value === "function";
 }
 

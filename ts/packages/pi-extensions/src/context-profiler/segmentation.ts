@@ -42,14 +42,26 @@ const SUMMARY_MAX_CHARS = 220;
 export type EpisodeAnalysisStatus = "loading" | "ready" | { type: "error"; message: string };
 
 export type SegmentationBatchOutcome =
-	| { type: "ready"; episodes: readonly EpisodeAnnotation[]; summary: string | null; delegations: readonly DelegationClaim[]; analysis: readonly EpisodeAnalysisStatus[] }
+	| {
+			type: "ready";
+			episodes: readonly EpisodeAnnotation[];
+			summary: string | null;
+			delegations: readonly DelegationClaim[];
+			analysis: readonly EpisodeAnalysisStatus[];
+	  }
 	| { type: "segmentation-error"; message: string }
 	| { type: "skipped"; reason: "too-few-turns" };
 
 export type SegmentationState =
 	| { type: "idle" }
 	| { type: "loading" }
-	| { type: "ready"; episodes: EpisodeAnnotation[]; summary: string | null; delegations: DelegationClaim[]; analysis: EpisodeAnalysisStatus[] }
+	| {
+			type: "ready";
+			episodes: EpisodeAnnotation[];
+			summary: string | null;
+			delegations: DelegationClaim[];
+			analysis: EpisodeAnalysisStatus[];
+	  }
 	| { type: "error"; message: string };
 
 export const SEGMENTATION_SYSTEM_PROMPT = `You symbolize a deterministic Pi context profiler.
@@ -115,7 +127,9 @@ export type SegmentationParseResult =
 	| { ok: false; error: string };
 
 export function parseSegmentationResponseText(text: string): SegmentationParseResult {
-	const envelope = parseLmJson(text, segmentationEnvelopeSchema, { invalidShapeError: "response JSON has no episodes array" });
+	const envelope = parseLmJson(text, segmentationEnvelopeSchema, {
+		invalidShapeError: "response JSON has no episodes array",
+	});
 	if (!envelope.ok) return envelope;
 	const episodes = envelope.value.episodes
 		.flatMap((candidate): LmEpisodeStart[] => {
@@ -129,7 +143,8 @@ export function parseSegmentationResponseText(text: string): SegmentationParseRe
 			return delegation.success ? [delegation.data] : [];
 		})
 		.slice(0, MAX_DELEGATIONS);
-	const summary = typeof envelope.value.summary === "string" ? normalizeSummary(envelope.value.summary) : null;
+	const summary =
+		typeof envelope.value.summary === "string" ? normalizeSummary(envelope.value.summary) : null;
 	return { ok: true, value: { episodes, summary, delegations } };
 }
 
@@ -174,7 +189,10 @@ function truncateChars(text: string, max: number): string {
  * MAX_EPISODES — the cap bounds LM output, not repaired regions. Finally,
  * "active" is demoted to "unknown" on every non-final annotation.
  */
-export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonly LiveTurn[]): EpisodeAnnotation[] {
+export function repairEpisodes(
+	starts: readonly LmEpisodeStart[],
+	turns: readonly LiveTurn[],
+): EpisodeAnnotation[] {
 	const firstTurn = turns[0];
 	if (firstTurn === undefined) return [];
 
@@ -184,26 +202,36 @@ export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonl
 		if (!startsByTurn.has(turn)) startsByTurn.set(turn, { ...start, startTurn: turn });
 	}
 	if (!startsByTurn.has(firstTurn.index)) {
-		startsByTurn.set(firstTurn.index, { startTurn: firstTurn.index, label: "uncategorized", kind: "uncategorized", outcome: "unknown" });
+		startsByTurn.set(firstTurn.index, {
+			startTurn: firstTurn.index,
+			label: "uncategorized",
+			kind: "uncategorized",
+			outcome: "unknown",
+		});
 	}
 
 	const sortedStarts = [...startsByTurn.entries()]
 		.sort(([left], [right]) => left - right)
 		.slice(0, MAX_EPISODES)
-		.map(([turnIndex, start]) => ({ start, position: turns.findIndex((turn) => turn.index === turnIndex) }))
+		.map(([turnIndex, start]) => ({
+			start,
+			position: turns.findIndex((turn) => turn.index === turnIndex),
+		}))
 		// Guard only: snapStartTurn returns indices present in turns.
 		.filter((entry) => entry.position !== -1);
-	const episodes = sortedStarts.flatMap(({ start, position }, episodeNumber): EpisodeAnnotation[] => {
-		const endPosition = (sortedStarts[episodeNumber + 1]?.position ?? turns.length) - 1;
-		return splitRunAtSeams(turns, position, endPosition).map(
-			(turnRange): EpisodeAnnotation => ({
-				label: start.label,
-				kind: start.kind,
-				outcome: start.outcome,
-				turnRange,
-			}),
-		);
-	});
+	const episodes = sortedStarts.flatMap(
+		({ start, position }, episodeNumber): EpisodeAnnotation[] => {
+			const endPosition = (sortedStarts[episodeNumber + 1]?.position ?? turns.length) - 1;
+			return splitRunAtSeams(turns, position, endPosition).map(
+				(turnRange): EpisodeAnnotation => ({
+					label: start.label,
+					kind: start.kind,
+					outcome: start.outcome,
+					turnRange,
+				}),
+			);
+		},
+	);
 	return episodes.map((episode, position): EpisodeAnnotation => {
 		const isFinal = position === episodes.length - 1;
 		return episode.outcome === "active" && !isFinal ? { ...episode, outcome: "unknown" } : episode;
@@ -216,7 +244,11 @@ export function repairEpisodes(starts: readonly LmEpisodeStart[], turns: readonl
  * consecutive capped turns have non-adjacent indices (an elision seam). Seams
  * are detected from the turn list itself, not cap metadata.
  */
-function splitRunAtSeams(turns: readonly LiveTurn[], startPosition: number, endPosition: number): TurnRange[] {
+function splitRunAtSeams(
+	turns: readonly LiveTurn[],
+	startPosition: number,
+	endPosition: number,
+): TurnRange[] {
 	const ranges: TurnRange[] = [];
 	let runStartPosition = startPosition;
 	for (let position = startPosition; position < endPosition; position += 1) {
@@ -246,7 +278,10 @@ function snapStartTurn(startTurn: number, turns: readonly LiveTurn[]): number {
 	return last;
 }
 
-export function repairDelegations(claims: readonly LmDelegationClaim[], turns: readonly LiveTurn[]): DelegationClaim[] {
+export function repairDelegations(
+	claims: readonly LmDelegationClaim[],
+	turns: readonly LiveTurn[],
+): DelegationClaim[] {
 	if (turns.length === 0) return [];
 	const claimsByTurn = new Map<number, DelegationClaim>();
 	for (const claim of claims) {
@@ -255,7 +290,9 @@ export function repairDelegations(claims: readonly LmDelegationClaim[], turns: r
 			claimsByTurn.set(turn, { turn, label: claim.label, confidence: claim.confidence });
 		}
 	}
-	return [...claimsByTurn.values()].sort((left, right) => left.turn - right.turn).slice(0, MAX_DELEGATIONS);
+	return [...claimsByTurn.values()]
+		.sort((left, right) => left.turn - right.turn)
+		.slice(0, MAX_DELEGATIONS);
 }
 
 /**
@@ -276,7 +313,8 @@ export function computeSegmentationFingerprint(profile: ProfileSnapshot): string
 	return JSON.stringify({
 		liveSource: profile.liveSource,
 		turnCount: profile.cap.originalCount,
-		lastTurn: last === undefined ? null : { index: last.index, role: last.role, excerpt: last.excerpt },
+		lastTurn:
+			last === undefined ? null : { index: last.index, role: last.role, excerpt: last.excerpt },
 	});
 }
 
@@ -302,7 +340,10 @@ export function buildSegmentationPayload(profile: ProfileSnapshot): Segmentation
 	return { json, includedTurnCount: turns.length, wasTruncatedForPayload: dropped > 0 };
 }
 
-function serializeSegmentationRequest(profile: ProfileSnapshot, turns: readonly LiveTurn[]): string {
+function serializeSegmentationRequest(
+	profile: ProfileSnapshot,
+	turns: readonly LiveTurn[],
+): string {
 	return JSON.stringify(
 		{
 			cwd: profile.cwd,

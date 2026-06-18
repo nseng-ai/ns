@@ -5,11 +5,12 @@ import type {
 	loadBranchContextPlan,
 } from "@asdl/branch-context";
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
-import type { SessionReplacementContext, SessionReplacementOptions, SessionReplacementResult } from "@asdl/pi-extension-runtime/session-replacement";
 import type {
-	resolveSelectedSavedPlanFile,
-	writeSavedPlanFile,
-} from "@asdl/plans";
+	SessionReplacementContext,
+	SessionReplacementOptions,
+	SessionReplacementResult,
+} from "@asdl/pi-extension-runtime/session-replacement";
+import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@asdl/plans";
 import type { SendMessageOptions } from "../message-delivery.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
@@ -50,7 +51,10 @@ export interface ReplacedSessionContext extends CommandContext, SessionReplaceme
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
-export type NewSessionOptions = SessionReplacementOptions<ReplacedSessionContext, SessionManagerLike>;
+export type NewSessionOptions = SessionReplacementOptions<
+	ReplacedSessionContext,
+	SessionManagerLike
+>;
 
 export interface BranchContextOperations {
 	loadBranchContextPlan: typeof loadBranchContextPlan;
@@ -93,7 +97,12 @@ export interface ToolDefinition {
 		ctx: ToolContext,
 	): Promise<ToolResult> | ToolResult;
 	renderCall?(args: unknown, theme: unknown, context: unknown): Component;
-	renderResult?(result: ToolResult, options: ToolRenderResultOptions, theme: unknown, context: unknown): Component;
+	renderResult?(
+		result: ToolResult,
+		options: ToolRenderResultOptions,
+		theme: unknown,
+		context: unknown,
+	): Component;
 }
 
 export interface CommandContext {

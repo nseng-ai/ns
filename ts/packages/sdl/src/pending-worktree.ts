@@ -26,25 +26,39 @@ export type PendingWorktreeError =
 export async function loadPendingWorktreeSnapshot(input: {
 	cwd: string;
 	execGit: ExecGit;
-}): Promise<{ ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }> {
+}): Promise<
+	{ ok: true; snapshot: PendingWorktreeSnapshot } | { ok: false; error: PendingWorktreeError }
+> {
 	const root = await input.execGit(["rev-parse", "--show-toplevel"], GIT_FACT_TIMEOUT_MS);
 	if (root.code !== 0) {
-		return { ok: false, error: { kind: "not_git_repo", message: "Not inside a git repository.", result: root } };
+		return {
+			ok: false,
+			error: { kind: "not_git_repo", message: "Not inside a git repository.", result: root },
+		};
 	}
 
 	const branch = await input.execGit(["symbolic-ref", "--short", "HEAD"], GIT_FACT_TIMEOUT_MS);
 	if (branch.code !== 0) {
-		return { ok: false, error: { kind: "detached_head", message: "Detached HEAD.", result: branch } };
+		return {
+			ok: false,
+			error: { kind: "detached_head", message: "Detached HEAD.", result: branch },
+		};
 	}
 
 	const status = await input.execGit(["status", "--porcelain=v1"], GIT_FACT_TIMEOUT_MS);
 	if (status.code !== 0) {
-		return { ok: false, error: { kind: "status_failed", message: "Could not read git status.", result: status } };
+		return {
+			ok: false,
+			error: { kind: "status_failed", message: "Could not read git status.", result: status },
+		};
 	}
 
 	const diff = await input.execGit(["diff", "HEAD", "--no-ext-diff"], GIT_FACT_TIMEOUT_MS);
 	if (diff.code !== 0) {
-		return { ok: false, error: { kind: "diff_failed", message: "Could not read git diff.", result: diff } };
+		return {
+			ok: false,
+			error: { kind: "diff_failed", message: "Could not read git diff.", result: diff },
+		};
 	}
 
 	return {

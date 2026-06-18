@@ -76,7 +76,10 @@ export class LandStackCommandStream {
 	}
 }
 
-export function withCommandStreaming(pi: LandStackExtensionAPI, commandStream: LandStackCommandStream): LandStackExtensionAPI {
+export function withCommandStreaming(
+	pi: LandStackExtensionAPI,
+	commandStream: LandStackCommandStream,
+): LandStackExtensionAPI {
 	return {
 		async exec(command, args, options) {
 			const commandDisplay = formatCommandForDisplay(command, args);
@@ -88,7 +91,12 @@ export function withCommandStreaming(pi: LandStackExtensionAPI, commandStream: L
 				commandStream.finish(commandDisplay, finish);
 				return finish.result;
 			} catch (error) {
-				const result: ExecResult = { stdout: "", stderr: formatErrorMessage(error), code: 1, killed: false };
+				const result: ExecResult = {
+					stdout: "",
+					stderr: formatErrorMessage(error),
+					code: 1,
+					killed: false,
+				};
 				commandStream.finish(commandDisplay, { result });
 				return result;
 			}
@@ -124,19 +132,27 @@ export function renderCommandStreamMessage(
 		render(width: number): string[] {
 			return content
 				.split("\n")
-				.map((line) => theme.fg(commandStreamLineColor(line), renderCommandStreamLine(line, prLinks, width)));
+				.map((line) =>
+					theme.fg(commandStreamLineColor(line), renderCommandStreamLine(line, prLinks, width)),
+				);
 		},
 		invalidate(): void {},
 	};
 }
 
-export function renderCommandStreamLine(line: string, prLinks: ReadonlyMap<number, string>, width: number): string {
+export function renderCommandStreamLine(
+	line: string,
+	prLinks: ReadonlyMap<number, string>,
+	width: number,
+): string {
 	const truncated = truncateDisplayLine(line, width);
 	if (prLinks.size === 0) return truncated;
 	return linkifyPrReferences(truncated, prLinks);
 }
 
-export function commandStreamDetailsForLanded(landed: LandedPr[]): CommandStreamMessageDetails | undefined {
+export function commandStreamDetailsForLanded(
+	landed: LandedPr[],
+): CommandStreamMessageDetails | undefined {
 	return prLinksDetailsFor(landed);
 }
 

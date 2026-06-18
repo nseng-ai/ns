@@ -12,11 +12,30 @@ export interface HandoffTabLaunchParams {
 }
 
 export type HandoffTabLaunchResult =
-	| { type: "launched"; branch: string; slug: string; tabTitle: string; surfaceId: string; workspaceId: string; command: string }
-	| { type: "failed"; message: string; branch?: string; slug?: string; surfaceId?: string; workspaceId?: string };
+	| {
+			type: "launched";
+			branch: string;
+			slug: string;
+			tabTitle: string;
+			surfaceId: string;
+			workspaceId: string;
+			command: string;
+	  }
+	| {
+			type: "failed";
+			message: string;
+			branch?: string;
+			slug?: string;
+			surfaceId?: string;
+			workspaceId?: string;
+	  };
 
 export interface HandoffTabLaunchHost {
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult>;
 	getThinkingLevel?(): ThinkingLevel;
 }
 
@@ -36,7 +55,9 @@ export interface HandoffTabLaunchOptions {
 	onUpdate: ((update: HandoffTabLaunchUpdate) => void) | undefined;
 }
 
-export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promise<HandoffTabLaunchResult> {
+export async function launchHandoffTab(
+	options: HandoffTabLaunchOptions,
+): Promise<HandoffTabLaunchResult> {
 	try {
 		const launchContext = options.model === undefined ? {} : { model: options.model };
 		const thinkingLevelHost = {
@@ -44,7 +65,10 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 				return options.host.getThinkingLevel?.() ?? "medium";
 			},
 		};
-		const command = buildPiLaunchCommand(options.params.pickupCommand, getPiLaunchOptions(thinkingLevelHost, launchContext));
+		const command = buildPiLaunchCommand(
+			options.params.pickupCommand,
+			getPiLaunchOptions(thinkingLevelHost, launchContext),
+		);
 
 		const launched = await launchFocusedCmuxTab({
 			host: options.host,
@@ -85,7 +109,9 @@ export async function launchHandoffTab(options: HandoffTabLaunchOptions): Promis
 	}
 }
 
-export function formatHandoffTabLaunchSuccess(result: Extract<HandoffTabLaunchResult, { type: "launched" }>): string {
+export function formatHandoffTabLaunchSuccess(
+	result: Extract<HandoffTabLaunchResult, { type: "launched" }>,
+): string {
 	return [
 		"Opened handoff pickup tab.",
 		`Handoff: ${result.slug}`,
@@ -108,4 +134,3 @@ function updateProgress(options: HandoffTabLaunchOptions, text: string, status: 
 	options.onUpdate?.({ content: [{ type: "text", text }] });
 	setLaunchStatus(options, status);
 }
-

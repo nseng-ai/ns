@@ -7,7 +7,10 @@ import {
 } from "@asdl/pi-extension-runtime/runner-subagent-usage";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
-import type { RunnerSubagentUsageMetadata, RunnerSubagentUsageUnavailableReason } from "../runner-subagent.ts";
+import type {
+	RunnerSubagentUsageMetadata,
+	RunnerSubagentUsageUnavailableReason,
+} from "../runner-subagent.ts";
 
 export interface ReadRunnerSubagentSessionFile {
 	(sessionFile: string): string | Promise<string>;
@@ -42,7 +45,10 @@ export async function readRunnerSubagentUsageFromSessionFile(
 	return usageMetadataFromSessionJsonl(jsonl, { sessionFile });
 }
 
-function usageMetadataFromSessionJsonl(jsonl: string, options: AggregateRunnerSubagentUsageOptions = {}): RunnerSubagentUsageMetadata {
+function usageMetadataFromSessionJsonl(
+	jsonl: string,
+	options: AggregateRunnerSubagentUsageOptions = {},
+): RunnerSubagentUsageMetadata {
 	const parsed = parseRunnerSubagentUsageJsonl(jsonl);
 	if (parsed.type === "invalid-json") {
 		return unavailableUsage({
@@ -56,7 +62,8 @@ function usageMetadataFromSessionJsonl(jsonl: string, options: AggregateRunnerSu
 		return unavailableUsage({
 			...(options.sessionFile === undefined ? {} : { sessionFile: options.sessionFile }),
 			reason: "no-assistant-usage",
-			diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+			diagnostic:
+				"Subagent child session did not contain assistant messages with usable usage metadata.",
 		});
 	}
 

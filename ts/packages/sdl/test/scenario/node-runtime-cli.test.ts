@@ -10,5 +10,6 @@ describeNodeRuntimeCliEntrypoint({
 		{ type: "contains", text: "--runtime" },
 		{ type: "contains", text: "cp" },
 	],
-	runtimeDiagnostics: "runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
+	runtimeDiagnostics:
+		"runtime: typescript\nentry_point: @asdl/sdl bin sdl -> ts/packages/sdl/src/cli.ts\n",
 });

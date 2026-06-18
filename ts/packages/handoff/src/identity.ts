@@ -5,7 +5,9 @@ export const HANDOFF_KEY_SUFFIX = ".md";
 
 const FLAT_HANDOFF_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export type FlatHandoffSlugParseResult = { type: "valid"; slug: string } | { type: "invalid"; message: string };
+export type FlatHandoffSlugParseResult =
+	| { type: "valid"; slug: string }
+	| { type: "invalid"; message: string };
 
 export function deriveSemanticHandoffSlug(focus: string): string | undefined {
 	const slug = focus
@@ -19,13 +21,19 @@ export function deriveSemanticHandoffSlug(focus: string): string | undefined {
 	return slug.split("-").slice(0, 8).join("-");
 }
 
-export function parseFlatHandoffSlug(value: string, label = "handoff slug"): FlatHandoffSlugParseResult {
+export function parseFlatHandoffSlug(
+	value: string,
+	label = "handoff slug",
+): FlatHandoffSlugParseResult {
 	const slug = value.trim();
 	if (slug.length === 0) {
 		return { type: "invalid", message: `${label} must be non-empty.` };
 	}
 	if (slug !== value) {
-		return { type: "invalid", message: `${label} must not include leading or trailing whitespace.` };
+		return {
+			type: "invalid",
+			message: `${label} must not include leading or trailing whitespace.`,
+		};
 	}
 	if (slug.endsWith(HANDOFF_KEY_SUFFIX)) {
 		return { type: "invalid", message: `${label} must not include ${HANDOFF_KEY_SUFFIX}.` };
@@ -34,7 +42,10 @@ export function parseFlatHandoffSlug(value: string, label = "handoff slug"): Fla
 		return { type: "invalid", message: `${label} must be flat and must not contain '/'.` };
 	}
 	if (!FLAT_HANDOFF_SLUG_PATTERN.test(slug)) {
-		return { type: "invalid", message: `${label} must use lowercase letters, numbers, and single interior dashes only.` };
+		return {
+			type: "invalid",
+			message: `${label} must use lowercase letters, numbers, and single interior dashes only.`,
+		};
 	}
 	return { type: "valid", slug };
 }
@@ -67,7 +78,10 @@ export function handoffKeyFromSlug(slug: string): BrmemResult<string> {
 	const key = handoffSlugToKey(parsed.slug);
 	const validation = validateEntryKey(key);
 	if (validation.type === "invalid") {
-		return brmemError("invalid_handoff_slug", `Invalid key ${JSON.stringify(key)}: ${validation.reason}`);
+		return brmemError(
+			"invalid_handoff_slug",
+			`Invalid key ${JSON.stringify(key)}: ${validation.reason}`,
+		);
 	}
 	return brmemOk(key);
 }

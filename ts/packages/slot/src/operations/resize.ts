@@ -26,8 +26,11 @@ export async function runResize(ctx: SlotCliContext, request: ResizeRequest) {
 }
 
 export function renderResize(result: ResizeResult): string {
-	if (result.created.length === 0 && result.removed.length === 0) return `Pool already at size ${result.pool_size}; no changes.`;
-	const lines = [`Resized pool ${result.previous_pool_size} -> ${result.pool_size} at ${result.worktrees_dir}`];
+	if (result.created.length === 0 && result.removed.length === 0)
+		return `Pool already at size ${result.pool_size}; no changes.`;
+	const lines = [
+		`Resized pool ${result.previous_pool_size} -> ${result.pool_size} at ${result.worktrees_dir}`,
+	];
 	lines.push(...result.created.map((name) => `  + ${name}`));
 	lines.push(...result.removed.map((name) => `  - ${name}`));
 	return lines.join("\n");

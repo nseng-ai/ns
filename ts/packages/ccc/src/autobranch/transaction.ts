@@ -12,7 +12,9 @@ export interface AutobranchTransactionInput {
 	branchName: string;
 	checkpointMessage: string;
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
-	commitPreparedCheckpointMessage: (message: string) => Promise<{ summary: string } | { error: string }>;
+	commitPreparedCheckpointMessage: (
+		message: string,
+	) => Promise<{ summary: string } | { error: string }>;
 	now?: (() => number) | undefined;
 }
 
@@ -21,11 +23,19 @@ export type AutobranchTransactionResult =
 	| { ok: false; kind: "stash_failed"; error: string }
 	| { ok: false; kind: "stash_ref_missing"; stashMessage: string; error: string }
 	| { ok: false; kind: "graphite_create_failed"; createError: string; restored: true }
-	| { ok: false; kind: "graphite_create_failed"; createError: string; restored: false; restoreError: string }
+	| {
+			ok: false;
+			kind: "graphite_create_failed";
+			createError: string;
+			restored: false;
+			restoreError: string;
+	  }
 	| { ok: false; kind: "restore_failed_after_branch_create"; restoreError: string }
 	| { ok: false; kind: "commit_failed_after_branch_create"; commitError: string };
 
-export async function runAutobranchTransaction(input: AutobranchTransactionInput): Promise<AutobranchTransactionResult> {
+export async function runAutobranchTransaction(
+	input: AutobranchTransactionInput,
+): Promise<AutobranchTransactionResult> {
 	const stashMessage = `pi-autobranch:${input.now?.() ?? Date.now()}:${input.branchName}`;
 	const stashed = await stashPendingChanges(input, stashMessage);
 	if (!stashed.ok) {
@@ -36,7 +46,12 @@ export async function runAutobranchTransaction(input: AutobranchTransactionInput
 	if (!created.ok) {
 		const restored = await restoreStash(input, stashed.ref);
 		if (restored.ok) {
-			return { ok: false, kind: "graphite_create_failed", createError: created.error, restored: true };
+			return {
+				ok: false,
+				kind: "graphite_create_failed",
+				createError: created.error,
+				restored: true,
+			};
 		}
 		return {
 			ok: false,
@@ -67,8 +82,16 @@ type StashPendingChangesResult =
 	| { ok: false; kind: "stash_failed"; error: string }
 	| { ok: false; kind: "stash_ref_missing"; stashMessage: string; error: string };
 
-async function stashPendingChanges(input: TransactionExecutionInput, message: string): Promise<StashPendingChangesResult> {
-	const stashed = await input.exec("git", ["stash", "push", "--include-untracked", "-m", message], input.cwd, STASH_PUSH_TIMEOUT_MS);
+async function stashPendingChanges(
+	input: TransactionExecutionInput,
+	message: string,
+): Promise<StashPendingChangesResult> {
+	const stashed = await input.exec(
+		"git",
+		["stash", "push", "--include-untracked", "-m", message],
+		input.cwd,
+		STASH_PUSH_TIMEOUT_MS,
+	);
 	if (stashed.code !== 0) {
 		return { ok: false, kind: "stash_failed", error: formatCommandDetails(stashed) };
 	}
@@ -80,8 +103,16 @@ async function stashPendingChanges(input: TransactionExecutionInput, message: st
 	return { ok: true, ref: ref.ref };
 }
 
-async function findStashRef(input: TransactionExecutionInput, message: string): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
-	const listed = await input.exec("git", ["stash", "list", "--format=%gd%x00%s"], input.cwd, GIT_FACT_TIMEOUT_MS);
+async function findStashRef(
+	input: TransactionExecutionInput,
+	message: string,
+): Promise<{ ok: true; ref: string } | { ok: false; error: string }> {
+	const listed = await input.exec(
+		"git",
+		["stash", "list", "--format=%gd%x00%s"],
+		input.cwd,
+		GIT_FACT_TIMEOUT_MS,
+	);
 	if (listed.code !== 0) {
 		return { ok: false, error: formatCommandDetails(listed) };
 	}
@@ -94,15 +125,25 @@ async function findStashRef(input: TransactionExecutionInput, message: string): 
 	return { ok: false, error: "No matching stash entry found." };
 }
 
-async function createGraphiteBranch(input: Pick<AutobranchTransactionInput, "branchName" | "cwd" | "exec">): Promise<{ ok: true } | { ok: false; error: string }> {
-	const created = await input.exec("gt", ["create", input.branchName, "--no-interactive", "--no-ai"], input.cwd, GT_CREATE_TIMEOUT_MS);
+async function createGraphiteBranch(
+	input: Pick<AutobranchTransactionInput, "branchName" | "cwd" | "exec">,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const created = await input.exec(
+		"gt",
+		["create", input.branchName, "--no-interactive", "--no-ai"],
+		input.cwd,
+		GT_CREATE_TIMEOUT_MS,
+	);
 	if (created.code !== 0) {
 		return { ok: false, error: formatCommandDetails(created) };
 	}
 	return { ok: true };
 }
 
-async function restoreStash(input: TransactionExecutionInput, ref: string): Promise<{ ok: true } | { ok: false; error: string }> {
+async function restoreStash(
+	input: TransactionExecutionInput,
+	ref: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
 	const restored = await input.exec("git", ["stash", "pop", ref], input.cwd, STASH_POP_TIMEOUT_MS);
 	if (restored.code !== 0) {
 		return { ok: false, error: formatCommandDetails(restored) };
@@ -110,6 +151,8 @@ async function restoreStash(input: TransactionExecutionInput, ref: string): Prom
 	return { ok: true };
 }
 
-async function createCheckpointCommit(input: Pick<AutobranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage">): Promise<{ summary: string } | { error: string }> {
+async function createCheckpointCommit(
+	input: Pick<AutobranchTransactionInput, "checkpointMessage" | "commitPreparedCheckpointMessage">,
+): Promise<{ summary: string } | { error: string }> {
 	return input.commitPreparedCheckpointMessage(input.checkpointMessage);
 }

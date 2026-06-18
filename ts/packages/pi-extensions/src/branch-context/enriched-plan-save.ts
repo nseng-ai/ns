@@ -127,7 +127,10 @@ type WritePlanPromptBodyResolution =
 	| { type: "resolved"; body: string }
 	| { type: "fallback"; body: string; warning: string };
 
-export function buildWritePlanPrompt(steering: string, promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY): string {
+export function buildWritePlanPrompt(
+	steering: string,
+	promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY,
+): string {
 	return `This is a /enriched-plan:save request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
@@ -169,7 +172,10 @@ Final plan requirements:
 - Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
 }
 
-async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promise<WritePlanPromptBodyResolution> {
+async function resolveWritePlanPromptBody(
+	pi: ExtensionAPI,
+	cwd: string,
+): Promise<WritePlanPromptBodyResolution> {
 	try {
 		const result = await pi.exec(
 			"asdl",
@@ -184,7 +190,9 @@ async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promis
 
 		const resolved = parseResolvePromptJson(result.stdout, WRITE_PLAN_PROMPT_NAME);
 		if (resolved === undefined) {
-			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned malformed JSON output.");
+			return fallbackWritePlanPromptBody(
+				"asdl exec resolve-prompt returned malformed JSON output.",
+			);
 		}
 		if (resolved.content.trim().length === 0) {
 			return fallbackWritePlanPromptBody("asdl exec resolve-prompt returned empty prompt content.");
@@ -192,7 +200,9 @@ async function resolveWritePlanPromptBody(pi: ExtensionAPI, cwd: string): Promis
 
 		return { type: "resolved", body: resolved.content };
 	} catch (error) {
-		return fallbackWritePlanPromptBody(`asdl exec resolve-prompt failed: ${formatErrorMessage(error)}`);
+		return fallbackWritePlanPromptBody(
+			`asdl exec resolve-prompt failed: ${formatErrorMessage(error)}`,
+		);
 	}
 }
 
@@ -204,7 +214,10 @@ function fallbackWritePlanPromptBody(reason: string): WritePlanPromptBodyResolut
 	};
 }
 
-function parseResolvePromptJson(stdout: string, expectedName: string): ResolvedAsdlPrompt | undefined {
+function parseResolvePromptJson(
+	stdout: string,
+	expectedName: string,
+): ResolvedAsdlPrompt | undefined {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -218,7 +231,12 @@ function parseResolvePromptJson(stdout: string, expectedName: string): ResolvedA
 
 	const data = parsed.data;
 	const provenance = data.provenance;
-	if (typeof data.name !== "string" || data.name !== expectedName || typeof data.content !== "string" || !isRecord(provenance)) {
+	if (
+		typeof data.name !== "string" ||
+		data.name !== expectedName ||
+		typeof data.content !== "string" ||
+		!isRecord(provenance)
+	) {
 		return undefined;
 	}
 	if (typeof provenance.source !== "string" || typeof provenance.repo_prompt_path !== "string") {
@@ -246,7 +264,11 @@ function isOptionalString(value: unknown): value is string | null | undefined {
 	return value === undefined || value === null || typeof value === "string";
 }
 
-export async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+export async function handleWritePlanCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
@@ -259,7 +281,11 @@ export async function handleWritePlanCommand(pi: ExtensionAPI, args: string, ctx
 	pi.sendUserMessage(buildWritePlanPrompt(steering, promptBody.body));
 }
 
-export async function handleWriteGrilledPlanCommand(pi: ExtensionAPI, args: string, ctx: CommandContext): Promise<void> {
+export async function handleWriteGrilledPlanCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 	const steering = args.trim();
 	if (ctx.hasUI) {
@@ -268,7 +294,10 @@ export async function handleWriteGrilledPlanCommand(pi: ExtensionAPI, args: stri
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
 
-export function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchContextExtensionOptions): ToolDefinition {
+export function buildWriteSavedPlanFileTool(
+	pi: ExtensionAPI,
+	options: BranchContextExtensionOptions,
+): ToolDefinition {
 	return {
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
@@ -303,9 +332,13 @@ export function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchCon
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const operations = resolveBranchContextOperations(options);
 			try {
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", { phase: "validating" });
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", {
+					phase: "validating",
+				});
 				const toolParams = parseWriteSavedPlanFileToolParams(params);
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", { phase: "deriving-slug" });
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", {
+					phase: "deriving-slug",
+				});
 				const slugStartedAt = Date.now();
 				const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
 					onUpdate === undefined && !canSetWriteSavedPlanStatus(ctx)
@@ -340,15 +373,27 @@ export function buildWriteSavedPlanFileTool(pi: ExtensionAPI, options: BranchCon
 					`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
 					{ phase: "writing-file", slug: slugEvidence.slug },
 				);
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Writing plan file…", { phase: "writing-file", slug: slugEvidence.slug });
-				const evidence = await operations.writeSavedPlanFile(pi, buildSavedPlanFileParams(toolParams, slugEvidence.slug), {
-					cwd: ctx.cwd,
-					signal,
-					planStoreRoot: resolvePlanStoreRootOption(options),
+				emitWriteSavedPlanProgress(onUpdate, ctx, "Writing plan file…", {
+					phase: "writing-file",
+					slug: slugEvidence.slug,
 				});
+				const evidence = await operations.writeSavedPlanFile(
+					pi,
+					buildSavedPlanFileParams(toolParams, slugEvidence.slug),
+					{
+						cwd: ctx.cwd,
+						signal,
+						planStoreRoot: resolvePlanStoreRootOption(options),
+					},
+				);
 				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };
 				return {
-					content: [{ type: "text", text: formatSavedPlanFileEvidenceWithSlugModel(evidence, slugEvidence) }],
+					content: [
+						{
+							type: "text",
+							text: formatSavedPlanFileEvidenceWithSlugModel(evidence, slugEvidence),
+						},
+					],
 					details,
 				};
 			} finally {
@@ -435,12 +480,17 @@ function parseWriteSavedPlanFileToolParams(params: unknown): WriteSavedPlanFileT
 	return parseWriteSavedPlanFileToolParamsForName(params, WRITE_SAVED_PLAN_FILE_TOOL_NAME);
 }
 
-function parseWriteSavedPlanFileToolParamsForName(params: unknown, toolName: string): WriteSavedPlanFileToolParams {
+function parseWriteSavedPlanFileToolParamsForName(
+	params: unknown,
+	toolName: string,
+): WriteSavedPlanFileToolParams {
 	if (!isRecord(params)) {
 		throw new Error(`${toolName} parameters must be an object.`);
 	}
 	if ("slug" in params) {
-		throw new Error(`${toolName} derives \`slug\` from content through Codex; do not pass \`slug\`.`);
+		throw new Error(
+			`${toolName} derives \`slug\` from content through Codex; do not pass \`slug\`.`,
+		);
 	}
 
 	const content = params.content;
@@ -474,7 +524,6 @@ function formatSavedPlanFileEvidenceWithSlugModel(
 ): string {
 	return `${formatSavedPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
-
 
 function formatSteeringBlock(steering: string): string {
 	const trimmedSteering = steering.trim();

@@ -48,14 +48,20 @@ function namespaceSortKey(namespace: string): readonly [number, string] {
 	return isBaseNamespace(namespace) ? [0, ""] : [1, namespace];
 }
 
-function entrySortKey(entry: Pick<EntryRef, "namespace" | "key" | "branch">): readonly [number, string, string, string] {
+function entrySortKey(
+	entry: Pick<EntryRef, "namespace" | "key" | "branch">,
+): readonly [number, string, string, string] {
 	const [namespaceRank, namespaceName] = namespaceSortKey(entry.namespace);
 	return [namespaceRank, namespaceName, entry.key, entry.branch];
 }
 
 export function encodeBranchName(branch: string): BrmemResult<string> {
 	const validation = validateBranchName(branch);
-	if (validation.type === "invalid") return brmemError("invalid_branch_name", `Invalid branch name ${JSON.stringify(branch)}: ${validation.reason}`);
+	if (validation.type === "invalid")
+		return brmemError(
+			"invalid_branch_name",
+			`Invalid branch name ${JSON.stringify(branch)}: ${validation.reason}`,
+		);
 	return brmemOk(branch.replaceAll("/", FLAT_SEPARATOR));
 }
 
@@ -66,17 +72,26 @@ export function decodeBranchName(encoded: string): string {
 export function buildSnapshotRef(namespace: string, branch: string): BrmemResult<string> {
 	const encoded = encodeBranchName(branch);
 	if (encoded.type === "error") return encoded;
-	if (isBaseNamespace(namespace)) return brmemOk(`${BRMEM_REF_PREFIX}/${BRMEM_BASE_SEGMENT}/${encoded.value}`);
+	if (isBaseNamespace(namespace))
+		return brmemOk(`${BRMEM_REF_PREFIX}/${BRMEM_BASE_SEGMENT}/${encoded.value}`);
 	const namespaceValidation = validateNamespaceName(namespace);
 	if (namespaceValidation.type === "invalid") {
-		return brmemError("invalid_namespace", `Invalid namespace ${JSON.stringify(namespace)}: ${namespaceValidation.reason}`);
+		return brmemError(
+			"invalid_namespace",
+			`Invalid namespace ${JSON.stringify(namespace)}: ${namespaceValidation.reason}`,
+		);
 	}
 	return brmemOk(`${BRMEM_REF_PREFIX}/${BRMEM_NS_SEGMENT}/${namespace}/${encoded.value}`);
 }
 
-export function buildEntryLocator(namespace: string, key: string, branch: string): BrmemResult<string> {
+export function buildEntryLocator(
+	namespace: string,
+	key: string,
+	branch: string,
+): BrmemResult<string> {
 	const keyValidation = validateEntryKey(key);
-	if (keyValidation.type === "invalid") return brmemError("invalid_key", `Invalid key ${JSON.stringify(key)}: ${keyValidation.reason}`);
+	if (keyValidation.type === "invalid")
+		return brmemError("invalid_key", `Invalid key ${JSON.stringify(key)}: ${keyValidation.reason}`);
 	const snapshotRef = buildSnapshotRef(namespace, branch);
 	if (snapshotRef.type === "error") return snapshotRef;
 	return brmemOk(`${snapshotRef.value}:${key}`);
@@ -99,7 +114,12 @@ export function parseSnapshotRef(ref: string): SnapshotRefParts | undefined {
 		if (namespaceSeparator < 0) return undefined;
 		const namespace = tail.slice(0, namespaceSeparator);
 		const encodedBranch = tail.slice(namespaceSeparator + 1);
-		if (namespace.length === 0 || isBaseNamespace(namespace) || encodedBranch.length === 0 || encodedBranch.includes("/")) {
+		if (
+			namespace.length === 0 ||
+			isBaseNamespace(namespace) ||
+			encodedBranch.length === 0 ||
+			encodedBranch.includes("/")
+		) {
 			return undefined;
 		}
 		return { namespace, branch: decodeBranchName(encodedBranch), refName: ref };
@@ -158,7 +178,10 @@ export function compareEntries(left: EntryRef, right: EntryRef): number {
 	return compareTuple(entrySortKey(left), entrySortKey(right));
 }
 
-function compareTuple(left: readonly (number | string)[], right: readonly (number | string)[]): number {
+function compareTuple(
+	left: readonly (number | string)[],
+	right: readonly (number | string)[],
+): number {
 	for (let index = 0; index < left.length; index += 1) {
 		const leftValue = left[index];
 		const rightValue = right[index];

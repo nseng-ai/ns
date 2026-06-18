@@ -65,10 +65,19 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 
 export function renderDelete(result: DeleteResult): string {
 	if (result.cancelled) return "Cancelled — no handoff deleted.";
-	return [`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`, `Entry Locator: ${result.entry_locator}`, `Commit: ${result.commit}`].join("\n");
+	return [
+		`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`,
+		`Entry Locator: ${result.entry_locator}`,
+		`Commit: ${result.commit}`,
+	].join("\n");
 }
 
-function cancelledResult(target: { slug: string; key: string; branch: string; entry_locator: string }): DeleteResult {
+function cancelledResult(target: {
+	slug: string;
+	key: string;
+	branch: string;
+	entry_locator: string;
+}): DeleteResult {
 	return {
 		branch: target.branch,
 		slug: target.slug,

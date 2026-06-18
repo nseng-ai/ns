@@ -38,7 +38,11 @@ class FakeSlugPi implements Pick<ExtensionAPI, "exec"> {
 		this.behavior = behavior;
 	}
 
-	async exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult> {
+	async exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
@@ -55,8 +59,12 @@ class FakeSlugPi implements Pick<ExtensionAPI, "exec"> {
 
 function expectNoFallback(error: unknown): void {
 	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain("Failed to derive handoff slug from final artifact content.");
-	expect((error as Error).message).toContain("No continuation-focus or deterministic fallback was attempted.");
+	expect((error as Error).message).toContain(
+		"Failed to derive handoff slug from final artifact content.",
+	);
+	expect((error as Error).message).toContain(
+		"No continuation-focus or deterministic fallback was attempted.",
+	);
 }
 
 describe("deriveHandoffContentSlug", () => {
@@ -73,12 +81,16 @@ describe("deriveHandoffContentSlug", () => {
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args).toEqual(buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)));
+		expect(pi.calls[0]?.args).toEqual(
+			buildSlugModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT)),
+		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
 	test("markdown and code-fenced output normalizes correctly", async () => {
-		const pi = new FakeSlugPi({ result: { stdout: "```markdown\nBranch Session Association Handoff!!!\n```\n" } });
+		const pi = new FakeSlugPi({
+			result: { stdout: "```markdown\nBranch Session Association Handoff!!!\n```\n" },
+		});
 
 		const evidence = await deriveHandoffContentSlug(pi, { content: HANDOFF_CONTENT, cwd: CWD });
 
@@ -86,11 +98,17 @@ describe("deriveHandoffContentSlug", () => {
 	});
 
 	test("overlong output is repaired to at most eight words", async () => {
-		const pi = new FakeSlugPi({ result: { stdout: "session branch association model metadata lookup persistence design notes\n" } });
+		const pi = new FakeSlugPi({
+			result: {
+				stdout: "session branch association model metadata lookup persistence design notes\n",
+			},
+		});
 
 		const evidence = await deriveHandoffContentSlug(pi, { content: HANDOFF_CONTENT, cwd: CWD });
 
-		expect(evidence.slug).toBe("session-branch-association-model-metadata-lookup-persistence-design");
+		expect(evidence.slug).toBe(
+			"session-branch-association-model-metadata-lookup-persistence-design",
+		);
 	});
 
 	test("nonzero model command fails with no fallback", async () => {
@@ -134,14 +152,18 @@ describe("deriveHandoffContentSlug", () => {
 		const prompt = buildHandoffContentSlugPrompt(HANDOFF_CONTENT);
 
 		expect(prompt).toContain(HANDOFF_CONTENT.trim());
-		expect(prompt).toContain("Do not use the original request/focus, current branch, filename, path");
+		expect(prompt).toContain(
+			"Do not use the original request/focus, current branch, filename, path",
+		);
 		expect(prompt).toContain("Return exactly one slug and no prose.");
 		expect(prompt).not.toContain("i want to handoff to a sesssion");
 		expect(prompt).not.toContain("/tmp/handoff.md");
 	});
 
 	test("normalizer removes generic suffixes only when useful slug remains", () => {
-		expect(normalizeHandoffContentSlugOutput("Branch Session Association Session\n")).toBe("branch-session-association");
+		expect(normalizeHandoffContentSlugOutput("Branch Session Association Session\n")).toBe(
+			"branch-session-association",
+		);
 		expect(normalizeHandoffContentSlugOutput("Handoff\n")).toBe("handoff");
 	});
 });

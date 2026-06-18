@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
-import { createSlotDiagnosticSinkFromEnv, runDiagnosticCommand, SLOT_DIAGNOSTIC_LOG_ENV } from "../../src/diagnostics.ts";
+import {
+	createSlotDiagnosticSinkFromEnv,
+	runDiagnosticCommand,
+	SLOT_DIAGNOSTIC_LOG_ENV,
+} from "../../src/diagnostics.ts";
 
 describe("slot diagnostics", () => {
 	it("is disabled when no diagnostic log path is configured", () => {
@@ -17,7 +21,15 @@ describe("slot diagnostics", () => {
 		try {
 			const logPath = join(tempDir, "diagnostics.jsonl");
 			const sink = createSlotDiagnosticSinkFromEnv({ [SLOT_DIAGNOSTIC_LOG_ENV]: logPath });
-			const execApi = new ScriptedCommandExecApi([{ stdout: "hello\n", stderr: "warning\n", code: 7, killed: true, startupError: "startup detail" }]);
+			const execApi = new ScriptedCommandExecApi([
+				{
+					stdout: "hello\n",
+					stderr: "warning\n",
+					code: 7,
+					killed: true,
+					startupError: "startup detail",
+				},
+			]);
 
 			const result = await runDiagnosticCommand({
 				execApi,
@@ -28,7 +40,12 @@ describe("slot diagnostics", () => {
 				diagnosticSink: sink,
 			});
 
-			expect(result).toMatchObject({ stdout: "hello\n", stderr: "warning\n", code: 7, killed: true });
+			expect(result).toMatchObject({
+				stdout: "hello\n",
+				stderr: "warning\n",
+				code: 7,
+				killed: true,
+			});
 			const lines = (await readFile(logPath, "utf8")).trimEnd().split("\n");
 			expect(lines).toHaveLength(1);
 			const event = JSON.parse(lines[0] ?? "{}");

@@ -25,7 +25,12 @@ export interface ClipboardProcessRunner {
 export class RealClipboardGateway implements ClipboardGateway {
 	private readonly runner: ClipboardProcessRunner;
 
-	constructor(options: { env?: NodeJS.ProcessEnv | undefined; runner?: ClipboardProcessRunner | undefined } = {}) {
+	constructor(
+		options: {
+			env?: NodeJS.ProcessEnv | undefined;
+			runner?: ClipboardProcessRunner | undefined;
+		} = {},
+	) {
 		this.runner = options.runner ?? new RealClipboardProcessRunner(options.env ?? process.env);
 	}
 
@@ -51,11 +56,19 @@ export class RealClipboardProcessRunner implements ClipboardProcessRunner {
 					return;
 				}
 				if (hasErrorCode(error, "ENOENT")) {
-					resolve({ type: "failure", reason: "backend_missing", detail: "`pbcopy` not found on PATH (clipboard requires macOS)." });
+					resolve({
+						type: "failure",
+						reason: "backend_missing",
+						detail: "`pbcopy` not found on PATH (clipboard requires macOS).",
+					});
 					return;
 				}
 				const code = typeof error.code === "number" ? error.code : 1;
-				resolve({ type: "failure", reason: "subprocess_error", detail: `\`pbcopy\` exited with code ${code}: ${stderr}` });
+				resolve({
+					type: "failure",
+					reason: "subprocess_error",
+					detail: `\`pbcopy\` exited with code ${code}: ${stderr}`,
+				});
 			});
 			child.stdin?.end(input);
 		});

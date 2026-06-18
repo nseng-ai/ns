@@ -13,7 +13,9 @@ export interface HandoffCliContext {
 	stderr: (text: string) => void;
 }
 
-export function createRealHandoffContext(options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {}): HandoffCliContext {
+export function createRealHandoffContext(
+	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+): HandoffCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const execApi = new NodeCommandExecApi();

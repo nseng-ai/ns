@@ -28,7 +28,8 @@ const completionSurface = buildMarkerInstallSurface({
 	endMarker: completionEndMarker,
 	renderPayload: renderCompletionScript,
 	alreadyInstalledMessage: (result) => `slot completion already installed in ${result.rc_path}`,
-	installedMessage: (result) => `Installed slot completion for ${result.shell} in ${result.rc_path}`,
+	installedMessage: (result) =>
+		`Installed slot completion for ${result.shell} in ${result.rc_path}`,
 });
 
 export async function runCompletionShow(ctx: SlotCliContext, request: CompletionShowRequest) {

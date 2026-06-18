@@ -1,6 +1,11 @@
 import { formatCommand, type ExecResult } from "@asdl/core/exec";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE, handoffKeyToSlug as handoffSlug, isHandoffKey } from "@asdl/handoff/identity";
+import {
+	HANDOFF_KEY_SUFFIX,
+	HANDOFF_NAMESPACE,
+	handoffKeyToSlug as handoffSlug,
+	isHandoffKey,
+} from "@asdl/handoff/identity";
 
 import { isRecord } from "../cmux/primitives.ts";
 import {
@@ -86,7 +91,8 @@ export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<
 		if (token.includes("/")) {
 			return {
 				type: "invalid",
-				message: "Handoff selectors cannot contain '/'; use a semantic slug like address-review-feedback.",
+				message:
+					"Handoff selectors cannot contain '/'; use a semantic slug like address-review-feedback.",
 			};
 		}
 
@@ -156,7 +162,10 @@ export function parseHandoffItemsFromBrmemList(stdout: string): HandoffItemsPars
 
 	const data = isRecord(parsed) && isRecord(parsed.data) ? parsed.data : parsed;
 	if (!isRecord(data)) {
-		return { type: "invalid", message: "handoff list JSON did not contain handoffs or entries array." };
+		return {
+			type: "invalid",
+			message: "handoff list JSON did not contain handoffs or entries array.",
+		};
 	}
 
 	if (Array.isArray(data.handoffs)) {
@@ -168,7 +177,10 @@ export function parseHandoffItemsFromBrmemList(stdout: string): HandoffItemsPars
 		return parseLegacyBrmemEntryItems(data.entries, resultBranch);
 	}
 
-	return { type: "invalid", message: "handoff list JSON did not contain handoffs or entries array." };
+	return {
+		type: "invalid",
+		message: "handoff list JSON did not contain handoffs or entries array.",
+	};
 }
 
 function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult {
@@ -176,7 +188,12 @@ function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult 
 	const items: HandoffListItem[] = [];
 
 	for (const handoff of handoffs) {
-		if (!isRecord(handoff) || typeof handoff.branch !== "string" || typeof handoff.key !== "string" || !isHandoffKey(handoff.key)) {
+		if (
+			!isRecord(handoff) ||
+			typeof handoff.branch !== "string" ||
+			typeof handoff.key !== "string" ||
+			!isHandoffKey(handoff.key)
+		) {
 			continue;
 		}
 		const identity = `${handoff.branch}\0${handoff.key}`;
@@ -190,7 +207,10 @@ function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult 
 	return { type: "valid", items };
 }
 
-function parseLegacyBrmemEntryItems(entries: unknown[], resultBranch: string | undefined): HandoffItemsParseResult {
+function parseLegacyBrmemEntryItems(
+	entries: unknown[],
+	resultBranch: string | undefined,
+): HandoffItemsParseResult {
 	const seen = new Set<string>();
 	const items: HandoffListItem[] = [];
 
@@ -220,11 +240,16 @@ export function parseHandoffKeysFromBrmemList(stdout: string): HandoffKeysParseR
 	}
 	return {
 		type: "valid",
-		keys: [...new Set(parsedItems.items.map((item) => item.key))].sort((left, right) => left.localeCompare(right)),
+		keys: [...new Set(parsedItems.items.map((item) => item.key))].sort((left, right) =>
+			left.localeCompare(right),
+		),
 	};
 }
 
-export function resolveHandoffKey(selector: string[], handoffKeys: string[]): { key?: string; ambiguousKeys?: string[] } {
+export function resolveHandoffKey(
+	selector: string[],
+	handoffKeys: string[],
+): { key?: string; ambiguousKeys?: string[] } {
 	if (handoffKeys.length === 0) {
 		return {};
 	}
@@ -329,14 +354,20 @@ function normalizeSelectorToKey(selector: string): string | undefined {
 }
 
 function splitSelectorTerms(selector: string[]): string[] {
-	return selector.flatMap((part) => part.toLowerCase().split(/[-_.]+/)).filter((term) => term.length > 0);
+	return selector
+		.flatMap((part) => part.toLowerCase().split(/[-_.]+/))
+		.filter((term) => term.length > 0);
 }
 
 function handoffKeyTokens(key: string): string[] {
 	return splitSelectorTerms([handoffSlug(key)]);
 }
 
-export async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
+export async function handlePickupHandoffCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 
 	const parsedArgs = parsePickupHandoffArgs(rawArgs);
@@ -383,10 +414,18 @@ export async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: stri
 	if (selection.key !== undefined) {
 		selectedKey = selection.key;
 	} else if (selection.ambiguousKeys !== undefined) {
-		selectedKey = await chooseHandoff(pi, ctx, branch, itemsForKeys(handoffItems, selection.ambiguousKeys));
+		selectedKey = await chooseHandoff(
+			pi,
+			ctx,
+			branch,
+			itemsForKeys(handoffItems, selection.ambiguousKeys),
+		);
 	} else {
 		const selectorText = args.selector.join(" ").trim() || "(none)";
-		ctx.ui.notify(`No handoff matched ${selectorText} on branch ${branch}. Available: ${slugList(handoffItems)}.`, "warning");
+		ctx.ui.notify(
+			`No handoff matched ${selectorText} on branch ${branch}. Available: ${slugList(handoffItems)}.`,
+			"warning",
+		);
 		return;
 	}
 
@@ -411,7 +450,11 @@ export async function handlePickupHandoffCommand(pi: ExtensionAPI, rawArgs: stri
 	pi.sendUserMessage(buildPickupHandoffPrompt(branch, selectedKey, artifact));
 }
 
-export async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
+export async function handleListHandoffCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+): Promise<void> {
 	await ctx.waitForIdle();
 
 	const parsedArgs = parseListHandoffArgs(rawArgs);
@@ -452,7 +495,12 @@ export async function handleListHandoffCommand(pi: ExtensionAPI, rawArgs: string
 	}
 
 	if (handoffItems.length === 0) {
-		ctx.ui.notify(args.allBranches ? "No handoffs found across active branches." : `No handoffs found on branch ${branch}.`, "info");
+		ctx.ui.notify(
+			args.allBranches
+				? "No handoffs found across active branches."
+				: `No handoffs found on branch ${branch}.`,
+			"info",
+		);
 		return;
 	}
 
@@ -483,10 +531,16 @@ async function listHandoffItems(
 	try {
 		result = await pi.exec("handoff", commandArgs, { cwd: ctx.cwd, timeout: HANDOFF_TIMEOUT_MS });
 	} catch (error) {
-		return { type: "failed", message: formatStartupFailure(formatCommand("handoff", commandArgs), error) };
+		return {
+			type: "failed",
+			message: formatStartupFailure(formatCommand("handoff", commandArgs), error),
+		};
 	}
 	if (result.code !== 0 || result.killed) {
-		return { type: "failed", message: formatExecFailure(formatCommand("handoff", commandArgs), result) };
+		return {
+			type: "failed",
+			message: formatExecFailure(formatCommand("handoff", commandArgs), result),
+		};
 	}
 	const parsedItems = parseHandoffItemsFromBrmemList(result.stdout);
 	if (parsedItems.type === "invalid") {
@@ -495,7 +549,12 @@ async function listHandoffItems(
 	return { type: "loaded", items: parsedItems.items };
 }
 
-async function readHandoff(pi: ExtensionAPI, ctx: Pick<CommandContext, "cwd">, branch: string, key: string): Promise<string> {
+async function readHandoff(
+	pi: ExtensionAPI,
+	ctx: Pick<CommandContext, "cwd">,
+	branch: string,
+	key: string,
+): Promise<string> {
 	const commandArgs = ["get", key, "--namespace", HANDOFF_NAMESPACE, "--branch", branch];
 	let result: ExecResult;
 	try {
@@ -516,7 +575,10 @@ async function chooseHandoff(
 	items: HandoffListItem[],
 ): Promise<string | undefined> {
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
-		ctx.ui.notify(`Found multiple handoffs on branch ${branch}:\n\n${items.map((item) => item.slug).join("\n")}\n\nRerun with a slug.`, "warning");
+		ctx.ui.notify(
+			`Found multiple handoffs on branch ${branch}:\n\n${items.map((item) => item.slug).join("\n")}\n\nRerun with a slug.`,
+			"warning",
+		);
 		return undefined;
 	}
 
@@ -540,7 +602,7 @@ async function previewHandoffItems(
 		try {
 			const artifact = await readHandoff(pi, ctx, item.branch, item.key);
 			previewedItems.push({ ...item, preview: deriveHandoffPreview(artifact) });
-		} catch (_error) {
+		} catch {
 			previewedItems.push({ ...item, preview: "(preview unreadable)" });
 		}
 	}
@@ -560,7 +622,11 @@ function pickerLabel(item: PreviewedHandoffListItem): string {
 	return `${item.slug} — ${item.preview}`;
 }
 
-function emitHandoffList(pi: ExtensionAPI, ctx: CommandContext, details: HandoffListMessageDetails): void {
+function emitHandoffList(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	details: HandoffListMessageDetails,
+): void {
 	const content = formatHandoffListPlain(details);
 	if (pi.sendMessage !== undefined) {
 		pi.sendMessage({

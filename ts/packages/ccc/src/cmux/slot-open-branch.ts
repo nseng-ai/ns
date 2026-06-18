@@ -34,11 +34,14 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 
 	pi.on("session_start", async (_event, ctx) => {
 		currentCwd = ctx.cwd;
-		ctx.ui.addAutocompleteProvider?.((current) => createBranchAutocompleteProvider(pi, current, ctx.cwd));
+		ctx.ui.addAutocompleteProvider?.((current) =>
+			createBranchAutocompleteProvider(pi, current, ctx.cwd),
+		);
 	});
 
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
+		description:
+			"Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
 		argumentHint: "[branch]",
 		getArgumentCompletions: async (argumentPrefix) => {
 			const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
@@ -50,7 +53,9 @@ export function registerCccSlotOpenBranchCommand(pi: ExtensionAPI): void {
 	});
 }
 
-export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOptions): Promise<void> {
+export async function handleCccSlotOpenBranch(
+	options: HandleCccSlotOpenBranchOptions,
+): Promise<void> {
 	const { pi, args, ctx } = options;
 	await ctx.waitForIdle();
 
@@ -90,8 +95,7 @@ export async function handleCccSlotOpenBranch(options: HandleCccSlotOpenBranchOp
 async function resolveInferredBranchContext(ctx: {
 	sessionManager?: { getBranch?: () => unknown[] };
 }): Promise<
-	| { inferred: true; branchName: string; evidence: BranchContextEvidence }
-	| { error: string }
+	{ inferred: true; branchName: string; evidence: BranchContextEvidence } | { error: string }
 > {
 	const entries = ctx.sessionManager?.getBranch?.() ?? [];
 	const evidence = findLatestBranchContextEvidence(entries);
@@ -114,7 +118,10 @@ async function confirmInferredBranch(
 	evidence: BranchContextEvidence,
 ): Promise<boolean> {
 	if (!ctx.hasUI || ctx.ui.confirm === undefined) {
-		ctx.ui.notify(`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`, "error");
+		ctx.ui.notify(
+			`Cannot infer /${COMMAND_NAME} branch without an interactive confirmation UI.`,
+			"error",
+		);
 		return false;
 	}
 
@@ -140,7 +147,12 @@ function createBranchAutocompleteProvider(
 	cwd: string,
 ): AutocompleteProvider {
 	return {
-		async getSuggestions(lines, cursorLine, cursorCol, options): Promise<AutocompleteSuggestions | null> {
+		async getSuggestions(
+			lines,
+			cursorLine,
+			cursorCol,
+			options,
+		): Promise<AutocompleteSuggestions | null> {
 			const currentLine = lines[cursorLine] ?? "";
 			const textBeforeCursor = currentLine.slice(0, cursorCol);
 			const argumentPrefix = extractCommandArgumentPrefix(textBeforeCursor);
@@ -208,7 +220,10 @@ export async function getBranchCompletions(
 		}));
 }
 
-async function listBranchCandidates(pi: Pick<ExtensionAPI, "exec">, cwd: string): Promise<BranchCandidate[] | undefined> {
+async function listBranchCandidates(
+	pi: Pick<ExtensionAPI, "exec">,
+	cwd: string,
+): Promise<BranchCandidate[] | undefined> {
 	const result = await pi.exec(
 		"git",
 		["for-each-ref", `--format=${BRANCH_FORMAT}`, "refs/heads", "refs/remotes"],

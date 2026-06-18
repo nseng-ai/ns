@@ -64,7 +64,10 @@ export function parseRunnerSubagentUsageJsonl(jsonl: string): ParseRunnerSubagen
 	return { type: "ok", records };
 }
 
-export function addRunnerSubagentUsageTotals(left: RunnerSubagentUsageTotals, right: RunnerSubagentUsageTotals): RunnerSubagentUsageTotals {
+export function addRunnerSubagentUsageTotals(
+	left: RunnerSubagentUsageTotals,
+	right: RunnerSubagentUsageTotals,
+): RunnerSubagentUsageTotals {
 	return {
 		input: left.input + right.input,
 		output: left.output + right.output,
@@ -128,7 +131,11 @@ function costFromUsage(usage: JsonRecord): RunnerSubagentUsageCostTotals {
 	};
 }
 
-function modelRefFromRecord(record: JsonRecord, message: JsonRecord, usage: JsonRecord): RunnerSubagentUsageModelRef {
+function modelRefFromRecord(
+	record: JsonRecord,
+	message: JsonRecord,
+	usage: JsonRecord,
+): RunnerSubagentUsageModelRef {
 	return {
 		provider: firstStringField({ record, message, usage, key: "provider" }),
 		api: firstStringField({ record, message, usage, key: "api" }),
@@ -137,7 +144,10 @@ function modelRefFromRecord(record: JsonRecord, message: JsonRecord, usage: Json
 }
 
 function firstStringField(options: StringFieldSearchOptions): string | null {
-	const direct = stringField(options.message, options.key) ?? stringField(options.record, options.key) ?? stringField(options.usage, options.key);
+	const direct =
+		stringField(options.message, options.key) ??
+		stringField(options.record, options.key) ??
+		stringField(options.usage, options.key);
 	if (direct !== null) return direct;
 
 	for (const container of [options.message, options.record, options.usage]) {
@@ -152,7 +162,9 @@ function firstStringField(options: StringFieldSearchOptions): string | null {
 }
 
 function hasUsableTokenUsage(usage: JsonRecord): boolean {
-	return TOKEN_FIELDS.some((field) => typeof usage[field] === "number" && Number.isFinite(usage[field]));
+	return TOKEN_FIELDS.some(
+		(field) => typeof usage[field] === "number" && Number.isFinite(usage[field]),
+	);
 }
 
 function mappingField(data: JsonRecord, key: string): JsonRecord | null {
@@ -178,7 +190,8 @@ function isJsonRecord(value: unknown): value is JsonRecord {
 }
 
 function jsonParseErrorMessage(error: unknown): string {
-	if (!(error instanceof SyntaxError)) return error instanceof Error ? error.message : String(error);
+	if (!(error instanceof SyntaxError))
+		return error instanceof Error ? error.message : String(error);
 	const [message] = error.message.split(" at ");
 	return message ?? error.message;
 }

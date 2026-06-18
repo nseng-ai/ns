@@ -24,8 +24,10 @@ export async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePro
 	const projectPath = join(repoRoot.value, ".brmem", "prompts", `${request.name}.md`);
 	const globalPath = join(ctx.promptResolver.homeRoot(), ".brmem", "prompts", `${request.name}.md`);
 
-	if (await ctx.promptResolver.fileExists(projectPath)) return ok({ path: projectPath, tier: "project" } satisfies ResolvePromptResult);
-	if (await ctx.promptResolver.fileExists(globalPath)) return ok({ path: globalPath, tier: "global" } satisfies ResolvePromptResult);
+	if (await ctx.promptResolver.fileExists(projectPath))
+		return ok({ path: projectPath, tier: "project" } satisfies ResolvePromptResult);
+	if (await ctx.promptResolver.fileExists(globalPath))
+		return ok({ path: globalPath, tier: "global" } satisfies ResolvePromptResult);
 
 	return failure(
 		"prompt-not-found",

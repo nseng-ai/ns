@@ -51,7 +51,11 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: ExtensionCommandContext): Promise<void> | void;
 		},
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<CommandResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<CommandResult>;
 }
 
 export interface FastTextDraftInput {
@@ -91,9 +95,10 @@ export function selectDraftHarness(): { value: DraftHarness } | { error: string 
 	};
 }
 
-export function resolveCodexDraftModel(
-	env: Record<string, string | undefined>,
-): { value: PiModelConfig; warning?: string } {
+export function resolveCodexDraftModel(env: Record<string, string | undefined>): {
+	value: PiModelConfig;
+	warning?: string;
+} {
 	if (!env[DRAFT_MODEL_ENV]?.trim()) {
 		return { value: CODEX_DEFAULT_CONFIG };
 	}
@@ -152,7 +157,7 @@ async function draftWithPiModel(
 			maxTokens: input.maxTokens ?? DEFAULT_MAX_TOKENS,
 			reasoning: config.reasoning,
 			timeoutMs: 120_000,
-		})
+		}),
 	);
 	if (!result.ok) {
 		return { error: piModelDraftError(result, config, input.taskNoun) };
@@ -163,7 +168,11 @@ async function draftWithPiModel(
 	return { output: result.text };
 }
 
-function piModelDraftError(result: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>, config: PiModelConfig, taskNoun: string): string {
+function piModelDraftError(
+	result: Exclude<Awaited<ReturnType<typeof callPiModelText>>, { ok: true }>,
+	config: PiModelConfig,
+	taskNoun: string,
+): string {
 	switch (result.reason) {
 		case "model-unavailable":
 			return `Could not find Pi model ${config.provider}/${config.modelId}.`;
@@ -191,22 +200,31 @@ async function draftWithClaudeCli(
 		await writeFile(systemPromptPath, input.systemPrompt, "utf8");
 		await writeFile(userPromptPath, input.userPrompt, "utf8");
 
-		const result = await withSpinner(ctx, input.spinnerKey, input.progressMessage(CLAUDE_CLI_LABEL), () =>
-			pi.exec(
-				"bash",
-				[
-					"-lc",
-					'env -u CLAUDECODE claude -p --model "$1" --output-format text --system-prompt "$(cat \"$2\")" < "$3"',
+		const result = await withSpinner(
+			ctx,
+			input.spinnerKey,
+			input.progressMessage(CLAUDE_CLI_LABEL),
+			() =>
+				pi.exec(
 					"bash",
-					model,
-					systemPromptPath,
-					userPromptPath,
-				],
-				{ cwd: ctx.cwd, timeout: 120_000 },
-			),
+					[
+						"-lc",
+						'env -u CLAUDECODE claude -p --model "$1" --output-format text --system-prompt "$(cat "$2")" < "$3"',
+						"bash",
+						model,
+						systemPromptPath,
+						userPromptPath,
+					],
+					{ cwd: ctx.cwd, timeout: 120_000 },
+				),
 		);
 		if (result.code !== 0) {
-			return { error: formatCommandError(`${CLAUDE_CLI_LABEL} failed to draft a ${input.taskNoun}.`, result) };
+			return {
+				error: formatCommandError(
+					`${CLAUDE_CLI_LABEL} failed to draft a ${input.taskNoun}.`,
+					result,
+				),
+			};
 		}
 
 		return { output: result.stdout };
@@ -266,5 +284,10 @@ function clearProgress(ctx: ExtensionCommandContext, spinnerKey: string): void {
 function formatCommandError(summary: string, result: CommandResult): string {
 	const details = result.stderr.trim() || result.stdout.trim();
 	const killed = result.killed ? " (killed or timed out)" : "";
-	return [summary, details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`].filter(Boolean).join("\n");
+	return [
+		summary,
+		details ? `exit ${result.code}${killed}: ${details}` : `exit ${result.code}${killed}`,
+	]
+		.filter(Boolean)
+		.join("\n");
 }

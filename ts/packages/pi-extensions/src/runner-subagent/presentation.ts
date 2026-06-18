@@ -1,6 +1,12 @@
-import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress, RunnerSubagentResult } from "../runner-subagent.ts";
+import type {
+	RunnerSubagentLaunchMetadata,
+	RunnerSubagentProgress,
+	RunnerSubagentResult,
+} from "../runner-subagent.ts";
 
-export type RunnerSubagentPresentationSource = RunnerSubagentProgress | RunnerSubagentResult<unknown>;
+export type RunnerSubagentPresentationSource =
+	| RunnerSubagentProgress
+	| RunnerSubagentResult<unknown>;
 
 export interface RunnerSubagentProgressWidgetOptions {
 	fallbackTitle?: string;
@@ -12,16 +18,26 @@ export function formatRunnerSubagentElapsed(elapsedMs: number): string {
 	return `${(elapsedMs / 1_000).toFixed(1)}s`;
 }
 
-export function runnerSubagentDisplayTitle(source: RunnerSubagentPresentationSource, fallback = "(untitled subagent session)"): string {
-	const title = "progress" in source ? source.title ?? source.progress.title : source.title;
+export function runnerSubagentDisplayTitle(
+	source: RunnerSubagentPresentationSource,
+	fallback = "(untitled subagent session)",
+): string {
+	const title = "progress" in source ? (source.title ?? source.progress.title) : source.title;
 	return title ?? fallback;
 }
 
-export function runnerSubagentSessionFile(source: RunnerSubagentPresentationSource): string | undefined {
-	return "progress" in source ? source.sessionFile ?? source.progress.sessionFile : source.sessionFile;
+export function runnerSubagentSessionFile(
+	source: RunnerSubagentPresentationSource,
+): string | undefined {
+	return "progress" in source
+		? (source.sessionFile ?? source.progress.sessionFile)
+		: source.sessionFile;
 }
 
-export function runnerSubagentSessionFileText(source: RunnerSubagentPresentationSource, fallback = "(not available)"): string {
+export function runnerSubagentSessionFileText(
+	source: RunnerSubagentPresentationSource,
+	fallback = "(not available)",
+): string {
 	return runnerSubagentSessionFile(source) ?? fallback;
 }
 
@@ -40,7 +56,10 @@ export function formatRunnerSubagentProgressWidgetLines(
 	options: RunnerSubagentProgressWidgetOptions = {},
 ): string[] {
 	const { fallbackTitle = "(untitled subagent session)", includeElapsed = true } = options;
-	const lines = [`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`, `State: ${progress.state}`];
+	const lines = [
+		`Subagent: ${runnerSubagentDisplayTitle(progress, fallbackTitle)}`,
+		`State: ${progress.state}`,
+	];
 	if (progress.currentTool !== undefined) lines.push(`Tool: ${progress.currentTool}`);
 	lines.push(`Turns/tools: ${progress.turnCount}/${progress.toolCount}`);
 	if (includeElapsed) lines.push(`Elapsed: ${formatRunnerSubagentElapsed(progress.elapsedMs)}`);

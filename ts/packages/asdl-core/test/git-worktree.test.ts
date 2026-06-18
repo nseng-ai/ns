@@ -39,7 +39,11 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 					"branch refs/heads/master",
 				].join("\n"),
 			}),
-		).toEqual({ type: "pull-checked-out-branch", cwd: "/trunk", args: ["pull", "--ff-only", "origin", "master"] });
+		).toEqual({
+			type: "pull-checked-out-branch",
+			cwd: "/trunk",
+			args: ["pull", "--ff-only", "origin", "master"],
+		});
 	});
 
 	test("plans a fetch into the local branch when it is not checked out", () => {
@@ -47,8 +51,13 @@ describe("planLocalBranchRefreshFromWorktrees", () => {
 			planLocalBranchRefreshFromWorktrees({
 				branch: "main",
 				cwd: "/repo",
-				worktreePorcelain: "worktree /repo\nHEAD 1111111111111111111111111111111111111111\nbranch refs/heads/feature-a\n",
+				worktreePorcelain:
+					"worktree /repo\nHEAD 1111111111111111111111111111111111111111\nbranch refs/heads/feature-a\n",
 			}),
-		).toEqual({ type: "fetch-local-branch", cwd: "/repo", args: ["fetch", "origin", "refs/heads/main:refs/heads/main"] });
+		).toEqual({
+			type: "fetch-local-branch",
+			cwd: "/repo",
+			args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
+		});
 	});
 });

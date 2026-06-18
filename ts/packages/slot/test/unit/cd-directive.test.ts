@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { activeCdDirectivePath, SLOT_CD_DIRECTIVE_FILE, type CdDirectiveFilesystem, writeCdDirectiveIfActive } from "../../src/shell/cd-directive.ts";
+import {
+	activeCdDirectivePath,
+	SLOT_CD_DIRECTIVE_FILE,
+	type CdDirectiveFilesystem,
+	writeCdDirectiveIfActive,
+} from "../../src/shell/cd-directive.ts";
 
 describe("cd directive", () => {
 	it("is inactive when env is absent or empty", () => {
@@ -10,23 +15,48 @@ describe("cd directive", () => {
 
 	it("suppresses writes when disabled", async () => {
 		const filesystem = new FakeDirectiveFilesystem();
-		await expect(writeCdDirectiveIfActive("/dest", { isEnabled: false, env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toEqual({ status: "inactive", path: "/tmp/directive" });
+		await expect(
+			writeCdDirectiveIfActive("/dest", {
+				isEnabled: false,
+				env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" },
+				filesystem,
+			}),
+		).resolves.toEqual({ status: "inactive", path: "/tmp/directive" });
 		expect(filesystem.writes()).toEqual([]);
 	});
 
 	it("fails when parent dir is missing", async () => {
 		const filesystem = new FakeDirectiveFilesystem({ existingParents: [] });
-		await expect(writeCdDirectiveIfActive("/dest", { env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toMatchObject({ status: "failed", path: "/tmp/directive", error: "parent directory does not exist: /tmp" });
+		await expect(
+			writeCdDirectiveIfActive("/dest", {
+				env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" },
+				filesystem,
+			}),
+		).resolves.toMatchObject({
+			status: "failed",
+			path: "/tmp/directive",
+			error: "parent directory does not exist: /tmp",
+		});
 	});
 
 	it("fails when writing throws", async () => {
 		const filesystem = new FakeDirectiveFilesystem({ writeFailure: "permission denied" });
-		await expect(writeCdDirectiveIfActive("/dest", { env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toMatchObject({ status: "failed", error: "permission denied" });
+		await expect(
+			writeCdDirectiveIfActive("/dest", {
+				env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" },
+				filesystem,
+			}),
+		).resolves.toMatchObject({ status: "failed", error: "permission denied" });
 	});
 
 	it("writes the bare destination string", async () => {
 		const filesystem = new FakeDirectiveFilesystem();
-		await expect(writeCdDirectiveIfActive("/worktree/path", { env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" }, filesystem })).resolves.toEqual({ status: "written", path: "/tmp/directive" });
+		await expect(
+			writeCdDirectiveIfActive("/worktree/path", {
+				env: { [SLOT_CD_DIRECTIVE_FILE]: "/tmp/directive" },
+				filesystem,
+			}),
+		).resolves.toEqual({ status: "written", path: "/tmp/directive" });
 		expect(filesystem.writes()).toEqual([{ path: "/tmp/directive", content: "/worktree/path" }]);
 	});
 });
@@ -36,7 +66,12 @@ class FakeDirectiveFilesystem implements CdDirectiveFilesystem {
 	private readonly writeFailure: string | undefined;
 	private readonly log: Array<{ path: string; content: string }> = [];
 
-	constructor(options: { existingParents?: readonly string[] | undefined; writeFailure?: string | undefined } = {}) {
+	constructor(
+		options: {
+			existingParents?: readonly string[] | undefined;
+			writeFailure?: string | undefined;
+		} = {},
+	) {
 		this.existingParents = new Set(options.existingParents ?? ["/tmp"]);
 		this.writeFailure = options.writeFailure;
 	}

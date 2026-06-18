@@ -1,5 +1,10 @@
 import type { ExecResult } from "@asdl/core/exec";
-import type { SessionReplacementContext, SessionReplacementOptions, SessionReplacementResult, SessionUserMessageOptions } from "@asdl/pi-extension-runtime/session-replacement";
+import type {
+	SessionReplacementContext,
+	SessionReplacementOptions,
+	SessionReplacementResult,
+	SessionUserMessageOptions,
+} from "@asdl/pi-extension-runtime/session-replacement";
 import type { ModelInfo, ThinkingLevel } from "../cmux/types.ts";
 
 export type { ExecResult } from "@asdl/core/exec";
@@ -83,7 +88,11 @@ export interface ToolDefinition {
 	): Promise<ToolResult> | ToolResult;
 }
 
-export type MessageRenderer = (message: CustomMessage, options: { expanded: boolean }, theme: RenderTheme) => RenderComponent;
+export type MessageRenderer = (
+	message: CustomMessage,
+	options: { expanded: boolean },
+	theme: RenderTheme,
+) => RenderComponent;
 
 export interface SessionManagerLike {
 	/** Path to the current Pi session file, when one is available. */
@@ -101,7 +110,12 @@ export interface BaseRuntimeContext {
 		setEditorText?(value: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 		custom?<T>(
-			factory: (tui: TuiHandle, theme: unknown, keybindings: unknown, done: (value: T) => void) => RenderComponent,
+			factory: (
+				tui: TuiHandle,
+				theme: unknown,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => RenderComponent,
 			options?: unknown,
 		): Promise<T>;
 	};
@@ -128,7 +142,11 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool?(definition: ToolDefinition): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number; signal?: AbortSignal }): Promise<ExecResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number; signal?: AbortSignal },
+	): Promise<ExecResult>;
 	getCommands?(): CommandInfo[];
 	getThinkingLevel?(): ThinkingLevel;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;

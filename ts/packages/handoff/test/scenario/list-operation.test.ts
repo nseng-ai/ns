@@ -8,12 +8,28 @@ describe("handoff list", () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/y", content: "bravo" });
-		await putHandoffEntry(gateway, { namespace: "handoffs", key: "legacy.md", branch: "feat/x", content: "legacy" });
-		await putHandoffEntry(gateway, { key: "nested/ignore.md", branch: "feat/x", content: "nested" });
-		await putHandoffEntry(gateway, { key: "alpha_beta.md", branch: "feat/x", content: "underscore" });
+		await putHandoffEntry(gateway, {
+			namespace: "handoffs",
+			key: "legacy.md",
+			branch: "feat/x",
+			content: "legacy",
+		});
+		await putHandoffEntry(gateway, {
+			key: "nested/ignore.md",
+			branch: "feat/x",
+			content: "nested",
+		});
+		await putHandoffEntry(gateway, {
+			key: "alpha_beta.md",
+			branch: "feat/x",
+			content: "underscore",
+		});
 		await putHandoffEntry(gateway, { key: "not-md.txt", branch: "feat/x", content: "txt" });
 
-		const run = runScenario(["list", "--format", "json"], { brmem: gateway, gitState: { currentBranch: "feat/x", existingBranches: ["feat/x"] } });
+		const run = runScenario(["list", "--format", "json"], {
+			brmem: gateway,
+			gitState: { currentBranch: "feat/x", existingBranches: ["feat/x"] },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toEqual({
@@ -40,7 +56,10 @@ describe("handoff list", () => {
 		const gateway = new FakeBrmemGateway();
 		await putHandoffEntry(gateway, { key: "stale.md", branch: "feat/deleted", content: "stale" });
 
-		const hidden = runScenario(["list", "--branch", "feat/deleted"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: [] } });
+		const hidden = runScenario(["list", "--branch", "feat/deleted"], {
+			brmem: gateway,
+			gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
+		});
 		const shown = runScenario(["list", "--branch", "feat/deleted", "--include-deleted"], {
 			brmem: gateway,
 			gitState: { currentBranch: { type: "detached" }, existingBranches: [] },
@@ -58,17 +77,29 @@ describe("handoff list", () => {
 		await putHandoffEntry(gateway, { key: "alpha.md", branch: "feat/a", content: "alpha" });
 		await putHandoffEntry(gateway, { key: "bravo.md", branch: "feat/b", content: "bravo" });
 
-		const active = runScenario(["list", "--all", "--format", "json"], { brmem: gateway, gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/a"] } });
+		const active = runScenario(["list", "--all", "--format", "json"], {
+			brmem: gateway,
+			gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/a"] },
+		});
 		const all = runScenario(["list", "--all", "--include-deleted", "--format", "json"], {
 			brmem: gateway,
 			gitState: { currentBranch: { type: "detached" }, existingBranches: ["feat/a"] },
 		});
 
 		expect(await active.exit).toBe(0);
-		expect(parseJsonOutput(active)).toMatchObject({ data: { scope: "all-branches", branch: null, include_deleted: false } });
-		expect((parseJsonOutput(active) as { data: { handoffs: { slug: string }[] } }).data.handoffs.map((handoff) => handoff.slug)).toEqual(["alpha"]);
+		expect(parseJsonOutput(active)).toMatchObject({
+			data: { scope: "all-branches", branch: null, include_deleted: false },
+		});
+		expect(
+			(parseJsonOutput(active) as { data: { handoffs: { slug: string }[] } }).data.handoffs.map(
+				(handoff) => handoff.slug,
+			),
+		).toEqual(["alpha"]);
 		expect(await all.exit).toBe(0);
-		expect((parseJsonOutput(all) as { data: { handoffs: { slug: string; branch_state: string }[] } }).data.handoffs).toEqual([
+		expect(
+			(parseJsonOutput(all) as { data: { handoffs: { slug: string; branch_state: string }[] } })
+				.data.handoffs,
+		).toEqual([
 			expect.objectContaining({ slug: "alpha", branch_state: "active" }),
 			expect.objectContaining({ slug: "bravo", branch_state: "deleted" }),
 		]);
@@ -99,22 +130,34 @@ describe("handoff list", () => {
 
 	test("ignores flat markdown keys that are not strict semantic handoff slugs", async () => {
 		const gateway = new FakeBrmemGateway();
-		await putHandoffEntry(gateway, { key: "alpha_beta.md", branch: "feat/x", content: "underscore" });
+		await putHandoffEntry(gateway, {
+			key: "alpha_beta.md",
+			branch: "feat/x",
+			content: "underscore",
+		});
 		await putHandoffEntry(gateway, { key: "Bad_Name.md", branch: "feat/x", content: "upper" });
 
-		const run = runScenario(["list", "--format", "json"], { brmem: gateway, gitState: { currentBranch: "feat/x", existingBranches: ["feat/x"] } });
+		const run = runScenario(["list", "--format", "json"], {
+			brmem: gateway,
+			gitState: { currentBranch: "feat/x", existingBranches: ["feat/x"] },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({ data: { handoffs: [] } });
 	});
 
 	test("detached head and branch/all conflict are durable failures", async () => {
-		const detached = runScenario(["list", "--include-deleted", "--format", "json"], { gitState: { currentBranch: { type: "detached" } } });
+		const detached = runScenario(["list", "--include-deleted", "--format", "json"], {
+			gitState: { currentBranch: { type: "detached" } },
+		});
 		expect(await detached.exit).toBe(2);
 		expect(parseJsonOutput(detached)).toMatchObject({ error_type: "detached_head" });
 
 		const conflict = runScenario(["list", "--branch", "feat/x", "--all", "--format", "json"]);
 		expect(await conflict.exit).toBe(2);
-		expect(parseJsonOutput(conflict)).toMatchObject({ error_type: "branch_and_all_conflict", message: "--branch and --all are mutually exclusive." });
+		expect(parseJsonOutput(conflict)).toMatchObject({
+			error_type: "branch_and_all_conflict",
+			message: "--branch and --all are mutually exclusive.",
+		});
 	});
 });

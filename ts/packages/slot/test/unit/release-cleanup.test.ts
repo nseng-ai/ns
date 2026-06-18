@@ -10,29 +10,58 @@ import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/context.ts";
 
-const target: FreedSlot = { slot_name: "slot-01", branch_name: "feature/a", worktree_path: "/slots/repos/repo/worktrees/slot-01" };
+const target: FreedSlot = {
+	slot_name: "slot-01",
+	branch_name: "feature/a",
+	worktree_path: "/slots/repos/repo/worktrees/slot-01",
+};
 
 describe("release cleanup", () => {
 	it("plans PR and local branch cleanup without mutation", async () => {
-		const ctx = context({ pr: new FakeSlotPrGateway({ prsByBranch: { "feature/a": { number: 7, state: "OPEN" } } }) });
-		const cleanup = await planReleaseCleanup({ ctx, targets: [target], cleanupActions: ["pr", "local_branch"], trunkBranch: "master" });
-		expect(cleanup).toMatchObject([{ action: "pr", status: "planned", pr_number: 7 }, { action: "local_branch", status: "planned" }]);
+		const ctx = context({
+			pr: new FakeSlotPrGateway({ prsByBranch: { "feature/a": { number: 7, state: "OPEN" } } }),
+		});
+		const cleanup = await planReleaseCleanup({
+			ctx,
+			targets: [target],
+			cleanupActions: ["pr", "local_branch"],
+			trunkBranch: "master",
+		});
+		expect(cleanup).toMatchObject([
+			{ action: "pr", status: "planned", pr_number: 7 },
+			{ action: "local_branch", status: "planned" },
+		]);
 		expect(ctx.git.operations()).toEqual([]);
 		expect(ctx.pr.operations()).toEqual([{ type: "get-pr-for-branch", branch: "feature/a" }]);
 	});
 
 	it("executes in action order and stops on first error", async () => {
-		const ctx = context({ pr: new FakeSlotPrGateway({ prsByBranch: { "feature/a": { number: 7, state: "OPEN" } }, closeFailures: { 7: "close failed" } }) });
-		const cleanup = await executeReleaseCleanup({ ctx, targets: [target], cleanupActions: ["pr", "local_branch"], trunkBranch: "master" });
+		const ctx = context({
+			pr: new FakeSlotPrGateway({
+				prsByBranch: { "feature/a": { number: 7, state: "OPEN" } },
+				closeFailures: { 7: "close failed" },
+			}),
+		});
+		const cleanup = await executeReleaseCleanup({
+			ctx,
+			targets: [target],
+			cleanupActions: ["pr", "local_branch"],
+			trunkBranch: "master",
+		});
 		expect(cleanup).toMatchObject([{ action: "pr", status: "error", message: "close failed" }]);
 		expect(ctx.git.operations()).toEqual([]);
 	});
 });
 
-function context(options: { pr: FakeSlotPrGateway }): RepoSlotContext & { git: FakeSlotGitGateway; pr: FakeSlotPrGateway } {
+function context(options: {
+	pr: FakeSlotPrGateway;
+}): RepoSlotContext & { git: FakeSlotGitGateway; pr: FakeSlotPrGateway } {
 	return {
 		repo: repoContext(),
-		git: new FakeSlotGitGateway({ worktrees: [{ path: "/repo", branch: "master" }], localBranches: ["master", "feature/a"] }),
+		git: new FakeSlotGitGateway({
+			worktrees: [{ path: "/repo", branch: "master" }],
+			localBranches: ["master", "feature/a"],
+		}),
 		gt: new FakeSlotGtGateway(),
 		pr: options.pr,
 		storage: new FakeSlotStorageGateway(),

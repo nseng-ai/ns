@@ -31,41 +31,80 @@ export interface RunSdlccCmuxReportOptions {
 	readonly runCommand?: CommandRunner | undefined;
 }
 
-export async function runSdlccCmuxReport(options: RunSdlccCmuxReportOptions = {}): Promise<SdlccCmuxReportResult> {
+export async function runSdlccCmuxReport(
+	options: RunSdlccCmuxReportOptions = {},
+): Promise<SdlccCmuxReportResult> {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	const runCommand = options.runCommand ?? runRealCommand;
 
 	const workspaceId = nonEmptyString(env.CMUX_WORKSPACE_ID);
-	if (workspaceId === undefined) return { type: "failed", message: "sdlcc cmux report must run inside a cmux surface; CMUX_WORKSPACE_ID is not set." };
+	if (workspaceId === undefined)
+		return {
+			type: "failed",
+			message: "sdlcc cmux report must run inside a cmux surface; CMUX_WORKSPACE_ID is not set.",
+		};
 	const surfaceId = nonEmptyString(env.CMUX_SURFACE_ID);
-	if (surfaceId === undefined) return { type: "failed", message: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set." };
+	if (surfaceId === undefined)
+		return {
+			type: "failed",
+			message: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set.",
+		};
 
-	const worktreeResult = await runCommand("git", ["rev-parse", "--show-toplevel"], { cwd, timeout: COMMAND_TIMEOUT_MS });
+	const worktreeResult = await runCommand("git", ["rev-parse", "--show-toplevel"], {
+		cwd,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
 	if (worktreeResult.code !== 0) {
-		return { type: "failed", message: `sdlcc cmux report must run inside a git worktree: ${commandFailureMessage("git rev-parse --show-toplevel", worktreeResult)}` };
+		return {
+			type: "failed",
+			message: `sdlcc cmux report must run inside a git worktree: ${commandFailureMessage("git rev-parse --show-toplevel", worktreeResult)}`,
+		};
 	}
 	const worktreePath = nonEmptyString(worktreeResult.stdout);
-	if (worktreePath === undefined) return { type: "failed", message: "sdlcc cmux report must run inside a git worktree; git returned an empty worktree root." };
+	if (worktreePath === undefined)
+		return {
+			type: "failed",
+			message:
+				"sdlcc cmux report must run inside a git worktree; git returned an empty worktree root.",
+		};
 
-	const branchResult = await runCommand("git", ["branch", "--show-current"], { cwd, timeout: COMMAND_TIMEOUT_MS });
+	const branchResult = await runCommand("git", ["branch", "--show-current"], {
+		cwd,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
 	if (branchResult.code !== 0) {
-		return { type: "failed", message: `sdlcc cmux report could not resolve the current git branch: ${commandFailureMessage("git branch --show-current", branchResult)}` };
+		return {
+			type: "failed",
+			message: `sdlcc cmux report could not resolve the current git branch: ${commandFailureMessage("git branch --show-current", branchResult)}`,
+		};
 	}
 	const branch = nonEmptyString(branchResult.stdout);
-	if (branch === undefined) return { type: "failed", message: "sdlcc cmux report requires a named git branch; detached HEAD is not supported." };
+	if (branch === undefined)
+		return {
+			type: "failed",
+			message: "sdlcc cmux report requires a named git branch; detached HEAD is not supported.",
+		};
 
 	const shell = nonEmptyString(env.SHELL) ?? DEFAULT_RESTORE_SHELL;
 	const metadata: SdlccCmuxReportMetadata = { branch, worktreePath, workspaceId, surfaceId, shell };
-	const cmuxResult = await runCommand("cmux", buildCmuxSurfaceResumeSetArgs(metadata), { cwd: worktreePath, timeout: COMMAND_TIMEOUT_MS });
+	const cmuxResult = await runCommand("cmux", buildCmuxSurfaceResumeSetArgs(metadata), {
+		cwd: worktreePath,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
 	if (cmuxResult.code !== 0) {
-		return { type: "failed", message: `cmux surface resume set failed: ${commandFailureMessage("cmux surface resume set", cmuxResult)}` };
+		return {
+			type: "failed",
+			message: `cmux surface resume set failed: ${commandFailureMessage("cmux surface resume set", cmuxResult)}`,
+		};
 	}
 
 	return { type: "reported", metadata };
 }
 
-export function buildCmuxSurfaceResumeSetArgs(metadata: SdlccCmuxReportMetadata): readonly string[] {
+export function buildCmuxSurfaceResumeSetArgs(
+	metadata: SdlccCmuxReportMetadata,
+): readonly string[] {
 	return [
 		"surface",
 		"resume",
@@ -105,7 +144,10 @@ export function formatSdlccCmuxReportJson(result: SdlccCmuxReportResult): string
 	})}\n`;
 }
 
-function commandFailureMessage(commandName: string, result: { readonly code: number; readonly stdout: string; readonly stderr: string }): string {
+function commandFailureMessage(
+	commandName: string,
+	result: { readonly code: number; readonly stdout: string; readonly stderr: string },
+): string {
 	return `${commandName} exited ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
 }
 

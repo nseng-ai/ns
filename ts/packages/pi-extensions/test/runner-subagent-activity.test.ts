@@ -14,7 +14,9 @@ describe("runner subagent activity previews", () => {
 	});
 
 	test("previews JSON values and truncates long objects", () => {
-		expect(previewJsonEventValue({ path: "README.md", limit: 20 })).toBe('{"path":"README.md","limit":20}');
+		expect(previewJsonEventValue({ path: "README.md", limit: 20 })).toBe(
+			'{"path":"README.md","limit":20}',
+		);
 		const preview = previewJsonEventValue({ message: "x".repeat(50) }, 20);
 
 		expect(preview).toHaveLength(20);

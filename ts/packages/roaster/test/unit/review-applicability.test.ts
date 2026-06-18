@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { applicableReviewKeys, pathMatchesPattern, reviewAppliesToPaths, type ReviewApplicability } from "../../src/review-applicability.ts";
+import {
+	applicableReviewKeys,
+	pathMatchesPattern,
+	reviewAppliesToPaths,
+	type ReviewApplicability,
+} from "../../src/review-applicability.ts";
 
 describe("pathMatchesPattern", () => {
 	test.each([
@@ -45,19 +50,34 @@ describe("reviewAppliesToPaths", () => {
 	});
 
 	test("test-only Python diff does not apply to dignified-python", () => {
-		const applicability: ReviewApplicability = { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] };
+		const applicability: ReviewApplicability = {
+			include: ["**/*.py"],
+			exclude: ["**/tests/**/*.py"],
+		};
 
-		expect(reviewAppliesToPaths(applicability, ["packages/asdl-core/tests/unit/prompts/test_resolver.py"])).toBe(false);
+		expect(
+			reviewAppliesToPaths(applicability, [
+				"packages/asdl-core/tests/unit/prompts/test_resolver.py",
+			]),
+		).toBe(false);
 	});
 
 	test("source Python diff applies to dignified-python", () => {
-		const applicability: ReviewApplicability = { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] };
+		const applicability: ReviewApplicability = {
+			include: ["**/*.py"],
+			exclude: ["**/tests/**/*.py"],
+		};
 
-		expect(reviewAppliesToPaths(applicability, ["packages/asdl-core/src/asdl_core/project_config.py"])).toBe(true);
+		expect(
+			reviewAppliesToPaths(applicability, ["packages/asdl-core/src/asdl_core/project_config.py"]),
+		).toBe(true);
 	});
 
 	test("included path still applies when other paths are excluded", () => {
-		const applicability: ReviewApplicability = { include: ["**/*.py"], exclude: ["**/tests/**/*.py"] };
+		const applicability: ReviewApplicability = {
+			include: ["**/*.py"],
+			exclude: ["**/tests/**/*.py"],
+		};
 
 		expect(
 			reviewAppliesToPaths(applicability, [
@@ -82,6 +102,9 @@ describe("applicableReviewKeys", () => {
 			all: { applicability: { include: [], exclude: [] } },
 		};
 
-		expect(applicableReviewKeys(definitions, { changedPaths: ["src/app.ts"] })).toEqual(["typescript", "all"]);
+		expect(applicableReviewKeys(definitions, { changedPaths: ["src/app.ts"] })).toEqual([
+			"typescript",
+			"all",
+		]);
 	});
 });

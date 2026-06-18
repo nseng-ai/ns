@@ -14,11 +14,18 @@ describe("RealBrmemPromptResolver", () => {
 			mkdirSync(join(repo.path, ".brmem", "prompts"), { recursive: true });
 			writeFileSync(promptPath, "prompt\n", "utf8");
 
-			const resolver = new RealBrmemPromptResolver({ env: { ...process.env, HOME: "/tmp/brmem-home" } });
-			expect(await resolver.repositoryRoot({ cwd: repo.path })).toEqual({ type: "ok", value: realpathSync(repo.path) });
+			const resolver = new RealBrmemPromptResolver({
+				env: { ...process.env, HOME: "/tmp/brmem-home" },
+			});
+			expect(await resolver.repositoryRoot({ cwd: repo.path })).toEqual({
+				type: "ok",
+				value: realpathSync(repo.path),
+			});
 			expect(resolver.homeRoot()).toBe("/tmp/brmem-home");
 			expect(await resolver.fileExists(promptPath)).toBe(true);
-			expect(await resolver.fileExists(join(repo.path, ".brmem", "prompts", "missing.md"))).toBe(false);
+			expect(await resolver.fileExists(join(repo.path, ".brmem", "prompts", "missing.md"))).toBe(
+				false,
+			);
 		} finally {
 			repo.cleanup();
 		}
@@ -28,6 +35,7 @@ describe("RealBrmemPromptResolver", () => {
 		const resolver = new RealBrmemPromptResolver({ env: process.env });
 		const result = await resolver.repositoryRoot({ cwd: "/" });
 		expect(result).toMatchObject({ type: "error", error: { code: "not-a-git-repo" } });
-		if (result.type === "error") expect(result.error.message).toContain("Not inside a git repository");
+		if (result.type === "error")
+			expect(result.error.message).toContain("Not inside a git repository");
 	});
 });

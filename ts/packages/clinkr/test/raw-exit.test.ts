@@ -274,7 +274,9 @@ describe("raw-exit escape hatch", () => {
 			const rawRun = await runForTest(group, ["raw-act", "--format", "json"], { context: null });
 			expect(rawRun.exitCode).toBe(2);
 			expect(rawRun.stderr).toContain("unknown option");
-			const rawShellFlagRun = await runForTest(group, ["raw-act", "--shell-exit-code"], { context: null });
+			const rawShellFlagRun = await runForTest(group, ["raw-act", "--shell-exit-code"], {
+				context: null,
+			});
 			expect(rawShellFlagRun.exitCode).toBe(2);
 			expect(rawShellFlagRun.stderr).toContain("unknown option");
 

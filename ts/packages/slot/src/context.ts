@@ -8,7 +8,11 @@ import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
 import { RealSlotGtGateway, type SlotGtGateway } from "./gateways/gt.ts";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
-import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } from "./repo-context.ts";
+import {
+	discoverRepoOrSentinel,
+	type RepoContext,
+	type RepoDiscoveryResult,
+} from "./repo-context.ts";
 
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
@@ -27,7 +31,10 @@ export interface SlotCliContext {
 
 export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 
-export async function createRealSlotContext(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }): Promise<SlotCliContext> {
+export async function createRealSlotContext(options: {
+	cwd: string;
+	env?: NodeJS.ProcessEnv | undefined;
+}): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
 	const slotsRoot = env.SLOTS_ROOT ?? resolve(homedir(), ".slots");
 	const git = new RealSlotGitGateway({ cwd: options.cwd, env });

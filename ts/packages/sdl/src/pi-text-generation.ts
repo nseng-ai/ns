@@ -2,7 +2,11 @@ import type * as PiAi from "@earendil-works/pi-ai";
 
 import { formatErrorMessage } from "@asdl/core/primitives";
 
-import type { TextGenerationGateway, TextGenerationRequest, TextGenerationResult } from "./text-generation.ts";
+import type {
+	TextGenerationGateway,
+	TextGenerationRequest,
+	TextGenerationResult,
+} from "./text-generation.ts";
 
 const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";
@@ -53,7 +57,10 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 			return { ok: false, error: `Pi auth failed for ${request.modelRef}: ${auth.error}` };
 		}
 		if (!auth.apiKey) {
-			return { ok: false, error: `No Pi auth found for ${parsed.provider}. Run /login or configure Pi auth.` };
+			return {
+				ok: false,
+				error: `No Pi auth found for ${parsed.provider}. Run /login or configure Pi auth.`,
+			};
 		}
 
 		try {
@@ -87,7 +94,10 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 			}
 
 			const text = response.content
-				.filter((content): content is { type: "text"; text: string } => content.type === "text" && typeof content.text === "string")
+				.filter(
+					(content): content is { type: "text"; text: string } =>
+						content.type === "text" && typeof content.text === "string",
+				)
 				.map((content) => content.text)
 				.join("\n");
 			if (text.trim().length === 0) {
@@ -96,12 +106,17 @@ export class PiTextGenerationGateway implements TextGenerationGateway {
 
 			return { ok: true, text };
 		} catch (error) {
-			return { ok: false, error: `Pi model ${request.modelRef} failed to generate text: ${formatErrorMessage(error)}` };
+			return {
+				ok: false,
+				error: `Pi model ${request.modelRef} failed to generate text: ${formatErrorMessage(error)}`,
+			};
 		}
 	}
 }
 
-type ParsedPiModelRef = { ok: true; provider: string; modelId: string } | { ok: false; error: string };
+type ParsedPiModelRef =
+	| { ok: true; provider: string; modelId: string }
+	| { ok: false; error: string };
 
 function parsePiModelRef(modelRef: string): ParsedPiModelRef {
 	const separator = modelRef.indexOf("/");

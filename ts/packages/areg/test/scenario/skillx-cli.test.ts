@@ -18,7 +18,12 @@ describe("areg exec skillx CLI", () => {
 		const run = runScenario(["exec", "skillx", "parse", "owner/repo demo"]);
 
 		expect(await run.exit).toBe(0);
-		expect(JSON.parse(run.stdout.join(""))).toEqual({ success: true, repo: "owner/repo", skill: "demo", format: "plain" });
+		expect(JSON.parse(run.stdout.join(""))).toEqual({
+			success: true,
+			repo: "owner/repo",
+			skill: "demo",
+			format: "plain",
+		});
 		expect(run.stderr.join("")).toBe("");
 	});
 
@@ -34,9 +39,12 @@ describe("areg exec skillx CLI", () => {
 	});
 
 	test("list returns sorted skills in a Clinkr success envelope", async () => {
-		const run = runScenario(["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"], {
-			github: { repos: { "owner/repo": ["zeta", "alpha"] } },
-		});
+		const run = runScenario(
+			["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"],
+			{
+				github: { repos: { "owner/repo": ["zeta", "alpha"] } },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
@@ -46,9 +54,12 @@ describe("areg exec skillx CLI", () => {
 	});
 
 	test("list missing repo/path returns durable failure data and hint", async () => {
-		const run = runScenario(["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"], {
-			github: { repos: { "owner/repo": "missing" } },
-		});
+		const run = runScenario(
+			["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"],
+			{
+				github: { repos: { "owner/repo": "missing" } },
+			},
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
@@ -63,9 +74,12 @@ describe("areg exec skillx CLI", () => {
 	});
 
 	test("list missing gh is a Clinkr precondition failure", async () => {
-		const run = runScenario(["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"], {
-			host: { tools: { gh: null } },
-		});
+		const run = runScenario(
+			["exec", "skillx", "list", "--repo", "owner/repo", "--format", "json"],
+			{
+				host: { tools: { gh: null } },
+			},
+		);
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
@@ -76,9 +90,15 @@ describe("areg exec skillx CLI", () => {
 	});
 
 	test("fetch selects requested skill from fake workspace", async () => {
-		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], {
-			skillxWorkspace: { workspaceRoot: "/tmp/skillx.fake-1", installedSkills: [skill("demo", ["z.txt", "SKILL.md"])] },
-		});
+		const run = runScenario(
+			["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"],
+			{
+				skillxWorkspace: {
+					workspaceRoot: "/tmp/skillx.fake-1",
+					installedSkills: [skill("demo", ["z.txt", "SKILL.md"])],
+				},
+			},
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
@@ -102,7 +122,10 @@ describe("areg exec skillx CLI", () => {
 			installedSkills: [skill("beta", ["SKILL.md"]), skill("alpha", ["SKILL.md"])],
 		});
 		const context = skillxContext(workspace);
-		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--format", "json"], { context });
+		const run = runScenario(
+			["exec", "skillx", "fetch", "--repo", "owner/repo", "--format", "json"],
+			{ context },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
@@ -119,18 +142,30 @@ describe("areg exec skillx CLI", () => {
 				available_skills: ["alpha", "beta"],
 			},
 		});
-		expect(workspace.operations()).toEqual([{ type: "install-into-workspace", sourceRepo: "owner/repo", cwd: "/repo" }]);
+		expect(workspace.operations()).toEqual([
+			{ type: "install-into-workspace", sourceRepo: "owner/repo", cwd: "/repo" },
+		]);
 	});
 
 	test("fetch cleans up when requested skill is absent after install", async () => {
-		const workspace = new FakeAregSkillxWorkspaceGateway({ workspaceRoot: "/tmp/skillx.fake-1", installedSkills: [skill("other", ["SKILL.md"])] });
+		const workspace = new FakeAregSkillxWorkspaceGateway({
+			workspaceRoot: "/tmp/skillx.fake-1",
+			installedSkills: [skill("other", ["SKILL.md"])],
+		});
 		const context = skillxContext(workspace);
-		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], { context });
+		const run = runScenario(
+			["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"],
+			{ context },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exit_code: 1,
-			data: { success: false, error: "Skill 'demo' was not found in installed skills", tmp_dir: null },
+			data: {
+				success: false,
+				error: "Skill 'demo' was not found in installed skills",
+				tmp_dir: null,
+			},
 		});
 		expect(workspace.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
@@ -145,13 +180,20 @@ describe("areg exec skillx CLI", () => {
 			cleanupFailure: { code: "refused", message: "Refusing cleanup" },
 		});
 		const context = skillxContext(workspace);
-		const run = runScenario(["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"], { context });
+		const run = runScenario(
+			["exec", "skillx", "fetch", "--repo", "owner/repo", "--skill", "demo", "--format", "json"],
+			{ context },
+		);
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exit_code: 1,
 			message: "Skill 'demo' was not found in installed skills",
-			data: { success: false, error: "Skill 'demo' was not found in installed skills", tmp_dir: null },
+			data: {
+				success: false,
+				error: "Skill 'demo' was not found in installed skills",
+				tmp_dir: null,
+			},
 		});
 		expect(workspace.operations()).toEqual([
 			{ type: "install-into-workspace", sourceRepo: "owner/repo", skillName: "demo", cwd: "/repo" },
@@ -160,13 +202,27 @@ describe("areg exec skillx CLI", () => {
 	});
 
 	test("cleanup returns removed path or failure data", async () => {
-		const okRun = runScenario(["exec", "skillx", "cleanup", "--dir", "/tmp/skillx.fake-1", "--format", "json"]);
+		const okRun = runScenario([
+			"exec",
+			"skillx",
+			"cleanup",
+			"--dir",
+			"/tmp/skillx.fake-1",
+			"--format",
+			"json",
+		]);
 		expect(await okRun.exit).toBe(0);
-		expect(JSON.parse(okRun.stdout.join(""))).toEqual({ exit_code: 0, data: { success: true, removed: "/tmp/skillx.fake-1" } });
-
-		const failRun = runScenario(["exec", "skillx", "cleanup", "--dir", "/tmp/skillx.fake-1", "--format", "json"], {
-			skillxWorkspace: { cleanupFailure: { code: "refused", message: "Refusing cleanup" } },
+		expect(JSON.parse(okRun.stdout.join(""))).toEqual({
+			exit_code: 0,
+			data: { success: true, removed: "/tmp/skillx.fake-1" },
 		});
+
+		const failRun = runScenario(
+			["exec", "skillx", "cleanup", "--dir", "/tmp/skillx.fake-1", "--format", "json"],
+			{
+				skillxWorkspace: { cleanupFailure: { code: "refused", message: "Refusing cleanup" } },
+			},
+		);
 		expect(await failRun.exit).toBe(2);
 		expect(JSON.parse(failRun.stdout.join(""))).toEqual({
 			exit_code: 2,

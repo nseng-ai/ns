@@ -16,7 +16,8 @@ export const autobranchParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "autobranch",
-		notes: "Pi command exposes the SDL code-lifecycle surface while delegating to the CCC CLI autobranch operation through registerCliCommandExtension.",
+		notes:
+			"Pi command exposes the SDL code-lifecycle surface while delegating to the CCC CLI autobranch operation through registerCliCommandExtension.",
 	},
 ] as const);
 
@@ -28,7 +29,8 @@ export default function autobranchExtension(pi: ExtensionAPI): void {
 			{
 				name: "autobranch",
 				description: AUTOBRANCH_SUMMARY,
-				startMessage: "Starting /sdl:code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
+				startMessage:
+					"Starting /sdl:code:autobranch — runs once Pi finishes its current response, then creates a Graphite branch. Interrupt Pi to run it now.",
 			},
 		],
 		runCli: (args, deps) => runCli(["exec", ...args], deps),

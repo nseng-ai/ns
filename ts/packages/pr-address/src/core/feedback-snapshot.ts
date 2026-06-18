@@ -1,4 +1,11 @@
-import type { GatewayFailure, GatewayOptions, PRDiscussionComment, PRReview, PRReviewThread, PrAddressGitHubGateway } from "./gateways.ts";
+import type {
+	GatewayFailure,
+	GatewayOptions,
+	PRDiscussionComment,
+	PRReview,
+	PRReviewThread,
+	PrAddressGitHubGateway,
+} from "./gateways.ts";
 
 const SILENCEABLE_EMPTY_REVIEW_STATES = new Set(["COMMENTED", "APPROVED"]);
 
@@ -10,7 +17,9 @@ export interface FeedbackSnapshot {
 	discussion_comments: readonly PRDiscussionComment[];
 }
 
-export type FeedbackSnapshotResult = { type: "ok"; snapshot: FeedbackSnapshot } | { type: "failure"; message: string; failure: GatewayFailure };
+export type FeedbackSnapshotResult =
+	| { type: "ok"; snapshot: FeedbackSnapshot }
+	| { type: "failure"; message: string; failure: GatewayFailure };
 
 export interface FetchFeedbackSnapshotOptions {
 	gateway: PrAddressGitHubGateway;
@@ -21,27 +30,53 @@ export interface FetchFeedbackSnapshotOptions {
 	shouldCountAllReviewThreads: boolean;
 }
 
-export async function fetchFeedbackSnapshot(options: FetchFeedbackSnapshotOptions): Promise<FeedbackSnapshotResult> {
+export async function fetchFeedbackSnapshot(
+	options: FetchFeedbackSnapshotOptions,
+): Promise<FeedbackSnapshotResult> {
 	const reviewsResult = await options.gateway.getReviews(options.prNumber, options.gatewayOptions);
-	if (!reviewsResult.ok) return snapshotFailure(`Failed to fetch reviews for PR ${options.prNumber}`, reviewsResult.error);
+	if (!reviewsResult.ok)
+		return snapshotFailure(
+			`Failed to fetch reviews for PR ${options.prNumber}`,
+			reviewsResult.error,
+		);
 	let countedReviewThreads: readonly PRReviewThread[];
 	let reviewThreads: readonly PRReviewThread[];
 	if (options.shouldCountAllReviewThreads) {
-		const countedResult = await options.gateway.getReviewThreads(options.prNumber, { ...options.gatewayOptions, shouldIncludeResolved: true });
-		if (!countedResult.ok) return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, countedResult.error);
+		const countedResult = await options.gateway.getReviewThreads(options.prNumber, {
+			...options.gatewayOptions,
+			shouldIncludeResolved: true,
+		});
+		if (!countedResult.ok)
+			return snapshotFailure(
+				`Failed to fetch review threads for PR ${options.prNumber}`,
+				countedResult.error,
+			);
 		countedReviewThreads = countedResult.value;
-		reviewThreads = options.shouldIncludeResolved ? countedReviewThreads : countedReviewThreads.filter((thread) => !thread.is_resolved);
+		reviewThreads = options.shouldIncludeResolved
+			? countedReviewThreads
+			: countedReviewThreads.filter((thread) => !thread.is_resolved);
 	} else {
 		const threadsResult = await options.gateway.getReviewThreads(options.prNumber, {
 			...options.gatewayOptions,
 			shouldIncludeResolved: options.shouldIncludeResolved,
 		});
-		if (!threadsResult.ok) return snapshotFailure(`Failed to fetch review threads for PR ${options.prNumber}`, threadsResult.error);
+		if (!threadsResult.ok)
+			return snapshotFailure(
+				`Failed to fetch review threads for PR ${options.prNumber}`,
+				threadsResult.error,
+			);
 		reviewThreads = threadsResult.value;
 		countedReviewThreads = reviewThreads;
 	}
-	const commentsResult = await options.gateway.getDiscussionComments(options.prNumber, options.gatewayOptions);
-	if (!commentsResult.ok) return snapshotFailure(`Failed to fetch discussion comments for PR ${options.prNumber}`, commentsResult.error);
+	const commentsResult = await options.gateway.getDiscussionComments(
+		options.prNumber,
+		options.gatewayOptions,
+	);
+	if (!commentsResult.ok)
+		return snapshotFailure(
+			`Failed to fetch discussion comments for PR ${options.prNumber}`,
+			commentsResult.error,
+		);
 	return {
 		type: "ok",
 		snapshot: {
@@ -54,7 +89,10 @@ export async function fetchFeedbackSnapshot(options: FetchFeedbackSnapshotOption
 	};
 }
 
-export function reviewsForRequest(reviews: readonly PRReview[], shouldIncludeEmptyReviews: boolean): readonly PRReview[] {
+export function reviewsForRequest(
+	reviews: readonly PRReview[],
+	shouldIncludeEmptyReviews: boolean,
+): readonly PRReview[] {
 	if (shouldIncludeEmptyReviews) return reviews;
 	return reviews.filter((review) => !isEmptyReview(review));
 }

@@ -36,7 +36,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseObjectiveListRecord(value: unknown, index: number): ObjectiveListRecordParseResult {
 	if (!isRecord(value)) {
-		return { type: "invalid", message: `Invalid Objective list record at index ${index}: expected an object.` };
+		return {
+			type: "invalid",
+			message: `Invalid Objective list record at index ${index}: expected an object.`,
+		};
 	}
 
 	const slug = value.slug;
@@ -77,7 +80,8 @@ export function parseObjectiveList(stdout: string): ObjectiveListParseResult {
 	) {
 		return {
 			type: "invalid",
-			message: "Invalid objective list JSON: expected trunkBranch, rootPath, statusFilter, namesOnly, and records.",
+			message:
+				"Invalid objective list JSON: expected trunkBranch, rootPath, statusFilter, namesOnly, and records.",
 		};
 	}
 

@@ -46,9 +46,14 @@ export interface BuildBundleSnapshotOptions {
 	capturedAt?: Date;
 }
 
-export function buildBundleSnapshot(options: BuildBundleSnapshotOptions): BuildBundleSnapshotResult {
+export function buildBundleSnapshot(
+	options: BuildBundleSnapshotOptions,
+): BuildBundleSnapshotResult {
 	if (options.messages === null || options.messages.length === 0) {
-		return { ok: false, error: { code: "empty-context", message: "no conversation context to bundle yet" } };
+		return {
+			ok: false,
+			error: { code: "empty-context", message: "no conversation context to bundle yet" },
+		};
 	}
 	const lines: string[] = [];
 	for (const [index, message] of options.messages.entries()) {
@@ -86,7 +91,13 @@ export function buildBundleSnapshot(options: BuildBundleSnapshotOptions): BuildB
 }
 
 function unserializable(turn: number, reason: string): BuildBundleSnapshotResult {
-	return { ok: false, error: { code: "unserializable-message", message: `message ${turn} could not be serialized: ${reason}` } };
+	return {
+		ok: false,
+		error: {
+			code: "unserializable-message",
+			message: `message ${turn} could not be serialized: ${reason}`,
+		},
+	};
 }
 
 export function computeBundleContentHash(messagesJsonl: string): string {
@@ -170,6 +181,9 @@ function episodesForOutcome(outcome: SegmentationBatchOutcome): EpisodesFileEpis
 	if (outcome.type !== "ready") return [];
 	return outcome.episodes.map((episode, index): EpisodesFileEpisode => {
 		const status = outcome.analysis[index] ?? "ready";
-		return { ...episode, status: status === "loading" ? { type: "error", message: "analysis did not finish" } : status };
+		return {
+			...episode,
+			status: status === "loading" ? { type: "error", message: "analysis did not finish" } : status,
+		};
 	});
 }

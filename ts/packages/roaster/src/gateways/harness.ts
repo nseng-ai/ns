@@ -1,8 +1,20 @@
-import { defaultCommandResolver, type CommandExecApi, type CommandResolver, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import {
+	defaultCommandResolver,
+	type CommandExecApi,
+	type CommandResolver,
+	type ExecOptions,
+	type ExecResult,
+} from "@asdl/core/exec";
 import { formatErrorMessage, mapFromRecordOrMap } from "@asdl/core/primitives";
 
 import type { RoasterResult } from "../failures.ts";
-import { createFindingsReview, harnessReviewRequestSchema, reviewExecutionResponseSchema, type HarnessReviewRequest, type ReviewExecutionResponse } from "../models.ts";
+import {
+	createFindingsReview,
+	harnessReviewRequestSchema,
+	reviewExecutionResponseSchema,
+	type HarnessReviewRequest,
+	type ReviewExecutionResponse,
+} from "../models.ts";
 import { buildClaudeCodeArgs, parseClaudeCodeReviewOutput } from "./harness-output.ts";
 import { assembleReviewPrompt, systemPromptFindings } from "./harness-prompt.ts";
 
@@ -15,7 +27,10 @@ export interface RunReviewOptions {
 }
 
 export interface HarnessGateway {
-	runReview(request: HarnessReviewRequest, options: RunReviewOptions): Promise<RoasterResult<ReviewExecutionResponse>>;
+	runReview(
+		request: HarnessReviewRequest,
+		options: RunReviewOptions,
+	): Promise<RoasterResult<ReviewExecutionResponse>>;
 }
 
 export interface RealHarnessGatewayOptions {
@@ -24,31 +39,51 @@ export interface RealHarnessGatewayOptions {
 }
 
 export interface FakeHarnessGatewayOptions {
-	readonly resultsByReviewName?: ReadonlyMap<string, RoasterResult<ReviewExecutionResponse>> | Record<string, RoasterResult<ReviewExecutionResponse>> | undefined;
+	readonly resultsByReviewName?:
+		| ReadonlyMap<string, RoasterResult<ReviewExecutionResponse>>
+		| Record<string, RoasterResult<ReviewExecutionResponse>>
+		| undefined;
 	readonly defaultResult?: RoasterResult<ReviewExecutionResponse> | undefined;
 }
 
 export class FakeHarnessGateway implements HarnessGateway {
 	private readonly resultsByReviewName: Map<string, RoasterResult<ReviewExecutionResponse>>;
 	private readonly defaultResult: RoasterResult<ReviewExecutionResponse>;
-	private readonly callsInternal: { request: HarnessReviewRequest; options: RunReviewOptions }[] = [];
+	private readonly callsInternal: { request: HarnessReviewRequest; options: RunReviewOptions }[] =
+		[];
 
 	constructor(options: FakeHarnessGatewayOptions = {}) {
 		this.resultsByReviewName = new Map<string, RoasterResult<ReviewExecutionResponse>>();
 		for (const [key, value] of mapFromRecordOrMap(options.resultsByReviewName)) {
 			this.resultsByReviewName.set(key, copyResult(value));
 		}
-		this.defaultResult = copyResult(options.defaultResult ?? { type: "ok", value: { payload: createFindingsReview([]), usage: null, inputCoverage: null } });
+		this.defaultResult = copyResult(
+			options.defaultResult ?? {
+				type: "ok",
+				value: { payload: createFindingsReview([]), usage: null, inputCoverage: null },
+			},
+		);
 	}
 
-	async runReview(request: HarnessReviewRequest, options: RunReviewOptions): Promise<RoasterResult<ReviewExecutionResponse>> {
+	async runReview(
+		request: HarnessReviewRequest,
+		options: RunReviewOptions,
+	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		const copiedRequest = copyRequest(request);
 		this.callsInternal.push({ request: copiedRequest, options: copyRunReviewOptions(options) });
-		return copyResult(this.resultsByReviewName.get(request.reviewDefinition.name) ?? this.defaultResult);
+		return copyResult(
+			this.resultsByReviewName.get(request.reviewDefinition.name) ?? this.defaultResult,
+		);
 	}
 
-	calls(): readonly { readonly request: HarnessReviewRequest; readonly options: RunReviewOptions }[] {
-		return this.callsInternal.map((call) => ({ request: copyRequest(call.request), options: copyRunReviewOptions(call.options) }));
+	calls(): readonly {
+		readonly request: HarnessReviewRequest;
+		readonly options: RunReviewOptions;
+	}[] {
+		return this.callsInternal.map((call) => ({
+			request: copyRequest(call.request),
+			options: copyRunReviewOptions(call.options),
+		}));
 	}
 }
 
@@ -61,26 +96,48 @@ export class RealHarnessGateway implements HarnessGateway {
 		this.binaryResolver = options.binaryResolver ?? defaultCommandResolver;
 	}
 
-	async runReview(request: HarnessReviewRequest, options: RunReviewOptions): Promise<RoasterResult<ReviewExecutionResponse>> {
+	async runReview(
+		request: HarnessReviewRequest,
+		options: RunReviewOptions,
+	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		if (request.model.trim() === "") {
-			return harnessError({ type: "model_not_provided", message: "A Claude Code model must be provided." });
+			return harnessError({
+				type: "model_not_provided",
+				message: "A Claude Code model must be provided.",
+			});
 		}
 		if (!isClaudeCodeSupportedModel(request.model)) {
-			return harnessError({ type: "model_not_supported_by_harness", message: `Model is not supported by the Claude Code harness: ${request.model}`, model: request.model });
+			return harnessError({
+				type: "model_not_supported_by_harness",
+				message: `Model is not supported by the Claude Code harness: ${request.model}`,
+				model: request.model,
+			});
 		}
 
 		let resolvedBinary: string | undefined;
 		try {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
-			return harnessError({ type: "harness_invocation_failed", message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}` });
+			return harnessError({
+				type: "harness_invocation_failed",
+				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
+			});
 		}
 		if (resolvedBinary === undefined) {
-			return harnessError({ type: "harness_binary_missing", message: "Claude Code binary 'claude' was not found on PATH." });
+			return harnessError({
+				type: "harness_binary_missing",
+				message: "Claude Code binary 'claude' was not found on PATH.",
+			});
 		}
 
-		const assembled = assembleReviewPrompt({ reviewDefinition: request.reviewDefinition, target: request.target });
-		const args = buildClaudeCodeArgs({ model: request.model, systemPrompt: systemPromptFindings() });
+		const assembled = assembleReviewPrompt({
+			reviewDefinition: request.reviewDefinition,
+			target: request.target,
+		});
+		const args = buildClaudeCodeArgs({
+			model: request.model,
+			systemPrompt: systemPromptFindings(),
+		});
 		let result: ExecResult;
 		const execOptions: ExecOptions = {
 			cwd: options.cwd,
@@ -91,7 +148,10 @@ export class RealHarnessGateway implements HarnessGateway {
 		try {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
-			return harnessError({ type: "harness_invocation_failed", message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}` });
+			return harnessError({
+				type: "harness_invocation_failed",
+				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
+			});
 		}
 
 		if (result.startupError !== undefined) {
@@ -106,13 +166,21 @@ export class RealHarnessGateway implements HarnessGateway {
 			});
 		}
 
-		return parseClaudeCodeReviewOutput({ stdout: result.stdout, inputCoverage: assembled.inputCoverage });
+		return parseClaudeCodeReviewOutput({
+			stdout: result.stdout,
+			inputCoverage: assembled.inputCoverage,
+		});
 	}
 }
 
 export function isClaudeCodeSupportedModel(model: string): boolean {
 	const normalized = model.trim();
-	return normalized === "sonnet" || normalized === "opus" || normalized === "haiku" || normalized.startsWith("claude-");
+	return (
+		normalized === "sonnet" ||
+		normalized === "opus" ||
+		normalized === "haiku" ||
+		normalized.startsWith("claude-")
+	);
 }
 
 function harnessExecutionMessage(result: ExecResult): string {
@@ -123,16 +191,23 @@ function harnessExecutionMessage(result: ExecResult): string {
 		const lines = stdout.split("\n");
 		return lines[lines.length - 1] ?? stdout;
 	}
-	return result.killed ? `Claude Code exited with status ${result.code} after being killed or timed out.` : `Claude Code exited with status ${result.code}.`;
+	return result.killed
+		? `Claude Code exited with status ${result.code} after being killed or timed out.`
+		: `Claude Code exited with status ${result.code}.`;
 }
 
 function copyRequest(request: HarnessReviewRequest): HarnessReviewRequest {
 	return harnessReviewRequestSchema.parse(structuredClone(request));
 }
 
-function copyResult(result: RoasterResult<ReviewExecutionResponse>): RoasterResult<ReviewExecutionResponse> {
+function copyResult(
+	result: RoasterResult<ReviewExecutionResponse>,
+): RoasterResult<ReviewExecutionResponse> {
 	if (result.type === "ok") {
-		return { type: "ok", value: reviewExecutionResponseSchema.parse(structuredClone(result.value)) };
+		return {
+			type: "ok",
+			value: reviewExecutionResponseSchema.parse(structuredClone(result.value)),
+		};
 	}
 	return structuredClone(result);
 }
@@ -145,6 +220,8 @@ function copyRunReviewOptions(options: RunReviewOptions): RunReviewOptions {
 	};
 }
 
-function harnessError(error: Extract<RoasterResult<never>, { readonly type: "error" }>["error"]): RoasterResult<never> {
+function harnessError(
+	error: Extract<RoasterResult<never>, { readonly type: "error" }>["error"],
+): RoasterResult<never> {
 	return { type: "error", error };
 }

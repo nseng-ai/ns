@@ -24,8 +24,15 @@ describe("objective list", () => {
 		const run = runScenario(["list", "--minimal", "--format", "json"], {
 			fake: {
 				records: [
-					{ slug: "open-one", updates: { "2026-06-15T223520Z-typescript-package-read-objective.md": "# Update\n" } },
-					{ slug: "closed-one", isClosed: true, updates: { "2026-06-14T210415Z-closed.md": "# Closed\n" } },
+					{
+						slug: "open-one",
+						updates: { "2026-06-15T223520Z-typescript-package-read-objective.md": "# Update\n" },
+					},
+					{
+						slug: "closed-one",
+						isClosed: true,
+						updates: { "2026-06-14T210415Z-closed.md": "# Closed\n" },
+					},
 				],
 			},
 		});
@@ -56,7 +63,9 @@ describe("objective list", () => {
 			records: [{ slug: "alpha" }, { slug: "done", isClosed: true }],
 			directories: [".asdl/objective-archive/archived"],
 		};
-		const open = runScenario(["list", "--minimal", "--format", "json", "--status", "open"], { fake });
+		const open = runScenario(["list", "--minimal", "--format", "json", "--status", "open"], {
+			fake,
+		});
 		const closed = runScenario(["list", "--format", "json", "--status", "closed"], { fake });
 		const all = runScenario(["list", "--format", "json", "--status", "all"], { fake });
 
@@ -66,8 +75,14 @@ describe("objective list", () => {
 		expect(recordSlugs(parseJsonOutput(open))).toEqual(["alpha"]);
 		expect(recordSlugs(parseJsonOutput(closed))).toEqual(["done"]);
 		expect(recordSlugs(parseJsonOutput(all))).toEqual(["alpha", "done"]);
-		expect((parseJsonOutput(closed) as { data: { updatedBranchesIncluded: boolean } }).data.updatedBranchesIncluded).toBe(true);
-		expect((parseJsonOutput(all) as { data: { updatedBranchesIncluded: boolean } }).data.updatedBranchesIncluded).toBe(true);
+		expect(
+			(parseJsonOutput(closed) as { data: { updatedBranchesIncluded: boolean } }).data
+				.updatedBranchesIncluded,
+		).toBe(true);
+		expect(
+			(parseJsonOutput(all) as { data: { updatedBranchesIncluded: boolean } }).data
+				.updatedBranchesIncluded,
+		).toBe(true);
 	});
 
 	test("includes incomplete direct child directories as active records", async () => {
@@ -83,7 +98,14 @@ describe("objective list", () => {
 				rootPath: ".asdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
-				records: [{ slug: "incomplete", status: "open", latestUpdateIso: null, hasOutstandingChanges: false }],
+				records: [
+					{
+						slug: "incomplete",
+						status: "open",
+						latestUpdateIso: null,
+						hasOutstandingChanges: false,
+					},
+				],
 			},
 		});
 	});
@@ -102,7 +124,10 @@ describe("objective list", () => {
 		const run = runScenario(["list", "--minimal", "--format", "md", "--status", "all"], {
 			fake: {
 				records: [
-					{ slug: "alpha", updates: { "2026-06-08-1723-node-runtime-compatibility-hardened.md": "# Update\n" } },
+					{
+						slug: "alpha",
+						updates: { "2026-06-08-1723-node-runtime-compatibility-hardened.md": "# Update\n" },
+					},
 					{ slug: "done", isClosed: true },
 				],
 			},
@@ -138,7 +163,15 @@ describe("objective list", () => {
 				statusFilter: "active",
 				namesOnly: false,
 				updatedBranchesIncluded: true,
-				records: [{ slug: "alpha", status: "open", latestUpdateIso: null, updatedBranches: [], hasOutstandingChanges: true }],
+				records: [
+					{
+						slug: "alpha",
+						status: "open",
+						latestUpdateIso: null,
+						updatedBranches: [],
+						hasOutstandingChanges: true,
+					},
+				],
 			},
 		});
 		expect(parseJsonOutput(minimalJson)).toEqual({
@@ -148,7 +181,9 @@ describe("objective list", () => {
 				rootPath: ".asdl/objectives",
 				statusFilter: "active",
 				namesOnly: false,
-				records: [{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: true }],
+				records: [
+					{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: true },
+				],
 			},
 		});
 		expect(human.stdout.join("")).toMatch(/alpha\s+○ open\s+\(x\) —\s+—/);
@@ -173,13 +208,19 @@ describe("objective list", () => {
 				"feat/same-tree|.asdl/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/beta|.asdl/objectives": [".asdl/objectives/beta/roadmap.md", ".asdl/objectives/closed-one/objective.md"],
+				"master...feat/beta|.asdl/objectives": [
+					".asdl/objectives/beta/roadmap.md",
+					".asdl/objectives/closed-one/objective.md",
+				],
 				"master...feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
 			},
 		};
 		const json = runScenario(["list", "--format", "json", "--status", "all"], { fake, git });
 		const human = runScenario(["list", "--status", "all"], { fake, git });
-		const markdown = runScenario(["list", "--format", "markdown", "--status", "all"], { fake, git });
+		const markdown = runScenario(["list", "--format", "markdown", "--status", "all"], {
+			fake,
+			git,
+		});
 
 		expect(await json.exit).toBe(0);
 		expect(await human.exit).toBe(0);
@@ -193,15 +234,35 @@ describe("objective list", () => {
 				namesOnly: false,
 				updatedBranchesIncluded: true,
 				records: [
-					{ slug: "alpha", status: "open", latestUpdateIso: null, updatedBranches: ["feat/alpha"], hasOutstandingChanges: false },
-					{ slug: "beta", status: "open", latestUpdateIso: null, updatedBranches: ["feat/beta"], hasOutstandingChanges: false },
-					{ slug: "closed-one", status: "closed", latestUpdateIso: null, updatedBranches: ["feat/beta"], hasOutstandingChanges: false },
+					{
+						slug: "alpha",
+						status: "open",
+						latestUpdateIso: null,
+						updatedBranches: ["feat/alpha"],
+						hasOutstandingChanges: false,
+					},
+					{
+						slug: "beta",
+						status: "open",
+						latestUpdateIso: null,
+						updatedBranches: ["feat/beta"],
+						hasOutstandingChanges: false,
+					},
+					{
+						slug: "closed-one",
+						status: "closed",
+						latestUpdateIso: null,
+						updatedBranches: ["feat/beta"],
+						hasOutstandingChanges: false,
+					},
 				],
 			},
 		});
 		expect(human.stdout.join("")).toContain("UPDATED BRANCHES");
 		expect(human.stdout.join("")).toMatch(/alpha\s+○ open\s+—\s+└ feat\/alpha/);
-		expect(markdown.stdout.join("")).toContain("| objective | status | latest update | updated branches |");
+		expect(markdown.stdout.join("")).toContain(
+			"| objective | status | latest update | updated branches |",
+		);
 		expect(markdown.stdout.join("")).toContain("| beta | ○ open | — | feat/beta |");
 	});
 
@@ -217,14 +278,24 @@ describe("objective list", () => {
 				["master|.asdl/objectives", "trunk-tree"],
 				...branches.map((branch) => [`${branch.name}|.asdl/objectives`, `${branch.name}-tree`]),
 			]),
-			changedPaths: Object.fromEntries(branches.map((branch) => [`master...${branch.name}|.asdl/objectives`, [".asdl/objectives/alpha/objective.md"]])),
+			changedPaths: Object.fromEntries(
+				branches.map((branch) => [
+					`master...${branch.name}|.asdl/objectives`,
+					[".asdl/objectives/alpha/objective.md"],
+				]),
+			),
 		};
-		const run = runScenario(["list", "--format", "json"], { fake: { records: [{ slug: "alpha" }] }, git });
+		const run = runScenario(["list", "--format", "json"], {
+			fake: { records: [{ slug: "alpha" }] },
+			git,
+		});
 		const human = runScenario(["list"], { fake: { records: [{ slug: "alpha" }] }, git });
 
 		expect(await run.exit).toBe(0);
 		expect(await human.exit).toBe(0);
-		const output = parseJsonOutput(run) as { data: { updatedBranchesTruncated: boolean; records: [{ updatedBranches: string[] }] } };
+		const output = parseJsonOutput(run) as {
+			data: { updatedBranchesTruncated: boolean; records: [{ updatedBranches: string[] }] };
+		};
 		expect(output.data.updatedBranchesTruncated).toBe(true);
 		expect(output.data.records[0].updatedBranches).toHaveLength(50);
 		expect(output.data.records[0].updatedBranches.slice(0, 2)).toEqual(["feat/00", "feat/01"]);
@@ -236,8 +307,13 @@ describe("objective list", () => {
 		const fake = { records: [{ slug: "alpha" }] };
 		const git = {
 			localBranchTips: ["master", "feat/alpha"],
-			treeOids: { "master|.asdl/objectives": "trunk-tree", "feat/alpha|.asdl/objectives": "alpha-tree" },
-			changedPaths: { "master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"] },
+			treeOids: {
+				"master|.asdl/objectives": "trunk-tree",
+				"feat/alpha|.asdl/objectives": "alpha-tree",
+			},
+			changedPaths: {
+				"master..feat/alpha|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
+			},
 		};
 		const minimal = runScenario(["list", "--minimal", "--format", "json"], { fake, git });
 		const namesJson = runScenario(["list", "--names", "--format", "json"], { fake, git });
@@ -258,18 +334,33 @@ describe("objective list", () => {
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toEqual({ exit_code: 2, error_type: "git_failed", message: "branch tips failed" });
+		expect(parseJsonOutput(run)).toEqual({
+			exit_code: 2,
+			error_type: "git_failed",
+			message: "branch tips failed",
+		});
 	});
 });
 
 function recordSlugs(output: unknown): string[] {
-	if (typeof output !== "object" || output === null || !("data" in output)) throw new Error("missing data");
+	if (typeof output !== "object" || output === null || !("data" in output))
+		throw new Error("missing data");
 	const data = output.data;
-	if (typeof data !== "object" || data === null || !("records" in data) || !Array.isArray(data.records)) {
+	if (
+		typeof data !== "object" ||
+		data === null ||
+		!("records" in data) ||
+		!Array.isArray(data.records)
+	) {
 		throw new Error("missing records");
 	}
 	return data.records.map((record: unknown) => {
-		if (typeof record !== "object" || record === null || !("slug" in record) || typeof record.slug !== "string") {
+		if (
+			typeof record !== "object" ||
+			record === null ||
+			!("slug" in record) ||
+			typeof record.slug !== "string"
+		) {
 			throw new Error("missing slug");
 		}
 		return record.slug;

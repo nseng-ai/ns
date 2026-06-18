@@ -11,7 +11,12 @@ import {
 import { keyNameFromInput, printableCharacterFromInput } from "./tabs/key-input.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";
 
-export type StackMapTabModule = TabModule<StackMapModel, StackMapState, StackMapAction, StackMapEffect>;
+export type StackMapTabModule = TabModule<
+	StackMapModel,
+	StackMapState,
+	StackMapAction,
+	StackMapEffect
+>;
 
 export type StackMapKeyInput = TabKeyInput;
 
@@ -20,7 +25,8 @@ export type StackMapIntent = TabIntent<StackMapAction, StackMapEffect>;
 export const stackMapTabModule: StackMapTabModule = {
 	id: "stack-map",
 	label: "stack map",
-	loadModel: (deps: TabModuleDeps): Promise<StackMapModel> => loadStackMapModel({ cwd: deps.cwd, runCommand: deps.runCommand }),
+	loadModel: (deps: TabModuleDeps): Promise<StackMapModel> =>
+		loadStackMapModel({ cwd: deps.cwd, runCommand: deps.runCommand }),
 	createInitialState: createInitialStackMapState,
 	reduce: reduceStackMapState,
 	render: (model, state) => renderStackMapFrame(model, state).split("\n"),
@@ -63,7 +69,9 @@ export function interpretStackMapKey(state: StackMapState, key: StackMapKeyInput
 				return { type: "action", action: { type: "clear-query" } };
 			default: {
 				const value = printableCharacterFromInput(key);
-				return value === undefined ? { type: "none" } : { type: "action", action: { type: "append-query", value } };
+				return value === undefined
+					? { type: "none" }
+					: { type: "action", action: { type: "append-query", value } };
 			}
 		}
 	}

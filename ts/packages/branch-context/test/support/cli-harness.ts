@@ -7,8 +7,14 @@ import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@asdl/core/git/testing";
 import { createTempDirTracker } from "@asdl/core/testing";
 import { encodeBranchForPlanPath } from "@asdl/plans";
-import { InMemoryBranchContextBrmemGateway, type InMemoryBrmemGatewayState } from "./in-memory-brmem-gateway.ts";
-import { InMemoryBranchContextGraphiteGateway, type InMemoryGraphiteGatewayState } from "./in-memory-graphite-gateway.ts";
+import {
+	InMemoryBranchContextBrmemGateway,
+	type InMemoryBrmemGatewayState,
+} from "./in-memory-brmem-gateway.ts";
+import {
+	InMemoryBranchContextGraphiteGateway,
+	type InMemoryGraphiteGatewayState,
+} from "./in-memory-graphite-gateway.ts";
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";
@@ -71,7 +77,11 @@ export function makeTempDir(prefix = "branch-context-cli-"): Promise<string> {
 
 export async function writeSavedPlan(
 	planStoreRoot: string,
-	params: { slug?: string | undefined; branch?: string | undefined; content?: string | undefined } = {},
+	params: {
+		slug?: string | undefined;
+		branch?: string | undefined;
+		content?: string | undefined;
+	} = {},
 ): Promise<string> {
 	const slug = params.slug ?? PLAN_SLUG;
 	const branch = params.branch ?? SOURCE_BRANCH;
@@ -90,7 +100,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		repoRoot: options.cwd,
 		optionalRepoRoot: options.cwd,
 		currentBranch: SOURCE_BRANCH,
-		...(options.git ?? {}),
+		...options.git,
 	});
 	const brmem = new InMemoryBranchContextBrmemGateway(options.brmem);
 	const graphite = new InMemoryBranchContextGraphiteGateway(options.graphite);

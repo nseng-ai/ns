@@ -32,7 +32,9 @@ afterEach(async () => {
 	await tempDirs.cleanup();
 });
 
-function branchContext(overrides: Pick<BranchContextContext, "git" | "brmem">): BranchContextContext {
+function branchContext(
+	overrides: Pick<BranchContextContext, "git" | "brmem">,
+): BranchContextContext {
 	return {
 		commands: NO_COMMANDS,
 		git: overrides.git,
@@ -47,7 +49,11 @@ async function makePlanStore(): Promise<string> {
 
 async function writeSavedPlan(
 	planStoreRoot: string,
-	params: { slug?: string | undefined; branch?: string | undefined; content?: string | undefined } = {},
+	params: {
+		slug?: string | undefined;
+		branch?: string | undefined;
+		content?: string | undefined;
+	} = {},
 ): Promise<string> {
 	const slug = params.slug ?? PLAN_SLUG;
 	const branch = params.branch ?? SOURCE_BRANCH;
@@ -65,7 +71,11 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot });
+		const evidence = await attachBranchContextEntry(
+			NO_COMMANDS,
+			{ planSlug: PLAN_SLUG },
+			{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+		);
 
 		expect(evidence).toMatchObject({
 			branch: TARGET_BRANCH,
@@ -74,8 +84,12 @@ describe("attachBranchContextEntry", () => {
 			sourceFile,
 			planSlug: PLAN_SLUG,
 		});
-		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY }]);
-		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY },
+		]);
+		expect(brmem.attachPlanCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile },
+		]);
 	});
 
 	test("rejects a missing saved-plan slug with available slugs from one store listing", async () => {
@@ -84,7 +98,13 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: "missing-plan" }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot })).rejects.toThrow(
+		await expect(
+			attachBranchContextEntry(
+				NO_COMMANDS,
+				{ planSlug: "missing-plan" },
+				{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+			),
+		).rejects.toThrow(
 			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-plan/,
 		);
 		expect(git.repoRootCalls).toEqual([{ cwd: ROOT }]);
@@ -100,14 +120,20 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const error = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot }).then(
+		const error = await attachBranchContextEntry(
+			NO_COMMANDS,
+			{ planSlug: PLAN_SLUG },
+			{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+		).then(
 			() => undefined,
 			(caught: unknown) => caught,
 		);
 
 		expect(error).toBeInstanceOf(Error);
 		const message = error instanceof Error ? error.message : "";
-		expect(message).toContain(`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`);
+		expect(message).toContain(
+			`Multiple saved plans found for slug \`${PLAN_SLUG}\`; choose a file explicitly.`,
+		);
 		expect(message).toContain(first);
 		expect(message).toContain(second);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
@@ -120,11 +146,17 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		const evidence = await attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG, branch: TARGET_BRANCH }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot });
+		const evidence = await attachBranchContextEntry(
+			NO_COMMANDS,
+			{ planSlug: PLAN_SLUG, branch: TARGET_BRANCH },
+			{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+		);
 
 		expect(evidence.branch).toBe(TARGET_BRANCH);
 		expect(git.currentBranchCalls).toEqual([]);
-		expect(brmem.attachPlanCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile }]);
+		expect(brmem.attachPlanCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, key: PLAN_KEY, sourceFile },
+		]);
 	});
 
 	test("fails from detached HEAD when no branch override is supplied", async () => {
@@ -133,7 +165,13 @@ describe("attachBranchContextEntry", () => {
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: { type: "detached" } });
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		await expect(attachBranchContextEntry(NO_COMMANDS, { planSlug: PLAN_SLUG }, { cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot })).rejects.toThrow(
+		await expect(
+			attachBranchContextEntry(
+				NO_COMMANDS,
+				{ planSlug: PLAN_SLUG },
+				{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
+			),
+		).rejects.toThrow(
 			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
 		);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);

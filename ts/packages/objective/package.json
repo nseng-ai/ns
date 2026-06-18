@@ -19,6 +19,6 @@
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   }
 }

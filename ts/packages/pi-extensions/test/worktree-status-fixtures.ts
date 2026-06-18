@@ -22,7 +22,8 @@ export function writeGraphiteMetadataDb(gitDir: string, rows: readonly MetadataB
 		);`,
 	];
 	for (const row of rows) {
-		const children = row.rawChildren !== undefined ? row.rawChildren : JSON.stringify(row.children ?? []);
+		const children =
+			row.rawChildren !== undefined ? row.rawChildren : JSON.stringify(row.children ?? []);
 		statements.push(
 			[
 				"INSERT INTO branch_metadata (branch_name, parent_branch_name, children, validation_result, extra_graphite_column) VALUES (",
@@ -85,11 +86,14 @@ export function makeGraphiteRepo(
 
 export function makePyprojectRoot(): string {
 	const root = makeGraphiteRepo();
-	writeFileSync(join(root, "pyproject.toml"), "[project]\nname = \"example\"\n", "utf8");
+	writeFileSync(join(root, "pyproject.toml"), '[project]\nname = "example"\n', "utf8");
 	return root;
 }
 
-export async function withTempRoot<T>(root: string, run: (root: string) => Promise<T> | T): Promise<T> {
+export async function withTempRoot<T>(
+	root: string,
+	run: (root: string) => Promise<T> | T,
+): Promise<T> {
 	try {
 		return await run(root);
 	} finally {

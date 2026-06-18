@@ -83,11 +83,16 @@ export interface ResolveGitRepoRootOptions {
 	git?: GitGateway | undefined;
 }
 
-export async function resolvePlanSourceFile(pi: CommandExecApi, options: ResolvePlanSourceFileOptions): Promise<string> {
+export async function resolvePlanSourceFile(
+	pi: CommandExecApi,
+	options: ResolvePlanSourceFileOptions,
+): Promise<string> {
 	const git = options.git ?? new RealGitGateway(pi);
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
-		throw new Error(`Plan file path must be absolute or home-relative; got ${displayNonEmpty(normalizedPath)}.`);
+		throw new Error(
+			`Plan file path must be absolute or home-relative; got ${displayNonEmpty(normalizedPath)}.`,
+		);
 	}
 
 	let fileStat: Awaited<ReturnType<typeof stat>>;
@@ -105,14 +110,19 @@ export async function resolvePlanSourceFile(pi: CommandExecApi, options: Resolve
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await realpathIfPossible(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {
-			throw new Error(`Plan file must be outside the repository; got ${realFilePath} inside ${realRepoRoot}.`);
+			throw new Error(
+				`Plan file must be outside the repository; got ${realFilePath} inside ${realRepoRoot}.`,
+			);
 		}
 	}
 
 	return realFilePath;
 }
 
-export async function resolveGitRepoRoot(pi: CommandExecApi, options: ResolveGitRepoRootOptions): Promise<string | undefined> {
+export async function resolveGitRepoRoot(
+	pi: CommandExecApi,
+	options: ResolveGitRepoRootOptions,
+): Promise<string | undefined> {
 	const git = options.git ?? new RealGitGateway(pi);
 	const root = await git.optionalRepoRoot({ cwd: options.cwd, signal: options.signal });
 	return root.type === "found" ? resolve(root.value) : undefined;
@@ -137,4 +147,3 @@ async function realpathIfPossible(path: string): Promise<string> {
 		return resolve(path);
 	}
 }
-

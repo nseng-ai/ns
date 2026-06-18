@@ -26,7 +26,12 @@ function linesForEntry(entry: TranscriptEntry, width: number): ChatLine[] {
 	const text = textForEntry(entry);
 	const available = Math.max(8, width - visibleWidth(prefix));
 	const wrapped = wrapTextWithAnsi(text.length === 0 ? " " : text, available);
-	return wrapped.map((line, index): ChatLine => ({ role: entry.type, text: `${index === 0 ? prefix : " ".repeat(visibleWidth(prefix))}${line}` }));
+	return wrapped.map(
+		(line, index): ChatLine => ({
+			role: entry.type,
+			text: `${index === 0 ? prefix : " ".repeat(visibleWidth(prefix))}${line}`,
+		}),
+	);
 }
 
 function prefixForEntry(entry: TranscriptEntry): string {
@@ -58,7 +63,11 @@ function appendCursor(text: string, width: number): string {
 	return `${truncateToWidth(text, Math.max(1, width - 2), "…", true)} ▌`;
 }
 
-export function chatScrollWindow(options: { lines: readonly ChatLine[]; height: number; scrollFromBottom: number }): { first: number; lines: ChatLine[]; scrollFromBottom: number } {
+export function chatScrollWindow(options: {
+	lines: readonly ChatLine[];
+	height: number;
+	scrollFromBottom: number;
+}): { first: number; lines: ChatLine[]; scrollFromBottom: number } {
 	const height = Math.max(1, options.height);
 	const maxScrollFromBottom = Math.max(0, options.lines.length - height);
 	const scrollFromBottom = clamp(options.scrollFromBottom, 0, maxScrollFromBottom);
@@ -66,8 +75,12 @@ export function chatScrollWindow(options: { lines: readonly ChatLine[]; height: 
 	return { first, lines: options.lines.slice(first, first + height), scrollFromBottom };
 }
 
-export function chatFrameMeta(options: { ordinal: number | null; scope: InterrogationScope }): string {
-	const ordinal = options.ordinal === null ? "interrogation unavailable" : `bundle #${options.ordinal}`;
+export function chatFrameMeta(options: {
+	ordinal: number | null;
+	scope: InterrogationScope;
+}): string {
+	const ordinal =
+		options.ordinal === null ? "interrogation unavailable" : `bundle #${options.ordinal}`;
 	return `${ordinal} · ${scopeLabel(options.scope)}`;
 }
 

@@ -75,7 +75,11 @@ export class ScriptedCommandRunner {
 	}
 
 	get calls(): readonly RunnerCall[] {
-		return this.callsInternal.map((call) => ({ command: call.command, args: [...call.args], ...(call.cwd === undefined ? {} : { cwd: call.cwd }) }));
+		return this.callsInternal.map((call) => ({
+			command: call.command,
+			args: [...call.args],
+			...(call.cwd === undefined ? {} : { cwd: call.cwd }),
+		}));
 	}
 
 	readonly runner: CommandRunner = async (command, args, options = {}) => {
@@ -114,24 +118,46 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 	private readonly callsInternal: ScriptedCommandExecCall[] = [];
 
 	constructor(results: readonly Partial<ExecResult>[] = []) {
-		this.results = results.map((fields) => ({ stdout: "", stderr: "", code: 0, killed: false, ...fields }));
+		this.results = results.map((fields) => ({
+			stdout: "",
+			stderr: "",
+			code: 0,
+			killed: false,
+			...fields,
+		}));
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.callsInternal.push({ command, args: [...args], ...(options === undefined ? {} : { options: { ...options } }) });
+		this.callsInternal.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options: { ...options } }),
+		});
 		return this.results.shift() ?? { stdout: "", stderr: "", code: 0, killed: false };
 	}
 
 	calls(): readonly ScriptedCommandExecCall[] {
-		return this.callsInternal.map((call) => ({ command: call.command, args: [...call.args], ...(call.options === undefined ? {} : { options: { ...call.options } }) }));
+		return this.callsInternal.map((call) => ({
+			command: call.command,
+			args: [...call.args],
+			...(call.options === undefined ? {} : { options: { ...call.options } }),
+		}));
 	}
 }
 
-export function step(command: string, args: readonly string[], options: StepOptions = {}): ScriptStep {
+export function step(
+	command: string,
+	args: readonly string[],
+	options: StepOptions = {},
+): ScriptStep {
 	return { command, args: [...args], ...options };
 }
 
-export function startupErrorStep(command: string, args: readonly string[], startupError: string): ScriptStep {
+export function startupErrorStep(
+	command: string,
+	args: readonly string[],
+	startupError: string,
+): ScriptStep {
 	return { command, args: [...args], exitCode: 127, startupError };
 }
 
@@ -166,10 +192,14 @@ export function describeNodeRuntimeCliEntrypoint(options: NodeRuntimeCliEntrypoi
 		});
 
 		test("prints TypeScript runtime diagnostics", () => {
-			const result = spawnSync(process.execPath, [options.cliSourcePathFromWorkspace, "--runtime"], {
-				cwd: workspaceRoot,
-				encoding: "utf8",
-			});
+			const result = spawnSync(
+				process.execPath,
+				[options.cliSourcePathFromWorkspace, "--runtime"],
+				{
+					cwd: workspaceRoot,
+					encoding: "utf8",
+				},
+			);
 
 			expect(result.status, result.stderr).toBe(0);
 			expect(result.stdout).toBe(options.runtimeDiagnostics);
@@ -195,13 +225,20 @@ export function createTempDirTracker(): TempDirTracker {
 		async cleanup(): Promise<void> {
 			const dirs = tempDirs.splice(0);
 			const homes = homeTempDirs.splice(0);
-			await Promise.all([...dirs, ...homes].map((dir) => rm(dir, { recursive: true, force: true })));
+			await Promise.all(
+				[...dirs, ...homes].map((dir) => rm(dir, { recursive: true, force: true })),
+			);
 		},
 	};
 }
 
-export async function withTempRepoSkill<T>(options: TempRepoSkillOptions, callback: (skill: TempRepoSkill) => Promise<T>): Promise<T> {
-	const repoDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? `${options.skillName}-repo-`)));
+export async function withTempRepoSkill<T>(
+	options: TempRepoSkillOptions,
+	callback: (skill: TempRepoSkill) => Promise<T>,
+): Promise<T> {
+	const repoDir = await realpath(
+		await mkdtemp(join(tmpdir(), options.prefix ?? `${options.skillName}-repo-`)),
+	);
 	const skillDir = join(repoDir, "skills", options.skillName);
 	const skillPath = join(skillDir, "SKILL.md");
 	await mkdir(skillDir, { recursive: true });

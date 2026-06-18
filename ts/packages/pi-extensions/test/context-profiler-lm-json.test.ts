@@ -7,30 +7,31 @@ const valueSchema = z.object({ value: z.string() });
 
 describe("extractJsonObjectText", () => {
 	test("strips JSON fences", () => {
-		expect(extractJsonObjectText("```json\n{\"value\":\"ok\"}\n```"))
-			.toBe('{"value":"ok"}');
+		expect(extractJsonObjectText('```json\n{"value":"ok"}\n```')).toBe('{"value":"ok"}');
 	});
 
 	test("slices prose wrapped around an object", () => {
-		expect(extractJsonObjectText("before {\"value\":\"ok\"} after"))
-			.toBe('{"value":"ok"}');
+		expect(extractJsonObjectText('before {"value":"ok"} after')).toBe('{"value":"ok"}');
 	});
 
 	test("uses the outer brace span", () => {
-		expect(extractJsonObjectText("x {\"value\":\"{nested}\"} y"))
-			.toBe('{"value":"{nested}"}');
+		expect(extractJsonObjectText('x {"value":"{nested}"} y')).toBe('{"value":"{nested}"}');
 	});
 });
 
 describe("parseLmJson", () => {
 	test("returns parsed schema data", () => {
-		expect(parseLmJson('{"value":"ok"}', valueSchema, { invalidShapeError: "bad shape" }))
-			.toEqual({ ok: true, value: { value: "ok" } });
+		expect(parseLmJson('{"value":"ok"}', valueSchema, { invalidShapeError: "bad shape" })).toEqual({
+			ok: true,
+			value: { value: "ok" },
+		});
 	});
 
 	test("reports missing JSON object", () => {
-		expect(parseLmJson("no object", valueSchema, { invalidShapeError: "bad shape" }))
-			.toEqual({ ok: false, error: "response contains no JSON object" });
+		expect(parseLmJson("no object", valueSchema, { invalidShapeError: "bad shape" })).toEqual({
+			ok: false,
+			error: "response contains no JSON object",
+		});
 	});
 
 	test("reports invalid JSON", () => {
@@ -40,7 +41,9 @@ describe("parseLmJson", () => {
 	});
 
 	test("reports invalid schema with caller-provided message", () => {
-		expect(parseLmJson('{"value":1}', valueSchema, { invalidShapeError: "bad shape" }))
-			.toEqual({ ok: false, error: "bad shape" });
+		expect(parseLmJson('{"value":1}', valueSchema, { invalidShapeError: "bad shape" })).toEqual({
+			ok: false,
+			error: "bad shape",
+		});
 	});
 });

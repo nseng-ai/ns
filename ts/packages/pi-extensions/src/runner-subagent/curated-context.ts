@@ -4,7 +4,10 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { ExecResult } from "@asdl/core/exec";
 import { isPathInside } from "@asdl/core/primitives";
 
-export type CuratedContextExecGit = (args: readonly string[], timeoutMs: number) => Promise<ExecResult>;
+export type CuratedContextExecGit = (
+	args: readonly string[],
+	timeoutMs: number,
+) => Promise<ExecResult>;
 
 export interface BuildCuratedRunnerSubagentContextInput {
 	title: string;
@@ -65,7 +68,9 @@ interface ResolvedCandidatePath {
 	relativePath: string;
 }
 
-type TextExcerptResult = { ok: true; excerpt: string; isTruncated: boolean } | { ok: false; note: string };
+type TextExcerptResult =
+	| { ok: true; excerpt: string; isTruncated: boolean }
+	| { ok: false; note: string };
 
 const MAX_MARKDOWN_CHARS = 48_000;
 const MAX_INCLUDED_FILES = 6;
@@ -115,7 +120,12 @@ export async function buildCuratedRunnerSubagentContext(
 		try {
 			stat = statSync(resolved.absolutePath);
 		} catch (error) {
-			unreadableCandidates.push({ path: resolved.relativePath, reason: reasons[0] ?? "mentioned", reasons, note: errorMessage(error) });
+			unreadableCandidates.push({
+				path: resolved.relativePath,
+				reason: reasons[0] ?? "mentioned",
+				reasons,
+				note: errorMessage(error),
+			});
 			continue;
 		}
 
@@ -131,7 +141,12 @@ export async function buildCuratedRunnerSubagentContext(
 
 		const loaded = readTextExcerpt(resolved.absolutePath, stat.size);
 		if (!loaded.ok) {
-			unreadableCandidates.push({ path: resolved.relativePath, reason: reasons[0] ?? "mentioned", reasons, note: loaded.note });
+			unreadableCandidates.push({
+				path: resolved.relativePath,
+				reason: reasons[0] ?? "mentioned",
+				reasons,
+				note: loaded.note,
+			});
 			continue;
 		}
 
@@ -163,15 +178,22 @@ export async function buildCuratedRunnerSubagentContext(
 		isTruncated: isTruncated || wasMarkdownTruncated,
 		markdownChars: markdown.length,
 		isGitAvailable: gitEvidence.isAvailable,
-		notes: wasMarkdownTruncated ? [...notes, `Auto-curated context was truncated to ${MAX_MARKDOWN_CHARS} characters.`] : notes,
+		notes: wasMarkdownTruncated
+			? [...notes, `Auto-curated context was truncated to ${MAX_MARKDOWN_CHARS} characters.`]
+			: notes,
 	};
 	return { markdown, audit };
 }
 
 async function collectGitEvidence(execGit: CuratedContextExecGit): Promise<GitEvidence> {
-	const [status, diffStat] = await Promise.all([runGit(execGit, ["status", "--short"]), runGit(execGit, ["diff", "--stat"])]);
+	const [status, diffStat] = await Promise.all([
+		runGit(execGit, ["status", "--short"]),
+		runGit(execGit, ["diff", "--stat"]),
+	]);
 	const commands = [status, diffStat];
-	const notes = commands.flatMap((command) => (command.ok ? [] : [command.diagnostic ?? "git command failed"]));
+	const notes = commands.flatMap((command) =>
+		command.ok ? [] : [command.diagnostic ?? "git command failed"],
+	);
 	return {
 		isAvailable: commands.some((command) => command.ok),
 		...(status.ok ? { statusShort: status.stdout.trim() } : {}),
@@ -180,34 +202,62 @@ async function collectGitEvidence(execGit: CuratedContextExecGit): Promise<GitEv
 	};
 }
 
-async function runGit(execGit: CuratedContextExecGit, args: readonly string[]): Promise<CommandResult> {
+async function runGit(
+	execGit: CuratedContextExecGit,
+	args: readonly string[],
+): Promise<CommandResult> {
 	let result: ExecResult;
 	try {
 		result = await execGit(args, GIT_TIMEOUT_MS);
 	} catch (error) {
-		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} failed: ${errorMessage(error)}` };
+		return {
+			ok: false,
+			stdout: "",
+			diagnostic: `git ${args.join(" ")} failed: ${errorMessage(error)}`,
+		};
 	}
 	if (result.startupError !== undefined) {
-		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} unavailable: ${result.startupError}` };
+		return {
+			ok: false,
+			stdout: "",
+			diagnostic: `git ${args.join(" ")} unavailable: ${result.startupError}`,
+		};
 	}
 	if (result.killed) {
-		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} timed out after ${GIT_TIMEOUT_MS}ms.` };
+		return {
+			ok: false,
+			stdout: "",
+			diagnostic: `git ${args.join(" ")} timed out after ${GIT_TIMEOUT_MS}ms.`,
+		};
 	}
 	if (result.code !== 0) {
 		const stderr = result.stderr.trim();
-		return { ok: false, stdout: "", diagnostic: `git ${args.join(" ")} failed${stderr.length === 0 ? "" : `: ${truncateText(stderr, 240)}`}` };
+		return {
+			ok: false,
+			stdout: "",
+			diagnostic: `git ${args.join(" ")} failed${stderr.length === 0 ? "" : `: ${truncateText(stderr, 240)}`}`,
+		};
 	}
 	return { ok: true, stdout: result.stdout };
 }
 
-function collectFileCandidates(input: BuildCuratedRunnerSubagentContextInput, gitEvidence: GitEvidence): Map<string, Set<CandidateReason>> {
+function collectFileCandidates(
+	input: BuildCuratedRunnerSubagentContextInput,
+	gitEvidence: GitEvidence,
+): Map<string, Set<CandidateReason>> {
 	const candidates = new Map<string, Set<CandidateReason>>();
-	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`)) addCandidate(candidates, path, "mentioned");
-	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? "")) addCandidate(candidates, path, "git-status");
+	for (const path of extractMentionedPaths(`${input.title}\n${input.prompt}`))
+		addCandidate(candidates, path, "mentioned");
+	for (const path of parseGitStatusPaths(gitEvidence.statusShort ?? ""))
+		addCandidate(candidates, path, "git-status");
 	return candidates;
 }
 
-function addCandidate(candidates: Map<string, Set<CandidateReason>>, path: string, reason: CandidateReason): void {
+function addCandidate(
+	candidates: Map<string, Set<CandidateReason>>,
+	path: string,
+	reason: CandidateReason,
+): void {
 	const normalized = normalizeMentionedPath(path);
 	if (normalized.length === 0) return;
 	const existing = candidates.get(normalized);
@@ -236,7 +286,10 @@ function looksLikePath(value: string): boolean {
 }
 
 function normalizeMentionedPath(value: string): string {
-	return value.trim().replace(/^[<([{"']+/, "").replace(/[>)\]}"'.,;:]+$/, "");
+	return value
+		.trim()
+		.replace(/^[<([{"']+/, "")
+		.replace(/[>)\]}"'.,;:]+$/, "");
 }
 
 function parseGitStatusPaths(statusShort: string): readonly string[] {
@@ -271,7 +324,8 @@ function readTextExcerpt(path: string, sizeBytes: number): TextExcerptResult {
 		const buffer = Buffer.alloc(readBytes);
 		const bytesRead = readSync(fd, buffer, 0, readBytes, 0);
 		const data = buffer.subarray(0, bytesRead);
-		if (data.includes(0)) return { ok: false, note: "Skipped because the file appears to be binary." };
+		if (data.includes(0))
+			return { ok: false, note: "Skipped because the file appears to be binary." };
 		const text = data.toString("utf8").replace(/\r\n?/g, "\n");
 		const isTruncated = sizeBytes > bytesRead || text.length > MAX_FILE_EXCERPT_CHARS;
 		return { ok: true, excerpt: truncateText(text, MAX_FILE_EXCERPT_CHARS), isTruncated };
@@ -306,9 +360,14 @@ function renderCuratedContextMarkdown(options: {
 			...renderGitEvidence(options.gitEvidence),
 		],
 		...optionalSection("### Included sources", renderIncludedSources(options.includedSources)),
-		...optionalSection("### Omitted or unreadable candidates", renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates)),
+		...optionalSection(
+			"### Omitted or unreadable candidates",
+			renderCandidateNotes(options.omittedCandidates, options.unreadableCandidates),
+		),
 	];
-	return sections.flatMap((section, index) => (index === 0 ? section : ["", ...section])).join("\n");
+	return sections
+		.flatMap((section, index) => (index === 0 ? section : ["", ...section]))
+		.join("\n");
 }
 
 function optionalSection(heading: string, body: readonly string[]): readonly string[][] {
@@ -316,10 +375,16 @@ function optionalSection(heading: string, body: readonly string[]): readonly str
 }
 
 function renderGitEvidence(gitEvidence: GitEvidence): string[] {
-	if (!gitEvidence.isAvailable) return ["- Git evidence unavailable; continue with explicit task context and read files directly."];
+	if (!gitEvidence.isAvailable)
+		return [
+			"- Git evidence unavailable; continue with explicit task context and read files directly.",
+		];
 	return [
 		"- Git evidence collected with `git status --short` and `git diff --stat`.",
-		codeListItem("status --short", truncateText(gitEvidence.statusShort ?? "", MAX_GIT_OUTPUT_CHARS)),
+		codeListItem(
+			"status --short",
+			truncateText(gitEvidence.statusShort ?? "", MAX_GIT_OUTPUT_CHARS),
+		),
 		codeListItem("diff --stat", truncateText(gitEvidence.diffStat ?? "", MAX_GIT_OUTPUT_CHARS)),
 	];
 }
@@ -335,14 +400,30 @@ function renderIncludedSources(sources: readonly IncludedSource[]): string[] {
 	]);
 }
 
-function renderCandidateNotes(omitted: readonly CandidateNote[], unreadable: readonly CandidateNote[]): string[] {
-	const candidateLimitedCount = omitted.filter((candidate) => candidate.reason === "candidate-limit").length;
+function renderCandidateNotes(
+	omitted: readonly CandidateNote[],
+	unreadable: readonly CandidateNote[],
+): string[] {
+	const candidateLimitedCount = omitted.filter(
+		(candidate) => candidate.reason === "candidate-limit",
+	).length;
 	const visibleOmitted = omitted.filter((candidate) => candidate.reason !== "candidate-limit");
-	const visibleUnreadable = unreadable.filter((candidate) => candidate.reasons.includes("git-status"));
+	const visibleUnreadable = unreadable.filter((candidate) =>
+		candidate.reasons.includes("git-status"),
+	);
 	return [
-		...visibleOmitted.map((candidate) => `- Omitted \`${candidate.path}\` (${candidate.reason}): ${candidate.note}`),
-		...(candidateLimitedCount === 0 ? [] : [`- Omitted ${candidateLimitedCount} candidate(s) after the first ${MAX_INCLUDED_FILES} readable files.`]),
-		...visibleUnreadable.map((candidate) => `- Unreadable \`${candidate.path}\` (${candidate.reasons.join(", ")}): ${candidate.note}`),
+		...visibleOmitted.map(
+			(candidate) => `- Omitted \`${candidate.path}\` (${candidate.reason}): ${candidate.note}`,
+		),
+		...(candidateLimitedCount === 0
+			? []
+			: [
+					`- Omitted ${candidateLimitedCount} candidate(s) after the first ${MAX_INCLUDED_FILES} readable files.`,
+				]),
+		...visibleUnreadable.map(
+			(candidate) =>
+				`- Unreadable \`${candidate.path}\` (${candidate.reasons.join(", ")}): ${candidate.note}`,
+		),
 	];
 }
 
@@ -357,7 +438,10 @@ function inlineCodeBlock(value: string): string {
 
 function blockquote(value: string): string {
 	if (value.length === 0) return "> (empty)";
-	return value.split("\n").map((line) => `> ${line}`).join("\n");
+	return value
+		.split("\n")
+		.map((line) => `> ${line}`)
+		.join("\n");
 }
 
 function boundMarkdown(markdown: string): string {

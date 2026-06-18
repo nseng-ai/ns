@@ -2,7 +2,12 @@ import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
-import { latestUpdateIsoFromUpdateNames, matchesStatusFilter, type ObjectiveListResult, renderObjectiveListHuman } from "../../src/operations/list-objectives.ts";
+import {
+	latestUpdateIsoFromUpdateNames,
+	matchesStatusFilter,
+	type ObjectiveListResult,
+	renderObjectiveListHuman,
+} from "../../src/operations/list-objectives.ts";
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
@@ -10,7 +15,15 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 	statusFilter: "active",
 	namesOnly: false,
 	updatedBranchesIncluded: true,
-	records: [{ slug: "alpha", status: "open", latestUpdateIso: "2026-06-13T09:10:00Z", updatedBranches: ["feat/alpha"], hasOutstandingChanges: false }],
+	records: [
+		{
+			slug: "alpha",
+			status: "open",
+			latestUpdateIso: "2026-06-13T09:10:00Z",
+			updatedBranches: ["feat/alpha"],
+			hasOutstandingChanges: false,
+		},
+	],
 };
 
 describe("renderObjectiveListHuman", () => {
@@ -115,7 +128,10 @@ describe("objective list helpers", () => {
 			},
 			changedPaths: {
 				"master...feat/newer|.asdl/objectives": [".asdl/objectives/alpha/objective.md"],
-				"master...feat/older|.asdl/objectives": [".asdl/objectives/alpha/roadmap.md", ".asdl/objectives/branch-only/objective.md"],
+				"master...feat/older|.asdl/objectives": [
+					".asdl/objectives/alpha/roadmap.md",
+					".asdl/objectives/branch-only/objective.md",
+				],
 			},
 		});
 
@@ -128,7 +144,10 @@ describe("objective list helpers", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual(["feat/newer", "feat/older"]);
-		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master...feat/newer", "master...feat/older"]);
+		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual([
+			"master...feat/newer",
+			"master...feat/older",
+		]);
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {
@@ -155,6 +174,8 @@ describe("objective list helpers", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.value.updatedBranchesBySlug.get("alpha")).toEqual([]);
-		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual(["master...feat/stale"]);
+		expect(git.changedPathsUnderCalls.map((call) => call.revisionRange)).toEqual([
+			"master...feat/stale",
+		]);
 	});
 });

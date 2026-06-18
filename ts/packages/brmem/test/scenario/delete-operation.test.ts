@@ -7,12 +7,16 @@ describe("delete operation", () => {
 	it("deletes an existing named-Namespace Entry and round-trips through get", async () => {
 		const gateway = new FakeBrmemGateway({
 			currentBranch: "feat/x",
-			entries: [{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" }],
+			entries: [
+				{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
+			],
 		});
 		const deleted = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], { gateway });
 		expect(await deleted.exit).toBe(0);
 		const output = deleted.stdout.join("");
-		expect(output).toContain("Deleted Entry Key plan/plan.md from Namespace scratch on Branch feat/x.");
+		expect(output).toContain(
+			"Deleted Entry Key plan/plan.md from Namespace scratch on Branch feat/x.",
+		);
 		expect(output).toContain("Entry Locator: refs/brmem/ns/scratch/feat---x:plan/plan.md");
 		expect(output).toContain("Commit: commit");
 		expect(deleted.stderr).toEqual([]);
@@ -23,12 +27,17 @@ describe("delete operation", () => {
 	});
 
 	it("emits Python-compatible JSON fields", async () => {
-		const run = runScenario(["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"], {
-			fake: {
-				currentBranch: "feat/x",
-				entries: [{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" }],
+		const run = runScenario(
+			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+			{
+				fake: {
+					currentBranch: "feat/x",
+					entries: [
+						{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
+					],
+				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(0);
 		const parsed = JSON.parse(run.stdout.join(""));
 		expect(parsed).toMatchObject({
@@ -41,11 +50,19 @@ describe("delete operation", () => {
 			},
 		});
 		expect(parsed.data.commit).toMatch(/^commit/);
-		expect(Object.keys(parsed.data).sort()).toEqual(["branch", "commit", "key", "namespace", "ref_name"]);
+		expect(Object.keys(parsed.data).sort()).toEqual([
+			"branch",
+			"commit",
+			"key",
+			"namespace",
+			"ref_name",
+		]);
 	});
 
 	it("reports missing keys with the stable public failure contract", async () => {
-		const human = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], { fake: { currentBranch: "feat/x" } });
+		const human = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
+			fake: { currentBranch: "feat/x" },
+		});
 		expect(await human.exit).toBe(2);
 		const humanError = human.stderr.join("");
 		expect(humanError).toContain("No Entry to delete");
@@ -54,9 +71,12 @@ describe("delete operation", () => {
 		expect(humanError).toContain("Branch=feat/x");
 		expect(humanError).toContain("refs/brmem/ns/scratch/feat---x:plan/plan.md");
 
-		const json = runScenario(["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"], {
-			fake: { currentBranch: "feat/x" },
-		});
+		const json = runScenario(
+			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+			{
+				fake: { currentBranch: "feat/x" },
+			},
+		);
 		expect(await json.exit).toBe(2);
 		const parsed = JSON.parse(json.stdout.join(""));
 		expect(parsed).toMatchObject({ exit_code: 2, error_type: "key_not_found" });
@@ -71,7 +91,9 @@ describe("delete operation", () => {
 				{ namespace: "scratch", branch: "feat/x", key: "plan/b.md", content: "b\n" },
 			],
 		});
-		expect(await runScenario(["delete", "plan/a.md", "--namespace", "scratch"], { gateway }).exit).toBe(0);
+		expect(
+			await runScenario(["delete", "plan/a.md", "--namespace", "scratch"], { gateway }).exit,
+		).toBe(0);
 
 		const getA = runScenario(["get", "plan/a.md", "--namespace", "scratch"], { gateway });
 		expect(await getA.exit).toBe(2);
@@ -96,32 +118,62 @@ describe("delete operation", () => {
 		});
 		const human = runScenario(["delete", "scratchpad"], { gateway });
 		expect(await human.exit).toBe(0);
-		expect(human.stdout.join("")).toContain("Deleted Entry Key scratchpad from Base Namespace on Branch feat/x.");
+		expect(human.stdout.join("")).toContain(
+			"Deleted Entry Key scratchpad from Base Namespace on Branch feat/x.",
+		);
 		expect(human.stdout.join("")).toContain("Entry Locator: refs/brmem/base/feat---x:scratchpad");
 
-		const json = runScenario(["delete", "explicit", "--namespace", "base", "--format", "json"], { gateway });
+		const json = runScenario(["delete", "explicit", "--namespace", "base", "--format", "json"], {
+			gateway,
+		});
 		expect(await json.exit).toBe(0);
 		expect(JSON.parse(json.stdout.join(""))).toMatchObject({
 			data: { namespace: "base", key: "explicit", ref_name: "refs/brmem/base/feat---x:explicit" },
 		});
 
-		const secondDelete = runScenario(["delete", "explicit", "--namespace", "base", "--format", "json"], { gateway });
+		const secondDelete = runScenario(
+			["delete", "explicit", "--namespace", "base", "--format", "json"],
+			{ gateway },
+		);
 		expect(await secondDelete.exit).toBe(2);
 		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({ error_type: "key_not_found" });
 	});
 
 	it("validates namespace, key, and branch before deleting", async () => {
-		const invalidNamespace = runScenario(["delete", "note.md", "--namespace", "bad/ns", "--format", "json"]);
+		const invalidNamespace = runScenario([
+			"delete",
+			"note.md",
+			"--namespace",
+			"bad/ns",
+			"--format",
+			"json",
+		]);
 		expect(await invalidNamespace.exit).toBe(2);
-		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "invalid_namespace" });
+		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "invalid_namespace",
+		});
 
 		const invalidKey = runScenario(["delete", "bad key", "--format", "json"]);
 		expect(await invalidKey.exit).toBe(2);
-		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "invalid_key" });
+		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "invalid_key",
+		});
 
-		const invalidBranch = runScenario(["delete", "note.md", "--branch", "bad---branch", "--format", "json"]);
+		const invalidBranch = runScenario([
+			"delete",
+			"note.md",
+			"--branch",
+			"bad---branch",
+			"--format",
+			"json",
+		]);
 		expect(await invalidBranch.exit).toBe(2);
-		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "invalid_branch_name" });
+		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "invalid_branch_name",
+		});
 	});
 
 	it("handles explicit branch resolution and detached HEAD failures", async () => {
@@ -129,12 +181,19 @@ describe("delete operation", () => {
 			currentBranch: { type: "detached" },
 			entries: [{ namespace: "base", branch: "feat/other", key: "note.md", content: "other\n" }],
 		});
-		const explicitBranch = runScenario(["delete", "note.md", "--branch", "feat/other"], { gateway });
+		const explicitBranch = runScenario(["delete", "note.md", "--branch", "feat/other"], {
+			gateway,
+		});
 		expect(await explicitBranch.exit).toBe(0);
 
-		const detached = runScenario(["delete", "note.md", "--format", "json"], { fake: { currentBranch: { type: "detached" } } });
+		const detached = runScenario(["delete", "note.md", "--format", "json"], {
+			fake: { currentBranch: { type: "detached" } },
+		});
 		expect(await detached.exit).toBe(2);
-		expect(JSON.parse(detached.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "detached_head" });
+		expect(JSON.parse(detached.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "detached_head",
+		});
 	});
 
 	it("prints JSON schemas eagerly before required key validation", async () => {
@@ -154,6 +213,10 @@ describe("delete operation", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ exit_code: 2, error_type: "git_update_ref_failed", message: "boom" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			exit_code: 2,
+			error_type: "git_update_ref_failed",
+			message: "boom",
+		});
 	});
 });

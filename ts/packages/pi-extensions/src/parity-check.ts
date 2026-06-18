@@ -17,13 +17,19 @@ export function comparePiSurfaceParity(options: {
 }): ParityComparison {
 	const liveCommandSurfaces = options.liveSurfaces.filter((surface) => surface.kind === "command");
 	const liveKeySet = new Set(liveCommandSurfaces.map((surface) => piSurfaceKey(surface)));
-	const exactMetadata = options.metadata.filter((record) => piSurfaceParityMatching(record).type === "exact");
+	const exactMetadata = options.metadata.filter(
+		(record) => piSurfaceParityMatching(record).type === "exact",
+	);
 	const exactMetadataKeyCounts = countKeys(exactMetadata.map((record) => piSurfaceKey(record)));
 	const exactMetadataKeySet = new Set(exactMetadataKeyCounts.keys());
 
 	return {
-		missingMetadata: sortLiveSurfaces(liveCommandSurfaces.filter((surface) => !exactMetadataKeySet.has(piSurfaceKey(surface)))),
-		staleMetadata: sortParityRecords(exactMetadata.filter((record) => !liveKeySet.has(piSurfaceKey(record)))),
+		missingMetadata: sortLiveSurfaces(
+			liveCommandSurfaces.filter((surface) => !exactMetadataKeySet.has(piSurfaceKey(surface))),
+		),
+		staleMetadata: sortParityRecords(
+			exactMetadata.filter((record) => !liveKeySet.has(piSurfaceKey(record))),
+		),
 		duplicateMetadataKeys: [...exactMetadataKeyCounts.entries()]
 			.filter(([, count]) => count > 1)
 			.map(([key]) => key)
@@ -47,7 +53,9 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 		sections.push(
 			[
 				"Exact parity metadata without a live Pi registration:",
-				...comparison.staleMetadata.map((record) => `- ${piSurfaceKey(record)} (${record.sourceModule})`),
+				...comparison.staleMetadata.map(
+					(record) => `- ${piSurfaceKey(record)} (${record.sourceModule})`,
+				),
 				"Remove or rename stale metadata, or mark it dynamic-family only when it is genuinely runtime-generated.",
 			].join("\n"),
 		);
@@ -63,7 +71,9 @@ export function formatParityComparisonFailure(comparison: ParityComparison): str
 		);
 	}
 
-	return sections.length === 0 ? "Pi extension parity metadata matches live registrations." : sections.join("\n\n");
+	return sections.length === 0
+		? "Pi extension parity metadata matches live registrations."
+		: sections.join("\n\n");
 }
 
 function countKeys(keys: readonly string[]): Map<string, number> {

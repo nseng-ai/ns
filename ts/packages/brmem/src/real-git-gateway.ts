@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeCommandExecApi, formatCommand, type CommandExecApi } from "@asdl/core/exec";
 
-import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError, type BrmemResult, type BrmemOptionalResult } from "./contracts.ts";
+import {
+	brmemError,
+	brmemFound,
+	brmemMissing,
+	brmemOk,
+	brmemOptionalError,
+	type BrmemResult,
+	type BrmemOptionalResult,
+} from "./contracts.ts";
 import type {
 	BrmemGateway,
 	CopyEntriesResult,
@@ -22,7 +30,12 @@ import {
 	snapshotRefPrefixes,
 } from "./ref-layout.ts";
 import { normalizeBrmemTimestamp } from "./timestamps.ts";
-import { validateBranchName, validateEntryKey, validateKeyGlob, validateNamespaceName } from "./validation.ts";
+import {
+	validateBranchName,
+	validateEntryKey,
+	validateKeyGlob,
+	validateNamespaceName,
+} from "./validation.ts";
 
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 const GIT_BLOB_MODE_FILE = "100644";
@@ -45,47 +58,115 @@ export class RealGitBrmemGateway implements BrmemGateway {
 
 	async currentBranch(): Promise<BrmemResult<string>> {
 		const result = await runGit(this.commands, ["branch", "--show-current"], { cwd: this.cwd });
-		if (result.code !== 0) return gitError("current_branch_failed", "Could not resolve current branch.", result);
+		if (result.code !== 0)
+			return gitError("current_branch_failed", "Could not resolve current branch.", result);
 		const branch = result.stdout.trim();
-		if (branch.length === 0) return brmemError("detached_head", "Could not resolve current branch; HEAD appears detached.");
+		if (branch.length === 0)
+			return brmemError(
+				"detached_head",
+				"Could not resolve current branch; HEAD appears detached.",
+			);
 		return brmemOk(branch);
 	}
 
-	async listEntries(options: { namespace: string; key?: string | undefined; branch?: string | undefined }) {
+	async listEntries(options: {
+		namespace: string;
+		key?: string | undefined;
+		branch?: string | undefined;
+	}) {
 		const validation = validateNamespaceName(options.namespace);
-		if (validation.type === "invalid") return brmemError<readonly ListedEntry[]>("invalid_namespace", formatInvalid("namespace", options.namespace, validation.reason));
-		return await this.collectEntries({ allNamespaces: false, namespace: options.namespace, key: options.key, branch: options.branch });
+		if (validation.type === "invalid")
+			return brmemError<readonly ListedEntry[]>(
+				"invalid_namespace",
+				formatInvalid("namespace", options.namespace, validation.reason),
+			);
+		return await this.collectEntries({
+			allNamespaces: false,
+			namespace: options.namespace,
+			key: options.key,
+			branch: options.branch,
+		});
 	}
 
 	async listAllEntries(options: { key?: string | undefined; branch?: string | undefined }) {
-		return await this.collectEntries({ allNamespaces: true, key: options.key, branch: options.branch });
+		return await this.collectEntries({
+			allNamespaces: true,
+			key: options.key,
+			branch: options.branch,
+		});
 	}
 
-	async getEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	async getEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		const validation = await this.validateEntryAddress(options);
-		if (validation.type === "error") return brmemOptionalError<EntryContent>(validation.error.code, validation.error.message, validation.error.displayCommand);
+		if (validation.type === "error")
+			return brmemOptionalError<EntryContent>(
+				validation.error.code,
+				validation.error.message,
+				validation.error.displayCommand,
+			);
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const gitTarget = options.at ?? snapshotRef;
-		const result = await runGit(this.commands, ["show", `${gitTarget}:${options.key}`], { cwd: this.cwd });
+		const result = await runGit(this.commands, ["show", `${gitTarget}:${options.key}`], {
+			cwd: this.cwd,
+		});
 		if (result.code !== 0) return brmemMissing<EntryContent>();
 		return brmemFound({ content: result.stdout });
 	}
 
-	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string | undefined }) {
+	async checkEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		at?: string | undefined;
+	}) {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") {
-			return brmemOptionalError<EntryDiagnostic>(validation.error.code, validation.error.message, validation.error.displayCommand);
+			return brmemOptionalError<EntryDiagnostic>(
+				validation.error.code,
+				validation.error.message,
+				validation.error.displayCommand,
+			);
 		}
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const gitTarget = options.at ?? snapshotRef;
-		const existence = await runGit(this.commands, ["cat-file", "-e", `${gitTarget}:${options.key}`], { cwd: this.cwd });
+		const existence = await runGit(
+			this.commands,
+			["cat-file", "-e", `${gitTarget}:${options.key}`],
+			{ cwd: this.cwd },
+		);
 		if (existence.code !== 0) return brmemMissing<EntryDiagnostic>();
-		const blobSha = await runGit(this.commands, ["rev-parse", `${gitTarget}:${options.key}`], { cwd: this.cwd });
-		if (blobSha.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_rev_parse_failed", commandMessage("Could not resolve blob SHA.", blobSha), blobSha.displayCommand);
-		const size = await runGit(this.commands, ["cat-file", "-s", `${gitTarget}:${options.key}`], { cwd: this.cwd });
-		if (size.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_cat_file_failed", commandMessage("Could not resolve blob size.", size), size.displayCommand);
-		const log = await runGit(this.commands, ["log", "-1", "--format=%H%x09%cI", gitTarget], { cwd: this.cwd });
-		if (log.code !== 0) return brmemOptionalError<EntryDiagnostic>("git_log_failed", commandMessage("Could not resolve snapshot metadata.", log), log.displayCommand);
+		const blobSha = await runGit(this.commands, ["rev-parse", `${gitTarget}:${options.key}`], {
+			cwd: this.cwd,
+		});
+		if (blobSha.code !== 0)
+			return brmemOptionalError<EntryDiagnostic>(
+				"git_rev_parse_failed",
+				commandMessage("Could not resolve blob SHA.", blobSha),
+				blobSha.displayCommand,
+			);
+		const size = await runGit(this.commands, ["cat-file", "-s", `${gitTarget}:${options.key}`], {
+			cwd: this.cwd,
+		});
+		if (size.code !== 0)
+			return brmemOptionalError<EntryDiagnostic>(
+				"git_cat_file_failed",
+				commandMessage("Could not resolve blob size.", size),
+				size.displayCommand,
+			);
+		const log = await runGit(this.commands, ["log", "-1", "--format=%H%x09%cI", gitTarget], {
+			cwd: this.cwd,
+		});
+		if (log.code !== 0)
+			return brmemOptionalError<EntryDiagnostic>(
+				"git_log_failed",
+				commandMessage("Could not resolve snapshot metadata.", log),
+				log.displayCommand,
+			);
 		const [headSha = "", headDate = ""] = log.stdout.trim().split("\t");
 		return brmemFound({
 			headSha,
@@ -95,19 +176,32 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		});
 	}
 
-	async putEntry(options: { namespace: string; key: string; branch: string; content: string }): Promise<BrmemResult<PutEntryResult>> {
+	async putEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
-		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], { cwd: this.cwd });
+		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], {
+			cwd: this.cwd,
+		});
 		const parentSha = parent.code === 0 ? parent.stdout.trim() : undefined;
-		const entries = parentSha === undefined ? new Map<string, string>() : await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+		const entries =
+			parentSha === undefined
+				? new Map<string, string>()
+				: await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
 		const tempDir = mkdtempSync(join(tmpdir(), "brmem-blob-"));
 		try {
 			const blobPath = join(tempDir, "content");
 			writeFileSync(blobPath, options.content, "utf8");
-			const blob = await runGit(this.commands, ["hash-object", "-w", "--no-filters", blobPath], { cwd: this.cwd });
-			if (blob.code !== 0) return gitError("git_hash_object_failed", "Could not write Entry blob.", blob);
+			const blob = await runGit(this.commands, ["hash-object", "-w", "--no-filters", blobPath], {
+				cwd: this.cwd,
+			});
+			if (blob.code !== 0)
+				return gitError("git_hash_object_failed", "Could not write Entry blob.", blob);
 			entries.set(options.key, blob.stdout.trim());
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
@@ -117,28 +211,59 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		const commitArgs = ["commit-tree", tree.value, "-m", `brmem put ${options.key}`];
 		if (parentSha !== undefined) commitArgs.splice(2, 0, "-p", parentSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
-		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create Branch Memory Snapshot commit.", commit);
-		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], { cwd: this.cwd });
-		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
-		return brmemOk({ commitSha: commit.stdout.trim(), entry: mustEntryRef(options.namespace, options.key, options.branch) });
+		if (commit.code !== 0)
+			return gitError(
+				"git_commit_tree_failed",
+				"Could not create Branch Memory Snapshot commit.",
+				commit,
+			);
+		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], {
+			cwd: this.cwd,
+		});
+		if (update.code !== 0)
+			return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
+		return brmemOk({
+			commitSha: commit.stdout.trim(),
+			entry: mustEntryRef(options.namespace, options.key, options.branch),
+		});
 	}
 
-	async deleteEntry(options: { namespace: string; key: string; branch: string }): Promise<BrmemResult<DeleteEntryResult>> {
+	async deleteEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemResult<DeleteEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
-		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], { cwd: this.cwd });
-		if (parent.code !== 0) return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
+		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], {
+			cwd: this.cwd,
+		});
+		if (parent.code !== 0)
+			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
 		const entries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
-		if (!entries.has(options.key)) return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
+		if (!entries.has(options.key))
+			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
 		entries.delete(options.key);
 		const tree = await buildTreeFromEntries(this.commands, this.cwd, entries);
 		if (tree.type === "error") return tree;
-		const commit = await runGit(this.commands, ["commit-tree", tree.value, "-p", parent.stdout.trim(), "-m", `brmem delete ${options.key}`], { cwd: this.cwd });
-		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create delete Snapshot commit.", commit);
-		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], { cwd: this.cwd });
-		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
-		return brmemOk({ commitSha: commit.stdout.trim(), entry: mustEntryRef(options.namespace, options.key, options.branch), isSnapshotEmpty: entries.size === 0 });
+		const commit = await runGit(
+			this.commands,
+			["commit-tree", tree.value, "-p", parent.stdout.trim(), "-m", `brmem delete ${options.key}`],
+			{ cwd: this.cwd },
+		);
+		if (commit.code !== 0)
+			return gitError("git_commit_tree_failed", "Could not create delete Snapshot commit.", commit);
+		const update = await runGit(this.commands, ["update-ref", snapshotRef, commit.stdout.trim()], {
+			cwd: this.cwd,
+		});
+		if (update.code !== 0)
+			return gitError("git_update_ref_failed", "Could not update Snapshot Ref.", update);
+		return brmemOk({
+			commitSha: commit.stdout.trim(),
+			entry: mustEntryRef(options.namespace, options.key, options.branch),
+			isSnapshotEmpty: entries.size === 0,
+		});
 	}
 
 	async copyEntries(options: {
@@ -149,40 +274,82 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		keyGlob?: string | undefined;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const namespaceValidation = validateNamespaceName(options.namespace);
-		if (namespaceValidation.type === "invalid") return brmemError("invalid_namespace", formatInvalid("namespace", options.namespace, namespaceValidation.reason));
+		if (namespaceValidation.type === "invalid")
+			return brmemError(
+				"invalid_namespace",
+				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
+			);
 		const fromValidation = await this.validateGitBranch(options.fromBranch);
 		if (fromValidation.type === "error") return fromValidation;
 		const toValidation = await this.validateGitBranch(options.toBranch);
 		if (toValidation.type === "error") return toValidation;
 		if (options.keyGlob !== undefined) {
 			const globValidation = validateKeyGlob(options.keyGlob);
-			if (globValidation.type === "invalid") return brmemError("invalid_key_glob", formatInvalid("Entry Key glob", options.keyGlob, globValidation.reason));
+			if (globValidation.type === "invalid")
+				return brmemError(
+					"invalid_key_glob",
+					formatInvalid("Entry Key glob", options.keyGlob, globValidation.reason),
+				);
 		}
 		const sourceRef = mustSnapshotRef(options.namespace, options.fromBranch);
-		const sourceSha = await runGit(this.commands, ["rev-parse", "--verify", sourceRef], { cwd: this.cwd });
+		const sourceSha = await runGit(this.commands, ["rev-parse", "--verify", sourceRef], {
+			cwd: this.cwd,
+		});
 		if (sourceSha.code !== 0) return brmemOk({ entries: [] });
 		const destRef = mustSnapshotRef(options.namespace, options.toBranch);
-		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", destRef], { cwd: this.cwd });
+		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", destRef], {
+			cwd: this.cwd,
+		});
 		const destSha = destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined;
 		if (options.keyGlob === undefined) {
-			return this.copySnapshot({ namespace: options.namespace, toBranch: options.toBranch, sourceRef, sourceSha: sourceSha.stdout.trim(), destRef, shouldOverwrite: options.shouldOverwrite });
+			return this.copySnapshot({
+				namespace: options.namespace,
+				toBranch: options.toBranch,
+				sourceRef,
+				sourceSha: sourceSha.stdout.trim(),
+				destRef,
+				shouldOverwrite: options.shouldOverwrite,
+			});
 		}
 		return this.copyWithGlob({ ...options, sourceRef, destRef, destSha, keyGlob: options.keyGlob });
 	}
 
-	private async validateEntryAddress(options: { namespace: string; key: string; branch: string }): Promise<BrmemResult<void>> {
+	private async validateEntryAddress(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemResult<void>> {
 		const namespaceValidation = validateNamespaceName(options.namespace);
-		if (namespaceValidation.type === "invalid") return brmemError("invalid_namespace", formatInvalid("namespace", options.namespace, namespaceValidation.reason));
+		if (namespaceValidation.type === "invalid")
+			return brmemError(
+				"invalid_namespace",
+				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
+			);
 		const keyValidation = validateEntryKey(options.key);
-		if (keyValidation.type === "invalid") return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+		if (keyValidation.type === "invalid")
+			return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
 		return await this.validateGitBranch(options.branch);
 	}
 
 	private async validateGitBranch(branch: string): Promise<BrmemResult<void>> {
 		const branchValidation = validateBranchName(branch);
-		if (branchValidation.type === "invalid") return brmemError("invalid_branch_name", formatInvalid("branch name", branch, branchValidation.reason));
-		const gitValidation = await runGit(this.commands, ["check-ref-format", "--branch", branch], { cwd: this.cwd });
-		if (gitValidation.code !== 0) return brmemError("invalid_branch_name", commandMessage(formatInvalid("branch name", branch, "invalid git branch name"), gitValidation), gitValidation.displayCommand);
+		if (branchValidation.type === "invalid")
+			return brmemError(
+				"invalid_branch_name",
+				formatInvalid("branch name", branch, branchValidation.reason),
+			);
+		const gitValidation = await runGit(this.commands, ["check-ref-format", "--branch", branch], {
+			cwd: this.cwd,
+		});
+		if (gitValidation.code !== 0)
+			return brmemError(
+				"invalid_branch_name",
+				commandMessage(
+					formatInvalid("branch name", branch, "invalid git branch name"),
+					gitValidation,
+				),
+				gitValidation.displayCommand,
+			);
 		return brmemOk(undefined);
 	}
 
@@ -194,13 +361,22 @@ export class RealGitBrmemGateway implements BrmemGateway {
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		if (options.key !== undefined) {
 			const keyValidation = validateEntryKey(options.key);
-			if (keyValidation.type === "invalid") return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+			if (keyValidation.type === "invalid")
+				return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
 		}
 		if (options.branch !== undefined) {
 			const branchValidation = validateBranchName(options.branch);
-			if (branchValidation.type === "invalid") return brmemError("invalid_branch_name", formatInvalid("branch name", options.branch, branchValidation.reason));
+			if (branchValidation.type === "invalid")
+				return brmemError(
+					"invalid_branch_name",
+					formatInvalid("branch name", options.branch, branchValidation.reason),
+				);
 		}
-		const result = await runGit(this.commands, ["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()], { cwd: this.cwd });
+		const result = await runGit(
+			this.commands,
+			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
+			{ cwd: this.cwd },
+		);
 		if (result.code !== 0) return brmemOk([]);
 		const entries: ListedEntry[] = [];
 		for (const line of result.stdout.split("\n")) {
@@ -217,7 +393,10 @@ export class RealGitBrmemGateway implements BrmemGateway {
 				if (options.key !== undefined && path !== options.key) continue;
 				const updatedAt = updatedAtByPath.value.get(path);
 				if (updatedAt === undefined) {
-					return brmemError("entry_metadata_unavailable", `Could not resolve Entry update metadata for ${JSON.stringify(path)}.`);
+					return brmemError(
+						"entry_metadata_unavailable",
+						`Could not resolve Entry update metadata for ${JSON.stringify(path)}.`,
+					);
 				}
 				entries.push({ ...mustEntryRef(parsed.namespace, path, parsed.branch), updatedAt });
 			}
@@ -235,11 +414,23 @@ export class RealGitBrmemGateway implements BrmemGateway {
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const destEntries = await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
 		if (destEntries.size > 0 && !options.shouldOverwrite) {
-			return brmemError("copy_conflict", `destination has conflicting entries: ${[...destEntries.keys()].sort().join(", ")}`);
+			return brmemError(
+				"copy_conflict",
+				`destination has conflicting entries: ${[...destEntries.keys()].sort().join(", ")}`,
+			);
 		}
-		const update = await runGit(this.commands, ["update-ref", options.destRef, options.sourceSha], { cwd: this.cwd });
-		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update destination Snapshot Ref.", update);
-		const entries = [...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)).keys()]
+		const update = await runGit(this.commands, ["update-ref", options.destRef, options.sourceSha], {
+			cwd: this.cwd,
+		});
+		if (update.code !== 0)
+			return gitError(
+				"git_update_ref_failed",
+				"Could not update destination Snapshot Ref.",
+				update,
+			);
+		const entries = [
+			...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)).keys(),
+		]
 			.sort()
 			.map((key) => mustEntryRef(options.namespace, key, options.toBranch));
 		return brmemOk({ entries });
@@ -255,12 +446,20 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		shouldOverwrite: boolean;
 		keyGlob: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
-		const sourceMatching = [...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef))].filter(([key]) => keyGlobMatches(key, options.keyGlob));
+		const sourceMatching = [
+			...(await enumerateTreeEntries(this.commands, this.cwd, options.sourceRef)),
+		].filter(([key]) => keyGlobMatches(key, options.keyGlob));
 		if (sourceMatching.length === 0) return brmemOk({ entries: [] });
-		const destTree = options.destSha === undefined ? new Map<string, string>() : await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
+		const destTree =
+			options.destSha === undefined
+				? new Map<string, string>()
+				: await enumerateTreeEntries(this.commands, this.cwd, options.destRef);
 		const destMatching = [...destTree.keys()].filter((key) => keyGlobMatches(key, options.keyGlob));
 		if (destMatching.length > 0 && !options.shouldOverwrite) {
-			return brmemError("copy_conflict", `destination has conflicting entries: ${destMatching.sort().join(", ")}`);
+			return brmemError(
+				"copy_conflict",
+				`destination has conflicting entries: ${destMatching.sort().join(", ")}`,
+			);
 		}
 		for (const key of destMatching) destTree.delete(key);
 		for (const [key, blobSha] of sourceMatching) destTree.set(key, blobSha);
@@ -275,43 +474,92 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		];
 		if (options.destSha !== undefined) commitArgs.splice(2, 0, "-p", options.destSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
-		if (commit.code !== 0) return gitError("git_commit_tree_failed", "Could not create copy Snapshot commit.", commit);
-		const update = await runGit(this.commands, ["update-ref", options.destRef, commit.stdout.trim()], { cwd: this.cwd });
-		if (update.code !== 0) return gitError("git_update_ref_failed", "Could not update destination Snapshot Ref.", update);
-		return brmemOk({ entries: sourceMatching.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch)).sort(compareEntries) });
+		if (commit.code !== 0)
+			return gitError("git_commit_tree_failed", "Could not create copy Snapshot commit.", commit);
+		const update = await runGit(
+			this.commands,
+			["update-ref", options.destRef, commit.stdout.trim()],
+			{ cwd: this.cwd },
+		);
+		if (update.code !== 0)
+			return gitError(
+				"git_update_ref_failed",
+				"Could not update destination Snapshot Ref.",
+				update,
+			);
+		return brmemOk({
+			entries: sourceMatching
+				.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch))
+				.sort(compareEntries),
+		});
 	}
 
-	async getRemoteConfig(remote: string): Promise<BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
+	async getRemoteConfig(
+		remote: string,
+	): Promise<BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
 		const exists = await runGit(this.commands, ["remote", "get-url", remote], { cwd: this.cwd });
 		if (exists.code !== 0) return brmemMissing();
 
-		const push = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.push`], { cwd: this.cwd });
+		const push = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.push`], {
+			cwd: this.cwd,
+		});
 		const pushValues = push.code === 0 ? splitConfigValues(push.stdout) : [];
 
-		const fetch = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.fetch`], { cwd: this.cwd });
+		const fetch = await runGit(this.commands, ["config", "--get-all", `remote.${remote}.fetch`], {
+			cwd: this.cwd,
+		});
 		const fetchValues = fetch.code === 0 ? splitConfigValues(fetch.stdout) : [];
 
 		return brmemFound({ push: pushValues, fetch: fetchValues });
 	}
 
-	async addRemoteRefspecs(remote: string, push: readonly string[], fetch: readonly string[]): Promise<BrmemResult<void>> {
+	async addRemoteRefspecs(
+		remote: string,
+		push: readonly string[],
+		fetch: readonly string[],
+	): Promise<BrmemResult<void>> {
 		for (const p of push) {
-			const res = await runGit(this.commands, ["config", "--local", "--add", `remote.${remote}.push`, p], { cwd: this.cwd });
-			if (res.code !== 0) return gitError("git_config_write_failed", `Could not add Git config remote.${remote}.push.`, res);
+			const res = await runGit(
+				this.commands,
+				["config", "--local", "--add", `remote.${remote}.push`, p],
+				{ cwd: this.cwd },
+			);
+			if (res.code !== 0)
+				return gitError(
+					"git_config_write_failed",
+					`Could not add Git config remote.${remote}.push.`,
+					res,
+				);
 		}
 		for (const f of fetch) {
-			const res = await runGit(this.commands, ["config", "--local", "--add", `remote.${remote}.fetch`, f], { cwd: this.cwd });
-			if (res.code !== 0) return gitError("git_config_write_failed", `Could not add Git config remote.${remote}.fetch.`, res);
+			const res = await runGit(
+				this.commands,
+				["config", "--local", "--add", `remote.${remote}.fetch`, f],
+				{ cwd: this.cwd },
+			);
+			if (res.code !== 0)
+				return gitError(
+					"git_config_write_failed",
+					`Could not add Git config remote.${remote}.fetch.`,
+					res,
+				);
 		}
 		return brmemOk(undefined);
 	}
 }
 
 function splitConfigValues(stdout: string): readonly string[] {
-	return stdout.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+	return stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
 }
 
-async function runGit(commands: CommandExecApi, args: readonly string[], options: { cwd: string; env?: NodeJS.ProcessEnv | undefined }): Promise<GitRunResult> {
+async function runGit(
+	commands: CommandExecApi,
+	args: readonly string[],
+	options: { cwd: string; env?: NodeJS.ProcessEnv | undefined },
+): Promise<GitRunResult> {
 	const result = await commands.exec("git", [...args], {
 		cwd: options.cwd,
 		env: options.env ?? process.env,
@@ -324,39 +572,65 @@ async function runGit(commands: CommandExecApi, args: readonly string[], options
 	};
 }
 
-async function buildTreeFromEntries(commands: CommandExecApi, cwd: string, entries: ReadonlyMap<string, string>): Promise<BrmemResult<string>> {
+async function buildTreeFromEntries(
+	commands: CommandExecApi,
+	cwd: string,
+	entries: ReadonlyMap<string, string>,
+): Promise<BrmemResult<string>> {
 	if (entries.size === 0) return brmemOk(EMPTY_TREE_SHA);
 	const tempDir = mkdtempSync(join(tmpdir(), "brmem-index-"));
 	try {
 		const indexPath = join(tempDir, "index");
 		const env = { ...process.env, GIT_INDEX_FILE: indexPath };
 		for (const [path, blobSha] of entries) {
-			const update = await runGit(commands, ["update-index", "--add", "--cacheinfo", `${GIT_BLOB_MODE_FILE},${blobSha},${path}`], { cwd, env });
-			if (update.code !== 0) return gitError("git_update_index_failed", "Could not build Snapshot tree.", update);
+			const update = await runGit(
+				commands,
+				["update-index", "--add", "--cacheinfo", `${GIT_BLOB_MODE_FILE},${blobSha},${path}`],
+				{ cwd, env },
+			);
+			if (update.code !== 0)
+				return gitError("git_update_index_failed", "Could not build Snapshot tree.", update);
 		}
 		const tree = await runGit(commands, ["write-tree"], { cwd, env });
-		if (tree.code !== 0) return gitError("git_write_tree_failed", "Could not write Snapshot tree.", tree);
+		if (tree.code !== 0)
+			return gitError("git_write_tree_failed", "Could not write Snapshot tree.", tree);
 		return brmemOk(tree.stdout.trim());
 	} finally {
 		rmSync(tempDir, { recursive: true, force: true });
 	}
 }
 
-async function enumerateTreeEntries(commands: CommandExecApi, cwd: string, refOrTree: string): Promise<Map<string, string>> {
-	const result = await runGit(commands, ["ls-tree", "-r", "--format=%(path)%x09%(objectname)", refOrTree], { cwd });
+async function enumerateTreeEntries(
+	commands: CommandExecApi,
+	cwd: string,
+	refOrTree: string,
+): Promise<Map<string, string>> {
+	const result = await runGit(
+		commands,
+		["ls-tree", "-r", "--format=%(path)%x09%(objectname)", refOrTree],
+		{ cwd },
+	);
 	const entries = new Map<string, string>();
 	if (result.code !== 0) return entries;
 	for (const line of result.stdout.split("\n")) {
 		const [path, blobSha] = line.split("\t");
-		if (path === undefined || path.length === 0 || blobSha === undefined || blobSha.length === 0) continue;
+		if (path === undefined || path.length === 0 || blobSha === undefined || blobSha.length === 0)
+			continue;
 		entries.set(path, blobSha);
 	}
 	return entries;
 }
 
-async function enumerateEntryUpdatedAt(commands: CommandExecApi, cwd: string, snapshotRef: string): Promise<BrmemResult<Map<string, string>>> {
-	const result = await runGit(commands, ["log", "--format=%cI", "--name-status", snapshotRef], { cwd });
-	if (result.code !== 0) return gitError("git_log_failed", "Could not resolve Entry update metadata.", result);
+async function enumerateEntryUpdatedAt(
+	commands: CommandExecApi,
+	cwd: string,
+	snapshotRef: string,
+): Promise<BrmemResult<Map<string, string>>> {
+	const result = await runGit(commands, ["log", "--format=%cI", "--name-status", snapshotRef], {
+		cwd,
+	});
+	if (result.code !== 0)
+		return gitError("git_log_failed", "Could not resolve Entry update metadata.", result);
 	return brmemOk(parseEntryUpdateLog(result.stdout));
 }
 
@@ -376,7 +650,8 @@ function parseEntryUpdateLog(stdout: string): Map<string, string> {
 		// Entry Keys reject control characters including tabs, so tab splitting is safe for managed paths.
 		const path = columns[columns.length - 1];
 		if (path === undefined || path.length === 0) continue;
-		if (!updatedAtByPath.has(path)) updatedAtByPath.set(path, normalizeBrmemTimestamp(currentUpdatedAt));
+		if (!updatedAtByPath.has(path))
+			updatedAtByPath.set(path, normalizeBrmemTimestamp(currentUpdatedAt));
 	}
 	return updatedAtByPath;
 }

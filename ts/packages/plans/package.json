@@ -5,7 +5,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "bin": {
     "enriched-plan": "./src/cli.ts"
   },
@@ -16,7 +18,7 @@
   "dependencies": {
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   },
   "devDependencies": {}
 }

@@ -8,7 +8,12 @@ import { formatErrorMessage } from "@asdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@asdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
-export { BRANCH_CONTEXT_LEGACY_PLAN_KEY, BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_PLAN_KEY, buildBranchContextPlanKey } from "./constants.ts";
+export {
+	BRANCH_CONTEXT_LEGACY_PLAN_KEY,
+	BRANCH_CONTEXT_NAMESPACE,
+	BRANCH_CONTEXT_PLAN_KEY,
+	buildBranchContextPlanKey,
+} from "./constants.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -107,10 +112,18 @@ export async function createBranchContextFromFile(
 		});
 	}
 
-	return buildEvidence({ data: attach, slug: operation.slug, branchCreation: operation.branchCreation, startPoint, summary: operation.summary });
+	return buildEvidence({
+		data: attach,
+		slug: operation.slug,
+		branchCreation: operation.branchCreation,
+		startPoint,
+		summary: operation.summary,
+	});
 }
 
-export function buildBranchContextCreateOperation(params: CreateBranchContextFromFileParams): BranchContextCreateOperation {
+export function buildBranchContextCreateOperation(
+	params: CreateBranchContextFromFileParams,
+): BranchContextCreateOperation {
 	const slug = params.slug.trim();
 	const branchCreation = params.branchCreation ?? DEFAULT_BRANCH_CREATION_METHOD;
 	const branch = deriveTargetBranch(params.branchName, slug);
@@ -120,7 +133,11 @@ export function buildBranchContextCreateOperation(params: CreateBranchContextFro
 	}
 
 	const summary = normalizeSummary(params.summary);
-	const operationParams: CreateBranchContextFromFileParams = { slug, filePath: params.filePath, branchCreation };
+	const operationParams: CreateBranchContextFromFileParams = {
+		slug,
+		filePath: params.filePath,
+		branchCreation,
+	};
 	if (branch !== slug) {
 		operationParams.branchName = branch;
 	}
@@ -170,7 +187,15 @@ export function formatBranchContextCreatePreview(
 	}
 	lines.push(formatCommand("git", ["branch", operation.branch, "HEAD"]));
 	if (operation.branchCreation === "graphite") {
-		lines.push(formatCommand("gt", ["track", operation.branch, "--parent", graphiteParentBranch, "--no-interactive"]));
+		lines.push(
+			formatCommand("gt", [
+				"track",
+				operation.branch,
+				"--parent",
+				graphiteParentBranch,
+				"--no-interactive",
+			]),
+		);
 	}
 	lines.push(
 		formatCommand("brmem", [
@@ -208,7 +233,10 @@ export function formatBranchContextEvidence(evidence: BranchContextEvidence): st
 	return lines.join("\n");
 }
 
-export function formatBranchContextCreateFailure(operation: BranchContextCreateOperation, error: unknown): string {
+export function formatBranchContextCreateFailure(
+	operation: BranchContextCreateOperation,
+	error: unknown,
+): string {
 	return [
 		"Failed to create branch context and attach plan.",
 		`Branch: ${operation.branch}`,
@@ -257,7 +285,11 @@ export function validateTargetBranchName(branch: string): string | undefined {
 	if (branch.endsWith(".")) {
 		return "Branch name must not end with a dot.";
 	}
-	if (branch.split("/").some((segment) => segment === "" || segment === "." || segment.endsWith(".lock"))) {
+	if (
+		branch
+			.split("/")
+			.some((segment) => segment === "" || segment === "." || segment.endsWith(".lock"))
+	) {
 		return "Branch name contains an invalid path segment.";
 	}
 
@@ -276,7 +308,11 @@ async function checkBranchRefFormat(
 	}
 }
 
-async function resolveStartPoint(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveStartPoint(
+	git: GitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<string> {
 	const head = await git.headCommit({ cwd, signal });
 	if (!head.ok) {
 		throw new Error(head.error.message);
@@ -322,7 +358,11 @@ interface CreatePlainGitBranchOptions {
 
 interface CreateGraphiteBranchOptions extends CreatePlainGitBranchOptions {}
 
-async function createBranchContext(git: GitGateway, graphite: BranchContextGraphiteGateway, options: CreateBranchContextOptions): Promise<void> {
+async function createBranchContext(
+	git: GitGateway,
+	graphite: BranchContextGraphiteGateway,
+	options: CreateBranchContextOptions,
+): Promise<void> {
 	if (options.method === "graphite") {
 		await createGraphiteBranch(git, graphite, options);
 		return;
@@ -330,16 +370,31 @@ async function createBranchContext(git: GitGateway, graphite: BranchContextGraph
 	await createPlainGitBranch(git, options);
 }
 
-async function createPlainGitBranch(git: GitGateway, options: CreatePlainGitBranchOptions): Promise<void> {
-	const create = await git.createBranchAtHead({ cwd: options.cwd, branch: options.branch, signal: options.signal });
+async function createPlainGitBranch(
+	git: GitGateway,
+	options: CreatePlainGitBranchOptions,
+): Promise<void> {
+	const create = await git.createBranchAtHead({
+		cwd: options.cwd,
+		branch: options.branch,
+		signal: options.signal,
+	});
 	if (!create.ok) {
 		throw new Error(create.error.message);
 	}
 }
 
-async function createGraphiteBranch(git: GitGateway, graphite: BranchContextGraphiteGateway, options: CreateGraphiteBranchOptions): Promise<void> {
+async function createGraphiteBranch(
+	git: GitGateway,
+	graphite: BranchContextGraphiteGateway,
+	options: CreateGraphiteBranchOptions,
+): Promise<void> {
 	const parentBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
-	const parentTracked = await graphite.checkBranchTracked({ cwd: options.cwd, branch: parentBranch, signal: options.signal });
+	const parentTracked = await graphite.checkBranchTracked({
+		cwd: options.cwd,
+		branch: parentBranch,
+		signal: options.signal,
+	});
 	if (!parentTracked.ok) {
 		throw new Error(parentTracked.error.message);
 	}
@@ -356,7 +411,12 @@ async function createGraphiteBranch(git: GitGateway, graphite: BranchContextGrap
 		);
 	}
 	await createPlainGitBranch(git, options);
-	const track = await graphite.trackBranch({ cwd: options.cwd, branch: options.branch, parentBranch, signal: options.signal });
+	const track = await graphite.trackBranch({
+		cwd: options.cwd,
+		branch: options.branch,
+		parentBranch,
+		signal: options.signal,
+	});
 	if (!track.ok) {
 		throw new Error(
 			[
@@ -371,11 +431,17 @@ async function createGraphiteBranch(git: GitGateway, graphite: BranchContextGrap
 	}
 }
 
-async function resolveCurrentBranch(git: GitGateway, cwd: string, signal: AbortSignal | undefined): Promise<string> {
+async function resolveCurrentBranch(
+	git: GitGateway,
+	cwd: string,
+	signal: AbortSignal | undefined,
+): Promise<string> {
 	const branch = await git.currentBranch({ cwd, signal });
 	if (!branch.ok) {
 		if (branch.error.code === "detached_head") {
-			throw new Error("Graphite branch creation requires a named current branch; the current checkout appears to be detached.");
+			throw new Error(
+				"Graphite branch creation requires a named current branch; the current checkout appears to be detached.",
+			);
 		}
 		throw new Error(branch.error.message);
 	}
@@ -449,4 +515,3 @@ function trimErrorText(value: string): string {
 	}
 	return `…${value.slice(-MAX_ERROR_CHARS)}`;
 }
-

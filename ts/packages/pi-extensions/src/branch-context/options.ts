@@ -16,14 +16,20 @@ const realBranchContextOperations: BranchContextOperations = {
 	resolveSelectedSavedPlanFile: resolveSelectedSavedPlanFilePrimitive,
 };
 
-export function resolveBranchContextOperations(options: BranchContextExtensionOptions): BranchContextOperations {
+export function resolveBranchContextOperations(
+	options: BranchContextExtensionOptions,
+): BranchContextOperations {
 	return options.branchContextOperations ?? realBranchContextOperations;
 }
 
-export function resolveBranchContextDefaultCreation(options: BranchContextExtensionOptions): BranchCreationMethod {
+export function resolveBranchContextDefaultCreation(
+	options: BranchContextExtensionOptions,
+): BranchCreationMethod {
 	return options.branchContextDefaultCreation ?? "plain-git";
 }
 
-export function resolvePlanStoreRootOption(options: BranchContextExtensionOptions): string | undefined {
+export function resolvePlanStoreRootOption(
+	options: BranchContextExtensionOptions,
+): string | undefined {
 	return options.planStoreRoot;
 }

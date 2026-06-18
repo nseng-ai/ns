@@ -1,15 +1,38 @@
 import { registerObjectiveStackImplCommand } from "@asdl/ccc/objective-stack-impl";
 import { parseMachineEnvelopeData } from "@asdl/pi-extension-runtime/machine-envelope";
-import { buildObjectiveSkillPrompt, chooseActiveObjectiveSlug, objectiveSelectionContextFromCommandContext, type ObjectiveSelectionSpec } from "@asdl/pi-extension-runtime/objective-selection";
+import {
+	buildObjectiveSkillPrompt,
+	chooseActiveObjectiveSlug,
+	objectiveSelectionContextFromCommandContext,
+	type ObjectiveSelectionSpec,
+} from "@asdl/pi-extension-runtime/objective-selection";
 
-import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatCommandStartupFailure,
+	type ExecResult,
+} from "@asdl/core/exec";
 import { definePiSurfaceParity } from "./parity.ts";
-import { buildFencedTextBlock, expandRepoSkillBlock, invokeRepoSkillPromptTurn } from "./skill-expansion.ts";
-import type { AutocompleteItem, CommandContext, ExecOptions, ExtensionAPI as CmuxExtensionAPI, NotifyLevel } from "./cmux/types.ts";
+import {
+	buildFencedTextBlock,
+	expandRepoSkillBlock,
+	invokeRepoSkillPromptTurn,
+} from "./skill-expansion.ts";
+import type {
+	AutocompleteItem,
+	CommandContext,
+	ExecOptions,
+	ExtensionAPI as CmuxExtensionAPI,
+	NotifyLevel,
+} from "./cmux/types.ts";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "./cmux/types.ts";
 export type { ExecResult } from "@asdl/core/exec";
-export type ExtensionAPI = Pick<CmuxExtensionAPI, "on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage">;
+export type ExtensionAPI = Pick<
+	CmuxExtensionAPI,
+	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"
+>;
 
 const OBJECTIVE_LIST_TIMEOUT_MS = 30_000;
 const OBJECTIVE_LIST_COMMAND_NAME = "objective:list";
@@ -25,7 +48,13 @@ const OBJECTIVE_LIST_USAGE = `Usage: /objective:list [--names] [--minimal] [--st
 
 Shows \`objective list\` output in chat. Output format is controlled by the Pi extension; --format and --json-schema are not supported.`;
 
-const OBJECTIVE_LIST_ARG_COMPLETIONS = ["--names", "--minimal", "--status", "--help", "-h"] as const;
+const OBJECTIVE_LIST_ARG_COMPLETIONS = [
+	"--names",
+	"--minimal",
+	"--status",
+	"--help",
+	"-h",
+] as const;
 const OBJECTIVE_LIST_STATUS_VALUES = ["all", "active", "open", "closed"] as const;
 
 type ObjectiveCommandName = "objective:next" | "objective:update";
@@ -94,7 +123,9 @@ interface ObjectiveListStatusParseInvalid {
 	message: string;
 }
 
-type ObjectiveListStatusParseResult = ObjectiveListStatusParseValid | ObjectiveListStatusParseInvalid;
+type ObjectiveListStatusParseResult =
+	| ObjectiveListStatusParseValid
+	| ObjectiveListStatusParseInvalid;
 
 interface CustomCliMessageDetails {
 	status: "success" | "failure" | "rejected";
@@ -129,7 +160,8 @@ interface CustomCliCommandSpec {
 const OBJECTIVE_CREATE_COMMAND: ObjectiveCreateCommandSpec = {
 	commandName: OBJECTIVE_CREATE_COMMAND_NAME,
 	skillName: OBJECTIVE_CREATE_SKILL_NAME,
-	description: "Read objective-create backing Markdown to interview for and create a new Objective.",
+	description:
+		"Read objective-create backing Markdown to interview for and create a new Objective.",
 	actionPrompt: "Run objective-create with this initial user request:",
 };
 
@@ -155,7 +187,8 @@ const OBJECTIVE_COMMANDS: ObjectiveCommandSpec[] = [
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
 		actionPrompt: "Run objective-update for this explicitly selected Objective slug or path:",
-		postSelectionReminder: "\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
+		postSelectionReminder:
+			"\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
 	},
 ];
 
@@ -176,7 +209,9 @@ async function invokeObjectiveSkill(
 				spec,
 				skillBlock,
 				objective,
-				...(spec.postSelectionReminder === undefined ? {} : { postSelectionReminder: spec.postSelectionReminder }),
+				...(spec.postSelectionReminder === undefined
+					? {}
+					: { postSelectionReminder: spec.postSelectionReminder }),
 			}),
 	});
 }
@@ -186,7 +221,11 @@ async function chooseObjectiveAndInvoke(
 	ctx: CommandContext,
 	spec: ObjectiveCommandSpec,
 ): Promise<void> {
-	const slug = await chooseActiveObjectiveSlug(pi, objectiveSelectionContextFromCommandContext(ctx), spec);
+	const slug = await chooseActiveObjectiveSlug(
+		pi,
+		objectiveSelectionContextFromCommandContext(ctx),
+		spec,
+	);
 	if (!slug) {
 		return;
 	}
@@ -194,7 +233,9 @@ async function chooseObjectiveAndInvoke(
 	await invokeObjectiveSkill(pi, ctx, spec, slug);
 }
 
-async function invokeObjectiveCreateSkill(options: InvokeObjectiveCreateSkillOptions): Promise<void> {
+async function invokeObjectiveCreateSkill(
+	options: InvokeObjectiveCreateSkillOptions,
+): Promise<void> {
 	const { pi, ctx, spec, rawArgs } = options;
 	await ctx.waitForIdle();
 	const initialRequest = rawArgs.trim();
@@ -207,7 +248,10 @@ async function invokeObjectiveCreateSkill(options: InvokeObjectiveCreateSkillOpt
 	}
 
 	if (ctx.hasUI) {
-		ctx.ui.notify(`Invoking ${spec.skillName}${initialRequest ? " with initial context" : ""}.`, "info");
+		ctx.ui.notify(
+			`Invoking ${spec.skillName}${initialRequest ? " with initial context" : ""}.`,
+			"info",
+		);
 	}
 
 	await pi.sendUserMessage(buildObjectiveCreateSkillPrompt(spec, skillBlock, initialRequest));
@@ -233,7 +277,9 @@ ${buildFencedTextBlock(initialRequest)}
 Treat this as the user's initial Objective creation request. Use it as context, but still follow objective-create's interview and slug-confirmation workflow before writing files.`;
 }
 
-async function handleObjectiveCreateCommand(options: HandleObjectiveCreateCommandOptions): Promise<void> {
+async function handleObjectiveCreateCommand(
+	options: HandleObjectiveCreateCommandOptions,
+): Promise<void> {
 	const { ctx } = options;
 	try {
 		await invokeObjectiveCreateSkill(options);
@@ -324,7 +370,10 @@ export function parseObjectiveListArgs(rawArgs: string): ObjectiveListArgsParseR
 			};
 		}
 
-		return { type: "invalid", message: `Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.` };
+		return {
+			type: "invalid",
+			message: `Unsupported /${OBJECTIVE_LIST_COMMAND_NAME} argument: ${token}.`,
+		};
 	}
 
 	return { type: "valid", args: { args, help } };
@@ -374,16 +423,22 @@ export function completeObjectiveListArgs(prefix: string): AutocompleteItem[] | 
 		);
 	}
 
-	const candidates = previousToken === "--status" ? OBJECTIVE_LIST_STATUS_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
+	const candidates =
+		previousToken === "--status" ? OBJECTIVE_LIST_STATUS_VALUES : OBJECTIVE_LIST_ARG_COMPLETIONS;
 	return matchingCompletions(candidates, currentToken);
 }
 
-function matchingCompletions(candidates: readonly string[], currentToken: string): AutocompleteItem[] | null {
+function matchingCompletions(
+	candidates: readonly string[],
+	currentToken: string,
+): AutocompleteItem[] | null {
 	const filtered = candidates.filter((candidate) => candidate.startsWith(currentToken));
 	return filtered.length > 0 ? filtered.map((value) => ({ value, label: value })) : null;
 }
 
-function createObjectiveCommandCompleter(pi: ExtensionAPI): (prefix: string) => Promise<AutocompleteItem[] | null> {
+function createObjectiveCommandCompleter(
+	pi: ExtensionAPI,
+): (prefix: string) => Promise<AutocompleteItem[] | null> {
 	let cachedCwd: string | undefined;
 	let cachedItems: AutocompleteItem[] | null | undefined;
 	let cacheLoadedAtMs = 0;
@@ -439,7 +494,11 @@ async function loadObjectiveCompletionItems(
 ): Promise<AutocompleteItem[] | null> {
 	let result: ExecResult;
 	try {
-		result = await pi.exec("objective", [...ACTIVE_OBJECTIVE_CANDIDATES_ARGS], objectiveCompletionExecOptions(cwd));
+		result = await pi.exec(
+			"objective",
+			[...ACTIVE_OBJECTIVE_CANDIDATES_ARGS],
+			objectiveCompletionExecOptions(cwd),
+		);
 	} catch {
 		// Autocomplete is keystroke-triggered; startup failures should quietly remove suggestions.
 		return null;
@@ -499,13 +558,19 @@ function parseObjectiveCandidateRecord(
 	index: number,
 ): { type: "valid"; record: ObjectiveCandidateRecord } | { type: "invalid"; message: string } {
 	if (!isRecord(value)) {
-		return { type: "invalid", message: `Invalid Objective candidate at index ${index}: expected an object.` };
+		return {
+			type: "invalid",
+			message: `Invalid Objective candidate at index ${index}: expected an object.`,
+		};
 	}
 
 	const slug = value.slug;
 	const status = value.status;
 	if (typeof slug !== "string" || typeof status !== "string") {
-		return { type: "invalid", message: `Invalid Objective candidate at index ${index}: expected slug and status.` };
+		return {
+			type: "invalid",
+			message: `Invalid Objective candidate at index ${index}: expected slug and status.`,
+		};
 	}
 
 	return { type: "valid", record: { slug, status } };
@@ -521,7 +586,8 @@ const OBJECTIVE_LIST_SPEC: CustomCliCommandSpec = {
 	timeoutMs: OBJECTIVE_LIST_TIMEOUT_MS,
 	usage: OBJECTIVE_LIST_USAGE,
 	parseArgs: (raw) => parseObjectiveListArgs(raw),
-	buildArgs: (parsed) => (parsed.help ? ["list", "--help"] : ["list", ...parsed.args, "--format", "markdown"]),
+	buildArgs: (parsed) =>
+		parsed.help ? ["list", "--help"] : ["list", ...parsed.args, "--format", "markdown"],
 	completer: completeObjectiveListArgs,
 };
 
@@ -543,7 +609,8 @@ export const objectiveParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "objective",
-		notes: "Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
+		notes:
+			"Pi command formats objective list output in chat while delegating inventory to the Objective CLI.",
 	},
 	{
 		kind: "command",
@@ -555,31 +622,38 @@ export const objectiveParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "objective",
-		notes: "Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
+		notes:
+			"Pi command is a light typeahead-friendly wrapper that expands the portable objective-create skill and preserves any initial user request as context.",
 	},
-	...OBJECTIVE_COMMANDS.map((spec) => ({
-		kind: "command",
-		surface: spec.commandName,
-		workflow: spec.description,
-		parity: "FULL",
-		cli: `objective ${spec.commandName.slice("objective:".length)}`,
-		skill: spec.skillName,
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@asdl/pi-extensions",
-		sourceModule: "objective",
-		notes: "Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
-	}) as const),
+	...OBJECTIVE_COMMANDS.map(
+		(spec) =>
+			({
+				kind: "command",
+				surface: spec.commandName,
+				workflow: spec.description,
+				parity: "FULL",
+				cli: `objective ${spec.commandName.slice("objective:".length)}`,
+				skill: spec.skillName,
+				ownerObjective: "cross-harness-parity",
+				sourcePackage: "@asdl/pi-extensions",
+				sourceModule: "objective",
+				notes:
+					"Pi command selects an explicit Objective and then expands the matching portable Objective skill.",
+			}) as const,
+	),
 	{
 		kind: "command",
 		surface: "objective:stack-impl",
-		workflow: "Pick an active Objective, then invoke the portable Objective stack implementation skill",
+		workflow:
+			"Pick an active Objective, then invoke the portable Objective stack implementation skill",
 		parity: "FULL",
 		cli: "objective list-candidates plus explicit objective-stack-impl skill invocation",
 		skill: "objective-stack-impl",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "objective",
-		notes: "The public command is registered through @asdl/ccc, but exposed by the @asdl/pi-extensions Objective adapter.",
+		notes:
+			"The public command is registered through @asdl/ccc, but exposed by the @asdl/pi-extensions Objective adapter.",
 	},
 ] as const);
 

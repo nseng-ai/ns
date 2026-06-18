@@ -23,11 +23,16 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 			return { ok: true, value: kindFromStats(await lstat(this.absolutePath(relativePath))) };
 		} catch (error) {
 			if (isMissingError(error)) return { ok: true, value: "missing" };
-			return storageError("path-kind-failed", `Failed to inspect ${relativePath}: ${formatErrorMessage(error)}`);
+			return storageError(
+				"path-kind-failed",
+				`Failed to inspect ${relativePath}: ${formatErrorMessage(error)}`,
+			);
 		}
 	}
 
-	async listDirectory(relativePath: string): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>> {
+	async listDirectory(
+		relativePath: string,
+	): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>> {
 		try {
 			const entries = await readdir(this.absolutePath(relativePath), { withFileTypes: true });
 			return {
@@ -39,7 +44,10 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 			};
 		} catch (error) {
 			if (isMissingError(error)) return { ok: true, value: [] };
-			return storageError("list-directory-failed", `Failed to list ${relativePath}: ${formatErrorMessage(error)}`);
+			return storageError(
+				"list-directory-failed",
+				`Failed to list ${relativePath}: ${formatErrorMessage(error)}`,
+			);
 		}
 	}
 
@@ -50,11 +58,17 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 		try {
 			return { type: "ok", content: await readFile(this.absolutePath(relativePath), "utf8") };
 		} catch (error) {
-			return { type: "unreadable", message: `Failed to read ${relativePath}: ${formatErrorMessage(error)}` };
+			return {
+				type: "unreadable",
+				message: `Failed to read ${relativePath}: ${formatErrorMessage(error)}`,
+			};
 		}
 	}
 
-	async moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>> {
+	async moveDirectory(
+		sourceRelativePath: string,
+		destinationRelativePath: string,
+	): Promise<ObjectiveStorageResult<void>> {
 		try {
 			const destination = this.absolutePath(destinationRelativePath);
 			await mkdir(dirname(destination), { recursive: true });

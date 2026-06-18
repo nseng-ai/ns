@@ -11,7 +11,11 @@ import handoffExtension from "../src/handoff.ts";
 import modelShortcutExtension from "../src/model-shortcuts.ts";
 import objectiveExtension from "../src/objective.ts";
 import prExtension from "../src/pr.ts";
-import { comparePiSurfaceParity, formatParityComparisonFailure, type LivePiSurface } from "../src/parity-check.ts";
+import {
+	comparePiSurfaceParity,
+	formatParityComparisonFailure,
+	type LivePiSurface,
+} from "../src/parity-check.ts";
 import { PI_EXTENSION_PARITY_RECORDS } from "../src/parity-registry.ts";
 import { definePiSurfaceParity } from "../src/parity.ts";
 import type { PiAgentDefinition } from "../src/pi-agent-definition.ts";
@@ -107,11 +111,15 @@ function registerWithFakeHost<TPi>(pi: FakePiSurfaceHost, register: (pi: TPi) =>
 	register(pi as TPi);
 }
 
-function registerBranchContextWithFakeHostOptions(pi: Parameters<typeof registerBranchContextExtension>[0]): void {
+function registerBranchContextWithFakeHostOptions(
+	pi: Parameters<typeof registerBranchContextExtension>[0],
+): void {
 	registerBranchContextExtension(pi, { branchContextDefaultCreation: "graphite" });
 }
 
-function registerDispatchRunnerSubagentWithFakeDefinition(pi: Parameters<typeof dispatchRunnerSubagentExtension>[0]): void {
+function registerDispatchRunnerSubagentWithFakeDefinition(
+	pi: Parameters<typeof dispatchRunnerSubagentExtension>[0],
+): void {
 	dispatchRunnerSubagentExtension(pi, { loadAgentDefinition: () => fakeRunnerAgentDefinition() });
 }
 
@@ -143,7 +151,11 @@ describe("Pi extension parity metadata", () => {
 			throw new Error(formatParityComparisonFailure(comparison));
 		}
 
-		expect(comparison).toEqual({ missingMetadata: [], staleMetadata: [], duplicateMetadataKeys: [] });
+		expect(comparison).toEqual({
+			missingMetadata: [],
+			staleMetadata: [],
+			duplicateMetadataKeys: [],
+		});
 	});
 
 	test("comparison reports live command surfaces missing exact metadata", () => {
@@ -162,7 +174,11 @@ describe("Pi extension parity metadata", () => {
 			metadata: [],
 		});
 
-		expect(comparison).toEqual({ missingMetadata: [], staleMetadata: [], duplicateMetadataKeys: [] });
+		expect(comparison).toEqual({
+			missingMetadata: [],
+			staleMetadata: [],
+			duplicateMetadataKeys: [],
+		});
 	});
 
 	test("comparison reports stale exact metadata", () => {
@@ -204,7 +220,11 @@ describe("Pi extension parity metadata", () => {
 
 		const comparison = comparePiSurfaceParity({ liveSurfaces: [], metadata });
 
-		expect(comparison).toEqual({ missingMetadata: [], staleMetadata: [], duplicateMetadataKeys: [] });
+		expect(comparison).toEqual({
+			missingMetadata: [],
+			staleMetadata: [],
+			duplicateMetadataKeys: [],
+		});
 	});
 
 	test("comparison reports duplicate exact metadata keys", () => {

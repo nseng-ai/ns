@@ -33,13 +33,20 @@ export function formatSubmitSuccessText(
 		}
 	}
 	if (descriptions.skipped.length > 0) {
-		lines.push("", "Skipped unchanged PR descriptions:", ...descriptions.skipped.map(formatPrLinkTextRow));
+		lines.push(
+			"",
+			"Skipped unchanged PR descriptions:",
+			...descriptions.skipped.map(formatPrLinkTextRow),
+		);
 	}
 	return lines.join("\n");
 }
 
 export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
-	const lines = ["Submit succeeded, but no PR URLs were detected in output.", "PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed."];
+	const lines = [
+		"Submit succeeded, but no PR URLs were detected in output.",
+		"PR descriptions were not generated. Checkout a branch and run `sdl regenerate-pr` if needed.",
+	];
 	const outputTail = formatSubmitOutputTail(stdout, stderr);
 	if (outputTail) {
 		lines.push("", "Recent output:", outputTail);
@@ -59,7 +66,10 @@ function formatSubmitSuccessStatuses(
 	if (hasMatchingLink(descriptions.prewritten, link)) {
 		statuses.push("initial metadata prepared");
 	}
-	if (hasMatchingLink(descriptions.generated, link) || hasMatchingLink(descriptions.prewriteFallbacks, link)) {
+	if (
+		hasMatchingLink(descriptions.generated, link) ||
+		hasMatchingLink(descriptions.prewriteFallbacks, link)
+	) {
 		statuses.push("description updated");
 	}
 	return statuses;
@@ -131,7 +141,9 @@ export function formatRestackRequiredOutput(output: SubmitCommandOutput): string
 		.join("\n");
 }
 
-export function formatRestackConfirmationPrompt(output: SubmitCommandOutput): SubmitRestackConfirmationPrompt {
+export function formatRestackConfirmationPrompt(
+	output: SubmitCommandOutput,
+): SubmitRestackConfirmationPrompt {
 	return {
 		title: "Run gt restack before submit?",
 		message: [
@@ -168,8 +180,14 @@ export function formatRestackDeclinedOutput(output: SubmitCommandOutput): string
 		.join("\n");
 }
 
-export function formatRestackConflictOutput(output: SubmitCommandOutput, conflictedFiles: string[]): string {
-	const fileLines = conflictedFiles.length > 0 ? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""] : [];
+export function formatRestackConflictOutput(
+	output: SubmitCommandOutput,
+	conflictedFiles: string[],
+): string {
+	const fileLines =
+		conflictedFiles.length > 0
+			? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""]
+			: [];
 
 	return [
 		"`gt restack` hit merge conflicts. Submission was not attempted.",
@@ -224,18 +242,28 @@ export function formatRestackFailureOutput(output: SubmitCommandOutput): string 
 		.join("\n");
 }
 
-export function formatPrewriteFailureOutput(error: string, amendedBranches: readonly string[]): string {
+export function formatPrewriteFailureOutput(
+	error: string,
+	amendedBranches: readonly string[],
+): string {
 	return [
 		error,
 		...(amendedBranches.length === 0
 			? []
-			: ["", "Local PR metadata commit messages were amended before the failure:", ...amendedBranches.map((branch) => `- ${branch}`)]),
+			: [
+					"",
+					"Local PR metadata commit messages were amended before the failure:",
+					...amendedBranches.map((branch) => `- ${branch}`),
+				]),
 	]
 		.filter(Boolean)
 		.join("\n");
 }
 
-export function formatSubmitFailureOutput(output: SubmitCommandOutput, prewrittenMetadata: readonly PreparedSubmitPrMetadata[]): string {
+export function formatSubmitFailureOutput(
+	output: SubmitCommandOutput,
+	prewrittenMetadata: readonly PreparedSubmitPrMetadata[],
+): string {
 	const reason = output.startupError
 		? `gt submit -nps --no-ai --no-interactive could not start: ${output.startupError}.`
 		: output.killed
@@ -272,7 +300,11 @@ export function formatPostSubmitFailureOutput({
 		"",
 		formatOutputSection("stdout", submitted.output.stdout),
 		formatOutputSection("stderr", submitted.output.stderr),
-		formatBufferedCommandSection("$ gt branch info --no-interactive", currentPr.output, CURRENT_PR_TIMEOUT_MS),
+		formatBufferedCommandSection(
+			"$ gt branch info --no-interactive",
+			currentPr.output,
+			CURRENT_PR_TIMEOUT_MS,
+		),
 		...(currentPr.kind === "no_current_pr" ? ["", ...formatNoCurrentPrRecoveryGuidance()] : []),
 	]
 		.filter(Boolean)
@@ -284,7 +316,9 @@ function formatPostSubmitFailureReason(
 	currentPr: CurrentPrVerificationResult,
 ): string {
 	return [
-		semanticFailureCause === undefined ? undefined : formatSubmitSemanticFailureCause(semanticFailureCause),
+		semanticFailureCause === undefined
+			? undefined
+			: formatSubmitSemanticFailureCause(semanticFailureCause),
 		formatCurrentPrVerificationFailureReason(currentPr),
 	]
 		.filter((line): line is string => Boolean(line))
@@ -301,7 +335,9 @@ function formatSubmitSemanticFailureCause(cause: SubmitSemanticFailureCause): st
 	return assertNever(cause.kind);
 }
 
-function formatCurrentPrVerificationFailureReason(currentPr: CurrentPrVerificationResult): string | undefined {
+function formatCurrentPrVerificationFailureReason(
+	currentPr: CurrentPrVerificationResult,
+): string | undefined {
 	if (currentPr.kind === "present") return undefined;
 	if (currentPr.kind === "no_current_pr") {
 		return "gt submit exited 0, but the current branch still has no PR.";
@@ -329,7 +365,11 @@ function formatNoCurrentPrRecoveryGuidance(): string[] {
 	];
 }
 
-function formatBufferedCommandSection(commandDisplay: string, output: SubmitCommandOutput, timeoutMs: number): string {
+function formatBufferedCommandSection(
+	commandDisplay: string,
+	output: SubmitCommandOutput,
+	timeoutMs: number,
+): string {
 	const status = output.startupError
 		? `startup error: ${output.startupError}`
 		: output.killed

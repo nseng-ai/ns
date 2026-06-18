@@ -10,7 +10,11 @@ import {
 	textResult,
 	type GrillAskDetails,
 } from "./grill-ui/result.ts";
-import { formatGrillAskProgressLine, readGrillAskProgress, type GrillAskProgress } from "./grill-ui/progress.ts";
+import {
+	formatGrillAskProgressLine,
+	readGrillAskProgress,
+	type GrillAskProgress,
+} from "./grill-ui/progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./grill-ui/validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./grill-ui/view.ts";
 import { definePiSurfaceParity } from "./parity.ts";
@@ -50,7 +54,8 @@ export const grillUiParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "grill-ui",
-		notes: "Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
+		notes:
+			"Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
 	},
 ] as const);
 export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
@@ -146,7 +151,12 @@ export interface GrillAskToolContext {
 		select?(title: string, options: string[]): Promise<string | undefined>;
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
 		custom?<T>(
-			factory: (tui: unknown, theme: unknown, keybindings: unknown, done: (value: T) => void) => GrillAskCustomComponent,
+			factory: (
+				tui: unknown,
+				theme: unknown,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => GrillAskCustomComponent,
 			options?: unknown,
 		): Promise<T>;
 	};
@@ -252,8 +262,14 @@ export function buildGrillWithDocsUiPrompt(skillBlock: string | undefined, targe
 	return buildStructuredGrillPrompt(skillBlock, FALLBACK_GRILL_WITH_DOCS_UI_SKILL_BLOCK, target);
 }
 
-export function buildGrillAskSelectTitle(input: NormalizedGrillAskInput, progress: GrillAskProgress = { source: "unavailable" }): string {
-	const parts = [formatGrillAskProgressLine(progress, input.estimatedRemaining), `Question:\n${input.question}`];
+export function buildGrillAskSelectTitle(
+	input: NormalizedGrillAskInput,
+	progress: GrillAskProgress = { source: "unavailable" },
+): string {
+	const parts = [
+		formatGrillAskProgressLine(progress, input.estimatedRemaining),
+		`Question:\n${input.question}`,
+	];
 	if (input.context !== undefined) {
 		parts.push(`Context:\n${input.context}`);
 	}
@@ -314,37 +330,49 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		label: "Grill Ask",
 		description:
 			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, a freeform path, a status checkpoint path, and an end-session path.",
-		promptSnippet: "Ask one grill-me question through structured choices, freeform, status, or end-session UI",
+		promptSnippet:
+			"Ask one grill-me question through structured choices, freeform, status, or end-session UI",
 		promptGuidelines: [
 			"Use grill_ask for each user-facing question in grill-me sessions; do not ask those questions in prose while grill_ask is available.",
 			"Ask exactly one question per grill_ask call and include 2–5 affirmative, mutually exclusive options plus your recommendation.",
 			"Include estimatedRemaining on every grill_ask call; use exact only when known, otherwise use a range with basis or unknown with basis.",
 			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
 			"Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.",
-			"If grill_ask returns action: \"end_grill\", stop asking questions and summarize decisions, unresolved branches, and final recommendation.",
-			"If grill_ask returns action: \"status_request\", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.",
-			"If grill_ask returns action: \"ui_unavailable\", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.",
+			'If grill_ask returns action: "end_grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.',
+			'If grill_ask returns action: "status_request", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.',
+			'If grill_ask returns action: "ui_unavailable", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.',
 		],
 		parameters: GRILL_ASK_PARAMETERS,
-		execute: async (_toolCallId, params, signal, _onUpdate, ctx) => executeGrillAsk(params, ctx, { signal }),
+		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
+			executeGrillAsk(params, ctx, { signal }),
 	});
 }
 
-export async function handleGrillUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
+export async function handleGrillUiCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: GrillUiCommandContext,
+): Promise<void> {
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_UI_SKILL_NAME,
 		emptyTargetMessage: "No plan/design provided for /pi:grill-me.",
-		expansionFailureMessage: "Could not expand pi-grill-ui skill; using fallback grill instructions.",
+		expansionFailureMessage:
+			"Could not expand pi-grill-ui skill; using fallback grill instructions.",
 		editorTitle: "What plan or design should be grilled?",
 		buildPrompt: buildGrillUiPrompt,
 	});
 }
 
-export async function handleGrillWithDocsUiCommand(pi: ExtensionAPI, args: string, ctx: GrillUiCommandContext): Promise<void> {
+export async function handleGrillWithDocsUiCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: GrillUiCommandContext,
+): Promise<void> {
 	await handleStructuredGrillCommand(pi, args, ctx, {
 		skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
 		emptyTargetMessage: "No plan/design provided for /pi:grill-with-docs.",
-		expansionFailureMessage: "Could not expand pi-grill-with-docs-ui skill; using fallback docs-aware grill instructions.",
+		expansionFailureMessage:
+			"Could not expand pi-grill-with-docs-ui skill; using fallback docs-aware grill instructions.",
 		editorTitle: "What plan or design should be grilled against docs?",
 		buildPrompt: buildGrillWithDocsUiPrompt,
 	});
@@ -360,7 +388,11 @@ interface StructuredGrillCommandOptions {
 	buildPrompt(skillBlock: string | undefined, target: string): string;
 }
 
-function buildStructuredGrillPrompt(skillBlock: string | undefined, fallbackSkillBlock: string, target: string): string {
+function buildStructuredGrillPrompt(
+	skillBlock: string | undefined,
+	fallbackSkillBlock: string,
+	target: string,
+): string {
 	const instructions = skillBlock?.trim() || fallbackSkillBlock;
 	return `${instructions}
 
@@ -394,7 +426,11 @@ async function handleStructuredGrillCommand(
 	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
 }
 
-async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext, editorTitle: string): Promise<string> {
+async function resolveGrillTarget(
+	args: string,
+	ctx: GrillUiCommandContext,
+	editorTitle: string,
+): Promise<string> {
 	const trimmedArgs = args.trim();
 	if (trimmedArgs.length > 0) {
 		return trimmedArgs;
@@ -405,7 +441,10 @@ async function resolveGrillTarget(args: string, ctx: GrillUiCommandContext, edit
 	return (await ctx.ui.editor(editorTitle, "")) ?? "";
 }
 
-async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
+async function executeLegacyGrillAsk(
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+): Promise<ToolResult<GrillAskDetails>> {
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
 		return textResult(
 			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices, including the explicit choices, Other/freeform when allowed, Show current grill status, and End grilling session when allowed.",
@@ -443,7 +482,10 @@ async function executeLegacyGrillAsk(input: NormalizedGrillAskInput, ctx: GrillA
 	}
 }
 
-async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: GrillAskToolContext): Promise<ToolResult<GrillAskDetails>> {
+async function executeLegacyFreeformAnswer(
+	input: NormalizedGrillAskInput,
+	ctx: GrillAskToolContext,
+): Promise<ToolResult<GrillAskDetails>> {
 	if (ctx.ui.editor === undefined) {
 		return textResult(
 			"Structured grill freeform editor is unavailable. Ask the same one question normally with numbered choices, an Other/freeform option, Show current grill status, and End grilling session when allowed.",
@@ -457,14 +499,22 @@ async function executeLegacyFreeformAnswer(input: NormalizedGrillAskInput, ctx: 
 	return freeformAnswerResult(input.question, answer);
 }
 
-function grillAskOutcomeResult(input: NormalizedGrillAskInput, outcome: GrillAskOutcome, ctx: GrillAskToolContext): ToolResult<GrillAskDetails> {
+function grillAskOutcomeResult(
+	input: NormalizedGrillAskInput,
+	outcome: GrillAskOutcome,
+	ctx: GrillAskToolContext,
+): ToolResult<GrillAskDetails> {
 	switch (outcome.action) {
 		case "choice":
 			return selectedChoiceResult(input.question, outcome.entry);
 		case "freeform":
 			return freeformAnswerResult(input.question, outcome.answer);
 		case "status_request":
-			return statusRequestResult(input.question, readGrillAskProgress(ctx), input.estimatedRemaining);
+			return statusRequestResult(
+				input.question,
+				readGrillAskProgress(ctx),
+				input.estimatedRemaining,
+			);
 		case "end_grill":
 			return endGrillResult(input.question);
 		case "cancelled":

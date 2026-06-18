@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import { isClaudeCodeSupportedModel } from "../../src/gateways/harness.ts";
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
-import { assembleReviewPrompt, renderPromptFence, systemPromptFindings } from "../../src/gateways/harness-prompt.ts";
+import {
+	assembleReviewPrompt,
+	renderPromptFence,
+	systemPromptFindings,
+} from "../../src/gateways/harness-prompt.ts";
 import { createLocalDiff, type ReviewDefinition } from "../../src/models.ts";
 
 const reviewDefinition: ReviewDefinition = {
@@ -59,14 +63,19 @@ describe("Claude Code harness prompt assembly", () => {
 		const assembled = assembleReviewPrompt({ reviewDefinition, target: { localDiff } });
 
 		expect(assembled.promptText).toContain("(no changed paths reported)");
-		expect(renderPromptFence("added ``` fence", { language: "diff" })).toBe("````diff\nadded ``` fence\n````");
+		expect(renderPromptFence("added ``` fence", { language: "diff" })).toBe(
+			"````diff\nadded ``` fence\n````",
+		);
 	});
 });
 
 describe("Claude Code harness schema and model support", () => {
-	test.each(["sonnet", "opus", "haiku", "claude-3-5-sonnet"])("accepts supported model %s", (model) => {
-		expect(isClaudeCodeSupportedModel(model)).toBe(true);
-	});
+	test.each(["sonnet", "opus", "haiku", "claude-3-5-sonnet"])(
+		"accepts supported model %s",
+		(model) => {
+			expect(isClaudeCodeSupportedModel(model)).toBe(true);
+		},
+	);
 
 	test("rejects unsupported model names", () => {
 		expect(isClaudeCodeSupportedModel("gpt-4")).toBe(false);
@@ -75,8 +84,12 @@ describe("Claude Code harness schema and model support", () => {
 	test("builds a ref-free findings JSON schema", () => {
 		const schema = buildClaudeDiffFindingsJsonSchema();
 		const schemaText = JSON.stringify(schema);
-		const properties = ((schema.properties as { findings: { items: Record<string, unknown> } }).findings.items);
-		const findingProperties = properties.properties as { line: Record<string, unknown>; severity: Record<string, unknown> };
+		const properties = (schema.properties as { findings: { items: Record<string, unknown> } })
+			.findings.items;
+		const findingProperties = properties.properties as {
+			line: Record<string, unknown>;
+			severity: Record<string, unknown>;
+		};
 
 		expect(schemaText).not.toContain("$ref");
 		expect(schemaText).not.toContain("$defs");

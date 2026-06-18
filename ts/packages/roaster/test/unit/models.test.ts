@@ -41,14 +41,38 @@ describe("roaster domain schemas", () => {
 		});
 
 		expect(definition.name).toBe("typescript-style");
-		expect(createFindingsReview([finding])).toEqual({ format: "findings", findings: [finding], count: 1 });
+		expect(createFindingsReview([finding])).toEqual({
+			format: "findings",
+			findings: [finding],
+			count: 1,
+		});
 	});
 
 	test("rejects malformed findings and mismatched counts", () => {
-		expect(() => reviewFindingSchema.parse({ path: "", line: 1, severity: "warning", summary: "x", details: "y" })).toThrow();
-		expect(() => reviewFindingSchema.parse({ path: "src/app.ts", line: 1, severity: "fatal", summary: "x", details: "y" })).toThrow();
-		expect(() => findingsReviewSchema.parse({ format: "findings", findings: [], count: 1 })).toThrow();
-		expect(() => findingsReviewSchema.parse({ format: "findings", findings: [], count: 0, extra: true })).toThrow();
+		expect(() =>
+			reviewFindingSchema.parse({
+				path: "",
+				line: 1,
+				severity: "warning",
+				summary: "x",
+				details: "y",
+			}),
+		).toThrow();
+		expect(() =>
+			reviewFindingSchema.parse({
+				path: "src/app.ts",
+				line: 1,
+				severity: "fatal",
+				summary: "x",
+				details: "y",
+			}),
+		).toThrow();
+		expect(() =>
+			findingsReviewSchema.parse({ format: "findings", findings: [], count: 1 }),
+		).toThrow();
+		expect(() =>
+			findingsReviewSchema.parse({ format: "findings", findings: [], count: 0, extra: true }),
+		).toThrow();
 	});
 
 	test("models local diffs with derived changed paths", () => {
@@ -118,8 +142,16 @@ describe("roaster domain schemas", () => {
 			defaultModel: "haiku",
 			applicability: { include: ["**/*.ts"], exclude: [] },
 		});
-		const request = harnessReviewRequestSchema.parse({ model: "haiku", reviewDefinition, target: { localDiff } });
-		const response = reviewExecutionResponseSchema.parse({ payload: createFindingsReview([]), usage: null, inputCoverage: null });
+		const request = harnessReviewRequestSchema.parse({
+			model: "haiku",
+			reviewDefinition,
+			target: { localDiff },
+		});
+		const response = reviewExecutionResponseSchema.parse({
+			payload: createFindingsReview([]),
+			usage: null,
+			inputCoverage: null,
+		});
 
 		expect(request.target.localDiff.baseRef).toBe("main");
 		expect(response.payload.count).toBe(0);
@@ -140,20 +172,35 @@ describe("roaster domain schemas", () => {
 
 		expect(result.count).toBe(0);
 		expect(() => reviewRunResultSchema.parse({ ...result, count: 1 })).toThrow();
-		expect(() => reviewRunResultSchema.parse({ ...result, payload: createFindingsReview([]) })).toThrow();
+		expect(() =>
+			reviewRunResultSchema.parse({ ...result, payload: createFindingsReview([]) }),
+		).toThrow();
 	});
 });
 
 describe("GitHub and publication schemas", () => {
 	test("preserves nullable GitHub file patches and normalizes consumed comment shapes", () => {
-		expect(prChangedFileSchema.parse({ path: "image.png", status: "added", patch: null }).patch).toBeNull();
-		expect(prReviewCommentSchema.parse({ author: "github-actions[bot]", body: "<!-- marker -->" }).author).toBe("github-actions[bot]");
-		expect(prInlineCommentInputSchema.parse({ path: "src/app.ts", line: 4, body: "inline" }).line).toBe(4);
+		expect(
+			prChangedFileSchema.parse({ path: "image.png", status: "added", patch: null }).patch,
+		).toBeNull();
+		expect(
+			prReviewCommentSchema.parse({ author: "github-actions[bot]", body: "<!-- marker -->" })
+				.author,
+		).toBe("github-actions[bot]");
+		expect(
+			prInlineCommentInputSchema.parse({ path: "src/app.ts", line: 4, body: "inline" }).line,
+		).toBe(4);
 		expect(prDiscussionCommentSchema.parse({ id: 123, body: "summary" }).id).toBe(123);
 	});
 
 	test("validates inline classification and posting status payloads", () => {
-		const finding = reviewFindingSchema.parse({ path: "src/app.ts", line: 3, severity: "info", summary: "Looks good", details: "A detail." });
+		const finding = reviewFindingSchema.parse({
+			path: "src/app.ts",
+			line: 3,
+			severity: "info",
+			summary: "Looks good",
+			details: "A detail.",
+		});
 
 		expect(
 			inlineClassificationResultSchema.parse({
@@ -161,7 +208,22 @@ describe("GitHub and publication schemas", () => {
 				fallbackOnly: [{ finding: { ...finding, line: null }, reason: "missing_line" }],
 			}).inlineable,
 		).toHaveLength(1);
-		expect(inlinePostingStatusSchema.parse({ postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 1, apiError: null }).postedCount).toBe(1);
-		expect(postInlineFindingsResultSchema.parse({ postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 1, apiError: null, fallbackOnly: [] }).fallbackOnly).toEqual([]);
+		expect(
+			inlinePostingStatusSchema.parse({
+				postedCount: 1,
+				skippedDuplicateCount: 0,
+				fallbackOnlyCount: 1,
+				apiError: null,
+			}).postedCount,
+		).toBe(1);
+		expect(
+			postInlineFindingsResultSchema.parse({
+				postedCount: 1,
+				skippedDuplicateCount: 0,
+				fallbackOnlyCount: 1,
+				apiError: null,
+				fallbackOnly: [],
+			}).fallbackOnly,
+		).toEqual([]);
 	});
 });

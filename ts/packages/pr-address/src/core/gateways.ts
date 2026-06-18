@@ -58,9 +58,18 @@ export interface PRDiscussionComment {
 }
 
 export type GatewayResult<T> = CoreGatewayResult<T>;
-export type PRLookupResult = { type: "found"; pr: PRSummary } | PRLookupMiss | { type: "failure"; failure: GatewayFailure };
-export type CurrentBranchResult = { type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GatewayFailure };
-export type RepoContextResult = { type: "inside" } | { type: "outside" } | { type: "failure"; failure: GatewayFailure };
+export type PRLookupResult =
+	| { type: "found"; pr: PRSummary }
+	| PRLookupMiss
+	| { type: "failure"; failure: GatewayFailure };
+export type CurrentBranchResult =
+	| { type: "branch"; branch: string }
+	| { type: "detached" }
+	| { type: "failure"; failure: GatewayFailure };
+export type RepoContextResult =
+	| { type: "inside" }
+	| { type: "outside" }
+	| { type: "failure"; failure: GatewayFailure };
 
 export interface GatewayOptions {
 	cwd: string;
@@ -71,9 +80,18 @@ export interface PrAddressGitHubGateway {
 	getPr(prNumber: number, options: GatewayOptions): Promise<PRLookupResult>;
 	getPrForBranch(branch: string, options: GatewayOptions): Promise<PRLookupResult>;
 	listOpenPrs(options: GatewayOptions): Promise<GatewayResult<readonly PRSummary[]>>;
-	getReviews(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRReview[]>>;
-	getReviewThreads(prNumber: number, options: GatewayOptions & { shouldIncludeResolved: boolean }): Promise<GatewayResult<readonly PRReviewThread[]>>;
-	getDiscussionComments(prNumber: number, options: GatewayOptions): Promise<GatewayResult<readonly PRDiscussionComment[]>>;
+	getReviews(
+		prNumber: number,
+		options: GatewayOptions,
+	): Promise<GatewayResult<readonly PRReview[]>>;
+	getReviewThreads(
+		prNumber: number,
+		options: GatewayOptions & { shouldIncludeResolved: boolean },
+	): Promise<GatewayResult<readonly PRReviewThread[]>>;
+	getDiscussionComments(
+		prNumber: number,
+		options: GatewayOptions,
+	): Promise<GatewayResult<readonly PRDiscussionComment[]>>;
 }
 
 export interface PrAddressGitGateway {

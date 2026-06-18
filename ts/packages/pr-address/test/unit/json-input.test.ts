@@ -68,7 +68,8 @@ describe("JSON input source helpers", () => {
 			type: "error",
 			error: {
 				errorType: "invalid_request",
-				message: "demo accepts only one payload source; do not pass both --payload-json and --payload-file.",
+				message:
+					"demo accepts only one payload source; do not pass both --payload-json and --payload-file.",
 			},
 		});
 
@@ -118,5 +119,4 @@ describe("JSON input source helpers", () => {
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid_request");
 	});
-
 });

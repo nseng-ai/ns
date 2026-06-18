@@ -33,10 +33,14 @@ export async function generateBranchSlug(
 	const prompt = buildSlugPrompt(input);
 	const result = await runGptNanoText(pi, cwd, prompt, SLUG_PROMPT_TIMEOUT_MS);
 	if (!result.ok) {
-		return { ok: false, message: `Could not generate branch slug with GPT Nano: ${result.message}` };
+		return {
+			ok: false,
+			message: `Could not generate branch slug with GPT Nano: ${result.message}`,
+		};
 	}
 
-	const slug = sanitizeBranchName(result.text) || sanitizeBranchName(input.fallbackText ?? input.content);
+	const slug =
+		sanitizeBranchName(result.text) || sanitizeBranchName(input.fallbackText ?? input.content);
 	if (!slug) {
 		return { ok: false, message: "Could not derive a usable branch slug." };
 	}
@@ -52,7 +56,12 @@ export async function summarizePlanWithGptNano(
 		sourceLabel?: string;
 	},
 ): Promise<TextResult> {
-	const result = await runGptNanoText(pi, cwd, buildPlanSummaryPrompt(input), SUMMARY_PROMPT_TIMEOUT_MS);
+	const result = await runGptNanoText(
+		pi,
+		cwd,
+		buildPlanSummaryPrompt(input),
+		SUMMARY_PROMPT_TIMEOUT_MS,
+	);
 	if (!result.ok) {
 		return { ok: false, message: `Could not summarize plan with GPT Nano: ${result.message}` };
 	}
@@ -64,7 +73,12 @@ export async function summarizePlanWithGptNano(
 	return { ok: true, text: summary };
 }
 
-async function runGptNanoText(pi: BranchSlugRuntime, cwd: string, prompt: string, timeout: number): Promise<TextResult> {
+async function runGptNanoText(
+	pi: BranchSlugRuntime,
+	cwd: string,
+	prompt: string,
+	timeout: number,
+): Promise<TextResult> {
 	const result = await pi.exec("pi", buildGptNanoTextArgs(prompt), { cwd, timeout });
 	if (result.code !== 0) {
 		const details = result.stderr.trim() || result.stdout.trim();

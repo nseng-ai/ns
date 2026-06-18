@@ -8,7 +8,14 @@ import {
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
-import { booleanField, isRecord, optionalEntry, optionalStringField, stringArrayField, stringField } from "./json-fields.ts";
+import {
+	booleanField,
+	isRecord,
+	optionalEntry,
+	optionalStringField,
+	stringArrayField,
+	stringField,
+} from "./json-fields.ts";
 
 export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";
 
@@ -43,7 +50,9 @@ interface StackMapGraphEdge {
 
 interface StackMapGraphSlot extends StackMapSlotAssignment {}
 
-export async function loadStackMapModel(options: LoadStackMapModelOptions = {}): Promise<StackMapModel> {
+export async function loadStackMapModel(
+	options: LoadStackMapModelOptions = {},
+): Promise<StackMapModel> {
 	const cwd = options.cwd ?? process.cwd();
 	const runCommand = options.runCommand ?? runRealCommand;
 	const [graphResult, cmuxResult] = await Promise.all([
@@ -51,10 +60,11 @@ export async function loadStackMapModel(options: LoadStackMapModelOptions = {}):
 		loadCmuxTabs(runCommand, cwd),
 	]);
 	if (graphResult.type === "failure") {
-		return buildUnavailableStackMapModel([
-			graphResult.message,
-			cmuxResult.type === "failure" ? cmuxResult.message : undefined,
-		].filter((message): message is string => message !== undefined));
+		return buildUnavailableStackMapModel(
+			[graphResult.message, cmuxResult.type === "failure" ? cmuxResult.message : undefined].filter(
+				(message): message is string => message !== undefined,
+			),
+		);
 	}
 
 	return buildStackMapModelFromGraph(graphResult.data, {
@@ -65,7 +75,10 @@ export async function loadStackMapModel(options: LoadStackMapModelOptions = {}):
 
 export function buildStackMapModelFromGraph(
 	graph: StackMapGraphData,
-	options: { readonly cmuxTabs?: readonly StackMapParsedCmuxTab[] | undefined; readonly diagnostics?: readonly string[] | undefined } = {},
+	options: {
+		readonly cmuxTabs?: readonly StackMapParsedCmuxTab[] | undefined;
+		readonly diagnostics?: readonly string[] | undefined;
+	} = {},
 ): StackMapModel {
 	const slotsByBranch = slotsByBranchName(graph.slots);
 	const branchesByName = new Map(graph.branches.map((branch) => [branch.name, branch]));
@@ -80,12 +93,16 @@ export function buildStackMapModelFromGraph(
 	});
 	const modeled = collectBranchNames(root);
 	const missing = graph.branches.filter((branch) => !modeled.has(branch.name));
-	const trunk = missing.length === 0
-		? root
-		: {
-			...root,
-			children: [...(root.children ?? []), ...missing.map((branch) => leafBranchNode(branch, graph, slotsByBranch))],
-		};
+	const trunk =
+		missing.length === 0
+			? root
+			: {
+					...root,
+					children: [
+						...(root.children ?? []),
+						...missing.map((branch) => leafBranchNode(branch, graph, slotsByBranch)),
+					],
+				};
 	const model: StackMapModel = {
 		title: "sdlcc stack map",
 		diagnostics: [
@@ -104,64 +121,120 @@ export function buildStackMapModelFromGraph(
 	};
 }
 
-export function parseCmuxTreeTabs(stdout: string): { type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string } {
+export function parseCmuxTreeTabs(
+	stdout: string,
+):
+	| { type: "success"; tabs: readonly StackMapParsedCmuxTab[] }
+	| { type: "failure"; message: string } {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout.trim() || "{}");
 	} catch (error) {
-		return { type: "failure", message: `cmux tree JSON was invalid: ${error instanceof Error ? error.message : String(error)}` };
+		return {
+			type: "failure",
+			message: `cmux tree JSON was invalid: ${error instanceof Error ? error.message : String(error)}`,
+		};
 	}
 	return parseCmuxTreeData(parsed);
 }
 
-async function loadStackMapGraph(runCommand: CommandRunner, cwd: string): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
-	const result = await runCommand("slot", ["gt", "exec", "stack-map-branches", "--format", "json"], { cwd, timeout: COMMAND_TIMEOUT_MS });
+async function loadStackMapGraph(
+	runCommand: CommandRunner,
+	cwd: string,
+): Promise<{ type: "success"; data: StackMapGraphData } | { type: "failure"; message: string }> {
+	const result = await runCommand(
+		"slot",
+		["gt", "exec", "stack-map-branches", "--format", "json"],
+		{ cwd, timeout: COMMAND_TIMEOUT_MS },
+	);
 	const parsed = parseMachineEnvelopeData(result.stdout, "slot gt exec stack-map-branches JSON");
 	if (parsed.type === "failure") {
-		return { type: "failure", message: `${parsed.message}${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}` };
+		return {
+			type: "failure",
+			message: `${parsed.message}${result.stderr.trim() ? ` ${result.stderr.trim()}` : ""}`,
+		};
 	}
 	const data = parseStackMapGraphData(parsed.data);
 	if (data.type === "failure") return data;
 	return { type: "success", data: data.data };
 }
 
-async function loadCmuxTabs(runCommand: CommandRunner, cwd: string): Promise<{ type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string }> {
-	const result = await runCommand("cmux", ["tree", "--json", "--all"], { cwd, timeout: COMMAND_TIMEOUT_MS });
-	if (result.code !== 0) return { type: "failure", message: `Could not load cmux tab inventory: ${result.stderr.trim() || result.stdout.trim() || `cmux tree exited ${result.code}`}` };
+async function loadCmuxTabs(
+	runCommand: CommandRunner,
+	cwd: string,
+): Promise<
+	{ type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string }
+> {
+	const result = await runCommand("cmux", ["tree", "--json", "--all"], {
+		cwd,
+		timeout: COMMAND_TIMEOUT_MS,
+	});
+	if (result.code !== 0)
+		return {
+			type: "failure",
+			message: `Could not load cmux tab inventory: ${result.stderr.trim() || result.stdout.trim() || `cmux tree exited ${result.code}`}`,
+		};
 	const parsed = parseCmuxTreeTabs(result.stdout);
-	if (parsed.type === "failure") return { type: "failure", message: `Could not load cmux tab inventory: ${parsed.message}` };
+	if (parsed.type === "failure")
+		return { type: "failure", message: `Could not load cmux tab inventory: ${parsed.message}` };
 	return parsed;
 }
 
-function parseMachineEnvelopeData(stdout: string, label: string): { type: "success"; data: unknown } | { type: "failure"; message: string } {
+function parseMachineEnvelopeData(
+	stdout: string,
+	label: string,
+): { type: "success"; data: unknown } | { type: "failure"; message: string } {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
 	} catch (error) {
-		return { type: "failure", message: `${label} was not valid JSON: ${error instanceof Error ? error.message : String(error)}` };
+		return {
+			type: "failure",
+			message: `${label} was not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+		};
 	}
 	if (!isRecord(parsed)) return { type: "failure", message: `${label} was not a JSON object.` };
 	const exitCode = parsed.exit_code;
-	if (exitCode !== 0) return { type: "failure", message: `${label} reported failure exit_code ${String(exitCode)}: ${stringField(parsed, "message") ?? "no message"}` };
+	if (exitCode !== 0)
+		return {
+			type: "failure",
+			message: `${label} reported failure exit_code ${String(exitCode)}: ${stringField(parsed, "message") ?? "no message"}`,
+		};
 	if (!("data" in parsed)) return { type: "failure", message: `${label} did not include data.` };
 	return { type: "success", data: parsed.data };
 }
 
-function parseStackMapGraphData(data: unknown): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {
-	if (!isRecord(data)) return { type: "failure", message: "slot gt stack-map data was not an object." };
+function parseStackMapGraphData(
+	data: unknown,
+): { type: "success"; data: StackMapGraphData } | { type: "failure"; message: string } {
+	if (!isRecord(data))
+		return { type: "failure", message: "slot gt stack-map data was not an object." };
 	const branches = branchArrayField(data, "branches");
 	const trunk = stringField(data, "trunk");
 	const current = stringField(data, "current");
 	const edges = edgeArrayField(data, "edges");
 	const slots = slotArrayField(data, "slots");
 	const warnings = stringArrayField(data, "warnings");
-	if (branches === undefined || trunk === undefined || current === undefined || edges === undefined || slots === undefined || warnings === undefined) {
-		return { type: "failure", message: "slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings." };
+	if (
+		branches === undefined ||
+		trunk === undefined ||
+		current === undefined ||
+		edges === undefined ||
+		slots === undefined ||
+		warnings === undefined
+	) {
+		return {
+			type: "failure",
+			message: "slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+		};
 	}
 	return { type: "success", data: { branches, trunk, current, edges, slots, warnings } };
 }
 
-function branchArrayField(record: Record<string, unknown>, key: string): readonly StackMapGraphBranch[] | undefined {
+function branchArrayField(
+	record: Record<string, unknown>,
+	key: string,
+): readonly StackMapGraphBranch[] | undefined {
 	const value = record[key];
 	if (!Array.isArray(value)) return undefined;
 	const branches: StackMapGraphBranch[] = [];
@@ -172,13 +245,17 @@ function branchArrayField(record: Record<string, unknown>, key: string): readonl
 		const children = stringArrayField(item, "children");
 		const validationResult = optionalStringField(item, "validation_result");
 		const needsRestack = booleanField(item, "needs_restack");
-		if (name === undefined || children === undefined || needsRestack === undefined) return undefined;
+		if (name === undefined || children === undefined || needsRestack === undefined)
+			return undefined;
 		branches.push({ name, parent, children, validationResult, needsRestack });
 	}
 	return branches;
 }
 
-function edgeArrayField(record: Record<string, unknown>, key: string): readonly StackMapGraphEdge[] | undefined {
+function edgeArrayField(
+	record: Record<string, unknown>,
+	key: string,
+): readonly StackMapGraphEdge[] | undefined {
 	const value = record[key];
 	if (!Array.isArray(value)) return undefined;
 	const edges: StackMapGraphEdge[] = [];
@@ -192,7 +269,10 @@ function edgeArrayField(record: Record<string, unknown>, key: string): readonly 
 	return edges;
 }
 
-function slotArrayField(record: Record<string, unknown>, key: string): readonly StackMapGraphSlot[] | undefined {
+function slotArrayField(
+	record: Record<string, unknown>,
+	key: string,
+): readonly StackMapGraphSlot[] | undefined {
 	const value = record[key];
 	if (!Array.isArray(value)) return undefined;
 	const slots: StackMapGraphSlot[] = [];
@@ -202,15 +282,25 @@ function slotArrayField(record: Record<string, unknown>, key: string): readonly 
 		const branch = stringField(item, "branch");
 		const worktreePath = optionalStringField(item, "worktree_path");
 		if (slotName === undefined || branch === undefined) return undefined;
-		slots.push({ slotName, branch, ...optionalEntry("worktreePath", worktreePath), status: normalizeSlotStatus(optionalStringField(item, "status")) });
+		slots.push({
+			slotName,
+			branch,
+			...optionalEntry("worktreePath", worktreePath),
+			status: normalizeSlotStatus(optionalStringField(item, "status")),
+		});
 	}
 	return slots;
 }
 
-function parseCmuxTreeData(data: unknown): { type: "success"; tabs: readonly StackMapParsedCmuxTab[] } | { type: "failure"; message: string } {
+function parseCmuxTreeData(
+	data: unknown,
+):
+	| { type: "success"; tabs: readonly StackMapParsedCmuxTab[] }
+	| { type: "failure"; message: string } {
 	if (!isRecord(data)) return { type: "failure", message: "cmux tree was not a JSON object." };
 	const windows = data.windows;
-	if (!Array.isArray(windows)) return { type: "failure", message: "cmux tree was missing windows." };
+	if (!Array.isArray(windows))
+		return { type: "failure", message: "cmux tree was missing windows." };
 
 	const tabs: StackMapParsedCmuxTab[] = [];
 	for (const window of windows) {
@@ -223,14 +313,23 @@ function parseCmuxTreeData(data: unknown): { type: "success"; tabs: readonly Sta
 			const workspaceRef = stringField(workspace, "ref");
 			const workspaceTitle = stringField(workspace, "title");
 			const panes = workspace.panes;
-			if (workspaceRef === undefined || workspaceTitle === undefined || !Array.isArray(panes)) continue;
+			if (workspaceRef === undefined || workspaceTitle === undefined || !Array.isArray(panes))
+				continue;
 			for (const pane of panes) {
 				if (!isRecord(pane)) continue;
 				const paneRef = stringField(pane, "ref");
 				const surfaces = pane.surfaces;
 				if (paneRef === undefined || !Array.isArray(surfaces)) continue;
 				for (const surface of surfaces) {
-					const tab = parseCmuxSurfaceTab({ windowRef, workspaceRef, workspaceTitle, workspace, paneRef, pane, surface });
+					const tab = parseCmuxSurfaceTab({
+						windowRef,
+						workspaceRef,
+						workspaceTitle,
+						workspace,
+						paneRef,
+						pane,
+						surface,
+					});
 					if (tab !== undefined) tabs.push(tab);
 				}
 			}
@@ -267,23 +366,32 @@ function parseCmuxSurfaceTab(options: {
 		tabTitle,
 		surfaceType: normalizeSurfaceType(optionalStringField(options.surface, "type")),
 		...optionalEntry("tty", tty),
-		isActive: booleanField(options.surface, "active") ?? booleanField(options.pane, "active") ?? false,
+		isActive:
+			booleanField(options.surface, "active") ?? booleanField(options.pane, "active") ?? false,
 		isHere: booleanField(options.surface, "here") ?? false,
-		isSelected: booleanField(options.surface, "selected") ?? booleanField(options.surface, "selected_in_pane") ?? false,
+		isSelected:
+			booleanField(options.surface, "selected") ??
+			booleanField(options.surface, "selected_in_pane") ??
+			false,
 		...explicitBranchEntry(options.surface, options.pane, options.workspace),
 		...explicitWorktreeEntry(options.surface, options.pane, options.workspace),
 	};
 }
 
-function explicitBranchEntry(...records: readonly Record<string, unknown>[]): { readonly explicitBranch?: string } {
+function explicitBranchEntry(...records: readonly Record<string, unknown>[]): {
+	readonly explicitBranch?: string;
+} {
 	for (const record of records) {
-		const branch = optionalStringField(record, "branch") ?? optionalStringField(record, "branch_name");
+		const branch =
+			optionalStringField(record, "branch") ?? optionalStringField(record, "branch_name");
 		if (branch !== undefined) return { explicitBranch: branch };
 	}
 	return {};
 }
 
-function explicitWorktreeEntry(...records: readonly Record<string, unknown>[]): { readonly explicitWorktreePath?: string } {
+function explicitWorktreeEntry(...records: readonly Record<string, unknown>[]): {
+	readonly explicitWorktreePath?: string;
+} {
 	for (const record of records) {
 		const path = optionalStringField(record, "worktree_path") ?? optionalStringField(record, "cwd");
 		if (path !== undefined) return { explicitWorktreePath: path };
@@ -291,7 +399,9 @@ function explicitWorktreeEntry(...records: readonly Record<string, unknown>[]): 
 	return {};
 }
 
-function childrenByParentName(branches: readonly StackMapGraphBranch[]): ReadonlyMap<string, readonly StackMapGraphBranch[]> {
+function childrenByParentName(
+	branches: readonly StackMapGraphBranch[],
+): ReadonlyMap<string, readonly StackMapGraphBranch[]> {
 	const byParent = new Map<string, StackMapGraphBranch[]>();
 	for (const branch of branches) {
 		if (branch.parent === undefined) continue;
@@ -313,11 +423,19 @@ function buildGraphBranchTree(
 		readonly visited: Set<string>;
 	},
 ): StackMapBranchNode {
-	const branch = options.branchesByName.get(branchName) ?? { name: branchName, parent: undefined, children: [], validationResult: undefined, needsRestack: false };
-	if (options.visited.has(branchName)) return leafBranchNode(branch, options, options.slotsByBranch);
+	const branch = options.branchesByName.get(branchName) ?? {
+		name: branchName,
+		parent: undefined,
+		children: [],
+		validationResult: undefined,
+		needsRestack: false,
+	};
+	if (options.visited.has(branchName))
+		return leafBranchNode(branch, options, options.slotsByBranch);
 	options.visited.add(branchName);
-	const children = (options.childrenByParent.get(branchName) ?? [])
-		.map((child) => buildGraphBranchTree(child.name, options));
+	const children = (options.childrenByParent.get(branchName) ?? []).map((child) =>
+		buildGraphBranchTree(child.name, options),
+	);
 	return {
 		name: branchName,
 		graphiteNote: graphiteNoteForBranch({ branch, current: options.current, trunk: options.trunk }),
@@ -338,14 +456,20 @@ function leafBranchNode(
 	};
 }
 
-function graphiteNoteForBranch(options: { readonly branch: StackMapGraphBranch; readonly current: string; readonly trunk: string }): string | undefined {
+function graphiteNoteForBranch(options: {
+	readonly branch: StackMapGraphBranch;
+	readonly current: string;
+	readonly trunk: string;
+}): string | undefined {
 	if (options.branch.name === options.trunk) return "repo";
 	if (options.branch.name === options.current) return "current";
 	if (options.branch.needsRestack) return "needs restack";
 	return undefined;
 }
 
-function slotsByBranchName(assignments: readonly StackMapSlotAssignment[]): ReadonlyMap<string, readonly StackMapSlotAssignment[]> {
+function slotsByBranchName(
+	assignments: readonly StackMapSlotAssignment[],
+): ReadonlyMap<string, readonly StackMapSlotAssignment[]> {
 	const byBranch = new Map<string, StackMapSlotAssignment[]>();
 	for (const assignment of assignments) {
 		const current = byBranch.get(assignment.branch) ?? [];
@@ -355,7 +479,10 @@ function slotsByBranchName(assignments: readonly StackMapSlotAssignment[]): Read
 	return byBranch;
 }
 
-function slotsForBranch(branch: string, slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>): readonly StackMapSlotAssignment[] | undefined {
+function slotsForBranch(
+	branch: string,
+	slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>,
+): readonly StackMapSlotAssignment[] | undefined {
 	const slots = slotsByBranch.get(branch);
 	return slots === undefined || slots.length === 0 ? undefined : slots;
 }

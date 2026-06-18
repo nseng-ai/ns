@@ -34,8 +34,12 @@ describe("handoff identity", () => {
 	});
 
 	test("derives semantic slugs with the shared rule", () => {
-		expect(deriveSemanticHandoffSlug("Finish handoff tab implementation!!!")).toBe("finish-handoff-tab-implementation");
-		expect(deriveSemanticHandoffSlug("one two three four five six seven eight nine ten")).toBe("one-two-three-four-five-six-seven-eight");
+		expect(deriveSemanticHandoffSlug("Finish handoff tab implementation!!!")).toBe(
+			"finish-handoff-tab-implementation",
+		);
+		expect(deriveSemanticHandoffSlug("one two three four five six seven eight nine ten")).toBe(
+			"one-two-three-four-five-six-seven-eight",
+		);
 		expect(deriveSemanticHandoffSlug("!!!")).toBeUndefined();
 	});
 });

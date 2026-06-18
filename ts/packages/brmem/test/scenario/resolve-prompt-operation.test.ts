@@ -52,14 +52,23 @@ describe("brmem exec resolve-prompt", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { path: projectPrompt("foo"), tier: "project" } });
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { path: projectPrompt("foo"), tier: "project" },
+		});
 	});
 
 	it("returns prompt-not-found when neither tier has the prompt", async () => {
-		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], { repoRoot, homeRoot });
+		const run = runScenario(["exec", "resolve-prompt", "foo", "--format", "json"], {
+			repoRoot,
+			homeRoot,
+		});
 
 		expect(await run.exit).toBe(2);
-		const payload = parseJsonOutput(run) as { exit_code: number; error_type: string; message: string };
+		const payload = parseJsonOutput(run) as {
+			exit_code: number;
+			error_type: string;
+			message: string;
+		};
 		expect(payload.exit_code).toBe(2);
 		expect(payload.error_type).toBe("prompt-not-found");
 		expect(payload.message).toContain(projectPrompt("foo"));

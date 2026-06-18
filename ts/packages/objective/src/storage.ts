@@ -44,7 +44,9 @@ export interface ObjectiveStorageError {
 	message: string;
 }
 
-export type ObjectiveStorageResult<T> = { ok: true; value: T } | { ok: false; error: ObjectiveStorageError };
+export type ObjectiveStorageResult<T> =
+	| { ok: true; value: T }
+	| { ok: false; error: ObjectiveStorageError };
 
 export type ObjectiveMarkdownReadResult =
 	| { type: "missing" }
@@ -53,9 +55,14 @@ export type ObjectiveMarkdownReadResult =
 
 export interface ObjectiveStorageGateway {
 	pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>>;
-	listDirectory(relativePath: string): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>>;
+	listDirectory(
+		relativePath: string,
+	): Promise<ObjectiveStorageResult<readonly ObjectiveDirectoryEntry[]>>;
 	readTextFile(relativePath: string): Promise<ObjectiveMarkdownReadResult>;
-	moveDirectory(sourceRelativePath: string, destinationRelativePath: string): Promise<ObjectiveStorageResult<void>>;
+	moveDirectory(
+		sourceRelativePath: string,
+		destinationRelativePath: string,
+	): Promise<ObjectiveStorageResult<void>>;
 }
 
 export class ObjectiveStorage {
@@ -93,7 +100,9 @@ export class ObjectiveStorage {
 				.filter((entry) => entry.kind === "directory")
 				.sort((left, right) => left.name.localeCompare(right.name))
 				.map(async (entry): Promise<ObjectiveStorageResult<ObjectiveCheckoutRecord>> => {
-					const closed = await this.gateway.pathKind(posixJoin(activeRecordRelativePath(entry.name), "closed.md"));
+					const closed = await this.gateway.pathKind(
+						posixJoin(activeRecordRelativePath(entry.name), "closed.md"),
+					);
 					if (!closed.ok) return closed;
 					return {
 						ok: true,
@@ -138,7 +147,9 @@ export class ObjectiveStorage {
 		return await this.filePresence(activeRecordRelativePath(slug));
 	}
 
-	async listUpdateFiles(recordRelativePath: string): Promise<ObjectiveStorageResult<readonly ObjectiveUpdateFile[]>> {
+	async listUpdateFiles(
+		recordRelativePath: string,
+	): Promise<ObjectiveStorageResult<readonly ObjectiveUpdateFile[]>> {
 		const updatesRelativePath = posixJoin(recordRelativePath, "updates");
 		const updatesKind = await this.gateway.pathKind(updatesRelativePath);
 		if (!updatesKind.ok) return updatesKind;
@@ -146,7 +157,10 @@ export class ObjectiveStorage {
 
 		const listed = await this.gateway.listDirectory(updatesRelativePath);
 		if (!listed.ok) return listed;
-		const relativeUpdatesDir = posixJoin(activeRecordRelativePath(basename(recordRelativePath)), "updates");
+		const relativeUpdatesDir = posixJoin(
+			activeRecordRelativePath(basename(recordRelativePath)),
+			"updates",
+		);
 		return {
 			ok: true,
 			value: listed.value
@@ -168,12 +182,17 @@ export class ObjectiveStorage {
 	}
 
 	async moveRecord(movePaths: ObjectiveRecordMovePaths): Promise<ObjectiveStorageResult<void>> {
-		return await this.gateway.moveDirectory(movePaths.relativeSource, movePaths.relativeDestination);
+		return await this.gateway.moveDirectory(
+			movePaths.relativeSource,
+			movePaths.relativeDestination,
+		);
 	}
 }
 
 export function isValidObjectiveSlug(slug: string): boolean {
-	return slug !== "" && slug !== "." && slug !== ".." && !slug.includes("/") && !slug.includes("\\");
+	return (
+		slug !== "" && slug !== "." && slug !== ".." && !slug.includes("/") && !slug.includes("\\")
+	);
 }
 
 export function activeRootRelativePath(): string {
@@ -192,12 +211,18 @@ export function archivedRecordRelativePath(slug: string): string {
 	return posixJoin(archiveRootRelativePath(), slug);
 }
 
-export function archiveSourceRelativePath(slug: string, direction: ObjectiveArchiveDirection): string {
+export function archiveSourceRelativePath(
+	slug: string,
+	direction: ObjectiveArchiveDirection,
+): string {
 	if (direction === "unarchive") return archivedRecordRelativePath(slug);
 	return activeRecordRelativePath(slug);
 }
 
-export function archiveDestinationRelativePath(slug: string, direction: ObjectiveArchiveDirection): string {
+export function archiveDestinationRelativePath(
+	slug: string,
+	direction: ObjectiveArchiveDirection,
+): string {
 	if (direction === "unarchive") return activeRecordRelativePath(slug);
 	return archivedRecordRelativePath(slug);
 }

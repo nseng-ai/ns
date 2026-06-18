@@ -3,7 +3,11 @@ import { describe, expect, test } from "vitest";
 import type { CommandExecApi } from "@asdl/core/exec";
 import { InMemoryGitGateway } from "@asdl/core/git/testing";
 
-import { BRANCH_CONTEXT_NAMESPACE, BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE, resolveExistingBranchContextReuse } from "@asdl/branch-context";
+import {
+	BRANCH_CONTEXT_NAMESPACE,
+	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
+	resolveExistingBranchContextReuse,
+} from "@asdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchContextBrmemGateway } from "./support/in-memory-brmem-gateway.ts";
 import { InMemoryBranchContextGraphiteGateway } from "./support/in-memory-graphite-gateway.ts";
@@ -20,7 +24,9 @@ const pi: CommandExecApi = {
 	},
 };
 
-function branchContext(overrides: Pick<BranchContextContext, "git" | "brmem">): BranchContextContext {
+function branchContext(
+	overrides: Pick<BranchContextContext, "git" | "brmem">,
+): BranchContextContext {
 	return {
 		commands: pi,
 		git: overrides.git,
@@ -57,13 +63,25 @@ function sessionEntry(branch: string, key: string): unknown {
 
 describe("resolveExistingBranchContextReuse", () => {
 	test("verifies an explicit branch without touching git", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: "branch-contexts/explicit", key: "explicit-plan.md" }] });
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [{ branch: "branch-contexts/explicit", key: "explicit-plan.md" }],
+		});
 		const git = new InMemoryGitGateway();
 
-		const reuse = await resolveExistingBranchContextReuse(pi, { explicitBranch: "branch-contexts/explicit" }, { cwd: CWD, context: branchContext({ git, brmem }) });
+		const reuse = await resolveExistingBranchContextReuse(
+			pi,
+			{ explicitBranch: "branch-contexts/explicit" },
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
 
-		expect(reuse).toEqual({ branch: "branch-contexts/explicit", key: "explicit-plan.md", source: "explicit-branch" });
-		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: "branch-contexts/explicit" }]);
+		expect(reuse).toEqual({
+			branch: "branch-contexts/explicit",
+			key: "explicit-plan.md",
+			source: "explicit-branch",
+		});
+		expect(brmem.listAttachedPlansCalls).toEqual([
+			{ cwd: CWD, branch: "branch-contexts/explicit" },
+		]);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
@@ -72,14 +90,22 @@ describe("resolveExistingBranchContextReuse", () => {
 		const brmem = new InMemoryBranchContextBrmemGateway();
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
 
-		await expect(resolveExistingBranchContextReuse(pi, { explicitBranch: "branch-contexts/empty" }, { cwd: CWD, context: branchContext({ git, brmem }) })).rejects.toThrow(
+		await expect(
+			resolveExistingBranchContextReuse(
+				pi,
+				{ explicitBranch: "branch-contexts/empty" },
+				{ cwd: CWD, context: branchContext({ git, brmem }) },
+			),
+		).rejects.toThrow(
 			/No existing branch context with an attached plan could be reused\.[\s\S]*branch-contexts\/empty/,
 		);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
 	test("verifies a single session candidate without touching git", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: SESSION_BRANCH, key: SESSION_KEY }] });
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [{ branch: SESSION_BRANCH, key: SESSION_KEY }],
+		});
 		const git = new InMemoryGitGateway();
 
 		const reuse = await resolveExistingBranchContextReuse(
@@ -89,7 +115,9 @@ describe("resolveExistingBranchContextReuse", () => {
 		);
 
 		expect(reuse).toEqual({ branch: SESSION_BRANCH, key: SESSION_KEY, source: "session-output" });
-		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([
+			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
+		]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
@@ -100,17 +128,26 @@ describe("resolveExistingBranchContextReuse", () => {
 		await expect(
 			resolveExistingBranchContextReuse(
 				pi,
-				{ sessionEntries: [sessionEntry(SESSION_BRANCH, SESSION_KEY), sessionEntry("branch-contexts/other", "other.md")] },
+				{
+					sessionEntries: [
+						sessionEntry(SESSION_BRANCH, SESSION_KEY),
+						sessionEntry("branch-contexts/other", "other.md"),
+					],
+				},
 				{ cwd: CWD, context: branchContext({ git, brmem }) },
 			),
-		).rejects.toThrow(/Multiple existing branch-context candidates were found in this session\.[\s\S]*--branch <target-branch>/);
+		).rejects.toThrow(
+			/Multiple existing branch-context candidates were found in this session\.[\s\S]*--branch <target-branch>/,
+		);
 
 		expect(brmem.listAttachedPlansCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
 	test("falls through to the current branch when the session candidate fails verification", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: CURRENT_BRANCH, key: CURRENT_KEY }] });
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [{ branch: CURRENT_BRANCH, key: CURRENT_KEY }],
+		});
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
 
 		const reuse = await resolveExistingBranchContextReuse(
@@ -120,7 +157,9 @@ describe("resolveExistingBranchContextReuse", () => {
 		);
 
 		expect(reuse).toEqual({ branch: CURRENT_BRANCH, key: CURRENT_KEY, source: "current-branch" });
-		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([
+			{ cwd: CWD, branch: SESSION_BRANCH, key: SESSION_KEY },
+		]);
 		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: CWD, branch: CURRENT_BRANCH }]);
 		expect(git.currentBranchCalls).toHaveLength(1);
 	});
@@ -129,7 +168,11 @@ describe("resolveExistingBranchContextReuse", () => {
 		const brmem = new InMemoryBranchContextBrmemGateway();
 		const git = new InMemoryGitGateway({ currentBranch: CURRENT_BRANCH });
 
-		const promise = resolveExistingBranchContextReuse(pi, { sessionEntries: [sessionEntry(SESSION_BRANCH, SESSION_KEY)] }, { cwd: CWD, context: branchContext({ git, brmem }) });
+		const promise = resolveExistingBranchContextReuse(
+			pi,
+			{ sessionEntries: [sessionEntry(SESSION_BRANCH, SESSION_KEY)] },
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
 
 		await expect(promise).rejects.toThrow(
 			/No existing branch context with an attached plan could be reused\.[\s\S]*session-target[\s\S]*current-target/,
@@ -140,7 +183,11 @@ describe("resolveExistingBranchContextReuse", () => {
 		const brmem = new InMemoryBranchContextBrmemGateway();
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
-		const promise = resolveExistingBranchContextReuse(pi, { sessionEntries: [sessionEntry(SESSION_BRANCH, SESSION_KEY)] }, { cwd: CWD, context: branchContext({ git, brmem }) });
+		const promise = resolveExistingBranchContextReuse(
+			pi,
+			{ sessionEntries: [sessionEntry(SESSION_BRANCH, SESSION_KEY)] },
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
 
 		await expect(promise).rejects.toThrow(/session-target[\s\S]*could not resolve current branch:/);
 	});
@@ -149,9 +196,15 @@ describe("resolveExistingBranchContextReuse", () => {
 		const brmem = new InMemoryBranchContextBrmemGateway();
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
-		const promise = resolveExistingBranchContextReuse(pi, {}, { cwd: CWD, context: branchContext({ git, brmem }) });
+		const promise = resolveExistingBranchContextReuse(
+			pi,
+			{},
+			{ cwd: CWD, context: branchContext({ git, brmem }) },
+		);
 
-		await expect(promise).rejects.toThrow(/No existing branch context with an attached plan could be reused\.[\s\S]*could not resolve current branch:/);
+		await expect(promise).rejects.toThrow(
+			/No existing branch context with an attached plan could be reused\.[\s\S]*could not resolve current branch:/,
+		);
 		expect(brmem.listAttachedPlansCalls).toEqual([]);
 	});
 });

@@ -145,7 +145,11 @@ describe("buildSurfacePlan positionals", () => {
 	test("positionals are opt-in and ordered by position", () => {
 		const plan = buildSurfacePlan({
 			commandName: "probe",
-			schema: z.object({ target: z.string(), source: z.string(), flagged: z.boolean().default(false) }),
+			schema: z.object({
+				target: z.string(),
+				source: z.string(),
+				flagged: z.boolean().default(false),
+			}),
 			positionals: { source: { position: 0 }, target: { position: 1 } },
 		});
 		expect(plan.positionals.map((positional) => positional.key)).toEqual(["source", "target"]);
@@ -224,7 +228,10 @@ describe("buildSurfacePlan registration errors", () => {
 			buildSurfacePlan({ commandName: "probe", schema: z.object({ nested: z.object({}) }) }),
 		).toThrow(/unsupported schema type 'object'/);
 		expect(() =>
-			buildSurfacePlan({ commandName: "probe", schema: z.object({ maybe: z.string().nullable() }) }),
+			buildSurfacePlan({
+				commandName: "probe",
+				schema: z.object({ maybe: z.string().nullable() }),
+			}),
 		).toThrow(/unsupported schema type 'nullable'/);
 	});
 

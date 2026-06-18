@@ -56,7 +56,8 @@ export function prLinksFromDetails(details: unknown): Map<number, string> {
 		if (!isRecord(rawLink)) continue;
 		const number = rawLink.number;
 		const url = rawLink.url;
-		if (typeof number !== "number" || !Number.isInteger(number) || typeof url !== "string") continue;
+		if (typeof number !== "number" || !Number.isInteger(number) || typeof url !== "string")
+			continue;
 
 		const sanitizedUrl = sanitizeTerminalHyperlinkUrl(url);
 		if (sanitizedUrl) {

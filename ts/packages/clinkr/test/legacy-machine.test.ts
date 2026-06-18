@@ -40,11 +40,17 @@ describe("legacyMachine under --format json", () => {
 			name: "act",
 			schema: z.object({}),
 			handler: async () => ok({ value: "☃" }),
-			legacyMachine: (exit) => ({ body: { success: true, data: exit }, exitCode: 0, serialization: "compact" }),
+			legacyMachine: (exit) => ({
+				body: { success: true, data: exit },
+				exitCode: 0,
+				serialization: "compact",
+			}),
 		});
 		const run = await runForTest(group, ["act", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toBe(`${JSON.stringify({ success: true, data: { type: "ok", data: { value: "☃" } } })}\n`);
+		expect(run.stdout).toBe(
+			`${JSON.stringify({ success: true, data: { type: "ok", data: { value: "☃" } } })}\n`,
+		);
 	});
 
 	test("negative keeps the legacy shape and legacy exit code", async () => {
@@ -72,7 +78,9 @@ describe("legacyMachine boundaries", () => {
 	});
 
 	test("markdown mode ignores legacyMachine", async () => {
-		const run = await runForTest(buildGroup("ok"), ["act", "--format", "markdown"], { context: null });
+		const run = await runForTest(buildGroup("ok"), ["act", "--format", "markdown"], {
+			context: null,
+		});
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe('{\n  "value": 7\n}\n');
 	});

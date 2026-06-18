@@ -1,5 +1,7 @@
 import? 'local.just'
 
+ts_pnpm := 'corepack pnpm@11.8.0'
+
 default: check
 
 pbcopy-source-activate:
@@ -7,9 +9,9 @@ pbcopy-source-activate:
     @printf 'source %s/.venv/bin/activate' "{{justfile_directory()}}" | pbcopy
     @echo "Copied to clipboard — paste and press enter to activate."
 
-check: agent-instructions-check python-check dprint-check ts-guard ts-check js-test python-test
+check: agent-instructions-check python-check dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test python-test
 
-ci: agent-instructions-check python-check dprint-check ts-guard ts-check js-test python-test-all
+ci: agent-instructions-check python-check dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test python-test-all
 
 lint:
     uv run ruff check
@@ -40,16 +42,34 @@ python-test: test
 python-test-all: test-all
 
 ts-install:
-    pnpm --dir {{justfile_directory()}}/ts install
+    {{ts_pnpm}} --config.strict-dep-builds=false --dir {{justfile_directory()}}/ts install
+
+ts-deps-check: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run deps:check
+
+ts-format-check: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run fmt:check
+
+ts-format-fix: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run fmt
+
+ts-lint: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run lint
+
+ts-lint-fix: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run lint:fix
 
 ts-check: ts-install
-    pnpm --dir {{justfile_directory()}}/ts run check
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run check
+
+ts-check-legacy: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run check:legacy
 
 ts-guard:
     node {{justfile_directory()}}/ts/scripts/guard-no-as-unknown-as.mjs
 
 ts-test: ts-install
-    pnpm --dir {{justfile_directory()}}/ts run test
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test
 
 docs-install:
     pnpm --dir {{justfile_directory()}}/docs-site install
@@ -124,7 +144,7 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
 # Link the branch-context bin through pnpm so `branch-context` is on PATH.
 # The linked CLI uses the Node shebang from the TypeScript workspace source.
 link-branch-context: ts-install
-    cd {{justfile_directory()}}/ts/packages/branch-context && pnpm link
+    cd {{justfile_directory()}}/ts/packages/branch-context && {{ts_pnpm}} link
     @echo "linked: branch-context (pnpm global bin)"
 
 test:

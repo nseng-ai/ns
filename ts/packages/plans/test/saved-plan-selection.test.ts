@@ -28,12 +28,20 @@ afterEach(async () => {
 describe("saved plan session selection", () => {
 	test("returns the newest valid session evidence and preserves summary", async () => {
 		const fixture = await makeFixture();
-		const olderPath = await writePlanFile(fixture.directory, "older-valid-saved-plan.md", 1_700_000_000_000);
+		const olderPath = await writePlanFile(
+			fixture.directory,
+			"older-valid-saved-plan.md",
+			1_700_000_000_000,
+		);
 		const newerPath = await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
 		const entries = [
 			{ type: "message", message: { role: "assistant", content: "ignore me" } },
-			savedPlanEntry(evidence(fixture.directory, { slug: "older-valid-saved-plan", filePath: olderPath })),
-			savedPlanEntry(evidence(fixture.directory, { filePath: newerPath, summary: "Use this plan." })),
+			savedPlanEntry(
+				evidence(fixture.directory, { slug: "older-valid-saved-plan", filePath: olderPath }),
+			),
+			savedPlanEntry(
+				evidence(fixture.directory, { filePath: newerPath, summary: "Use this plan." }),
+			),
 		];
 
 		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory);
@@ -52,18 +60,37 @@ describe("saved plan session selection", () => {
 	test("ignores unrelated and malformed entries", async () => {
 		const fixture = await makeFixture();
 		const entries = [
-			{ type: "message", message: { role: "toolResult", toolName: "other_tool", isError: false, details: {} } },
-			{ type: "message", message: { role: "toolResult", toolName: "write_saved_plan_file", isError: true, details: {} } },
-			{ type: "message", message: { role: "toolResult", toolName: "write_saved_plan_file", details: { slug: 123 } } },
+			{
+				type: "message",
+				message: { role: "toolResult", toolName: "other_tool", isError: false, details: {} },
+			},
+			{
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "write_saved_plan_file",
+					isError: true,
+					details: {},
+				},
+			},
+			{
+				type: "message",
+				message: { role: "toolResult", toolName: "write_saved_plan_file", details: { slug: 123 } },
+			},
 		];
 
 		expect(extractSavedPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
-		expect(await findLatestSessionSavedPlanFile(entries, fixture.directory)).toEqual({ type: "not-found" });
+		expect(await findLatestSessionSavedPlanFile(entries, fixture.directory)).toEqual({
+			type: "not-found",
+		});
 	});
 
 	test("accepts but strips unknown session entry, message, and evidence keys", async () => {
 		const fixture = await makeFixture();
-		const plan = evidence(fixture.directory, { filePath: join(fixture.directory.directoryPath, PLAN_KEY), summary: "Use this plan." });
+		const plan = evidence(fixture.directory, {
+			filePath: join(fixture.directory.directoryPath, PLAN_KEY),
+			summary: "Use this plan.",
+		});
 		const result = extractSavedPlanFileEvidenceFromSessionEntry({
 			type: "message",
 			entryExtra: "ignored",
@@ -82,7 +109,9 @@ describe("saved plan session selection", () => {
 
 	test("rejects malformed summary evidence", async () => {
 		const fixture = await makeFixture();
-		const plan = evidence(fixture.directory, { filePath: join(fixture.directory.directoryPath, PLAN_KEY) });
+		const plan = evidence(fixture.directory, {
+			filePath: join(fixture.directory.directoryPath, PLAN_KEY),
+		});
 
 		expect(
 			extractSavedPlanFileEvidenceFromSessionEntry({
@@ -98,7 +127,9 @@ describe("saved plan session selection", () => {
 
 	test("only rejects literal true tool errors", async () => {
 		const fixture = await makeFixture();
-		const plan = evidence(fixture.directory, { filePath: join(fixture.directory.directoryPath, PLAN_KEY) });
+		const plan = evidence(fixture.directory, {
+			filePath: join(fixture.directory.directoryPath, PLAN_KEY),
+		});
 
 		expect(
 			extractSavedPlanFileEvidenceFromSessionEntry({
@@ -126,16 +157,25 @@ describe("saved plan session selection", () => {
 
 	test("treats a missing session file as stale and continues to older valid evidence", async () => {
 		const fixture = await makeFixture();
-		const olderPath = await writePlanFile(fixture.directory, "older-valid-saved-plan.md", 1_700_000_000_000);
+		const olderPath = await writePlanFile(
+			fixture.directory,
+			"older-valid-saved-plan.md",
+			1_700_000_000_000,
+		);
 		const missingPath = join(fixture.directory.directoryPath, PLAN_KEY);
 		const entries = [
-			savedPlanEntry(evidence(fixture.directory, { slug: "older-valid-saved-plan", filePath: olderPath })),
+			savedPlanEntry(
+				evidence(fixture.directory, { slug: "older-valid-saved-plan", filePath: olderPath }),
+			),
 			savedPlanEntry(evidence(fixture.directory, { filePath: missingPath })),
 		];
 
 		const result = await findLatestSessionSavedPlanFile(entries, fixture.directory);
 
-		expect(result).toMatchObject({ type: "found", plan: { slug: "older-valid-saved-plan", filePath: olderPath } });
+		expect(result).toMatchObject({
+			type: "found",
+			plan: { slug: "older-valid-saved-plan", filePath: olderPath },
+		});
 	});
 
 	const unsafeCases: Array<{
@@ -150,32 +190,48 @@ describe("saved plan session selection", () => {
 		},
 		{
 			name: "wrong repo root",
-			mutate: (fixture, filePath) => ({ ...evidence(fixture.directory, { filePath }), repoRoot: "/other/repo" }),
+			mutate: (fixture, filePath) => ({
+				...evidence(fixture.directory, { filePath }),
+				repoRoot: "/other/repo",
+			}),
 			expected: "repoRoot",
 		},
 		{
 			name: "wrong repo key",
-			mutate: (fixture, filePath) => ({ ...evidence(fixture.directory, { filePath }), repoKey: "gh--other--repo" }),
+			mutate: (fixture, filePath) => ({
+				...evidence(fixture.directory, { filePath }),
+				repoKey: "gh--other--repo",
+			}),
 			expected: "repoKey",
 		},
 		{
 			name: "wrong repo identity source",
-			mutate: (fixture, filePath) => ({ ...evidence(fixture.directory, { filePath }), repoIdentitySource: "repo-root" }),
+			mutate: (fixture, filePath) => ({
+				...evidence(fixture.directory, { filePath }),
+				repoIdentitySource: "repo-root",
+			}),
 			expected: "repoIdentitySource",
 		},
 		{
 			name: "wrong source branch",
-			mutate: (fixture, filePath) => ({ ...evidence(fixture.directory, { filePath }), sourceBranch: "other-branch" }),
+			mutate: (fixture, filePath) => ({
+				...evidence(fixture.directory, { filePath }),
+				sourceBranch: "other-branch",
+			}),
 			expected: "sourceBranch",
 		},
 		{
 			name: "wrong branch key",
-			mutate: (fixture, filePath) => ({ ...evidence(fixture.directory, { filePath }), branchKey: "other-branch" }),
+			mutate: (fixture, filePath) => ({
+				...evidence(fixture.directory, { filePath }),
+				branchKey: "other-branch",
+			}),
 			expected: "branchKey",
 		},
 		{
 			name: "basename slug mismatch",
-			mutate: (fixture, filePath) => evidence(fixture.directory, { slug: "other-valid-saved-plan", filePath }),
+			mutate: (fixture, filePath) =>
+				evidence(fixture.directory, { slug: "other-valid-saved-plan", filePath }),
 			expected: "basename must match slug",
 		},
 		{
@@ -188,11 +244,15 @@ describe("saved plan session selection", () => {
 	for (const unsafeCase of unsafeCases) {
 		test(`rejects unsafe session evidence: ${unsafeCase.name}`, async () => {
 			const fixture = await makeFixture();
-			const filePath = unsafeCase.name === "outside plan store path"
-				? await writeOutsidePlanFile()
-				: await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
+			const filePath =
+				unsafeCase.name === "outside plan store path"
+					? await writeOutsidePlanFile()
+					: await writePlanFile(fixture.directory, PLAN_KEY, 1_800_000_000_000);
 
-			const result = await validateSessionSavedPlanCandidate(unsafeCase.mutate(fixture, filePath), fixture.directory);
+			const result = await validateSessionSavedPlanCandidate(
+				unsafeCase.mutate(fixture, filePath),
+				fixture.directory,
+			);
 
 			expect(result.type).toBe("unsafe");
 			if (result.type === "unsafe") {
@@ -231,7 +291,11 @@ async function makeTempDir(): Promise<string> {
 	return dir;
 }
 
-async function writePlanFile(directory: PlanStoreDirectoryEvidence, fileName: string, modifiedTimeMs: number): Promise<string> {
+async function writePlanFile(
+	directory: PlanStoreDirectoryEvidence,
+	fileName: string,
+	modifiedTimeMs: number,
+): Promise<string> {
 	await mkdir(directory.directoryPath, { recursive: true });
 	const filePath = join(directory.directoryPath, fileName);
 	await writeFile(filePath, `# ${fileName}\n`, "utf8");

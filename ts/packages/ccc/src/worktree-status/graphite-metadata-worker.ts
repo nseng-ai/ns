@@ -15,7 +15,8 @@ if (port !== null) {
 
 function handleGraphiteMetadataWorkerMessage(data: unknown): GraphiteMetadataWorkerResponse {
 	const request = graphiteMetadataWorkerRequestFromValue(data);
-	if (request === undefined) return { type: "failure", message: "invalid graphite metadata request" };
+	if (request === undefined)
+		return { type: "failure", message: "invalid graphite metadata request" };
 
 	try {
 		return {

@@ -18,7 +18,9 @@ export function commentableRightSideLines(patch: string | null): ReadonlySet<num
 
 function parseInlinePatchHunks(patch: string): readonly Hunk[] {
 	try {
-		return parsePatchFiles(syntheticUnifiedPatch(patch), "roaster-inline").flatMap((parsedPatch) => parsedPatch.files.flatMap((file) => file.hunks));
+		return parsePatchFiles(syntheticUnifiedPatch(patch), "roaster-inline").flatMap((parsedPatch) =>
+			parsedPatch.files.flatMap((file) => file.hunks),
+		);
 	} catch {
 		// Malformed GitHub patch snippets should only disable inline comments, not fail review classification.
 		return [];
@@ -30,9 +32,14 @@ function syntheticUnifiedPatch(patch: string): string {
 	return `diff --git a/${INLINE_PATCH_FILE} b/${INLINE_PATCH_FILE}\n--- a/${INLINE_PATCH_FILE}\n+++ b/${INLINE_PATCH_FILE}\n${patchBody}`;
 }
 
-export function classifyInlineFindings(findings: readonly ReviewFinding[], changedFiles: readonly PRChangedFile[]): InlineClassificationResult {
+export function classifyInlineFindings(
+	findings: readonly ReviewFinding[],
+	changedFiles: readonly PRChangedFile[],
+): InlineClassificationResult {
 	const changedByPath = new Map(changedFiles.map((file) => [file.path, file]));
-	const linesByPath = new Map(changedFiles.map((file) => [file.path, commentableRightSideLines(file.patch)]));
+	const linesByPath = new Map(
+		changedFiles.map((file) => [file.path, commentableRightSideLines(file.patch)]),
+	);
 	const inlineable: InlineClassificationResult["inlineable"] = [];
 	const fallbackOnly: InlineClassificationResult["fallbackOnly"] = [];
 

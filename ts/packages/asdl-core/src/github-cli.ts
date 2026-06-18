@@ -37,7 +37,12 @@ export async function runGitHubCli(options: RunGitHubCliOptions): Promise<RunGit
 		const result = await options.runner("gh", args, githubCliExecOptions(options));
 		return { type: "completed", command, displayCommand, result };
 	} catch (caught) {
-		return { type: "startup_error", command, displayCommand, message: caught instanceof Error ? caught.message : String(caught) };
+		return {
+			type: "startup_error",
+			command,
+			displayCommand,
+			message: caught instanceof Error ? caught.message : String(caught),
+		};
 	}
 }
 

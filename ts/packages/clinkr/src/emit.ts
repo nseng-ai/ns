@@ -33,7 +33,10 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	if (options.format === "json") {
 		if (options.legacyMachine !== undefined) {
 			const legacy = options.legacyMachine(exit);
-			const body = legacy.serialization === "compact" ? JSON.stringify(legacy.body) : envelopeJsonText(legacy.body);
+			const body =
+				legacy.serialization === "compact"
+					? JSON.stringify(legacy.body)
+					: envelopeJsonText(legacy.body);
 			options.io.stdout(`${body}\n`);
 			return legacy.exitCode;
 		}
@@ -66,5 +69,7 @@ function renderOkData<T>(data: T, options: EmitExitOptions<T>): string {
 	if (options.format === "markdown" && options.renderMarkdown !== undefined) {
 		return options.renderMarkdown(data, caps);
 	}
-	return options.renderHuman === undefined ? envelopeJsonText(data) : options.renderHuman(data, caps);
+	return options.renderHuman === undefined
+		? envelopeJsonText(data)
+		: options.renderHuman(data, caps);
 }

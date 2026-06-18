@@ -64,7 +64,13 @@ function register(pi = new FakePi()): {
 	expect(grillCommand).toBeDefined();
 	expect(docsCommand).toBeDefined();
 	expect(tool).toBeDefined();
-	return { pi, command: grillCommand!, grillCommand: grillCommand!, docsCommand: docsCommand!, tool: tool! };
+	return {
+		pi,
+		command: grillCommand!,
+		grillCommand: grillCommand!,
+		docsCommand: docsCommand!,
+		tool: tool!,
+	};
 }
 
 function baseInput(): GrillAskInput {
@@ -151,13 +157,13 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
 		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
+		expect(prompt).toContain('If grill_ask returns action: "status_request"');
 	});
 
 	test("includes fallback grill instructions when no skill block is available", () => {
 		const prompt = buildGrillUiPrompt(undefined, "Fallback target");
 
-		expect(prompt).toContain("fallback=\"true\"");
+		expect(prompt).toContain('fallback="true"');
 		expect(prompt).toContain("portable grilling loop");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Interview the user relentlessly");
@@ -165,7 +171,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("status-request handling");
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Fallback target");
-		expect(prompt).toContain("If grill_ask returns action: \"end_grill\"");
+		expect(prompt).toContain('If grill_ask returns action: "end_grill"');
 		expect(prompt).toContain("Show current grill status");
 	});
 });
@@ -181,13 +187,13 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("docs-aware preflight");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain("If grill_ask returns action: \"status_request\"");
+		expect(prompt).toContain('If grill_ask returns action: "status_request"');
 	});
 
 	test("includes fallback docs-aware instructions when no skill block is available", () => {
 		const prompt = buildGrillWithDocsUiPrompt(undefined, "Fallback docs target");
 
-		expect(prompt).toContain("fallback=\"true\"");
+		expect(prompt).toContain('fallback="true"');
 		expect(prompt).toContain("portable grilling plus domain-modeling");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("docs-first preflight");
@@ -231,7 +237,9 @@ describe("/pi:grill-me command", () => {
 			await command.handler("Target design", commandContext({ cwd: dir, hasUI: false }));
 
 			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`);
+			expect(pi.sentUserMessages[0]).toContain(
+				`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`,
+			);
 			expect(pi.sentUserMessages[0]).toContain("Backend skill body from test.");
 			expect(pi.sentUserMessages[0]).toContain("Target design");
 		} finally {
@@ -261,7 +269,9 @@ describe("/pi:grill-me command", () => {
 		);
 
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(notifications).toEqual([{ message: "No plan/design provided for /pi:grill-me.", level: "warning" }]);
+		expect(notifications).toEqual([
+			{ message: "No plan/design provided for /pi:grill-me.", level: "warning" },
+		]);
 	});
 });
 
@@ -298,7 +308,9 @@ describe("/pi:grill-with-docs command", () => {
 			await docsCommand.handler("Target docs design", commandContext({ cwd: dir, hasUI: false }));
 
 			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain(`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`);
+			expect(pi.sentUserMessages[0]).toContain(
+				`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`,
+			);
 			expect(pi.sentUserMessages[0]).toContain("Docs-aware backend skill body from test.");
 			expect(pi.sentUserMessages[0]).toContain("Target docs design");
 		} finally {
@@ -336,7 +348,9 @@ describe("/pi:grill-with-docs command", () => {
 		);
 
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(notifications).toEqual([{ message: "No plan/design provided for /pi:grill-with-docs.", level: "warning" }]);
+		expect(notifications).toEqual([
+			{ message: "No plan/design provided for /pi:grill-with-docs.", level: "warning" },
+		]);
 	});
 });
 
@@ -420,7 +434,9 @@ describe("grill_ask validation", () => {
 		);
 
 		expect(invalid.details).toMatchObject({ action: "invalid_tool_input" });
-		expect(text(invalid)).toContain("estimatedRemaining.min must be less than or equal to estimatedRemaining.max");
+		expect(text(invalid)).toContain(
+			"estimatedRemaining.min must be less than or equal to estimatedRemaining.max",
+		);
 	});
 });
 
@@ -428,7 +444,10 @@ describe("grill_ask execution", () => {
 	test("non-UI path returns action ui_unavailable", async () => {
 		const result = await executeGrillAsk(baseInput(), nonUiContext());
 
-		expect(result.details).toEqual({ action: "ui_unavailable", question: "How should we ship this UI improvement?" });
+		expect(result.details).toEqual({
+			action: "ui_unavailable",
+			question: "How should we ship this UI improvement?",
+		});
 		expect(text(result)).toContain("Structured grill question UI is unavailable");
 		expect(text(result)).toContain("numbered choices");
 	});
@@ -459,7 +478,9 @@ describe("grill_ask execution", () => {
 			},
 		);
 
-		expect(titles[0]).toContain("Question 3 • Answered 2 • Remaining 2 (basis: API and tests remain)");
+		expect(titles[0]).toContain(
+			"Question 3 • Answered 2 • Remaining 2 (basis: API and tests remain)",
+		);
 		expect(titles[0]).toContain("How should we ship this UI improvement?");
 		expect(titles[0]).toContain("Recommended answer");
 		expect(result.details).toEqual({
@@ -471,15 +492,20 @@ describe("grill_ask execution", () => {
 			description: "Improve only the question UI while keeping the skill workflow.",
 			recommended: true,
 		});
-		expect(text(result)).toContain("User selected option `focused-extension`: Ship a focused extension");
+		expect(text(result)).toContain(
+			"User selected option `focused-extension`: Ship a focused extension",
+		);
 		expect(text(result)).toContain("Recommended option selected: true");
 	});
 
 	test("custom inline UI is preferred over legacy select/editor and returns a choice answer", async () => {
 		const uiRunner: GrillAskUiRunner = async (input) => {
 			expect(input.allowFreeform).toBe(true);
-			const choice = buildGrillAskRows(input).find((row) => row.kind === "choice" && row.option.value === "generic-questionnaire");
-			if (choice === undefined || choice.kind !== "choice") throw new Error("expected generic-questionnaire choice");
+			const choice = buildGrillAskRows(input).find(
+				(row) => row.kind === "choice" && row.option.value === "generic-questionnaire",
+			);
+			if (choice === undefined || choice.kind !== "choice")
+				throw new Error("expected generic-questionnaire choice");
 			return { action: "choice", entry: choice };
 		};
 
@@ -557,7 +583,9 @@ describe("grill_ask execution", () => {
 			estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two UI surfaces plus tests" },
 		});
 		expect(text(result)).toContain("This is not an answer");
-		expect(text(result)).toContain("Remaining estimate: Remaining 2–4 (rough: two UI surfaces plus tests)");
+		expect(text(result)).toContain(
+			"Remaining estimate: Remaining 2–4 (rough: two UI surfaces plus tests)",
+		);
 		expect(text(result)).toContain("call grill_ask again with the same pending question");
 		expect(result.terminate).toBeUndefined();
 	});
@@ -576,7 +604,10 @@ describe("grill_ask execution", () => {
 			{ uiRunner: async () => ({ action: "cancelled" }) },
 		);
 
-		expect(result.details).toEqual({ action: "cancelled", question: "How should we ship this UI improvement?" });
+		expect(result.details).toEqual({
+			action: "cancelled",
+			question: "How should we ship this UI improvement?",
+		});
 		expect(text(result)).toContain("Do not silently continue grilling");
 	});
 
@@ -632,7 +663,8 @@ describe("grill_ask execution", () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
-				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				select: async (_title, options) =>
+					options.find((option) => option.includes("Show current grill status")),
 				editor: async () => "unused",
 			},
 		});
@@ -652,7 +684,8 @@ describe("grill_ask execution", () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
-				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				select: async (_title, options) =>
+					options.find((option) => option.includes("Show current grill status")),
 				editor: async () => "unused",
 			},
 			sessionManager: {
@@ -682,7 +715,8 @@ describe("grill_ask execution", () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
-				select: async (_title, options) => options.find((option) => option.includes("Show current grill status")),
+				select: async (_title, options) =>
+					options.find((option) => option.includes("Show current grill status")),
 				editor: async () => "unused",
 			},
 			sessionManager: {
@@ -707,12 +741,16 @@ describe("grill_ask execution", () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
-				select: async (_title, options) => options.find((option) => option.includes("End grilling")),
+				select: async (_title, options) =>
+					options.find((option) => option.includes("End grilling")),
 				editor: async () => "unused",
 			},
 		});
 
-		expect(result.details).toEqual({ action: "end_grill", question: "How should we ship this UI improvement?" });
+		expect(result.details).toEqual({
+			action: "end_grill",
+			question: "How should we ship this UI improvement?",
+		});
 		expect(text(result)).toContain("Stop asking questions");
 		expect(text(result)).toContain("summarize resolved decisions");
 		expect(result.terminate).toBeUndefined();
@@ -727,7 +765,10 @@ describe("grill_ask execution", () => {
 			},
 		});
 
-		expect(result.details).toEqual({ action: "cancelled", question: "How should we ship this UI improvement?" });
+		expect(result.details).toEqual({
+			action: "cancelled",
+			question: "How should we ship this UI improvement?",
+		});
 		expect(text(result)).toContain("Do not silently continue grilling");
 	});
 });
@@ -735,17 +776,34 @@ describe("grill_ask execution", () => {
 describe("registerGrillUiExtension", () => {
 	test("registers plain and docs-aware grill commands and one grill_ask tool", () => {
 		const { pi, tool } = register();
-		const schema = tool.parameters as { type?: string; required?: string[]; additionalProperties?: boolean };
+		const schema = tool.parameters as {
+			type?: string;
+			required?: string[];
+			additionalProperties?: boolean;
+		};
 
-		expect([...pi.commands.keys()]).toEqual([GRILL_UI_COMMAND_NAME, GRILL_WITH_DOCS_UI_COMMAND_NAME]);
+		expect([...pi.commands.keys()]).toEqual([
+			GRILL_UI_COMMAND_NAME,
+			GRILL_WITH_DOCS_UI_COMMAND_NAME,
+		]);
 		expect([...pi.tools.keys()]).toEqual([GRILL_ASK_TOOL_NAME]);
 		expect(schema.type).toBe("object");
 		expect(schema.required).toEqual(["question", "recommended", "options"]);
 		expect(schema.additionalProperties).toBe(false);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME))).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("estimatedRemaining"))).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("validation-scope"))).toBe(true);
-		expect((schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining).toBeDefined();
+		expect(
+			tool.promptGuidelines?.some((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME)),
+		).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(
+			true,
+		);
+		expect(
+			tool.promptGuidelines?.some((guideline) => guideline.includes("estimatedRemaining")),
+		).toBe(true);
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("validation-scope"))).toBe(
+			true,
+		);
+		expect(
+			(schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining,
+		).toBeDefined();
 	});
 });

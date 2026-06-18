@@ -25,7 +25,9 @@ export function estimateTokens(text: string): number {
 export function parseUnifiedDiff(diffText: string): readonly DiffFile[] {
 	if (diffText.trim() === "") return [];
 
-	return diffSegments(diffText).flatMap((rawSegment) => parsePierreDiffFiles(rawSegment).map((metadata) => diffFileFromPierre(metadata, rawSegment)));
+	return diffSegments(diffText).flatMap((rawSegment) =>
+		parsePierreDiffFiles(rawSegment).map((metadata) => diffFileFromPierre(metadata, rawSegment)),
+	);
 }
 
 function parsePierreDiffFiles(diffText: string): readonly FileDiffMetadata[] {
@@ -41,7 +43,8 @@ function diffFileFromPierre(metadata: FileDiffMetadata, rawText: string): DiffFi
 	const changeKind = changeKindFromPierre(metadata, rawText);
 	return {
 		path: metadata.name,
-		oldPath: changeKind === "renamed" || changeKind === "copied" ? (metadata.prevName ?? null) : null,
+		oldPath:
+			changeKind === "renamed" || changeKind === "copied" ? (metadata.prevName ?? null) : null,
 		changeKind,
 		rawText,
 		isBinary: isBinaryPatch(rawText),

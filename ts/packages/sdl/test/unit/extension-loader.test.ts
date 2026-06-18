@@ -60,9 +60,11 @@ export default defineExtension({
 
 		expect(loaded.ok).toBe(true);
 		if (!loaded.ok) return;
-		expect(validateSdlExtensionContribution(loaded.defaultExport, "greet", modulePath)).toMatchObject({
+		expect(
+			validateSdlExtensionContribution(loaded.defaultExport, "greet", modulePath),
+		).toMatchObject({
 			ok: false,
-			message: expect.stringContaining("expected a command entry named \"greet\" in commands[]"),
+			message: expect.stringContaining('expected a command entry named "greet" in commands[]'),
 		});
 	});
 

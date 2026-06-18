@@ -1,11 +1,22 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit, ClinkrGroup, type RenderCapabilities } from "@asdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	shellNegative,
+	type ClinkrExit,
+	ClinkrGroup,
+	type RenderCapabilities,
+} from "@asdl/clinkr";
 import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import { isPathStateError } from "./file-state.ts";
 import { inspectSkillKindProject } from "./project-inspection.ts";
-import { applyProjectMutationPlan, PROJECT_MUTATION_OPERATION_STATUSES } from "./project-mutations.ts";
+import {
+	applyProjectMutationPlan,
+	PROJECT_MUTATION_OPERATION_STATUSES,
+} from "./project-mutations.ts";
 import {
 	APPLY_OPERATION_TYPES,
 	APPLY_STATUS_OPERATION_TYPES,
@@ -80,20 +91,31 @@ const skillKindApplyOperationStatusSchema = z.object({
 
 const skillKindApplySkillResultSchema = z.object({
 	skill: z.string(),
-	operations: z.array(z.union([skillKindApplyOperationResultSchema, skillKindApplyOperationStatusSchema])),
+	operations: z.array(
+		z.union([skillKindApplyOperationResultSchema, skillKindApplyOperationStatusSchema]),
+	),
 });
 
 export const skillKindListRequestSchema = z.object({
-	path: z.string().default(".").describe("Project directory or subdirectory to inspect (default: current directory)."),
+	path: z
+		.string()
+		.default(".")
+		.describe("Project directory or subdirectory to inspect (default: current directory)."),
 });
 
 export const skillKindShowRequestSchema = z.object({
-	path: z.string().default(".").describe("Project directory or subdirectory to inspect (default: current directory)."),
+	path: z
+		.string()
+		.default(".")
+		.describe("Project directory or subdirectory to inspect (default: current directory)."),
 	skill: z.string().describe("Local skill name or path-like skill spec."),
 });
 
 export const skillKindApplyRequestSchema = z.object({
-	path: z.string().default(".").describe("Project directory or subdirectory to mutate (default: current directory)."),
+	path: z
+		.string()
+		.default(".")
+		.describe("Project directory or subdirectory to mutate (default: current directory)."),
 	dry_run: z.boolean().default(false).describe("Show planned edits without writing files."),
 	yes: z.boolean().default(false).describe("Approve deletion prompts for managed artifacts."),
 	kind: z.enum(SKILL_INVOCATION_KINDS).describe("Desired skill invocation kind."),
@@ -151,7 +173,8 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	});
 	skillGroup.command({
 		name: "apply",
-		description: "Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. It is not a historical undo system; use git to roll back exact previous file contents.",
+		description:
+			"Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. It is not a historical undo system; use git to roll back exact previous file contents.",
 		schema: skillKindApplyRequestSchema,
 		positionals: { kind: { position: 0 }, skills: { position: 1 } },
 		resultSchema: skillKindApplyResultSchema,
@@ -161,37 +184,72 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	return skillGroup;
 }
 
-export async function runSkillKindList(ctx: AregCliContext, request: SkillKindListRequest): Promise<ClinkrExit<SkillKindListResult>> {
+export async function runSkillKindList(
+	ctx: AregCliContext,
+	request: SkillKindListRequest,
+): Promise<ClinkrExit<SkillKindListResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return skillKindRecordsFailure(records.error, { project_dir: resolved.value.projectDir, skills: [] });
-	return ok({ project_dir: resolved.value.projectDir, skills: records.value.map(toSkillKindRecordResult) });
+	if (!records.ok)
+		return skillKindRecordsFailure(records.error, {
+			project_dir: resolved.value.projectDir,
+			skills: [],
+		});
+	return ok({
+		project_dir: resolved.value.projectDir,
+		skills: records.value.map(toSkillKindRecordResult),
+	});
 }
 
-export async function runSkillKindShow(ctx: AregCliContext, request: SkillKindShowRequest): Promise<ClinkrExit<SkillKindShowResult>> {
+export async function runSkillKindShow(
+	ctx: AregCliContext,
+	request: SkillKindShowRequest,
+): Promise<ClinkrExit<SkillKindShowResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
-	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir: resolved.value.projectDir, spec: request.skill, cwd: ctx.cwd, env: ctx.env });
-	if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
+	const resolvedSkill = await ctx.project.resolveLocalSkillSpec({
+		projectDir: resolved.value.projectDir,
+		spec: request.skill,
+		cwd: ctx.cwd,
+		env: ctx.env,
+	});
+	if (resolvedSkill.type === "error")
+		return failure("skill_resolution_failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
-	if (!records.ok) return skillKindRecordsFailure(records.error, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
+	if (!records.ok)
+		return skillKindRecordsFailure(
+			records.error,
+			emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
+		);
 	const record = records.value.find((candidate) => candidate.skill === resolvedSkill.skillName);
 	if (record === undefined) {
-		return negative(`Local skill not found: ${request.skill}`, emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName));
+		return negative(
+			`Local skill not found: ${request.skill}`,
+			emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
+		);
 	}
 	return ok({ project_dir: resolved.value.projectDir, skill: toSkillKindRecordResult(record) });
 }
 
-export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindApplyRequest): Promise<ClinkrExit<SkillKindApplyResult>> {
+export async function runSkillKindApply(
+	ctx: AregCliContext,
+	request: SkillKindApplyRequest,
+): Promise<ClinkrExit<SkillKindApplyResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
 	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
 	const projectDir = resolved.value.projectDir;
 	const plans: SkillKindApplyPlan[] = [];
 	let planningInspection = resolved.value.inspection;
 	for (const spec of request.skills) {
-		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({ projectDir, spec, cwd: ctx.cwd, env: ctx.env });
-		if (resolvedSkill.type === "error") return failure("skill_resolution_failed", resolvedSkill.error.message);
+		const resolvedSkill = await ctx.project.resolveLocalSkillSpec({
+			projectDir,
+			spec,
+			cwd: ctx.cwd,
+			env: ctx.env,
+		});
+		if (resolvedSkill.type === "error")
+			return failure("skill_resolution_failed", resolvedSkill.error.message);
 		const plan = buildSkillKindApplyPlan(planningInspection, resolvedSkill.skillName, request.kind);
 		if (!plan.ok) return failure("skill_plan_failed", plan.error.message);
 		plans.push(plan.value);
@@ -202,14 +260,26 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 			project_dir: projectDir,
 			kind: request.kind,
 			dry_run: request.dry_run,
-			skills: plans.map((plan) => ({ skill: plan.skill, operations: plan.operations.map((operation) => toApplyResult(operation, false, false)) })),
+			skills: plans.map((plan) => ({
+				skill: plan.skill,
+				operations: plan.operations.map((operation) => toApplyResult(operation, false, false)),
+			})),
 		});
 	}
 	if (!request.yes) {
 		for (const plan of plans) {
 			if (!hasDeletionPrompt(plan)) continue;
-			const confirmed = await ctx.prompt.confirm({ message: deletionPrompt(plan), defaultValue: false });
-			if (!confirmed) return negative(`Declined to apply ${request.kind} to ${plan.skill}.`, { project_dir: projectDir, kind: request.kind, dry_run: request.dry_run, skills: [] });
+			const confirmed = await ctx.prompt.confirm({
+				message: deletionPrompt(plan),
+				defaultValue: false,
+			});
+			if (!confirmed)
+				return negative(`Declined to apply ${request.kind} to ${plan.skill}.`, {
+					project_dir: projectDir,
+					kind: request.kind,
+					dry_run: request.dry_run,
+					skills: [],
+				});
 		}
 	}
 	const applyResult = await applyProjectMutationPlan({
@@ -227,7 +297,10 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 			dry_run: false,
 			mutation_failed: true,
 			operations: [...applyResult.operationStatuses],
-			skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({ skill: skill.skill, operations: [...skill.operations] })),
+			skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
+				skill: skill.skill,
+				operations: [...skill.operations],
+			})),
 		});
 	}
 	return ok({
@@ -236,17 +309,29 @@ export async function runSkillKindApply(ctx: AregCliContext, request: SkillKindA
 		dry_run: request.dry_run,
 		skills: plans.map((plan) => ({
 			skill: plan.skill,
-			operations: plan.operations.map((operation) => toApplyResult(operation, true, applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath))),
+			operations: plan.operations.map((operation) =>
+				toApplyResult(
+					operation,
+					true,
+					applyResult.removedEmptyDirRelativePaths.includes(operation.relativePath),
+				),
+			),
 		})),
 	});
 }
 
-function skillKindRecordsFailure<T>(error: { code: string; message: string }, shellNegativeData: T): ClinkrExit<T> {
+function skillKindRecordsFailure<T>(
+	error: { code: string; message: string },
+	shellNegativeData: T,
+): ClinkrExit<T> {
 	if (isPathStateError(error)) return shellNegative(error.message, shellNegativeData);
 	return failure("skill_records_invalid", error.message);
 }
 
-export function renderSkillKindList(result: SkillKindListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
+export function renderSkillKindList(
+	result: SkillKindListResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	if (result.skills.length === 0) return "No local skills found.";
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
 	const columns: TextTableColumn[] = [
@@ -260,7 +345,13 @@ export function renderSkillKindList(result: SkillKindListResult, caps: RenderCap
 	return renderTextTable({
 		columns,
 		rows: result.skills.map((record) => {
-			const base = [record.skill, record.kind, record.model_invocation, record.native_direct, record.pi_extension];
+			const base = [
+				record.skill,
+				record.kind,
+				record.model_invocation,
+				record.native_direct,
+				record.pi_extension,
+			];
 			if (includeNotes) base.push(record.notes.join("; "));
 			return base;
 		}),
@@ -304,14 +395,44 @@ export function renderSkillKindApply(result: SkillKindApplyResult): string {
 	return lines.join("\n");
 }
 
-async function inspectResolvedProject(ctx: AregCliContext, requestPath: string): Promise<{ type: "ok"; value: ResolvedProjectInspection } | { type: "error"; message: string; projectDir: string }> {
+async function inspectResolvedProject(
+	ctx: AregCliContext,
+	requestPath: string,
+): Promise<
+	| { type: "ok"; value: ResolvedProjectInspection }
+	| { type: "error"; message: string; projectDir: string }
+> {
 	const targetInspection = await inspectSkillKindProject(ctx, requestPath);
-	if (targetInspection.projectPathState.type === "missing") return { type: "error", message: `Target ${targetInspection.projectDir} does not exist.`, projectDir: targetInspection.projectDir };
-	if (targetInspection.projectPathState.type !== "directory") return { type: "error", message: `${targetInspection.projectDir} is not a directory.`, projectDir: targetInspection.projectDir };
+	if (targetInspection.projectPathState.type === "missing")
+		return {
+			type: "error",
+			message: `Target ${targetInspection.projectDir} does not exist.`,
+			projectDir: targetInspection.projectDir,
+		};
+	if (targetInspection.projectPathState.type !== "directory")
+		return {
+			type: "error",
+			message: `${targetInspection.projectDir} is not a directory.`,
+			projectDir: targetInspection.projectDir,
+		};
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
-	if (repoRoot.type === "error") return { type: "error", message: repoRoot.error.message, projectDir: targetInspection.projectDir };
-	if (repoRoot.type === "missing") return { type: "error", message: `No Git root found containing ${targetInspection.projectDir}.`, projectDir: targetInspection.projectDir };
-	if (repoRoot.value === targetInspection.projectDir) return { type: "ok", value: { projectDir: targetInspection.projectDir, inspection: targetInspection } };
+	if (repoRoot.type === "error")
+		return {
+			type: "error",
+			message: repoRoot.error.message,
+			projectDir: targetInspection.projectDir,
+		};
+	if (repoRoot.type === "missing")
+		return {
+			type: "error",
+			message: `No Git root found containing ${targetInspection.projectDir}.`,
+			projectDir: targetInspection.projectDir,
+		};
+	if (repoRoot.value === targetInspection.projectDir)
+		return {
+			type: "ok",
+			value: { projectDir: targetInspection.projectDir, inspection: targetInspection },
+		};
 	const rootInspection = await inspectSkillKindProject(ctx, repoRoot.value);
 	return { type: "ok", value: { projectDir: repoRoot.value, inspection: rootInspection } };
 }
@@ -341,7 +462,10 @@ function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult
 	};
 }
 
-function renderApplyOperation(operation: SkillKindApplyResult["skills"][number]["operations"][number], dryRun: boolean): string | undefined {
+function renderApplyOperation(
+	operation: SkillKindApplyResult["skills"][number]["operations"][number],
+	dryRun: boolean,
+): string | undefined {
 	if (!("isApplied" in operation)) return undefined;
 	switch (operation.type) {
 		case "write":

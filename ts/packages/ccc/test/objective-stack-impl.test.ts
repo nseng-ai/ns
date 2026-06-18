@@ -122,8 +122,12 @@ describe("objective stack impl CCC orchestration", () => {
 		expect(result.selections).toEqual([]);
 		expect(result.waitForIdleCalls()).toBe(1);
 		expect(result.host.sentUserMessages).toHaveLength(1);
-		expect(result.host.sentUserMessages[0]).toContain(`<skill name="objective-stack-impl" location="${stackSkillPath}">`);
-		expect(result.host.sentUserMessages[0]).toContain("# Test Objective Stack Skill\n\nUse the selected Objective.");
+		expect(result.host.sentUserMessages[0]).toContain(
+			`<skill name="objective-stack-impl" location="${stackSkillPath}">`,
+		);
+		expect(result.host.sentUserMessages[0]).toContain(
+			"# Test Objective Stack Skill\n\nUse the selected Objective.",
+		);
 		expect(result.host.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
 		expect(result.host.sentUserMessages[0]).toContain(
 			"Run objective-stack-impl for this explicitly selected Objective slug or path:",
@@ -141,7 +145,9 @@ describe("objective stack impl CCC orchestration", () => {
 
 		result.host.assertDone();
 		expect(result.host.execCalls).toEqual([]);
-		expect(result.host.sentUserMessages[0]).toContain("The objective-stack-impl skill was not found among loaded Pi skills.");
+		expect(result.host.sentUserMessages[0]).toContain(
+			"The objective-stack-impl skill was not found among loaded Pi skills.",
+		);
 		expect(result.host.sentUserMessages[0]).toContain("```text\nbravo\n```");
 		expect(result.notifications).toContainEqual({
 			message: "objective-stack-impl skill was not found; using fallback prompt.",
@@ -185,7 +191,8 @@ describe("objective stack impl CCC orchestration", () => {
 
 		result.host.assertDone();
 		expect(result.selections[0]).toEqual({
-			title: "Select an active Objective for stack implementation (only Objective changed vs master)",
+			title:
+				"Select an active Objective for stack implementation (only Objective changed vs master)",
 			items: [
 				"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
 				"View other active Objectives…",
@@ -225,7 +232,9 @@ describe("objective stack impl CCC orchestration", () => {
 		});
 
 		result.host.assertDone();
-		expect(result.notifications).toEqual([{ message: "Objective selection cancelled.", level: "info" }]);
+		expect(result.notifications).toEqual([
+			{ message: "Objective selection cancelled.", level: "info" },
+		]);
 		expect(result.host.sentUserMessages).toEqual([]);
 	});
 

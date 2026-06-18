@@ -54,7 +54,7 @@ function formatIssue(issue: CheckpointMessageIssue): string {
 		case "missing_blank_line":
 			return "- missing_blank_line: subject must be followed by exactly one blank separator line";
 		case "missing_cp_prefix":
-			return `- missing_cp_prefix: subject must start with \"[cp] \"; found ${JSON.stringify(issue.subject)}`;
+			return `- missing_cp_prefix: subject must start with "[cp] "; found ${JSON.stringify(issue.subject)}`;
 		case "subject_too_long":
 			return `- subject_too_long: length ${issue.length}, max ${issue.maxLength}: ${JSON.stringify(issue.subject)}`;
 		case "subject_trailing_period":
@@ -64,7 +64,7 @@ function formatIssue(issue: CheckpointMessageIssue): string {
 		case "too_many_bullets":
 			return `- too_many_bullets: found ${issue.count}, max ${issue.maxCount}`;
 		case "invalid_bullet_prefix":
-			return `- invalid_bullet_prefix: line ${issue.lineNumber} must start with \"- \"; found ${JSON.stringify(issue.line)}`;
+			return `- invalid_bullet_prefix: line ${issue.lineNumber} must start with "- "; found ${JSON.stringify(issue.line)}`;
 		case "extra_prose":
 			return `- extra_prose: line ${issue.lineNumber} is outside the checkpoint message structure: ${JSON.stringify(issue.line)}`;
 		case "code_fence":
@@ -103,7 +103,12 @@ function collectCheckpointIssues(normalizedText: string): CheckpointMessageIssue
 			issues.push({ code: "missing_cp_prefix", subject });
 		}
 		if (subject.length > CHECKPOINT_SUBJECT_MAX_LENGTH) {
-			issues.push({ code: "subject_too_long", length: subject.length, maxLength: CHECKPOINT_SUBJECT_MAX_LENGTH, subject });
+			issues.push({
+				code: "subject_too_long",
+				length: subject.length,
+				maxLength: CHECKPOINT_SUBJECT_MAX_LENGTH,
+				subject,
+			});
 		}
 		if (subject.endsWith(".")) {
 			issues.push({ code: "subject_trailing_period", subject });

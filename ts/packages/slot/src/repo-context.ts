@@ -22,14 +22,26 @@ export interface NoRepoSentinel {
 
 export type RepoDiscoveryResult = RepoContext | NoRepoSentinel;
 
-export async function discoverRepoOrSentinel(options: { cwd: string; slotsRoot: string; git: SlotGitGateway }): Promise<RepoDiscoveryResult> {
+export async function discoverRepoOrSentinel(options: {
+	cwd: string;
+	slotsRoot: string;
+	git: SlotGitGateway;
+}): Promise<RepoDiscoveryResult> {
 	const cwd = resolve(options.cwd);
 	if (!(await options.git.pathExists(cwd))) {
-		return { type: "no_repo", errorType: "missing_start_path", message: `Start path '${cwd}' does not exist` };
+		return {
+			type: "no_repo",
+			errorType: "missing_start_path",
+			message: `Start path '${cwd}' does not exist`,
+		};
 	}
 	const gitCommonDir = await options.git.getGitCommonDir(cwd);
 	if (gitCommonDir === null) {
-		return { type: "no_repo", errorType: "not_in_repo", message: "Not inside a git repository (no .git found up the tree)" };
+		return {
+			type: "no_repo",
+			errorType: "not_in_repo",
+			message: "Not inside a git repository (no .git found up the tree)",
+		};
 	}
 	const mainRepoRoot = resolve(mainRepoRootFromGitCommonDir(gitCommonDir));
 	const root = resolve(await options.git.getRepositoryRoot(cwd));
@@ -39,7 +51,10 @@ export async function discoverRepoOrSentinel(options: { cwd: string; slotsRoot: 
 	return { type: "repo", root, mainRepoRoot, repoName, repoDir, worktreesDir };
 }
 
-export async function ensureSlotsMetadataDir(repo: RepoContext, storage: SlotStorageGateway): Promise<void> {
+export async function ensureSlotsMetadataDir(
+	repo: RepoContext,
+	storage: SlotStorageGateway,
+): Promise<void> {
 	await storage.ensureDir(repo.repoDir);
 	await storage.ensureDir(repo.worktreesDir);
 }

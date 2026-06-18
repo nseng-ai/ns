@@ -3,11 +3,19 @@ import { basename, extname, join, relative, resolve } from "node:path";
 
 import { isPathInside, isRecord } from "@asdl/core/primitives";
 
-import { SDL_COMMAND_NAME_PATTERN, SDL_COMMAND_NAME_RULE, formatUnknownError, type SdlCommandCandidate } from "./command-registry.ts";
+import {
+	SDL_COMMAND_NAME_PATTERN,
+	SDL_COMMAND_NAME_RULE,
+	formatUnknownError,
+	type SdlCommandCandidate,
+} from "./command-registry.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
-export interface DiscoveredExtensionCommand extends Pick<SdlCommandCandidate, "name" | "description" | "fullDescription" | "entryPath"> {
+export interface DiscoveredExtensionCommand extends Pick<
+	SdlCommandCandidate,
+	"name" | "description" | "fullDescription" | "entryPath"
+> {
 	entryPath: string;
 	displayPath: string;
 	kind: DiscoveredExtensionCommandKind;
@@ -41,10 +49,30 @@ interface ManifestCommandFieldSpec {
 }
 
 const MANIFEST_COMMAND_FIELDS = [
-	{ key: "name", diagnosticField: "name", code: "extension_manifest_command_name_missing", required: true },
-	{ key: "description", diagnosticField: "description", code: "extension_manifest_command_description_missing", required: true },
-	{ key: "entry", diagnosticField: "entry", code: "extension_manifest_command_entry_missing", required: true },
-	{ key: "fullDescription", diagnosticField: "fullDescription", code: "extension_manifest_command_full_description_invalid", required: false },
+	{
+		key: "name",
+		diagnosticField: "name",
+		code: "extension_manifest_command_name_missing",
+		required: true,
+	},
+	{
+		key: "description",
+		diagnosticField: "description",
+		code: "extension_manifest_command_description_missing",
+		required: true,
+	},
+	{
+		key: "entry",
+		diagnosticField: "entry",
+		code: "extension_manifest_command_entry_missing",
+		required: true,
+	},
+	{
+		key: "fullDescription",
+		diagnosticField: "fullDescription",
+		code: "extension_manifest_command_full_description_invalid",
+		required: false,
+	},
 ] as const satisfies readonly ManifestCommandFieldSpec[];
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
@@ -54,17 +82,44 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 	try {
 		rootStat = statSync(rootDir);
 	} catch (error) {
-		return { commands: [], diagnostics: [diagnostic("extension_root_stat_failed", `Could not inspect extension root ${rootDir}.\n${formatUnknownError(error)}`, { path: rootDir })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_root_stat_failed",
+					`Could not inspect extension root ${rootDir}.\n${formatUnknownError(error)}`,
+					{ path: rootDir },
+				),
+			],
+		};
 	}
 	if (!rootStat.isDirectory()) {
-		return { commands: [], diagnostics: [diagnostic("extension_root_not_directory", `Extension root must be a directory: ${rootDir}.`, { path: rootDir })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_root_not_directory",
+					`Extension root must be a directory: ${rootDir}.`,
+					{ path: rootDir },
+				),
+			],
+		};
 	}
 
 	let entries;
 	try {
 		entries = readdirSync(rootDir, { withFileTypes: true });
 	} catch (error) {
-		return { commands: [], diagnostics: [diagnostic("extension_root_read_failed", `Could not read extension root ${rootDir}.\n${formatUnknownError(error)}`, { path: rootDir })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_root_read_failed",
+					`Could not read extension root ${rootDir}.\n${formatUnknownError(error)}`,
+					{ path: rootDir },
+				),
+			],
+		};
 	}
 
 	const commands: DiscoveredExtensionCommand[] = [];
@@ -73,7 +128,12 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 		const entryPath = join(rootDir, entry.name);
 		if (entry.isFile()) {
 			if (isLoadableExtensionFile(entry.name)) {
-				const command = commandForDirectEntry({ kind: "file", name: basename(entry.name, extname(entry.name)), entryPath, rootDir });
+				const command = commandForDirectEntry({
+					kind: "file",
+					name: basename(entry.name, extname(entry.name)),
+					entryPath,
+					rootDir,
+				});
 				if (command.ok) commands.push(command.command);
 				else diagnostics.push(command.diagnostic);
 			}
@@ -92,18 +152,34 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 		const indexTs = join(entryPath, "index.ts");
 		const indexJs = join(entryPath, "index.js");
 		if (existsSync(indexTs)) {
-			const command = commandForDirectEntry({ kind: "dir-index", name: entry.name, entryPath: indexTs, rootDir });
+			const command = commandForDirectEntry({
+				kind: "dir-index",
+				name: entry.name,
+				entryPath: indexTs,
+				rootDir,
+			});
 			if (command.ok) commands.push(command.command);
 			else diagnostics.push(command.diagnostic);
 			continue;
 		}
 		if (existsSync(indexJs)) {
-			const command = commandForDirectEntry({ kind: "dir-index", name: entry.name, entryPath: indexJs, rootDir });
+			const command = commandForDirectEntry({
+				kind: "dir-index",
+				name: entry.name,
+				entryPath: indexJs,
+				rootDir,
+			});
 			if (command.ok) commands.push(command.command);
 			else diagnostics.push(command.diagnostic);
 			continue;
 		}
-		diagnostics.push(diagnostic("extension_directory_missing_entry", `Extension directory must contain package.json, index.ts, or index.js: ${entryPath}.`, { path: entryPath, commandName: entry.name }));
+		diagnostics.push(
+			diagnostic(
+				"extension_directory_missing_entry",
+				`Extension directory must contain package.json, index.ts, or index.js: ${entryPath}.`,
+				{ path: entryPath, commandName: entry.name },
+			),
+		);
 	}
 
 	return {
@@ -112,20 +188,51 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 	};
 }
 
-function discoverPackageCommands(rootDir: string, packageDir: string, packageJsonPath: string): ExtensionDiscoveryResult {
+function discoverPackageCommands(
+	rootDir: string,
+	packageDir: string,
+	packageJsonPath: string,
+): ExtensionDiscoveryResult {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 	} catch (error) {
-		return { commands: [], diagnostics: [diagnostic("extension_manifest_parse_failed", `Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`, { path: packageJsonPath })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_parse_failed",
+					`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+					{ path: packageJsonPath },
+				),
+			],
+		};
 	}
 
 	if (!isRecord(parsed) || !isRecord(parsed.asdl)) {
-		return { commands: [], diagnostics: [diagnostic("extension_manifest_missing_asdl", `Extension manifest must contain an asdl object: ${packageJsonPath}.`, { path: packageJsonPath })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_missing_asdl",
+					`Extension manifest must contain an asdl object: ${packageJsonPath}.`,
+					{ path: packageJsonPath },
+				),
+			],
+		};
 	}
 	const entries = parsed.asdl.commands;
 	if (!Array.isArray(entries)) {
-		return { commands: [], diagnostics: [diagnostic("extension_manifest_commands_not_array", `Extension manifest asdl.commands must be an array: ${packageJsonPath}.`, { path: packageJsonPath })] };
+		return {
+			commands: [],
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_commands_not_array",
+					`Extension manifest asdl.commands must be an array: ${packageJsonPath}.`,
+					{ path: packageJsonPath },
+				),
+			],
+		};
 	}
 
 	const commands: DiscoveredExtensionCommand[] = [];
@@ -146,7 +253,9 @@ function commandForDirectEntry(options: {
 	name: string;
 	entryPath: string;
 	rootDir: string;
-}): { ok: true; command: DiscoveredExtensionCommand } | { ok: false; diagnostic: ExtensionDiscoveryDiagnostic } {
+}):
+	| { ok: true; command: DiscoveredExtensionCommand }
+	| { ok: false; diagnostic: ExtensionDiscoveryDiagnostic } {
 	if (!SDL_COMMAND_NAME_PATTERN.test(options.name)) {
 		return {
 			ok: false,
@@ -165,16 +274,39 @@ function commandForManifestEntry(options: {
 	packageDir: string;
 	packageJsonPath: string;
 	entry: unknown;
-}): { ok: true; command: DiscoveredExtensionCommand } | { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
+}):
+	| { ok: true; command: DiscoveredExtensionCommand }
+	| { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
 	if (!isRecord(options.entry)) {
-		return { ok: false, diagnostics: [diagnostic("extension_manifest_command_invalid", `Extension manifest commands must be objects: ${options.packageJsonPath}.`, { path: options.packageJsonPath })] };
+		return {
+			ok: false,
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_command_invalid",
+					`Extension manifest commands must be objects: ${options.packageJsonPath}.`,
+					{ path: options.packageJsonPath },
+				),
+			],
+		};
 	}
-	const parsedEntry = parseManifestCommandEntry({ entry: options.entry, packageJsonPath: options.packageJsonPath });
+	const parsedEntry = parseManifestCommandEntry({
+		entry: options.entry,
+		packageJsonPath: options.packageJsonPath,
+	});
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [...parsedEntry.diagnostics];
 	const commandName = parsedEntry.commandName;
 
-	if (parsedEntry.entry.name !== undefined && !SDL_COMMAND_NAME_PATTERN.test(parsedEntry.entry.name)) {
-		diagnostics.push(diagnostic("extension_manifest_command_name_invalid", `Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`, { path: options.packageJsonPath, commandName }));
+	if (
+		parsedEntry.entry.name !== undefined &&
+		!SDL_COMMAND_NAME_PATTERN.test(parsedEntry.entry.name)
+	) {
+		diagnostics.push(
+			diagnostic(
+				"extension_manifest_command_name_invalid",
+				`Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`,
+				{ path: options.packageJsonPath, commandName },
+			),
+		);
 	}
 
 	let entryPath: string | undefined;
@@ -221,15 +353,21 @@ function validateManifestEntryPath(options: {
 	packageJsonPath: string;
 	rawEntryPath: string;
 	commandName: string | undefined;
-}): { ok: true; entryPath: string } | { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
+}):
+	| { ok: true; entryPath: string }
+	| { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
 	if (options.rawEntryPath.startsWith("/") || options.rawEntryPath.includes("\\")) {
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("extension_manifest_entry_not_relative", `Extension manifest command entry must be a relative POSIX-style path inside the package: ${options.rawEntryPath}.`, {
-					path: options.packageJsonPath,
-					commandName: options.commandName,
-				}),
+				diagnostic(
+					"extension_manifest_entry_not_relative",
+					`Extension manifest command entry must be a relative POSIX-style path inside the package: ${options.rawEntryPath}.`,
+					{
+						path: options.packageJsonPath,
+						commandName: options.commandName,
+					},
+				),
 			],
 		};
 	}
@@ -239,10 +377,14 @@ function validateManifestEntryPath(options: {
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("extension_manifest_entry_escapes", `Extension manifest command entry must not escape its package directory: ${options.rawEntryPath}.`, {
-					path: options.packageJsonPath,
-					commandName: options.commandName,
-				}),
+				diagnostic(
+					"extension_manifest_entry_escapes",
+					`Extension manifest command entry must not escape its package directory: ${options.rawEntryPath}.`,
+					{
+						path: options.packageJsonPath,
+						commandName: options.commandName,
+					},
+				),
 			],
 		};
 	}
@@ -250,10 +392,14 @@ function validateManifestEntryPath(options: {
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("extension_manifest_entry_unsupported", `Extension manifest command entry must be a .ts or .js file, excluding .d.ts: ${options.rawEntryPath}.`, {
-					path: options.packageJsonPath,
-					commandName: options.commandName,
-				}),
+				diagnostic(
+					"extension_manifest_entry_unsupported",
+					`Extension manifest command entry must be a .ts or .js file, excluding .d.ts: ${options.rawEntryPath}.`,
+					{
+						path: options.packageJsonPath,
+						commandName: options.commandName,
+					},
+				),
 			],
 		};
 	}
@@ -265,10 +411,14 @@ function validateManifestEntryPath(options: {
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("extension_manifest_entry_missing", `Extension manifest command entry does not exist: ${options.rawEntryPath}.`, {
-					path: options.packageJsonPath,
-					commandName: options.commandName,
-				}),
+				diagnostic(
+					"extension_manifest_entry_missing",
+					`Extension manifest command entry does not exist: ${options.rawEntryPath}.`,
+					{
+						path: options.packageJsonPath,
+						commandName: options.commandName,
+					},
+				),
 			],
 		};
 	}
@@ -276,10 +426,14 @@ function validateManifestEntryPath(options: {
 		return {
 			ok: false,
 			diagnostics: [
-				diagnostic("extension_manifest_entry_not_file", `Extension manifest command entry must be a file: ${options.rawEntryPath}.`, {
-					path: options.packageJsonPath,
-					commandName: options.commandName,
-				}),
+				diagnostic(
+					"extension_manifest_entry_not_file",
+					`Extension manifest command entry must be a file: ${options.rawEntryPath}.`,
+					{
+						path: options.packageJsonPath,
+						commandName: options.commandName,
+					},
+				),
 			],
 		};
 	}
@@ -289,7 +443,11 @@ function validateManifestEntryPath(options: {
 function parseManifestCommandEntry(options: {
 	entry: Record<string, unknown>;
 	packageJsonPath: string;
-}): { entry: ParsedManifestCommandEntryFields; diagnostics: readonly ExtensionDiscoveryDiagnostic[]; commandName: string | undefined } {
+}): {
+	entry: ParsedManifestCommandEntryFields;
+	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
+	commandName: string | undefined;
+} {
 	const commandName = readNonEmptyString(options.entry.name);
 	const fields: ParsedManifestCommandEntryFields = {
 		name: undefined,
@@ -309,10 +467,14 @@ function parseManifestCommandEntry(options: {
 			continue;
 		}
 		diagnostics.push(
-			diagnostic(field.code, `Extension manifest command ${field.diagnosticField} must be a non-empty string: ${options.packageJsonPath}.`, {
-				path: options.packageJsonPath,
-				commandName,
-			}),
+			diagnostic(
+				field.code,
+				`Extension manifest command ${field.diagnosticField} must be a non-empty string: ${options.packageJsonPath}.`,
+				{
+					path: options.packageJsonPath,
+					commandName,
+				},
+			),
 		);
 	}
 
@@ -354,7 +516,16 @@ function relativeDisplayPath(rootDir: string, entryPath: string): string {
 	return join(basename(rootDir), relative(rootDir, entryPath));
 }
 
-function diagnostic(code: string, message: string, options: { path?: string | undefined; commandName?: string | undefined } = {}): ExtensionDiscoveryDiagnostic {
-	return { severity: "error", code, message, ...(options.path === undefined ? {} : { path: options.path }), ...(options.commandName === undefined ? {} : { commandName: options.commandName }) };
+function diagnostic(
+	code: string,
+	message: string,
+	options: { path?: string | undefined; commandName?: string | undefined } = {},
+): ExtensionDiscoveryDiagnostic {
+	return {
+		severity: "error",
+		code,
+		message,
+		...(options.path === undefined ? {} : { path: options.path }),
+		...(options.commandName === undefined ? {} : { commandName: options.commandName }),
+	};
 }
-

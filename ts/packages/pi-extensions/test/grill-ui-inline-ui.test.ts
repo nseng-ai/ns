@@ -19,9 +19,15 @@ import {
 	rowSelectDisplay,
 	rowValue,
 } from "../src/grill-ui/view.ts";
-import type { GrillAskCustomComponent, GrillAskToolContext, NormalizedGrillAskInput } from "../src/grill-ui.ts";
+import type {
+	GrillAskCustomComponent,
+	GrillAskToolContext,
+	NormalizedGrillAskInput,
+} from "../src/grill-ui.ts";
 
-function normalizedInput(overrides: Partial<NormalizedGrillAskInput> = {}): NormalizedGrillAskInput {
+function normalizedInput(
+	overrides: Partial<NormalizedGrillAskInput> = {},
+): NormalizedGrillAskInput {
 	return {
 		question: "How should the inline UI ship?",
 		context: "We need a better grill prompt interaction without changing the model contract.",
@@ -53,7 +59,13 @@ describe("grill_ask view helpers", () => {
 		const input = normalizedInput();
 		const rows = buildGrillAskRows(input);
 
-		expect(rows.map((row) => row.kind)).toEqual(["choice", "choice", "freeform", "status", "end_grill"]);
+		expect(rows.map((row) => row.kind)).toEqual([
+			"choice",
+			"choice",
+			"freeform",
+			"status",
+			"end_grill",
+		]);
 		expect(rowValue(rows[2]!)).toBe("__freeform__");
 		expect(rowValue(rows[3]!)).toBe("__status__");
 		expect(rowValue(rows[4]!)).toBe("__end_grill__");
@@ -62,7 +74,9 @@ describe("grill_ask view helpers", () => {
 		expect(rowLabel(rows[3]!)).toBe("4. Show current grill status");
 		expect(rowLabel(rows[4]!)).toBe("5. End grilling session");
 		expect(rowLabel(rows[1]!)).not.toContain("(recommended)");
-		expect(rowSelectDisplay(rows[1]!)).toBe("2. ★ Ship the focused inline UI — Use one custom inline UI with visible exceptional rows.");
+		expect(rowSelectDisplay(rows[1]!)).toBe(
+			"2. ★ Ship the focused inline UI — Use one custom inline UI with visible exceptional rows.",
+		);
 		expect(rowSelectDisplay(rows[2]!)).toBe("3. ✎ Other / freeform answer");
 		expect(rowSelectDisplay(rows[3]!)).toBe("4. ℹ Show current grill status");
 		expect(rowSelectDisplay(rows[4]!)).toBe("5. ⏹ End grilling session");
@@ -114,7 +128,11 @@ describe("grill_ask render helpers", () => {
 	test("mapped recommendation is folded into the focused choice row", () => {
 		const input = normalizedInput();
 		const controller = new GrillAskController(input);
-		const lines = renderGrillAskInlineUi(input, { mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex }, 72);
+		const lines = renderGrillAskInlineUi(
+			input,
+			{ mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex },
+			72,
+		);
 		const output = lines.join("\n");
 
 		expect(output).toContain("How should the inline UI ship?");
@@ -138,24 +156,55 @@ describe("grill_ask render helpers", () => {
 
 	test("renders current question number, answered count, and supplied remaining estimate", () => {
 		const input = normalizedInput({
-			estimatedRemaining: { kind: "range", min: 2, max: 5, basis: "API and fallback rendering are still open" },
+			estimatedRemaining: {
+				kind: "range",
+				min: 2,
+				max: 5,
+				basis: "API and fallback rendering are still open",
+			},
 		});
 		const rows = buildGrillAskRows(input);
-		const output = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1, progress: { answeredQuestions: 3, source: "session_branch" } }, 90).join("\n");
+		const output = renderGrillAskInlineUi(
+			input,
+			{
+				mode: "choices",
+				rows,
+				focusIndex: 1,
+				progress: { answeredQuestions: 3, source: "session_branch" },
+			},
+			90,
+		).join("\n");
 
-		expect(output).toContain("Question 4 • Answered 3 • Remaining 2–5 (rough: API and fallback rendering are still open)");
+		expect(output).toContain(
+			"Question 4 • Answered 3 • Remaining 2–5 (rough: API and fallback rendering are still open)",
+		);
 	});
 
 	test("renders the session state line with subtly colorized values", () => {
 		const input = normalizedInput({
-			estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "after selecting the target behavior" },
+			estimatedRemaining: {
+				kind: "range",
+				min: 2,
+				max: 4,
+				basis: "after selecting the target behavior",
+			},
 		});
 		const rows = buildGrillAskRows(input);
 		const theme = {
 			fg: (color: string, text: string) => `[${color}]${text}`,
 			bold: (text: string) => `**${text}**`,
 		};
-		const output = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1, progress: { answeredQuestions: 0, source: "session_branch" } }, 160, theme).join("\n");
+		const output = renderGrillAskInlineUi(
+			input,
+			{
+				mode: "choices",
+				rows,
+				focusIndex: 1,
+				progress: { answeredQuestions: 0, source: "session_branch" },
+			},
+			160,
+			theme,
+		).join("\n");
 
 		expect(output).toContain(
 			"Question [accent]1 • Answered [success]0[muted] • Remaining [warning]2–4 [dim](rough: after selecting the target behavior)",
@@ -167,8 +216,16 @@ describe("grill_ask render helpers", () => {
 	test("all choice descriptions stay visible while the focus marker follows selection", () => {
 		const input = normalizedInput();
 		const rows = buildGrillAskRows(input);
-		const firstFocused = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 0 }, 90).join("\n");
-		const secondFocused = renderGrillAskInlineUi(input, { mode: "choices", rows, focusIndex: 1 }, 90).join("\n");
+		const firstFocused = renderGrillAskInlineUi(
+			input,
+			{ mode: "choices", rows, focusIndex: 0 },
+			90,
+		).join("\n");
+		const secondFocused = renderGrillAskInlineUi(
+			input,
+			{ mode: "choices", rows, focusIndex: 1 },
+			90,
+		).join("\n");
 
 		for (const output of [firstFocused, secondFocused]) {
 			expect(output).toContain("This is safe but keeps the awkward two-dialog freeform flow.");
@@ -188,7 +245,11 @@ describe("grill_ask render helpers", () => {
 			},
 		});
 		const controller = new GrillAskController(input);
-		const lines = renderGrillAskInlineUi(input, { mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex }, 80);
+		const lines = renderGrillAskInlineUi(
+			input,
+			{ mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex },
+			80,
+		);
 		const output = lines.join("\n");
 
 		expect(output).toContain("Recommended: Start with the conservative implementation.");
@@ -201,7 +262,11 @@ describe("grill_ask render helpers", () => {
 	test("wide render stays single-column without split-preview separators", () => {
 		const input = normalizedInput();
 		const controller = new GrillAskController(input);
-		const lines = renderGrillAskInlineUi(input, { mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex }, 120);
+		const lines = renderGrillAskInlineUi(
+			input,
+			{ mode: controller.mode, rows: controller.rows, focusIndex: controller.focusIndex },
+			120,
+		);
 		const output = lines.join("\n");
 
 		expect(output).toContain("★ recommended");
@@ -235,7 +300,9 @@ describe("grill_ask inline runtime boundary helpers", () => {
 	});
 
 	test("rejects missing or malformed required Pi TUI exports", () => {
-		expect(() => grillAskInlineRuntimeFromModule({}, undefined)).toThrow("Pi TUI runtime does not provide");
+		expect(() => grillAskInlineRuntimeFromModule({}, undefined)).toThrow(
+			"Pi TUI runtime does not provide",
+		);
 		expect(() =>
 			grillAskInlineRuntimeFromModule(
 				fakeRuntimeModule({
@@ -270,7 +337,9 @@ describe("grill_ask inline runtime boundary helpers", () => {
 
 		expect(markdownThemeFromCodingAgentModule({ getMarkdownTheme: () => sentinel })).toBe(sentinel);
 		expect(markdownThemeFromCodingAgentModule({})).toBeUndefined();
-		expect(markdownThemeFromCodingAgentModule({ getMarkdownTheme: "not callable" })).toBeUndefined();
+		expect(
+			markdownThemeFromCodingAgentModule({ getMarkdownTheme: "not callable" }),
+		).toBeUndefined();
 		expect(markdownThemeFromCodingAgentModule([])).toBeUndefined();
 	});
 
@@ -283,7 +352,9 @@ describe("grill_ask inline runtime boundary helpers", () => {
 		expect(theme.fg?.("accent", "text")).toBe("accent:text");
 		expect(theme.bg).toBeUndefined();
 		expect(theme.bold?.("text")).toBe("**text**");
-		expect(grillAskRenderThemeFromValue({ fg, bg, bold }).bg?.("selectedBg", "text")).toBe("selectedBg:text");
+		expect(grillAskRenderThemeFromValue({ fg, bg, bold }).bg?.("selectedBg", "text")).toBe(
+			"selectedBg:text",
+		);
 		expect(grillAskRenderThemeFromValue(null)).toEqual({});
 		expect(grillAskRenderThemeFromValue([])).toEqual({});
 	});
@@ -346,7 +417,12 @@ describe("grill_ask inline UI component", () => {
 				hasUI: true,
 				ui: {
 					custom: async <T>(
-						factory: (tui: unknown, theme: unknown, keybindings: unknown, done: (value: T) => void) => GrillAskCustomComponent,
+						factory: (
+							tui: unknown,
+							theme: unknown,
+							keybindings: unknown,
+							done: (value: T) => void,
+						) => GrillAskCustomComponent,
 						options: unknown,
 					) => {
 						observedOptions = options;
@@ -363,7 +439,10 @@ describe("grill_ask inline UI component", () => {
 		expect(observedOptions).toBeUndefined();
 		expect(result).toEqual({
 			action: "choice",
-			entry: expect.objectContaining({ kind: "choice", option: expect.objectContaining({ value: "inline-ui" }) }),
+			entry: expect.objectContaining({
+				kind: "choice",
+				option: expect.objectContaining({ value: "inline-ui" }),
+			}),
 		});
 	});
 
@@ -403,7 +482,10 @@ describe("grill_ask inline UI component", () => {
 		expect(doneValues).toEqual([
 			{
 				action: "choice",
-				entry: expect.objectContaining({ kind: "choice", option: expect.objectContaining({ value: "legacy" }) }),
+				entry: expect.objectContaining({
+					kind: "choice",
+					option: expect.objectContaining({ value: "legacy" }),
+				}),
 			},
 		]);
 
@@ -420,7 +502,10 @@ describe("grill_ask inline UI component", () => {
 		expect(shortcutDoneValues).toEqual([
 			{
 				action: "choice",
-				entry: expect.objectContaining({ kind: "choice", option: expect.objectContaining({ value: "legacy" }) }),
+				entry: expect.objectContaining({
+					kind: "choice",
+					option: expect.objectContaining({ value: "legacy" }),
+				}),
 			},
 		]);
 	});
@@ -511,7 +596,8 @@ function fakeRuntime(): GrillAskInlineRuntime {
 		Editor: FakeEditor,
 		Key: { up: "up", down: "down", enter: "enter", escape: "escape" },
 		matchesKey: (data, key) => data === key,
-		truncateToWidth: (value, width) => (value.length <= width ? value : value.slice(0, Math.max(0, width - 1)) + "…"),
+		truncateToWidth: (value, width) =>
+			value.length <= width ? value : value.slice(0, Math.max(0, width - 1)) + "…",
 		wrapTextWithAnsi: (value, width) => wrapPlain(value, width),
 		visibleWidth: (value) => value.length,
 	};

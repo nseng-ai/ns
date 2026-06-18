@@ -57,7 +57,9 @@ const blockedTool: RunnerSubagentTerminalToolDefinition<BlockedInput> = {
 	},
 };
 
-function fakeLocalExtension(pi: RunnerSubagentPi): (ctx: RunnerSubagentContext) => Promise<RunnerSubagentResult> {
+function fakeLocalExtension(
+	pi: RunnerSubagentPi,
+): (ctx: RunnerSubagentContext) => Promise<RunnerSubagentResult> {
 	return (ctx) =>
 		dispatchRunnerSubagent(pi, ctx, {
 			title: "Contract smoke test",
@@ -109,7 +111,9 @@ describe("dispatchRunnerSubagent local contract", () => {
 	});
 
 	test("allows callers to invoke final-text mode without terminal tools", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/final-text-runner-subagent.jsonl" });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/final-text-runner-subagent.jsonl",
+		});
 		const pi: RunnerSubagentPi = { [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies };
 		const ctx: RunnerSubagentContext = { cwd: "/repo" };
 
@@ -144,7 +148,11 @@ describe("dispatchRunnerSubagent local contract", () => {
 			description: "Complete with a TypeBox-style schema object.",
 			parameters: typeBoxStyleSchema,
 		} satisfies RunnerSubagentTerminalToolDefinition<CompletionInput>;
-		const terminalTools = [completionTool, blockedTool, schemaBackedTool] satisfies readonly RunnerSubagentTerminalToolDefinition[];
+		const terminalTools = [
+			completionTool,
+			blockedTool,
+			schemaBackedTool,
+		] satisfies readonly RunnerSubagentTerminalToolDefinition[];
 
 		expect(terminalTools).toEqual([
 			expect.objectContaining({ name: "complete_runner_subagent", status: "completed" }),
@@ -210,7 +218,10 @@ describe("dispatchRunnerSubagent local contract", () => {
 	});
 
 	test("returns a deterministic stopped-without-terminal result through the injectable runner", async () => {
-		const runner = createFakeRunnerSubagentDispatcher({ sessionFile: "/tmp/contract-runner-subagent.jsonl", now: () => 0 });
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/contract-runner-subagent.jsonl",
+			now: () => 0,
+		});
 		const pi: RunnerSubagentPi = { [RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]: runner.dependencies };
 		const ctx: RunnerSubagentContext = { cwd: "/repo" };
 
@@ -242,7 +253,8 @@ describe("dispatchRunnerSubagent local contract", () => {
 				source: "child-session-file",
 				sessionFile: "/tmp/contract-runner-subagent.jsonl",
 				reason: "no-assistant-usage",
-				diagnostic: "Subagent child session did not contain assistant messages with usable usage metadata.",
+				diagnostic:
+					"Subagent child session did not contain assistant messages with usable usage metadata.",
 			},
 			diagnostic: "Subagent Pi stopped without terminal capture.",
 		});

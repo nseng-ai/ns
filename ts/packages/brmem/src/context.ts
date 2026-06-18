@@ -14,7 +14,9 @@ export interface BrmemCliContext {
 	sourceReader: BrmemSourceReader;
 }
 
-export function createRealBrmemContext(options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {}): BrmemCliContext {
+export function createRealBrmemContext(
+	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+): BrmemCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
 	return {

@@ -40,15 +40,23 @@ function expectBranchCreationPolicyPrecedence(text: string): void {
 
 describe("branch-context from-plan policy docs", () => {
 	test("direct skill invocation honors repo Graphite policy precedence", async () => {
-		const skillText = await readFile(join(REPO_ROOT, "skills", "branch-context-from-plan", "SKILL.md"), "utf8");
+		const skillText = await readFile(
+			join(REPO_ROOT, "skills", "branch-context-from-plan", "SKILL.md"),
+			"utf8",
+		);
 		const lifecycleText = await readFile(
 			join(REPO_ROOT, "skills", "branch-context", "references", "lifecycle.md"),
 			"utf8",
 		);
 		const agentsText = await readFile(join(REPO_ROOT, "AGENTS.md"), "utf8");
-		const projectExtensionText = await readFile(join(REPO_ROOT, ".pi", "extensions", "branch-context.ts"), "utf8");
+		const projectExtensionText = await readFile(
+			join(REPO_ROOT, ".pi", "extensions", "branch-context.ts"),
+			"utf8",
+		);
 
-		expect(agentsText).toContain("This repo uses Graphite (`gt`) as the default tool for branch and PR workflow");
+		expect(agentsText).toContain(
+			"This repo uses Graphite (`gt`) as the default tool for branch and PR workflow",
+		);
 		expect(agentsText).toContain("Creating branches: use `gt create");
 		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
 		expectBranchCreationPolicyPrecedence(skillText);
@@ -60,7 +68,11 @@ describe("branch-context from-plan policy docs", () => {
 describe("branch-context:from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
-		expect(parseCreateBranchContextArgs("--dry-run --yes --graphite --branch branch-contexts/add-widget /tmp/my-source-plan.md")).toEqual({
+		expect(
+			parseCreateBranchContextArgs(
+				"--dry-run --yes --graphite --branch branch-contexts/add-widget /tmp/my-source-plan.md",
+			),
+		).toEqual({
 			help: false,
 			dryRun: true,
 			yes: true,
@@ -68,7 +80,11 @@ describe("branch-context:from-plan argument parsing", () => {
 			branchName: "branch-contexts/add-widget",
 			filePath: "/tmp/my-source-plan.md",
 		});
-		expect(parseCreateBranchContextArgs("-y --plain-git --branch=branch-contexts/add-widget @/tmp/my-source-plan.md")).toEqual({
+		expect(
+			parseCreateBranchContextArgs(
+				"-y --plain-git --branch=branch-contexts/add-widget @/tmp/my-source-plan.md",
+			),
+		).toEqual({
 			help: false,
 			dryRun: false,
 			yes: true,
@@ -81,7 +97,9 @@ describe("branch-context:from-plan argument parsing", () => {
 	});
 
 	test("rejects parse errors before mutation", () => {
-		expect(() => parseCreateBranchContextArgs("--graphite --plain-git")).toThrow("Cannot pass both");
+		expect(() => parseCreateBranchContextArgs("--graphite --plain-git")).toThrow(
+			"Cannot pass both",
+		);
 		expect(() => parseCreateBranchContextArgs("--unknown")).toThrow("Unknown flag");
 		expect(() => parseCreateBranchContextArgs("--branch")).toThrow("Missing value");
 		expect(() => parseCreateBranchContextArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");
@@ -125,13 +143,17 @@ describe("buildWritePlanPrompt", () => {
 	});
 
 	test("renders empty steering as none", () => {
-		expect(buildWritePlanPrompt("   ")).toContain("User steering for this planning request: (none)");
+		expect(buildWritePlanPrompt("   ")).toContain(
+			"User steering for this planning request: (none)",
+		);
 	});
 
 	test("uses custom static prompt body without changing dynamic header", () => {
 		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
 
-		expect(prompt).toBe(`This is a /enriched-plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`);
+		expect(prompt).toBe(
+			`This is a /enriched-plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`,
+		);
 	});
 
 	test("checked-in write-plan prompt policy is an intentional repo override", async () => {
@@ -196,7 +218,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("openai-codex/gpt-5.4-mini:medium");
 		expect(checkedInContent).toContain("one-command validation baseline");
 		expect(checkedInContent).toContain("before risky implementation work");
-		expect(checkedInContent).toContain("does not require the planner to run every validation command");
+		expect(checkedInContent).toContain(
+			"does not require the planner to run every validation command",
+		);
 		expect(checkedInContent).toContain("trust-nothing closeout");
 		expect(checkedInContent).toContain("changed tests/assertions");
 	});
@@ -232,7 +256,9 @@ describe("buildWriteGrilledPlanPrompt", () => {
 	});
 
 	test("renders empty steering as none", () => {
-		expect(buildWriteGrilledPlanPrompt("   ")).toContain("User steering for this planning request: (none)");
+		expect(buildWriteGrilledPlanPrompt("   ")).toContain(
+			"User steering for this planning request: (none)",
+		);
 	});
 });
 describe("formatCreateBranchContextPreview", () => {
@@ -260,7 +286,9 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Path: /plans/gh--owner--repo/main/local-filename-plan.md");
 		expect(text).toContain("Saved-plan file stem: local-filename-plan");
 		expect(text).toContain(`Content-derived slug: ${PLAN_SLUG}`);
-		expect(text).toContain(`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`);
+		expect(text).toContain(
+			`Slug model: ${DEFAULT_FAST_MODEL.provider}/${DEFAULT_FAST_MODEL.modelId}`,
+		);
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);

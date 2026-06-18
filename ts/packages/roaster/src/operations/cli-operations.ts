@@ -42,7 +42,10 @@ export interface RoasterCliContext {
 const nonBlankStringSchema = z.string().trim().min(1);
 
 export const reviewListRequestSchema = z.object({
-	applicable: z.boolean().default(false).describe("Only list reviews applicable to the current diff."),
+	applicable: z
+		.boolean()
+		.default(false)
+		.describe("Only list reviews applicable to the current diff."),
 	base_ref: z.string().optional().describe("Base ref used when filtering applicable reviews."),
 });
 
@@ -85,7 +88,10 @@ export const postFindingsCommentRequestSchema = z.object({
 	run_url: z.string().optional().describe("GitHub Actions run URL to include in the activity log."),
 });
 
-export async function runReviewList(ctx: RoasterCliContext, request: ReviewListRequest): Promise<ClinkrExit<ReviewListResult>> {
+export async function runReviewList(
+	ctx: RoasterCliContext,
+	request: ReviewListRequest,
+): Promise<ClinkrExit<ReviewListResult>> {
 	const catalog = await ctx.context.reviewCatalog.listReviewKeys({ cwd: ctx.cwd });
 	if (catalog.type === "error") return failureFromRoaster(catalog.error);
 
@@ -94,16 +100,34 @@ export async function runReviewList(ctx: RoasterCliContext, request: ReviewListR
 
 	let selectedKeys = catalog.value.keys;
 	if (request.applicable) {
-		const diff = await ctx.context.localDiff.loadDiff({ cwd: ctx.cwd, env: ctx.env, baseRef: request.base_ref });
+		const diff = await ctx.context.localDiff.loadDiff({
+			cwd: ctx.cwd,
+			env: ctx.env,
+			baseRef: request.base_ref,
+		});
 		if (diff.type === "error") return failureFromRoaster(diff.error);
-		selectedKeys = applicableReviewKeys(new Map(loaded.value.map((item) => [item.key, item.definition])), { changedPaths: diff.value.changedPaths });
+		selectedKeys = applicableReviewKeys(
+			new Map(loaded.value.map((item) => [item.key, item.definition])),
+			{ changedPaths: diff.value.changedPaths },
+		);
 	}
 
 	const selected = new Set(selectedKeys);
 	const reviews = loaded.value
 		.filter((item) => selected.has(item.key))
-		.map((item) => ({ key: item.key, description: item.definition.description, default_model: item.definition.defaultModel }));
-	return ok(reviewListResultSchema.parse({ reviews_dir: catalog.value.reviewsDir, keys: selectedKeys, count: selectedKeys.length, reviews }));
+		.map((item) => ({
+			key: item.key,
+			description: item.definition.description,
+			default_model: item.definition.defaultModel,
+		}));
+	return ok(
+		reviewListResultSchema.parse({
+			reviews_dir: catalog.value.reviewsDir,
+			keys: selectedKeys,
+			count: selectedKeys.length,
+			reviews,
+		}),
+	);
 }
 
 export function renderReviewList(result: ReviewListResult): string {
@@ -115,8 +139,14 @@ export function renderReviewList(result: ReviewListResult): string {
 	return lines.join("\n");
 }
 
-export async function runReviewByKey(ctx: RoasterCliContext, request: ReviewRunRequest): Promise<ClinkrExit<ReviewRunResult>> {
-	const source = await ctx.context.reviewCatalog.loadReviewSource({ cwd: ctx.cwd, key: request.key });
+export async function runReviewByKey(
+	ctx: RoasterCliContext,
+	request: ReviewRunRequest,
+): Promise<ClinkrExit<ReviewRunResult>> {
+	const source = await ctx.context.reviewCatalog.loadReviewSource({
+		cwd: ctx.cwd,
+		key: request.key,
+	});
 	if (source.type === "error") return failureFromRoaster(source.error);
 
 	const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
@@ -125,12 +155,22 @@ export async function runReviewByKey(ctx: RoasterCliContext, request: ReviewRunR
 	}
 
 	const model = resolveModel(request.model, parsed.definition.defaultModel);
-	if (model === null) return failure("model_not_provided", "No model was provided. Pass --model or set default_model in the review definition.");
+	if (model === null)
+		return failure(
+			"model_not_provided",
+			"No model was provided. Pass --model or set default_model in the review definition.",
+		);
 
-	const diff = await ctx.context.localDiff.loadDiff({ cwd: ctx.cwd, env: ctx.env, baseRef: request.base_ref });
+	const diff = await ctx.context.localDiff.loadDiff({
+		cwd: ctx.cwd,
+		env: ctx.env,
+		baseRef: request.base_ref,
+	});
 	if (diff.type === "error") return failureFromRoaster(diff.error);
 
-	ctx.stderr(`resolved model=${model} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`);
+	ctx.stderr(
+		`resolved model=${model} base_ref=${diff.value.baseRef} changed_paths=${diff.value.changedPaths.length}\n`,
+	);
 
 	const response = await ctx.context.harness.runReview(
 		{
@@ -148,7 +188,9 @@ export async function runReviewByKey(ctx: RoasterCliContext, request: ReviewRunR
 	);
 	if (response.type === "error") return failureFromRoaster(response.error);
 
-	return ok(reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value));
+	return ok(
+		reviewRunResult(source.value.key, source.value.path, model, diff.value.baseRef, response.value),
+	);
 }
 
 export function renderReviewRun(result: ReviewRunResult): string {
@@ -159,41 +201,62 @@ export function renderReviewRun(result: ReviewRunResult): string {
 		`Findings: ${result.count}`,
 	];
 	for (const finding of result.findings) {
-		lines.push(`[${finding.severity}] ${finding.path ?? "unknown"}:${finding.line ?? "—"} ${finding.summary}`);
+		lines.push(
+			`[${finding.severity}] ${finding.path ?? "unknown"}:${finding.line ?? "—"} ${finding.summary}`,
+		);
 	}
 	if (result.usage !== null) {
 		lines.push(`Tokens: ${totalInputTokens(result.usage)} in / ${result.usage.outputTokens} out`);
 		lines.push(`Cost: $${result.usage.totalCostUsd.toFixed(4)} USD`);
-		lines.push(`Duration: ${(result.usage.durationMs / 1000).toFixed(1)}s (${result.usage.numTurns} turns)`);
+		lines.push(
+			`Duration: ${(result.usage.durationMs / 1000).toFixed(1)}s (${result.usage.numTurns} turns)`,
+		);
 	}
 	return lines.join("\n");
 }
 
-export async function runPostInlineFindings(ctx: RoasterCliContext, request: z.infer<typeof postInlineFindingsRequestSchema>): Promise<number> {
+export async function runPostInlineFindings(
+	ctx: RoasterCliContext,
+	request: z.infer<typeof postInlineFindingsRequestSchema>,
+): Promise<number> {
 	const raw = await ctx.stdin();
 	const parsed = parseFindingsPayloadResult(raw);
-	if (parsed.type === "error") return stderrFailure(ctx, `post-inline-findings: ${parsed.error.message}\n`);
+	if (parsed.type === "error")
+		return stderrFailure(ctx, `post-inline-findings: ${parsed.error.message}\n`);
 
 	if (parsed.payload.errorType !== null || parsed.payload.count === 0) {
 		writeInlineStatus(ctx, emptyInlineResult());
 		return 0;
 	}
 
-	const changedFiles = await ctx.context.github.getPrChangedFiles(request.pr_number, { cwd: ctx.cwd, env: ctx.env });
+	const changedFiles = await ctx.context.github.getPrChangedFiles(request.pr_number, {
+		cwd: ctx.cwd,
+		env: ctx.env,
+	});
 	if (changedFiles.type === "error") {
 		writeInlineStatus(ctx, { ...emptyInlineResult(), apiError: changedFiles.error.message });
 		return 0;
 	}
 
-	const reviewComments = await ctx.context.github.getPrReviewComments(request.pr_number, { cwd: ctx.cwd, env: ctx.env });
+	const reviewComments = await ctx.context.github.getPrReviewComments(request.pr_number, {
+		cwd: ctx.cwd,
+		env: ctx.env,
+	});
 	if (reviewComments.type === "error") {
 		writeInlineStatus(ctx, { ...emptyInlineResult(), apiError: reviewComments.error.message });
 		return 0;
 	}
 
 	const classified = classifyInlineFindings(parsed.payload.findings, changedFiles.value);
-	const existingMarkers = new Set(reviewComments.value.filter((comment) => comment.author === BOT_LOGIN).flatMap((comment) => extractInlineMarkers(comment.body)));
-	const fallbackOnly = classified.fallbackOnly.map((item) => ({ finding: item.finding, reason: item.reason }));
+	const existingMarkers = new Set(
+		reviewComments.value
+			.filter((comment) => comment.author === BOT_LOGIN)
+			.flatMap((comment) => extractInlineMarkers(comment.body)),
+	);
+	const fallbackOnly = classified.fallbackOnly.map((item) => ({
+		finding: item.finding,
+		reason: item.reason,
+	}));
 	const comments = [];
 	let skippedDuplicateCount = 0;
 
@@ -203,14 +266,21 @@ export async function runPostInlineFindings(ctx: RoasterCliContext, request: z.i
 			skippedDuplicateCount += 1;
 			continue;
 		}
-		comments.push({ path: item.target.path, line: item.target.line, body: renderInlineBody(marker, item.finding, { reviewName: parsed.payload.reviewName }) });
+		comments.push({
+			path: item.target.path,
+			line: item.target.line,
+			body: renderInlineBody(marker, item.finding, { reviewName: parsed.payload.reviewName }),
+		});
 	}
 
 	let apiError: string | null = null;
 	let postedCount = 0;
 	if (comments.length > 0) {
 		try {
-			const posted = await ctx.context.github.createPrReview(request.pr_number, comments, { cwd: ctx.cwd, env: ctx.env });
+			const posted = await ctx.context.github.createPrReview(request.pr_number, comments, {
+				cwd: ctx.cwd,
+				env: ctx.env,
+			});
 			if (posted.type === "error") apiError = posted.error.message;
 			else postedCount = comments.length;
 		} catch (caught) {
@@ -228,22 +298,31 @@ export async function runPostInlineFindings(ctx: RoasterCliContext, request: z.i
 	return 0;
 }
 
-export async function runFormatFindingsComment(ctx: RoasterCliContext, request: z.infer<typeof formatFindingsCommentRequestSchema>): Promise<number> {
+export async function runFormatFindingsComment(
+	ctx: RoasterCliContext,
+	request: z.infer<typeof formatFindingsCommentRequestSchema>,
+): Promise<number> {
 	const raw = await ctx.stdin();
 	const payload = parseFindingsPayloadResult(raw, fallbackPayloadOptions(request));
-	if (payload.type === "error") return stderrFailure(ctx, `format-findings-comment: ${payload.error.message}\n`);
+	if (payload.type === "error")
+		return stderrFailure(ctx, `format-findings-comment: ${payload.error.message}\n`);
 
 	const inlineStatus = await loadInlineStatus(request.inline_result_file);
-	if (inlineStatus.type === "error") return stderrFailure(ctx, `format-findings-comment: ${inlineStatus.message}\n`);
+	if (inlineStatus.type === "error")
+		return stderrFailure(ctx, `format-findings-comment: ${inlineStatus.message}\n`);
 
 	ctx.stdout(renderFindingsComment(payload.payload, { inlineStatus: inlineStatus.status }));
 	return 0;
 }
 
-export async function runPostFindingsComment(ctx: RoasterCliContext, request: z.infer<typeof postFindingsCommentRequestSchema>): Promise<number> {
+export async function runPostFindingsComment(
+	ctx: RoasterCliContext,
+	request: z.infer<typeof postFindingsCommentRequestSchema>,
+): Promise<number> {
 	const body = await ctx.stdin();
 	const parsed = parseFindingsCommentBody(body);
-	if (parsed.type === "error") return stderrFailure(ctx, `post-findings-comment: ${parsed.error.message}\n`);
+	if (parsed.type === "error")
+		return stderrFailure(ctx, `post-findings-comment: ${parsed.error.message}\n`);
 
 	const existing = await ctx.context.github.findPrDiscussionCommentByMarker({
 		prNumber: request.pr_number,
@@ -252,14 +331,26 @@ export async function runPostFindingsComment(ctx: RoasterCliContext, request: z.
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});
-	if (existing.type === "error") return stderrFailure(ctx, `post-findings-comment: ${existing.error.message}\n`);
+	if (existing.type === "error")
+		return stderrFailure(ctx, `post-findings-comment: ${existing.error.message}\n`);
 
 	const runSummary = activityLogEntry(request.run_url);
-	const nextBody = existing.value === null ? preserveActivityLog("", parsed.parsed.body, runSummary) : preserveActivityLog(existing.value.body, parsed.parsed.body, runSummary);
-	const written = existing.value === null
-		? await ctx.context.github.addPrDiscussionComment(request.pr_number, nextBody, { cwd: ctx.cwd, env: ctx.env })
-		: await ctx.context.github.updatePrDiscussionComment(existing.value.id, nextBody, { cwd: ctx.cwd, env: ctx.env });
-	if (written.type === "error") return stderrFailure(ctx, `post-findings-comment: ${written.error.message}\n`);
+	const nextBody =
+		existing.value === null
+			? preserveActivityLog("", parsed.parsed.body, runSummary)
+			: preserveActivityLog(existing.value.body, parsed.parsed.body, runSummary);
+	const written =
+		existing.value === null
+			? await ctx.context.github.addPrDiscussionComment(request.pr_number, nextBody, {
+					cwd: ctx.cwd,
+					env: ctx.env,
+				})
+			: await ctx.context.github.updatePrDiscussionComment(existing.value.id, nextBody, {
+					cwd: ctx.cwd,
+					env: ctx.env,
+				});
+	if (written.type === "error")
+		return stderrFailure(ctx, `post-findings-comment: ${written.error.message}\n`);
 
 	ctx.stderr(existing.value === null ? "posted findings comment\n" : "updated findings comment\n");
 	return 0;
@@ -270,23 +361,41 @@ interface LoadedDefinition {
 	readonly definition: ReviewDefinition;
 }
 
-type LoadDefinitionsResult = { readonly type: "ok"; readonly value: readonly LoadedDefinition[] } | { readonly type: "error"; readonly error: RoasterFailure };
+type LoadDefinitionsResult =
+	| { readonly type: "ok"; readonly value: readonly LoadedDefinition[] }
+	| { readonly type: "error"; readonly error: RoasterFailure };
 
-async function loadDefinitions(ctx: RoasterCliContext, keys: readonly string[]): Promise<LoadDefinitionsResult> {
+async function loadDefinitions(
+	ctx: RoasterCliContext,
+	keys: readonly string[],
+): Promise<LoadDefinitionsResult> {
 	const loaded: LoadedDefinition[] = [];
 	for (const key of keys) {
 		const source = await ctx.context.reviewCatalog.loadReviewSource({ cwd: ctx.cwd, key });
 		if (source.type === "error") return source;
 		const parsed = parseReviewDefinition(source.value.source, { name: source.value.key });
 		if (parsed.type === "error") {
-			return { type: "error", error: { type: "review_definition_invalid", reviewKey: source.value.key, message: parsed.error.message } };
+			return {
+				type: "error",
+				error: {
+					type: "review_definition_invalid",
+					reviewKey: source.value.key,
+					message: parsed.error.message,
+				},
+			};
 		}
 		loaded.push({ key: source.value.key, definition: parsed.definition });
 	}
 	return { type: "ok", value: loaded };
 }
 
-function reviewRunResult(reviewName: string, reviewPath: string, model: string, baseRef: string, response: ReviewExecutionResponse): ReviewRunResult {
+function reviewRunResult(
+	reviewName: string,
+	reviewPath: string,
+	model: string,
+	baseRef: string,
+	response: ReviewExecutionResponse,
+): ReviewRunResult {
 	return reviewRunResultSchema.parse({
 		reviewName,
 		reviewPath,
@@ -300,7 +409,10 @@ function reviewRunResult(reviewName: string, reviewPath: string, model: string, 
 	});
 }
 
-function resolveModel(requestModel: string | undefined, defaultModel: string | null): string | null {
+function resolveModel(
+	requestModel: string | undefined,
+	defaultModel: string | null,
+): string | null {
 	const model = requestModel?.trim() ?? "";
 	if (model !== "") return model;
 	return defaultModel;
@@ -317,14 +429,22 @@ function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 type InlineResult = PostInlineFindingsResult;
 
 function emptyInlineResult(): InlineResult {
-	return { postedCount: 0, skippedDuplicateCount: 0, fallbackOnlyCount: 0, apiError: null, fallbackOnly: [] };
+	return {
+		postedCount: 0,
+		skippedDuplicateCount: 0,
+		fallbackOnlyCount: 0,
+		apiError: null,
+		fallbackOnly: [],
+	};
 }
 
 function writeInlineStatus(ctx: RoasterCliContext, status: InlineResult): void {
 	ctx.stdout(`${JSON.stringify(postInlineFindingsResultSchema.parse(status))}\n`);
 }
 
-type InlineStatusLoadResult = { readonly type: "ok"; readonly status: InlinePostingStatus | null } | { readonly type: "error"; readonly message: string };
+type InlineStatusLoadResult =
+	| { readonly type: "ok"; readonly status: InlinePostingStatus | null }
+	| { readonly type: "error"; readonly message: string };
 
 async function loadInlineStatus(path: string | undefined): Promise<InlineStatusLoadResult> {
 	if (path === undefined) return { type: "ok", status: null };
@@ -344,7 +464,10 @@ function stderrFailure(ctx: RoasterCliContext, message: string): number {
 	return 1;
 }
 
-function fallbackPayloadOptions(request: z.infer<typeof formatFindingsCommentRequestSchema>): { readonly fallbackReviewName?: string; readonly fallbackBaseRef?: string } {
+function fallbackPayloadOptions(request: z.infer<typeof formatFindingsCommentRequestSchema>): {
+	readonly fallbackReviewName?: string;
+	readonly fallbackBaseRef?: string;
+} {
 	return {
 		...(request.review_name === undefined ? {} : { fallbackReviewName: request.review_name }),
 		...(request.base_ref === undefined ? {} : { fallbackBaseRef: request.base_ref }),

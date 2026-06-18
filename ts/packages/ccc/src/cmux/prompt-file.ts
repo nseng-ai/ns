@@ -11,7 +11,10 @@ export interface ResolvedPromptFileOptions {
 	now: () => number;
 }
 
-export function resolvePromptFileOptions(options: PromptFileOptions, defaultPromptDir: string): ResolvedPromptFileOptions {
+export function resolvePromptFileOptions(
+	options: PromptFileOptions,
+	defaultPromptDir: string,
+): ResolvedPromptFileOptions {
 	return {
 		promptDir: options.promptDir ?? defaultPromptDir,
 		now: options.now ?? Date.now,

@@ -1,7 +1,12 @@
 import type { RepoSlotContext } from "../context.ts";
 import { buildSlotInventory, findBySlot, type SlotInventory } from "../inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
-import { freedSlotFromRecord, releaseAssignedSlotTarget, type FreedSlot, type ReleaseTargetFailure } from "./release-target.ts";
+import {
+	freedSlotFromRecord,
+	releaseAssignedSlotTarget,
+	type FreedSlot,
+	type ReleaseTargetFailure,
+} from "./release-target.ts";
 
 export interface SlotFreePlan {
 	targets: readonly FreedSlot[];
@@ -12,27 +17,63 @@ export interface SlotFreeOutcome {
 	freed: readonly FreedSlot[];
 }
 
-export async function planFreeSlots(ctx: RepoSlotContext, slotNames: readonly string[], options: { preflightErrors?: readonly string[] | undefined; trunkBranch?: string | undefined } = {}): Promise<LifecycleResult<SlotFreePlan>> {
+export async function planFreeSlots(
+	ctx: RepoSlotContext,
+	slotNames: readonly string[],
+	options: {
+		preflightErrors?: readonly string[] | undefined;
+		trunkBranch?: string | undefined;
+	} = {},
+): Promise<LifecycleResult<SlotFreePlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const validation = await validatedFreeTargets(ctx, inventory, slotNames);
 	const errors = [...(options.preflightErrors ?? []), ...validation.errors];
-	if (errors.length > 0) return { type: "failure", failure: { error_type: "invalid_slot_args", message: errors.join("\n") } };
-	return { type: "ok", outcome: { targets: validation.targets, trunk_branch: options.trunkBranch ?? await ctx.git.getTrunkBranch() } };
+	if (errors.length > 0)
+		return {
+			type: "failure",
+			failure: { error_type: "invalid_slot_args", message: errors.join("\n") },
+		};
+	return {
+		type: "ok",
+		outcome: {
+			targets: validation.targets,
+			trunk_branch: options.trunkBranch ?? (await ctx.git.getTrunkBranch()),
+		},
+	};
 }
 
-export async function executeFreePlan(ctx: RepoSlotContext, plan: SlotFreePlan): Promise<LifecycleResult<SlotFreeOutcome>> {
+export async function executeFreePlan(
+	ctx: RepoSlotContext,
+	plan: SlotFreePlan,
+): Promise<LifecycleResult<SlotFreeOutcome>> {
 	if (plan.targets.length === 0) return { type: "ok", outcome: { freed: [] } };
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const freed: FreedSlot[] = [];
 	for (const target of plan.targets) {
-		const result = await releaseAssignedSlotTarget({ git: ctx.git, inventory, target, trunkBranch: plan.trunk_branch });
-		if ("reason" in result) return { type: "failure", failure: { error_type: result.error_type, message: partialFailureMessage(freeExecutionFailureMessage(result), freed) } };
+		const result = await releaseAssignedSlotTarget({
+			git: ctx.git,
+			inventory,
+			target,
+			trunkBranch: plan.trunk_branch,
+		});
+		if ("reason" in result)
+			return {
+				type: "failure",
+				failure: {
+					error_type: result.error_type,
+					message: partialFailureMessage(freeExecutionFailureMessage(result), freed),
+				},
+			};
 		freed.push(result);
 	}
 	return { type: "ok", outcome: { freed } };
 }
 
-async function validatedFreeTargets(ctx: RepoSlotContext, inventory: SlotInventory, slotNames: readonly string[]): Promise<{ targets: readonly FreedSlot[]; errors: readonly string[] }> {
+async function validatedFreeTargets(
+	ctx: RepoSlotContext,
+	inventory: SlotInventory,
+	slotNames: readonly string[],
+): Promise<{ targets: readonly FreedSlot[]; errors: readonly string[] }> {
 	const errors: string[] = [];
 	const targets: FreedSlot[] = [];
 	for (const slotName of slotNames) {
@@ -46,7 +87,9 @@ async function validatedFreeTargets(ctx: RepoSlotContext, inventory: SlotInvento
 			continue;
 		}
 		if (await ctx.git.hasUncommittedChanges(record.path)) {
-			errors.push(`${slotName} has uncommitted changes at ${record.path}. Commit or stash before freeing.`);
+			errors.push(
+				`${slotName} has uncommitted changes at ${record.path}. Commit or stash before freeing.`,
+			);
 			continue;
 		}
 		targets.push(freedSlotFromRecord(record));

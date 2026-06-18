@@ -1,6 +1,15 @@
-import { formatCommand, formatCommandFailure, formatCommandStartupFailure, type ExecResult } from "@asdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	formatCommandStartupFailure,
+	type ExecResult,
+} from "@asdl/core/exec";
 import type { CommandContext } from "./cmux/types.ts";
-import { parseObjectiveList, type ObjectiveList, type ObjectiveListRecord } from "./objective-list.ts";
+import {
+	parseObjectiveList,
+	type ObjectiveList,
+	type ObjectiveListRecord,
+} from "./objective-list.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,
@@ -35,7 +44,11 @@ export interface BuildObjectiveSkillPromptOptions {
 }
 
 export interface ObjectiveSelectionHost {
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<ExecResult>;
+	exec(
+		command: string,
+		args: string[],
+		options?: { cwd?: string; timeout?: number },
+	): Promise<ExecResult>;
 }
 
 interface ObjectiveSelectionUi {
@@ -57,7 +70,9 @@ export interface ObjectiveSelectionContext extends Pick<CommandContext, "cwd" | 
 	ui: ObjectiveSelectionUi;
 }
 
-export function objectiveSelectionContextFromCommandContext(ctx: CommandContext): ObjectiveSelectionContext {
+export function objectiveSelectionContextFromCommandContext(
+	ctx: CommandContext,
+): ObjectiveSelectionContext {
 	const select = ctx.ui.select?.bind(ctx.ui);
 	const setStatus = ctx.ui.setStatus?.bind(ctx.ui);
 	return {
@@ -145,7 +160,14 @@ async function listActiveObjectives(
 			timeout: OBJECTIVE_COMMAND_TIMEOUT_MS,
 		});
 		if (result.code !== 0 || result.killed) {
-			return { type: "failed", message: formatCommandFailure("objective command failed", formatCommand("objective", args), result) };
+			return {
+				type: "failed",
+				message: formatCommandFailure(
+					"objective command failed",
+					formatCommand("objective", args),
+					result,
+				),
+			};
 		}
 
 		const parsedList = parseObjectiveList(result.stdout);
@@ -154,7 +176,14 @@ async function listActiveObjectives(
 		}
 		return { type: "loaded", list: parsedList.list };
 	} catch (error) {
-		return { type: "failed", message: formatCommandStartupFailure("objective command failed", formatCommand("objective", args), error) };
+		return {
+			type: "failed",
+			message: formatCommandStartupFailure(
+				"objective command failed",
+				formatCommand("objective", args),
+				error,
+			),
+		};
 	} finally {
 		if (ctx.hasUI) {
 			ctx.ui.setStatus?.(spec.statusKey, undefined);
@@ -162,7 +191,9 @@ async function listActiveObjectives(
 	}
 }
 
-async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptions): Promise<ObjectiveDiffSelection | undefined> {
+async function changedObjectiveSelection(
+	options: ChangedObjectiveSelectionOptions,
+): Promise<ObjectiveDiffSelection | undefined> {
 	const { host, ctx, objectiveList, spec } = options;
 	const trunkBranch = objectiveList.trunkBranch.trim();
 	if (ctx.hasUI) {
@@ -173,7 +204,9 @@ async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptio
 	let dirtyChangedSlugs: string[];
 	try {
 		[committedChangedSlugs, dirtyChangedSlugs] = await Promise.all([
-			trunkBranch ? objectiveDiffChangedSlugs({ host, ctx, trunkBranch }) : Promise.resolve<string[]>([]),
+			trunkBranch
+				? objectiveDiffChangedSlugs({ host, ctx, trunkBranch })
+				: Promise.resolve<string[]>([]),
 			objectiveStatusChangedSlugs({ host, ctx }),
 		]);
 	} finally {
@@ -183,19 +216,29 @@ async function changedObjectiveSelection(options: ChangedObjectiveSelectionOptio
 	}
 	const allChangedSlugs = sortedUniqueSlugs([...committedChangedSlugs, ...dirtyChangedSlugs]);
 	const dirtyChangedSlugSet = new Set(dirtyChangedSlugs);
-	const dirtyActiveSlugs = objectiveList.records.filter((record) => dirtyChangedSlugSet.has(record.slug));
-	const changeBasisLabel = dirtyActiveSlugs.length > 0
-		? trunkBranch
-			? `changed in checkout or vs ${trunkBranch}`
-			: "changed in checkout"
-		: trunkBranch
-			? `changed vs ${trunkBranch}`
-			: "changed";
+	const dirtyActiveSlugs = objectiveList.records.filter((record) =>
+		dirtyChangedSlugSet.has(record.slug),
+	);
+	const changeBasisLabel =
+		dirtyActiveSlugs.length > 0
+			? trunkBranch
+				? `changed in checkout or vs ${trunkBranch}`
+				: "changed in checkout"
+			: trunkBranch
+				? `changed vs ${trunkBranch}`
+				: "changed";
 
-	return changedActiveObjectiveSelection(objectiveList, trunkBranch, allChangedSlugs, changeBasisLabel);
+	return changedActiveObjectiveSelection(
+		objectiveList,
+		trunkBranch,
+		allChangedSlugs,
+		changeBasisLabel,
+	);
 }
 
-async function objectiveDiffChangedSlugs(options: ObjectiveDiffChangedSlugsOptions): Promise<string[]> {
+async function objectiveDiffChangedSlugs(
+	options: ObjectiveDiffChangedSlugsOptions,
+): Promise<string[]> {
 	const { host, ctx, trunkBranch } = options;
 	const args = ["diff", "--name-status", "-M", `${trunkBranch}...HEAD`, "--", ".asdl/objectives"];
 	try {
@@ -214,7 +257,9 @@ async function objectiveDiffChangedSlugs(options: ObjectiveDiffChangedSlugsOptio
 	}
 }
 
-async function objectiveStatusChangedSlugs(options: ObjectiveStatusChangedSlugsOptions): Promise<string[]> {
+async function objectiveStatusChangedSlugs(
+	options: ObjectiveStatusChangedSlugsOptions,
+): Promise<string[]> {
 	const { host, ctx } = options;
 	const args = ["status", "--porcelain=v1", "-z", "--", ".asdl/objectives"];
 	try {
@@ -250,7 +295,9 @@ function changedSelectionNotificationBasis(selection: ObjectiveDiffSelection): s
 	return `with changes ${selection.changeBasisLabel.replace(/^changed\s+/, "")}`;
 }
 
-async function selectObjectiveSlug(options: SelectObjectiveSlugOptions): Promise<string | undefined> {
+async function selectObjectiveSlug(
+	options: SelectObjectiveSlugOptions,
+): Promise<string | undefined> {
 	const { ctx, title, records, selection } = options;
 	const select = ctx.ui.select;
 	const choices = objectiveChoiceMap(records, selection);
@@ -269,13 +316,20 @@ async function selectObjectiveSlug(options: SelectObjectiveSlugOptions): Promise
 	return slug;
 }
 
-async function selectChangedObjectivesOrOther(options: SelectChangedObjectivesOrOtherOptions): Promise<string | undefined> {
+async function selectChangedObjectivesOrOther(
+	options: SelectChangedObjectivesOrOtherOptions,
+): Promise<string | undefined> {
 	const { ctx, spec, objectiveList, selection } = options;
 	const changedSet = new Set(selection.changedActiveSlugs);
 	const changedRecords = objectiveList.records.filter((record) => changedSet.has(record.slug));
 	const otherRecords = objectiveList.records.filter((record) => !changedSet.has(record.slug));
 	if (changedRecords.length === 0) {
-		return selectObjectiveSlug({ ctx, title: spec.selectionTitle, records: objectiveList.records, selection: undefined });
+		return selectObjectiveSlug({
+			ctx,
+			title: spec.selectionTitle,
+			records: objectiveList.records,
+			selection: undefined,
+		});
 	}
 
 	const choices = objectiveChoiceMap(changedRecords, selection);
@@ -339,7 +393,12 @@ export async function chooseActiveObjectiveSlug(
 
 	const changedSelection = await changedObjectiveSelection({ host, ctx, objectiveList, spec });
 	if (changedSelection && spec.compactDiffSuggestion) {
-		return selectChangedObjectivesOrOther({ ctx, spec, objectiveList, selection: changedSelection });
+		return selectChangedObjectivesOrOther({
+			ctx,
+			spec,
+			objectiveList,
+			selection: changedSelection,
+		});
 	}
 
 	if (changedSelection) {

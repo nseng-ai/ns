@@ -86,16 +86,25 @@ describe("cmux Objective sidebar", () => {
 		const expectedTitle = `obj:${slug}`;
 		const expectedDescription = objectiveSidebarDescription(repoRoot);
 		const pi = new FakePi({
-			script: [objectiveReadStep(slug), gitCurrentBranchStep(), cmuxSummaryStep(expectedTitle, expectedDescription)],
+			script: [
+				objectiveReadStep(slug),
+				gitCurrentBranchStep(),
+				cmuxSummaryStep(expectedTitle, expectedDescription),
+			],
 		});
 		const controller = createCccSidebarController(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
-		await pi.commands.get("ccc:sidebar:objective-summary")?.handler(`.asdl/objectives/${slug}/objective.md`, ctx);
+		await pi.commands
+			.get("ccc:sidebar:objective-summary")
+			?.handler(`.asdl/objectives/${slug}/objective.md`, ctx);
 
 		pi.assertDone();
-		expect(pi.execCalls[0]).toMatchObject({ command: "objective", args: ["exec", "read-objective", slug, "--format", "json"] });
+		expect(pi.execCalls[0]).toMatchObject({
+			command: "objective",
+			args: ["exec", "read-objective", slug, "--format", "json"],
+		});
 		expect(pi.sentUserMessages).toEqual([]);
 	});
 
@@ -134,7 +143,19 @@ describe("cmux Objective sidebar", () => {
 			["objective", ["list", "--minimal", "--format", "json"]],
 			["objective", ["exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
-			["asdl", ["exec", "cmux-workspace-summary", "--title", expectedTitle, "--description", expectedDescription, "--format", "json"]],
+			[
+				"asdl",
+				[
+					"exec",
+					"cmux-workspace-summary",
+					"--title",
+					expectedTitle,
+					"--description",
+					expectedDescription,
+					"--format",
+					"json",
+				],
+			],
 		]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
@@ -154,7 +175,10 @@ describe("cmux Objective sidebar", () => {
 		pi.assertDone();
 		expect(pi.execCalls).toHaveLength(1);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "Objective selection cancelled.", level: "info" });
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Objective selection cancelled.",
+			level: "info",
+		});
 	});
 
 	test("ccc:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
@@ -169,7 +193,10 @@ describe("cmux Objective sidebar", () => {
 		pi.assertDone();
 		expect(ctx.selections).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
-		expect(ctx.notifications.at(-1)).toEqual({ message: "No active Objectives. Create one with /objective:create.", level: "info" });
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "No active Objectives. Create one with /objective:create.",
+			level: "info",
+		});
 	});
 
 	test("ccc:sidebar:objective-summary missing workspace skips deterministic work", async () => {
@@ -195,7 +222,11 @@ describe("cmux Objective sidebar", () => {
 			script: [
 				step("objective", ["exec", "read-objective", slug, "--format", "json"], {
 					code: 1,
-					stdout: JSON.stringify({ exit_code: 1, message: "Objective not found", data: { status: "not_found" } }),
+					stdout: JSON.stringify({
+						exit_code: 1,
+						message: "Objective not found",
+						data: { status: "not_found" },
+					}),
 				}),
 			],
 		});
@@ -243,19 +274,27 @@ describe("cmux Objective sidebar", () => {
 			script: [
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
-				step("asdl", [
-					"exec",
-					"cmux-workspace-summary",
-					"--title",
-					`obj:${slug}`,
-					"--description",
-					objectiveSidebarDescription(repoRoot),
-					"--format",
-					"json",
-				], {
-					code: 1,
-					stdout: JSON.stringify({ exit_code: 1, message: "missing workspace", data: { success: false } }),
-				}),
+				step(
+					"asdl",
+					[
+						"exec",
+						"cmux-workspace-summary",
+						"--title",
+						`obj:${slug}`,
+						"--description",
+						objectiveSidebarDescription(repoRoot),
+						"--format",
+						"json",
+					],
+					{
+						code: 1,
+						stdout: JSON.stringify({
+							exit_code: 1,
+							message: "missing workspace",
+							data: { success: false },
+						}),
+					},
+				),
 			],
 		});
 		const controller = createCccSidebarController(pi);
@@ -270,21 +309,37 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain("missing workspace");
 	});
-
 });
 describe("cmux Objective sidebar deterministic helpers", () => {
 	test("resolveObjectiveSelector accepts slugs and active Objective paths", () => {
 		const cwd = "/repo";
 
-		expect(resolveObjectiveSelector("cmux-objective", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
-		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective/objective.md", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
-		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
-		expect(resolveObjectiveSelector("/repo/.asdl/objectives/cmux-objective/roadmap.md", cwd)).toEqual({ type: "valid", slug: "cmux-objective" });
+		expect(resolveObjectiveSelector("cmux-objective", cwd)).toEqual({
+			type: "valid",
+			slug: "cmux-objective",
+		});
+		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective/objective.md", cwd)).toEqual({
+			type: "valid",
+			slug: "cmux-objective",
+		});
+		expect(resolveObjectiveSelector(".asdl/objectives/cmux-objective", cwd)).toEqual({
+			type: "valid",
+			slug: "cmux-objective",
+		});
+		expect(
+			resolveObjectiveSelector("/repo/.asdl/objectives/cmux-objective/roadmap.md", cwd),
+		).toEqual({ type: "valid", slug: "cmux-objective" });
 	});
 
 	test("resolveObjectiveSelector rejects ambiguous or inactive selectors", () => {
 		const cwd = "/repo";
-		for (const selector of ["foo/bar", ".", "..", ".asdl/objective-archive/old/objective.md", "/tmp/outside/objective.md"]) {
+		for (const selector of [
+			"foo/bar",
+			".",
+			"..",
+			".asdl/objective-archive/old/objective.md",
+			"/tmp/outside/objective.md",
+		]) {
 			expect(resolveObjectiveSelector(selector, cwd).type).toBe("invalid");
 		}
 	});
@@ -300,11 +355,12 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			title: "obj:make-ccc-sidebar-descriptions-deterministic",
 			description: "slot-05::deterministic-objective-sidebar-direct-extension",
 		});
-		expect(formatObjectiveSidebarFields({
-			objectiveSlug: "make-ccc-sidebar-descriptions-deterministic",
-			slotSlug: "slot-05",
-			branchSlug: "deterministic-objective-sidebar-direct-extension",
-		})).toEqual(fields);
+		expect(
+			formatObjectiveSidebarFields({
+				objectiveSlug: "make-ccc-sidebar-descriptions-deterministic",
+				slotSlug: "slot-05",
+				branchSlug: "deterministic-objective-sidebar-direct-extension",
+			}),
+		).toEqual(fields);
 	});
 });
-

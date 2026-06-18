@@ -9,13 +9,23 @@
  * failure never blocks the deterministic view.
  */
 
-import type { BeforeAgentStartEvent, ContextEvent, ExtensionAPI, ExtensionCommandContext, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type {
+	BeforeAgentStartEvent,
+	ContextEvent,
+	ExtensionAPI,
+	ExtensionCommandContext,
+	ExtensionContext,
+	Theme,
+} from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import { createCodexAnalysisModelGateway } from "./context-profiler/analysis-model-gateway.ts";
 import type { BundlePersistenceState } from "./context-profiler/bundle.ts";
 import { createFsBundleStore } from "./context-profiler/bundle-store.ts";
 import { errorMessage } from "./context-profiler/errors.ts";
-import { InterrogationController, type InterrogationAttachment } from "./context-profiler/interrogation-controller.ts";
+import {
+	InterrogationController,
+	type InterrogationAttachment,
+} from "./context-profiler/interrogation-controller.ts";
 import { createPiInterrogationSessionFactory } from "./context-profiler/interrogation-session.ts";
 import type { InterrogationScope } from "./context-profiler/interrogation-prompt.ts";
 import type { ProfileSnapshot } from "./context-profiler/model.ts";
@@ -43,11 +53,13 @@ export const contextProfilerParity = definePiSurfaceParity([
 		surface: CONTEXT_PROFILER_COMMAND_NAME,
 		workflow: "Open a diagnostic overlay explaining session context usage",
 		parity: "WAIVED",
-		fallback: "Use a saved context-profiler bundle and the context-bundle-analysis skill for offline prose analysis outside Pi.",
+		fallback:
+			"Use a saved context-profiler bundle and the context-bundle-analysis skill for offline prose analysis outside Pi.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "context-profiler",
-		notes: "Live context overlay and interrogation UI are Pi session primitives; frozen bundle analysis has a portable skill path.",
+		notes:
+			"Live context overlay and interrogation UI are Pi session primitives; frozen bundle analysis has a portable skill path.",
 	},
 ] as const);
 const STATUS_KEY = "context-profiler";
@@ -68,7 +80,8 @@ export function registerContextProfilerExtension(pi: ExtensionAPI): void {
 	const sessions = new OverlaySessionController();
 
 	pi.registerCommand(CONTEXT_PROFILER_COMMAND_NAME, {
-		description: "Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
+		description:
+			"Open the context profiler: a diagnostic, non-mutating overlay over this session's context",
 		handler: async (_args, ctx) => openProfiler({ ctx, runtime, segmentationCache, sessions }),
 	});
 
@@ -148,7 +161,10 @@ function openProfiler(options: OpenProfilerOptions): void {
 	const state = runtime.captureCurrentState(ctx);
 	const gateway = createCodexAnalysisModelGateway(ctx.modelRegistry);
 	const profile = buildProfile(ctx, state);
-	const bundleStore = createFsBundleStore({ sessionDir: ctx.sessionManager.getSessionDir(), sessionId: ctx.sessionManager.getSessionId() });
+	const bundleStore = createFsBundleStore({
+		sessionDir: ctx.sessionManager.getSessionDir(),
+		sessionId: ctx.sessionManager.getSessionId(),
+	});
 	const session: OverlaySession = {
 		close: () => {},
 		handle: null,
@@ -167,7 +183,11 @@ function openProfiler(options: OpenProfilerOptions): void {
 		session.view?.setPersistence(persistence);
 		ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(persistence));
 	};
-	const startWork = (workState: ProfilerState, workProfile: ProfileSnapshot, force: boolean): SegmentationState => {
+	const startWork = (
+		workState: ProfilerState,
+		workProfile: ProfileSnapshot,
+		force: boolean,
+	): SegmentationState => {
 		session.detachSegmentation?.();
 		const work = startProfilerWork({
 			store: bundleStore,
@@ -181,7 +201,10 @@ function openProfiler(options: OpenProfilerOptions): void {
 			onPersistenceUpdate,
 			onEpisodesWriteResult: (result) => {
 				if (result.ok || !sessions.isCurrent(session)) return;
-				ctx.ui.notify(`Context profiler could not write episodes.json: ${result.error.message}`, "warning");
+				ctx.ui.notify(
+					`Context profiler could not write episodes.json: ${result.error.message}`,
+					"warning",
+				);
 			},
 		});
 		session.detachSegmentation = work.detach;
@@ -205,7 +228,11 @@ function openProfiler(options: OpenProfilerOptions): void {
 						const refreshedState = runtime.captureCurrentState(ctx);
 						const refreshedProfile = buildProfile(ctx, refreshedState);
 						const refreshedSegmentation = startWork(refreshedState, refreshedProfile, true);
-						return { profile: refreshedProfile, segmentation: refreshedSegmentation, persistence: session.persistence };
+						return {
+							profile: refreshedProfile,
+							segmentation: refreshedSegmentation,
+							persistence: session.persistence,
+						};
 					},
 				});
 				session.view = view;
@@ -246,9 +273,17 @@ function openInterrogation(options: {
 	scope: InterrogationScope;
 }): InterrogationAttachment {
 	const { ctx, session } = options;
-	if (session.persistence.type !== "persisted") return { type: "degraded", reason: bundleUnavailableReason(session.persistence) };
-	if (ctx.model === undefined) return { type: "degraded", reason: "The host session has no selected model, so the interrogation agent cannot start." };
-	if (session.interrogation === null || session.interrogation.bundleOrdinal !== session.persistence.ordinal) {
+	if (session.persistence.type !== "persisted")
+		return { type: "degraded", reason: bundleUnavailableReason(session.persistence) };
+	if (ctx.model === undefined)
+		return {
+			type: "degraded",
+			reason: "The host session has no selected model, so the interrogation agent cannot start.",
+		};
+	if (
+		session.interrogation === null ||
+		session.interrogation.bundleOrdinal !== session.persistence.ordinal
+	) {
 		session.interrogation?.dispose();
 		session.interrogation = new InterrogationController({
 			bundle: session.persistence,
@@ -261,7 +296,9 @@ function openInterrogation(options: {
 	return { type: "ready", port: session.interrogation };
 }
 
-function bundleUnavailableReason(state: Exclude<BundlePersistenceState, { type: "persisted" }>): string {
+function bundleUnavailableReason(
+	state: Exclude<BundlePersistenceState, { type: "persisted" }>,
+): string {
 	switch (state.type) {
 		case "pending":
 			return "The context bundle is still being written. Wait a moment, then press Esc and p again.";

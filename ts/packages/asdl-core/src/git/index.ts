@@ -1,6 +1,12 @@
 import path from "node:path";
 
-import { formatCommand, formatCommandFailure, type CommandExecApi, type ExecOptions, type ExecResult } from "../exec.ts";
+import {
+	formatCommand,
+	formatCommandFailure,
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
+} from "../exec.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -16,7 +22,10 @@ export interface GitErrorInfo {
 }
 
 export type GitResult<T> = { ok: true; value: T } | { ok: false; error: GitErrorInfo };
-export type GitOptionalResult<T> = { type: "found"; value: T } | { type: "missing" } | { type: "error"; error: GitErrorInfo };
+export type GitOptionalResult<T> =
+	| { type: "found"; value: T }
+	| { type: "missing" }
+	| { type: "error"; error: GitErrorInfo };
 
 export interface GitBranchParams extends GitCwdParams {
 	branch: string;
@@ -58,7 +67,9 @@ export interface GitGateway {
 	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
 	hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>>;
 	listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>>;
-	treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>>;
+	treeOidsAtRefs(
+		params: GitRefsPathParams,
+	): Promise<GitResult<Readonly<Record<string, string | null>>>>;
 	changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>>;
 }
 
@@ -103,12 +114,24 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["rev-parse", "--show-toplevel"]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("repo_root_failed", formatCommandFailure("git rev-parse --show-toplevel failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"repo_root_failed",
+				formatCommandFailure(
+					"git rev-parse --show-toplevel failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 
 		const root = firstNonEmptyLine(run.value.result.stdout);
 		if (root === undefined) {
-			return error("repo_root_empty", `git rev-parse --show-toplevel returned no repo root.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
+			return error(
+				"repo_root_empty",
+				`git rev-parse --show-toplevel returned no repo root.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: root };
 	}
@@ -126,12 +149,24 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["branch", "--show-current"]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("current_branch_failed", formatCommandFailure("git branch --show-current failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"current_branch_failed",
+				formatCommandFailure(
+					"git branch --show-current failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 
 		const branch = firstNonEmptyLine(run.value.result.stdout);
 		if (branch === undefined) {
-			return error("detached_head", `git branch --show-current returned no current branch.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
+			return error(
+				"detached_head",
+				`git branch --show-current returned no current branch.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: branch };
 	}
@@ -158,46 +193,91 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["config", "--get", "remote.origin.url"]);
 		if (!run.ok) return { type: "error", error: run.error };
 		if (run.value.result.killed) {
-			return { type: "error", error: failure("origin_url_killed", "git config --get remote.origin.url was killed", run.value) };
+			return {
+				type: "error",
+				error: failure(
+					"origin_url_killed",
+					"git config --get remote.origin.url was killed",
+					run.value,
+				),
+			};
 		}
 		if (run.value.result.code === 0) return { type: "found", value: run.value.result.stdout };
 		if (run.value.result.code === 1) return { type: "missing" };
-		return { type: "error", error: failure("origin_url_failed", "git config --get remote.origin.url failed", run.value) };
+		return {
+			type: "error",
+			error: failure("origin_url_failed", "git config --get remote.origin.url failed", run.value),
+		};
 	}
 
 	async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
 		const run = await this.runGit(params, ["rev-parse", "HEAD"]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("head_commit_failed", formatCommandFailure("git rev-parse HEAD failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"head_commit_failed",
+				formatCommandFailure(
+					"git rev-parse HEAD failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 
 		const commit = firstNonEmptyLine(run.value.result.stdout);
 		if (commit === undefined) {
-			return error("head_commit_empty", `git rev-parse HEAD returned no commit.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
+			return error(
+				"head_commit_empty",
+				`git rev-parse HEAD returned no commit.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: commit };
 	}
 
 	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
-		const run = await this.runGit(params, ["rev-parse", "--path-format=absolute", "--git-path", params.relativePath]);
+		const run = await this.runGit(params, [
+			"rev-parse",
+			"--path-format=absolute",
+			"--git-path",
+			params.relativePath,
+		]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("git_path_failed", formatCommandFailure("git rev-parse --git-path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"git_path_failed",
+				formatCommandFailure(
+					"git rev-parse --git-path failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 
 		const gitPath = firstNonEmptyLine(run.value.result.stdout);
 		if (gitPath === undefined) {
-			return error("git_path_empty", `git rev-parse --git-path returned no path.\nCommand: ${run.value.displayCommand}`, run.value.displayCommand);
+			return error(
+				"git_path_empty",
+				`git rev-parse --git-path returned no path.\nCommand: ${run.value.displayCommand}`,
+				run.value.displayCommand,
+			);
 		}
-		return { ok: true, value: path.isAbsolute(gitPath) ? path.normalize(gitPath) : path.resolve(params.cwd, gitPath) };
+		return {
+			ok: true,
+			value: path.isAbsolute(gitPath) ? path.normalize(gitPath) : path.resolve(params.cwd, gitPath),
+		};
 	}
 
 	async validateBranchRef(params: GitBranchParams): Promise<GitOperationResult> {
 		const run = await this.runGit(params, ["check-ref-format", "--branch", params.branch]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return { ok: false, error: failure("branch_ref_invalid", "git check-ref-format failed", run.value) };
+			return {
+				ok: false,
+				error: failure("branch_ref_invalid", "git check-ref-format failed", run.value),
+			};
 		}
 		return { ok: true };
 	}
@@ -207,7 +287,14 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["rev-parse", "--verify", refName]);
 		if (!run.ok) return { type: "error", error: run.error };
 		if (run.value.result.killed) {
-			return { type: "error", error: failure("branch_presence_killed", "git branch existence check was killed", run.value) };
+			return {
+				type: "error",
+				error: failure(
+					"branch_presence_killed",
+					"git branch existence check was killed",
+					run.value,
+				),
+			};
 		}
 		if (run.value.result.code === 0) {
 			return { type: "present", refName, displayCommand: run.value.displayCommand };
@@ -215,7 +302,10 @@ export class RealGitGateway implements GitGateway {
 		if (run.value.result.code === 1 || isMissingRevisionResult(run.value.result)) {
 			return { type: "absent", refName };
 		}
-		return { type: "error", error: failure("branch_presence_failed", "git branch existence check failed", run.value) };
+		return {
+			type: "error",
+			error: failure("branch_presence_failed", "git branch existence check failed", run.value),
+		};
 	}
 
 	async createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult> {
@@ -231,27 +321,59 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["status", "--porcelain", "--", params.relativePath]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("git_dirty_status_failed", formatCommandFailure("git status for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"git_dirty_status_failed",
+				formatCommandFailure(
+					"git status for path failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: run.value.result.stdout.trim().length > 0 };
 	}
 
-	async listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
-		const run = await this.runGit(params, ["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"]);
+	async listLocalBranchTips(
+		params: GitCwdParams,
+	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+		const run = await this.runGit(params, [
+			"for-each-ref",
+			"--format=%(refname:short)%09%(committerdate:iso-strict)",
+			"refs/heads",
+		]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("git_branch_tips_failed", formatCommandFailure("git local branch tip listing failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"git_branch_tips_failed",
+				formatCommandFailure(
+					"git local branch tip listing failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: parseLocalBranchTips(run.value.result.stdout) };
 	}
 
-	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+	async treeOidsAtRefs(
+		params: GitRefsPathParams,
+	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
 		const values: Record<string, string | null> = {};
 		for (const ref of params.refs) {
 			const run = await this.runGit(params, ["rev-parse", `${ref}:${params.relativePath}`]);
 			if (!run.ok) return run;
 			if (run.value.result.killed) {
-				return error("git_tree_oid_failed", formatCommandFailure("git tree lookup for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+				return error(
+					"git_tree_oid_failed",
+					formatCommandFailure(
+						"git tree lookup for path failed",
+						run.value.displayCommand,
+						run.value.result,
+					),
+					run.value.displayCommand,
+				);
 			}
 			if (run.value.result.code === 0) {
 				values[ref] = firstNonEmptyLine(run.value.result.stdout) ?? null;
@@ -261,16 +383,40 @@ export class RealGitGateway implements GitGateway {
 				values[ref] = null;
 				continue;
 			}
-			return error("git_tree_oid_failed", formatCommandFailure("git tree lookup for path failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"git_tree_oid_failed",
+				formatCommandFailure(
+					"git tree lookup for path failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: values };
 	}
 
-	async changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
-		const run = await this.runGit(params, ["diff", "--name-only", params.revisionRange, "--", params.relativePath]);
+	async changedPathsUnder(
+		params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
+		const run = await this.runGit(params, [
+			"diff",
+			"--name-only",
+			params.revisionRange,
+			"--",
+			params.relativePath,
+		]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error("git_changed_paths_failed", formatCommandFailure("git changed path lookup failed", run.value.displayCommand, run.value.result), run.value.displayCommand);
+			return error(
+				"git_changed_paths_failed",
+				formatCommandFailure(
+					"git changed path lookup failed",
+					run.value.displayCommand,
+					run.value.result,
+				),
+				run.value.displayCommand,
+			);
 		}
 		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
 	}
@@ -278,21 +424,40 @@ export class RealGitGateway implements GitGateway {
 	private async runGit(params: GitCwdParams, args: string[]): Promise<CommandRunResult> {
 		const displayCommand = formatCommand("git", args);
 		try {
-			const result = await this.execApi.exec("git", args, execOptions(params.cwd, GIT_TIMEOUT_MS, params.signal));
+			const result = await this.execApi.exec(
+				"git",
+				args,
+				execOptions(params.cwd, GIT_TIMEOUT_MS, params.signal),
+			);
 			return { ok: true, value: { result, displayCommand } };
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
-			return error("git_startup_failed", `git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`, displayCommand);
+			return error(
+				"git_startup_failed",
+				`git command failed before completion.\nCommand: ${displayCommand}\nError: ${message}`,
+				displayCommand,
+			);
 		}
 	}
 }
 
 function failure(code: string, title: string, run: CommandRun): GitErrorInfo {
-	return error(code, formatCommandFailure(title, run.displayCommand, run.result), run.displayCommand).error;
+	return error(
+		code,
+		formatCommandFailure(title, run.displayCommand, run.result),
+		run.displayCommand,
+	).error;
 }
 
-function error(code: string, message: string, displayCommand?: string): { ok: false; error: GitErrorInfo } {
-	return { ok: false, error: { code, message, ...(displayCommand === undefined ? {} : { displayCommand }) } };
+function error(
+	code: string,
+	message: string,
+	displayCommand?: string,
+): { ok: false; error: GitErrorInfo } {
+	return {
+		ok: false,
+		error: { code, message, ...(displayCommand === undefined ? {} : { displayCommand }) },
+	};
 }
 
 function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {
@@ -312,7 +477,11 @@ function isMissingRevisionResult(result: ExecResult): boolean {
 
 function isMissingTreeResult(result: ExecResult): boolean {
 	const output = `${result.stdout}\n${result.stderr}`;
-	return output.includes("exists on disk, but not in") || output.includes("does not exist in") || output.includes("unknown revision or path");
+	return (
+		output.includes("exists on disk, but not in") ||
+		output.includes("does not exist in") ||
+		output.includes("unknown revision or path")
+	);
 }
 
 function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
@@ -335,13 +504,25 @@ function nonEmptyLines(value: string): string[] {
 		.filter((line) => line.length > 0);
 }
 
-export function planLocalBranchRefreshFromWorktrees(options: LocalBranchRefreshPlanOptions): LocalBranchRefreshPlan {
-	const checkedOutPath = parseGitWorktreePorcelain(options.worktreePorcelain).find((entry) => entry.branch === options.branch)?.path;
+export function planLocalBranchRefreshFromWorktrees(
+	options: LocalBranchRefreshPlanOptions,
+): LocalBranchRefreshPlan {
+	const checkedOutPath = parseGitWorktreePorcelain(options.worktreePorcelain).find(
+		(entry) => entry.branch === options.branch,
+	)?.path;
 	if (checkedOutPath !== undefined) {
-		return { type: "pull-checked-out-branch", cwd: checkedOutPath, args: ["pull", "--ff-only", "origin", options.branch] };
+		return {
+			type: "pull-checked-out-branch",
+			cwd: checkedOutPath,
+			args: ["pull", "--ff-only", "origin", options.branch],
+		};
 	}
 
-	return { type: "fetch-local-branch", cwd: options.cwd, args: ["fetch", "origin", `refs/heads/${options.branch}:refs/heads/${options.branch}`] };
+	return {
+		type: "fetch-local-branch",
+		cwd: options.cwd,
+		args: ["fetch", "origin", `refs/heads/${options.branch}:refs/heads/${options.branch}`],
+	};
 }
 
 export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainEntry[] {
@@ -365,7 +546,10 @@ export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainE
 		}
 		if (current !== null && line.startsWith("branch ")) {
 			const ref = line.slice("branch ".length);
-			current = { ...current, branch: ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref };
+			current = {
+				...current,
+				branch: ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref,
+			};
 		}
 	}
 	pushCurrent();

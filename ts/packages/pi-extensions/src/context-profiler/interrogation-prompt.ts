@@ -71,14 +71,16 @@ export function scopesEqual(left: InterrogationScope, right: InterrogationScope)
 }
 
 function episodeScopeSeedsEqual(left: EpisodeScopeSeed, right: EpisodeScopeSeed): boolean {
-	return left.label === right.label
-		&& left.kind === right.kind
-		&& left.outcome === right.outcome
-		&& left.turnRange.start === right.turnRange.start
-		&& left.turnRange.end === right.turnRange.end
-		&& left.efficiency === right.efficiency
-		&& left.relevance === right.relevance
-		&& left.analysisSummary === right.analysisSummary;
+	return (
+		left.label === right.label &&
+		left.kind === right.kind &&
+		left.outcome === right.outcome &&
+		left.turnRange.start === right.turnRange.start &&
+		left.turnRange.end === right.turnRange.end &&
+		left.efficiency === right.efficiency &&
+		left.relevance === right.relevance &&
+		left.analysisSummary === right.analysisSummary
+	);
 }
 
 export function scopeLabel(scope: InterrogationScope): string {
@@ -94,10 +96,14 @@ export function buildInterrogationUserMessage(options: {
 	if (!options.includeScopePreamble) return options.question;
 	if (options.scope.type === "session") return `FOCUS: whole session.\n\n${options.question}`;
 	const seed = options.scope.seed;
-	const verdicts = [seed.efficiency === undefined ? null : `efficiency=${seed.efficiency}`, seed.relevance === undefined ? null : `relevance=${seed.relevance}`]
+	const verdicts = [
+		seed.efficiency === undefined ? null : `efficiency=${seed.efficiency}`,
+		seed.relevance === undefined ? null : `relevance=${seed.relevance}`,
+	]
 		.filter((part): part is string => part !== null)
 		.join(" · ");
 	const verdictLine = verdicts.length === 0 ? "" : `\nVerdicts: ${verdicts}`;
-	const summaryLine = seed.analysisSummary === undefined ? "" : `\nSummary: ${seed.analysisSummary}`;
+	const summaryLine =
+		seed.analysisSummary === undefined ? "" : `\nSummary: ${seed.analysisSummary}`;
 	return `FOCUS: episode ${seed.label} (${seed.kind}, outcome=${seed.outcome ?? "unknown"}, turns ${seed.turnRange.start}–${seed.turnRange.end}).${verdictLine}${summaryLine}\n\n${options.question}`;
 }

@@ -11,8 +11,14 @@ import {
 
 describe("ref layout", () => {
 	it("builds Base Namespace and named Namespace Snapshot Refs", () => {
-		expect(buildSnapshotRef("base", "feat/x")).toEqual({ type: "ok", value: "refs/brmem/base/feat---x" });
-		expect(buildSnapshotRef("notes", "feat/x")).toEqual({ type: "ok", value: "refs/brmem/ns/notes/feat---x" });
+		expect(buildSnapshotRef("base", "feat/x")).toEqual({
+			type: "ok",
+			value: "refs/brmem/base/feat---x",
+		});
+		expect(buildSnapshotRef("notes", "feat/x")).toEqual({
+			type: "ok",
+			value: "refs/brmem/ns/notes/feat---x",
+		});
 	});
 
 	it("encodes slash-separated branches and rejects ambiguous encoded separators", () => {
@@ -22,8 +28,14 @@ describe("ref layout", () => {
 	});
 
 	it("parses valid Snapshot Refs and skips malformed refs", () => {
-		expect(parseSnapshotRef("refs/brmem/base/feat---x")).toMatchObject({ namespace: "base", branch: "feat/x" });
-		expect(parseSnapshotRef("refs/brmem/ns/notes/feat---x")).toMatchObject({ namespace: "notes", branch: "feat/x" });
+		expect(parseSnapshotRef("refs/brmem/base/feat---x")).toMatchObject({
+			namespace: "base",
+			branch: "feat/x",
+		});
+		expect(parseSnapshotRef("refs/brmem/ns/notes/feat---x")).toMatchObject({
+			namespace: "notes",
+			branch: "feat/x",
+		});
 		expect(parseSnapshotRef("refs/brmem/ns/base/feat---x")).toBeUndefined();
 		expect(parseSnapshotRef("refs/brmem/base/feat/x")).toBeUndefined();
 		expect(parseSnapshotRef("refs/heads/main")).toBeUndefined();

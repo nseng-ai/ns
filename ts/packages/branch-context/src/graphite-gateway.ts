@@ -1,4 +1,10 @@
-import { formatCommand, formatCommandFailure, type CommandExecApi, type ExecOptions, type ExecResult } from "@asdl/core/exec";
+import {
+	formatCommand,
+	formatCommandFailure,
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
+} from "@asdl/core/exec";
 
 const GT_TIMEOUT_MS = 30_000;
 
@@ -29,7 +35,9 @@ export type GraphiteBranchTrackedResult =
 	| { ok: false; error: GraphiteErrorInfo };
 
 export interface BranchContextGraphiteGateway {
-	checkBranchTracked(params: GraphiteCheckBranchTrackedParams): Promise<GraphiteBranchTrackedResult>;
+	checkBranchTracked(
+		params: GraphiteCheckBranchTrackedParams,
+	): Promise<GraphiteBranchTrackedResult>;
 	trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult>;
 }
 
@@ -45,12 +53,18 @@ export class RealBranchContextGraphiteGateway implements BranchContextGraphiteGa
 		this.pi = pi;
 	}
 
-	async checkBranchTracked(params: GraphiteCheckBranchTrackedParams): Promise<GraphiteBranchTrackedResult> {
+	async checkBranchTracked(
+		params: GraphiteCheckBranchTrackedParams,
+	): Promise<GraphiteBranchTrackedResult> {
 		const args = ["info", params.branch, "--no-interactive"];
 		const displayCommand = formatCommand("gt", args);
 		let result: ExecResult;
 		try {
-			result = await this.pi.exec("gt", args, execOptions(params.cwd, GT_TIMEOUT_MS, params.signal));
+			result = await this.pi.exec(
+				"gt",
+				args,
+				execOptions(params.cwd, GT_TIMEOUT_MS, params.signal),
+			);
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
@@ -59,7 +73,11 @@ export class RealBranchContextGraphiteGateway implements BranchContextGraphiteGa
 			return {
 				ok: true,
 				tracked: false,
-				detail: formatCommandFailure("gt info could not verify Graphite tracking", displayCommand, result),
+				detail: formatCommandFailure(
+					"gt info could not verify Graphite tracking",
+					displayCommand,
+					result,
+				),
 			};
 		}
 		return { ok: true, tracked: true };
@@ -70,13 +88,20 @@ export class RealBranchContextGraphiteGateway implements BranchContextGraphiteGa
 		const displayCommand = formatCommand("gt", args);
 		let result: ExecResult;
 		try {
-			result = await this.pi.exec("gt", args, execOptions(params.cwd, GT_TIMEOUT_MS, params.signal));
+			result = await this.pi.exec(
+				"gt",
+				args,
+				execOptions(params.cwd, GT_TIMEOUT_MS, params.signal),
+			);
 		} catch (caught) {
 			return { ok: false, error: startupFailure(displayCommand, caught) };
 		}
 
 		if (result.code !== 0 || result.killed) {
-			return { ok: false, error: failure("graphite_track_failed", "gt track failed", { result, displayCommand }) };
+			return {
+				ok: false,
+				error: failure("graphite_track_failed", "gt track failed", { result, displayCommand }),
+			};
 		}
 		return { ok: true };
 	}
@@ -92,7 +117,11 @@ function startupFailure(displayCommand: string, caught: unknown): GraphiteErrorI
 }
 
 function failure(code: string, title: string, run: CommandRun): GraphiteErrorInfo {
-	return { code, message: formatCommandFailure(title, run.displayCommand, run.result), displayCommand: run.displayCommand };
+	return {
+		code,
+		message: formatCommandFailure(title, run.displayCommand, run.result),
+		displayCommand: run.displayCommand,
+	};
 }
 
 function execOptions(cwd: string, timeout: number, signal: AbortSignal | undefined): ExecOptions {

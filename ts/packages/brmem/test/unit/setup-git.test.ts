@@ -21,7 +21,10 @@ describe("buildGitSetupPlan", () => {
 	it("preserves existing custom push policy instead of adding HEAD", () => {
 		const plan = buildGitSetupPlan({
 			remote: "upstream",
-			existing: { push: ["refs/heads/main:refs/heads/main"], fetch: ["+refs/heads/*:refs/remotes/upstream/*"] },
+			existing: {
+				push: ["refs/heads/main:refs/heads/main"],
+				fetch: ["+refs/heads/*:refs/remotes/upstream/*"],
+			},
 		});
 
 		expect(plan.additions).toEqual([
@@ -33,7 +36,10 @@ describe("buildGitSetupPlan", () => {
 	it("is idempotent when Branch Memory push and fetch refspecs already exist", () => {
 		const plan = buildGitSetupPlan({
 			remote: "origin",
-			existing: { push: ["HEAD", brmemRefspec], fetch: ["+refs/heads/*:refs/remotes/origin/*", brmemRefspec] },
+			existing: {
+				push: ["HEAD", brmemRefspec],
+				fetch: ["+refs/heads/*:refs/remotes/origin/*", brmemRefspec],
+			},
 		});
 
 		expect(plan.additions).toEqual([]);

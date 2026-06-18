@@ -30,7 +30,11 @@ const sampleSkillKindListResult: SkillKindListResult = {
 	],
 };
 
-function skill(name: string, skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`, options: Partial<FakeAregSkillKindSkillOptions> = {}): FakeAregSkillKindSkillOptions {
+function skill(
+	name: string,
+	skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`,
+	options: Partial<FakeAregSkillKindSkillOptions> = {},
+): FakeAregSkillKindSkillOptions {
 	return { name, skillMd, ...options };
 }
 
@@ -52,7 +56,9 @@ describe("areg skill list/show CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain(".pi/settings.json is a symlink; refusing to inspect Pi settings.");
+		expect(run.stderr.join("")).toContain(
+			".pi/settings.json is a symlink; refusing to inspect Pi settings.",
+		);
 	});
 
 	test("list reports clean and diagnostic inferred kinds in human output", async () => {
@@ -62,8 +68,14 @@ describe("areg skill list/show CLI", () => {
 				replacementSurfaces: ["command:skill"],
 				localSkills: [
 					skill("normal", BASE_SKILL),
-					skill("invoke", INVOKE_ONLY_SKILL, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
-					skill("command-skill", "---\nname: command-skill\ndisable-model-invocation: true\n---\n", { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+					skill("invoke", INVOKE_ONLY_SKILL, {
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					}),
+					skill(
+						"command-skill",
+						"---\nname: command-skill\ndisable-model-invocation: true\n---\n",
+						{ openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" },
+					),
 					skill("ambient", AMBIENT_ONLY_SKILL),
 					skill("broken", "---\nname: broken\ndisable-model-invocation: true\n---\n"),
 				],
@@ -79,11 +91,15 @@ describe("areg skill list/show CLI", () => {
 		expect(output).toContain("PI");
 		expect(output).toContain("NOTES");
 		expect(output).toMatch(/^─/mu);
-		expect(output).toMatch(/^ambient\s+ambient-only\s+enabled\s+partial\s+n\/a\s+.*ambient-only disables Claude native direct invocation/mu);
+		expect(output).toMatch(
+			/^ambient\s+ambient-only\s+enabled\s+partial\s+n\/a\s+.*ambient-only disables Claude native direct invocation/mu,
+		);
 		expect(output).toMatch(/^command-skill\s+command-backed\s+disabled\s+partial\s+enabled$/mu);
 		expect(output).toMatch(/^invoke\s+invoke-only\s+disabled\s+enabled\s+n\/a$/mu);
 		expect(output).toMatch(/^normal\s+normal\s+enabled\s+enabled\s+n\/a$/mu);
-		expect(output).toMatch(/^broken\s+inconsistent\s+mixed\s+mixed\s+missing\s+.*disable-model-invocation is present but agents\/openai\.yaml is missing\./mu);
+		expect(output).toMatch(
+			/^broken\s+inconsistent\s+mixed\s+mixed\s+missing\s+.*disable-model-invocation is present but agents\/openai\.yaml is missing\./mu,
+		);
 	});
 
 	test("list renderer propagates ANSI capability", () => {
@@ -94,7 +110,9 @@ describe("areg skill list/show CLI", () => {
 	});
 
 	test("list JSON uses snake_case boundary fields", async () => {
-		const run = runScenario(["skill", "list", "--format", "json"], { project: { localSkills: [skill("demo-skill")] } });
+		const run = runScenario(["skill", "list", "--format", "json"], {
+			project: { localSkills: [skill("demo-skill")] },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({
@@ -131,9 +149,13 @@ describe("areg skill list/show CLI", () => {
 				piSettings: { skills: ["-skills/branch-context-from-plan"] },
 				replacementSurfaces: ["branch-context:from-plan"],
 				localSkills: [
-					skill("branch-context-from-plan", "---\nname: branch-context-from-plan\ndisable-model-invocation: true\n---\n", {
-						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
-					}),
+					skill(
+						"branch-context-from-plan",
+						"---\nname: branch-context-from-plan\ndisable-model-invocation: true\n---\n",
+						{
+							openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+						},
+					),
 				],
 			},
 		});
@@ -157,11 +179,15 @@ describe("areg skill list/show CLI", () => {
 	});
 
 	test("fails when frontmatter or target project are invalid", async () => {
-		const malformed = runScenario(["skill", "list"], { project: { localSkills: [skill("bad", "# missing frontmatter\n")] } });
+		const malformed = runScenario(["skill", "list"], {
+			project: { localSkills: [skill("bad", "# missing frontmatter\n")] },
+		});
 		expect(await malformed.exit).toBe(2);
 		expect(malformed.stderr.join("")).toContain("missing opening frontmatter delimiter");
 
-		const missingPath = runScenario(["skill", "list", "--path", "missing"], { project: { projectDir: "/repo/missing", projectPathState: { type: "missing" } } });
+		const missingPath = runScenario(["skill", "list", "--path", "missing"], {
+			project: { projectDir: "/repo/missing", projectPathState: { type: "missing" } },
+		});
 		expect(await missingPath.exit).toBe(2);
 		expect(missingPath.stderr.join("")).toContain("Target /repo/missing does not exist.");
 	});

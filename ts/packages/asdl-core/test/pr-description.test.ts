@@ -61,33 +61,72 @@ describe("PR description helpers", () => {
 	});
 
 	test("formats, parses, and replaces the managed generated region", () => {
-		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const metadata = {
+			version: "2" as const,
+			patchId: "patch-1",
+			promptHash: hashPrDescriptionPrompt("prompt"),
+			generator: "asdl-pr-description-v2",
+		};
 		const region = formatManagedGeneratedRegion("Generated body", metadata);
 
 		expect(region).toContain("<details open>");
-		expect(parseManagedGeneratedRegion(region)).toMatchObject({ type: "found", metadata, body: "Generated body" });
-		expect(replaceOrInsertGeneratedRegion(`Intro\n\n${region}\n\nFooter`, "New generated body", { ...metadata, patchId: "patch-2" })).toBe(
+		expect(parseManagedGeneratedRegion(region)).toMatchObject({
+			type: "found",
+			metadata,
+			body: "Generated body",
+		});
+		expect(
+			replaceOrInsertGeneratedRegion(`Intro\n\n${region}\n\nFooter`, "New generated body", {
+				...metadata,
+				patchId: "patch-2",
+			}),
+		).toBe(
 			`Intro\n\n${formatManagedGeneratedRegion("New generated body", { ...metadata, patchId: "patch-2" })}\n\nFooter`,
 		);
 	});
 
 	test("inserts managed generated regions before unowned human body content", () => {
-		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const metadata = {
+			version: "2" as const,
+			patchId: "patch-1",
+			promptHash: hashPrDescriptionPrompt("prompt"),
+			generator: "asdl-pr-description-v2",
+		};
 
-		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`);
+		expect(replaceOrInsertGeneratedRegion("Human note", "Generated body", metadata)).toBe(
+			`${formatManagedGeneratedRegion("Generated body", metadata)}\n\nHuman note`,
+		);
 	});
 
 	test("treats duplicate managed generated regions as malformed", () => {
-		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const metadata = {
+			version: "2" as const,
+			patchId: "patch-1",
+			promptHash: hashPrDescriptionPrompt("prompt"),
+			generator: "asdl-pr-description-v2",
+		};
 		const region = formatManagedGeneratedRegion("Generated body", metadata);
 
-		expect(parseManagedGeneratedRegion(`${region}\n\n${region}`)).toMatchObject({ type: "malformed" });
+		expect(parseManagedGeneratedRegion(`${region}\n\n${region}`)).toMatchObject({
+			type: "malformed",
+		});
 	});
 
 	test("legacy generated marker bodies regenerate as fully machine-owned", () => {
-		const metadata = { version: "2" as const, patchId: "patch-1", promptHash: hashPrDescriptionPrompt("prompt"), generator: "asdl-pr-description-v2" };
+		const metadata = {
+			version: "2" as const,
+			patchId: "patch-1",
+			promptHash: hashPrDescriptionPrompt("prompt"),
+			generator: "asdl-pr-description-v2",
+		};
 
-		expect(replaceOrInsertGeneratedRegion(`Old generated\n\n${GENERATED_BODY_MARKER}`, "Generated body", metadata)).toBe(formatManagedGeneratedRegion("Generated body", metadata));
+		expect(
+			replaceOrInsertGeneratedRegion(
+				`Old generated\n\n${GENERATED_BODY_MARKER}`,
+				"Generated body",
+				metadata,
+			),
+		).toBe(formatManagedGeneratedRegion("Generated body", metadata));
 	});
 
 	test("detects a body that exactly matches a commit message body", () => {
@@ -198,12 +237,19 @@ describe("PR description helpers", () => {
 		const envPath = join(root, "env.md");
 		await writeFile(envPath, "env prompt", "utf8");
 
-		await expect(resolvePrDescriptionPrompt({ env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath }, repoRoot: join(root, "repo") })).resolves.toMatchObject({
+		await expect(
+			resolvePrDescriptionPrompt({
+				env: { [PR_DESCRIPTION_PROMPT_ENV]: envPath },
+				repoRoot: join(root, "repo"),
+			}),
+		).resolves.toMatchObject({
 			ok: true,
 			text: "env prompt",
 			source: { type: "env" },
 		});
-		await expect(resolvePrDescriptionPrompt({ env: {}, repoRoot: join(root, "repo") })).resolves.toMatchObject({
+		await expect(
+			resolvePrDescriptionPrompt({ env: {}, repoRoot: join(root, "repo") }),
+		).resolves.toMatchObject({
 			ok: true,
 			text: "repo prompt",
 			source: { type: "repo" },

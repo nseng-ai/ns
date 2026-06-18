@@ -53,7 +53,10 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 	};
 }
 
-function runInit(args: readonly string[], options: InitHarnessOptions = {}): InitHarness & { exit: Promise<number>; stdout: string[]; stderr: string[] } {
+function runInit(
+	args: readonly string[],
+	options: InitHarnessOptions = {},
+): InitHarness & { exit: Promise<number>; stdout: string[]; stderr: string[] } {
 	const harness = initHarness(options);
 	const run = runScenario(["init", ...args], { context: harness.context });
 	return { ...harness, ...run };
@@ -78,7 +81,9 @@ describe("areg init CLI", () => {
 		expect(run.projectGateway.text("asdl.toml")).toBe('[areg]\nagents = ["codex","claude-code"]\n');
 		expect(run.projectGateway.text("AGENTS.md")).toContain("<!-- areg:skills:start -->");
 		expect(run.projectGateway.text("CLAUDE.md")).toContain("@AGENTS.md");
-		expect(run.projectGateway.text(".claude/settings.local.json")).toContain('"Bash(npx skills:*)"');
+		expect(run.projectGateway.text(".claude/settings.local.json")).toContain(
+			'"Bash(npx skills:*)"',
+		);
 	});
 
 	test("uses repeatable --agent values for TOML and npx", async () => {
@@ -98,12 +103,19 @@ describe("areg init CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.projectGateway.text("asdl.toml")).toBe('[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["codex","cursor"]\n');
-		expect(run.projectGateway.text("areg.json")).toBe('{\n  "agents": [\n    "codex",\n    "cursor"\n  ]\n}\n');
+		expect(run.projectGateway.text("asdl.toml")).toBe(
+			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n\n[areg]\nagents = ["codex","cursor"]\n',
+		);
+		expect(run.projectGateway.text("areg.json")).toBe(
+			'{\n  "agents": [\n    "codex",\n    "cursor"\n  ]\n}\n',
+		);
 	});
 
 	test("prompts before appending existing prose and honors decline", async () => {
-		const run = runInit([], { project: { agentsMd: "# Existing\n" }, prompt: { responses: [false] } });
+		const run = runInit([], {
+			project: { agentsMd: "# Existing\n" },
+			prompt: { responses: [false] },
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.projectGateway.text("AGENTS.md")).toBe("# Existing\n");
@@ -160,7 +172,7 @@ describe("areg init CLI", () => {
 		const npxFail = runInit([], { npxSkills: { failure: { code: "boom", message: "boom" } } });
 		expect(await npxFail.exit).toBe(1);
 		expect(npxFail.stderr.join("")).toContain("npx skills add failed: boom");
-		expect(npxFail.stderr.join("")).not.toContain("\"operations\"");
+		expect(npxFail.stderr.join("")).not.toContain('"operations"');
 		expect(npxFail.projectGateway.text("asdl.toml")).toBeUndefined();
 	});
 
@@ -170,7 +182,10 @@ describe("areg init CLI", () => {
 		expect(missingGit.stderr.join("")).toContain("Run git init first");
 		expect(missingGit.npxSkills.operations()).toEqual([]);
 
-		const subdir = runInit([], { project: { projectDir: "/repo/subdir" }, git: { optionalRepoRoot: "/repo" } });
+		const subdir = runInit([], {
+			project: { projectDir: "/repo/subdir" },
+			git: { optionalRepoRoot: "/repo" },
+		});
 		expect(await subdir.exit).toBe(2);
 		expect(subdir.stderr.join("")).toContain("is inside a Git worktree but is not the root");
 	});
@@ -193,7 +208,9 @@ describe("areg init CLI", () => {
 	});
 
 	test("JSON preflight failure reports mutation evidence and skips npx", async () => {
-		const run = runInit(["--format", "json"], { project: { preflightFailures: { "AGENTS.md": { code: "blocked", message: "blocked" } } } });
+		const run = runInit(["--format", "json"], {
+			project: { preflightFailures: { "AGENTS.md": { code: "blocked", message: "blocked" } } },
+		});
 
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
@@ -208,7 +225,12 @@ describe("areg init CLI", () => {
 				operations: [
 					{ type: "external", path: "npx skills add", status: "not_attempted" },
 					{ type: "write", path: "asdl.toml", status: "not_attempted" },
-					{ type: "write", path: "AGENTS.md", status: "failed", error: { code: "blocked", message: "blocked" } },
+					{
+						type: "write",
+						path: "AGENTS.md",
+						status: "failed",
+						error: { code: "blocked", message: "blocked" },
+					},
 					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
 					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
 				],
@@ -219,7 +241,9 @@ describe("areg init CLI", () => {
 	});
 
 	test("JSON npx failure reports external failure and not-attempted file writes", async () => {
-		const run = runInit(["--format", "json"], { npxSkills: { failure: { code: "boom", message: "boom" } } });
+		const run = runInit(["--format", "json"], {
+			npxSkills: { failure: { code: "boom", message: "boom" } },
+		});
 
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
@@ -228,7 +252,12 @@ describe("areg init CLI", () => {
 			data: {
 				mutation_failed: true,
 				operations: [
-					{ type: "external", path: "npx skills add", status: "failed", error: { code: "boom", message: "boom" } },
+					{
+						type: "external",
+						path: "npx skills add",
+						status: "failed",
+						error: { code: "boom", message: "boom" },
+					},
 					{ type: "write", path: "asdl.toml", status: "not_attempted" },
 					{ type: "write", path: "AGENTS.md", status: "not_attempted" },
 					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
@@ -240,7 +269,11 @@ describe("areg init CLI", () => {
 	});
 
 	test("JSON file execution failure reports applied external and partial file statuses", async () => {
-		const run = runInit(["--format", "json"], { project: { mutationFailures: { "AGENTS.md": { code: "write-blocked", message: "write blocked" } } } });
+		const run = runInit(["--format", "json"], {
+			project: {
+				mutationFailures: { "AGENTS.md": { code: "write-blocked", message: "write blocked" } },
+			},
+		});
 
 		expect(await run.exit).toBe(1);
 		const output = JSON.parse(run.stdout.join(""));
@@ -251,7 +284,12 @@ describe("areg init CLI", () => {
 				operations: [
 					{ type: "external", path: "npx skills add", status: "applied" },
 					{ type: "write", path: "asdl.toml", status: "applied" },
-					{ type: "write", path: "AGENTS.md", status: "failed", error: { code: "write-blocked", message: "write blocked" } },
+					{
+						type: "write",
+						path: "AGENTS.md",
+						status: "failed",
+						error: { code: "write-blocked", message: "write blocked" },
+					},
 					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
 					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
 				],

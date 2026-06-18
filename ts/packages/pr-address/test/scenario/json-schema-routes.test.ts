@@ -10,14 +10,19 @@ import { runScenario } from "../support/run-scenario.ts";
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/json-schemas/", import.meta.url));
 const OPERATION_NAMES = [...EXEC_OPERATION_NAMES].sort();
 
-async function readFixture(operation: string): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
+async function readFixture(
+	operation: string,
+): Promise<{ input_json_schema: unknown; output_json_schema: unknown }> {
 	const raw = await readFile(join(FIXTURE_ROOT, `${operation}.json`), "utf8");
 	return JSON.parse(raw) as { input_json_schema: unknown; output_json_schema: unknown };
 }
 
 async function fixtureOperationNames(): Promise<string[]> {
 	const entries = await readdir(FIXTURE_ROOT);
-	return entries.filter((entry) => extname(entry) === ".json").map((entry) => basename(entry, ".json")).sort();
+	return entries
+		.filter((entry) => extname(entry) === ".json")
+		.map((entry) => basename(entry, ".json"))
+		.sort();
 }
 
 async function serveSchemaDocument(operation: string): Promise<Record<string, unknown>> {

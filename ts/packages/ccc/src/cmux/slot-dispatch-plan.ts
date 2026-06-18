@@ -103,15 +103,25 @@ export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
 }
 
-export function registerCccSlotDispatchPlanCommand(pi: ExtensionAPI, options: CccSlotDispatchPlanOptions = {}): void {
+export function registerCccSlotDispatchPlanCommand(
+	pi: ExtensionAPI,
+	options: CccSlotDispatchPlanOptions = {},
+): void {
 	registerDispatchPlanCommand(pi, WORKSPACE_CONFIG, options);
 }
 
-export function registerCccSurfaceDispatchPlanCommand(pi: ExtensionAPI, options: CccSlotDispatchPlanOptions = {}): void {
+export function registerCccSurfaceDispatchPlanCommand(
+	pi: ExtensionAPI,
+	options: CccSlotDispatchPlanOptions = {},
+): void {
 	registerDispatchPlanCommand(pi, SURFACE_CONFIG, options);
 }
 
-function registerDispatchPlanCommand(pi: ExtensionAPI, config: DispatchPlanConfig, options: CccSlotDispatchPlanOptions): void {
+function registerDispatchPlanCommand(
+	pi: ExtensionAPI,
+	config: DispatchPlanConfig,
+	options: CccSlotDispatchPlanOptions,
+): void {
 	pi.registerCommand(config.commandName, {
 		description: `Dispatch the latest saved plan into a new cmux ${config.destination} for implementation.`,
 		argumentHint: "[--dry-run]",
@@ -121,7 +131,13 @@ function registerDispatchPlanCommand(pi: ExtensionAPI, config: DispatchPlanConfi
 	});
 }
 
-async function handleCommand({ pi, rawArgs, ctx, options, config }: HandleCommandOptions): Promise<void> {
+async function handleCommand({
+	pi,
+	rawArgs,
+	ctx,
+	options,
+	config,
+}: HandleCommandOptions): Promise<void> {
 	await ctx.waitForIdle();
 
 	const parsed = parseCommandArgs(rawArgs);
@@ -151,7 +167,10 @@ async function handleCommand({ pi, rawArgs, ctx, options, config }: HandleComman
 
 		const selectedPlan = selected.plan;
 		setStatus(ctx, config, "deriving branch-context slug…");
-		const slugEvidence = await derivePlanContentSlug(pi, { filePath: selectedPlan.filePath, cwd: checkout.directory.repoRoot });
+		const slugEvidence = await derivePlanContentSlug(pi, {
+			filePath: selectedPlan.filePath,
+			cwd: checkout.directory.repoRoot,
+		});
 		const operation = buildBranchContextCreateOperation({
 			slug: slugEvidence.slug,
 			filePath: selectedPlan.filePath,
@@ -160,7 +179,10 @@ async function handleCommand({ pi, rawArgs, ctx, options, config }: HandleComman
 		});
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
-			const previewContext = await resolveBranchContextCreatePreviewContext(pi, { cwd: checkout.directory.repoRoot, context: createBranchContextContext(pi) });
+			const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
+				cwd: checkout.directory.repoRoot,
+				context: createBranchContextContext(pi),
+			});
 			const branchContextPreview = formatBranchContextCreatePreview(operation, {
 				...previewContext,
 				graphiteParentBranch: checkout.directory.sourceBranch,
@@ -168,7 +190,14 @@ async function handleCommand({ pi, rawArgs, ctx, options, config }: HandleComman
 			presentBranchContextMessage(
 				pi,
 				ctx,
-				formatDryRun({ plan: selectedPlan, checkout, operation, branchContextPreview, launchOptions, config }),
+				formatDryRun({
+					plan: selectedPlan,
+					checkout,
+					operation,
+					branchContextPreview,
+					launchOptions,
+					config,
+				}),
 				{ status: "dry-run", targetBranch: operation.branch, key: operation.key },
 				"info",
 			);
@@ -218,7 +247,10 @@ async function resolveLatestSavedPlanFromSession(
 	ctx: CommandContext,
 	directory: PlanStoreDirectoryEvidence,
 ): Promise<{ plan: ValidatedSessionSavedPlan } | { error: string }> {
-	const result = await findLatestSessionSavedPlanFile(ctx.sessionManager?.getBranch?.() ?? [], directory);
+	const result = await findLatestSessionSavedPlanFile(
+		ctx.sessionManager?.getBranch?.() ?? [],
+		directory,
+	);
 	switch (result.type) {
 		case "found":
 			return { plan: result.plan };
@@ -243,7 +275,9 @@ async function resolveCurrentCheckout(
 	try {
 		directory = await resolvePlanStoreDirectory(pi, { cwd, planStoreRoot: options.planStoreRoot });
 	} catch (error) {
-		return { error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}` };
+		return {
+			error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}`,
+		};
 	}
 
 	return { directory };
@@ -255,13 +289,22 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	setStatus(ctx, config, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createBranchContextFromFile(pi, operation.params, { cwd: checkout.directory.repoRoot, context: createBranchContextContext(pi) });
+		evidence = await createBranchContextFromFile(pi, operation.params, {
+			cwd: checkout.directory.repoRoot,
+			context: createBranchContextContext(pi),
+		});
 	} catch (error) {
 		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
 		return;
 	}
 
-	presentBranchContextMessage(pi, ctx, formatBranchContextEvidence(evidence), { status: "success", evidence }, "info");
+	presentBranchContextMessage(
+		pi,
+		ctx,
+		formatBranchContextEvidence(evidence),
+		{ status: "success", evidence },
+		"info",
+	);
 
 	const launchOptions = getPiLaunchOptions(pi, ctx);
 	if (config.destination === "workspace") {
@@ -311,7 +354,11 @@ function present(ctx: CommandContext, message: string, level: PresentLevel): voi
 	ctx.ui.notify(message, level);
 }
 
-function setStatus(ctx: CommandContext, config: DispatchPlanConfig, value: string | undefined): void {
+function setStatus(
+	ctx: CommandContext,
+	config: DispatchPlanConfig,
+	value: string | undefined,
+): void {
 	ctx.ui.setStatus?.(config.statusKey, value);
 }
 
@@ -335,11 +382,21 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		"",
 		branchContextPreview,
 		formatCommand("slot", ["checkout", operation.branch, "--format", "json", "--no-clipboard"]),
-		formatLaunchPreview({ destination: config.destination, branch: operation.branch, description, launchCommand }),
-	].filter((line): line is string => line !== undefined).join("\n");
+		formatLaunchPreview({
+			destination: config.destination,
+			branch: operation.branch,
+			description,
+			launchCommand,
+		}),
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
 }
 
-function formatCccBranchContextCreateFailure(operation: BranchContextCreateOperation, error: unknown): string {
+function formatCccBranchContextCreateFailure(
+	operation: BranchContextCreateOperation,
+	error: unknown,
+): string {
 	const failure = formatBranchContextCreateFailure(operation, error);
 	return failure.replace("\n\n", "\nNo cmux workspace was opened.\n\n");
 }
@@ -356,7 +413,10 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 	].join("\n");
 }
 
-function formatPiLaunchCommand(operation: Pick<BranchContextCreateOperation, "key">, launchOptions: PiLaunchOptions): string {
+function formatPiLaunchCommand(
+	operation: Pick<BranchContextCreateOperation, "key">,
+	launchOptions: PiLaunchOptions,
+): string {
 	return buildPiLaunchCommand(formatImplBranchContextCommand(operation.key), launchOptions);
 }
 
@@ -374,7 +434,12 @@ function formatSurfaceSuccess(options: FormatSurfaceSuccessOptions): string {
 	].join("\n");
 }
 
-function formatLaunchPreview(options: { destination: DispatchDestination; branch: string; description: string; launchCommand: string }): string {
+function formatLaunchPreview(options: {
+	destination: DispatchDestination;
+	branch: string;
+	description: string;
+	launchCommand: string;
+}): string {
 	if (options.destination === "workspace") {
 		return [
 			"cmux new-workspace",
@@ -385,7 +450,10 @@ function formatLaunchPreview(options: { destination: DispatchDestination; branch
 		].join(" ");
 	}
 
-	const surfaceLaunchCommand = formatSurfaceLaunchCommand("<slot-worktree-path>", options.launchCommand);
+	const surfaceLaunchCommand = formatSurfaceLaunchCommand(
+		"<slot-worktree-path>",
+		options.launchCommand,
+	);
 	return [
 		"cmux new-surface --type terminal --workspace <caller-workspace> --pane <caller-pane> --focus true",
 		`cmux rename-tab --title ${formatShellArg(options.branch)}`,
@@ -447,7 +515,9 @@ async function openBranchInCmuxSurface(options: {
 	present(ctx, formatSurfaceSuccess({ operation, target, launch: launched }), "info");
 }
 
-function formatSurfaceStageStatus(stage: "identify" | "create-surface" | "rename" | "send"): string {
+function formatSurfaceStageStatus(
+	stage: "identify" | "create-surface" | "rename" | "send",
+): string {
 	switch (stage) {
 		case "identify":
 			return "identifying cmux caller…";
@@ -460,7 +530,11 @@ function formatSurfaceStageStatus(stage: "identify" | "create-surface" | "rename
 	}
 }
 
-function formatCmuxSurfaceFailure(branchName: string, target: SlotCheckoutTarget, launch: Extract<FocusedCmuxTabLaunchResult, { type: "failed" }>): string {
+function formatCmuxSurfaceFailure(
+	branchName: string,
+	target: SlotCheckoutTarget,
+	launch: Extract<FocusedCmuxTabLaunchResult, { type: "failed" }>,
+): string {
 	return [
 		"Checked out the branch slot, but failed to open the cmux surface.",
 		`Branch: ${branchName}`,

@@ -66,22 +66,42 @@ describe("validatePlanSlug", () => {
 
 describe("source branch plan path helpers", () => {
 	test("normalizes repository origin URLs deterministically", () => {
-		expect(normalizeRepoOriginUrl("git@github.com:owner/repo.git")).toBe("ssh://git@github.com/owner/repo");
-		expect(normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git")).toBe("https://github.com/Owner/Repo");
-		expect(normalizeRepoOriginUrl("https://github.com/owner/repo.git///")).toBe("https://github.com/owner/repo");
+		expect(normalizeRepoOriginUrl("git@github.com:owner/repo.git")).toBe(
+			"ssh://git@github.com/owner/repo",
+		);
+		expect(normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git")).toBe(
+			"https://github.com/Owner/Repo",
+		);
+		expect(normalizeRepoOriginUrl("https://github.com/owner/repo.git///")).toBe(
+			"https://github.com/owner/repo",
+		);
 	});
 
 	test("encodes branch names as one safe path segment", () => {
 		expect(encodeBranchForPlanPath("main")).toBe("main");
-		expect(encodeBranchForPlanPath("branch-contexts/add-widget")).toBe("branch-contexts---add-widget");
+		expect(encodeBranchForPlanPath("branch-contexts/add-widget")).toBe(
+			"branch-contexts---add-widget",
+		);
 		expect(encodeBranchForPlanPath("feature/add widget+docs")).toBe("feature---add-widget-docs");
 	});
 
 	test("builds GitHub repo plan store repo keys from owner and repo", () => {
-		const scpLike = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/repo.git"));
-		const https = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("https://github.com/owner/repo.git"));
-		const mixedCaseHttps = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git"));
-		const different = buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@github.com:owner/other.git"));
+		const scpLike = buildRepoPlanStoreKey(
+			"/workspace/repo",
+			normalizeRepoOriginUrl("git@github.com:owner/repo.git"),
+		);
+		const https = buildRepoPlanStoreKey(
+			"/workspace/repo",
+			normalizeRepoOriginUrl("https://github.com/owner/repo.git"),
+		);
+		const mixedCaseHttps = buildRepoPlanStoreKey(
+			"/workspace/repo",
+			normalizeRepoOriginUrl("HTTPS://github.com/Owner/Repo.git"),
+		);
+		const different = buildRepoPlanStoreKey(
+			"/workspace/repo",
+			normalizeRepoOriginUrl("git@github.com:owner/other.git"),
+		);
 
 		expect(scpLike).toBe("gh--owner--repo");
 		expect(https).toBe(scpLike);
@@ -90,9 +110,12 @@ describe("source branch plan path helpers", () => {
 	});
 
 	test("builds deterministic non-GitHub fallback plan store repo keys without hashes", () => {
-		expect(buildRepoPlanStoreKey("/workspace/repo", normalizeRepoOriginUrl("git@gitlab.com:Owner/Repo.git"))).toBe(
-			"ssh-git-gitlab.com-Owner-Repo",
-		);
+		expect(
+			buildRepoPlanStoreKey(
+				"/workspace/repo",
+				normalizeRepoOriginUrl("git@gitlab.com:Owner/Repo.git"),
+			),
+		).toBe("ssh-git-gitlab.com-Owner-Repo");
 		expect(buildRepoPlanStoreKey("/repo", "/repo")).toBe("repo");
 	});
 
@@ -101,7 +124,11 @@ describe("source branch plan path helpers", () => {
 		const sourceBranch = "branch-contexts/add-widget";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await writePlanStoreFile(directoryPath, "older-source-plan.md", 1_700_000_000_000);
-		const newestPath = await writePlanStoreFile(directoryPath, "newer-source-plan.md", 1_800_000_000_000);
+		const newestPath = await writePlanStoreFile(
+			directoryPath,
+			"newer-source-plan.md",
+			1_800_000_000_000,
+		);
 		await writePlanStoreFile(directoryPath, "ignored-source-plan.txt", 1_900_000_000_000);
 		const git = new FakeGitGateway({ currentBranch: sourceBranch });
 
@@ -123,7 +150,9 @@ describe("source branch plan path helpers", () => {
 		const git = new FakeGitGateway({ currentBranch: "main" });
 
 		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
-		await expect(promise).rejects.toThrow(/No local plan store directory exists[\s\S]*Create a saved plan first/);
+		await expect(promise).rejects.toThrow(
+			/No local plan store directory exists[\s\S]*Create a saved plan first/,
+		);
 		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
 		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
 	});
@@ -137,7 +166,9 @@ describe("source branch plan path helpers", () => {
 		const git = new FakeGitGateway({ currentBranch: sourceBranch });
 
 		const promise = findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
-		await expect(promise).rejects.toThrow(/No Markdown saved plan files exist[\s\S]*Create a saved plan first/);
+		await expect(promise).rejects.toThrow(
+			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
+		);
 		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
 		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });
 	});
@@ -161,7 +192,11 @@ describe("source branch plan path helpers", () => {
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		await writePlanStoreFile(directoryPath, "alpha-source-plan.md", 1_800_000_000_000);
-		const expectedPath = await writePlanStoreFile(directoryPath, "zeta-source-plan.md", 1_800_000_000_000);
+		const expectedPath = await writePlanStoreFile(
+			directoryPath,
+			"zeta-source-plan.md",
+			1_800_000_000_000,
+		);
 		const git = new FakeGitGateway({ currentBranch: sourceBranch });
 
 		const evidence = await findLatestSavedPlanFile(unusedPi, { cwd: ROOT, planStoreRoot, git });
@@ -180,12 +215,15 @@ describe("formatSavedPlanFileEvidence", () => {
 			repoIdentitySource: "origin-url",
 			sourceBranch: "branch-contexts/add-widget",
 			branchKey: "branch-contexts---add-widget",
-			filePath: "/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
+			filePath:
+				"/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
 			summary: "Plan the local plan store file.",
 		});
 
 		expect(text).toContain("Saved plan file in local plan store.");
-		expect(text).toContain("Path: /plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md");
+		expect(text).toContain(
+			"Path: /plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
+		);
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain(`Repo root: ${ROOT}`);
 		expect(text).toContain("Repo identity source: origin-url");
@@ -207,12 +245,21 @@ describe("isPathInside", () => {
 
 describe("normalizePlanFilePath", () => {
 	test("strips leading @ and expands current-user home shorthand", () => {
-		const scenarioPath = join(homedir(), ".claude", "plans", "where-would-we-host-mossy-lampson.md");
+		const scenarioPath = join(
+			homedir(),
+			".claude",
+			"plans",
+			"where-would-we-host-mossy-lampson.md",
+		);
 
 		expect(normalizePlanFilePath("@/tmp/my-source-plan.md")).toBe("/tmp/my-source-plan.md");
 		expect(normalizePlanFilePath("~")).toBe(homedir());
-		expect(normalizePlanFilePath("~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
-		expect(normalizePlanFilePath("@~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(scenarioPath);
+		expect(normalizePlanFilePath("~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(
+			scenarioPath,
+		);
+		expect(normalizePlanFilePath("@~/.claude/plans/where-would-we-host-mossy-lampson.md")).toBe(
+			scenarioPath,
+		);
 		expect(normalizePlanFilePath("relative-source-plan.md")).toBe("relative-source-plan.md");
 	});
 });
@@ -277,15 +324,21 @@ class FakeGitGateway implements GitGateway {
 		return { ok: true, value: false };
 	}
 
-	async listLocalBranchTips(_params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>> {
+	async listLocalBranchTips(
+		_params: GitCwdParams,
+	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
 		return { ok: true, value: [] };
 	}
 
-	async treeOidsAtRefs(params: GitRefsPathParams): Promise<GitResult<Readonly<Record<string, string | null>>>> {
+	async treeOidsAtRefs(
+		params: GitRefsPathParams,
+	): Promise<GitResult<Readonly<Record<string, string | null>>>> {
 		return { ok: true, value: Object.fromEntries(params.refs.map((ref) => [ref, null])) };
 	}
 
-	async changedPathsUnder(_params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>> {
+	async changedPathsUnder(
+		_params: GitRevisionRangePathParams,
+	): Promise<GitResult<readonly string[]>> {
 		return { ok: true, value: [] };
 	}
 }
@@ -300,7 +353,11 @@ function planStoreDirectory(planStoreRoot: string, sourceBranch: string): string
 	return join(planStoreRoot, "gh--owner--repo", encodeBranchForPlanPath(sourceBranch));
 }
 
-async function writePlanStoreFile(directoryPath: string, fileName: string, modifiedTimeMs: number): Promise<string> {
+async function writePlanStoreFile(
+	directoryPath: string,
+	fileName: string,
+	modifiedTimeMs: number,
+): Promise<string> {
 	await mkdir(directoryPath, { recursive: true });
 	const filePath = join(directoryPath, fileName);
 	await writeFile(filePath, `# ${fileName}\n`, "utf8");

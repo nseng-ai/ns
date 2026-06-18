@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { formatErrorMessage, formatZodError, formatZodIssue, isRecord, sha256Digest, truncatedSha256Digest } from "../src/primitives.ts";
+import {
+	formatErrorMessage,
+	formatZodError,
+	formatZodIssue,
+	isRecord,
+	sha256Digest,
+	truncatedSha256Digest,
+} from "../src/primitives.ts";
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {
@@ -34,18 +41,29 @@ describe("formatErrorMessage", () => {
 describe("formatZodIssue", () => {
 	test("formats root and dotted paths", () => {
 		expect(formatZodIssue({ path: [], message: "Required" })).toBe("<root>: Required");
-		expect(formatZodIssue({ path: ["skills", "pytest", "source"], message: "Expected string" })).toBe("skills.pytest.source: Expected string");
+		expect(
+			formatZodIssue({ path: ["skills", "pytest", "source"], message: "Expected string" }),
+		).toBe("skills.pytest.source: Expected string");
 	});
 
 	test("supports JSONPath-style labels and fallback text", () => {
-		expect(formatZodIssue({ path: [], message: "Required" }, { rootPath: "$", pathPrefix: "$." })).toBe("$: Required");
-		expect(formatZodIssue({ path: ["version"], message: "Expected 1" }, { rootPath: "$", pathPrefix: "$." })).toBe("$.version: Expected 1");
+		expect(
+			formatZodIssue({ path: [], message: "Required" }, { rootPath: "$", pathPrefix: "$." }),
+		).toBe("$: Required");
+		expect(
+			formatZodIssue(
+				{ path: ["version"], message: "Expected 1" },
+				{ rootPath: "$", pathPrefix: "$." },
+			),
+		).toBe("$.version: Expected 1");
 		expect(formatZodIssue(undefined, { fallback: "invalid lockfile" })).toBe("invalid lockfile");
 	});
 
 	test("can omit the root-path prefix", () => {
 		expect(formatZodIssue({ path: [], message: "Required" }, { rootPath: null })).toBe("Required");
-		expect(formatZodError({ issues: [{ path: [], message: "Required" }] }, { rootPath: null })).toBe("Required");
+		expect(
+			formatZodError({ issues: [{ path: [], message: "Required" }] }, { rootPath: null }),
+		).toBe("Required");
 	});
 });
 
@@ -64,7 +82,9 @@ describe("formatZodError", () => {
 
 describe("sha256Digest", () => {
 	test("returns a full SHA256 hex digest", () => {
-		expect(sha256Digest("/tmp/session.jsonl")).toBe("29e67821bedc391a811d7fd8fcdf12be11edd17dc6c6340415bce3c46c72fd28");
+		expect(sha256Digest("/tmp/session.jsonl")).toBe(
+			"29e67821bedc391a811d7fd8fcdf12be11edd17dc6c6340415bce3c46c72fd28",
+		);
 	});
 });
 

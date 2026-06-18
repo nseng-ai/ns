@@ -8,8 +8,19 @@ import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
 import type { EntryContent, EntryDiagnostic } from "../gateway.ts";
-import { compareEntries, namespaceDisplayLabel, normalizeNamespaceOption, type EntryRef } from "../ref-layout.ts";
-import { firstFailure, validateBranchName, validateEntryKey, validateNamespaceName, validationMessage } from "../validation.ts";
+import {
+	compareEntries,
+	namespaceDisplayLabel,
+	normalizeNamespaceOption,
+	type EntryRef,
+} from "../ref-layout.ts";
+import {
+	firstFailure,
+	validateBranchName,
+	validateEntryKey,
+	validateNamespaceName,
+	validationMessage,
+} from "../validation.ts";
 import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
 
 const exportedEntrySchema = z.object({
@@ -20,10 +31,19 @@ const exportedEntrySchema = z.object({
 });
 
 export const exportRequestSchema = z.object({
-	namespace: z.string().optional().describe("Namespace to export. Omit for Base Namespace Entries only."),
+	namespace: z
+		.string()
+		.optional()
+		.describe("Namespace to export. Omit for Base Namespace Entries only."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
-	output_dir: z.string().optional().describe("Output directory. Defaults to a fresh temporary directory."),
-	overwrite: z.boolean().default(false).describe("Overwrite existing regular files at target paths."),
+	output_dir: z
+		.string()
+		.optional()
+		.describe("Output directory. Defaults to a fresh temporary directory."),
+	overwrite: z
+		.boolean()
+		.default(false)
+		.describe("Overwrite existing regular files at target paths."),
 	dry_run: z.boolean().default(false).describe("Plan the Export without writing files."),
 });
 
@@ -45,17 +65,27 @@ interface PreparedExport {
 	content: string;
 }
 
-type PreparationResult = { type: "ok"; prepared: readonly PreparedExport[] } | { type: "failure"; exit: ClinkrExit<ExportResult> };
+type PreparationResult =
+	| { type: "ok"; prepared: readonly PreparedExport[] }
+	| { type: "failure"; exit: ClinkrExit<ExportResult> };
 type PreflightResult = { type: "ok" } | { type: "failure"; exit: ClinkrExit<ExportResult> };
-type PathState = { type: "missing" } | { type: "present"; isDirectory: boolean; isFile: boolean; isSymlink: boolean } | { type: "error"; message: string };
+type PathState =
+	| { type: "missing" }
+	| { type: "present"; isDirectory: boolean; isFile: boolean; isSymlink: boolean }
+	| { type: "error"; message: string };
 
 export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const namespace = normalizeNamespaceOption(request.namespace);
 	const requestFailure = firstFailure(
-		["invalid_namespace", validationMessage("namespace", namespace, validateNamespaceName(namespace))],
+		[
+			"invalid_namespace",
+			validationMessage("namespace", namespace, validateNamespaceName(namespace)),
+		],
 		[
 			"invalid_branch_name",
-			request.branch === undefined ? undefined : validationMessage("branch name", request.branch, validateBranchName(request.branch)),
+			request.branch === undefined
+				? undefined
+				: validationMessage("branch name", request.branch, validateBranchName(request.branch)),
 		],
 	);
 	if (requestFailure !== undefined) return failure(requestFailure[0], requestFailure[1]);
@@ -67,7 +97,14 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	if (branchFailure !== undefined) return failure("invalid_branch_name", branchFailure);
 
 	const outputDir = resolveOutputDir(request.output_dir, ctx.cwd);
-	const baseResult: ExportResult = { namespace, branch, output_dir: outputDir, overwrite: request.overwrite, dry_run: request.dry_run, exported: [] };
+	const baseResult: ExportResult = {
+		namespace,
+		branch,
+		output_dir: outputDir,
+		overwrite: request.overwrite,
+		dry_run: request.dry_run,
+		exported: [],
+	};
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
 	if (entriesResult.type === "error") return gatewayFailure<ExportResult>(entriesResult.error);
 	const entries = [...entriesResult.value].sort(compareEntries);
@@ -75,7 +112,10 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 
 	const prepared = await prepareExports(ctx, entries, outputDir);
 	if (prepared.type === "failure") return prepared.exit;
-	const result: ExportResult = { ...baseResult, exported: prepared.prepared.map((item) => item.exportedEntry) };
+	const result: ExportResult = {
+		...baseResult,
+		exported: prepared.prepared.map((item) => item.exportedEntry),
+	};
 
 	const preflight = await preflightExport(outputDir, prepared.prepared, request.overwrite);
 	if (preflight.type === "failure") return preflight.exit;
@@ -95,12 +135,18 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 
 export function renderExport(result: ExportResult): string {
 	const verb = result.dry_run ? "Would export" : "Exported";
-	const lines = [`${verb} ${selectionSummary(result.namespace, result.exported.length)} on Branch ${result.branch} to ${result.output_dir}.`];
+	const lines = [
+		`${verb} ${selectionSummary(result.namespace, result.exported.length)} on Branch ${result.branch} to ${result.output_dir}.`,
+	];
 	for (const item of result.exported) lines.push(`  ${item.key} -> ${item.path}`);
 	return lines.join("\n");
 }
 
-async function prepareExports(ctx: BrmemCliContext, entries: readonly EntryRef[], outputDir: string): Promise<PreparationResult> {
+async function prepareExports(
+	ctx: BrmemCliContext,
+	entries: readonly EntryRef[],
+	outputDir: string,
+): Promise<PreparationResult> {
 	const prepared: PreparedExport[] = [];
 	const seenTargets = new Map<string, string>();
 	for (const entry of entries) {
@@ -118,15 +164,37 @@ async function prepareExports(ctx: BrmemCliContext, entries: readonly EntryRef[]
 		}
 		seenTargets.set(target.path, entry.key);
 
-		const diagnostic = await ctx.gateway.checkEntry({ namespace: entry.namespace, key: entry.key, branch: entry.branch });
-		if (diagnostic.type === "error") return { type: "failure", exit: gatewayFailure<ExportResult>(diagnostic.error) };
+		const diagnostic = await ctx.gateway.checkEntry({
+			namespace: entry.namespace,
+			key: entry.key,
+			branch: entry.branch,
+		});
+		if (diagnostic.type === "error")
+			return { type: "failure", exit: gatewayFailure<ExportResult>(diagnostic.error) };
 		if (diagnostic.type === "missing") {
-			return { type: "failure", exit: failure("entry_diagnostic_missing", `Could not inspect Branch Memory Entry ${entry.entryLocator}.`) };
+			return {
+				type: "failure",
+				exit: failure(
+					"entry_diagnostic_missing",
+					`Could not inspect Branch Memory Entry ${entry.entryLocator}.`,
+				),
+			};
 		}
-		const content = await ctx.gateway.getEntry({ namespace: entry.namespace, key: entry.key, branch: entry.branch });
-		if (content.type === "error") return { type: "failure", exit: gatewayFailure<ExportResult>(content.error) };
+		const content = await ctx.gateway.getEntry({
+			namespace: entry.namespace,
+			key: entry.key,
+			branch: entry.branch,
+		});
+		if (content.type === "error")
+			return { type: "failure", exit: gatewayFailure<ExportResult>(content.error) };
 		if (content.type === "missing") {
-			return { type: "failure", exit: failure("entry_content_missing", `Could not read Branch Memory Entry ${entry.entryLocator}.`) };
+			return {
+				type: "failure",
+				exit: failure(
+					"entry_content_missing",
+					`Could not read Branch Memory Entry ${entry.entryLocator}.`,
+				),
+			};
 		}
 		prepared.push(
 			buildPreparedExport({
@@ -159,18 +227,32 @@ function buildPreparedExport(options: BuildPreparedExportOptions): PreparedExpor
 	};
 }
 
-function targetPath(outputDir: string, key: string): { type: "ok"; path: string } | { type: "failure"; exit: ClinkrExit<ExportResult> } {
+function targetPath(
+	outputDir: string,
+	key: string,
+): { type: "ok"; path: string } | { type: "failure"; exit: ClinkrExit<ExportResult> } {
 	const keyFailure = validationMessage("key", key, validateEntryKey(key));
-	if (keyFailure !== undefined) return { type: "failure", exit: failure("invalid_key", keyFailure) };
+	if (keyFailure !== undefined)
+		return { type: "failure", exit: failure("invalid_key", keyFailure) };
 	const parts = key.split("/");
 	const unsafeSegment = parts.find((part) => part === "" || part === "." || part === "..");
 	if (unsafeSegment !== undefined) {
-		return { type: "failure", exit: failure("unsafe_key", `Unsafe export key ${JSON.stringify(key)}: path segment ${JSON.stringify(unsafeSegment)} is not allowed.`) };
+		return {
+			type: "failure",
+			exit: failure(
+				"unsafe_key",
+				`Unsafe export key ${JSON.stringify(key)}: path segment ${JSON.stringify(unsafeSegment)} is not allowed.`,
+			),
+		};
 	}
 	return { type: "ok", path: join(outputDir, ...parts) };
 }
 
-async function preflightExport(outputDir: string, prepared: readonly PreparedExport[], overwrite: boolean): Promise<PreflightResult> {
+async function preflightExport(
+	outputDir: string,
+	prepared: readonly PreparedExport[],
+	overwrite: boolean,
+): Promise<PreflightResult> {
 	const outputDirResult = await preflightOutputDir(outputDir);
 	if (outputDirResult.type === "failure") return outputDirResult;
 	for (const item of prepared) {
@@ -185,28 +267,78 @@ async function preflightExport(outputDir: string, prepared: readonly PreparedExp
 
 async function preflightOutputDir(outputDir: string): Promise<PreflightResult> {
 	const linkState = await inspectPath(outputDir, { followSymlink: false });
-	if (linkState.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect output directory ${outputDir}: ${linkState.message}`) };
+	if (linkState.type === "error")
+		return {
+			type: "failure",
+			exit: failure(
+				"write_failed",
+				`Failed to inspect output directory ${outputDir}: ${linkState.message}`,
+			),
+		};
 	if (linkState.type === "missing") return { type: "ok" };
 	if (linkState.isSymlink) {
 		const targetState = await inspectPath(outputDir, { followSymlink: true });
-		if (targetState.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect output directory ${outputDir}: ${targetState.message}`) };
-		if (targetState.type === "missing") return { type: "failure", exit: failure("unsafe_output_dir", `Output directory is a broken symlink: ${outputDir}`) };
-		if (!targetState.isDirectory) return { type: "failure", exit: failure("output_dir_not_directory", `Output directory exists and is not a directory: ${outputDir}`) };
+		if (targetState.type === "error")
+			return {
+				type: "failure",
+				exit: failure(
+					"write_failed",
+					`Failed to inspect output directory ${outputDir}: ${targetState.message}`,
+				),
+			};
+		if (targetState.type === "missing")
+			return {
+				type: "failure",
+				exit: failure("unsafe_output_dir", `Output directory is a broken symlink: ${outputDir}`),
+			};
+		if (!targetState.isDirectory)
+			return {
+				type: "failure",
+				exit: failure(
+					"output_dir_not_directory",
+					`Output directory exists and is not a directory: ${outputDir}`,
+				),
+			};
 		return { type: "ok" };
 	}
-	if (!linkState.isDirectory) return { type: "failure", exit: failure("output_dir_not_directory", `Output directory exists and is not a directory: ${outputDir}`) };
+	if (!linkState.isDirectory)
+		return {
+			type: "failure",
+			exit: failure(
+				"output_dir_not_directory",
+				`Output directory exists and is not a directory: ${outputDir}`,
+			),
+		};
 	return { type: "ok" };
 }
 
-async function preflightParentPaths(outputDir: string, targetPathValue: string): Promise<PreflightResult> {
+async function preflightParentPaths(
+	outputDir: string,
+	targetPathValue: string,
+): Promise<PreflightResult> {
 	const outputDirResolved = resolve(outputDir);
 	let current = resolve(targetPathValue, "..");
 	while (current !== outputDirResolved) {
 		const state = await inspectPath(current, { followSymlink: false });
-		if (state.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect parent path ${current}: ${state.message}`) };
+		if (state.type === "error")
+			return {
+				type: "failure",
+				exit: failure("write_failed", `Failed to inspect parent path ${current}: ${state.message}`),
+			};
 		if (state.type === "present") {
-			if (state.isSymlink) return { type: "failure", exit: failure("unsafe_parent_path", `Parent path is a symlink: ${current}`) };
-			if (!state.isDirectory) return { type: "failure", exit: failure("parent_not_directory", `Parent path exists and is not a directory: ${current}`) };
+			if (state.isSymlink)
+				return {
+					type: "failure",
+					exit: failure("unsafe_parent_path", `Parent path is a symlink: ${current}`),
+				};
+			if (!state.isDirectory)
+				return {
+					type: "failure",
+					exit: failure(
+						"parent_not_directory",
+						`Parent path exists and is not a directory: ${current}`,
+					),
+				};
 		}
 		const next = resolve(current, "..");
 		if (next === current) break;
@@ -215,21 +347,58 @@ async function preflightParentPaths(outputDir: string, targetPathValue: string):
 	return { type: "ok" };
 }
 
-async function preflightTargetPath(targetPathValue: string, overwrite: boolean): Promise<PreflightResult> {
+async function preflightTargetPath(
+	targetPathValue: string,
+	overwrite: boolean,
+): Promise<PreflightResult> {
 	const state = await inspectPath(targetPathValue, { followSymlink: false });
-	if (state.type === "error") return { type: "failure", exit: failure("write_failed", `Failed to inspect target path ${targetPathValue}: ${state.message}`) };
+	if (state.type === "error")
+		return {
+			type: "failure",
+			exit: failure(
+				"write_failed",
+				`Failed to inspect target path ${targetPathValue}: ${state.message}`,
+			),
+		};
 	if (state.type === "missing") return { type: "ok" };
-	if (state.isSymlink) return { type: "failure", exit: failure("unsafe_target_path", `Target path is a symlink: ${targetPathValue}`) };
-	if (state.isDirectory) return { type: "failure", exit: failure("target_is_directory", `Target path is a directory: ${targetPathValue}`) };
-	if (!state.isFile) return { type: "failure", exit: failure("unsafe_target_path", `Target path is not a regular file: ${targetPathValue}`) };
-	if (!overwrite) return { type: "failure", exit: failure("target_exists", `Target already exists: ${targetPathValue}. Pass --overwrite to replace it.`) };
+	if (state.isSymlink)
+		return {
+			type: "failure",
+			exit: failure("unsafe_target_path", `Target path is a symlink: ${targetPathValue}`),
+		};
+	if (state.isDirectory)
+		return {
+			type: "failure",
+			exit: failure("target_is_directory", `Target path is a directory: ${targetPathValue}`),
+		};
+	if (!state.isFile)
+		return {
+			type: "failure",
+			exit: failure("unsafe_target_path", `Target path is not a regular file: ${targetPathValue}`),
+		};
+	if (!overwrite)
+		return {
+			type: "failure",
+			exit: failure(
+				"target_exists",
+				`Target already exists: ${targetPathValue}. Pass --overwrite to replace it.`,
+			),
+		};
 	return { type: "ok" };
 }
 
-async function inspectPath(pathValue: string, options: { followSymlink: boolean }): Promise<PathState> {
+async function inspectPath(
+	pathValue: string,
+	options: { followSymlink: boolean },
+): Promise<PathState> {
 	try {
 		const value = options.followSymlink ? await stat(pathValue) : await lstat(pathValue);
-		return { type: "present", isDirectory: value.isDirectory(), isFile: value.isFile(), isSymlink: value.isSymbolicLink() };
+		return {
+			type: "present",
+			isDirectory: value.isDirectory(),
+			isFile: value.isFile(),
+			isSymlink: value.isSymbolicLink(),
+		};
 	} catch (error: unknown) {
 		if (isMissingPathError(error)) return { type: "missing" };
 		return { type: "error", message: errorMessage(error) };
@@ -237,7 +406,8 @@ async function inspectPath(pathValue: string, options: { followSymlink: boolean 
 }
 
 function resolveOutputDir(outputDir: string | undefined, cwd: string): string {
-	if (outputDir === undefined) return join(tmpdir(), `brmem-export-${randomBytes(8).toString("hex")}`);
+	if (outputDir === undefined)
+		return join(tmpdir(), `brmem-export-${randomBytes(8).toString("hex")}`);
 	if (isAbsolute(outputDir)) return outputDir;
 	return resolve(cwd, outputDir);
 }

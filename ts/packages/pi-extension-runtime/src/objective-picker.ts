@@ -60,7 +60,9 @@ export function changedActiveObjectiveSelection(
 	allChangedSlugs: string[],
 	changeBasisLabel: string = defaultChangeBasisLabel(trunkBranch),
 ): ObjectiveDiffSelection | undefined {
-	const uniqueChangedSlugs = [...new Set(allChangedSlugs)].sort((left, right) => left.localeCompare(right));
+	const uniqueChangedSlugs = [...new Set(allChangedSlugs)].sort((left, right) =>
+		left.localeCompare(right),
+	);
 	if (uniqueChangedSlugs.length === 0) {
 		return undefined;
 	}
@@ -126,9 +128,10 @@ export function objectiveChoiceMap(
 }
 
 export function objectiveDiffPickerTitle(title: string, selection: ObjectiveDiffSelection): string {
-	const suffix = selection.allChangedSlugs.length === 1 && selection.changedActiveSlugs.length === 1
-		? `only Objective ${selection.changeBasisLabel}`
-		: changedObjectivesLabel(selection.changeBasisLabel);
+	const suffix =
+		selection.allChangedSlugs.length === 1 && selection.changedActiveSlugs.length === 1
+			? `only Objective ${selection.changeBasisLabel}`
+			: changedObjectivesLabel(selection.changeBasisLabel);
 	return `${title} (${suffix})`;
 }
 
@@ -192,8 +195,8 @@ function isOnlyChangedActiveObjective(
 ): boolean {
 	return Boolean(
 		selection &&
-			selection.allChangedSlugs.length === 1 &&
-			selection.changedActiveSlugs.length === 1 &&
-			selection.changedActiveSlugs[0] === record.slug,
+		selection.allChangedSlugs.length === 1 &&
+		selection.changedActiveSlugs.length === 1 &&
+		selection.changedActiveSlugs[0] === record.slug,
 	);
 }

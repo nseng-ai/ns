@@ -21,7 +21,13 @@ describe("runner subagent usage parsing", () => {
 							cacheRead: 30,
 							cacheWrite: 5,
 							totalTokens: 155,
-							cost: { input: 0.001, output: 0.002, cacheRead: 0.003, cacheWrite: 0.004, total: 0.01 },
+							cost: {
+								input: 0.001,
+								output: 0.002,
+								cacheRead: 0.003,
+								cacheWrite: 0.004,
+								total: 0.01,
+							},
 						},
 					},
 				},
@@ -45,8 +51,17 @@ describe("runner subagent usage parsing", () => {
 	test("extracts model references from direct and nested fields", () => {
 		const result = parseRunnerSubagentUsageJsonl(
 			jsonl(
-				{ message: { role: "assistant", provider: "direct-provider", usage: { input: 1, modelInfo: { model: "usage-model" } } } },
-				{ message: { role: "assistant", usage: { totalTokens: 2 } }, model_ref: { api: "responses", model: "record-model" } },
+				{
+					message: {
+						role: "assistant",
+						provider: "direct-provider",
+						usage: { input: 1, modelInfo: { model: "usage-model" } },
+					},
+				},
+				{
+					message: { role: "assistant", usage: { totalTokens: 2 } },
+					model_ref: { api: "responses", model: "record-model" },
+				},
 			),
 		);
 
@@ -59,21 +74,31 @@ describe("runner subagent usage parsing", () => {
 	});
 
 	test("accepts historical records without a type field", () => {
-		expect(parseRunnerSubagentUsageJsonl(jsonl({ message: { role: "assistant", usage: { output: 3 } } }))).toMatchObject({
+		expect(
+			parseRunnerSubagentUsageJsonl(
+				jsonl({ message: { role: "assistant", usage: { output: 3 } } }),
+			),
+		).toMatchObject({
 			type: "ok",
 			records: [{ tokens: { output: 3 } }],
 		});
 	});
 
 	test("reports malformed JSON using physical line numbers and ignores blank lines", () => {
-		const result = parseRunnerSubagentUsageJsonl(`\n${JSON.stringify({ message: { role: "assistant", usage: { input: 1 } } })}\n\n{bad json}\n`);
+		const result = parseRunnerSubagentUsageJsonl(
+			`\n${JSON.stringify({ message: { role: "assistant", usage: { input: 1 } } })}\n\n{bad json}\n`,
+		);
 
 		expect(result).toMatchObject({ type: "invalid-json", line: 4 });
 		if (result.type === "invalid-json") expect(result.message).not.toBe("");
 	});
 
 	test("returns ok with no records when no usage is present", () => {
-		expect(parseRunnerSubagentUsageJsonl(jsonl({ type: "message", message: { role: "assistant", content: [] } }))).toEqual({
+		expect(
+			parseRunnerSubagentUsageJsonl(
+				jsonl({ type: "message", message: { role: "assistant", content: [] } }),
+			),
+		).toEqual({
 			type: "ok",
 			records: [],
 		});
@@ -91,7 +116,13 @@ describe("runner subagent usage parsing", () => {
 				{ input: 0.1, output: 0.2, cacheRead: 0.3, cacheWrite: 0.4, total: 1 },
 				{ input: 0.5, output: 0.6, cacheRead: 0.7, cacheWrite: 0.8, total: 2.6 },
 			),
-		).toEqual({ input: 0.6, output: 0.8, cacheRead: 1, cacheWrite: 1.2000000000000002, total: 3.6 });
+		).toEqual({
+			input: 0.6,
+			output: 0.8,
+			cacheRead: 1,
+			cacheWrite: 1.2000000000000002,
+			total: 3.6,
+		});
 	});
 });
 

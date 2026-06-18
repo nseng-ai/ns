@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { RealBranchContextBrmemGateway, parseBrmemGetContent, parseBrmemListEntries, parseBrmemPutData } from "../../src/brmem-gateway.ts";
+import {
+	RealBranchContextBrmemGateway,
+	parseBrmemGetContent,
+	parseBrmemListEntries,
+	parseBrmemPutData,
+} from "../../src/brmem-gateway.ts";
 import { BRANCH_CONTEXT_NAMESPACE } from "../../src/constants.ts";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
 import { InMemoryBranchContextBrmemGateway } from "../support/in-memory-brmem-gateway.ts";
@@ -127,14 +132,21 @@ function validGetData(overrides: Record<string, unknown> = {}): Record<string, u
 
 describe("in-memory branch-context brmem gateway", () => {
 	test("returns configured entries and records narrow logs", async () => {
-		const brmem = new InMemoryBranchContextBrmemGateway({ entries: [{ branch: BRANCH, key: KEY, content: CONTENT, sourceFile: SOURCE_FILE }] });
+		const brmem = new InMemoryBranchContextBrmemGateway({
+			entries: [{ branch: BRANCH, key: KEY, content: CONTENT, sourceFile: SOURCE_FILE }],
+		});
 
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ type: "present" });
+		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			type: "present",
+		});
 		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toEqual({
 			ok: true,
 			value: [{ namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF }],
 		});
-		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({ ok: true, value: { content: CONTENT, refName: REF } });
+		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({
+			ok: true,
+			value: { content: CONTENT, refName: REF },
+		});
 		expect(brmem.attachmentPresenceCalls).toEqual([{ cwd: ROOT, branch: BRANCH, key: KEY }]);
 		expect(brmem.listAttachedPlansCalls).toEqual([{ cwd: ROOT, branch: BRANCH }]);
 		expect(brmem.getAttachedPlanCalls).toEqual([{ cwd: ROOT, branch: BRANCH, key: KEY }]);
@@ -143,13 +155,28 @@ describe("in-memory branch-context brmem gateway", () => {
 	test("models attach as state without overwriting existing entries", async () => {
 		const brmem = new InMemoryBranchContextBrmemGateway();
 
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({ type: "absent" });
-		expect(await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE })).toEqual({
-			ok: true,
-			value: { namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF, commit: "abc123", sourceFile: SOURCE_FILE },
+		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({
+			type: "absent",
 		});
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ type: "present" });
-		expect(await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE })).toMatchObject({ ok: false });
+		expect(
+			await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE }),
+		).toEqual({
+			ok: true,
+			value: {
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: KEY,
+				branch: BRANCH,
+				refName: REF,
+				commit: "abc123",
+				sourceFile: SOURCE_FILE,
+			},
+		});
+		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			type: "present",
+		});
+		expect(
+			await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE }),
+		).toMatchObject({ ok: false });
 		expect(brmem.attachPlanCalls).toEqual([
 			{ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE },
 			{ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE },
@@ -160,8 +187,34 @@ describe("in-memory branch-context brmem gateway", () => {
 describe("real branch-context brmem gateway command protocol", () => {
 	test("maps attachment presence check output", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["check", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope({ present: true }) }),
-			step("brmem", ["check", "missing.md", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope({ present: false }) }),
+			step(
+				"brmem",
+				[
+					"check",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ stdout: envelope({ present: true }) },
+			),
+			step(
+				"brmem",
+				[
+					"check",
+					"missing.md",
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ stdout: envelope({ present: false }) },
+			),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
@@ -169,45 +222,138 @@ describe("real branch-context brmem gateway command protocol", () => {
 			type: "present",
 			displayCommand: `brmem check ${KEY} --namespace ${BRANCH_CONTEXT_NAMESPACE} --branch ${BRANCH} --format json`,
 		});
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: "missing.md" })).toEqual({ type: "absent" });
+		expect(
+			await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: "missing.md" }),
+		).toEqual({ type: "absent" });
 		commands.assertDone();
-		expect(commands.execCalls.every((call) => call.options?.cwd === ROOT && call.options.timeout === 30_000)).toBe(true);
+		expect(
+			commands.execCalls.every(
+				(call) => call.options?.cwd === ROOT && call.options.timeout === 30_000,
+			),
+		).toBe(true);
 	});
 
 	test("maps killed and unexpected check failures", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["check", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 124, killed: true }),
-			step("brmem", ["check", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { code: 2, stderr: "bad" }),
+			step(
+				"brmem",
+				[
+					"check",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ code: 124, killed: true },
+			),
+			step(
+				"brmem",
+				[
+					"check",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ code: 2, stderr: "bad" },
+			),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ type: "error", error: { code: "brmem_check_killed" } });
-		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ type: "error", error: { code: "brmem_check_failed" } });
+		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			type: "error",
+			error: { code: "brmem_check_killed" },
+		});
+		expect(await brmem.attachmentPresence({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			type: "error",
+			error: { code: "brmem_check_failed" },
+		});
 		commands.assertDone();
 	});
 
 	test("sends exact put, list, and get commands", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["put", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--file", SOURCE_FILE, "--format", "json"], {
-				stdout: envelope(validPutData()),
-			}),
-			step("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope(validListData()) }),
-			step("brmem", ["get", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: envelope(validGetData()) }),
+			step(
+				"brmem",
+				[
+					"put",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--file",
+					SOURCE_FILE,
+					"--format",
+					"json",
+				],
+				{
+					stdout: envelope(validPutData()),
+				},
+			),
+			step(
+				"brmem",
+				["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
+				{ stdout: envelope(validListData()) },
+			),
+			step(
+				"brmem",
+				[
+					"get",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ stdout: envelope(validGetData()) },
+			),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
-		expect(await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE })).toEqual({
+		expect(
+			await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE }),
+		).toEqual({
 			ok: true,
-			value: { namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF, commit: COMMIT, sourceFile: SOURCE_FILE },
+			value: {
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				key: KEY,
+				branch: BRANCH,
+				refName: REF,
+				commit: COMMIT,
+				sourceFile: SOURCE_FILE,
+			},
 		});
 		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toEqual({
 			ok: true,
 			value: [{ namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF }],
 		});
-		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({ ok: true, value: { content: CONTENT, refName: REF } });
+		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toEqual({
+			ok: true,
+			value: { content: CONTENT, refName: REF },
+		});
 		commands.assertDone();
 		expect(commands.execCalls.map((call) => call.args)).toEqual([
-			["put", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--file", SOURCE_FILE, "--format", "json"],
+			[
+				"put",
+				KEY,
+				"--namespace",
+				BRANCH_CONTEXT_NAMESPACE,
+				"--branch",
+				BRANCH,
+				"--file",
+				SOURCE_FILE,
+				"--format",
+				"json",
+			],
 			["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
 			["get", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
 		]);
@@ -217,7 +363,13 @@ describe("real branch-context brmem gateway command protocol", () => {
 
 describe("real branch-context brmem gateway failure and parsing", () => {
 	test("reports unavailable command candidates", async () => {
-		const commands = new ScriptedCommands([errorStep("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], new Error("ENOENT"))]);
+		const commands = new ScriptedCommands([
+			errorStep(
+				"brmem",
+				["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
+				new Error("ENOENT"),
+			),
+		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
 		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toMatchObject({
@@ -229,38 +381,118 @@ describe("real branch-context brmem gateway failure and parsing", () => {
 
 	test("returns typed errors for command failures and malformed output", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["put", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--file", SOURCE_FILE, "--format", "json"], { code: 2 }),
-			step("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: "{" }),
-			step("brmem", ["get", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], { stdout: "{" }),
+			step(
+				"brmem",
+				[
+					"put",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--file",
+					SOURCE_FILE,
+					"--format",
+					"json",
+				],
+				{ code: 2 },
+			),
+			step(
+				"brmem",
+				["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
+				{ stdout: "{" },
+			),
+			step(
+				"brmem",
+				[
+					"get",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{ stdout: "{" },
+			),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
-		expect(await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE })).toMatchObject({ ok: false, error: { code: "brmem_put_failed" } });
-		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toMatchObject({ ok: false, error: { code: "brmem_malformed_list" } });
-		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ ok: false, error: { code: "brmem_malformed_get" } });
+		expect(
+			await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE }),
+		).toMatchObject({ ok: false, error: { code: "brmem_put_failed" } });
+		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toMatchObject({
+			ok: false,
+			error: { code: "brmem_malformed_list" },
+		});
+		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			ok: false,
+			error: { code: "brmem_malformed_get" },
+		});
 		commands.assertDone();
 	});
 
 	test("rejects mismatched put, list, and get responses", async () => {
 		const commands = new ScriptedCommands([
-			step("brmem", ["put", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--file", SOURCE_FILE, "--format", "json"], {
-				stdout: envelope(validPutData({ key: "other.md" })),
-			}),
-			step("brmem", ["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], {
-				stdout: envelope(validListData({ branch: "other" })),
-			}),
-			step("brmem", ["get", KEY, "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"], {
-				stdout: envelope(validGetData({ namespace: "other" })),
-			}),
+			step(
+				"brmem",
+				[
+					"put",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--file",
+					SOURCE_FILE,
+					"--format",
+					"json",
+				],
+				{
+					stdout: envelope(validPutData({ key: "other.md" })),
+				},
+			),
+			step(
+				"brmem",
+				["list", "--namespace", BRANCH_CONTEXT_NAMESPACE, "--branch", BRANCH, "--format", "json"],
+				{
+					stdout: envelope(validListData({ branch: "other" })),
+				},
+			),
+			step(
+				"brmem",
+				[
+					"get",
+					KEY,
+					"--namespace",
+					BRANCH_CONTEXT_NAMESPACE,
+					"--branch",
+					BRANCH,
+					"--format",
+					"json",
+				],
+				{
+					stdout: envelope(validGetData({ namespace: "other" })),
+				},
+			),
 		]);
 		const brmem = new RealBranchContextBrmemGateway(commands);
 
-		expect(await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE })).toMatchObject({
+		expect(
+			await brmem.attachPlan({ cwd: ROOT, branch: BRANCH, key: KEY, sourceFile: SOURCE_FILE }),
+		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_unexpected_put_data" },
 		});
-		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toMatchObject({ ok: false, error: { code: "brmem_malformed_list" } });
-		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({ ok: false, error: { code: "brmem_malformed_get" } });
+		expect(await brmem.listAttachedPlans({ cwd: ROOT, branch: BRANCH })).toMatchObject({
+			ok: false,
+			error: { code: "brmem_malformed_list" },
+		});
+		expect(await brmem.getAttachedPlan({ cwd: ROOT, branch: BRANCH, key: KEY })).toMatchObject({
+			ok: false,
+			error: { code: "brmem_malformed_get" },
+		});
 		commands.assertDone();
 	});
 });
@@ -275,9 +507,18 @@ describe("Branch Memory machine envelope parsing", () => {
 			commit: COMMIT,
 			sourceFile: SOURCE_FILE,
 		});
-		expect(parseBrmemListEntries(envelope(validListData()), { namespace: BRANCH_CONTEXT_NAMESPACE, branch: BRANCH })).toEqual([
-			{ namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF },
-		]);
-		expect(parseBrmemGetContent(envelope(validGetData()), { namespace: BRANCH_CONTEXT_NAMESPACE, branch: BRANCH, key: KEY })).toEqual({ content: CONTENT, refName: REF });
+		expect(
+			parseBrmemListEntries(envelope(validListData()), {
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: BRANCH,
+			}),
+		).toEqual([{ namespace: BRANCH_CONTEXT_NAMESPACE, key: KEY, branch: BRANCH, refName: REF }]);
+		expect(
+			parseBrmemGetContent(envelope(validGetData()), {
+				namespace: BRANCH_CONTEXT_NAMESPACE,
+				branch: BRANCH,
+				key: KEY,
+			}),
+		).toEqual({ content: CONTENT, refName: REF });
 	});
 });

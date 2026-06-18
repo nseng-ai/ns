@@ -4,7 +4,11 @@ import { renderList, type ListResult } from "../../src/operations/list.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 const nonEmptyListGit = {
-	worktrees: [slotWorktree("slot-01", "feature/a"), slotWorktree("slot-02", null), slotWorktree("slot-03", "feature/rebase")],
+	worktrees: [
+		slotWorktree("slot-01", "feature/a"),
+		slotWorktree("slot-02", null),
+		slotWorktree("slot-03", "feature/rebase"),
+	],
 	branchOccupancies: [
 		{ path: "/slots/repos/repo/worktrees/slot-01", branch: "feature/a", operation: "checked-out" },
 		{ path: "/slots/repos/repo/worktrees/slot-03", branch: "feature/rebase", operation: "rebase" },
@@ -15,9 +19,27 @@ const sampleListResult: ListResult = {
 	pool_size: 3,
 	repo_name: "repo",
 	rows: [
-		{ slot_name: "slot-01", branch: "feature/a", operation: null, status: "assigned", worktree_path: "/slots/repos/repo/worktrees/slot-01" },
-		{ slot_name: "slot-02", branch: null, operation: null, status: "available", worktree_path: "/slots/repos/repo/worktrees/slot-02" },
-		{ slot_name: "slot-03", branch: "feature/rebase", operation: "rebase", status: "assigned", worktree_path: "/slots/repos/repo/worktrees/slot-03" },
+		{
+			slot_name: "slot-01",
+			branch: "feature/a",
+			operation: null,
+			status: "assigned",
+			worktree_path: "/slots/repos/repo/worktrees/slot-01",
+		},
+		{
+			slot_name: "slot-02",
+			branch: null,
+			operation: null,
+			status: "available",
+			worktree_path: "/slots/repos/repo/worktrees/slot-02",
+		},
+		{
+			slot_name: "slot-03",
+			branch: "feature/rebase",
+			operation: "rebase",
+			status: "assigned",
+			worktree_path: "/slots/repos/repo/worktrees/slot-03",
+		},
 	],
 };
 
@@ -41,7 +63,9 @@ describe("slot list CLI", () => {
 	});
 
 	it("renders an empty pool in human mode", async () => {
-		const run = runScenario(["list"], { git: { worktrees: [{ path: "/repo", branch: "master" }] } });
+		const run = runScenario(["list"], {
+			git: { worktrees: [{ path: "/repo", branch: "master" }] },
+		});
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("No slots initialized for repo.");
 	});
@@ -56,9 +80,15 @@ describe("slot list CLI", () => {
 		expect(output).toContain("OPERATION");
 		expect(output).toContain("WORKTREE");
 		expect(output).toMatch(/^─/mu);
-		expect(output).toMatch(/^slot-01\s+assigned\s+feature\/a\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-01$/mu);
-		expect(output).toMatch(/^slot-02\s+available\s+—\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-02$/mu);
-		expect(output).toMatch(/^slot-03\s+assigned\s+feature\/rebase\s+rebase in progress\s+\/slots\/repos\/repo\/worktrees\/slot-03$/mu);
+		expect(output).toMatch(
+			/^slot-01\s+assigned\s+feature\/a\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-01$/mu,
+		);
+		expect(output).toMatch(
+			/^slot-02\s+available\s+—\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-02$/mu,
+		);
+		expect(output).toMatch(
+			/^slot-03\s+assigned\s+feature\/rebase\s+rebase in progress\s+\/slots\/repos\/repo\/worktrees\/slot-03$/mu,
+		);
 	});
 
 	it("propagates ANSI capability to the list table renderer", () => {
@@ -79,7 +109,12 @@ describe("slot list CLI", () => {
 				rows: [
 					{ slot_name: "slot-01", branch: "feature/a", operation: null, status: "assigned" },
 					{ slot_name: "slot-02", branch: null, operation: null, status: "available" },
-					{ slot_name: "slot-03", branch: "feature/rebase", operation: "rebase", status: "assigned" },
+					{
+						slot_name: "slot-03",
+						branch: "feature/rebase",
+						operation: "rebase",
+						status: "assigned",
+					},
 				],
 			},
 		});

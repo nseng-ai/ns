@@ -14,7 +14,12 @@ import {
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@asdl/ccc/worktree-status/graphite-metadata";
-import { makeGitRepo, withTempRoot, runSqliteStatements, writeGraphiteMetadataDb } from "./worktree-status-fixtures.ts";
+import {
+	makeGitRepo,
+	withTempRoot,
+	runSqliteStatements,
+	writeGraphiteMetadataDb,
+} from "./worktree-status-fixtures.ts";
 
 class NonRespondingMetadataWorker implements GraphiteMetadataWorkerHandle {
 	onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -73,8 +78,14 @@ class ManualMetadataWorker implements GraphiteMetadataWorkerHandle {
 }
 
 const WORKER_LOOKUP_INPUT = { commonGitDir: "/repo/.git", currentBranch: "feature/current" };
-const WORKER_LOOKUP_REQUEST = { type: "load_graphite_metadata", input: WORKER_LOOKUP_INPUT } satisfies GraphiteMetadataWorkerRequest;
-const CURRENT_ASDL_TOOLS_METADATA_FIXTURE = new URL("./fixtures/graphite-metadata/asdl-tools-current.graphite_metadata.db", import.meta.url);
+const WORKER_LOOKUP_REQUEST = {
+	type: "load_graphite_metadata",
+	input: WORKER_LOOKUP_INPUT,
+} satisfies GraphiteMetadataWorkerRequest;
+const CURRENT_ASDL_TOOLS_METADATA_FIXTURE = new URL(
+	"./fixtures/graphite-metadata/asdl-tools-current.graphite_metadata.db",
+	import.meta.url,
+);
 
 afterEach(() => {
 	shutdownGraphiteMetadataWorker();
@@ -83,7 +94,12 @@ afterEach(() => {
 describe("Graphite metadata status lookup", () => {
 	test("reports unavailable when metadata DB is missing", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
+			expect(
+				loadGraphiteMetadataStatus({
+					commonGitDir: join(root, ".git"),
+					currentBranch: "feature/current",
+				}),
+			).toEqual({
 				type: "unavailable",
 				reason: "missing-db",
 				currentBranch: "feature/current",
@@ -99,7 +115,12 @@ describe("Graphite metadata status lookup", () => {
 				{ branchName: "feature/unrelated", parentBranchName: "main", children: ["feature/noise"] },
 			]);
 
-			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
+			expect(
+				loadGraphiteMetadataStatus({
+					commonGitDir: join(root, ".git"),
+					currentBranch: "feature/current",
+				}),
+			).toEqual({
 				type: "tracked",
 				currentBranch: "feature/current",
 				parent: "main",
@@ -115,7 +136,9 @@ describe("Graphite metadata status lookup", () => {
 				{ branchName: "main", children: ["feature/current"], validationResult: "trunk" },
 			]);
 
-			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "main" })).toEqual({
+			expect(
+				loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "main" }),
+			).toEqual({
 				type: "tracked",
 				currentBranch: "main",
 				parent: undefined,
@@ -127,16 +150,23 @@ describe("Graphite metadata status lookup", () => {
 
 	test("loads trunk metadata from the copied current asdl-tools Graphite database", async () => {
 		await withTempRoot(makeGitRepo("master"), (root) => {
-			copyFileSync(CURRENT_ASDL_TOOLS_METADATA_FIXTURE, join(root, ".git", ".graphite_metadata.db"));
+			copyFileSync(
+				CURRENT_ASDL_TOOLS_METADATA_FIXTURE,
+				join(root, ".git", ".graphite_metadata.db"),
+			);
 
-			const status = loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "master" });
+			const status = loadGraphiteMetadataStatus({
+				commonGitDir: join(root, ".git"),
+				currentBranch: "master",
+			});
 			expect(status).toMatchObject({
 				type: "tracked",
 				currentBranch: "master",
 				parent: undefined,
 				isCurrentTrunk: true,
 			});
-			if (status.type !== "tracked") throw new Error("expected copied Graphite fixture to track master");
+			if (status.type !== "tracked")
+				throw new Error("expected copied Graphite fixture to track master");
 			expect(status.children).toContain("add-aretro-branch-retro-command");
 			expect(status.children.length).toBeGreaterThan(10);
 		});
@@ -144,9 +174,16 @@ describe("Graphite metadata status lookup", () => {
 
 	test("reports untracked when the current branch has no row", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
-			writeGraphiteMetadataDb(join(root, ".git"), [{ branchName: "main", validationResult: "TRUNK" }]);
+			writeGraphiteMetadataDb(join(root, ".git"), [
+				{ branchName: "main", validationResult: "TRUNK" },
+			]);
 
-			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
+			expect(
+				loadGraphiteMetadataStatus({
+					commonGitDir: join(root, ".git"),
+					currentBranch: "feature/current",
+				}),
+			).toEqual({
 				type: "untracked",
 				currentBranch: "feature/current",
 			});
@@ -159,7 +196,12 @@ describe("Graphite metadata status lookup", () => {
 				"CREATE TABLE branch_metadata (branch_name TEXT PRIMARY KEY, parent_branch_name TEXT);",
 			]);
 
-			expect(loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" })).toEqual({
+			expect(
+				loadGraphiteMetadataStatus({
+					commonGitDir: join(root, ".git"),
+					currentBranch: "feature/current",
+				}),
+			).toEqual({
 				type: "unavailable",
 				reason: "schema-mismatch",
 				currentBranch: "feature/current",
@@ -173,7 +215,10 @@ describe("Graphite metadata status lookup", () => {
 				{ branchName: "feature/current", parentBranchName: "main", rawChildren: "not json" },
 			]);
 
-			const status = loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" });
+			const status = loadGraphiteMetadataStatus({
+				commonGitDir: join(root, ".git"),
+				currentBranch: "feature/current",
+			});
 			expect(status).toMatchObject({ type: "tracked", children: [] });
 		});
 	});
@@ -181,10 +226,17 @@ describe("Graphite metadata status lookup", () => {
 	test("keeps only string children from metadata arrays", async () => {
 		await withTempRoot(makeGitRepo("feature/current"), (root) => {
 			writeGraphiteMetadataDb(join(root, ".git"), [
-				{ branchName: "feature/current", parentBranchName: "main", rawChildren: '["feature/one", 123, null, "feature/two"]' },
+				{
+					branchName: "feature/current",
+					parentBranchName: "main",
+					rawChildren: '["feature/one", 123, null, "feature/two"]',
+				},
 			]);
 
-			const status = loadGraphiteMetadataStatus({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" });
+			const status = loadGraphiteMetadataStatus({
+				commonGitDir: join(root, ".git"),
+				currentBranch: "feature/current",
+			});
 			expect(status).toMatchObject({ type: "tracked", children: ["feature/one", "feature/two"] });
 		});
 	});
@@ -195,8 +247,13 @@ describe("Graphite metadata status lookup", () => {
 				type: "load_graphite_metadata",
 				input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" },
 			}),
-		).toEqual({ type: "load_graphite_metadata", input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" } });
-		expect(graphiteMetadataWorkerRequestFromValue({ type: "load_graphite_metadata" })).toBeUndefined();
+		).toEqual({
+			type: "load_graphite_metadata",
+			input: { commonGitDir: "/repo/.git", currentBranch: "feature/current" },
+		});
+		expect(
+			graphiteMetadataWorkerRequestFromValue({ type: "load_graphite_metadata" }),
+		).toBeUndefined();
 
 		expect(
 			graphiteMetadataWorkerResponseFromValue({
@@ -204,11 +261,15 @@ describe("Graphite metadata status lookup", () => {
 				status: { type: "untracked", currentBranch: "feature/current" },
 			}),
 		).toEqual({ type: "success", status: { type: "untracked", currentBranch: "feature/current" } });
-		expect(graphiteMetadataWorkerResponseFromValue({ type: "failure", message: "failed" })).toEqual({
-			type: "failure",
-			message: "failed",
-		});
-		expect(graphiteMetadataWorkerResponseFromValue({ type: "success", status: "bad" })).toBeUndefined();
+		expect(graphiteMetadataWorkerResponseFromValue({ type: "failure", message: "failed" })).toEqual(
+			{
+				type: "failure",
+				message: "failed",
+			},
+		);
+		expect(
+			graphiteMetadataWorkerResponseFromValue({ type: "success", status: "bad" }),
+		).toBeUndefined();
 	});
 
 	test("loads metadata through a worker-backed async adapter", async () => {
@@ -219,7 +280,10 @@ describe("Graphite metadata status lookup", () => {
 			]);
 
 			expect(
-				await loadGraphiteMetadataStatusInWorker({ commonGitDir: join(root, ".git"), currentBranch: "feature/current" }),
+				await loadGraphiteMetadataStatusInWorker({
+					commonGitDir: join(root, ".git"),
+					currentBranch: "feature/current",
+				}),
 			).toEqual({
 				type: "tracked",
 				currentBranch: "feature/current",
@@ -243,9 +307,17 @@ describe("Graphite metadata status lookup", () => {
 		workers[0]?.respond({ type: "untracked", currentBranch: "feature/current" });
 		expect(await firstPromise).toEqual({ type: "untracked", currentBranch: "feature/current" });
 
-		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
+		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, {
+			workerFactory,
+		});
 		expect(workers).toHaveLength(1);
-		workers[0]?.respond({ type: "tracked", currentBranch: "feature/current", parent: "main", children: [], isCurrentTrunk: false });
+		workers[0]?.respond({
+			type: "tracked",
+			currentBranch: "feature/current",
+			parent: "main",
+			children: [],
+			isCurrentTrunk: false,
+		});
 		expect(await secondPromise).toEqual({
 			type: "tracked",
 			currentBranch: "feature/current",
@@ -273,7 +345,9 @@ describe("Graphite metadata status lookup", () => {
 		shutdownGraphiteMetadataWorker();
 		expect(workers[0]?.isTerminated).toBe(true);
 
-		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
+		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, {
+			workerFactory,
+		});
 		expect(workers).toHaveLength(2);
 		workers[1]?.respond({ type: "untracked", currentBranch: "feature/current" });
 		expect(await secondPromise).toEqual({ type: "untracked", currentBranch: "feature/current" });
@@ -287,8 +361,15 @@ describe("Graphite metadata status lookup", () => {
 			return worker;
 		};
 
-		const timedOutStatus = await loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { timeoutMs: 1, workerFactory });
-		expect(timedOutStatus).toEqual({ type: "unavailable", reason: "read-timeout", currentBranch: "feature/current" });
+		const timedOutStatus = await loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, {
+			timeoutMs: 1,
+			workerFactory,
+		});
+		expect(timedOutStatus).toEqual({
+			type: "unavailable",
+			reason: "read-timeout",
+			currentBranch: "feature/current",
+		});
 		expect(workers[0]?.isTerminated).toBe(true);
 
 		const nextPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
@@ -313,9 +394,15 @@ describe("Graphite metadata status lookup", () => {
 			},
 		});
 		workers[0]?.malform();
-		expect(await malformedPromise).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
+		expect(await malformedPromise).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
+		});
 		expect(workers[0]?.isTerminated).toBe(true);
-		expect(diagnostics).toEqual([{ type: "worker-malformed-response", data: { type: "success", status: "bad" } }]);
+		expect(diagnostics).toEqual([
+			{ type: "worker-malformed-response", data: { type: "success", status: "bad" } },
+		]);
 
 		const nextPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
 		expect(workers).toHaveLength(2);
@@ -339,7 +426,11 @@ describe("Graphite metadata status lookup", () => {
 			},
 		});
 		workers[0]?.fail("failed");
-		expect(await failedPromise).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
+		expect(await failedPromise).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
+		});
 		expect(workers[0]?.isTerminated).toBe(true);
 		expect(diagnostics).toEqual([{ type: "worker-failure-response", message: "failed" }]);
 
@@ -359,10 +450,18 @@ describe("Graphite metadata status lookup", () => {
 
 		const firstPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
 		expect(workers).toHaveLength(1);
-		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
+		const secondPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, {
+			workerFactory,
+		});
 		expect(workers).toHaveLength(2);
 
-		workers[1]?.respond({ type: "tracked", currentBranch: "feature/current", parent: "main", children: ["feature/child"], isCurrentTrunk: false });
+		workers[1]?.respond({
+			type: "tracked",
+			currentBranch: "feature/current",
+			parent: "main",
+			children: ["feature/child"],
+			isCurrentTrunk: false,
+		});
 		expect(await secondPromise).toEqual({
 			type: "tracked",
 			currentBranch: "feature/current",
@@ -393,7 +492,11 @@ describe("Graphite metadata status lookup", () => {
 			workerFactory,
 		});
 		abortController.abort();
-		expect(await abortedPromise).toEqual({ type: "unavailable", reason: "read-timeout", currentBranch: "feature/current" });
+		expect(await abortedPromise).toEqual({
+			type: "unavailable",
+			reason: "read-timeout",
+			currentBranch: "feature/current",
+		});
 		expect(workers[0]?.isTerminated).toBe(true);
 
 		const nextPromise = loadGraphiteMetadataStatusInWorker(WORKER_LOOKUP_INPUT, { workerFactory });
@@ -425,7 +528,11 @@ describe("Graphite metadata status lookup", () => {
 		});
 		expect(worker.isTerminated).toBe(true);
 		expect(diagnostics).toContainEqual({ type: "worker-timeout", timeoutMs: 1 });
-		expect(status).toEqual({ type: "unavailable", reason: "read-timeout", currentBranch: "feature/current" });
+		expect(status).toEqual({
+			type: "unavailable",
+			reason: "read-timeout",
+			currentBranch: "feature/current",
+		});
 	});
 
 	test("degrades malformed metadata worker responses without diagnostics loss", async () => {
@@ -445,8 +552,14 @@ describe("Graphite metadata status lookup", () => {
 		);
 
 		expect(worker.isTerminated).toBe(true);
-		expect(diagnostics).toEqual([{ type: "worker-malformed-response", data: { type: "success", status: "bad" } }]);
-		expect(status).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
+		expect(diagnostics).toEqual([
+			{ type: "worker-malformed-response", data: { type: "success", status: "bad" } },
+		]);
+		expect(status).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
+		});
 	});
 
 	test("diagnostic callback failures do not block worker cleanup", async () => {
@@ -465,6 +578,10 @@ describe("Graphite metadata status lookup", () => {
 		);
 
 		expect(worker.isTerminated).toBe(true);
-		expect(status).toEqual({ type: "unavailable", reason: "read-failed", currentBranch: "feature/current" });
+		expect(status).toEqual({
+			type: "unavailable",
+			reason: "read-failed",
+			currentBranch: "feature/current",
+		});
 	});
 });

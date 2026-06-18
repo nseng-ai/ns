@@ -17,7 +17,9 @@ export async function readStdin(): Promise<string> {
 }
 
 /** Read one line from stdin, resolving as soon as the line is submitted. */
-export async function readStdinLine(input: NodeJS.ReadableStream = process.stdin): Promise<string | null> {
+export async function readStdinLine(
+	input: NodeJS.ReadableStream = process.stdin,
+): Promise<string | null> {
 	const lines = createInterface({ input, crlfDelay: Infinity });
 	try {
 		for await (const line of lines) return line;

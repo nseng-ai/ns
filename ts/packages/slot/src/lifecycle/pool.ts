@@ -36,8 +36,12 @@ export interface SlotLifecycleFailure {
 	message: string;
 }
 
-export type SlotInitResult = { type: "ok"; outcome: SlotInitOutcome } | { type: "failure"; failure: SlotLifecycleFailure };
-export type SlotResizeResult = { type: "ok"; outcome: SlotResizeOutcome } | { type: "failure"; failure: SlotLifecycleFailure };
+export type SlotInitResult =
+	| { type: "ok"; outcome: SlotInitOutcome }
+	| { type: "failure"; failure: SlotLifecycleFailure };
+export type SlotResizeResult =
+	| { type: "ok"; outcome: SlotResizeOutcome }
+	| { type: "failure"; failure: SlotLifecycleFailure };
 
 export function buildInitPlan(targetSize: number): InitPlan {
 	return { create: Array.from({ length: targetSize }, (_value, index) => index + 1) };
@@ -57,12 +61,21 @@ export function buildResizePlan(inventory: SlotInventory, targetSize: number): R
 		}
 		return { create, remove: [] };
 	}
-	const sortedRecords = [...inventory.records].sort((left, right) => left.slotNumber - right.slotNumber);
+	const sortedRecords = [...inventory.records].sort(
+		(left, right) => left.slotNumber - right.slotNumber,
+	);
 	return { create: [], remove: sortedRecords.slice(targetSize) };
 }
 
-export async function initializePool(ctx: SlotCliContext, targetSize: number): Promise<SlotInitResult> {
-	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
+export async function initializePool(
+	ctx: SlotCliContext,
+	targetSize: number,
+): Promise<SlotInitResult> {
+	if (ctx.repo.type !== "repo")
+		return {
+			type: "failure",
+			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+		};
 	const sizeFailure = invalidSizeFailure(targetSize);
 	if (sizeFailure !== null) return { type: "failure", failure: sizeFailure };
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
@@ -83,11 +96,21 @@ export async function initializePool(ctx: SlotCliContext, targetSize: number): P
 		await ctx.git.addDetachedWorktree(join(ctx.repo.worktreesDir, name), trunk);
 		created.push(name);
 	}
-	return { type: "ok", outcome: { created, pool_size: created.length, worktrees_dir: ctx.repo.worktreesDir } };
+	return {
+		type: "ok",
+		outcome: { created, pool_size: created.length, worktrees_dir: ctx.repo.worktreesDir },
+	};
 }
 
-export async function resizePool(ctx: SlotCliContext, targetSize: number): Promise<SlotResizeResult> {
-	if (ctx.repo.type !== "repo") return { type: "failure", failure: { error_type: ctx.repo.errorType, message: ctx.repo.message } };
+export async function resizePool(
+	ctx: SlotCliContext,
+	targetSize: number,
+): Promise<SlotResizeResult> {
+	if (ctx.repo.type !== "repo")
+		return {
+			type: "failure",
+			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+		};
 	const sizeFailure = invalidSizeFailure(targetSize);
 	if (sizeFailure !== null) return { type: "failure", failure: sizeFailure };
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
@@ -96,12 +119,22 @@ export async function resizePool(ctx: SlotCliContext, targetSize: number): Promi
 	if (plan.create.length === 0 && plan.remove.length === 0) {
 		return {
 			type: "ok",
-			outcome: { previous_pool_size: previousPoolSize, pool_size: previousPoolSize, created: [], removed: [], worktrees_dir: ctx.repo.worktreesDir },
+			outcome: {
+				previous_pool_size: previousPoolSize,
+				pool_size: previousPoolSize,
+				created: [],
+				removed: [],
+				worktrees_dir: ctx.repo.worktreesDir,
+			},
 		};
 	}
 	if (plan.remove.length > 0) {
 		const errors = await validateRemovals(ctx, plan.remove);
-		if (errors.length > 0) return { type: "failure", failure: { error_type: "resize_unsafe", message: errors.join("\n") } };
+		if (errors.length > 0)
+			return {
+				type: "failure",
+				failure: { error_type: "resize_unsafe", message: errors.join("\n") },
+			};
 	}
 	await ensureSlotsMetadataDir(ctx.repo, ctx.storage);
 	const trunk = await ctx.git.getTrunkBranch();
@@ -128,7 +161,10 @@ export async function resizePool(ctx: SlotCliContext, targetSize: number): Promi
 	};
 }
 
-async function validateRemovals(ctx: SlotCliContext, records: readonly SlotRecord[]): Promise<readonly string[]> {
+async function validateRemovals(
+	ctx: SlotCliContext,
+	records: readonly SlotRecord[],
+): Promise<readonly string[]> {
 	const errors: string[] = [];
 	for (const record of records) {
 		if (record.operation !== null) {
@@ -136,11 +172,15 @@ async function validateRemovals(ctx: SlotCliContext, records: readonly SlotRecor
 			continue;
 		}
 		if (record.branch !== null) {
-			errors.push(`${record.slotName} is assigned to '${record.branch}'; free it before shrinking the pool.`);
+			errors.push(
+				`${record.slotName} is assigned to '${record.branch}'; free it before shrinking the pool.`,
+			);
 			continue;
 		}
 		if (await ctx.git.hasUncommittedChanges(record.path)) {
-			errors.push(`${record.slotName} at ${record.path} has uncommitted changes; commit or discard before shrinking the pool.`);
+			errors.push(
+				`${record.slotName} at ${record.path} has uncommitted changes; commit or discard before shrinking the pool.`,
+			);
 		}
 	}
 	return errors;
@@ -152,6 +192,10 @@ function slotOperationInProgressMessage(record: SlotRecord): string {
 }
 
 function invalidSizeFailure(targetSize: number): SlotLifecycleFailure | null {
-	if (Number.isInteger(targetSize) && targetSize >= MIN_POOL_SIZE && targetSize <= MAX_POOL_SIZE) return null;
-	return { error_type: "invalid_size", message: `--size must be between ${MIN_POOL_SIZE} and ${MAX_POOL_SIZE}.` };
+	if (Number.isInteger(targetSize) && targetSize >= MIN_POOL_SIZE && targetSize <= MAX_POOL_SIZE)
+		return null;
+	return {
+		error_type: "invalid_size",
+		message: `--size must be between ${MIN_POOL_SIZE} and ${MAX_POOL_SIZE}.`,
+	};
 }

@@ -35,13 +35,19 @@ describe("objective exec list-candidates", () => {
 				],
 			},
 		});
-		expect(candidateRecordKeys(payload)).toEqual([["slug", "status"], ["slug", "status"]]);
+		expect(candidateRecordKeys(payload)).toEqual([
+			["slug", "status"],
+			["slug", "status"],
+		]);
 		expect(run.stderr).toEqual([]);
 	});
 
 	test("prints no candidate lines when no active open Objective records exist", async () => {
 		const run = runScenario(["exec", "list-candidates"], {
-			fake: { records: [{ slug: "done", isClosed: true }], directories: [".asdl/objective-archive/archived"] },
+			fake: {
+				records: [{ slug: "done", isClosed: true }],
+				directories: [".asdl/objective-archive/archived"],
+			},
 		});
 
 		expect(await run.exit).toBe(0);
@@ -51,9 +57,15 @@ describe("objective exec list-candidates", () => {
 });
 
 function candidateRecordKeys(payload: unknown): string[][] {
-	if (typeof payload !== "object" || payload === null || !("data" in payload)) throw new Error("missing data");
+	if (typeof payload !== "object" || payload === null || !("data" in payload))
+		throw new Error("missing data");
 	const data = payload.data;
-	if (typeof data !== "object" || data === null || !("records" in data) || !Array.isArray(data.records)) {
+	if (
+		typeof data !== "object" ||
+		data === null ||
+		!("records" in data) ||
+		!Array.isArray(data.records)
+	) {
 		throw new Error("missing records");
 	}
 	return data.records.map((record: unknown) => {

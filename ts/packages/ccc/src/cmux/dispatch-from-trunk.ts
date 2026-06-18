@@ -27,7 +27,8 @@ export function registerCccSlotDispatchFromTrunkCommand(
 ): void {
 	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
+		description:
+			"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
 		argumentHint: "<prompt>",
 		handler: async (args, ctx) => {
 			await handleCccSlotDispatchFromTrunk({ pi, payloadOptions, args, ctx });
@@ -153,16 +154,31 @@ async function refreshLocalTrunkBranch(options: {
 	if (!isSuccessfulExecResult(worktrees)) {
 		return {
 			ok: false,
-			message: formatCommandFailure("Could not inspect Git worktrees.", "git worktree list --porcelain", worktrees),
+			message: formatCommandFailure(
+				"Could not inspect Git worktrees.",
+				"git worktree list --porcelain",
+				worktrees,
+			),
 		};
 	}
 
-	const plan = planLocalBranchRefreshFromWorktrees({ branch: trunkBranch, cwd, worktreePorcelain: worktrees.stdout });
-	const refresh = await pi.exec("git", plan.args, { cwd: plan.cwd, timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS });
+	const plan = planLocalBranchRefreshFromWorktrees({
+		branch: trunkBranch,
+		cwd,
+		worktreePorcelain: worktrees.stdout,
+	});
+	const refresh = await pi.exec("git", plan.args, {
+		cwd: plan.cwd,
+		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
+	});
 	if (isSuccessfulExecResult(refresh)) return { ok: true };
 	return {
 		ok: false,
-		message: formatCommandFailure(formatTrunkRefreshFailureTitle(plan, trunkBranch), formatCommand("git", plan.args), refresh),
+		message: formatCommandFailure(
+			formatTrunkRefreshFailureTitle(plan, trunkBranch),
+			formatCommand("git", plan.args),
+			refresh,
+		),
 	};
 }
 
@@ -175,5 +191,8 @@ function formatTrunkRefreshFailureTitle(plan: LocalBranchRefreshPlan, trunkBranc
 }
 
 function firstNonEmptyLine(text: string): string | undefined {
-	return text.split(/\r?\n/).find((line) => line.trim().length > 0)?.trim();
+	return text
+		.split(/\r?\n/)
+		.find((line) => line.trim().length > 0)
+		?.trim();
 }

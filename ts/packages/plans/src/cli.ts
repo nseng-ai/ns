@@ -12,7 +12,11 @@ import { isDirectCliInvocation } from "@asdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { readStdin } from "@asdl/core/stdin";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
-import { normalizePlanFilePath, resolvePlanSourceFile, validatePlanSlug } from "./plan-persistence.ts";
+import {
+	normalizePlanFilePath,
+	resolvePlanSourceFile,
+	validatePlanSlug,
+} from "./plan-persistence.ts";
 import {
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
@@ -27,7 +31,10 @@ const VERSION = "0.1.0";
 const PLANS_ERROR_TYPE = "plans_error";
 
 const listRequestSchema = z.object({
-	plan_store_root: z.string().optional().describe("Plan store root directory (relative paths resolve against cwd)."),
+	plan_store_root: z
+		.string()
+		.optional()
+		.describe("Plan store root directory (relative paths resolve against cwd)."),
 });
 
 const saveRequestSchema = z.object({
@@ -133,7 +140,10 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 }
 
 async function handleList(ctx: PlansCliContext, request: ListRequest): Promise<LegacyPayload> {
-	const cliPlanStoreRoot = request.plan_store_root === undefined ? undefined : normalizeRootPath(request.plan_store_root, ctx.cwd);
+	const cliPlanStoreRoot =
+		request.plan_store_root === undefined
+			? undefined
+			: normalizeRootPath(request.plan_store_root, ctx.cwd);
 	const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
 	const plans = await listSavedPlans(ctx.commands, {
 		cwd: ctx.cwd,
@@ -153,16 +163,30 @@ async function handleSave(ctx: PlansCliContext, request: SaveRequest): Promise<L
 		throw new Error("Pass exactly one of --stdin or --content-file <path>.");
 	}
 
-	const content = request.stdin === true ? await ctx.stdin() : await readFile(normalizePlanFilePath(request.content_file as string), "utf8");
+	const content =
+		request.stdin === true
+			? await ctx.stdin()
+			: await readFile(normalizePlanFilePath(request.content_file as string), "utf8");
 	const evidence = await writeSavedPlanFile(
 		ctx.commands,
-		{ slug: request.slug, content, ...(request.summary === undefined ? {} : { summary: request.summary }) },
-		{ cwd: ctx.cwd, git: ctx.git, ...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }) },
+		{
+			slug: request.slug,
+			content,
+			...(request.summary === undefined ? {} : { summary: request.summary }),
+		},
+		{
+			cwd: ctx.cwd,
+			git: ctx.git,
+			...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
+		},
 	);
 	return { machine: savedPlanFileJson(evidence), human: formatSavedPlanFileEvidence(evidence) };
 }
 
-async function handleResolve(ctx: PlansCliContext, request: ResolveRequest): Promise<LegacyPayload> {
+async function handleResolve(
+	ctx: PlansCliContext,
+	request: ResolveRequest,
+): Promise<LegacyPayload> {
 	const evidence = await resolvePlanEvidence(request, ctx);
 	return { machine: resolvePlanJson(evidence), human: formatResolvePlanEvidence(evidence) };
 }
@@ -172,7 +196,10 @@ function normalizeRootPath(rawPath: string, cwd: string): string {
 	return resolve(cwd, normalized);
 }
 
-async function resolvePlanEvidence(args: ResolveRequest, ctx: PlansCliContext): Promise<ResolvePlanEvidence> {
+async function resolvePlanEvidence(
+	args: ResolveRequest,
+	ctx: PlansCliContext,
+): Promise<ResolvePlanEvidence> {
 	if (args.path !== undefined) {
 		const filePath = await resolvePlanSourceFile(ctx.commands, {
 			cwd: ctx.cwd,

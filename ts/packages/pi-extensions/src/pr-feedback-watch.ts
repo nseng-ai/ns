@@ -1,7 +1,10 @@
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 
-import { githubPrIdentityFromUrl, type GithubPrIdentity as CoreGithubPrIdentity } from "@asdl/core/github-status";
+import {
+	githubPrIdentityFromUrl,
+	type GithubPrIdentity as CoreGithubPrIdentity,
+} from "@asdl/core/github-status";
 import { formatElapsedMs } from "@asdl/core/time-format";
 import { isRecord, stringField } from "./cmux/primitives.ts";
 import { parseMachineEnvelopeData } from "./machine-envelope.ts";
@@ -14,13 +17,16 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: PR_FEEDBACK_WATCH_COMMAND_NAME,
-		workflow: "Watch the current branch PR for new feedback and dispatch constrained pr-address runs",
+		workflow:
+			"Watch the current branch PR for new feedback and dispatch constrained pr-address runs",
 		parity: "WAIVED",
-		fallback: "Use the pr-address skill/CLI manually when PR feedback is detected or requested outside Pi.",
+		fallback:
+			"Use the pr-address skill/CLI manually when PR feedback is detected or requested outside Pi.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@asdl/pi-extensions",
 		sourceModule: "pr-feedback-watch",
-		notes: "Pi owns opt-in live polling and prompt injection; pr-address owns the portable feedback normalization and mutation workflow.",
+		notes:
+			"Pi owns opt-in live polling and prompt injection; pr-address owns the portable feedback normalization and mutation workflow.",
 	},
 ] as const);
 export const PR_FEEDBACK_WATCH_MESSAGE_TYPE = "code-pr-feedback-watch";
@@ -121,7 +127,9 @@ interface DownloadFeedbackDataParseInvalid {
 	message: string;
 }
 
-type DownloadFeedbackDataParseResult = { type: "valid"; data: DownloadFeedbackData } | DownloadFeedbackDataParseInvalid;
+type DownloadFeedbackDataParseResult =
+	| { type: "valid"; data: DownloadFeedbackData }
+	| DownloadFeedbackDataParseInvalid;
 
 export interface ExecResult {
 	stdout: string;
@@ -208,7 +216,10 @@ interface RegisteredCommand {
 
 export interface ExtensionAPI {
 	registerCommand(name: string, options: RegisteredCommand): void;
-	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
+	): void;
 	on(event: "agent_end" | "session_shutdown", handler: () => Promise<void> | void): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	sendUserMessage?(content: string, options?: SendUserMessageOptions): void;
@@ -285,11 +296,15 @@ interface DispatchPromptInput {
 	items: readonly FeedbackItemKey[];
 }
 
-export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFeedbackWatchExtensionOptions = {}): void {
+export default function prFeedbackWatchExtension(
+	pi: ExtensionAPI,
+	options: PrFeedbackWatchExtensionOptions = {},
+): void {
 	const controller = new PrFeedbackWatchController(pi, options);
 
 	pi.registerCommand(PR_FEEDBACK_WATCH_COMMAND_NAME, {
-		description: "Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
+		description:
+			"Watch the current branch PR for feedback; bare command starts with existing feedback or toggles off when active.",
 		handler: async (rawArgs, ctx) => {
 			const parsed = parseWatchCommandArgs(rawArgs, options.minimumIntervalMs ?? MIN_INTERVAL_MS);
 			if (parsed.type === "invalid") {
@@ -339,11 +354,16 @@ export default function prFeedbackWatchExtension(pi: ExtensionAPI, options: PrFe
 	});
 }
 
-export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_INTERVAL_MS): WatchCommandParseResult {
+export function parseWatchCommandArgs(
+	rawArgs: string,
+	minimumIntervalMs = MIN_INTERVAL_MS,
+): WatchCommandParseResult {
 	const tokens = rawArgs.trim().length === 0 ? [] : rawArgs.trim().split(/\s+/);
 	const explicitActionToken = tokens[0];
-	const hasExplicitAction = explicitActionToken !== undefined && !explicitActionToken.startsWith("--");
-	const actionToken = tokens.length === 0 ? "toggle" : hasExplicitAction ? explicitActionToken : "start";
+	const hasExplicitAction =
+		explicitActionToken !== undefined && !explicitActionToken.startsWith("--");
+	const actionToken =
+		tokens.length === 0 ? "toggle" : hasExplicitAction ? explicitActionToken : "start";
 	if (!isWatchCommandAction(actionToken)) {
 		return { type: "invalid", message: `Unknown pr-feedback-watch action: ${actionToken}` };
 	}
@@ -382,14 +402,18 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		}
 		if (token === "--interval-seconds") {
 			const value = tokens[index + 1];
-			if (value === undefined) return { type: "invalid", message: "--interval-seconds requires a value." };
+			if (value === undefined)
+				return { type: "invalid", message: "--interval-seconds requires a value." };
 			const seconds = Number(value);
 			if (!Number.isInteger(seconds) || seconds <= 0) {
 				return { type: "invalid", message: "--interval-seconds must be a positive integer." };
 			}
 			const intervalMs = seconds * 1_000;
 			if (intervalMs < minimumIntervalMs) {
-				return { type: "invalid", message: `--interval-seconds must be at least ${minimumIntervalMs / 1_000}.` };
+				return {
+					type: "invalid",
+					message: `--interval-seconds must be at least ${minimumIntervalMs / 1_000}.`,
+				};
 			}
 			options.intervalMs = intervalMs;
 			index += 1;
@@ -398,22 +422,35 @@ export function parseWatchCommandArgs(rawArgs: string, minimumIntervalMs = MIN_I
 		return { type: "invalid", message: `Unknown pr-feedback-watch option: ${token}` };
 	}
 	if (hasDispatchExistingFlag && hasBaselineExistingFlag) {
-		return { type: "invalid", message: "--dispatch-existing and --baseline-existing cannot be used together." };
+		return {
+			type: "invalid",
+			message: "--dispatch-existing and --baseline-existing cannot be used together.",
+		};
 	}
 
 	return { type: "valid", action: actionToken, options };
 }
 
 export function parseDownloadFeedbackData(value: unknown): DownloadFeedbackDataParseResult {
-	if (!isRecord(value)) return { type: "invalid", message: "download-feedback data was not an object." };
+	if (!isRecord(value))
+		return { type: "invalid", message: "download-feedback data was not an object." };
 	const found = booleanField(value, "found");
-	if (found === undefined) return { type: "invalid", message: "download-feedback data missing boolean found." };
-	if (!isRecord(value.target)) return { type: "invalid", message: "download-feedback data missing target." };
-	if (!isRecord(value.counts)) return { type: "invalid", message: "download-feedback data missing counts." };
+	if (found === undefined)
+		return { type: "invalid", message: "download-feedback data missing boolean found." };
+	if (!isRecord(value.target))
+		return { type: "invalid", message: "download-feedback data missing target." };
+	if (!isRecord(value.counts))
+		return { type: "invalid", message: "download-feedback data missing counts." };
 	const markdown = stringField(value, "markdown");
-	if (markdown === undefined) return { type: "invalid", message: "download-feedback data missing markdown." };
-	for (const key of ["included_review_threads", "included_reviews", "included_discussion_comments"]) {
-		if (numberField(value.counts, key) === undefined) return { type: "invalid", message: `download-feedback data missing numeric counts.${key}.` };
+	if (markdown === undefined)
+		return { type: "invalid", message: "download-feedback data missing markdown." };
+	for (const key of [
+		"included_review_threads",
+		"included_reviews",
+		"included_discussion_comments",
+	]) {
+		if (numberField(value.counts, key) === undefined)
+			return { type: "invalid", message: `download-feedback data missing numeric counts.${key}.` };
 	}
 	return {
 		type: "valid",
@@ -430,7 +467,10 @@ export function parseDownloadFeedbackData(value: unknown): DownloadFeedbackDataP
 			counts: {
 				included_review_threads: requiredNumberField(value.counts, "included_review_threads"),
 				included_reviews: requiredNumberField(value.counts, "included_reviews"),
-				included_discussion_comments: requiredNumberField(value.counts, "included_discussion_comments"),
+				included_discussion_comments: requiredNumberField(
+					value.counts,
+					"included_discussion_comments",
+				),
 			},
 			markdown,
 		},
@@ -440,12 +480,17 @@ export function parseDownloadFeedbackData(value: unknown): DownloadFeedbackDataP
 export function feedbackItemKeyFromDownload(data: DownloadFeedbackData): FeedbackItemKey[] {
 	if (!data.found) return [];
 	const prNumber = data.target.pr_number ?? "unknown";
-	const total = data.counts.included_review_threads + data.counts.included_reviews + data.counts.included_discussion_comments;
+	const total =
+		data.counts.included_review_threads +
+		data.counts.included_reviews +
+		data.counts.included_discussion_comments;
 	if (total === 0) return [];
 	return [{ kind: "download", key: `download-feedback:${prNumber}:${total}`, author: undefined }];
 }
 
-export function feedbackItemKeysFromFingerprint(items: readonly FeedbackFingerprintItem[]): FeedbackItemKey[] {
+export function feedbackItemKeysFromFingerprint(
+	items: readonly FeedbackFingerprintItem[],
+): FeedbackItemKey[] {
 	return items.map((item) => ({
 		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
 		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
@@ -455,7 +500,10 @@ export function feedbackItemKeysFromFingerprint(items: readonly FeedbackFingerpr
 	}));
 }
 
-export function parseGitHubPullRequestUrl(url: string | undefined, fallbackNumber: number | undefined): GithubPrIdentity | undefined {
+export function parseGitHubPullRequestUrl(
+	url: string | undefined,
+	fallbackNumber: number | undefined,
+): GithubPrIdentity | undefined {
 	if (url === undefined) return undefined;
 	const identity = githubPrIdentityFromUrl(url, fallbackNumber);
 	return identity === undefined ? undefined : { ...identity, url };
@@ -518,7 +566,10 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 	return items;
 }
 
-export function buildFeedbackFingerprint(items: readonly FeedbackFingerprintItem[], fetchedAt = new Date().toISOString()): FeedbackFingerprint {
+export function buildFeedbackFingerprint(
+	items: readonly FeedbackFingerprintItem[],
+	fetchedAt = new Date().toISOString(),
+): FeedbackFingerprint {
 	const copied = [...items];
 	return {
 		key: fingerprintKeyFromOwnedItems(copied),
@@ -535,22 +586,26 @@ export function fingerprintKeyFromItems(items: readonly FeedbackFingerprintItem[
 function fingerprintKeyFromOwnedItems(items: FeedbackFingerprintItem[]): string {
 	return items
 		.sort(compareFingerprintItems)
-		.map((item) => [
-			item.kind,
-			item.id,
-			item.updatedAt ?? "",
-			item.author ?? "",
-			item.path ?? "",
-			item.line === undefined ? "" : String(item.line),
-			item.state ?? "",
-			item.commitId ?? "",
-			item.reviewId ?? "",
-			item.inReplyToId ?? "",
-		].join(":"))
+		.map((item) =>
+			[
+				item.kind,
+				item.id,
+				item.updatedAt ?? "",
+				item.author ?? "",
+				item.path ?? "",
+				item.line === undefined ? "" : String(item.line),
+				item.state ?? "",
+				item.commitId ?? "",
+				item.reviewId ?? "",
+				item.inReplyToId ?? "",
+			].join(":"),
+		)
 		.join("\n");
 }
 
-export function maxFingerprintTimestamp(items: readonly FeedbackFingerprintItem[]): string | undefined {
+export function maxFingerprintTimestamp(
+	items: readonly FeedbackFingerprintItem[],
+): string | undefined {
 	let latest: string | undefined;
 	for (const item of items) {
 		if (item.updatedAt === undefined) continue;
@@ -570,7 +625,11 @@ export function filterIgnoredFeedback(
 			ignoredItems.push({ item, reason: "current_user" });
 			continue;
 		}
-		if (item.kind === "discussion_comment" && item.author !== undefined && TOP_LEVEL_BOT_DISCUSSION_AUTHORS.has(item.author)) {
+		if (
+			item.kind === "discussion_comment" &&
+			item.author !== undefined &&
+			TOP_LEVEL_BOT_DISCUSSION_AUTHORS.has(item.author)
+		) {
 			ignoredItems.push({ item, reason: "status_bot" });
 			continue;
 		}
@@ -592,7 +651,10 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		"Detected feedback change keys:",
 	];
 	for (const item of input.items) {
-		const location = item.path === undefined ? "" : ` path=${item.path}${item.line === undefined ? "" : `:${item.line}`}`;
+		const location =
+			item.path === undefined
+				? ""
+				: ` path=${item.path}${item.line === undefined ? "" : `:${item.line}`}`;
 		lines.push(`- ${item.kind}/${item.key} author=${item.author ?? "(unknown)"}${location}`);
 	}
 	lines.push(
@@ -619,7 +681,11 @@ class PrFeedbackWatchController {
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
-	private options: WatchCommandOptions = { intervalMs: DEFAULT_INTERVAL_MS, shouldAllowDirty: true, existingFeedbackMode: "dispatch" };
+	private options: WatchCommandOptions = {
+		intervalMs: DEFAULT_INTERVAL_MS,
+		shouldAllowDirty: true,
+		existingFeedbackMode: "dispatch",
+	};
 	private seenKeys = new Set<string>();
 	private attemptedKeys = new Set<string>();
 	private queuedItems: FeedbackItemKey[] = [];
@@ -656,17 +722,42 @@ class PrFeedbackWatchController {
 	async start(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		this.state = { ...this.state, isEnabled: true, state: "polling", intervalMs: options.intervalMs, lastError: undefined };
-		this.appendEvent("config", { details: { intervalMs: options.intervalMs, shouldAllowDirty: options.shouldAllowDirty, existingFeedbackMode: options.existingFeedbackMode } });
-		this.renderStatus(options.existingFeedbackMode === "baseline" ? "PR watch: baselining" : "PR watch: checking current feedback");
+		this.state = {
+			...this.state,
+			isEnabled: true,
+			state: "polling",
+			intervalMs: options.intervalMs,
+			lastError: undefined,
+		};
+		this.appendEvent("config", {
+			details: {
+				intervalMs: options.intervalMs,
+				shouldAllowDirty: options.shouldAllowDirty,
+				existingFeedbackMode: options.existingFeedbackMode,
+			},
+		});
+		this.renderStatus(
+			options.existingFeedbackMode === "baseline"
+				? "PR watch: baselining"
+				: "PR watch: checking current feedback",
+		);
 		const snapshot = await this.loadSnapshot(session);
 		if (snapshot.type === "failed") {
 			this.recordError(snapshot.message);
 			return;
 		}
 		if (!snapshot.snapshot.data.found) {
-			this.state = { ...this.state, isEnabled: false, state: "stopped", lastError: "No PR found for current branch." };
-			notify(ctx, "No PR found for the current branch; PR feedback watch was not started.", "warning");
+			this.state = {
+				...this.state,
+				isEnabled: false,
+				state: "stopped",
+				lastError: "No PR found for current branch.",
+			};
+			notify(
+				ctx,
+				"No PR found for the current branch; PR feedback watch was not started.",
+				"warning",
+			);
 			this.renderStatus();
 			return;
 		}
@@ -681,9 +772,18 @@ class PrFeedbackWatchController {
 			await this.dispatchNewItems(session, snapshot.snapshot.items, snapshot.snapshot);
 		} else {
 			this.baseline(snapshot.snapshot);
-			notify(ctx, `PR feedback watch started for #${snapshot.snapshot.data.target.pr_number ?? "unknown"}; existing feedback was baselined.`, "info");
+			notify(
+				ctx,
+				`PR feedback watch started for #${snapshot.snapshot.data.target.pr_number ?? "unknown"}; existing feedback was baselined.`,
+				"info",
+			);
 		}
-		this.state = { ...this.state, isEnabled: true, state: "active", mode: this.lastRestFingerprintKey === undefined ? "heavy_fallback" : "rest_fingerprint" };
+		this.state = {
+			...this.state,
+			isEnabled: true,
+			state: "active",
+			mode: this.lastRestFingerprintKey === undefined ? "heavy_fallback" : "rest_fingerprint",
+		};
 		this.renderStatus();
 		this.scheduleNextPoll(session);
 	}
@@ -691,13 +791,22 @@ class PrFeedbackWatchController {
 	async once(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		await this.pollOnce(session, { scheduleNext: false, existingFeedbackMode: options.existingFeedbackMode });
+		await this.pollOnce(session, {
+			scheduleNext: false,
+			existingFeedbackMode: options.existingFeedbackMode,
+		});
 	}
 
 	stop(reason: "user" | "shutdown"): void {
 		this.clearTimer();
 		const session = this.activeSession;
-		this.state = { ...this.state, isEnabled: false, state: "stopped", mode: "stopped", queuedCount: 0 };
+		this.state = {
+			...this.state,
+			isEnabled: false,
+			state: "stopped",
+			mode: "stopped",
+			queuedCount: 0,
+		};
 		this.githubPrIdentity = undefined;
 		this.lastRestFingerprintKey = undefined;
 		this.queuedItems = [];
@@ -707,7 +816,12 @@ class PrFeedbackWatchController {
 	}
 
 	status(): WatchStatus {
-		return { ...this.state, seenCount: this.seenKeys.size, attemptedCount: this.attemptedKeys.size, queuedCount: this.queuedItems.length };
+		return {
+			...this.state,
+			seenCount: this.seenKeys.size,
+			attemptedCount: this.attemptedKeys.size,
+			queuedCount: this.queuedItems.length,
+		};
 	}
 
 	async handleAgentEnd(): Promise<void> {
@@ -724,18 +838,31 @@ class PrFeedbackWatchController {
 		this.queuedItems = [];
 		const newItems = this.unattemptedActionableItems(snapshot.snapshot, completedQueuedKeys);
 		if (newItems.length > 0) {
-			if (!this.options.shouldAllowDirty && await this.pauseIfWorkingTreeDirty(session, { queuedCount: 0 })) return;
+			if (
+				!this.options.shouldAllowDirty &&
+				(await this.pauseIfWorkingTreeDirty(session, { queuedCount: 0 }))
+			)
+				return;
 			this.hasNotifiedDirtyPause = false;
 			await this.dispatchNewItems(session, newItems, snapshot.snapshot);
 			return;
 		}
 		this.baseline(snapshot.snapshot);
-		this.state = { ...this.state, state: this.state.isEnabled ? "active" : "stopped", queuedCount: 0 };
+		this.state = {
+			...this.state,
+			state: this.state.isEnabled ? "active" : "stopped",
+			queuedCount: 0,
+		};
 		this.renderStatus();
 	}
 
 	private ensureSession(ctx: ExtensionContext): ActiveSession {
-		if (this.activeSession !== undefined && this.activeSession.ctx === ctx && !this.activeSession.isClosed) return this.activeSession;
+		if (
+			this.activeSession !== undefined &&
+			this.activeSession.ctx === ctx &&
+			!this.activeSession.isClosed
+		)
+			return this.activeSession;
 		this.activate(ctx);
 		return this.activeSession as ActiveSession;
 	}
@@ -752,7 +879,9 @@ class PrFeedbackWatchController {
 	}
 
 	private isActiveSession(session: ActiveSession): boolean {
-		return this.activeSession === session && !session.isClosed && !session.abortController.signal.aborted;
+		return (
+			this.activeSession === session && !session.isClosed && !session.abortController.signal.aborted
+		);
 	}
 
 	private async pollOnce(
@@ -790,20 +919,40 @@ class PrFeedbackWatchController {
 	}
 
 	private canUseRestFingerprint(options: { existingFeedbackMode: ExistingFeedbackMode }): boolean {
-		return options.existingFeedbackMode === "baseline" && this.githubPrIdentity !== undefined && this.lastRestFingerprintKey !== undefined;
+		return (
+			options.existingFeedbackMode === "baseline" &&
+			this.githubPrIdentity !== undefined &&
+			this.lastRestFingerprintKey !== undefined
+		);
 	}
 
-	private async initializeRestBaseline(session: ActiveSession, snapshot: FeedbackSnapshot): Promise<void> {
-		const identity = parseGitHubPullRequestUrl(snapshot.data.target.url ?? undefined, snapshot.data.target.pr_number ?? undefined);
+	private async initializeRestBaseline(
+		session: ActiveSession,
+		snapshot: FeedbackSnapshot,
+	): Promise<void> {
+		const identity = parseGitHubPullRequestUrl(
+			snapshot.data.target.url ?? undefined,
+			snapshot.data.target.pr_number ?? undefined,
+		);
 		this.githubPrIdentity = identity;
 		this.lastRestFingerprintKey = undefined;
 		if (identity === undefined) {
 			this.state = { ...this.state, mode: "heavy_fallback" };
-			notify(session.ctx, "PR feedback watch could not parse the GitHub PR URL; falling back to conservative polling.", "warning");
+			notify(
+				session.ctx,
+				"PR feedback watch could not parse the GitHub PR URL; falling back to conservative polling.",
+				"warning",
+			);
 			return;
 		}
 		const sinceIso = skewIso(new Date().toISOString());
-		const result = await loadRestFingerprint({ pi: this.pi, cwd: session.cwd, identity, sinceIso, signal: session.abortController.signal });
+		const result = await loadRestFingerprint({
+			pi: this.pi,
+			cwd: session.cwd,
+			identity,
+			sinceIso,
+			signal: session.abortController.signal,
+		});
 		if (result.type === "failed") {
 			this.recordRestFailure(session, result.message);
 			this.state = { ...this.state, mode: "heavy_fallback" };
@@ -815,16 +964,28 @@ class PrFeedbackWatchController {
 		await this.refreshCheckSummary(session, identity.number);
 	}
 
-	private async pollWithRestFingerprint(session: ActiveSession, options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode }): Promise<void> {
+	private async pollWithRestFingerprint(
+		session: ActiveSession,
+		options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode },
+	): Promise<void> {
 		const identity = this.githubPrIdentity;
 		if (identity === undefined || this.lastRestFingerprintKey === undefined) {
 			await this.pollWithHeavySnapshot(session, options, { reason: "normal" });
 			return;
 		}
-		const result = await loadRestFingerprint({ pi: this.pi, cwd: session.cwd, identity, sinceIso: this.restSinceIso, signal: session.abortController.signal });
+		const result = await loadRestFingerprint({
+			pi: this.pi,
+			cwd: session.cwd,
+			identity,
+			sinceIso: this.restSinceIso,
+			signal: session.abortController.signal,
+		});
 		if (result.type === "failed") {
 			this.recordRestFailure(session, result.message);
-			if (this.state.restFailures >= REST_FAILURES_BEFORE_HEAVY_FALLBACK && this.canRunHeavyFallback()) {
+			if (
+				this.state.restFailures >= REST_FAILURES_BEFORE_HEAVY_FALLBACK &&
+				this.canRunHeavyFallback()
+			) {
 				this.lastHeavyFallbackAt = Date.now();
 				await this.pollWithHeavySnapshot(session, options, { reason: "fallback" });
 			}
@@ -840,13 +1001,19 @@ class PrFeedbackWatchController {
 		}
 		if (await this.pauseIfWorkingTreeDirty(session)) return;
 		this.renderStatus("PR watch: checking changed feedback");
-		await this.pollWithHeavySnapshot(session, options, { reason: "rest_changed", fingerprint: result.fingerprint });
+		await this.pollWithHeavySnapshot(session, options, {
+			reason: "rest_changed",
+			fingerprint: result.fingerprint,
+		});
 	}
 
 	private async pollWithHeavySnapshot(
 		session: ActiveSession,
 		options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode },
-		context: { reason: "normal" | "fallback" | "rest_changed"; fingerprint?: FeedbackFingerprint | undefined },
+		context: {
+			reason: "normal" | "fallback" | "rest_changed";
+			fingerprint?: FeedbackFingerprint | undefined;
+		},
 	): Promise<void> {
 		if (context.reason === "fallback") this.renderStatus("PR watch: fallback polling 60s");
 		const snapshotResult = await this.loadSnapshot(session);
@@ -869,7 +1036,11 @@ class PrFeedbackWatchController {
 			return;
 		}
 		this.updateContextFromSnapshot(snapshot);
-		if (this.state.isEnabled && context.reason !== "rest_changed" && this.lastRestFingerprintKey === undefined) {
+		if (
+			this.state.isEnabled &&
+			context.reason !== "rest_changed" &&
+			this.lastRestFingerprintKey === undefined
+		) {
 			await this.initializeRestBaseline(session, snapshot);
 		}
 		if (!this.state.isEnabled && options.existingFeedbackMode === "baseline") {
@@ -877,14 +1048,26 @@ class PrFeedbackWatchController {
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
 			this.state = { ...this.state, state: "stopped" };
 			this.renderStatus();
-			notify(session.ctx, "No new PR feedback detected; current feedback is now baselined.", "info");
+			notify(
+				session.ctx,
+				"No new PR feedback detected; current feedback is now baselined.",
+				"info",
+			);
 			return;
 		}
-		if (context.reason !== "rest_changed" && await this.pauseIfWorkingTreeDirty(session)) return;
-		const candidateItems = context.fingerprint === undefined ? snapshot.items : filterIgnoredFeedback(feedbackItemKeysFromFingerprint(context.fingerprint.items), { currentUserLogin: this.currentUserLogin }).actionableTriggerItems;
-		const newItems = options.existingFeedbackMode === "dispatch"
-			? candidateItems.filter((item) => !this.attemptedKeys.has(item.key))
-			: candidateItems.filter((item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key));
+		if (context.reason !== "rest_changed" && (await this.pauseIfWorkingTreeDirty(session))) return;
+		const candidateItems =
+			context.fingerprint === undefined
+				? snapshot.items
+				: filterIgnoredFeedback(feedbackItemKeysFromFingerprint(context.fingerprint.items), {
+						currentUserLogin: this.currentUserLogin,
+					}).actionableTriggerItems;
+		const newItems =
+			options.existingFeedbackMode === "dispatch"
+				? candidateItems.filter((item) => !this.attemptedKeys.has(item.key))
+				: candidateItems.filter(
+						(item) => !this.seenKeys.has(item.key) && !this.attemptedKeys.has(item.key),
+					);
 		if (newItems.length === 0) {
 			this.baseline(snapshot);
 			if (context.fingerprint !== undefined) this.advanceRestFingerprint(context.fingerprint);
@@ -935,15 +1118,26 @@ class PrFeedbackWatchController {
 	}
 
 	private markFingerprintItemsSeen(fingerprint: FeedbackFingerprint): void {
-		for (const item of feedbackItemKeysFromFingerprint(fingerprint.items)) this.seenKeys.add(item.key);
+		for (const item of feedbackItemKeysFromFingerprint(fingerprint.items))
+			this.seenKeys.add(item.key);
 	}
 
 	private async refreshCheckSummary(session: ActiveSession, prNumber: number): Promise<void> {
-		const result = await loadPrCheckSummary({ pi: this.pi, cwd: session.cwd, prNumber, signal: session.abortController.signal });
-		this.state = { ...this.state, checkSummary: result.type === "loaded" ? result.summary : undefined };
+		const result = await loadPrCheckSummary({
+			pi: this.pi,
+			cwd: session.cwd,
+			prNumber,
+			signal: session.abortController.signal,
+		});
+		this.state = {
+			...this.state,
+			checkSummary: result.type === "loaded" ? result.summary : undefined,
+		};
 	}
 
-	private async loadSnapshot(session: ActiveSession): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
+	private async loadSnapshot(
+		session: ActiveSession,
+	): Promise<{ type: "loaded"; snapshot: FeedbackSnapshot } | { type: "failed"; message: string }> {
 		const runner = await this.resolveRunner(session);
 		if (runner.type === "failed") return runner;
 		const result = await this.pi.exec(
@@ -952,21 +1146,39 @@ class PrFeedbackWatchController {
 			{ cwd: session.cwd, timeout: COMMAND_TIMEOUT_MS, signal: session.abortController.signal },
 		);
 		if (result.killed || result.code !== 0) {
-			return { type: "failed", message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
+			return {
+				type: "failed",
+				message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+			};
 		}
-		const parsed = parseMachineEnvelopeData(result.stdout, { label: "pr-address download-feedback JSON", stdoutTail: { maxChars: 1_000 } });
+		const parsed = parseMachineEnvelopeData(result.stdout, {
+			label: "pr-address download-feedback JSON",
+			stdoutTail: { maxChars: 1_000 },
+		});
 		if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
 		const dataResult = parseDownloadFeedbackData(parsed.data);
 		if (dataResult.type === "invalid") return { type: "failed", message: dataResult.message };
-		const currentUserLoginPromise = this.currentUserLogin === undefined
-			? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
-			: Promise.resolve(this.currentUserLogin);
-		const headRefOidPromise = dataResult.data.target.pr_number === undefined || dataResult.data.target.pr_number === null
-			? Promise.resolve(undefined)
-			: loadHeadRefOid(this.pi, session.cwd, dataResult.data.target.pr_number, session.abortController.signal);
-		const [currentUserLogin, headRefOid] = await Promise.all([currentUserLoginPromise, headRefOidPromise]);
+		const currentUserLoginPromise =
+			this.currentUserLogin === undefined
+				? loadCurrentGitHubLogin(this.pi, session.cwd, session.abortController.signal)
+				: Promise.resolve(this.currentUserLogin);
+		const headRefOidPromise =
+			dataResult.data.target.pr_number === undefined || dataResult.data.target.pr_number === null
+				? Promise.resolve(undefined)
+				: loadHeadRefOid(
+						this.pi,
+						session.cwd,
+						dataResult.data.target.pr_number,
+						session.abortController.signal,
+					);
+		const [currentUserLogin, headRefOid] = await Promise.all([
+			currentUserLoginPromise,
+			headRefOidPromise,
+		]);
 		this.currentUserLogin = currentUserLogin;
-		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(dataResult.data), { currentUserLogin });
+		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(dataResult.data), {
+			currentUserLogin,
+		});
 		return {
 			type: "loaded",
 			snapshot: {
@@ -978,25 +1190,43 @@ class PrFeedbackWatchController {
 		};
 	}
 
-	private async resolveRunner(session: ActiveSession): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
+	private async resolveRunner(
+		session: ActiveSession,
+	): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const pathPrAddress = await this.pi.exec("which", ["pr-address"], { cwd: session.cwd, timeout: GIT_TIMEOUT_MS, signal: session.abortController.signal });
-		if (!pathPrAddress.killed && pathPrAddress.code === 0 && pathPrAddress.stdout.trim().length > 0) {
+		const pathPrAddress = await this.pi.exec("which", ["pr-address"], {
+			cwd: session.cwd,
+			timeout: GIT_TIMEOUT_MS,
+			signal: session.abortController.signal,
+		});
+		if (
+			!pathPrAddress.killed &&
+			pathPrAddress.code === 0 &&
+			pathPrAddress.stdout.trim().length > 0
+		) {
 			this.runner = { command: "pr-address", baseArgs: [] };
 			return { type: "resolved", runner: this.runner };
 		}
 		const repoRoot = await resolveRepoRoot(this.pi, session.cwd, session.abortController.signal);
-		const checkoutCli = repoRoot === undefined ? undefined : join(repoRoot, "ts", "packages", "pr-address", "src", "cli.ts");
+		const checkoutCli =
+			repoRoot === undefined
+				? undefined
+				: join(repoRoot, "ts", "packages", "pr-address", "src", "cli.ts");
 		if (checkoutCli !== undefined && pathExists(checkoutCli)) {
 			this.runner = { command: "node", baseArgs: [checkoutCli] };
 			return { type: "resolved", runner: this.runner };
 		}
-		return { type: "failed", message: "Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an asdl checkout containing ts/packages/pr-address/src/cli.ts." };
+		return {
+			type: "failed",
+			message:
+				"Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an asdl checkout containing ts/packages/pr-address/src/cli.ts.",
+		};
 	}
 
 	private baseline(snapshot: FeedbackSnapshot): void {
 		this.headRefOid = snapshot.headRefOid;
-		for (const item of [...snapshot.items, ...snapshot.ignoredItems.map((ignored) => ignored.item)]) this.seenKeys.add(item.key);
+		for (const item of [...snapshot.items, ...snapshot.ignoredItems.map((ignored) => ignored.item)])
+			this.seenKeys.add(item.key);
 		this.appendEvent("baseline", {
 			branch: snapshot.data.target.branch ?? undefined,
 			prNumber: snapshot.data.target.pr_number ?? undefined,
@@ -1012,17 +1242,26 @@ class PrFeedbackWatchController {
 		}
 	}
 
-	private unattemptedActionableItems(snapshot: FeedbackSnapshot, completedQueuedKeys: ReadonlySet<string>): FeedbackItemKey[] {
-		return snapshot.items.filter((item) => !this.attemptedKeys.has(item.key) && !completedQueuedKeys.has(item.key));
+	private unattemptedActionableItems(
+		snapshot: FeedbackSnapshot,
+		completedQueuedKeys: ReadonlySet<string>,
+	): FeedbackItemKey[] {
+		return snapshot.items.filter(
+			(item) => !this.attemptedKeys.has(item.key) && !completedQueuedKeys.has(item.key),
+		);
 	}
 
-	private async pauseIfWorkingTreeDirty(session: ActiveSession, options: { queuedCount?: number | undefined } = {}): Promise<boolean> {
+	private async pauseIfWorkingTreeDirty(
+		session: ActiveSession,
+		options: { queuedCount?: number | undefined } = {},
+	): Promise<boolean> {
 		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
 		if (!dirty || this.options.shouldAllowDirty) {
 			this.hasNotifiedDirtyPause = false;
 			return false;
 		}
-		const queuedCountUpdate = options.queuedCount === undefined ? {} : { queuedCount: options.queuedCount };
+		const queuedCountUpdate =
+			options.queuedCount === undefined ? {} : { queuedCount: options.queuedCount };
 		this.state = { ...this.state, ...queuedCountUpdate, state: "paused" };
 		this.renderStatus("PR watch: paused dirty tree");
 		if (!this.hasNotifiedDirtyPause) {
@@ -1032,7 +1271,11 @@ class PrFeedbackWatchController {
 		return true;
 	}
 
-	private async dispatchNewItems(session: ActiveSession, items: readonly FeedbackItemKey[], snapshot: FeedbackSnapshot): Promise<void> {
+	private async dispatchNewItems(
+		session: ActiveSession,
+		items: readonly FeedbackItemKey[],
+		snapshot: FeedbackSnapshot,
+	): Promise<void> {
 		if (items.length === 0) return;
 		this.headRefOid = snapshot.headRefOid;
 		for (const item of items) {
@@ -1054,11 +1297,20 @@ class PrFeedbackWatchController {
 			this.pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		} else if (this.pi.sendMessage !== undefined) {
 			this.pi.sendMessage(
-				{ customType: PR_FEEDBACK_WATCH_MESSAGE_TYPE, content: prompt, display: true, details: { itemKeys } },
+				{
+					customType: PR_FEEDBACK_WATCH_MESSAGE_TYPE,
+					content: prompt,
+					display: true,
+					details: { itemKeys },
+				},
 				{ triggerTurn: true, deliverAs: "followUp" },
 			);
 		} else {
-			notify(session.ctx, "PR feedback watch detected new feedback, but this Pi runtime cannot inject user messages.", "error");
+			notify(
+				session.ctx,
+				"PR feedback watch detected new feedback, but this Pi runtime cannot inject user messages.",
+				"error",
+			);
 			session.ctx.ui?.setEditorText?.(prompt);
 		}
 		this.appendEvent("dispatched", {
@@ -1070,7 +1322,11 @@ class PrFeedbackWatchController {
 	}
 
 	private shouldRebaselineForHead(snapshot: FeedbackSnapshot): boolean {
-		return this.headRefOid !== undefined && snapshot.headRefOid !== undefined && this.headRefOid !== snapshot.headRefOid;
+		return (
+			this.headRefOid !== undefined &&
+			snapshot.headRefOid !== undefined &&
+			this.headRefOid !== snapshot.headRefOid
+		);
 	}
 
 	private updateContextFromSnapshot(snapshot: FeedbackSnapshot): void {
@@ -1098,7 +1354,9 @@ class PrFeedbackWatchController {
 	}
 
 	private nextPollDelayMs(): number {
-		return this.githubPrIdentity === undefined || this.lastRestFingerprintKey === undefined ? HEAVY_FALLBACK_INTERVAL_MS : this.options.intervalMs;
+		return this.githubPrIdentity === undefined || this.lastRestFingerprintKey === undefined
+			? HEAVY_FALLBACK_INTERVAL_MS
+			: this.options.intervalMs;
 	}
 
 	private clearTimer(): void {
@@ -1149,7 +1407,10 @@ class PrFeedbackWatchController {
 		}
 	}
 
-	private appendEvent(type: WatchEventEntry["type"], overrides: Partial<WatchEventEntry> = {}): void {
+	private appendEvent(
+		type: WatchEventEntry["type"],
+		overrides: Partial<WatchEventEntry> = {},
+	): void {
 		this.pi.appendEntry?.(PR_FEEDBACK_WATCH_STATE_TYPE, {
 			version: 1,
 			type,
@@ -1174,28 +1435,56 @@ class PrFeedbackWatchController {
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
 		this.updateStatusRefreshTimer(value === undefined);
 	}
-
 }
 
-async function resolveRepoRoot(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
-	const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
+async function resolveRepoRoot(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	const result = await pi.exec(
+		"git",
+		["rev-parse", "--show-toplevel"],
+		execOptions(cwd, GIT_TIMEOUT_MS, signal),
+	);
 	if (result.killed || result.code !== 0) return undefined;
 	return result.stdout.trim() || undefined;
 }
 
-async function isWorkingTreeDirty(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<boolean> {
-	const result = await pi.exec("git", ["status", "--porcelain=v1"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
+async function isWorkingTreeDirty(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<boolean> {
+	const result = await pi.exec(
+		"git",
+		["status", "--porcelain=v1"],
+		execOptions(cwd, GIT_TIMEOUT_MS, signal),
+	);
 	if (result.killed || result.code !== 0) return true;
 	return result.stdout.trim().length > 0;
 }
 
-async function loadCurrentGitHubLogin(pi: ExecGateway, cwd: string, signal?: AbortSignal): Promise<string | undefined> {
-	const result = await pi.exec("gh", ["api", "user", "--jq", ".login"], execOptions(cwd, GIT_TIMEOUT_MS, signal));
+async function loadCurrentGitHubLogin(
+	pi: ExecGateway,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
+	const result = await pi.exec(
+		"gh",
+		["api", "user", "--jq", ".login"],
+		execOptions(cwd, GIT_TIMEOUT_MS, signal),
+	);
 	if (result.killed || result.code !== 0) return undefined;
 	return result.stdout.trim() || undefined;
 }
 
-async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, signal?: AbortSignal): Promise<string | undefined> {
+async function loadHeadRefOid(
+	pi: ExecGateway,
+	cwd: string,
+	prNumber: number,
+	signal?: AbortSignal,
+): Promise<string | undefined> {
 	const result = await pi.exec(
 		"gh",
 		["pr", "view", String(prNumber), "--json", "headRefOid", "--jq", ".headRefOid"],
@@ -1205,7 +1494,9 @@ async function loadHeadRefOid(pi: ExecGateway, cwd: string, prNumber: number, si
 	return result.stdout.trim() || undefined;
 }
 
-async function loadPrCheckSummary(options: LoadPrCheckSummaryOptions): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
+async function loadPrCheckSummary(
+	options: LoadPrCheckSummaryOptions,
+): Promise<{ type: "loaded"; summary: PrCheckSummary } | { type: "failed"; message: string }> {
 	const { pi, cwd, prNumber, signal } = options;
 	const result = await ghJsonCommand({
 		pi,
@@ -1215,7 +1506,9 @@ async function loadPrCheckSummary(options: LoadPrCheckSummaryOptions): Promise<{
 		signal,
 		shouldAllowNonZeroWithStdout: true,
 	});
-	return result.type === "loaded" ? { type: "loaded", summary: parsePrCheckSummary(result.value) } : result;
+	return result.type === "loaded"
+		? { type: "loaded", summary: parsePrCheckSummary(result.value) }
+		: result;
 }
 
 function parsePrCheckSummary(value: unknown): PrCheckSummary {
@@ -1233,14 +1526,30 @@ function parsePrCheckSummary(value: unknown): PrCheckSummary {
 	return { totalCount: items.length, pendingCount, passCount, failCount };
 }
 
-async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise<{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }> {
+async function loadRestFingerprint(
+	options: LoadRestFingerprintOptions,
+): Promise<
+	{ type: "loaded"; fingerprint: FeedbackFingerprint } | { type: "failed"; message: string }
+> {
 	const { pi, cwd, identity, sinceIso, signal } = options;
 	const discussionEndpoint = discussionCommentsEndpoint(identity, sinceIso);
 	const reviewsEndpointValue = reviewsEndpoint(identity);
 	const reviewCommentsEndpointValue = reviewCommentsEndpoint(identity, sinceIso);
 	const [discussionResult, reviewsResult, reviewCommentsResult] = await Promise.allSettled([
-		ghApiJson({ pi, cwd, endpoint: discussionEndpoint, jq: "[.[] | {id, created_at, updated_at, author: .user.login}]", signal }),
-		ghApiJson({ pi, cwd, endpoint: reviewsEndpointValue, jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]", signal }),
+		ghApiJson({
+			pi,
+			cwd,
+			endpoint: discussionEndpoint,
+			jq: "[.[] | {id, created_at, updated_at, author: .user.login}]",
+			signal,
+		}),
+		ghApiJson({
+			pi,
+			cwd,
+			endpoint: reviewsEndpointValue,
+			jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]",
+			signal,
+		}),
 		ghApiJson({
 			pi,
 			cwd,
@@ -1265,21 +1574,39 @@ async function loadRestFingerprint(options: LoadRestFingerprintOptions): Promise
 	};
 }
 
-function settledGhApiJsonResult(result: PromiseSettledResult<GhApiJsonResult>, endpoint: string): GhApiJsonResult {
+function settledGhApiJsonResult(
+	result: PromiseSettledResult<GhApiJsonResult>,
+	endpoint: string,
+): GhApiJsonResult {
 	if (result.status === "fulfilled") return result.value;
-	return { type: "failed", message: `gh api failed for ${endpoint}: ${formatUnknownError(result.reason)}` };
+	return {
+		type: "failed",
+		message: `gh api failed for ${endpoint}: ${formatUnknownError(result.reason)}`,
+	};
 }
 
 async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 	const { pi, cwd, endpoint, jq, signal } = options;
-	return ghJsonCommand({ pi, cwd, args: ["api", "--method", "GET", endpoint, "--jq", jq], label: `gh api for ${endpoint}`, signal });
+	return ghJsonCommand({
+		pi,
+		cwd,
+		args: ["api", "--method", "GET", endpoint, "--jq", jq],
+		label: `gh api for ${endpoint}`,
+		signal,
+	});
 }
 
 async function ghJsonCommand(options: GhJsonCommandOptions): Promise<GhJsonCommandResult> {
 	const { pi, cwd, args, label, signal, shouldAllowNonZeroWithStdout = false } = options;
 	const result = await pi.exec("gh", args, execOptions(cwd, GIT_TIMEOUT_MS, signal));
-	if (result.killed || (result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))) {
-		return { type: "failed", message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}` };
+	if (
+		result.killed ||
+		(result.code !== 0 && (!shouldAllowNonZeroWithStdout || result.stdout.trim().length === 0))
+	) {
+		return {
+			type: "failed",
+			message: `${label} failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+		};
 	}
 	try {
 		return { type: "loaded", value: JSON.parse(result.stdout) };
@@ -1292,19 +1619,34 @@ function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-function discussionCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
-	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/issues/${identity.number}/comments`, { per_page: 100, since: sinceIso });
+function discussionCommentsEndpoint(
+	identity: GithubPrIdentity,
+	sinceIso: string | undefined,
+): string {
+	return buildGitHubRestEndpoint(
+		`repos/${identity.owner}/${identity.repo}/issues/${identity.number}/comments`,
+		{ per_page: 100, since: sinceIso },
+	);
 }
 
 function reviewsEndpoint(identity: GithubPrIdentity): string {
-	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/reviews`, { per_page: 100 });
+	return buildGitHubRestEndpoint(
+		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/reviews`,
+		{ per_page: 100 },
+	);
 }
 
 function reviewCommentsEndpoint(identity: GithubPrIdentity, sinceIso: string | undefined): string {
-	return buildGitHubRestEndpoint(`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/comments`, { per_page: 100, sort: "updated", direction: "desc", since: sinceIso });
+	return buildGitHubRestEndpoint(
+		`repos/${identity.owner}/${identity.repo}/pulls/${identity.number}/comments`,
+		{ per_page: 100, sort: "updated", direction: "desc", since: sinceIso },
+	);
 }
 
-function buildGitHubRestEndpoint(path: string, params: Record<string, string | number | undefined>): string {
+function buildGitHubRestEndpoint(
+	path: string,
+	params: Record<string, string | number | undefined>,
+): string {
 	const search = new URLSearchParams();
 	for (const [key, value] of Object.entries(params)) {
 		if (value !== undefined) search.set(key, String(value));
@@ -1348,12 +1690,18 @@ function defaultStatusLine(status: WatchStatus): string | undefined {
 	if (!status.isEnabled && status.state === "stopped") return undefined;
 	if (status.state === "paused") return "PR watch: paused";
 	if (status.state === "dispatching") return `PR watch: dispatching ${status.queuedCount} item(s)`;
-	if (status.state === "error") return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
-	if (status.mode === "heavy_fallback" && status.prNumber !== undefined) return "PR watch: fallback polling 60s";
+	if (status.state === "error")
+		return status.mode === "heavy_fallback" ? REST_FAILURE_STATUS : "PR watch: error";
+	if (status.mode === "heavy_fallback" && status.prNumber !== undefined)
+		return "PR watch: fallback polling 60s";
 	if (status.prNumber !== undefined) {
 		const intervalSeconds = Math.round(status.intervalMs / 1_000);
-		const feedbackAge = status.lastRestPollAt === undefined ? `feedback ${intervalSeconds}s` : `feedback ${formatElapsedSinceMs(status.lastRestPollAt)}/${intervalSeconds}s`;
-		const checks = status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
+		const feedbackAge =
+			status.lastRestPollAt === undefined
+				? `feedback ${intervalSeconds}s`
+				: `feedback ${formatElapsedSinceMs(status.lastRestPollAt)}/${intervalSeconds}s`;
+		const checks =
+			status.checkSummary === undefined ? "" : ` · ${formatCheckSummary(status.checkSummary)}`;
 		return `PR #${status.prNumber} · ${feedbackAge}${checks} · /${PR_FEEDBACK_WATCH_COMMAND_NAME} stops`;
 	}
 	return "PR watch: active";
@@ -1364,7 +1712,13 @@ function formatCheckSummary(summary: PrCheckSummary): string {
 }
 
 function shouldRefreshStatusAge(status: WatchStatus): boolean {
-	return status.isEnabled && status.state === "active" && status.mode === "rest_fingerprint" && status.prNumber !== undefined && status.lastRestPollAt !== undefined;
+	return (
+		status.isEnabled &&
+		status.state === "active" &&
+		status.mode === "rest_fingerprint" &&
+		status.prNumber !== undefined &&
+		status.lastRestPollAt !== undefined
+	);
 }
 
 function formatElapsedSinceMs(iso: string): string {
@@ -1385,9 +1739,11 @@ function formatWatchStatus(status: WatchStatus): string {
 	];
 	if (status.prNumber !== undefined) lines.push(`PR: #${status.prNumber}`);
 	if (status.branch !== undefined) lines.push(`Branch: ${status.branch}`);
-	if (status.checkSummary !== undefined) lines.push(`CI: ${formatCheckSummary(status.checkSummary)}`);
+	if (status.checkSummary !== undefined)
+		lines.push(`CI: ${formatCheckSummary(status.checkSummary)}`);
 	if (status.lastRestPollAt !== undefined) lines.push(`Last REST poll: ${status.lastRestPollAt}`);
-	if (status.lastHeavyCheckAt !== undefined) lines.push(`Last heavy check: ${status.lastHeavyCheckAt}`);
+	if (status.lastHeavyCheckAt !== undefined)
+		lines.push(`Last heavy check: ${status.lastHeavyCheckAt}`);
 	if (status.lastPollAt !== undefined) lines.push(`Last poll: ${status.lastPollAt}`);
 	if (status.lastError !== undefined) lines.push(`Last error: ${status.lastError}`);
 	return lines.join("\n");
@@ -1408,7 +1764,9 @@ function parseWatchEventEntry(value: unknown): WatchEventEntry | undefined {
 	if (value.version !== 1) return undefined;
 	if (typeof value.type !== "string") return undefined;
 	if (!isWatchEventType(value.type)) return undefined;
-	const itemKeys = Array.isArray(value.itemKeys) ? value.itemKeys.filter((item): item is string => typeof item === "string") : undefined;
+	const itemKeys = Array.isArray(value.itemKeys)
+		? value.itemKeys.filter((item): item is string => typeof item === "string")
+		: undefined;
 	return {
 		version: 1,
 		type: value.type,
@@ -1425,19 +1783,42 @@ function shouldDispatchExistingFeedback(options: WatchCommandOptions): boolean {
 }
 
 function isWatchCommandAction(value: string): value is WatchCommandAction {
-	return value === "toggle" || value === "start" || value === "stop" || value === "status" || value === "once";
+	return (
+		value === "toggle" ||
+		value === "start" ||
+		value === "stop" ||
+		value === "status" ||
+		value === "once"
+	);
 }
 
 function isWatchEventType(value: string): value is WatchEventEntry["type"] {
-	return value === "baseline" || value === "detected" || value === "dispatched" || value === "ignored" || value === "stopped" || value === "config" || value === "error";
+	return (
+		value === "baseline" ||
+		value === "detected" ||
+		value === "dispatched" ||
+		value === "ignored" ||
+		value === "stopped" ||
+		value === "config" ||
+		value === "error"
+	);
 }
 
-function compareFingerprintItems(left: FeedbackFingerprintItem, right: FeedbackFingerprintItem): number {
+function compareFingerprintItems(
+	left: FeedbackFingerprintItem,
+	right: FeedbackFingerprintItem,
+): number {
 	return fingerprintSortKey(left).localeCompare(fingerprintSortKey(right));
 }
 
 function fingerprintSortKey(item: FeedbackFingerprintItem): string {
-	return [item.kind, item.id, item.updatedAt ?? "", item.path ?? "", item.line === undefined ? "" : String(item.line)].join(":");
+	return [
+		item.kind,
+		item.id,
+		item.updatedAt ?? "",
+		item.path ?? "",
+		item.line === undefined ? "" : String(item.line),
+	].join(":");
 }
 
 function authorFromValue(value: Record<string, unknown>): string | undefined {

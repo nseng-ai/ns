@@ -15,7 +15,7 @@
     "@asdl/clinkr": "workspace:*",
     "@asdl/core": "workspace:*",
     "@asdl/pi-extension-runtime": "workspace:*",
-    "@opentui/core": "0.4.1",
-    "zod": "^4.4.3"
+    "@opentui/core": "catalog:",
+    "zod": "catalog:"
   }
 }

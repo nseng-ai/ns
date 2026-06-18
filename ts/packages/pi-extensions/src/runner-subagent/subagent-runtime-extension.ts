@@ -57,7 +57,10 @@ interface ToolDefinitionLike {
 }
 
 interface ExtensionApiLike {
-	on(event: "session_start", handler: (event: unknown, ctx: ExtensionContextLike) => void | Promise<void>): void;
+	on(
+		event: "session_start",
+		handler: (event: unknown, ctx: ExtensionContextLike) => void | Promise<void>,
+	): void;
 	on(
 		event: "before_agent_start",
 		handler: (
@@ -67,13 +70,18 @@ interface ExtensionApiLike {
 	): void;
 	on(
 		event: "tool_call",
-		handler: (event: ToolCallEventLike, ctx: ExtensionContextLike) => ToolCallResultLike | void | Promise<ToolCallResultLike | void>,
+		handler: (
+			event: ToolCallEventLike,
+			ctx: ExtensionContextLike,
+		) => ToolCallResultLike | void | Promise<ToolCallResultLike | void>,
 	): void;
 	registerTool(tool: ToolDefinitionLike): void;
 	getAllTools(): Array<{ name: string }>;
 }
 
-export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRuntimeExtensionOptions) {
+export function createRunnerSubagentRuntimeExtension(
+	options: RunnerSubagentRuntimeExtensionOptions,
+) {
 	return function runnerSubagentRuntimeExtension(pi: ExtensionApiLike): void {
 		let config: RuntimeConfigV1 | undefined;
 		let startupError: Error | undefined;
@@ -86,16 +94,24 @@ export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRunt
 			terminalToolNames = new Set(config.terminalTools.map((tool) => tool.name));
 		} else {
 			startupError = new Error(configRead.failure.message);
-			writeRuntimeError(options.resultPath, "config-error", `Invalid subagent terminal runtime config: ${startupError.message}`);
+			writeRuntimeError(
+				options.resultPath,
+				"config-error",
+				`Invalid subagent terminal runtime config: ${startupError.message}`,
+			);
 		}
 
 		pi.on("session_start", () => {
 			if (!config || startupError) return;
 
 			const existingTools = new Set(pi.getAllTools().map((tool) => tool.name));
-			const collisions = config.terminalTools.filter((tool) => existingTools.has(tool.name)).map((tool) => tool.name);
+			const collisions = config.terminalTools
+				.filter((tool) => existingTools.has(tool.name))
+				.map((tool) => tool.name);
 			if (collisions.length > 0) {
-				startupError = new Error(`Subagent terminal tool name collision: ${collisions.join(", ")}.`);
+				startupError = new Error(
+					`Subagent terminal tool name collision: ${collisions.join(", ")}.`,
+				);
 				writeRuntimeError(options.resultPath, "tool-collision", startupError.message);
 				return;
 			}
@@ -152,14 +168,17 @@ export function createRunnerSubagentRuntimeExtension(options: RunnerSubagentRunt
 				};
 			}
 			if (!config) return;
-			return { systemPrompt: `${event.systemPrompt}\n\n${runnerSubagentBoundaryInstructions(config)}` };
+			return {
+				systemPrompt: `${event.systemPrompt}\n\n${runnerSubagentBoundaryInstructions(config)}`,
+			};
 		});
 
 		pi.on("tool_call", (event) => {
 			if (!terminalCaptured || terminalToolNames.has(event.toolName)) return;
 			return {
 				block: true,
-				reason: "A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
+				reason:
+					"A runner subagent terminal capture has already been recorded; no further non-terminal tools may run.",
 			};
 		});
 	};

@@ -19,7 +19,10 @@ export function emptyRunnerSubagentActivity(): RunnerSubagentActivity {
 	return {};
 }
 
-export function previewJsonEventValue(value: unknown, limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS): string | undefined {
+export function previewJsonEventValue(
+	value: unknown,
+	limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS,
+): string | undefined {
 	if (value === undefined) return undefined;
 	if (typeof value === "string") return nonEmptyCompactPreview(value, limit);
 
@@ -34,7 +37,10 @@ export function previewJsonEventValue(value: unknown, limit = RUNNER_SUBAGENT_AC
 	return nonEmptyCompactPreview(serialized, limit);
 }
 
-export function compactPreviewText(text: string, limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS): string {
+export function compactPreviewText(
+	text: string,
+	limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS,
+): string {
 	const compacted = text.replace(/\s+/g, " ").trim();
 	if (limit <= 0) return "";
 	if (compacted.length <= limit) return compacted;
@@ -89,7 +95,10 @@ function toolResultTextContent(value: unknown): string | undefined {
 	return textBlocks.length === 0 ? undefined : textBlocks.join("\n\n");
 }
 
-function nonEmptyCompactPreview(text: string, limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS): string | undefined {
+function nonEmptyCompactPreview(
+	text: string,
+	limit = RUNNER_SUBAGENT_ACTIVITY_PREVIEW_CHARS,
+): string | undefined {
 	const preview = compactPreviewText(text, limit);
 	return preview.length > 0 ? preview : undefined;
 }

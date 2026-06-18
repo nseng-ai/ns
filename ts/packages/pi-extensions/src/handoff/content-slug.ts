@@ -5,7 +5,16 @@ import type { ExtensionAPI } from "./runtime-types.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 const MAX_HANDOFF_SLUG_WORDS = 8;
-const GENERIC_ONLY_WORDS = new Set(["handoff", "artifact", "session", "continue", "follow", "up", "work", "task"]);
+const GENERIC_ONLY_WORDS = new Set([
+	"handoff",
+	"artifact",
+	"session",
+	"continue",
+	"follow",
+	"up",
+	"work",
+	"task",
+]);
 
 export const MAX_HANDOFF_CONTENT_CHARS = 32_000;
 export type HandoffContentSlugEvidence = SlugModelEvidence;
@@ -77,7 +86,11 @@ export function normalizeHandoffContentSlugOutput(value: string): string | undef
 		return undefined;
 	}
 
-	const repaired = withoutSuffix.split("-").filter(Boolean).slice(0, MAX_HANDOFF_SLUG_WORDS).join("-");
+	const repaired = withoutSuffix
+		.split("-")
+		.filter(Boolean)
+		.slice(0, MAX_HANDOFF_SLUG_WORDS)
+		.join("-");
 	return repaired.length > 0 ? repaired : undefined;
 }
 
@@ -130,9 +143,11 @@ function removeGenericHandoffSuffix(slug: string): string {
 }
 
 function handoffSlugDerivationFailed(lines: readonly string[]): Error {
-	return new Error([
-		"Failed to derive handoff slug from final artifact content.",
-		...lines,
-		"No continuation-focus or deterministic fallback was attempted.",
-	].join("\n"));
+	return new Error(
+		[
+			"Failed to derive handoff slug from final artifact content.",
+			...lines,
+			"No continuation-focus or deterministic fallback was attempted.",
+		].join("\n"),
+	);
 }

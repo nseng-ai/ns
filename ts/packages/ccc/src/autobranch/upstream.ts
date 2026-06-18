@@ -15,7 +15,9 @@ export interface UpstreamHeadStateInput {
 	exec: (command: string, args: string[], cwd: string, timeout: number) => Promise<CommandResult>;
 }
 
-export async function inspectUpstreamHeadState(input: UpstreamHeadStateInput): Promise<UpstreamHeadState> {
+export async function inspectUpstreamHeadState(
+	input: UpstreamHeadStateInput,
+): Promise<UpstreamHeadState> {
 	const branch = await input.exec("git", ["branch", "--show-current"], input.cwd, GIT_TIMEOUT_MS);
 	if (branch.code !== 0) {
 		return { type: "failed", error: formatCommandDetails(branch) };
@@ -25,7 +27,12 @@ export async function inspectUpstreamHeadState(input: UpstreamHeadStateInput): P
 		return { type: "failed", error: "git branch --show-current returned no branch name." };
 	}
 
-	const upstream = await input.exec("git", ["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branchName}`], input.cwd, GIT_TIMEOUT_MS);
+	const upstream = await input.exec(
+		"git",
+		["for-each-ref", "--format=%(upstream:short)", `refs/heads/${branchName}`],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
 	if (upstream.code !== 0) {
 		return { type: "failed", error: formatCommandDetails(upstream) };
 	}
@@ -35,7 +42,12 @@ export async function inspectUpstreamHeadState(input: UpstreamHeadStateInput): P
 		return { type: "no_upstream" };
 	}
 
-	const containsHead = await input.exec("git", ["merge-base", "--is-ancestor", "HEAD", upstreamName], input.cwd, GIT_TIMEOUT_MS);
+	const containsHead = await input.exec(
+		"git",
+		["merge-base", "--is-ancestor", "HEAD", upstreamName],
+		input.cwd,
+		GIT_TIMEOUT_MS,
+	);
 	if (containsHead.code === 0) {
 		return { type: "upstream_contains_head", upstream: upstreamName };
 	}

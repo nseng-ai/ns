@@ -1,7 +1,10 @@
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { SlotCliContext } from "../../src/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
-import { FakeSlotGitGateway, type FakeSlotGitGatewayOptions } from "../../src/gateways/fakes/git.ts";
+import {
+	FakeSlotGitGateway,
+	type FakeSlotGitGatewayOptions,
+} from "../../src/gateways/fakes/git.ts";
 import { FakeSlotGtGateway, type FakeSlotGtGatewayOptions } from "../../src/gateways/fakes/gt.ts";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
@@ -29,7 +32,10 @@ export interface ScenarioRun {
 	context: SlotCliContext;
 }
 
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
+export function runScenario(
+	args: readonly string[],
+	options: ScenarioRunOptions = {},
+): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
@@ -58,7 +64,14 @@ export function runScenario(args: readonly string[], options: ScenarioRunOptions
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: true,
 	};
-	const deps: CliDeps = { context, cwd, env: context.env, stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text), stdin: context.stdin };
+	const deps: CliDeps = {
+		context,
+		cwd,
+		env: context.env,
+		stdout: (text) => stdout.push(text),
+		stderr: (text) => stderr.push(text),
+		stdin: context.stdin,
+	};
 	return { exit: runCli(args, deps), stdout, stderr, git, gt, pr, storage, context };
 }
 
@@ -80,6 +93,9 @@ export function repoContext(overrides: Partial<RepoContext> = {}): RepoContext {
 	};
 }
 
-export function slotWorktree(slotName: string, branch: string | null = null): { path: string; branch: string | null } {
+export function slotWorktree(
+	slotName: string,
+	branch: string | null = null,
+): { path: string; branch: string | null } {
 	return { path: `/slots/repos/repo/worktrees/${slotName}`, branch };
 }

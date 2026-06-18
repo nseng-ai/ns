@@ -1,7 +1,20 @@
 import { describe, expect, test } from "vitest";
-import { eventIndex, fail, ok, type CommandResult, type PendingWorktreeSnapshot, type UpstreamMode } from "./autobranch-test-helpers.ts";
-import { prepareLatestCommitAutobranchPlan, type LatestCommitAutobranchPlan } from "../src/autobranch/latest-commit-preparation.ts";
-import { runLatestCommitAutobranchTransaction, type LatestCommitTransactionInput } from "../src/autobranch/latest-commit-transaction.ts";
+import {
+	eventIndex,
+	fail,
+	ok,
+	type CommandResult,
+	type PendingWorktreeSnapshot,
+	type UpstreamMode,
+} from "./autobranch-test-helpers.ts";
+import {
+	prepareLatestCommitAutobranchPlan,
+	type LatestCommitAutobranchPlan,
+} from "../src/autobranch/latest-commit-preparation.ts";
+import {
+	runLatestCommitAutobranchTransaction,
+	type LatestCommitTransactionInput,
+} from "../src/autobranch/latest-commit-transaction.ts";
 import { buildSlugModelArgs } from "@asdl/plans";
 
 interface PreparationHarnessOptions {
@@ -54,7 +67,9 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 				return upstreamMode === "contains" ? ok() : { code: 1, stdout: "", stderr: "" };
 			}
 			if (command === "gt" && args[0] === "children") {
-				return options.shouldChildrenFail ? fail("gt children failed") : ok(childBranches.join("\n"));
+				return options.shouldChildrenFail
+					? fail("gt children failed")
+					: ok(childBranches.join("\n"));
 			}
 			if (command === "git" && args[0] === "rev-list") {
 				return ok(options.parentsLine ?? "abc123def456 parent987654\n");
@@ -155,7 +170,9 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				if (branchName.startsWith("autobranch-backup/")) {
 					return options.shouldDeleteBackupFail ? fail("delete failed") : ok("deleted\n");
 				}
-				return options.shouldDeleteCreatedBranchFail ? fail("delete created failed") : ok("deleted\n");
+				return options.shouldDeleteCreatedBranchFail
+					? fail("delete created failed")
+					: ok("deleted\n");
 			}
 			if (command === "git" && args[0] === "branch") {
 				return ok();
@@ -164,10 +181,18 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return ok(`${options.verifyHead ?? head}\n`);
 			}
 			if (command === "git" && args[0] === "reset" && args[1] === "--hard") {
-				if (currentBranch === sourceBranch && args[2] === "parent987654" && options.shouldSourceResetFail) {
+				if (
+					currentBranch === sourceBranch &&
+					args[2] === "parent987654" &&
+					options.shouldSourceResetFail
+				) {
 					return fail("source reset failed");
 				}
-				if (currentBranch === "latest-commit-branch" && args[2] === "abc123def456" && options.shouldBranchResetFail) {
+				if (
+					currentBranch === "latest-commit-branch" &&
+					args[2] === "abc123def456" &&
+					options.shouldBranchResetFail
+				) {
 					return fail("branch reset failed");
 				}
 				head = args[2] ?? head;
@@ -195,12 +220,17 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 
 function occupiedBackupBranches(): Set<string> {
 	const base = "autobranch-backup/feature/base/123";
-	return new Set(Array.from({ length: 50 }, (_, index) => `${base}${index === 0 ? "" : `-${index + 1}`}`));
+	return new Set(
+		Array.from({ length: 50 }, (_, index) => `${base}${index === 0 ? "" : `-${index + 1}`}`),
+	);
 }
 
 describe("prepareLatestCommitAutobranchPlan", () => {
 	test("explicit slug accepts clean latest commit without model slugging", async () => {
-		const harness = createPreparationHarness({ slug: "Latest Commit Branch", upstreamMode: "none" });
+		const harness = createPreparationHarness({
+			slug: "Latest Commit Branch",
+			upstreamMode: "none",
+		});
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
@@ -227,7 +257,9 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 			expect(result.plan.branchName).toBe("add-latest-commit-autobranch");
 		}
 		const prompt = piPrompt(harness.calls);
-		expect(harness.calls.find((call) => call.command === "pi")?.args).toEqual(buildSlugModelArgs(prompt));
+		expect(harness.calls.find((call) => call.command === "pi")?.args).toEqual(
+			buildSlugModelArgs(prompt),
+		);
 		expect(prompt).toContain("## commit message\nAdd latest commit support");
 		expect(prompt).toContain("## git diff HEAD^ HEAD\ndiff --git");
 	});
@@ -238,37 +270,74 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
 		expect(result).toEqual({ ok: false, kind: "invalid_requested_slug", requestedSlug: "---" });
-		expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(false);
+		expect(harness.calls.some((call) => call.command === "gt" && call.args[0] === "trunk")).toBe(
+			false,
+		);
 	});
 
 	test("refuses trunk, pushed commits, root commits, and merge commits before branch checks", async () => {
-		const trunk = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ currentBranch: "master" }).input);
+		const trunk = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ currentBranch: "master" }).input,
+		);
 		expect(trunk).toEqual({ ok: false, kind: "trunk_refusal", branch: "master" });
 
-		const pushed = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "contains" }).input);
-		expect(pushed).toEqual({ ok: false, kind: "pushed_head_refusal", upstream: "origin/feature/base" });
+		const pushed = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ upstreamMode: "contains" }).input,
+		);
+		expect(pushed).toEqual({
+			ok: false,
+			kind: "pushed_head_refusal",
+			upstream: "origin/feature/base",
+		});
 
-		const upstreamFailed = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "failed" }).input);
-		expect(upstreamFailed).toEqual({ ok: false, kind: "upstream_check_failed", error: "exit 128: bad upstream state" });
+		const upstreamFailed = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ upstreamMode: "failed" }).input,
+		);
+		expect(upstreamFailed).toEqual({
+			ok: false,
+			kind: "upstream_check_failed",
+			error: "exit 128: bad upstream state",
+		});
 
-		const root = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456\n" }).input);
+		const root = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456\n" }).input,
+		);
 		expect(root).toEqual({ ok: false, kind: "root_commit_refusal", headSha: "abc123def456" });
 
-		const merge = await prepareLatestCommitAutobranchPlan(createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456 p1 p2\n" }).input);
-		expect(merge).toEqual({ ok: false, kind: "merge_commit_refusal", headSha: "abc123def456", parentCount: 2 });
+		const merge = await prepareLatestCommitAutobranchPlan(
+			createPreparationHarness({ upstreamMode: "none", parentsLine: "abc123def456 p1 p2\n" }).input,
+		);
+		expect(merge).toEqual({
+			ok: false,
+			kind: "merge_commit_refusal",
+			headSha: "abc123def456",
+			parentCount: 2,
+		});
 	});
 
 	test("refuses source branches with Graphite children before reading commit evidence", async () => {
-		const harness = createPreparationHarness({ upstreamMode: "none", childBranches: ["feature/child"] });
+		const harness = createPreparationHarness({
+			upstreamMode: "none",
+			childBranches: ["feature/child"],
+		});
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "child_branch_refusal", children: ["feature/child"] });
-		expect(harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list")).toBe(false);
+		expect(result).toEqual({
+			ok: false,
+			kind: "child_branch_refusal",
+			children: ["feature/child"],
+		});
+		expect(
+			harness.calls.some((call) => call.command === "git" && call.args[0] === "rev-list"),
+		).toBe(false);
 	});
 
 	test("model slug failure is fatal in latest-commit mode", async () => {
-		const harness = createPreparationHarness({ upstreamMode: "none", piResult: fail("model unavailable") });
+		const harness = createPreparationHarness({
+			upstreamMode: "none",
+			piResult: fail("model unavailable"),
+		});
 
 		const result = await prepareLatestCommitAutobranchPlan(harness.input);
 
@@ -286,7 +355,11 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 		const pushedResult = await runLatestCommitAutobranchTransaction(pushed.input);
 
-		expect(pushedResult).toEqual({ ok: false, kind: "pushed_head_refusal", upstream: "origin/feature/base" });
+		expect(pushedResult).toEqual({
+			ok: false,
+			kind: "pushed_head_refusal",
+			upstream: "origin/feature/base",
+		});
 		expect(eventIndex(pushed.events, "exec:git branch autobranch-backup/")).toBe(-1);
 		expect(eventIndex(pushed.events, "exec:git reset --hard")).toBe(-1);
 		expect(eventIndex(pushed.events, "exec:gt create")).toBe(-1);
@@ -295,7 +368,11 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 		const failedResult = await runLatestCommitAutobranchTransaction(failed.input);
 
-		expect(failedResult).toEqual({ ok: false, kind: "transaction_upstream_check_failed", error: "exit 128: bad upstream state" });
+		expect(failedResult).toEqual({
+			ok: false,
+			kind: "transaction_upstream_check_failed",
+			error: "exit 128: bad upstream state",
+		});
 		expect(eventIndex(failed.events, "exec:git branch autobranch-backup/")).toBe(-1);
 	});
 
@@ -304,8 +381,14 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: false, kind: "backup_branch_name_unavailable", sourceBranch: "feature/base" });
-		expect(harness.events.some((event) => event.startsWith("exec:git branch autobranch-backup/"))).toBe(false);
+		expect(result).toEqual({
+			ok: false,
+			kind: "backup_branch_name_unavailable",
+			sourceBranch: "feature/base",
+		});
+		expect(
+			harness.events.some((event) => event.startsWith("exec:git branch autobranch-backup/")),
+		).toBe(false);
 		expect(eventIndex(harness.events, "exec:git reset --hard")).toBe(-1);
 		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
 	});
@@ -315,13 +398,23 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: true, commitSummary: "abc123d Add latest commit support", backupDeleted: true });
-		expect(eventIndex(harness.events, "exec:git branch autobranch-backup/feature/base/123 abc123def456")).toBeLessThan(
-			eventIndex(harness.events, "exec:git reset --hard parent987654"),
+		expect(result).toEqual({
+			ok: true,
+			commitSummary: "abc123d Add latest commit support",
+			backupDeleted: true,
+		});
+		expect(
+			eventIndex(harness.events, "exec:git branch autobranch-backup/feature/base/123 abc123def456"),
+		).toBeLessThan(eventIndex(harness.events, "exec:git reset --hard parent987654"));
+		expect(eventIndex(harness.events, "exec:git reset --hard parent987654")).toBeLessThan(
+			eventIndex(harness.events, "exec:gt create latest-commit-branch"),
 		);
-		expect(eventIndex(harness.events, "exec:git reset --hard parent987654")).toBeLessThan(eventIndex(harness.events, "exec:gt create latest-commit-branch"));
-		expect(eventIndex(harness.events, "exec:gt create latest-commit-branch")).toBeLessThan(eventIndex(harness.events, "exec:git reset --hard abc123def456"));
-		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123")).toBeGreaterThan(-1);
+		expect(eventIndex(harness.events, "exec:gt create latest-commit-branch")).toBeLessThan(
+			eventIndex(harness.events, "exec:git reset --hard abc123def456"),
+		);
+		expect(
+			eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123"),
+		).toBeGreaterThan(-1);
 	});
 
 	test("backup deletion failure is a success with recovery branch warning data", async () => {
@@ -340,12 +433,23 @@ describe("runLatestCommitAutobranchTransaction", () => {
 
 	test("normalizes recovery branch source segments", async () => {
 		const longSegment = "A".repeat(40);
-		const harness = createTransactionHarness({ sourceBranch: `Féature/fix-plan/###/UPPER punctuation!!!/${longSegment}` });
+		const harness = createTransactionHarness({
+			sourceBranch: `Féature/fix-plan/###/UPPER punctuation!!!/${longSegment}`,
+		});
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
-		expect(result).toEqual({ ok: true, commitSummary: "abc123d Add latest commit support", backupDeleted: true });
-		expect(eventIndex(harness.events, `exec:git branch autobranch-backup/feature/fix/upper-punctuation/${"a".repeat(32)}/123 abc123def456`)).toBeGreaterThan(-1);
+		expect(result).toEqual({
+			ok: true,
+			commitSummary: "abc123d Add latest commit support",
+			backupDeleted: true,
+		});
+		expect(
+			eventIndex(
+				harness.events,
+				`exec:git branch autobranch-backup/feature/fix/upper-punctuation/${"a".repeat(32)}/123 abc123def456`,
+			),
+		).toBeGreaterThan(-1);
 	});
 
 	test("source reset failure deletes redundant backup when source is unchanged", async () => {
@@ -360,7 +464,9 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			error: "exit 1: source reset failed",
 			backupCleanup: "deleted",
 		});
-		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123")).toBeGreaterThan(eventIndex(harness.events, "exec:git reset --hard parent987654"));
+		expect(
+			eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123"),
+		).toBeGreaterThan(eventIndex(harness.events, "exec:git reset --hard parent987654"));
 		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
 	});
 
@@ -375,9 +481,12 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			backupBranch: "autobranch-backup/feature/base/123",
 			error: "Expected HEAD abc123def456, but found def456abc789.",
 			backupCleanup: "recovery_required",
-			recoveryCommand: "git checkout feature/base && git reset --hard autobranch-backup/feature/base/123",
+			recoveryCommand:
+				"git checkout feature/base && git reset --hard autobranch-backup/feature/base/123",
 		});
-		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123")).toBe(-1);
+		expect(
+			eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123"),
+		).toBe(-1);
 		expect(eventIndex(harness.events, "exec:gt create")).toBe(-1);
 	});
 
@@ -395,13 +504,20 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			restored: true,
 			createdBranchDeleted: true,
 		});
-		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(eventIndex(harness.events, "exec:gt create latest-commit-branch"));
-		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(eventIndex(harness.events, "exec:git checkout feature/base"));
+		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:gt create latest-commit-branch"),
+		);
+		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:git checkout feature/base"),
+		);
 		expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup")).toBe(-1);
 	});
 
 	test("Graphite creation failure reports partial branch deletion failure", async () => {
-		const harness = createTransactionHarness({ shouldGtCreateFail: true, shouldDeleteCreatedBranchFail: true });
+		const harness = createTransactionHarness({
+			shouldGtCreateFail: true,
+			shouldDeleteCreatedBranchFail: true,
+		});
 
 		const result = await runLatestCommitAutobranchTransaction(harness.input);
 
@@ -431,7 +547,11 @@ describe("runLatestCommitAutobranchTransaction", () => {
 			restored: true,
 			createdBranchDeleted: true,
 		});
-		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(eventIndex(harness.events, "exec:git reset --hard abc123def456"));
-		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(eventIndex(harness.events, "exec:git checkout feature/base"));
+		expect(eventIndex(harness.events, "exec:git checkout feature/base")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:git reset --hard abc123def456"),
+		);
+		expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBeGreaterThan(
+			eventIndex(harness.events, "exec:git checkout feature/base"),
+		);
 	});
 });

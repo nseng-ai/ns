@@ -81,7 +81,11 @@ function fakeExists(paths: string[]): (path: string) => boolean {
 	return (path) => existing.has(path);
 }
 
-function step(command: string, args: string[], result: PiExecResultLike = { code: 0 }): ScriptedExec {
+function step(
+	command: string,
+	args: string[],
+	result: PiExecResultLike = { code: 0 },
+): ScriptedExec {
 	return { command, args, result };
 }
 
@@ -95,7 +99,9 @@ function envelope(data: Record<string, unknown>, overrides: Record<string, unkno
 
 describe("resolveBrmemCommandCandidates", () => {
 	test("returns only PATH brmem", () => {
-		expect(resolveBrmemCommandCandidates("/repo/pkg", { exists: fakeExists([]) })).toEqual([{ command: "brmem", prefixArgs: [] }]);
+		expect(resolveBrmemCommandCandidates("/repo/pkg", { exists: fakeExists([]) })).toEqual([
+			{ command: "brmem", prefixArgs: [] },
+		]);
 	});
 
 	test("ignores old Python venv and uv fallback locations", () => {
@@ -120,10 +126,22 @@ describe("runBrmemCandidate", () => {
 			prefixArgs: ["--root", "/repo with space", "--"],
 		};
 		const gateway = new FakeGateway([
-			step("brmem-wrapper", ["--root", "/repo with space", "--", "put", "plans/key.md", "--file", "/tmp/plan with space.md"], {
-				code: 0,
-				stdout: "ok",
-			}),
+			step(
+				"brmem-wrapper",
+				[
+					"--root",
+					"/repo with space",
+					"--",
+					"put",
+					"plans/key.md",
+					"--file",
+					"/tmp/plan with space.md",
+				],
+				{
+					code: 0,
+					stdout: "ok",
+				},
+			),
 		]);
 
 		const run = await runBrmemCandidate({
@@ -137,8 +155,18 @@ describe("runBrmemCandidate", () => {
 
 		gateway.assertDone();
 		expect(run.type).toBe("completed");
-		expect(run.args).toEqual(["--root", "/repo with space", "--", "put", "plans/key.md", "--file", "/tmp/plan with space.md"]);
-		expect(run.displayCommand).toBe("brmem-wrapper --root '/repo with space' -- put plans/key.md --file '/tmp/plan with space.md'");
+		expect(run.args).toEqual([
+			"--root",
+			"/repo with space",
+			"--",
+			"put",
+			"plans/key.md",
+			"--file",
+			"/tmp/plan with space.md",
+		]);
+		expect(run.displayCommand).toBe(
+			"brmem-wrapper --root '/repo with space' -- put plans/key.md --file '/tmp/plan with space.md'",
+		);
 		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: 1234, signal });
 		if (run.type === "completed") {
 			expect(run.result).toEqual({ code: 0, stdout: "ok", stderr: "", killed: false });
@@ -149,7 +177,13 @@ describe("runBrmemCandidate", () => {
 		const candidate = { command: "brmem", prefixArgs: [] };
 		const gateway = new FakeGateway([errorStep("brmem", ["list"], new Error("spawn ENOENT"))]);
 
-		const run = await runBrmemCandidate({ gateway, cwd: ROOT, candidate, brmemArgs: ["list"], timeoutMs: 1000 });
+		const run = await runBrmemCandidate({
+			gateway,
+			cwd: ROOT,
+			candidate,
+			brmemArgs: ["list"],
+			timeoutMs: 1000,
+		});
 
 		gateway.assertDone();
 		if (run.type !== "unavailable") {
@@ -160,11 +194,21 @@ describe("runBrmemCandidate", () => {
 	});
 
 	test("preserves semantic nonzero and killed results as completed runs", async () => {
-		for (const result of [{ code: 1, stderr: "absent" }, { code: 2, stderr: "invalid" }, { code: 127, killed: true, stderr: "command not found" }]) {
+		for (const result of [
+			{ code: 1, stderr: "absent" },
+			{ code: 2, stderr: "invalid" },
+			{ code: 127, killed: true, stderr: "command not found" },
+		]) {
 			const candidate = { command: "brmem", prefixArgs: [] };
 			const gateway = new FakeGateway([step("brmem", ["check", "plan.md"], result)]);
 
-			const run = await runBrmemCandidate({ gateway, cwd: ROOT, candidate, brmemArgs: ["check", "plan.md"], timeoutMs: 1000 });
+			const run = await runBrmemCandidate({
+				gateway,
+				cwd: ROOT,
+				candidate,
+				brmemArgs: ["check", "plan.md"],
+				timeoutMs: 1000,
+			});
 
 			gateway.assertDone();
 			expect(run.type).toBe("completed");
@@ -175,9 +219,16 @@ describe("runBrmemCandidate", () => {
 
 describe("runFirstAvailableBrmemCommand", () => {
 	test("returns unavailable after a PATH brmem startup failure", async () => {
-		const gateway = new FakeGateway([errorStep("brmem", ["list", "--format", "json"], new Error("spawn ENOENT"))]);
+		const gateway = new FakeGateway([
+			errorStep("brmem", ["list", "--format", "json"], new Error("spawn ENOENT")),
+		]);
 
-		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({
+			gateway,
+			cwd: ROOT,
+			brmemArgs: ["list", "--format", "json"],
+			timeoutMs: 1000,
+		});
 
 		gateway.assertDone();
 		expect(run.type).toBe("unavailable");
@@ -187,9 +238,19 @@ describe("runFirstAvailableBrmemCommand", () => {
 	});
 
 	test("returns unavailable after a PATH brmem command-not-found result", async () => {
-		const gateway = new FakeGateway([step("brmem", ["list", "--format", "json"], { code: 127, stderr: "brmem: command not found" })]);
+		const gateway = new FakeGateway([
+			step("brmem", ["list", "--format", "json"], {
+				code: 127,
+				stderr: "brmem: command not found",
+			}),
+		]);
 
-		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({
+			gateway,
+			cwd: ROOT,
+			brmemArgs: ["list", "--format", "json"],
+			timeoutMs: 1000,
+		});
 
 		gateway.assertDone();
 		expect(run.type).toBe("unavailable");
@@ -205,10 +266,19 @@ describe("runFirstAvailableBrmemCommand", () => {
 
 	test("returns unavailable after an explicit startupError result", async () => {
 		const gateway = new FakeGateway([
-			step("brmem", ["list", "--format", "json"], { code: 127, stderr: "spawn brmem ENOENT", startupError: "spawn brmem ENOENT" }),
+			step("brmem", ["list", "--format", "json"], {
+				code: 127,
+				stderr: "spawn brmem ENOENT",
+				startupError: "spawn brmem ENOENT",
+			}),
 		]);
 
-		const run = await runFirstAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list", "--format", "json"], timeoutMs: 1000 });
+		const run = await runFirstAvailableBrmemCommand({
+			gateway,
+			cwd: ROOT,
+			brmemArgs: ["list", "--format", "json"],
+			timeoutMs: 1000,
+		});
 
 		gateway.assertDone();
 		expect(run.type).toBe("unavailable");
@@ -220,21 +290,37 @@ describe("runFirstAvailableBrmemCommand", () => {
 describe("runAvailableBrmemCommand", () => {
 	test("returns a completed run with the default timeout and signal", async () => {
 		const signal = new AbortController().signal;
-		const gateway = new FakeGateway([step("brmem", ["list", "--format", "json"], { code: 0, stdout: "{}" })]);
+		const gateway = new FakeGateway([
+			step("brmem", ["list", "--format", "json"], { code: 0, stdout: "{}" }),
+		]);
 
-		const run = await runAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list", "--format", "json"], signal });
+		const run = await runAvailableBrmemCommand({
+			gateway,
+			cwd: ROOT,
+			brmemArgs: ["list", "--format", "json"],
+			signal,
+		});
 
 		gateway.assertDone();
 		expect(run.ok).toBe(true);
 		if (!run.ok) throw new Error(`expected successful run: ${run.error.message}`);
 		expect(run.value.result).toMatchObject({ code: 0, stdout: "{}" });
-		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: DEFAULT_BRMEM_TIMEOUT_MS, signal });
+		expect(gateway.calls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: DEFAULT_BRMEM_TIMEOUT_MS,
+			signal,
+		});
 	});
 
 	test("treats a semantic PATH brmem nonzero result as an available command", async () => {
 		const gateway = new FakeGateway([step("brmem", ["check", "plan.md"], { code: 1 })]);
 
-		const run = await runAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["check", "plan.md"], timeoutMs: 5678 });
+		const run = await runAvailableBrmemCommand({
+			gateway,
+			cwd: ROOT,
+			brmemArgs: ["check", "plan.md"],
+			timeoutMs: 5678,
+		});
 
 		gateway.assertDone();
 		expect(run.ok).toBe(true);
@@ -245,7 +331,9 @@ describe("runAvailableBrmemCommand", () => {
 	});
 
 	test("returns a structured unavailable error when PATH brmem is unavailable", async () => {
-		const gateway = new FakeGateway([step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" })]);
+		const gateway = new FakeGateway([
+			step("brmem", ["list"], { code: 127, stderr: "brmem: command not found" }),
+		]);
 
 		const run = await runAvailableBrmemCommand({ gateway, cwd: ROOT, brmemArgs: ["list"] });
 
@@ -260,21 +348,42 @@ describe("runAvailableBrmemCommand", () => {
 
 describe("checkBrmemEntry", () => {
 	const locator = { namespace: "branch-context", key: "plan.md", branch: "feature/demo" };
-	const checkArgs = ["check", "plan.md", "--namespace", "branch-context", "--branch", "feature/demo", "--format", "json"];
+	const checkArgs = [
+		"check",
+		"plan.md",
+		"--namespace",
+		"branch-context",
+		"--branch",
+		"feature/demo",
+		"--format",
+		"json",
+	];
 
 	test("returns present with the exact command protocol, default timeout, and signal", async () => {
 		const signal = new AbortController().signal;
-		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: true }) })]);
+		const gateway = new FakeGateway([
+			step("brmem", checkArgs, { code: 0, stdout: envelope({ present: true }) }),
+		]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator, signal });
 
 		gateway.assertDone();
-		expect(result).toEqual({ type: "present", displayCommand: "brmem check plan.md --namespace branch-context --branch feature/demo --format json" });
-		expect(gateway.calls[0]?.options).toEqual({ cwd: ROOT, timeout: DEFAULT_BRMEM_TIMEOUT_MS, signal });
+		expect(result).toEqual({
+			type: "present",
+			displayCommand:
+				"brmem check plan.md --namespace branch-context --branch feature/demo --format json",
+		});
+		expect(gateway.calls[0]?.options).toEqual({
+			cwd: ROOT,
+			timeout: DEFAULT_BRMEM_TIMEOUT_MS,
+			signal,
+		});
 	});
 
 	test("returns absent for present false check output", async () => {
-		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: false }) })]);
+		const gateway = new FakeGateway([
+			step("brmem", checkArgs, { code: 0, stdout: envelope({ present: false }) }),
+		]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
 
@@ -301,7 +410,9 @@ describe("checkBrmemEntry", () => {
 	});
 
 	test("returns malformed error when check present flag is non-boolean", async () => {
-		const gateway = new FakeGateway([step("brmem", checkArgs, { code: 0, stdout: envelope({ present: "no" }) })]);
+		const gateway = new FakeGateway([
+			step("brmem", checkArgs, { code: 0, stdout: envelope({ present: "no" }) }),
+		]);
 
 		const result = await checkBrmemEntry({ gateway, cwd: ROOT, ...locator });
 
@@ -310,7 +421,9 @@ describe("checkBrmemEntry", () => {
 	});
 
 	test("maps check failures", async () => {
-		const killed = new FakeGateway([step("brmem", checkArgs, { code: 124, killed: true, stderr: "timeout" })]);
+		const killed = new FakeGateway([
+			step("brmem", checkArgs, { code: 124, killed: true, stderr: "timeout" }),
+		]);
 		expect(await checkBrmemEntry({ gateway: killed, cwd: ROOT, ...locator })).toMatchObject({
 			type: "error",
 			error: { code: "brmem_check_killed" },
@@ -324,7 +437,9 @@ describe("checkBrmemEntry", () => {
 		});
 		nonzero.assertDone();
 
-		const unavailable = new FakeGateway([step("brmem", checkArgs, { code: 127, stderr: "brmem: command not found" })]);
+		const unavailable = new FakeGateway([
+			step("brmem", checkArgs, { code: 127, stderr: "brmem: command not found" }),
+		]);
 		expect(await checkBrmemEntry({ gateway: unavailable, cwd: ROOT, ...locator })).toMatchObject({
 			type: "error",
 			error: { code: "brmem_unavailable" },
@@ -358,7 +473,9 @@ describe("putBrmemEntryFromFile", () => {
 	} satisfies Record<string, unknown>;
 
 	test("stores a file with the exact command protocol and validates the response", async () => {
-		const gateway = new FakeGateway([step("brmem", putArgs, { code: 0, stdout: envelope(validData) })]);
+		const gateway = new FakeGateway([
+			step("brmem", putArgs, { code: 0, stdout: envelope(validData) }),
+		]);
 
 		const result = await putBrmemEntryFromFile({ gateway, cwd: ROOT, ...locator, sourceFile });
 
@@ -378,22 +495,32 @@ describe("putBrmemEntryFromFile", () => {
 	});
 
 	test("maps put command failures", async () => {
-		const killed = new FakeGateway([step("brmem", putArgs, { code: 124, killed: true, stderr: "timeout" })]);
-		expect(await putBrmemEntryFromFile({ gateway: killed, cwd: ROOT, ...locator, sourceFile })).toMatchObject({
+		const killed = new FakeGateway([
+			step("brmem", putArgs, { code: 124, killed: true, stderr: "timeout" }),
+		]);
+		expect(
+			await putBrmemEntryFromFile({ gateway: killed, cwd: ROOT, ...locator, sourceFile }),
+		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_put_failed" },
 		});
 		killed.assertDone();
 
 		const nonzero = new FakeGateway([step("brmem", putArgs, { code: 2, stderr: "bad args" })]);
-		expect(await putBrmemEntryFromFile({ gateway: nonzero, cwd: ROOT, ...locator, sourceFile })).toMatchObject({
+		expect(
+			await putBrmemEntryFromFile({ gateway: nonzero, cwd: ROOT, ...locator, sourceFile }),
+		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_put_failed" },
 		});
 		nonzero.assertDone();
 
-		const unavailable = new FakeGateway([step("brmem", putArgs, { code: 127, stderr: "brmem: command not found" })]);
-		expect(await putBrmemEntryFromFile({ gateway: unavailable, cwd: ROOT, ...locator, sourceFile })).toMatchObject({
+		const unavailable = new FakeGateway([
+			step("brmem", putArgs, { code: 127, stderr: "brmem: command not found" }),
+		]);
+		expect(
+			await putBrmemEntryFromFile({ gateway: unavailable, cwd: ROOT, ...locator, sourceFile }),
+		).toMatchObject({
 			ok: false,
 			error: { code: "brmem_unavailable" },
 		});
@@ -402,31 +529,67 @@ describe("putBrmemEntryFromFile", () => {
 
 	test("returns malformed output errors with display command evidence", async () => {
 		const malformed = new FakeGateway([step("brmem", putArgs, { code: 0, stdout: "{" })]);
-		const result = await putBrmemEntryFromFile({ gateway: malformed, cwd: ROOT, ...locator, sourceFile });
+		const result = await putBrmemEntryFromFile({
+			gateway: malformed,
+			cwd: ROOT,
+			...locator,
+			sourceFile,
+		});
 
 		malformed.assertDone();
 		expect(result).toMatchObject({
 			ok: false,
-			error: { code: "brmem_malformed_put", displayCommand: "brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json" },
+			error: {
+				code: "brmem_malformed_put",
+				displayCommand:
+					"brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
+			},
 		});
 	});
 
 	test("returns unexpected put data errors for mismatched response fields", async () => {
 		const cases = [
-			{ field: "namespace", data: { ...validData, namespace: "other" }, message: 'namespace "other" != "ccc-dispatch"' },
-			{ field: "key", data: { ...validData, key: "other.md" }, message: 'key "other.md" != "prompt.md"' },
-			{ field: "branch", data: { ...validData, branch: "other" }, message: 'branch "other" != "feature/demo"' },
-			{ field: "source_file", data: { ...validData, source_file: "/tmp/other.md" }, message: 'source_file "/tmp/other.md" != "/tmp/prompt.md"' },
+			{
+				field: "namespace",
+				data: { ...validData, namespace: "other" },
+				message: 'namespace "other" != "ccc-dispatch"',
+			},
+			{
+				field: "key",
+				data: { ...validData, key: "other.md" },
+				message: 'key "other.md" != "prompt.md"',
+			},
+			{
+				field: "branch",
+				data: { ...validData, branch: "other" },
+				message: 'branch "other" != "feature/demo"',
+			},
+			{
+				field: "source_file",
+				data: { ...validData, source_file: "/tmp/other.md" },
+				message: 'source_file "/tmp/other.md" != "/tmp/prompt.md"',
+			},
 		];
 
 		for (const testCase of cases) {
-			const mismatched = new FakeGateway([step("brmem", putArgs, { code: 0, stdout: envelope(testCase.data) })]);
-			const result = await putBrmemEntryFromFile({ gateway: mismatched, cwd: ROOT, ...locator, sourceFile });
+			const mismatched = new FakeGateway([
+				step("brmem", putArgs, { code: 0, stdout: envelope(testCase.data) }),
+			]);
+			const result = await putBrmemEntryFromFile({
+				gateway: mismatched,
+				cwd: ROOT,
+				...locator,
+				sourceFile,
+			});
 
 			mismatched.assertDone();
 			expect(result).toMatchObject({
 				ok: false,
-				error: { code: "brmem_unexpected_put_data", displayCommand: "brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json" },
+				error: {
+					code: "brmem_unexpected_put_data",
+					displayCommand:
+						"brmem put prompt.md --namespace ccc-dispatch --branch feature/demo --file /tmp/prompt.md --format json",
+				},
 			});
 			if (result.ok) throw new Error(`expected mismatch failure for ${testCase.field}`);
 			expect(result.error.message).toContain(testCase.message);
@@ -477,17 +640,29 @@ describe("parseBrmemPutData", () => {
 
 	test("throws for malformed envelopes", () => {
 		expect(() => parseBrmemPutData("{")).toThrow(/Malformed brmem put JSON: invalid JSON/);
-		expect(() => parseBrmemPutData(envelope(validData, { exit_code: 2, message: "failed" }))).toThrow(/exit_code 2: failed/);
-		expect(() => parseBrmemPutData(JSON.stringify({ exit_code: 0 }))).toThrow(/expected a data object/);
+		expect(() =>
+			parseBrmemPutData(envelope(validData, { exit_code: 2, message: "failed" })),
+		).toThrow(/exit_code 2: failed/);
+		expect(() => parseBrmemPutData(JSON.stringify({ exit_code: 0 }))).toThrow(
+			/expected a data object/,
+		);
 	});
 
 	test("throws for missing or non-string data fields", () => {
-		expect(() => parseBrmemPutData(envelope({ ...validData, namespace: 123 }))).toThrow(/expected string fields/);
-		expect(() => parseBrmemPutData(envelope({ ...validData, source_file: undefined }))).toThrow(/expected string fields/);
+		expect(() => parseBrmemPutData(envelope({ ...validData, namespace: 123 }))).toThrow(
+			/expected string fields/,
+		);
+		expect(() => parseBrmemPutData(envelope({ ...validData, source_file: undefined }))).toThrow(
+			/expected string fields/,
+		);
 	});
 
 	test("includes a bounded stdout tail in malformed-output messages", () => {
-		const longStdout = JSON.stringify({ exit_code: 0, data: { ...validData, source_file: 123 }, padding: "x".repeat(5_000) });
+		const longStdout = JSON.stringify({
+			exit_code: 0,
+			data: { ...validData, source_file: 123 },
+			padding: "x".repeat(5_000),
+		});
 
 		let message = "";
 		try {

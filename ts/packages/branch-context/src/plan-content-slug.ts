@@ -28,10 +28,17 @@ const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	noFallbackLine: "No filename or deterministic fallback was attempted.",
 };
 
-export async function derivePlanContentSlug(pi: CommandExecApi, input: DerivePlanContentSlugInput): Promise<PlanContentSlugEvidence> {
+export async function derivePlanContentSlug(
+	pi: CommandExecApi,
+	input: DerivePlanContentSlugInput,
+): Promise<PlanContentSlugEvidence> {
 	const readTextFile = input.readTextFile ?? defaultReadTextFile;
 	const content = await readTextFile(input.filePath);
-	return deriveContentSlug(pi, { content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) }, PLAN_CONTENT_SLUG_VARIANT);
+	return deriveContentSlug(
+		pi,
+		{ content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) },
+		PLAN_CONTENT_SLUG_VARIANT,
+	);
 }
 
 function defaultReadTextFile(path: string): Promise<string> {

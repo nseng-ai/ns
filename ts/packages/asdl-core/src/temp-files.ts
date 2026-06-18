@@ -14,7 +14,10 @@ export interface TemporaryJsonFileOptions {
 	readonly value: unknown;
 }
 
-export async function withTemporaryFile<T>(options: TemporaryFileOptions, callback: (path: string) => Promise<T>): Promise<T> {
+export async function withTemporaryFile<T>(
+	options: TemporaryFileOptions,
+	callback: (path: string) => Promise<T>,
+): Promise<T> {
 	const directory = await mkdtemp(join(tmpdir(), options.prefix));
 	try {
 		const path = join(directory, options.filename);
@@ -25,7 +28,10 @@ export async function withTemporaryFile<T>(options: TemporaryFileOptions, callba
 	}
 }
 
-export async function withTemporaryJsonFile<T>(options: TemporaryJsonFileOptions, callback: (path: string) => Promise<T>): Promise<T> {
+export async function withTemporaryJsonFile<T>(
+	options: TemporaryJsonFileOptions,
+	callback: (path: string) => Promise<T>,
+): Promise<T> {
 	return await withTemporaryFile(
 		{
 			prefix: options.prefix,

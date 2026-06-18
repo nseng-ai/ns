@@ -1,8 +1,15 @@
 import type { ExecOptions, ExecResult } from "@asdl/core/exec";
 
 import type { ModelInfo, ThinkingLevel } from "./cmux/types.ts";
-import { composePiAgentPrompt, loadPiAgentDefinition, type PiAgentDefinition } from "./pi-agent-definition.ts";
-import { buildCuratedRunnerSubagentContext, type CuratedRunnerSubagentContextAudit } from "./runner-subagent/curated-context.ts";
+import {
+	composePiAgentPrompt,
+	loadPiAgentDefinition,
+	type PiAgentDefinition,
+} from "./pi-agent-definition.ts";
+import {
+	buildCuratedRunnerSubagentContext,
+	type CuratedRunnerSubagentContextAudit,
+} from "./runner-subagent/curated-context.ts";
 import { resolveRunnerSubagentLaunch } from "./runner-subagent/subagent-process.ts";
 import {
 	dispatchRunnerSubagent,
@@ -25,7 +32,6 @@ import {
 import { formatRunnerSubagentActivityWidgetLines } from "./runner-subagent/widget.ts";
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
-
 
 const WIDGET_KEY = DISPATCH_RUNNER_SUBAGENT_TOOL_NAME;
 
@@ -68,7 +74,11 @@ export interface ExtensionContext {
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, text: string | undefined): void;
-		setWidget?(key: string, content: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
+		setWidget?(
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 }
 
@@ -137,7 +147,9 @@ export default function dispatchRunnerSubagentExtension(
 		name: DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
 		label: runnerDefinition.label,
 		description: runnerDefinition.description,
-		...(runnerDefinition.promptSnippet === undefined ? {} : { promptSnippet: runnerDefinition.promptSnippet }),
+		...(runnerDefinition.promptSnippet === undefined
+			? {}
+			: { promptSnippet: runnerDefinition.promptSnippet }),
 		promptGuidelines: runnerDefinition.promptGuidelines,
 		parameters: DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 		execute: async (_toolCallId, params, signal, onUpdate, ctx) => {
@@ -147,7 +159,11 @@ export default function dispatchRunnerSubagentExtension(
 				prompt: input.prompt,
 				cwd: ctx.cwd,
 				execGit: (args, timeoutMs) =>
-					pi.exec("git", [...args], { cwd: ctx.cwd, timeout: timeoutMs, ...(signal === undefined ? {} : { signal }) }),
+					pi.exec("git", [...args], {
+						cwd: ctx.cwd,
+						timeout: timeoutMs,
+						...(signal === undefined ? {} : { signal }),
+					}),
 			});
 			const childPrompt = `${composePiAgentPrompt(runnerDefinition, input)}\n\n${curatedContext.markdown}`;
 			const launch =
@@ -162,14 +178,23 @@ export default function dispatchRunnerSubagentExtension(
 			};
 			onUpdate?.({
 				content: [{ type: "text", text: `Dispatching runner subagent: ${input.title}` }],
-				details: { status: "starting", title: input.title, progress: initialUpdate.progress, curatedContext: curatedContext.audit },
+				details: {
+					status: "starting",
+					title: input.title,
+					progress: initialUpdate.progress,
+					curatedContext: curatedContext.audit,
+				},
 			});
 			setWidget(ctx, formatRunnerSubagentActivityWidgetLines(initialUpdate));
 
 			try {
 				const result = await dispatchRunnerSubagent(
 					pi,
-					{ cwd: ctx.cwd, ...(signal === undefined ? {} : { signal }), ...(ctx.model === undefined ? {} : { model: ctx.model }) },
+					{
+						cwd: ctx.cwd,
+						...(signal === undefined ? {} : { signal }),
+						...(ctx.model === undefined ? {} : { model: ctx.model }),
+					},
 					{
 						title: input.title,
 						prompt: childPrompt,
@@ -189,7 +214,10 @@ export default function dispatchRunnerSubagentExtension(
 
 				return {
 					content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
-					details: dispatchRunnerSubagentDetails(result, { requestedModel: input.model, curatedContext: curatedContext.audit }),
+					details: dispatchRunnerSubagentDetails(result, {
+						requestedModel: input.model,
+						curatedContext: curatedContext.audit,
+					}),
 				};
 			} finally {
 				setWidget(ctx, undefined);
@@ -226,13 +254,19 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 
 	const diagnostic = resultDiagnostic(result);
 	if (diagnostic !== undefined) lines.push(`Diagnostic: ${diagnostic}`);
-	lines.push("", "The subagent did not produce usable final text. Inspect the session file before treating this delegated task as complete.");
+	lines.push(
+		"",
+		"The subagent did not produce usable final text. Inspect the session file before treating this delegated task as complete.",
+	);
 	return lines.join("\n");
 }
 
 export function dispatchRunnerSubagentDetails(
 	result: RunnerSubagentResult,
-	options: { requestedModel?: string | undefined; curatedContext?: CuratedRunnerSubagentContextAudit | undefined } = {},
+	options: {
+		requestedModel?: string | undefined;
+		curatedContext?: CuratedRunnerSubagentContextAudit | undefined;
+	} = {},
 ): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);
@@ -286,7 +320,11 @@ export function dispatchRunnerSubagentDetails(
 	return details;
 }
 
-export function truncateFinalTextForToolContent(text: string): { text: string; truncated: boolean; originalChars: number } {
+export function truncateFinalTextForToolContent(text: string): {
+	text: string;
+	truncated: boolean;
+	originalChars: number;
+} {
 	const originalChars = text.length;
 	if (originalChars <= MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS) {
 		return { text, truncated: false, originalChars };
@@ -303,7 +341,8 @@ export function formatElapsed(elapsedMs: number): string {
 }
 
 export function formatDispatchRunnerSubagentProgress(progress: RunnerSubagentProgress): string {
-	const currentTool = progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
+	const currentTool =
+		progress.currentTool === undefined ? "" : `; current tool: ${progress.currentTool}`;
 	return [
 		`Running runner subagent: ${runnerSubagentDisplayTitle(progress)}`,
 		`State: ${progress.state}; turns: ${progress.turnCount}; tools: ${progress.toolCount}${currentTool}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
@@ -333,7 +372,10 @@ export function resultDiagnostic(result: RunnerSubagentResult): string | undefin
 	}
 }
 
-function initialDispatchProgress(title: string, launch: RunnerSubagentLaunchMetadata): RunnerSubagentProgress {
+function initialDispatchProgress(
+	title: string,
+	launch: RunnerSubagentLaunchMetadata,
+): RunnerSubagentProgress {
 	return {
 		title,
 		state: "starting",
@@ -361,18 +403,27 @@ function setWidget(ctx: ExtensionContext, lines: string[] | undefined): void {
 	}
 }
 
-function validateDispatchRunnerSubagentInput(params: DispatchRunnerSubagentInput): DispatchRunnerSubagentInput {
+function validateDispatchRunnerSubagentInput(
+	params: DispatchRunnerSubagentInput,
+): DispatchRunnerSubagentInput {
 	if (typeof params.title !== "string" || params.title.trim().length === 0) {
 		throw new Error("dispatch_runner_subagent requires a non-empty title string.");
 	}
 	if (typeof params.prompt !== "string" || params.prompt.trim().length === 0) {
 		throw new Error("dispatch_runner_subagent requires a non-empty prompt string.");
 	}
-	if (params.model !== undefined && (typeof params.model !== "string" || params.model.trim().length === 0)) {
+	if (
+		params.model !== undefined &&
+		(typeof params.model !== "string" || params.model.trim().length === 0)
+	) {
 		throw new Error("dispatch_runner_subagent model must be a non-empty string when provided.");
 	}
 	const model = params.model?.trim();
-	return { title: params.title.trim(), prompt: params.prompt, ...(model === undefined ? {} : { model }) };
+	return {
+		title: params.title.trim(),
+		prompt: params.prompt,
+		...(model === undefined ? {} : { model }),
+	};
 }
 
 function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
@@ -381,7 +432,8 @@ function formatLaunchLine(launch: RunnerSubagentLaunchMetadata): string {
 
 function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string {
 	if (usage === undefined) return "Usage: unavailable (not collected)";
-	if (usage.status === "unavailable") return `Usage: unavailable (${formatUsageUnavailableReason(usage)})`;
+	if (usage.status === "unavailable")
+		return `Usage: unavailable (${formatUsageUnavailableReason(usage)})`;
 	const totals = usage.totals;
 	return [
 		`Usage: ${formatCompactUsageTokens(totals.input)} in / ${formatCompactUsageTokens(totals.output)} out`,
@@ -390,7 +442,9 @@ function formatUsageLine(usage: RunnerSubagentUsageMetadata | undefined): string
 	].join(", ");
 }
 
-function formatUsageUnavailableReason(usage: Extract<RunnerSubagentUsageMetadata, { status: "unavailable" }>): string {
+function formatUsageUnavailableReason(
+	usage: Extract<RunnerSubagentUsageMetadata, { status: "unavailable" }>,
+): string {
 	switch (usage.reason) {
 		case "missing-session-file":
 			return "session file missing";
@@ -420,7 +474,10 @@ function trimTrailingZero(text: string): string {
 }
 
 function formatProgressLine(result: RunnerSubagentResult): string {
-	const currentTool = result.progress.currentTool === undefined ? "" : `; current tool: ${result.progress.currentTool}`;
+	const currentTool =
+		result.progress.currentTool === undefined
+			? ""
+			: `; current tool: ${result.progress.currentTool}`;
 	return `Elapsed: ${formatElapsed(result.elapsedMs)}; turns: ${result.progress.turnCount}; tools: ${result.progress.toolCount}${currentTool}`;
 }
 

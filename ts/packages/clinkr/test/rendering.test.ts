@@ -100,7 +100,10 @@ describe("renderHuman", () => {
 
 describe("renderMarkdown", () => {
 	test("renders ok data in markdown mode", async () => {
-		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: true, shouldIncludeMarkdown: true });
+		const { group } = buildMarkdownGroup("ok", {
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: true,
+		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("- plans: 2\n");
@@ -151,14 +154,20 @@ describe("renderMarkdown", () => {
 	});
 
 	test("falls back to renderHuman when renderMarkdown is absent", async () => {
-		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: true, shouldIncludeMarkdown: false });
+		const { group } = buildMarkdownGroup("ok", {
+			shouldIncludeHuman: true,
+			shouldIncludeMarkdown: false,
+		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe("plans: 2\n");
 	});
 
 	test("falls back to indented JSON when renderMarkdown and renderHuman are absent", async () => {
-		const { group } = buildMarkdownGroup("ok", { shouldIncludeHuman: false, shouldIncludeMarkdown: false });
+		const { group } = buildMarkdownGroup("ok", {
+			shouldIncludeHuman: false,
+			shouldIncludeMarkdown: false,
+		});
 		const run = await runForTest(group, ["act", "--format", "markdown"], { context: null });
 		expect(run.exitCode).toBe(0);
 		expect(run.stdout).toBe('{\n  "count": 2\n}\n');

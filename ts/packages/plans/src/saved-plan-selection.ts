@@ -79,7 +79,9 @@ const savedPlanFileSessionEntrySchema = z.object({
 		.refine((message) => message.isError !== true),
 });
 
-export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): SavedPlanFileEvidence | undefined {
+export function extractSavedPlanFileEvidenceFromSessionEntry(
+	entry: unknown,
+): SavedPlanFileEvidence | undefined {
 	const result = savedPlanFileSessionEntrySchema.safeParse(entry);
 	if (!result.success) {
 		return undefined;
@@ -88,7 +90,9 @@ export function extractSavedPlanFileEvidenceFromSessionEntry(entry: unknown): Sa
 	return toSavedPlanFileEvidence(result.data.message.details);
 }
 
-function toSavedPlanFileEvidence(data: z.infer<typeof savedPlanFileEvidenceSchema>): SavedPlanFileEvidence {
+function toSavedPlanFileEvidence(
+	data: z.infer<typeof savedPlanFileEvidenceSchema>,
+): SavedPlanFileEvidence {
 	const { summary, ...evidence } = data;
 	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
 }
@@ -98,21 +102,29 @@ export async function validateSessionSavedPlanCandidate(
 	directory: PlanStoreDirectoryEvidence,
 ): Promise<SessionSavedPlanValidation> {
 	if (!isAbsolute(evidence.filePath)) {
-		return unsafe(`Session saved-plan evidence file path must be absolute: ${evidence.filePath || "(empty)"}`);
+		return unsafe(
+			`Session saved-plan evidence file path must be absolute: ${evidence.filePath || "(empty)"}`,
+		);
 	}
 	if (!evidence.filePath.endsWith(".md")) {
-		return unsafe(`Session saved-plan evidence file path must use a .md filename: ${evidence.filePath}`);
+		return unsafe(
+			`Session saved-plan evidence file path must use a .md filename: ${evidence.filePath}`,
+		);
 	}
 
 	const slugError = validatePlanSlug(evidence.slug);
 	if (slugError !== undefined) {
-		return unsafe(`Session saved-plan evidence has an invalid slug ${JSON.stringify(evidence.slug)}: ${slugError}`);
+		return unsafe(
+			`Session saved-plan evidence has an invalid slug ${JSON.stringify(evidence.slug)}: ${slugError}`,
+		);
 	}
 
 	const fileName = basename(evidence.filePath);
 	const expectedFileName = buildPlanFileName(evidence.slug);
 	if (fileName !== expectedFileName) {
-		return unsafe(`Session saved-plan evidence basename must match slug: expected ${expectedFileName}, got ${fileName || "(empty)"}.`);
+		return unsafe(
+			`Session saved-plan evidence basename must match slug: expected ${expectedFileName}, got ${fileName || "(empty)"}.`,
+		);
 	}
 
 	const metadataError = validateDirectoryMetadata(evidence, directory);
@@ -134,7 +146,10 @@ export async function validateSessionSavedPlanCandidate(
 	try {
 		fileStat = await stat(evidence.filePath);
 	} catch {
-		return { type: "stale", reason: `Saved plan file no longer exists or is not accessible: ${evidence.filePath}` };
+		return {
+			type: "stale",
+			reason: `Saved plan file no longer exists or is not accessible: ${evidence.filePath}`,
+		};
 	}
 	if (!fileStat.isFile()) {
 		return unsafe(`Session saved-plan evidence path is not a regular file: ${evidence.filePath}`);
@@ -197,7 +212,9 @@ export async function resolveSelectedSavedPlanFile(
 	if (options.explicitPath !== undefined) {
 		const filePath = normalizePlanFilePath(options.explicitPath);
 		if (!isAbsolute(filePath)) {
-			throw new Error(`Plan file path must be absolute or home-relative; got ${filePath || "(empty)"}.`);
+			throw new Error(
+				`Plan file path must be absolute or home-relative; got ${filePath || "(empty)"}.`,
+			);
 		}
 
 		const fileName = basename(filePath);
@@ -205,7 +222,12 @@ export async function resolveSelectedSavedPlanFile(
 			throw new Error(`Plan file must use a .md filename; got ${fileName || "(empty)"}.`);
 		}
 
-		return { type: "explicit", savedPlanFileStem: fileName.slice(0, -".md".length), filePath, fileName };
+		return {
+			type: "explicit",
+			savedPlanFileStem: fileName.slice(0, -".md".length),
+			filePath,
+			fileName,
+		};
 	}
 
 	const sessionEntries = options.sessionEntries ?? [];
@@ -214,7 +236,11 @@ export async function resolveSelectedSavedPlanFile(
 		const sessionResult = await findLatestSessionSavedPlanFile(sessionEntries, directory);
 		switch (sessionResult.type) {
 			case "found":
-				return { type: "session", plan: sessionResult.plan, savedPlanFileStem: sessionResult.plan.slug };
+				return {
+					type: "session",
+					plan: sessionResult.plan,
+					savedPlanFileStem: sessionResult.plan.slug,
+				};
 			case "unsafe":
 				throw new Error(sessionResult.message);
 			case "not-found":
@@ -230,7 +256,10 @@ export async function resolveSelectedSavedPlanFile(
 	throw new Error("No usable saved plan was found in the current session branch.");
 }
 
-function validateDirectoryMetadata(evidence: SavedPlanFileEvidence, directory: PlanStoreDirectoryEvidence): string | undefined {
+function validateDirectoryMetadata(
+	evidence: SavedPlanFileEvidence,
+	directory: PlanStoreDirectoryEvidence,
+): string | undefined {
 	const mismatches: string[] = [];
 	if (evidence.repoRoot !== directory.repoRoot) {
 		mismatches.push(`repoRoot: evidence ${evidence.repoRoot}, current ${directory.repoRoot}`);
@@ -239,10 +268,14 @@ function validateDirectoryMetadata(evidence: SavedPlanFileEvidence, directory: P
 		mismatches.push(`repoKey: evidence ${evidence.repoKey}, current ${directory.repoKey}`);
 	}
 	if (evidence.repoIdentitySource !== directory.repoIdentitySource) {
-		mismatches.push(`repoIdentitySource: evidence ${evidence.repoIdentitySource}, current ${directory.repoIdentitySource}`);
+		mismatches.push(
+			`repoIdentitySource: evidence ${evidence.repoIdentitySource}, current ${directory.repoIdentitySource}`,
+		);
 	}
 	if (evidence.sourceBranch !== directory.sourceBranch) {
-		mismatches.push(`sourceBranch: evidence ${evidence.sourceBranch}, current ${directory.sourceBranch}`);
+		mismatches.push(
+			`sourceBranch: evidence ${evidence.sourceBranch}, current ${directory.sourceBranch}`,
+		);
 	}
 	if (evidence.branchKey !== directory.branchKey) {
 		mismatches.push(`branchKey: evidence ${evidence.branchKey}, current ${directory.branchKey}`);
@@ -250,7 +283,10 @@ function validateDirectoryMetadata(evidence: SavedPlanFileEvidence, directory: P
 	if (mismatches.length === 0) {
 		return undefined;
 	}
-	return ["Latest saved plan belongs to a different repo or branch than the current checkout.", ...mismatches].join("\n");
+	return [
+		"Latest saved plan belongs to a different repo or branch than the current checkout.",
+		...mismatches,
+	].join("\n");
 }
 
 function unsafe(message: string): SessionSavedPlanValidation {

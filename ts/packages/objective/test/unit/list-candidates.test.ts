@@ -2,7 +2,10 @@ import { InMemoryGitGateway } from "@asdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/context.ts";
-import { FakeObjectiveStorageGateway, type FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
+import {
+	FakeObjectiveStorageGateway,
+	type FakeObjectiveStorageGatewayOptions,
+} from "../../src/fake-storage.ts";
 import { renderListCandidates, runListCandidates } from "../../src/operations/list-candidates.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
 

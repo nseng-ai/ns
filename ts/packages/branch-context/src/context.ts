@@ -2,7 +2,10 @@ import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@asdl/core/git";
 
 import { RealBranchContextBrmemGateway, type BranchContextBrmemGateway } from "./brmem-gateway.ts";
-import { RealBranchContextGraphiteGateway, type BranchContextGraphiteGateway } from "./graphite-gateway.ts";
+import {
+	RealBranchContextGraphiteGateway,
+	type BranchContextGraphiteGateway,
+} from "./graphite-gateway.ts";
 
 export interface BranchContextContext {
 	commands: CommandExecApi;

@@ -3,9 +3,19 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { buildFencedTextBlock, expandRepoSkillBlock, expandSkillBlock, expandSkillBlockFromPath, invokeSkillPromptTurn, resolveRepoSkillPath, type SkillCommandInfo } from "../src/skill-expansion.ts";
+import {
+	buildFencedTextBlock,
+	expandRepoSkillBlock,
+	expandSkillBlock,
+	expandSkillBlockFromPath,
+	invokeSkillPromptTurn,
+	resolveRepoSkillPath,
+	type SkillCommandInfo,
+} from "../src/skill-expansion.ts";
 
-function host(commands: readonly SkillCommandInfo[]): { getCommands(): readonly SkillCommandInfo[] } {
+function host(commands: readonly SkillCommandInfo[]): {
+	getCommands(): readonly SkillCommandInfo[];
+} {
 	return {
 		getCommands(): readonly SkillCommandInfo[] {
 			return commands;
@@ -109,10 +119,15 @@ describe("expandSkillBlock", () => {
 	});
 
 	test("reads the skill file, strips frontmatter, trims body, and formats the exact block", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md", "/skills/objective-next")]), "objective-next", {
-			readTextFile: async (path) => {
-				expect(path).toBe("/skills/objective-next/SKILL.md");
-				return `---
+		const expanded = await expandSkillBlock(
+			host([
+				skillCommand("objective-next", "/skills/objective-next/SKILL.md", "/skills/objective-next"),
+			]),
+			"objective-next",
+			{
+				readTextFile: async (path) => {
+					expect(path).toBe("/skills/objective-next/SKILL.md");
+					return `---
 name: objective-next
 description: hidden
 ---
@@ -120,8 +135,9 @@ description: hidden
 # Objective Next
 
 Do next work.  \n`;
+				},
 			},
-		});
+		);
 
 		expect(expanded).toEqual({
 			name: "objective-next",
@@ -167,11 +183,15 @@ Do next work.
 
 	test("propagates read errors", async () => {
 		await expect(
-			expandSkillBlock(host([skillCommand("code-just-fix", "/missing/SKILL.md")]), "code-just-fix", {
-				readTextFile: async () => {
-					throw new Error("cannot read skill");
+			expandSkillBlock(
+				host([skillCommand("code-just-fix", "/missing/SKILL.md")]),
+				"code-just-fix",
+				{
+					readTextFile: async () => {
+						throw new Error("cannot read skill");
+					},
 				},
-			}),
+			),
 		).rejects.toThrow("cannot read skill");
 	});
 
@@ -188,9 +208,19 @@ Do next work.
 	});
 
 	test("strips CRLF frontmatter", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "C:/skills/objective-next/SKILL.md", "C:/skills/objective-next")]), "objective-next", {
-			readTextFile: async () => "---\r\nname: objective-next\r\n---\r\n# Objective Next\r\n",
-		});
+		const expanded = await expandSkillBlock(
+			host([
+				skillCommand(
+					"objective-next",
+					"C:/skills/objective-next/SKILL.md",
+					"C:/skills/objective-next",
+				),
+			]),
+			"objective-next",
+			{
+				readTextFile: async () => "---\r\nname: objective-next\r\n---\r\n# Objective Next\r\n",
+			},
+		);
 
 		expect(expanded?.body).toBe("# Objective Next");
 		expect(expanded?.body).not.toContain("name: objective-next");
@@ -198,24 +228,36 @@ Do next work.
 
 	test("rejects exact opening frontmatter without an exact closing fence", async () => {
 		await expect(
-			expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
-				readTextFile: async () => "---\nname: objective-next\n# Objective Next\n",
-			}),
+			expandSkillBlock(
+				host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
+				"objective-next",
+				{
+					readTextFile: async () => "---\nname: objective-next\n# Objective Next\n",
+				},
+			),
 		).rejects.toThrow('Skill Markdown frontmatter is missing a closing "---" fence.');
 	});
 
 	test("treats near opening fences as body text", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
-			readTextFile: async () => "--- \nname: objective-next\n---\n# Objective Next\n",
-		});
+		const expanded = await expandSkillBlock(
+			host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
+			"objective-next",
+			{
+				readTextFile: async () => "--- \nname: objective-next\n---\n# Objective Next\n",
+			},
+		);
 
 		expect(expanded?.body).toBe("--- \nname: objective-next\n---\n# Objective Next");
 	});
 
 	test("does not strip prose fences after the first line", async () => {
-		const expanded = await expandSkillBlock(host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]), "objective-next", {
-			readTextFile: async () => "# Objective Next\n\n---\nnot frontmatter\n---\n",
-		});
+		const expanded = await expandSkillBlock(
+			host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
+			"objective-next",
+			{
+				readTextFile: async () => "# Objective Next\n\n---\nnot frontmatter\n---\n",
+			},
+		);
 
 		expect(expanded?.body).toBe("# Objective Next\n\n---\nnot frontmatter\n---");
 	});
@@ -229,10 +271,19 @@ describe("repo skill expansion", () => {
 			const nestedCwd = join(repo, "packages", "example");
 			await mkdir(skillDir, { recursive: true });
 			await mkdir(nestedCwd, { recursive: true });
-			await writeFile(join(skillDir, "SKILL.md"), "---\nname: objective-create\n---\n\n# Objective Create\n", "utf8");
+			await writeFile(
+				join(skillDir, "SKILL.md"),
+				"---\nname: objective-create\n---\n\n# Objective Create\n",
+				"utf8",
+			);
 
-			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "objective-create" })).toBe(join(skillDir, "SKILL.md"));
-			const expanded = await expandRepoSkillBlock({ cwd: nestedCwd, skillName: "objective-create" });
+			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "objective-create" })).toBe(
+				join(skillDir, "SKILL.md"),
+			);
+			const expanded = await expandRepoSkillBlock({
+				cwd: nestedCwd,
+				skillName: "objective-create",
+			});
 			expect(expanded.block).toContain("# Objective Create");
 		} finally {
 			await rm(repo, { recursive: true, force: true });
@@ -243,7 +294,6 @@ describe("repo skill expansion", () => {
 		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
 	});
 });
-
 
 describe("expandSkillBlockFromPath", () => {
 	test("reads a direct skill file path, strips frontmatter, and formats the block", async () => {
@@ -302,9 +352,13 @@ describe("invokeSkillPromptTurn", () => {
 			});
 
 			expect(context.waits()).toBe(1);
-			expect(context.notifications).toEqual([{ message: "Starting objective-create", level: "info" }]);
+			expect(context.notifications).toEqual([
+				{ message: "Starting objective-create", level: "info" },
+			]);
 			expect(testHost.sentUserMessages).toHaveLength(1);
-			expect(testHost.sentUserMessages[0]).toContain(`<skill name="objective-create" location="${skillPath}">`);
+			expect(testHost.sentUserMessages[0]).toContain(
+				`<skill name="objective-create" location="${skillPath}">`,
+			);
 			expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
 		} finally {
 			await rm(dir, { recursive: true, force: true });

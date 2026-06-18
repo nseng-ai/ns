@@ -21,7 +21,11 @@ function recordingExec(calls: ExecCall[], result: SlugModelCommandResult) {
 
 function recordingExecSequence(calls: ExecCall[], results: SlugModelCommandResult[]) {
 	const remainingResults = [...results];
-	return (command: string, args: string[], options: SlugModelExecOptions): Promise<SlugModelCommandResult> => {
+	return (
+		command: string,
+		args: string[],
+		options: SlugModelExecOptions,
+	): Promise<SlugModelCommandResult> => {
 		calls.push({ command, args: [...args], options: { ...options } });
 		const result = remainingResults.shift();
 		if (result === undefined) {
@@ -68,7 +72,9 @@ describe("deriveSlugWithModel", () => {
 			ok: true,
 			evidence: { slug: "my-slug", rawOutput: "my-slug\n", provider: "acme", model: "fast-1" },
 		});
-		expect(calls[0]?.args).toEqual(buildSlugModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }));
+		expect(calls[0]?.args).toEqual(
+			buildSlugModelArgs("slug prompt", { provider: "acme", modelId: "fast-1" }),
+		);
 	});
 
 	test("fails without executing when the override is not provider/modelId", async () => {
@@ -83,7 +89,9 @@ describe("deriveSlugWithModel", () => {
 		});
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.failure.lines).toEqual([`Invalid ${SLUG_MODEL_ENV}="not-a-ref". Expected "provider/modelId".`]);
+			expect(result.failure.lines).toEqual([
+				`Invalid ${SLUG_MODEL_ENV}="not-a-ref". Expected "provider/modelId".`,
+			]);
 		}
 		expect(calls).toHaveLength(0);
 	});

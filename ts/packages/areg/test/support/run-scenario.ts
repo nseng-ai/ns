@@ -36,23 +36,28 @@ export interface ScenarioRun {
 	stderr: string[];
 }
 
-export function runScenario(args: readonly string[], options: ScenarioRunOptions = {}): ScenarioRun {
+export function runScenario(
+	args: readonly string[],
+	options: ScenarioRunOptions = {},
+): ScenarioRun {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
 	const env = options.env ?? { PATH: "/fake/bin" };
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
-	const context = options.context ?? {
-		host: new FakeAregHostGateway(options.host),
-		github: new FakeAregGithubGateway(options.github),
-		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
-		project: new FakeAregProjectGateway(options.project),
-		git: new InMemoryGitGateway(options.git),
-		npxSkills,
-		prompt: new FakeAregPromptGateway(options.prompt),
-		cwd,
-		env,
-	} satisfies AregCliContext;
+	const context =
+		options.context ??
+		({
+			host: new FakeAregHostGateway(options.host),
+			github: new FakeAregGithubGateway(options.github),
+			skillxWorkspace: new FakeAregSkillxWorkspaceGateway(options.skillxWorkspace),
+			project: new FakeAregProjectGateway(options.project),
+			git: new InMemoryGitGateway(options.git),
+			npxSkills,
+			prompt: new FakeAregPromptGateway(options.prompt),
+			cwd,
+			env,
+		} satisfies AregCliContext);
 	const deps: CliDeps = {
 		context,
 		cwd,

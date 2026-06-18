@@ -34,7 +34,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/asdl-core/test"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   },
   "devDependencies": {}
 }

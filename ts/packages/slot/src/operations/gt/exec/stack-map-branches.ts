@@ -1,5 +1,10 @@
 import { failure, ok } from "@asdl/clinkr";
-import type { GraphiteBranchTopology, GraphiteTopology, GraphiteTopologyParseDiagnostics, GraphiteWalkTermination } from "@asdl/core/graphite-metadata";
+import type {
+	GraphiteBranchTopology,
+	GraphiteTopology,
+	GraphiteTopologyParseDiagnostics,
+	GraphiteWalkTermination,
+} from "@asdl/core/graphite-metadata";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../../collections.ts";
@@ -8,8 +13,16 @@ import type { LocalBranchTip } from "../../../gateways/git.ts";
 import type { StackInfo } from "../../../gateways/gt.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
-import { collectGraphiteTopologyAncestors, collectGraphiteTopologyDescendants } from "../stack-walk.ts";
-import { renderChildrenCorruption, type GraphiteWalkKind, renderTrunkMarkerWarnings, renderWalkTerminationWarning } from "./metadata-warnings.ts";
+import {
+	collectGraphiteTopologyAncestors,
+	collectGraphiteTopologyDescendants,
+} from "../stack-walk.ts";
+import {
+	renderChildrenCorruption,
+	type GraphiteWalkKind,
+	renderTrunkMarkerWarnings,
+	renderWalkTerminationWarning,
+} from "./metadata-warnings.ts";
 
 const STACK_MAP_SCOPE = "stack-map";
 const BAD_PARENT_NAME_VALIDATION_RESULT = "BAD_PARENT_NAME";
@@ -33,7 +46,12 @@ const stackMapSlotSchema = z.object({
 });
 
 export const gtStackMapBranchesRequestSchema = z.object({
-	recent_limit: z.number().int().nonnegative().default(40).describe("Number of recent local branch tips to include as stack-map seeds."),
+	recent_limit: z
+		.number()
+		.int()
+		.nonnegative()
+		.default(40)
+		.describe("Number of recent local branch tips to include as stack-map seeds."),
 });
 
 export const gtStackMapBranchesResultSchema = z.object({
@@ -53,24 +71,39 @@ type StackMapBranch = z.infer<typeof stackMapBranchSchema>;
 type StackMapEdge = z.infer<typeof stackMapEdgeSchema>;
 type StackMapSlot = z.infer<typeof stackMapSlotSchema>;
 
-export async function runGtStackMapBranches(ctx: SlotCliContext, request: GtStackMapBranchesRequest) {
+export async function runGtStackMapBranches(
+	ctx: SlotCliContext,
+	request: GtStackMapBranchesRequest,
+) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
 
 	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
-	if (stackResult.type === "untracked_branch") return failure("untracked_branch", `${stackResult.message} — run \`gt track\` first`);
-	if (stackResult.type === "failure") return failure("gt_stack_read_failed", stackResult.failure.message);
+	if (stackResult.type === "untracked_branch")
+		return failure("untracked_branch", `${stackResult.message} — run \`gt track\` first`);
+	if (stackResult.type === "failure")
+		return failure("gt_stack_read_failed", stackResult.failure.message);
 
 	const graphResult = await ctx.gt.stackGraph(resolved.repoCtx.repo.root);
-	if (graphResult.type === "git_common_dir_missing") return failure("git_common_dir_missing", graphResult.message);
-	if (graphResult.type === "failure") return failure("gt_metadata_read_failed", graphResult.failure.message);
+	if (graphResult.type === "git_common_dir_missing")
+		return failure("git_common_dir_missing", graphResult.message);
+	if (graphResult.type === "failure")
+		return failure("gt_metadata_read_failed", graphResult.failure.message);
 	if (!graphResult.graph.topology.has(stackResult.stack.trunk)) {
-		return failure("stack_metadata_inconsistent", `Graphite trunk branch ${stackResult.stack.trunk} is missing from metadata graph.`);
+		return failure(
+			"stack_metadata_inconsistent",
+			`Graphite trunk branch ${stackResult.stack.trunk} is missing from metadata graph.`,
+		);
 	}
 
-	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot });
+	const inventory = await buildSlotInventory(ctx.git, {
+		mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot,
+	});
 	const slotRows = assignedSlotRows(inventory.records);
-	const recentBranches = recentBranchNames(await ctx.git.listLocalBranchTips(), request.recent_limit);
+	const recentBranches = recentBranchNames(
+		await ctx.git.listLocalBranchTips(),
+		request.recent_limit,
+	);
 	const localBranches = new Set(await ctx.git.listLocalBranches());
 	const selection = selectVisibleBranches({
 		topology: graphResult.graph.topology,
@@ -79,11 +112,13 @@ export async function runGtStackMapBranches(ctx: SlotCliContext, request: GtStac
 		recentBranches,
 		localBranches,
 	});
-	const warnings = [...deduplicateOrderedStrings([
-		...renderGraphWarnings(graphResult.graph.diagnostics),
-		...renderStackWarnings(stackResult.stack),
-		...selection.warnings,
-	])];
+	const warnings = [
+		...deduplicateOrderedStrings([
+			...renderGraphWarnings(graphResult.graph.diagnostics),
+			...renderStackWarnings(stackResult.stack),
+			...selection.warnings,
+		]),
+	];
 	if (ctx.shouldWriteCdDirective) {
 		for (const warning of warnings) ctx.stderr(`${warning}\n`);
 	}
@@ -107,7 +142,18 @@ export function renderStackMapBranches(result: GtStackMapBranchesResult): string
 }
 
 function assignedSlotRows(records: readonly SlotRecord[]): StackMapSlot[] {
-	return records.flatMap((record) => record.branch === null ? [] : [{ slot_name: record.slotName, branch: record.branch, worktree_path: record.path, status: "assigned" as const }]);
+	return records.flatMap((record) =>
+		record.branch === null
+			? []
+			: [
+					{
+						slot_name: record.slotName,
+						branch: record.branch,
+						worktree_path: record.path,
+						status: "assigned" as const,
+					},
+				],
+	);
 }
 
 function recentBranchNames(branchTips: readonly LocalBranchTip[], recentLimit: number): string[] {
@@ -144,12 +190,15 @@ function selectVisibleBranches(options: {
 	const warnings: string[] = [];
 	for (const slot of options.slotRows) {
 		if (options.topology.has(slot.branch)) selected.add(slot.branch);
-		else warnings.push(`assigned slot branch ${slot.branch} is missing from Graphite metadata; skipped`);
+		else
+			warnings.push(
+				`assigned slot branch ${slot.branch} is missing from Graphite metadata; skipped`,
+			);
 	}
 	for (const branch of options.recentBranches) {
 		if (options.topology.has(branch)) selected.add(branch);
 	}
-	for (const branch of [...selected]) {
+	for (const branch of Array.from(selected)) {
 		if (!options.topology.has(branch)) continue;
 		const ancestors = collectGraphiteTopologyAncestors({ branch, topology: options.topology });
 		for (const selectedBranch of ancestors.branches) selected.add(selectedBranch);
@@ -159,20 +208,32 @@ function selectVisibleBranches(options: {
 		warnings.push(...renderSelectionWarnings("descendant", descendants.problems));
 	}
 	return {
-		selected: new Set([...selected].filter((branch) => options.topology.has(branch) && options.localBranches.has(branch))),
+		selected: new Set(
+			[...selected].filter(
+				(branch) => options.topology.has(branch) && options.localBranches.has(branch),
+			),
+		),
 		warnings,
 	};
 }
 
-function renderSelectionWarnings(kind: GraphiteWalkKind, problems: readonly GraphiteWalkTermination[]): string[] {
+function renderSelectionWarnings(
+	kind: GraphiteWalkKind,
+	problems: readonly GraphiteWalkTermination[],
+): string[] {
 	return problems.flatMap((termination) => {
 		const warning = renderWalkTerminationWarning({ kind, termination, label: "selection" });
 		return warning === null ? [] : [warning];
 	});
 }
 
-function branchResults(topology: GraphiteTopology, selected: ReadonlySet<string>): StackMapBranch[] {
-	return [...topology.values()].flatMap((row) => selected.has(row.branch) ? [branchResult(row, selected)] : []);
+function branchResults(
+	topology: GraphiteTopology,
+	selected: ReadonlySet<string>,
+): StackMapBranch[] {
+	return [...topology.values()].flatMap((row) =>
+		selected.has(row.branch) ? [branchResult(row, selected)] : [],
+	);
 }
 
 function branchResult(row: GraphiteBranchTopology, selected: ReadonlySet<string>): StackMapBranch {
@@ -204,11 +265,23 @@ function renderGraphWarnings(diagnostics: GraphiteTopologyParseDiagnostics): str
 
 function renderStackWarnings(stack: StackInfo): string[] {
 	const warnings: string[] = [];
-	for (const corruption of stack.descendantWalk.childrenCorruptions) warnings.push(renderChildrenCorruption(corruption));
-	const ancestorProblem = renderWalkTerminationWarning({ kind: "ancestor", termination: stack.ancestorTermination, label: "walk" });
+	for (const corruption of stack.descendantWalk.childrenCorruptions)
+		warnings.push(renderChildrenCorruption(corruption));
+	const ancestorProblem = renderWalkTerminationWarning({
+		kind: "ancestor",
+		termination: stack.ancestorTermination,
+		label: "walk",
+	});
 	if (ancestorProblem !== null) warnings.push(ancestorProblem);
-	for (const fork of stack.descendantWalk.forks) warnings.push(`branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`);
-	const descendantProblem = renderWalkTerminationWarning({ kind: "descendant", termination: stack.descendantWalk.termination, label: "walk" });
+	for (const fork of stack.descendantWalk.forks)
+		warnings.push(
+			`branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`,
+		);
+	const descendantProblem = renderWalkTerminationWarning({
+		kind: "descendant",
+		termination: stack.descendantWalk.termination,
+		label: "walk",
+	});
 	if (descendantProblem !== null) warnings.push(descendantProblem);
 	warnings.push(...renderTrunkMarkerWarnings(stack.trunkMarker));
 	return warnings;

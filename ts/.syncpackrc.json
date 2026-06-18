@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/syncpack/schema.json",
+  "versionGroups": [
+    {
+      "label": "Package versions are intentionally omitted for private run-from-source packages",
+      "dependencyTypes": ["local"],
+      "isIgnored": true
+    },
+    {
+      "label": "Local workspace packages must use workspace:*",
+      "dependencies": ["$LOCAL"],
+      "dependencyTypes": ["prod", "dev"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "Shared third-party dependencies must come from the pnpm catalog",
+      "dependencyTypes": ["prod", "dev"],
+      "dependencies": [
+        "@earendil-works/pi-ai",
+        "@earendil-works/pi-coding-agent",
+        "@earendil-works/pi-tui",
+        "@opentui/core",
+        "@pierre/diffs",
+        "@types/node",
+        "@typescript/native-preview",
+        "commander",
+        "jiti",
+        "oxfmt",
+        "oxlint",
+        "smol-toml",
+        "syncpack",
+        "typescript",
+        "vitest",
+        "yaml",
+        "zod"
+      ],
+      "policy": "catalog"
+    },
+    {
+      "label": "Peer dependency compatibility ranges are intentional",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    }
+  ]
+}

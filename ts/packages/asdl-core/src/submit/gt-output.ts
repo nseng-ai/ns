@@ -26,10 +26,14 @@ export function extractPrLinks(output: string): SubmitPrLink[] {
 }
 
 export function prNumberFromUrl(url: string): string | undefined {
-	const graphiteMatch = url.match(/^https:\/\/app\.graphite\.com\/github\/pr\/[^\/\s?#]+\/[^\/\s?#]+\/(\d+)(?:[\/?#].*)?$/);
+	const graphiteMatch = url.match(
+		/^https:\/\/app\.graphite\.com\/github\/pr\/[^/\s?#]+\/[^/\s?#]+\/(\d+)(?:[/?#].*)?$/,
+	);
 	if (graphiteMatch?.[1] !== undefined) return graphiteMatch[1];
 
-	const githubMatch = url.match(/^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\/(\d+)(?:[\/?#].*)?$/);
+	const githubMatch = url.match(
+		/^https:\/\/github\.com\/[^/\s?#]+\/[^/\s?#]+\/pull\/(\d+)(?:[/?#].*)?$/,
+	);
 	return githubMatch?.[1];
 }
 
@@ -41,7 +45,10 @@ function toPrLink(url: string): SubmitPrLink | undefined {
 }
 
 function isPotentialPrUrl(url: string): boolean {
-	return /^https:\/\/app\.graphite\.com\/github\/pr\//.test(url) || /^https:\/\/github\.com\/[^\/\s?#]+\/[^\/\s?#]+\/pull\//.test(url);
+	return (
+		url.startsWith("https://app.graphite.com/github/pr/") ||
+		/^https:\/\/github\.com\/[^/\s?#]+\/[^/\s?#]+\/pull\//.test(url)
+	);
 }
 
 function trimTerminalPunctuation(url: string): string {

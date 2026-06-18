@@ -23,40 +23,46 @@ describe("Pi agent definitions", () => {
 			label: "Dispatch Runner Subagent",
 			description: "Launch a focused subagent Pi session.",
 			promptSnippet: "Launch a focused subagent Pi session",
-			promptGuidelines: ["Use dispatch_runner_subagent for focused delegated tasks.", "Inspect the returned status."],
+			promptGuidelines: [
+				"Use dispatch_runner_subagent for focused delegated tasks.",
+				"Inspect the returned status.",
+			],
 			body: "Body before\n{{prompt}}\nBody after\n",
 			filePath: "/repo/.asdl/pi/agents/runner.md",
 		});
 	});
 
 	test("rejects missing opening frontmatter delimiter", () => {
-		expect(() => parsePiAgentDefinitionMarkdown("schema: asdl.pi-agent.v1\n---\nBody", "/agent.md")).toThrow(
-			/opening frontmatter delimiter/,
-		);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown("schema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+		).toThrow(/opening frontmatter delimiter/);
 	});
 
 	test("rejects missing closing frontmatter delimiter", () => {
-		expect(() => parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\nBody", "/agent.md")).toThrow(
-			/closing frontmatter delimiter/,
-		);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\nBody", "/agent.md"),
+		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("requires exact first-line frontmatter fences", () => {
-		expect(() => parsePiAgentDefinitionMarkdown("\n---\nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md")).toThrow(
-			/opening frontmatter delimiter/,
-		);
-		expect(() => parsePiAgentDefinitionMarkdown("--- \nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md")).toThrow(
-			/opening frontmatter delimiter/,
-		);
-		expect(() => parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\n--- \nBody", "/agent.md")).toThrow(
-			/closing frontmatter delimiter/,
-		);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown("\n---\nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+		).toThrow(/opening frontmatter delimiter/);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown("--- \nschema: asdl.pi-agent.v1\n---\nBody", "/agent.md"),
+		).toThrow(/opening frontmatter delimiter/);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown("---\nschema: asdl.pi-agent.v1\n--- \nBody", "/agent.md"),
+		).toThrow(/closing frontmatter delimiter/);
 	});
 
 	test("rejects the wrong schema", () => {
-		expect(() => parsePiAgentDefinitionMarkdown(definitionMarkdown({ schema: "asdl.pi-agent.v2" }), "/agent.md")).toThrow(
-			/expected asdl\.pi-agent\.v1/,
-		);
+		expect(() =>
+			parsePiAgentDefinitionMarkdown(
+				definitionMarkdown({ schema: "asdl.pi-agent.v2" }),
+				"/agent.md",
+			),
+		).toThrow(/expected asdl\.pi-agent\.v1/);
 	});
 
 	test("rejects missing required fields with the field name and file path", () => {
@@ -75,11 +81,17 @@ describe("Pi agent definitions", () => {
 
 	test("rejects non-list and malformed promptGuidelines", () => {
 		expect(() =>
-			parsePiAgentDefinitionMarkdown(definitionMarkdown({ promptGuidelinesBlock: "promptGuidelines: use the tool\n" }), "/agent.md"),
+			parsePiAgentDefinitionMarkdown(
+				definitionMarkdown({ promptGuidelinesBlock: "promptGuidelines: use the tool\n" }),
+				"/agent.md",
+			),
 		).toThrow(/promptGuidelines.*list/);
 
 		expect(() =>
-			parsePiAgentDefinitionMarkdown(definitionMarkdown({ promptGuidelinesBlock: "promptGuidelines:\n    - too indented\n" }), "/agent.md"),
+			parsePiAgentDefinitionMarkdown(
+				definitionMarkdown({ promptGuidelinesBlock: "promptGuidelines:\n    - too indented\n" }),
+				"/agent.md",
+			),
 		).toThrow(/expected "  - guideline"/);
 	});
 
@@ -106,7 +118,9 @@ describe("Pi agent definitions", () => {
 		const root = tempRoot();
 		writeAgentDefinition(root, "runner", definitionMarkdown({ name: "other" }));
 
-		expect(() => loadPiAgentDefinition("runner", root)).toThrow(/name mismatch.*requested "runner".*declares "other"/);
+		expect(() => loadPiAgentDefinition("runner", root)).toThrow(
+			/name mismatch.*requested "runner".*declares "other"/,
+		);
 	});
 
 	test("composes prompts by replacing supported placeholders without rewriting delegated prompt content", () => {
@@ -122,11 +136,14 @@ describe("Pi agent definitions", () => {
 	});
 
 	test("appends a delegated-task section when the body lacks a prompt placeholder", () => {
-		const definition = parsePiAgentDefinitionMarkdown(definitionMarkdown({ body: "Wrapper {{title}}\n" }), "/agent.md");
-
-		expect(composePiAgentPrompt(definition, { title: "Slice", prompt: "Do work.\n\nReport back." })).toBe(
-			"Wrapper Slice\n\n## Delegated task\n\nDo work.\n\nReport back.",
+		const definition = parsePiAgentDefinitionMarkdown(
+			definitionMarkdown({ body: "Wrapper {{title}}\n" }),
+			"/agent.md",
 		);
+
+		expect(
+			composePiAgentPrompt(definition, { title: "Slice", prompt: "Do work.\n\nReport back." }),
+		).toBe("Wrapper Slice\n\n## Delegated task\n\nDo work.\n\nReport back.");
 	});
 });
 
@@ -148,22 +165,23 @@ function definitionMarkdown(options: DefinitionMarkdownOptions = {}): string {
 			"promptGuidelines:",
 			"  - Use dispatch_runner_subagent for focused delegated tasks.",
 			"  - Inspect the returned status.",
-		].join("\n") +
-			"\n";
+		].join("\n") + "\n";
 
-	return [
-		"---",
-		`schema: ${options.schema ?? "asdl.pi-agent.v1"}`,
-		`name: ${options.name ?? "runner"}`,
-		`toolName: ${options.toolName ?? "dispatch_runner_subagent"}`,
-		`label: ${options.label ?? "Dispatch Runner Subagent"}`,
-		`description: ${options.description ?? "Launch a focused subagent Pi session."}`,
-		`promptSnippet: ${options.promptSnippet ?? "Launch a focused subagent Pi session"}`,
-		promptGuidelinesBlock.trimEnd(),
-		"---",
-	].join("\n") +
+	return (
+		[
+			"---",
+			`schema: ${options.schema ?? "asdl.pi-agent.v1"}`,
+			`name: ${options.name ?? "runner"}`,
+			`toolName: ${options.toolName ?? "dispatch_runner_subagent"}`,
+			`label: ${options.label ?? "Dispatch Runner Subagent"}`,
+			`description: ${options.description ?? "Launch a focused subagent Pi session."}`,
+			`promptSnippet: ${options.promptSnippet ?? "Launch a focused subagent Pi session"}`,
+			promptGuidelinesBlock.trimEnd(),
+			"---",
+		].join("\n") +
 		"\n" +
-		(options.body ?? "Runner body {{prompt}}\n");
+		(options.body ?? "Runner body {{prompt}}\n")
+	);
 }
 
 function tempRoot(): string {

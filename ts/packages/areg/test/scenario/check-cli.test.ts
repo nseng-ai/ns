@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { FakeAregProjectGatewayOptions, FakeAregCheckSkillOptions } from "../../src/fake-gateways.ts";
+import type {
+	FakeAregProjectGatewayOptions,
+	FakeAregCheckSkillOptions,
+} from "../../src/fake-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const VALID_LOCAL_HASH = "a".repeat(64);
@@ -15,7 +18,10 @@ function remoteEntry(computedHash = VALID_REMOTE_HASH): object {
 	return { source: "org/repo", sourceType: "github", computedHash };
 }
 
-function localSkill(name: string, options: Partial<FakeAregCheckSkillOptions> = {}): FakeAregCheckSkillOptions {
+function localSkill(
+	name: string,
+	options: Partial<FakeAregCheckSkillOptions> = {},
+): FakeAregCheckSkillOptions {
 	return {
 		name,
 		skillsPath: { type: "directory" },
@@ -26,7 +32,10 @@ function localSkill(name: string, options: Partial<FakeAregCheckSkillOptions> = 
 	};
 }
 
-function remoteSkill(name: string, options: Partial<FakeAregCheckSkillOptions> = {}): FakeAregCheckSkillOptions {
+function remoteSkill(
+	name: string,
+	options: Partial<FakeAregCheckSkillOptions> = {},
+): FakeAregCheckSkillOptions {
 	return {
 		name,
 		skillsPath: { type: "missing" },
@@ -44,7 +53,10 @@ function project(options: FakeAregProjectGatewayOptions): FakeAregProjectGateway
 describe("areg check CLI", () => {
 	test("succeeds for a representative local project and renders exact human success", async () => {
 		const run = runScenario(["check", "--path", "."], {
-			project: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, checkSkills: [localSkill("demo")] }),
+			project: project({
+				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
+				checkSkills: [localSkill("demo")],
+			}),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -54,7 +66,10 @@ describe("areg check CLI", () => {
 
 	test("success JSON uses a Clinkr envelope with structured check data", async () => {
 		const run = runScenario(["check", "--format", "json"], {
-			project: project({ lockfile: { version: 1, skills: { demo: localEntry("demo") } }, checkSkills: [localSkill("demo")] }),
+			project: project({
+				lockfile: { version: 1, skills: { demo: localEntry("demo") } },
+				checkSkills: [localSkill("demo")],
+			}),
 		});
 
 		expect(await run.exit).toBe(0);
@@ -67,7 +82,9 @@ describe("areg check CLI", () => {
 	test("missing and malformed lockfiles are command errors with accepted messages", async () => {
 		const missing = runScenario(["check"], { project: project({ lockfile: { type: "missing" } }) });
 		expect(await missing.exit).toBe(2);
-		expect(missing.stderr.join("")).toContain("skills-lock.json not found in /repo. Is this an areg project?");
+		expect(missing.stderr.join("")).toContain(
+			"skills-lock.json not found in /repo. Is this an areg project?",
+		);
 
 		const malformed = runScenario(["check"], { project: project({ lockfile: "{" }) });
 		expect(await malformed.exit).toBe(2);
@@ -77,7 +94,13 @@ describe("areg check CLI", () => {
 	test("reports invalid hashes with Python issue codes in JSON", async () => {
 		const run = runScenario(["check", "--format", "json"], {
 			project: project({
-				lockfile: { version: 1, skills: { demo: localEntry("demo", "PENDING_REGEN"), short: localEntry("short", "abc123") } },
+				lockfile: {
+					version: 1,
+					skills: {
+						demo: localEntry("demo", "PENDING_REGEN"),
+						short: localEntry("short", "abc123"),
+					},
+				},
 				checkSkills: [localSkill("demo"), localSkill("short")],
 			}),
 		});
@@ -86,8 +109,16 @@ describe("areg check CLI", () => {
 		const body = JSON.parse(run.stdout.join(""));
 		expect(body.exit_code).toBe(1);
 		expect(body.data.issues).toEqual([
-			expect.objectContaining({ skill: "demo", code: "invalid_lock_hash", message: expect.stringContaining("placeholder computedHash PENDING_REGEN") }),
-			expect.objectContaining({ skill: "short", code: "invalid_lock_hash", message: expect.stringContaining("invalid computedHash 'abc123'") }),
+			expect.objectContaining({
+				skill: "demo",
+				code: "invalid_lock_hash",
+				message: expect.stringContaining("placeholder computedHash PENDING_REGEN"),
+			}),
+			expect.objectContaining({
+				skill: "short",
+				code: "invalid_lock_hash",
+				message: expect.stringContaining("invalid computedHash 'abc123'"),
+			}),
 		]);
 	});
 
@@ -96,8 +127,14 @@ describe("areg check CLI", () => {
 			project: project({
 				lockfile: { version: 1, skills: { local: localEntry("local"), remote: remoteEntry() } },
 				checkSkills: [
-					localSkill("local", { skillsPath: { type: "missing" }, agentsPath: { type: "directory" } }),
-					remoteSkill("remote", { agentsPath: { type: "symlink", target: "../../skills/remote" }, skillsPath: { type: "directory" } }),
+					localSkill("local", {
+						skillsPath: { type: "missing" },
+						agentsPath: { type: "directory" },
+					}),
+					remoteSkill("remote", {
+						agentsPath: { type: "symlink", target: "../../skills/remote" },
+						skillsPath: { type: "directory" },
+					}),
 				],
 			}),
 		});
@@ -114,11 +151,30 @@ describe("areg check CLI", () => {
 		const longDescription = "x".repeat(1025);
 		const run = runScenario(["check"], {
 			project: project({
-				lockfile: { version: 1, skills: { bad: localEntry("bad"), invoke: localEntry("invoke"), sidecar: localEntry("sidecar") } },
+				lockfile: {
+					version: 1,
+					skills: {
+						bad: localEntry("bad"),
+						invoke: localEntry("invoke"),
+						sidecar: localEntry("sidecar"),
+					},
+				},
 				checkSkills: [
-					localSkill("bad", { localSkillMd: { type: "file", text: `---\nname: bad\ndescription: \"${longDescription}\"\n---\n` } }),
-					localSkill("invoke", { localSkillMd: { type: "file", text: "---\nname: invoke\ndisable-model-invocation: true\n---\n" } }),
-					localSkill("sidecar", { openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" } }),
+					localSkill("bad", {
+						localSkillMd: {
+							type: "file",
+							text: `---\nname: bad\ndescription: "${longDescription}"\n---\n`,
+						},
+					}),
+					localSkill("invoke", {
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: invoke\ndisable-model-invocation: true\n---\n",
+						},
+					}),
+					localSkill("sidecar", {
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
 				],
 			}),
 		});
@@ -136,15 +192,22 @@ describe("areg check CLI", () => {
 			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				replacementSurfaces: ["custom:command"],
-				checkSkills: [localSkill("custom-command", {
-					localSkillMd: { type: "file", text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n" },
-					openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
-				})],
+				checkSkills: [
+					localSkill("custom-command", {
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
+				],
 			}),
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain(".pi/settings.json missing -skills/custom-command for command-backed skill");
+		expect(run.stdout.join("")).toContain(
+			".pi/settings.json missing -skills/custom-command for command-backed skill",
+		);
 	});
 
 	test("malformed Pi settings are hard command errors when local skills need conversion checks", async () => {
@@ -183,7 +246,9 @@ describe("areg check CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain(".pi/settings.json is a symlink; refusing to inspect Pi settings.");
+		expect(run.stderr.join("")).toContain(
+			".pi/settings.json is a symlink; refusing to inspect Pi settings.",
+		);
 	});
 
 	test("refuses non-file Pi settings when local skills make Pi settings relevant", async () => {
@@ -218,10 +283,15 @@ describe("areg check CLI", () => {
 			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				piSettings: { skills: ["-skills/custom-command"] },
-				checkSkills: [localSkill("custom-command", {
-					localSkillMd: { type: "file", text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n" },
-					openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
-				})],
+				checkSkills: [
+					localSkill("custom-command", {
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
+				],
 			}),
 		});
 

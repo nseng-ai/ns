@@ -58,13 +58,25 @@ describe("parseObjectiveList", () => {
 	});
 
 	test("rejects missing or non-string slug", () => {
-		expectInvalid(parseObjectiveList(envelope({ records: [record({ slug: undefined })] })), /Invalid Objective list record/);
-		expectInvalid(parseObjectiveList(envelope({ records: [record({ slug: 123 })] })), /Invalid Objective list record/);
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ slug: undefined })] })),
+			/Invalid Objective list record/,
+		);
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ slug: 123 })] })),
+			/Invalid Objective list record/,
+		);
 	});
 
 	test("rejects missing or non-string status", () => {
-		expectInvalid(parseObjectiveList(envelope({ records: [record({ status: undefined })] })), /Invalid Objective list record/);
-		expectInvalid(parseObjectiveList(envelope({ records: [record({ status: 123 })] })), /Invalid Objective list record/);
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ status: undefined })] })),
+			/Invalid Objective list record/,
+		);
+		expectInvalid(
+			parseObjectiveList(envelope({ records: [record({ status: 123 })] })),
+			/Invalid Objective list record/,
+		);
 	});
 
 	test("rejects latestUpdateIso values that are neither string nor null", () => {

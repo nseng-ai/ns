@@ -17,7 +17,13 @@ import {
 	type HandoffStartMessages,
 } from "./shared.ts";
 import type { ExpandedSkillBlock } from "../skill-expansion.ts";
-import type { BaseRuntimeContext, CommandContext, ExtensionAPI, ToolDefinition, ToolResult } from "./runtime-types.ts";
+import type {
+	BaseRuntimeContext,
+	CommandContext,
+	ExtensionAPI,
+	ToolDefinition,
+	ToolResult,
+} from "./runtime-types.ts";
 
 export interface HandoffLaunchRequest {
 	branch: string;
@@ -56,7 +62,11 @@ export interface HandoffLaunchCommandSpec {
 	promptCopy: HandoffLaunchPromptCopy;
 	startMessages: HandoffStartMessages;
 	skillLoader?: HandoffCreateSkillLoader;
-	preflight?(options: { pi: ExtensionAPI; ctx: CommandContext; request: HandoffLaunchRequest }): Promise<{ type: "ok" } | { type: "failed"; message: string }>;
+	preflight?(options: {
+		pi: ExtensionAPI;
+		ctx: CommandContext;
+		request: HandoffLaunchRequest;
+	}): Promise<{ type: "ok" } | { type: "failed"; message: string }>;
 }
 
 export interface HandoffLaunchParams {
@@ -66,7 +76,9 @@ export interface HandoffLaunchParams {
 	pickupCommand: string;
 }
 
-export type HandoffLaunchParamsParseResult<P extends HandoffLaunchParams = HandoffLaunchParams> = { type: "valid"; params: P } | { type: "invalid"; message: string };
+export type HandoffLaunchParamsParseResult<P extends HandoffLaunchParams = HandoffLaunchParams> =
+	| { type: "valid"; params: P }
+	| { type: "invalid"; message: string };
 
 export interface HandoffLaunchToolSpec<P extends HandoffLaunchParams = HandoffLaunchParams> {
 	name: string;
@@ -102,15 +114,24 @@ export interface VerifyHandoffLaunchOptions<P extends HandoffLaunchParams = Hand
 
 export type VerifyHandoffLaunchResult = { type: "ok" } | { type: "failed"; result: ToolResult };
 
-export function buildHandoffLaunchRequest(options: { branch: string; focus: string }): HandoffLaunchRequestBuildResult {
+export function buildHandoffLaunchRequest(options: {
+	branch: string;
+	focus: string;
+}): HandoffLaunchRequestBuildResult {
 	const focus = options.focus.trim();
 	if (!/[a-z0-9]/i.test(focus)) {
-		return { type: "invalid", message: "Continuation focus must contain at least one letter or number." };
+		return {
+			type: "invalid",
+			message: "Continuation focus must contain at least one letter or number.",
+		};
 	}
 	return { type: "valid", request: { branch: options.branch, focus } };
 }
 
-export function buildHandoffLaunchPrompt(copy: HandoffLaunchPromptCopy, options: HandoffLaunchPromptOptions): string {
+export function buildHandoffLaunchPrompt(
+	copy: HandoffLaunchPromptCopy,
+	options: HandoffLaunchPromptOptions,
+): string {
 	const request = options.request;
 	const targetSections = [
 		`Use this storage target:\n\n- Branch: ${request.branch}\n- Namespace: ${HANDOFF_NAMESPACE}\n- Entry: derive from the final Markdown handoff content with ${DERIVE_HANDOFF_SLUG_TOOL_NAME}`,
@@ -122,7 +143,8 @@ export function buildHandoffLaunchPrompt(copy: HandoffLaunchPromptCopy, options:
 		"Use the returned slug/key. Do not derive the entry name from the raw continuation focus.",
 		`Check for an existing artifact with \`brmem check <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch}\`. If it exists, stop; do not overwrite and ${copy.abortClause}.`,
 		`If missing, store the exact final Markdown content directly through /dev/stdin with \`brmem put <returned-key> --namespace ${HANDOFF_NAMESPACE} --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
-		options.toolCallInstruction ?? `After \`brmem put\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+		options.toolCallInstruction ??
+			`After \`brmem put\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
 		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
 		...(options.extraRequirements ?? []),
 	];
@@ -149,7 +171,10 @@ export async function prepareHandoffCreateLaunch(
 	pi: ExtensionAPI,
 	args: string,
 	ctx: CommandContext,
-	options: { preflight?: HandoffLaunchCommandSpec["preflight"]; skillLoader?: HandoffCreateSkillLoader } = {},
+	options: {
+		preflight?: HandoffLaunchCommandSpec["preflight"];
+		skillLoader?: HandoffCreateSkillLoader;
+	} = {},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
 	const focus = await resolveCreateFocus(pi, args, ctx);
 	if (focus === undefined) {
@@ -177,14 +202,21 @@ export async function prepareHandoffCreateLaunch(
 		return undefined;
 	}
 
-	const loadedSkill = await (options.skillLoader ?? realHandoffCreateSkillLoader).loadCreateHandoffSkill(ctx.cwd);
+	const loadedSkill = await (
+		options.skillLoader ?? realHandoffCreateSkillLoader
+	).loadCreateHandoffSkill(ctx.cwd);
 	const skill = loadedSkill.type === "found" ? loadedSkill.skill : undefined;
 	const skillReadError = loadedSkill.type === "failed" ? loadedSkill.message : undefined;
 
 	return { request, skill, skillReadError };
 }
 
-export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ctx: CommandContext, spec: HandoffLaunchCommandSpec): Promise<void> {
+export async function runHandoffCreateCommand(
+	pi: ExtensionAPI,
+	args: string,
+	ctx: CommandContext,
+	spec: HandoffLaunchCommandSpec,
+): Promise<void> {
 	await ctx.waitForIdle();
 	const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, {
 		...(spec.preflight === undefined ? {} : { preflight: spec.preflight }),
@@ -194,11 +226,24 @@ export async function runHandoffCreateCommand(pi: ExtensionAPI, args: string, ct
 		return;
 	}
 
-	ctx.ui.notify(createHandoffStartMessage(spec.startMessages, prepared.skill, prepared.skillReadError), prepared.skill ? "info" : "warning");
-	pi.sendUserMessage(buildHandoffLaunchPrompt(spec.promptCopy, { skillBlock: prepared.skill?.block, request: prepared.request }), { deliverAs: "followUp" });
+	ctx.ui.notify(
+		createHandoffStartMessage(spec.startMessages, prepared.skill, prepared.skillReadError),
+		prepared.skill ? "info" : "warning",
+	);
+	pi.sendUserMessage(
+		buildHandoffLaunchPrompt(spec.promptCopy, {
+			skillBlock: prepared.skill?.block,
+			request: prepared.request,
+		}),
+		{ deliverAs: "followUp" },
+	);
 }
 
-export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(pi: ExtensionAPI, ctx: BaseRuntimeContext, options: VerifyHandoffLaunchOptions<P>): Promise<VerifyHandoffLaunchResult> {
+export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
+	pi: ExtensionAPI,
+	ctx: BaseRuntimeContext,
+	options: VerifyHandoffLaunchOptions<P>,
+): Promise<VerifyHandoffLaunchResult> {
 	if (options.verifyUpdate !== undefined) {
 		options.onUpdate?.({ content: [{ type: "text", text: options.verifyUpdate }] });
 	}
@@ -207,10 +252,22 @@ export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(p
 		const exists = await checkHandoffExists(pi, ctx.cwd, options.params.branch, options.params.key);
 		if (exists.type === "missing") {
 			const message = options.missingMessage(options.params);
-			return { type: "failed", result: handoffLaunchToolFailure(message, options.failureDetails?.(message, options.params)) };
+			return {
+				type: "failed",
+				result: handoffLaunchToolFailure(
+					message,
+					options.failureDetails?.(message, options.params),
+				),
+			};
 		}
 		if (exists.type === "failed") {
-			return { type: "failed", result: handoffLaunchToolFailure(exists.message, options.failureDetails?.(exists.message, options.params)) };
+			return {
+				type: "failed",
+				result: handoffLaunchToolFailure(
+					exists.message,
+					options.failureDetails?.(exists.message, options.params),
+				),
+			};
 		}
 		return { type: "ok" };
 	} finally {
@@ -218,8 +275,14 @@ export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(p
 	}
 }
 
-export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLaunchParams>(pi: ExtensionAPI, spec: HandoffLaunchToolSpec<P>): ToolDefinition {
-	const parseParams = spec.parseParams ?? ((params: unknown): HandoffLaunchParamsParseResult<P> => parseHandoffLaunchParams(params, spec.name) as HandoffLaunchParamsParseResult<P>);
+export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLaunchParams>(
+	pi: ExtensionAPI,
+	spec: HandoffLaunchToolSpec<P>,
+): ToolDefinition {
+	const parseParams =
+		spec.parseParams ??
+		((params: unknown): HandoffLaunchParamsParseResult<P> =>
+			parseHandoffLaunchParams(params, spec.name) as HandoffLaunchParamsParseResult<P>);
 	return {
 		name: spec.name,
 		label: spec.label,
@@ -238,7 +301,7 @@ export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLa
 					type: "string",
 					description: "Flat semantic handoff slug without .md.",
 				},
-				...(spec.extraParameters?.properties ?? {}),
+				...spec.extraParameters?.properties,
 			},
 			required: ["branch", "slug", ...(spec.extraParameters?.required ?? [])],
 		},
@@ -279,7 +342,10 @@ export function handoffLaunchToolFailure(message: string, details?: unknown): To
 	};
 }
 
-export function parseHandoffLaunchParams(params: unknown, toolName: string): HandoffLaunchParamsParseResult {
+export function parseHandoffLaunchParams(
+	params: unknown,
+	toolName: string,
+): HandoffLaunchParamsParseResult {
 	if (!isRecord(params)) {
 		return { type: "invalid", message: `${toolName} parameters must be an object.` };
 	}
