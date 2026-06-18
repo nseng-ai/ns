@@ -70,7 +70,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	private async runGh(args: readonly string[]): Promise<ExecResult> {
-		return await runGitHubCliAsExecResult({ execApi: this.execApi, args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
+		return await runGitHubCliAsExecResult({ runner: (command, commandArgs, options) => this.execApi.exec(command, [...commandArgs], options), args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
 	}
 }
 

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { collectStackBranches, collectStackEdges, deduplicateOrdered } from "../../src/operations/gt/stack-walk.ts";
+import { deduplicateOrderedStrings } from "../../src/collections.ts";
+import { collectStackBranches, collectStackEdges } from "../../src/operations/gt/stack-walk.ts";
 import { fakeStackInfo } from "../../src/gateways/fakes/gt.ts";
 
 describe("Graphite stack walking", () => {
 	it("deduplicates values while preserving first-seen order", () => {
-		expect(deduplicateOrdered(["a", "b", "a", "c", "b"])).toEqual(["a", "b", "c"]);
+		expect(deduplicateOrderedStrings(["a", "b", "a", "c", "b"])).toEqual(["a", "b", "c"]);
 	});
 
 	it("collects full-stack branches without trunk or current by default", () => {

@@ -23,7 +23,7 @@ describe("RealSlotGtGateway stack metadata adapter", () => {
 		await withMetadataDb({ currentBranch: "feature/a", rows: [trunk("master", { children: '["feature/a"]' }), row("feature/a", { parent: "master", children: '["feature/b"]' }), row("feature/b", { parent: "feature/a" })] }, async ({ gateway }) => {
 			await expect(gateway.stack("/repo")).resolves.toMatchObject({
 				type: "stack",
-				stack: { trunk: "master", current: "feature/a", ancestors: ["master"], children: ["feature/b"], descendants: ["feature/b"], ancestorTermination: { type: "completed" }, descendantWalk: { termination: { type: "completed" } }, trunkMarker: { type: "clean" }, emptyBranchNameRows: 0 },
+				stack: { trunk: "master", current: "feature/a", ancestors: ["master"], descendants: ["feature/b"], ancestorTermination: { type: "completed" }, descendantWalk: { termination: { type: "completed" } }, trunkMarker: { type: "clean" } },
 			});
 		});
 	});
@@ -49,9 +49,9 @@ describe("RealSlotGtGateway stack metadata adapter", () => {
 		});
 	});
 
-	fixtureIt("counts empty branch-name rows", async () => {
+	fixtureIt("ignores empty branch-name rows while preserving tracked branches", async () => {
 		await withMetadataDb({ currentBranch: "master", rows: [trunk("master"), row("")] }, async ({ gateway }) => {
-			await expect(gateway.stack("/repo")).resolves.toMatchObject({ type: "stack", stack: { emptyBranchNameRows: 1 } });
+			await expect(gateway.stack("/repo")).resolves.toMatchObject({ type: "stack", stack: { current: "master", trunkMarker: { type: "clean" } } });
 		});
 	});
 

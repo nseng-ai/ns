@@ -5,8 +5,9 @@ import {
 	tailText,
 	type ExecResult,
 } from "@asdl/core/exec";
+import { GRAPHITE_METADATA_DB_NAME } from "@asdl/core/graphite-metadata";
 import { formatErrorMessage } from "@asdl/core/primitives";
-import { GRAPHITE_METADATA_DB_NAME, MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
+import { MAX_COMMAND_STREAM_OUTPUT_LINES, MAX_OUTPUT_TAIL_CHARS, MAX_OUTPUT_TAIL_LINES } from "./constants.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {

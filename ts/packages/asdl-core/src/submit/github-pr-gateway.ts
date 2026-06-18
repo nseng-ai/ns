@@ -1,4 +1,4 @@
-import { runCommand, type CommandExecApi, type CommandRunner, type ExecOptions, type ExecResult } from "../exec.ts";
+import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "../github-cli.ts";
 import { isRecord } from "../primitives.ts";
 import { withTemporaryFile } from "../temp-files.ts";
@@ -42,7 +42,7 @@ export interface GithubPrGateway {
 	viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>>;
 	viewPr(params: { cwd: string; number: number }): Promise<GatewayResult<GithubPrDetails>>;
 	getPrCommitMessages(params: { cwd: string; number: number }): Promise<GatewayResult<PrCommitMessage[]>>;
-	getPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>>;
+	getPrDiff(params: { cwd: string; number: number; baseRefName?: string | undefined; headRefName?: string | undefined }): Promise<GatewayResult<string>>;
 	stablePatchIdForPr(params: { cwd: string; number: number }): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: { cwd: string; number: number; title: string; body: string }): Promise<GatewayResult<void>>;
 }
@@ -91,7 +91,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(messages);
 	}
 
-	async getPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>> {
+	async getPrDiff(params: { cwd: string; number: number; baseRefName?: string | undefined; headRefName?: string | undefined }): Promise<GatewayResult<string>> {
 		const args = ["pr", "diff", String(params.number)];
 		const result = await this.runGh(args, params.cwd, DIFF_TIMEOUT_MS);
 		const failure = commandFailure({
@@ -104,7 +104,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		if (failure === undefined) return ok(result.stdout);
 
 		if (params.baseRefName !== undefined && params.headRefName !== undefined && isGithubDiffTooLarge(result)) {
-			return await this.getLocalPrDiff(params);
+			return await this.getLocalPrDiff({ cwd: params.cwd, number: params.number, baseRefName: params.baseRefName, headRefName: params.headRefName });
 		}
 		return err(failure);
 	}
@@ -163,28 +163,22 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return ok(parsed.value);
 	}
 
-	private async getLocalPrDiff(params: { cwd: string; number: number; baseRefName?: string; headRefName?: string }): Promise<GatewayResult<string>> {
-		const baseRefName = params.baseRefName;
-		const headRefName = params.headRefName;
-		if (baseRefName === undefined || headRefName === undefined) {
-			return err({ code: "github_pr_diff_failed", message: `Could not read diff for PR #${params.number}.` });
-		}
-
-		const args = ["diff", `${baseRefName}...${headRefName}`];
+	private async getLocalPrDiff(params: { cwd: string; number: number; baseRefName: string; headRefName: string }): Promise<GatewayResult<string>> {
+		const args = ["diff", `${params.baseRefName}...${params.headRefName}`];
 		const result = await this.runGit({ args, cwd: params.cwd, timeoutMs: DIFF_TIMEOUT_MS });
 		const failure = commandFailure({
 			command: "git",
 			args,
 			result,
 			code: "github_pr_local_diff_failed",
-			message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${baseRefName}...${headRefName}.`,
+			message: `GitHub PR #${params.number} diff was too large for GitHub; could not read local diff for ${params.baseRefName}...${params.headRefName}.`,
 		});
 		if (failure !== undefined) return err(failure);
 		return ok(result.stdout);
 	}
 
 	private async runGh(args: readonly string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
-		return await runGitHubCliAsExecResult({ execApi: commandRunnerExecApi(this.runner), args, cwd, timeoutMs });
+		return await runGitHubCliAsExecResult({ runner: this.runner, args, cwd, timeoutMs });
 	}
 
 	private async runGit(options: RunGitOptions): Promise<ExecResult> {
@@ -194,14 +188,6 @@ export class RealGithubPrGateway implements GithubPrGateway {
 			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		});
 	}
-}
-
-function commandRunnerExecApi(runner: CommandRunner): CommandExecApi {
-	return {
-		async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-			return await runner(command, args, options);
-		},
-	};
 }
 
 function isGithubDiffTooLarge(result: ExecResult): boolean {

@@ -1,28 +1,24 @@
 import { join } from "node:path";
 
 import { formatCommand } from "@asdl/core/exec";
-import { isRecord } from "@asdl/core/primitives";
+import {
+	GRAPHITE_BRANCH_METADATA_QUERY,
+	GRAPHITE_METADATA_DB_NAME,
+	detectGraphiteForkViolations,
+	parseGraphiteBranchMetadataRows,
+	walkGraphiteAncestors,
+	walkGraphiteSubtree,
+	type GraphiteTopology,
+	type GraphiteForkViolation,
+} from "@asdl/core/graphite-metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { GIT_TIMEOUT_MS, GRAPHITE_METADATA_DB_NAME, SQLITE_TIMEOUT_MS } from "./constants.ts";
+import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackFailure, type LandStackResult } from "./errors.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-const TOPOLOGY_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
+export type { GraphiteTopology } from "@asdl/core/graphite-metadata";
 
-export interface GraphiteBranchTopology {
-	parent: string | undefined;
-	children: string[];
-	isTrunkMarked: boolean;
-}
-
-export type GraphiteTopology = ReadonlyMap<string, GraphiteBranchTopology>;
-
-export interface ForkViolation {
-	forkPoint: string;
-	/** The next landing-path branch the fork point must lead to; undefined when the fork is at the current branch. */
-	expectedChild: string | undefined;
-	siblings: Array<{ branch: string; subtree: string[] }>;
-}
+export type ForkViolation = GraphiteForkViolation;
 
 export async function resolveMetadataDbPath(pi: LandStackExtensionAPI, repoRoot: string): Promise<LandStackResult<string>> {
 	const args = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
@@ -46,7 +42,7 @@ export async function loadGraphiteTopology(
 	repoRoot: string,
 	dbPath: string,
 ): Promise<LandStackResult<GraphiteTopology>> {
-	const args = ["-readonly", "-json", dbPath, TOPOLOGY_QUERY];
+	const args = ["-readonly", "-json", dbPath, GRAPHITE_BRANCH_METADATA_QUERY];
 	const result = await exec(pi, "sqlite3", args, repoRoot, SQLITE_TIMEOUT_MS);
 	if (result.code !== 0) {
 		return failure(
@@ -68,7 +64,8 @@ export async function loadGraphiteTopology(
 			}),
 		);
 	}
-	if (!Array.isArray(raw)) {
+	const parsed = parseGraphiteBranchMetadataRows(raw);
+	if (parsed.type === "not_array") {
 		return failure(
 			landStackFailure(`sqlite3 returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`, {
 				commandDisplay: formatCommand("sqlite3", args),
@@ -76,23 +73,15 @@ export async function loadGraphiteTopology(
 			}),
 		);
 	}
-
-	const topology = new Map<string, GraphiteBranchTopology>();
-	for (const row of raw) {
-		if (!isRecord(row) || typeof row.branch_name !== "string" || row.branch_name.length === 0) {
-			return failure(
-				landStackFailure(`Graphite metadata DB at ${dbPath} returned a row without a branch_name; refusing to land.`),
-			);
-		}
-		const children = parseChildrenColumn(row.children, row.branch_name, dbPath);
-		if (children.type === "failure") return children;
-		topology.set(row.branch_name, {
-			parent: optionalText(row.parent_branch_name),
-			children: children.value,
-			isTrunkMarked: optionalText(row.validation_result)?.toUpperCase() === "TRUNK",
-		});
+	if (parsed.type === "schema_mismatch") {
+		return failure(landStackFailure(`Graphite metadata DB at ${dbPath} does not have the expected branch_metadata schema; refusing to land. This Graphite version may be unsupported.`));
 	}
-	return success(topology);
+	if (parsed.diagnostics.emptyBranchNameRows > 0) {
+		return failure(landStackFailure(`Graphite metadata DB at ${dbPath} returned a row without a branch_name; refusing to land.`));
+	}
+	const firstCorruption = parsed.diagnostics.childrenCorruptions[0];
+	if (firstCorruption !== undefined) return failure(unparsableChildrenFailure(firstCorruption.branch, dbPath));
+	return success(parsed.topology);
 }
 
 function classifyTopologyReadFailure(stderr: string, dbPath: string): string {
@@ -107,33 +96,10 @@ function classifyTopologyReadFailure(stderr: string, dbPath: string): string {
 
 // Graphite stores children as a JSON array string. A non-null value that fails to
 // parse must fail closed: silently reading it as "no children" would mute the fork gate.
-function parseChildrenColumn(value: unknown, branch: string, dbPath: string): LandStackResult<string[]> {
-	if (value === null || value === undefined || value === "") return success([]);
-	if (typeof value !== "string") {
-		return failure(unparsableChildrenFailure(branch, dbPath));
-	}
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		return failure(unparsableChildrenFailure(branch, dbPath));
-	}
-	if (!Array.isArray(parsed) || !parsed.every((item): item is string => typeof item === "string")) {
-		return failure(unparsableChildrenFailure(branch, dbPath));
-	}
-	return success(parsed);
-}
-
 function unparsableChildrenFailure(branch: string, dbPath: string): LandStackFailure {
 	return landStackFailure(
 		`Graphite metadata children for ${branch} could not be parsed (${dbPath}); refusing to continue without an authoritative child list.`,
 	);
-}
-
-function optionalText(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const text = value.trim();
-	return text.length > 0 ? text : undefined;
 }
 
 export interface DerivePathToTrunkOptions {
@@ -152,42 +118,27 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandStackR
 		);
 	}
 
-	const path: string[] = [];
-	const visited = new Set<string>();
-	let cursor = current;
-	while (cursor !== trunk) {
-		if (visited.has(cursor)) {
-			return failure(
-				landStackFailure(`Graphite metadata parent chain from ${current} contains a cycle at ${cursor}; refusing to land.`),
-			);
-		}
-		visited.add(cursor);
-		path.push(cursor);
-
-		const entry = topology.get(cursor);
-		if (!entry) {
-			return failure(
-				landStackFailure(`Graphite metadata (${dbPath}) has no entry for ${cursor} on the path from ${current} to ${trunk}; refusing to land.`),
-			);
-		}
-		if (entry.parent === undefined) {
-			return failure(
-				landStackFailure(
-					`Graphite metadata parent chain from ${current} ends at ${cursor} without reaching trunk ${trunk}; refusing to land.`,
-					{ suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /sdl:code:land.` },
-				),
-			);
-		}
-		cursor = entry.parent;
+	const walked = walkGraphiteAncestors(topology, current);
+	const path = [...walked.ancestors, current].filter((branch) => branch !== trunk);
+	if (walked.termination.type === "completed" && walked.terminusBranch === trunk) return success(path);
+	if (walked.termination.type === "cycle") {
+		return failure(landStackFailure(`Graphite metadata parent chain from ${current} contains a cycle at ${walked.termination.branch}; refusing to land.`));
 	}
-	return success(path.reverse());
+	if (walked.termination.type === "row_missing") {
+		return failure(landStackFailure(`Graphite metadata (${dbPath}) has no entry for ${walked.termination.branch} on the path from ${current} to ${trunk}; refusing to land.`));
+	}
+	return failure(
+		landStackFailure(`Graphite metadata parent chain from ${current} ends at ${walked.terminusBranch} without reaching trunk ${trunk}; refusing to land.`, {
+			suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /sdl:code:land.`,
+		}),
+	);
 }
 
 // gt restack --upstack rewrites the whole subtree above the current branch, so
 // worktree-conflict detection and the confirmation prompt must cover all of it,
 // not just the first-child chain.
 export function deriveDescendantSubtree(topology: GraphiteTopology, current: string): LandStackResult<string[]> {
-	const walked = walkSubtree(topology, current);
+	const walked = walkGraphiteSubtree(topology, current);
 	if (walked.cycleAt) {
 		return failure(
 			landStackFailure(`Graphite metadata descendants of ${current} contain a cycle at ${walked.cycleAt}; refusing to land.`),
@@ -197,49 +148,7 @@ export function deriveDescendantSubtree(topology: GraphiteTopology, current: str
 }
 
 export function detectForkViolations(topology: GraphiteTopology, landingPath: string[]): ForkViolation[] {
-	const violations: ForkViolation[] = [];
-	for (let index = 0; index < landingPath.length; index += 1) {
-		const branch = landingPath[index];
-		if (branch === undefined) continue;
-		const children = topology.get(branch)?.children ?? [];
-		const expectedChild = landingPath[index + 1];
-
-		if (expectedChild === undefined) {
-			if (children.length > 1) {
-				violations.push({ forkPoint: branch, expectedChild: undefined, siblings: children.map((child) => siblingSubtree(topology, child)) });
-			}
-			continue;
-		}
-
-		const extras = children.filter((child) => child !== expectedChild);
-		if (extras.length > 0) {
-			violations.push({ forkPoint: branch, expectedChild, siblings: extras.map((child) => siblingSubtree(topology, child)) });
-		}
-	}
-	return violations;
-}
-
-function siblingSubtree(topology: GraphiteTopology, sibling: string): { branch: string; subtree: string[] } {
-	return { branch: sibling, subtree: walkSubtree(topology, sibling).subtree };
-}
-
-function walkSubtree(topology: GraphiteTopology, root: string): { subtree: string[]; cycleAt?: string } {
-	const subtree = [root];
-	const visited = new Set<string>([root]);
-	const pending = [...(topology.get(root)?.children ?? [])].reverse();
-	while (pending.length > 0) {
-		const branch = pending.pop();
-		if (branch === undefined) break;
-		if (visited.has(branch)) return { subtree, cycleAt: branch };
-		visited.add(branch);
-		subtree.push(branch);
-		const children = topology.get(branch)?.children ?? [];
-		for (let index = children.length - 1; index >= 0; index -= 1) {
-			const child = children[index];
-			if (child !== undefined) pending.push(child);
-		}
-	}
-	return { subtree };
+	return [...detectGraphiteForkViolations(topology, landingPath)];
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {

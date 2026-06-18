@@ -3,10 +3,15 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Worker as ThreadWorker } from "node:worker_threads";
 
+import {
+	graphiteBranchMetadataQuery,
+	graphiteBranchMetadataSchemaQuery,
+	graphiteMetadataDbPath,
+	hasExpectedGraphiteBranchMetadataSchema,
+	parseGraphiteBranchMetadataRows,
+	sqliteTextLiteral,
+} from "@asdl/core/graphite-metadata";
 import { isRecord } from "@asdl/pi-extension-runtime/cmux/primitives";
-
-const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
-const BRANCH_METADATA_REQUIRED_COLUMNS = ["branch_name", "parent_branch_name", "children", "validation_result"] as const;
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",
@@ -63,16 +68,6 @@ export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	timeoutMs?: number | undefined;
 	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
-}
-
-interface GraphiteMetadataSqlRow {
-	parent_branch_name: unknown;
-	children: unknown;
-	validation_result: unknown;
-}
-
-interface GraphiteMetadataColumnRow {
-	name: unknown;
 }
 
 interface SqliteCliResult {
@@ -209,38 +204,34 @@ export function graphiteMetadataWorkerResponseFromValue(value: unknown): Graphit
 }
 
 export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): GraphiteMetadataStatus {
-	const dbPath = join(input.commonGitDir, GRAPHITE_METADATA_DB_NAME);
+	const dbPath = graphiteMetadataDbPath(input.commonGitDir);
 	if (!existsSync(dbPath)) return { type: "unavailable", reason: "missing-db", currentBranch: input.currentBranch };
 
-	const schemaRows = runSqliteJsonQuery(dbPath, "PRAGMA table_info(branch_metadata)");
+	const schemaRows = runSqliteJsonQuery(dbPath, graphiteBranchMetadataSchemaQuery());
 	if (schemaRows.type === "failure") {
 		return { type: "unavailable", reason: schemaRows.reason, currentBranch: input.currentBranch };
 	}
-	if (!hasExpectedBranchMetadataSchema(schemaRows.data)) {
+	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data)) {
 		return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
 	}
 
-	const rowQuery = [
-		"SELECT parent_branch_name, children, validation_result",
-		"FROM branch_metadata",
-		`WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`,
-		"LIMIT 1",
-	].join(" ");
+	const rowQuery = [graphiteBranchMetadataQuery(), `WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`, "LIMIT 1"].join(" ");
 	const rowResult = runSqliteJsonQuery(dbPath, rowQuery);
 	if (rowResult.type === "failure") {
 		return { type: "unavailable", reason: rowResult.reason, currentBranch: input.currentBranch };
 	}
 
-	const rows = graphiteMetadataSqlRowsFromValue(rowResult.data);
-	const row = rows[0];
+	const parsed = parseGraphiteBranchMetadataRows(rowResult.data);
+	if (parsed.type !== "ok") return { type: "unavailable", reason: "read-failed", currentBranch: input.currentBranch };
+	const row = parsed.topology.get(input.currentBranch);
 	if (row === undefined) return { type: "untracked", currentBranch: input.currentBranch };
 
 	return {
 		type: "tracked",
 		currentBranch: input.currentBranch,
-		parent: metadataText(row.parent_branch_name),
-		children: parseGraphiteChildren(row.children),
-		isCurrentTrunk: isGraphiteTrunkValidationResult(row.validation_result),
+		parent: row.parent,
+		children: row.children,
+		isCurrentTrunk: row.isTrunkMarked,
 	};
 }
 
@@ -385,55 +376,3 @@ function errorCodeFromValue(value: unknown): string | undefined {
 	return isRecord(value) && typeof value.code === "string" ? value.code : undefined;
 }
 
-function sqliteTextLiteral(value: string): string {
-	return `'${value.replaceAll("'", "''")}'`;
-}
-
-function hasExpectedBranchMetadataSchema(value: unknown): boolean {
-	const rows = graphiteMetadataColumnRowsFromValue(value);
-	const columnNames = new Set<string>();
-	for (const row of rows) {
-		const name = metadataText(row.name);
-		if (name !== undefined) columnNames.add(name);
-	}
-	return BRANCH_METADATA_REQUIRED_COLUMNS.every((columnName) => columnNames.has(columnName));
-}
-
-function isGraphiteTrunkValidationResult(value: unknown): boolean {
-	// Graphite's private metadata DB currently marks the configured trunk with this validation result.
-	// Keep the sentinel isolated so future schema drift is visible through the schema-mismatch path above.
-	return metadataText(value)?.toUpperCase() === "TRUNK";
-}
-
-function graphiteMetadataColumnRowsFromValue(value: unknown): GraphiteMetadataColumnRow[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter((row): row is GraphiteMetadataColumnRow => isRecord(row) && "name" in row);
-}
-
-function graphiteMetadataSqlRowsFromValue(value: unknown): GraphiteMetadataSqlRow[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter(
-		(row): row is GraphiteMetadataSqlRow =>
-			isRecord(row) && "parent_branch_name" in row && "children" in row && "validation_result" in row,
-	);
-}
-
-function parseGraphiteChildren(value: unknown): readonly string[] {
-	if (typeof value !== "string" || value === "") return [];
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch {
-		return [];
-	}
-
-	if (!Array.isArray(parsed)) return [];
-	return parsed.filter((item): item is string => typeof item === "string");
-}
-
-function metadataText(value: unknown): string | undefined {
-	if (typeof value !== "string") return undefined;
-	const text = value.trim();
-	return text.length > 0 ? text : undefined;
-}

@@ -1,6 +1,7 @@
 import { confirmFromStdin, failure, negative, ok } from "@asdl/clinkr";
 import { z } from "zod";
 
+import { deduplicateOrderedStrings } from "../collections.ts";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../lifecycle/free.ts";
@@ -91,16 +92,7 @@ function resolveTargets(ctx: RepoSlotContext, request: FreeRequest, inventory: S
 		const result = resolveCurrent(ctx.cwd);
 		if (result.type === "ok") slotNames.push(result.slotName); else errors.push(result.message);
 	}
-	return { slotNames: dedupe(slotNames), errors, skipped };
-}
-
-function dedupe(values: readonly string[]): readonly string[] {
-	const seen = new Set<string>();
-	return values.filter((value) => {
-		if (seen.has(value)) return false;
-		seen.add(value);
-		return true;
-	});
+	return { slotNames: deduplicateOrderedStrings(slotNames), errors, skipped };
 }
 
 function buildFreeResult(options: { freed?: readonly FreedSlot[] | undefined; wouldFree?: readonly FreedSlot[] | undefined; cleanup: readonly SlotFreeCleanupResult[]; skipped: readonly string[]; isDryRun: boolean; isCancelled: boolean }): FreeResult {
