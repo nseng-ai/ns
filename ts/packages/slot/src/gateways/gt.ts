@@ -2,13 +2,12 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 import {
-	graphiteBranchMetadataQuery,
-	graphiteBranchMetadataSchemaQuery,
+	GRAPHITE_BRANCH_METADATA_QUERY,
+	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	graphiteMetadataDbPath,
 	graphiteTrunkMarkerStatus,
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
-	selectGraphiteBranch,
 	walkFirstChildGraphiteDescendants,
 	walkGraphiteAncestors,
 	type GraphiteChildrenCorruption,
@@ -18,6 +17,7 @@ import {
 	type GraphiteTopology,
 	type GraphiteWalkTermination,
 } from "@asdl/core/graphite-metadata";
+import { isRecord } from "@asdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@asdl/core/exec";
 
 import type { SlotGitGateway } from "./git.ts";
@@ -134,16 +134,12 @@ export class RealSlotGtGateway implements SlotGtGateway {
 	}
 
 	async stack(cwd: string): Promise<StackResult> {
-		const commonDir = await this.resolveGitCommonDir(cwd);
+		const commonDir = await this.git.getGitCommonDir(cwd);
 		if (commonDir === null) return { type: "failure", failure: { message: "Failed to resolve git common dir for Graphite metadata", returnCode: null } };
 		const current = await this.resolveCurrentBranch(cwd);
 		if (current.type === "failure") return { type: "failure", failure: current.failure };
 		if (current.type === "detached") return { type: "failure", failure: { message: `HEAD at ${cwd} is detached. Check out a branch first.`, returnCode: null } };
 		return readStackFromMetadataDb(graphiteMetadataDbPath(commonDir), current.branch, this.sqliteRunner);
-	}
-
-	private async resolveGitCommonDir(cwd: string): Promise<string | null> {
-		return await this.git.getGitCommonDir(cwd);
 	}
 
 	private async resolveCurrentBranch(cwd: string): Promise<{ type: "branch"; branch: string } | { type: "detached" } | { type: "failure"; failure: GtCommandFailure }> {
@@ -191,7 +187,7 @@ function readStackFromMetadataDb(dbPath: string, currentBranch: string, sqliteRu
 	if (!existsSync(dbPath)) return { type: "failure", failure: { message: `Graphite metadata store not found at ${dbPath}`, returnCode: null } };
 	const loaded = loadBranchMetadata(dbPath, sqliteRunner);
 	if (loaded.type === "failure") return { type: "failure", failure: loaded.failure };
-	const row = selectGraphiteBranch(loaded.topology, currentBranch);
+	const row = loaded.topology.get(currentBranch);
 	if (row === undefined) return { type: "untracked_branch", message: `current branch is not tracked by Graphite: ${currentBranch}` };
 	const ancestors = walkGraphiteAncestors(loaded.topology, currentBranch);
 	const descendantWalk = walkFirstChildGraphiteDescendants(loaded.topology, currentBranch);
@@ -215,14 +211,13 @@ function readStackFromMetadataDb(dbPath: string, currentBranch: string, sqliteRu
 }
 
 function loadBranchMetadata(dbPath: string, sqliteRunner: SqliteJsonRunner): { type: "ok"; topology: GraphiteTopology } | { type: "failure"; failure: GtCommandFailure } {
-	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, graphiteBranchMetadataSchemaQuery());
+	const schemaRows = runSqliteJsonQuery(sqliteRunner, dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
 	if (schemaRows.type === "failure") return schemaRows;
 	if (!hasExpectedGraphiteBranchMetadataSchema(schemaRows.data)) return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
-	const result = runSqliteJsonQuery(sqliteRunner, dbPath, graphiteBranchMetadataQuery());
+	const result = runSqliteJsonQuery(sqliteRunner, dbPath, GRAPHITE_BRANCH_METADATA_QUERY);
 	if (result.type === "failure") return result;
 	const parsed = parseGraphiteBranchMetadataRows(result.data);
 	if (parsed.type === "not_array") return { type: "failure", failure: { message: "Graphite metadata sqlite output was not an array", returnCode: null } };
-	if (parsed.type === "schema_mismatch") return { type: "failure", failure: { message: "Graphite metadata schema mismatch: branch_metadata missing required column", returnCode: null } };
 	return { type: "ok", topology: parsed.topology };
 }
 
@@ -235,10 +230,6 @@ function runSqliteJsonQuery(sqliteRunner: SqliteJsonRunner, dbPath: string, quer
 	} catch {
 		return { type: "failure", failure: { message: "Graphite metadata sqlite output was not valid JSON", returnCode: null } };
 	}
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function errorCodeFromValue(value: unknown): string | undefined {

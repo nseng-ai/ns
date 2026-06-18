@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { Worker as ThreadWorker } from "node:worker_threads";
 
 import {
-	graphiteBranchMetadataQuery,
-	graphiteBranchMetadataSchemaQuery,
+	GRAPHITE_BRANCH_METADATA_QUERY,
+	GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY,
 	graphiteMetadataDbPath,
 	hasExpectedGraphiteBranchMetadataSchema,
 	parseGraphiteBranchMetadataRows,
@@ -207,7 +207,7 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 	const dbPath = graphiteMetadataDbPath(input.commonGitDir);
 	if (!existsSync(dbPath)) return { type: "unavailable", reason: "missing-db", currentBranch: input.currentBranch };
 
-	const schemaRows = runSqliteJsonQuery(dbPath, graphiteBranchMetadataSchemaQuery());
+	const schemaRows = runSqliteJsonQuery(dbPath, GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY);
 	if (schemaRows.type === "failure") {
 		return { type: "unavailable", reason: schemaRows.reason, currentBranch: input.currentBranch };
 	}
@@ -215,7 +215,7 @@ export function loadGraphiteMetadataStatus(input: GraphiteMetadataLookupInput): 
 		return { type: "unavailable", reason: "schema-mismatch", currentBranch: input.currentBranch };
 	}
 
-	const rowQuery = [graphiteBranchMetadataQuery(), `WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`, "LIMIT 1"].join(" ");
+	const rowQuery = [GRAPHITE_BRANCH_METADATA_QUERY, `WHERE branch_name = ${sqliteTextLiteral(input.currentBranch)}`, "LIMIT 1"].join(" ");
 	const rowResult = runSqliteJsonQuery(dbPath, rowQuery);
 	if (rowResult.type === "failure") {
 		return { type: "unavailable", reason: rowResult.reason, currentBranch: input.currentBranch };

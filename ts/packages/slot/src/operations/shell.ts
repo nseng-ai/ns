@@ -1,27 +1,21 @@
-import { z } from "zod";
+import type { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
-import { buildMarkerInstallSurface } from "../shell/marker-install-surface.ts";
+import {
+	buildMarkerInstallSurface,
+	markerSurfaceInstallRequestSchema,
+	markerSurfaceInstallResultSchema,
+	markerSurfaceShowRequestSchema,
+	markerSurfaceShowResultSchema,
+} from "../shell/marker-install-surface.ts";
 
 export const shellIntegrationBeginMarker = "# >>> slot shell integration >>>";
 export const shellIntegrationEndMarker = "# <<< slot shell integration <<<";
 
-export const shellShowRequestSchema = z.object({
-	shell: z.string().optional().describe("Shell to render integration for (zsh or bash). Defaults from $SHELL, then zsh."),
-});
-
-export const shellInstallRequestSchema = shellShowRequestSchema;
-
-export const shellShowResultSchema = z.object({
-	shell: z.union([z.literal("zsh"), z.literal("bash")]),
-	script: z.string(),
-});
-
-export const shellInstallResultSchema = z.object({
-	shell: z.union([z.literal("zsh"), z.literal("bash")]),
-	rc_path: z.string(),
-	already_installed: z.boolean(),
-});
+export const shellShowRequestSchema = markerSurfaceShowRequestSchema;
+export const shellInstallRequestSchema = markerSurfaceInstallRequestSchema;
+export const shellShowResultSchema = markerSurfaceShowResultSchema;
+export const shellInstallResultSchema = markerSurfaceInstallResultSchema;
 
 export type ShellShowRequest = z.infer<typeof shellShowRequestSchema>;
 export type ShellInstallRequest = z.infer<typeof shellInstallRequestSchema>;

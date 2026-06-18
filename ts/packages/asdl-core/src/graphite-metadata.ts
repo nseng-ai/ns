@@ -7,17 +7,10 @@ const REQUIRED_BRANCH_METADATA_COLUMNS = ["branch_name", "parent_branch_name", "
 
 export const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
 export const GRAPHITE_BRANCH_METADATA_QUERY = "SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
+export const GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY = "PRAGMA table_info(branch_metadata)";
 
 export function graphiteMetadataDbPath(commonGitDir: string): string {
 	return join(commonGitDir, GRAPHITE_METADATA_DB_NAME);
-}
-
-export function graphiteBranchMetadataSchemaQuery(): string {
-	return "PRAGMA table_info(branch_metadata)";
-}
-
-export function graphiteBranchMetadataQuery(): string {
-	return GRAPHITE_BRANCH_METADATA_QUERY;
 }
 
 export function sqliteTextLiteral(value: string): string {
@@ -48,7 +41,6 @@ export interface GraphiteTopologyParseDiagnostics {
 
 export type GraphiteTopologyParseResult =
 	| { readonly type: "ok"; readonly topology: GraphiteTopology; readonly diagnostics: GraphiteTopologyParseDiagnostics }
-	| { readonly type: "schema_mismatch" }
 	| { readonly type: "not_array" };
 
 export function hasExpectedGraphiteBranchMetadataSchema(value: unknown): boolean {
@@ -143,10 +135,6 @@ export interface GraphiteForkViolation {
 export type GraphiteTrunkMarkerStatus =
 	| { readonly type: "clean" }
 	| { readonly type: "problem"; readonly terminus: string; readonly terminusState: "row_missing" | "unmarked" | "marked"; readonly markedTrunks: readonly string[] };
-
-export function selectGraphiteBranch(topology: GraphiteTopology, currentBranch: string): GraphiteBranchTopology | undefined {
-	return topology.get(currentBranch);
-}
 
 export function walkGraphiteAncestors(topology: GraphiteTopology, currentBranch: string): GraphiteAncestorWalk {
 	const reversed: string[] = [];

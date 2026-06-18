@@ -73,9 +73,6 @@ export async function loadGraphiteTopology(
 			}),
 		);
 	}
-	if (parsed.type === "schema_mismatch") {
-		return failure(landStackFailure(`Graphite metadata DB at ${dbPath} does not have the expected branch_metadata schema; refusing to land. This Graphite version may be unsupported.`));
-	}
 	if (parsed.diagnostics.emptyBranchNameRows > 0) {
 		return failure(landStackFailure(`Graphite metadata DB at ${dbPath} returned a row without a branch_name; refusing to land.`));
 	}

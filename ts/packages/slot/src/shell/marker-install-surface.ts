@@ -5,7 +5,7 @@ import type { SlotCliContext } from "../context.ts";
 import { installMarkerBlock, rcPathForShell, resolveRequestedShell, type SupportedShell } from "./rc-install.ts";
 
 export const markerSurfaceShowRequestSchema = z.object({
-	shell: z.string().optional().describe("Shell to render integration for (zsh or bash). Defaults from $SHELL, then zsh."),
+	shell: z.string().optional().describe("Shell to render output for (zsh or bash). Defaults from $SHELL, then zsh."),
 });
 
 export const markerSurfaceInstallRequestSchema = markerSurfaceShowRequestSchema;

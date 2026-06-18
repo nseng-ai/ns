@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";
 import { buildGtNavigationResult, renderGtNavigation, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
+import { resolveRepoAndCurrentBranch } from "./shared.ts";
 import { gtNavigationResultSchema } from "./up.ts";
 
 export const gtDownRequestSchema = z.object({
@@ -13,14 +14,12 @@ export const gtDownResultSchema = gtNavigationResultSchema;
 export type GtDownRequest = z.infer<typeof gtDownRequestSchema>;
 
 export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
-	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
-	const currentResult = await ctx.git.getCurrentBranch(ctx.repo.root);
-	if (currentResult.type === "failure") return failure("git_current_branch_failed", currentResult.failure.message);
-	if (currentResult.type === "detached") return failure("detached_head", `HEAD at ${ctx.repo.root} is detached. Check out a branch first.`);
-	const parent = await ctx.gt.parentOf(ctx.repo.root);
-	if (parent.type === "untracked_branch") return failure("untracked_branch", `Current branch '${currentResult.branch}' is not tracked by Graphite. ${parent.message}`);
+	const resolved = await resolveRepoAndCurrentBranch(ctx);
+	if (resolved.type !== "ok") return resolved;
+	const parent = await ctx.gt.parentOf(resolved.repoCtx.repo.root);
+	if (parent.type === "untracked_branch") return failure("untracked_branch", `Current branch '${resolved.currentBranch}' is not tracked by Graphite. ${parent.message}`);
 	if (parent.type === "failure") return failure("gt_parent_failed", parent.failure.message);
-	if (parent.type === "no_parent") return negative(`No downstack branch for '${currentResult.branch}'.`);
+	if (parent.type === "no_parent") return negative(`No downstack branch for '${resolved.currentBranch}'.`);
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, parent.branch);
 	if (resolution.type === "failure") return resolution;
 	return ok(await buildGtNavigationResult(ctx, resolution.resolution, { shouldSkipClipboard: !request.clipboard }));
