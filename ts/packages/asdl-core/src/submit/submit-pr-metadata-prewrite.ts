@@ -10,6 +10,7 @@ import { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
 import type { TextGenerationGateway } from "./text-generation.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
+const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
 const GT_BRANCH_INFO_BASE_ARGS = ["branch", "info", "--no-interactive", "--branch"] as const;
 const GT_MODIFY_BASE_ARGS = ["modify", "--no-interactive"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
@@ -84,10 +85,14 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 			return err({ code: "submit_stack_current_unknown", message: "Graphite stack inspection did not identify the current branch." });
 		}
 
-		params.onProgress?.(formatStackBranchMetadataProgress(parsedLog.branches.length));
+		const trunk = await this.readGraphiteTrunk(params.cwd);
+		if (!trunk.ok) return trunk;
+
+		const submitBranches = parsedLog.branches.filter((branch) => branch !== trunk.value);
+		params.onProgress?.(formatStackBranchMetadataProgress(submitBranches.length));
 		const branches: SubmitStackBranch[] = [];
-		for (const [index, branch] of parsedLog.branches.entries()) {
-			params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${parsedLog.branches.length})`);
+		for (const [index, branch] of submitBranches.entries()) {
+			params.onProgress?.(`inspecting PR metadata for ${branch} (${index + 1}/${submitBranches.length})`);
 			const info = await this.runGt([...GT_BRANCH_INFO_BASE_ARGS, branch], params.cwd, COMMAND_TIMEOUT_MS);
 			const infoError = commandError("gt", [...GT_BRANCH_INFO_BASE_ARGS, branch], info, "submit_branch_info_failed", `Could not inspect Graphite branch ${branch}.`);
 			if (infoError !== undefined) return err(infoError);
@@ -143,6 +148,18 @@ export class RealSubmitMetadataGateway implements SubmitMetadataGateway {
 		const resultError = commandError("gt", args, result, "submit_metadata_amend_failed", `Could not amend local PR metadata commit for ${params.branch}.`);
 		if (resultError !== undefined) return err(resultError);
 		return ok(undefined);
+	}
+
+	private async readGraphiteTrunk(cwd: string): Promise<GatewayResult<string>> {
+		const result = await this.runGt([...GT_TRUNK_ARGS], cwd, COMMAND_TIMEOUT_MS);
+		const resultError = commandError("gt", GT_TRUNK_ARGS, result, "submit_trunk_inspection_failed", "Could not inspect the Graphite trunk branch.");
+		if (resultError !== undefined) return err(resultError);
+
+		const branch = result.stdout.split(/\r?\n/u).map((line) => line.trim()).find((line) => line.length > 0);
+		if (branch === undefined) {
+			return err({ code: "submit_trunk_empty", message: "Graphite trunk inspection did not return a branch." });
+		}
+		return ok(branch);
 	}
 
 	private async readBranchCommitMessages(cwd: string, parentBranch: string, branch: string): Promise<GatewayResult<PrCommitMessage[]>> {
