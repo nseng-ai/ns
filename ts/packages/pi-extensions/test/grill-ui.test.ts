@@ -158,7 +158,11 @@ describe("grill-ui prompt", () => {
 		const prompt = buildGrillUiPrompt(undefined, "Fallback target");
 
 		expect(prompt).toContain("fallback=\"true\"");
+		expect(prompt).toContain("portable grilling loop");
+		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Interview the user relentlessly");
+		expect(prompt).toContain("estimatedRemaining");
+		expect(prompt).toContain("status-request handling");
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Fallback target");
 		expect(prompt).toContain("If grill_ask returns action: \"end_grill\"");
@@ -184,10 +188,14 @@ describe("grill-with-docs-ui prompt", () => {
 		const prompt = buildGrillWithDocsUiPrompt(undefined, "Fallback docs target");
 
 		expect(prompt).toContain("fallback=\"true\"");
+		expect(prompt).toContain("portable grilling plus domain-modeling");
+		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("docs-first preflight");
 		expect(prompt).toContain("CONTEXT-MAP.md");
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("Offer ADRs sparingly");
+		expect(prompt).toContain("estimatedRemaining");
+		expect(prompt).toContain("status-request handling");
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Documentation updates");
 		expect(prompt).toContain("Fallback docs target");

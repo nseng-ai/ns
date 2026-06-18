@@ -16,6 +16,8 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 ### Vendored Skill Code
 
+See [Matt Pocock Skills Upstream Adaptation Guide](agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, ASDL overlays, and future upstream update checklist.
+
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party asdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.
 - For repo-local skills, `skills/<name>/` is the canonical source — edit files there directly. `.agents/skills/<name>` is a symlink back to that source, and editing through either path is equivalent.

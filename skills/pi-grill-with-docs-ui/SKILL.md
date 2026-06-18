@@ -7,17 +7,21 @@ metadata:
 
 # pi-grill-with-docs-ui
 
-This is the Pi structured-UI complement to `grill-with-docs`. Use it to stress-test a plan against the repository's documented domain language while routing user-facing questions through `grill_ask` when available.
+This is the Pi structured-UI complement to portable `grilling` plus `domain-modeling`. It must remain self-contained because `/pi:grill-with-docs` fallback prompts still need to work when skill expansion is unavailable.
 
 Interview me relentlessly about every aspect of this plan until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer.
 
-If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call, include 2-5 affirmative mutually exclusive options, include your recommendation and rationale, allow freeform input, and allow ending the grilling session. If the tool reports a status request, do not treat it as an answer: give the compact status report, include the documentation-updates line described below, then re-ask the same pending question through `grill_ask`. If `grill_ask` is unavailable, continue with one prose question at a time.
+If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
+
+If `grill_ask` reports `status_request`, do not treat it as an answer. Give the compact status report, include the `Documentation updates:` line described below, then re-ask the same pending question through `grill_ask`.
+
+If `grill_ask` is unavailable or reports `ui_unavailable`, ask the same one question in prose with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.
 
 ## Bounded docs-first preflight
 
 Before the first user-facing question, do a bounded exploration pass:
 
-1. Check `CONTEXT-MAP.md` if present to understand whether the repo has multiple documented contexts.
+1. Check `CONTEXT-MAP.md` if present to route to the relevant domain language.
 2. Check the root `CONTEXT.md` and any relevant nested `CONTEXT.md` identified by the map or by the plan's named area.
 3. Check relevant ADRs under `docs/adr/`, including nested context ADR directories when the map or plan points to them.
 4. Inspect code only when the plan names a concrete area, or when a user claim or documented claim needs verification.
