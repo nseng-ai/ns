@@ -81,11 +81,13 @@ describe("prompt-sized diff coverage", () => {
 	});
 
 	test("uses strict greedy total-cap exhaustion and can include later smaller files", () => {
-		const first = diffFile("first.ts", 39_990, "first\n");
-		const second = diffFile("second.ts", 39_990, "second\n");
-		const third = diffFile("third.ts", 39_990, "third\n");
-		const tooLargeNext = diffFile("fourth.ts", 31, "fourth\n");
-		const laterSmall = diffFile("fifth.ts", 30, "fifth\n");
+		const includedTokenCount = Math.floor(MAX_PROMPT_DIFF_TOKENS / 3) - 10;
+		const remainingTokenCount = MAX_PROMPT_DIFF_TOKENS - includedTokenCount * 3;
+		const first = diffFile("first.ts", includedTokenCount, "first\n");
+		const second = diffFile("second.ts", includedTokenCount, "second\n");
+		const third = diffFile("third.ts", includedTokenCount, "third\n");
+		const tooLargeNext = diffFile("fourth.ts", remainingTokenCount + 1, "fourth\n");
+		const laterSmall = diffFile("fifth.ts", remainingTokenCount, "fifth\n");
 
 		const result = promptSizedDiff(localDiff([first, second, third, tooLargeNext, laterSmall]));
 

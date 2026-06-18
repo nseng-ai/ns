@@ -1,7 +1,7 @@
 import { estimateTokens } from "../diff-parsing.ts";
 import type { HarnessReviewRequest, ReviewInputCoverage } from "../models.ts";
 
-export const MAX_PROMPT_DIFF_TOKENS = 120_000;
+export const MAX_PROMPT_DIFF_TOKENS = 90_000;
 export const MAX_PROMPT_DIFF_FILE_TOKENS = 40_000;
 
 export interface PromptSizedDiffResult {

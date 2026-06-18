@@ -4,6 +4,7 @@ import { isClaudeCodeSupportedModel } from "../../src/gateways/harness.ts";
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/harness-output.ts";
 import {
 	assembleReviewPrompt,
+	MAX_PROMPT_CHANGED_PATHS,
 	renderPromptFence,
 	systemPromptFindings,
 } from "../../src/gateways/harness-prompt.ts";
@@ -65,6 +66,39 @@ describe("Claude Code harness prompt assembly", () => {
 		expect(assembled.promptText).toContain("(no changed paths reported)");
 		expect(renderPromptFence("added ``` fence", { language: "diff" })).toBe(
 			"````diff\nadded ``` fence\n````",
+		);
+	});
+
+	test("caps changed path metadata for large reviews", () => {
+		const files = Array.from({ length: MAX_PROMPT_CHANGED_PATHS + 2 }, (_, index) => {
+			const path = `src/file-${index}.ts`;
+			const rawText = `diff --git a/${path} b/${path}\n+change\n`;
+			return {
+				path,
+				oldPath: null,
+				changeKind: "modified" as const,
+				rawText,
+				isBinary: false,
+				addedLines: 1,
+				removedLines: 0,
+				hunkCount: 1,
+				byteSize: rawText.length,
+				estimatedTokens: 10,
+			};
+		});
+		const localDiff = createLocalDiff({
+			baseRef: "main",
+			diffText: files.map((file) => file.rawText).join(""),
+			files,
+		});
+
+		const assembled = assembleReviewPrompt({ reviewDefinition, target: { localDiff } });
+
+		expect(assembled.promptText).toContain(`- Changed paths: ${MAX_PROMPT_CHANGED_PATHS + 2}`);
+		expect(assembled.promptText).toContain(`- src/file-${MAX_PROMPT_CHANGED_PATHS - 1}.ts`);
+		expect(assembled.promptText).not.toContain(`- src/file-${MAX_PROMPT_CHANGED_PATHS}.ts`);
+		expect(assembled.promptText).toContain(
+			"... 2 additional changed paths omitted from prompt metadata; use repository tools if you need the full path list.",
 		);
 	});
 });
