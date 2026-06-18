@@ -364,7 +364,9 @@ describe("CCC cmux command suite", () => {
 		expect(content).toContain("slot checkout");
 		expect(content).toContain("cmux new-surface");
 		expect(content).toContain("cmux rename-tab");
-		expect(content).toContain("cmux send");
+		expect(content).toContain("cmux send -- 'cd");
+		expect(content).toContain("<slot-worktree-path>");
+		expect(content).toContain("&& pi --thinking medium");
 		expect(content).not.toContain("cmux new-workspace");
 		expect(pi.execCalls.some(isDispatchMutationCommand)).toBe(false);
 	});
@@ -375,6 +377,7 @@ describe("CCC cmux command suite", () => {
 		const planFile = await writeCmuxPlanStoreFile(planStoreRoot, repoRoot, { fileName: SAVED_PLAN_FILE_NAME, content: PLAN_CONTENT });
 		const realPlanFile = await realpath(planFile);
 		const launchCommand = `pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '${formatImplBranchContextCommand(PLAN_KEY)}'`;
+		const surfaceLaunchCommand = `cd ${WORKTREE} && ${launchCommand}`;
 		const pi = new FakePi({
 			script: [
 				gitRootStep(repoRoot),
@@ -401,7 +404,7 @@ describe("CCC cmux command suite", () => {
 					stdout: JSON.stringify({ surface_id: "surface-1", workspace_id: "workspace-1" }),
 				}),
 				step("cmux", ["rename-tab", "--workspace", "workspace-1", "--surface", "surface-1", "--title", PLAN_SLUG, "--window", "window-1"], {}),
-				step("cmux", ["send", "--workspace", "workspace-1", "--surface", "surface-1", "--window", "window-1", "--", `${launchCommand}\n`], {}),
+				step("cmux", ["send", "--workspace", "workspace-1", "--surface", "surface-1", "--window", "window-1", "--", `${surfaceLaunchCommand}\n`], {}),
 			],
 		});
 		registerCccSurfaceDispatchPlanCommand(pi, { planStoreRoot });
@@ -417,6 +420,7 @@ describe("CCC cmux command suite", () => {
 		expect(pi.sentMessages[0]?.details).toMatchObject({ status: "success" });
 		expect(notificationMessages(ctx).some((message) => message.includes("Dispatched plan in cmux surface."))).toBe(true);
 		expect(notificationMessages(ctx).join("\n")).toContain("Surface: surface-1");
+		expect(notificationMessages(ctx).join("\n")).toContain(`Command: ${surfaceLaunchCommand}`);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(pi.setModels).toEqual([]);
 		expect(pi.thinkingLevels).toEqual([]);
