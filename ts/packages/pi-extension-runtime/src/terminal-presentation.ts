@@ -1,5 +1,7 @@
 import { isRecord } from "./cmux/primitives.ts";
 
+export { stripTerminalEscapes } from "@asdl/core/terminal-escapes";
+
 export interface CustomMessageTextPart {
 	type: string;
 	text?: string;
@@ -13,12 +15,6 @@ export interface PrLink {
 
 export interface PrLinksDetails {
 	prLinks: PrLink[];
-}
-
-const TERMINAL_ESCAPE_PATTERN = /\x1B(?:\](?:[^\x07\x1B]|\x1B(?!\\))*?(?:\x07|\x1B\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-
-export function stripTerminalEscapes(text: string): string {
-	return text.replace(TERMINAL_ESCAPE_PATTERN, "");
 }
 
 export function sanitizeTerminalHyperlinkUrl(url: string): string | undefined {

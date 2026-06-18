@@ -4,6 +4,7 @@ import { resolveIo } from "../src/io.ts";
 
 afterEach(() => {
 	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
 });
 
 describe("resolveIo", () => {
@@ -48,5 +49,24 @@ describe("resolveIo", () => {
 		io.stderr("err text");
 		expect(stdoutSpy).toHaveBeenCalledWith("out text");
 		expect(stderrSpy).toHaveBeenCalledWith("err text");
+	});
+
+	test("a custom stdout sink disables ANSI output by default (redirected output)", () => {
+		expect(resolveIo({ stdout: () => {} }).canEmitAnsi).toBe(false);
+	});
+
+	test("an explicit ANSI override wins over sink detection", () => {
+		expect(resolveIo({ stdout: () => {}, canEmitAnsi: true }).canEmitAnsi).toBe(true);
+	});
+
+	test("NO_COLOR disables ANSI output even on a TTY", () => {
+		vi.stubEnv("NO_COLOR", "1");
+		const original = process.stdout.isTTY;
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		try {
+			expect(resolveIo().canEmitAnsi).toBe(false);
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", { value: original, configurable: true });
+		}
 	});
 });

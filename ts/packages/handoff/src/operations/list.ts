@@ -1,4 +1,5 @@
-import { failure, ok } from "@asdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@asdl/clinkr";
+import { renderTextTable } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -48,12 +49,26 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	} satisfies ListResult);
 }
 
-export function renderList(result: ListResult): string {
+export function renderList(result: ListResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.handoffs.length === 0) return emptyMessage(result);
 	if (result.scope === "all-branches") {
-		return [allBranchesTitle(result), "", "Branch | State | Handoff | Updated", ...result.handoffs.map((handoff) => `${handoff.branch} | ${handoff.branch_state} | ${handoff.slug} | ${handoff.updated_at}`)].join("\n");
+		const table = renderTextTable({
+			columns: [{ header: "BRANCH", style: "bold-cyan" }, { header: "STATE" }, { header: "HANDOFF" }, { header: "UPDATED", style: "dim" }],
+			rows: result.handoffs.map((handoff) => [handoff.branch, handoff.branch_state, handoff.slug, handoff.updated_at]),
+			canEmitAnsi: caps.canEmitAnsi,
+			shouldDrawRule: true,
+			headerStyle: "bold-cyan",
+		});
+		return [allBranchesTitle(result), "", table].join("\n");
 	}
-	return [`Handoffs on ${result.branch}`, "", "Handoff | Updated", ...result.handoffs.map((handoff) => `${handoff.slug} | ${handoff.updated_at}`)].join("\n");
+	const table = renderTextTable({
+		columns: [{ header: "HANDOFF", style: "bold-cyan" }, { header: "UPDATED", style: "dim" }],
+		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updated_at]),
+		canEmitAnsi: caps.canEmitAnsi,
+		shouldDrawRule: true,
+		headerStyle: "bold-cyan",
+	});
+	return [`Handoffs on ${result.branch}`, "", table].join("\n");
 }
 
 export function renderListMarkdown(result: ListResult): string {

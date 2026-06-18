@@ -3,6 +3,12 @@ import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
 
+/** Capabilities of the output sink, passed to human/markdown renderers. */
+export interface RenderCapabilities {
+	/** Whether the renderer may emit ANSI styling. */
+	canEmitAnsi: boolean;
+}
+
 export type LegacyMachineSerialization = "indent2" | "compact";
 
 export interface LegacyMachineOutput {
@@ -14,8 +20,8 @@ export interface LegacyMachineOutput {
 export interface EmitExitOptions<T> {
 	format: ClinkrFormat;
 	io: ClinkrIo;
-	renderHuman?: ((data: T) => string) | undefined;
-	renderMarkdown?: ((data: T) => string) | undefined;
+	renderHuman?: ((data: T, caps: RenderCapabilities) => string) | undefined;
+	renderMarkdown?: ((data: T, caps: RenderCapabilities) => string) | undefined;
 	legacyMachine?: ((exit: ClinkrExit<T>) => LegacyMachineOutput) | undefined;
 	shellExitCode?: boolean | undefined;
 }
@@ -56,8 +62,9 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 }
 
 function renderOkData<T>(data: T, options: EmitExitOptions<T>): string {
+	const caps: RenderCapabilities = { canEmitAnsi: options.io.canEmitAnsi === true };
 	if (options.format === "markdown" && options.renderMarkdown !== undefined) {
-		return options.renderMarkdown(data);
+		return options.renderMarkdown(data, caps);
 	}
-	return options.renderHuman === undefined ? envelopeJsonText(data) : options.renderHuman(data);
+	return options.renderHuman === undefined ? envelopeJsonText(data) : options.renderHuman(data, caps);
 }

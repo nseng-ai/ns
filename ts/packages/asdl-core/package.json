@@ -8,6 +8,8 @@
     "./result": "./src/result.ts",
     "./markdown-frontmatter": "./src/markdown-frontmatter.ts",
     "./managed-region": "./src/managed-region.ts",
+    "./text-table": "./src/text-table.ts",
+    "./terminal-escapes": "./src/terminal-escapes.ts",
     "./text-truncation": "./src/text-truncation.ts",
     "./time-format": "./src/time-format.ts",
     "./cli-entry": "./src/cli-entry.ts",
