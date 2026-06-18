@@ -20,7 +20,8 @@ interface ExecCall {
 interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: Partial<ExecResult> | undefined;
+	result: Partial<ExecResult> | Promise<Partial<ExecResult>> | undefined;
+	onCall?: (() => void) | undefined;
 }
 
 class OrderlessFakePi {
@@ -42,7 +43,9 @@ class OrderlessFakePi {
 		}
 
 		const [expected] = this.script.splice(index, 1);
-		return execResult(expected?.result);
+		const result = execResult(await expected?.result);
+		expected?.onCall?.();
+		return result;
 	}
 
 	assertDone(): void {
@@ -105,8 +108,22 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	};
 }
 
-function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
+function step(command: string, args: string[], result?: Partial<ExecResult> | Promise<Partial<ExecResult>>): ScriptedExec {
 	return { command, args, result };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
+	let resolvePromise: ((value: T) => void) | undefined;
+	const promise = new Promise<T>((resolve) => {
+		resolvePromise = resolve;
+	});
+	return {
+		promise,
+		resolve(value) {
+			if (resolvePromise === undefined) throw new Error("deferred promise was not initialized");
+			resolvePromise(value);
+		},
+	};
 }
 
 function revListStep(base: string, count: number): ScriptedExec {
@@ -130,8 +147,7 @@ function ghNoPrStep(): ScriptedExec {
 }
 
 async function flushPromises(): Promise<void> {
-	await Promise.resolve();
-	await Promise.resolve();
+	for (let index = 0; index < 10; index++) await Promise.resolve();
 }
 
 const TEST_THEME: StatusTheme = {
@@ -231,6 +247,45 @@ describe("worktree status extension registration", () => {
 				"[brmem] (handoff: document-local-github-pull-guidance.md, routing-docs-close-objective.md) (session-artifacts: handoffs)\n[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
 			);
 			await pi.sessionShutdown?.();
+		});
+	});
+
+	test("paints local status before slow gh status resolves", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const ghResult = deferred<Partial<ExecResult>>();
+			const localDirtyChecked = deferred<void>();
+			const pi = new LifecycleFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				step("gh", ["pr", "view", "--json", "number,url,statusCheckRollup"], ghResult.promise),
+				revListStep("main", 1),
+				{ ...dirtyStep(), onCall: () => localDirtyChecked.resolve() },
+			]);
+			const statuses = new Map<string, string | undefined>();
+			const ctx: ExtensionContext = {
+				cwd: root,
+				hasUI: true,
+				ui: {
+					theme: TEST_THEME,
+					setStatus(key, value) {
+						statuses.set(key, value);
+					},
+					setWidget() {},
+				},
+			};
+
+			worktreeStatusExtension(pi as ExtensionAPI);
+			const sessionStart = pi.sessionStart?.({}, ctx);
+			await localDirtyChecked.promise;
+			await flushPromises();
+
+			const earlyStatus = stripTerminalEscapes(statuses.get("worktree-status") ?? "");
+
+			ghResult.resolve({ code: 1, stderr: "no pull request found" });
+			await sessionStart;
+			pi.assertDone();
+			await pi.sessionShutdown?.();
+
+			expect(earlyStatus).toBe("[gt] ↓ main · ↑ - · 1 commit");
 		});
 	});
 

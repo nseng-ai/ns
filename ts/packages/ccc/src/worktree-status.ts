@@ -97,7 +97,11 @@ export interface GhStatus {
 	checks: GithubCheckTally;
 }
 
-export type WorktreeGhStatus = GhStatus | { type: "no-pr" } | { type: "unavailable"; message?: string | undefined };
+export type WorktreeGhStatus =
+	| GhStatus
+	| { type: "pending" }
+	| { type: "no-pr" }
+	| { type: "unavailable"; message?: string | undefined };
 
 export interface LocalWorktreeStatus {
 	brmem: string | undefined;
@@ -515,7 +519,9 @@ export function formatWorktreeStatusForFooter(status: WorktreeStatus, theme?: St
 }
 
 function formatWorktreeStatusForFooterTail(status: WorktreeStatus, theme?: StatusTheme): string[] {
-	const lines = [formatGhStatus(status.gh, theme)];
+	const lines: string[] = [];
+	const ghLine = formatGhStatusLine(status.gh, theme);
+	if (ghLine !== undefined) lines.push(ghLine);
 	if (status.gtMetadataDiagnostic !== undefined) {
 		lines.push(formatStatusSegment(formatGraphiteMetadataDiagnostic(status.gtMetadataDiagnostic), theme));
 	}
@@ -561,6 +567,11 @@ function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
 }
 
 export function formatGhStatus(status: WorktreeGhStatus, theme?: StatusTheme): string {
+	return formatGhStatusLine(status, theme) ?? formatColoredSegment("[gh] checking…", "dim", theme);
+}
+
+function formatGhStatusLine(status: WorktreeGhStatus, theme?: StatusTheme): string | undefined {
+	if (status.type === "pending") return undefined;
 	if (status.type === "no-pr") return formatColoredSegment("[gh] no PR", "dim", theme);
 	if (status.type === "unavailable") {
 		const detail = status.message === undefined ? "" : formatColoredSegment(`: ${status.message}`, "dim", theme);

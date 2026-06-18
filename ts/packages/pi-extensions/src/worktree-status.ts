@@ -236,8 +236,8 @@ export default function worktreeStatusExtension(pi: ExtensionAPI) {
 	}
 
 	function combinedSessionStatus(session: ActiveSession): WorktreeStatus | undefined {
-		if (session.localStatus === undefined || session.ghStatus === undefined) return undefined;
-		return combineWorktreeStatus(session.localStatus, session.ghStatus);
+		if (session.localStatus === undefined) return undefined;
+		return combineWorktreeStatus(session.localStatus, session.ghStatus ?? { type: "pending" });
 	}
 
 	function renderSessionStatus(session: ActiveSession): void {
