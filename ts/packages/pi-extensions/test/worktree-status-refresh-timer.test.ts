@@ -15,6 +15,7 @@ import {
 	headOidStep,
 	LifecycleFakePi,
 	revListStep,
+	step,
 	type ScriptedExec,
 	TEST_THEME,
 } from "./worktree-status-test-support.ts";
@@ -34,7 +35,10 @@ function localRefreshSteps(options: {
 	return [
 		brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 		revListStep(options.base ?? "main", options.count ?? 1),
-		{ ...dirtyStep(options.dirtyStdout ?? ""), onCall: options.dirtyChecked },
+		{
+			...dirtyStep(options.dirtyStdout ?? ""),
+			...(options.dirtyChecked === undefined ? {} : { onCall: options.dirtyChecked }),
+		},
 		headOidStep(options.oid ?? "abc123"),
 	];
 }
@@ -93,7 +97,7 @@ describe("worktree status refresh timer", () => {
 					...basicGitStatusScript(),
 					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
 					revListStep("main", 1),
-					dirtyStep(firstDirtyResult.promise),
+					step("git", ["status", "--porcelain=v1"], firstDirtyResult.promise),
 					headOidStep(),
 					...localRefreshSteps({ dirtyChecked: () => secondDirtyChecked.resolve() }),
 				]);
