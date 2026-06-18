@@ -44,6 +44,7 @@ Validation run for this update:
 - `pnpm --dir ts run check`: pass.
 - `pnpm --dir ts run test`: pass, 259 files / 2638 tests.
 - `uv lock --check`: pass.
+- Interactive zsh Tab-completion manually verified: in a throwaway `zsh -f -i` with `compinit` and `eval "$(slot completion show --shell zsh)"`, `slot <TAB>` listed the 13 top-level commands with descriptions and prefix completion (e.g. `slot c<TAB>`) narrowed correctly. (Completion covers top-level commands only, not flags or `gt` subcommands.)
 - Initial `just python-check`: failed because root active surfaces still reached dormant `packages/asdl-slots` tests/import sorting and root plugin tests still imported `asdl_slots`; this was treated as cutover drift, not ignored.
 - `just fix`: pass after removing active root `asdl_slots` plugin tests and excluding the dormant package from Ruff.
 - `just python-check`: pass.
