@@ -48,6 +48,8 @@ export async function decidePrBodyOverwrite(params: {
 	const patchId = await params.githubPr.stablePatchIdForPr({
 		cwd: params.cwd,
 		number: params.pr.number,
+		baseRefName: params.pr.baseRefName,
+		headRefName: params.pr.headRefName,
 	});
 	if (!patchId.ok) {
 		return { kind: "failed", error: patchId.error.message };

@@ -12,6 +12,7 @@ import {
 	formatManagedGeneratedRegion,
 	GENERATED_BODY_MARKER,
 	hashPrDescriptionPrompt,
+	MAX_DIFF_CHARS,
 	hasGeneratedMarker,
 	isCommitMessagePrefillBody,
 	parseManagedGeneratedRegion,
@@ -184,6 +185,13 @@ describe("PR description helpers", () => {
 
 		expect(truncated).toContain("[... TRUNCATED 60 chars ...]");
 		expect(truncated.length).toBeLessThanOrEqual(100);
+	});
+
+	test("keeps default PR description diff prompt below small-model context limits", () => {
+		const truncated = truncateDiff(`${"a".repeat(MAX_DIFF_CHARS)}overflow`);
+
+		expect(truncated).toContain("[... TRUNCATED 8 chars ...]");
+		expect(truncated.length).toBeLessThanOrEqual(MAX_DIFF_CHARS);
 	});
 
 	test("builds context, commit headlines, and diff into the user prompt", () => {

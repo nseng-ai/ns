@@ -54,6 +54,8 @@ export interface GithubPrGateway {
 	stablePatchIdForPr(params: {
 		cwd: string;
 		number: number;
+		baseRefName?: string | undefined;
+		headRefName?: string | undefined;
 	}): Promise<GatewayResult<StablePatchIdForPrResult>>;
 	editPr(params: {
 		cwd: string;
@@ -151,6 +153,8 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	async stablePatchIdForPr(params: {
 		cwd: string;
 		number: number;
+		baseRefName?: string | undefined;
+		headRefName?: string | undefined;
 	}): Promise<GatewayResult<StablePatchIdForPrResult>> {
 		const diff = await this.getPrDiff(params);
 		if (!diff.ok) return diff;
