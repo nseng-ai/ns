@@ -1,6 +1,6 @@
 # sdlcc
 
-` sdlcc` opens a dashboard-first full-screen OpenTUI app shell.
+`sdlcc` opens a dashboard-first full-screen OpenTUI app shell.
 
 ## Launch
 
