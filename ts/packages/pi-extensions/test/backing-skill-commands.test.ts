@@ -65,6 +65,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).not.toContain("objective:create");
 		expect(surfaces).not.toContain("objective:current");
+		expect(surfaces).not.toContain("code:gt-restack-resolve");
 		for (const surface of surfaces) {
 			expect(SPECIALIZED_PI_COMMAND_SURFACES.has(surface)).toBe(false);
 		}
