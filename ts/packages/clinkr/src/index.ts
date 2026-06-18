@@ -1,3 +1,5 @@
+export { confirmFromStdin } from "./confirmation.ts";
+export type { ConfirmationAnswer, ConfirmationDefault, ConfirmationResult } from "./confirmation.ts";
 export { ClinkrGroup } from "./group.ts";
 export type {
 	ClinkrCommandSpec,

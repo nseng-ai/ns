@@ -1,17 +1,23 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
+import { readStdin } from "@asdl/core/stdin";
+
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotGitGateway, type SlotGitGateway } from "./gateways/git.ts";
+import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import { discoverRepoOrSentinel, type RepoContext, type RepoDiscoveryResult } from "./repo-context.ts";
 
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
 	git: SlotGitGateway;
+	pr: SlotPrGateway;
 	storage: SlotStorageGateway;
 	clipboard: ClipboardGateway;
 	cwd: string;
+	stdin: () => Promise<string>;
+	stderr: (text: string) => void;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
 	shouldWriteCdDirective: boolean;
@@ -27,9 +33,12 @@ export async function createRealSlotContext(options: { cwd: string; env?: NodeJS
 	return {
 		repo,
 		git,
+		pr: new RealSlotPrGateway({ cwd: options.cwd, env }),
 		storage: new RealSlotStorageGateway(),
 		clipboard: new RealClipboardGateway({ env }),
 		cwd: options.cwd,
+		stdin: readStdin,
+		stderr: (text) => process.stderr.write(text),
 		env,
 		slotsRoot,
 		shouldWriteCdDirective: true,

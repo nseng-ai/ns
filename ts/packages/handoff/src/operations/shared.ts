@@ -35,20 +35,3 @@ export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFai
 	return failure(error.code, `${prefix}: ${error.message}`);
 }
 
-export async function confirmFromStdin(options: {
-	stdin: () => Promise<string>;
-	stderr: (text: string) => void;
-	prompt: string;
-}): Promise<"yes" | "no" | ClinkrExit<never>> {
-	options.stderr(options.prompt);
-	const input = await options.stdin();
-	const lines = input.split(/\r?\n/);
-	for (const rawLine of lines) {
-		const value = rawLine.trim().toLowerCase();
-		if (value === "y" || value === "yes") return "yes";
-		if (value === "" || value === "n" || value === "no") return "no";
-		options.stderr("Error: invalid input\n");
-		options.stderr(options.prompt);
-	}
-	return failure("aborted", "Aborted!");
-}
