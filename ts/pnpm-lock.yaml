@@ -361,6 +361,18 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/vibechk:
+    dependencies:
+      '@asdl/clinkr':
+        specifier: workspace:*
+        version: link:../clinkr
+      '@asdl/core':
+        specifier: workspace:*
+        version: link:../asdl-core
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
 packages:
 
   '@anthropic-ai/sdk@0.91.1':

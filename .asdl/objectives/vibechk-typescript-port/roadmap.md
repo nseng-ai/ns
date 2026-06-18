@@ -2,16 +2,16 @@
 
 ## Work
 
-- [ ] Inventory and lock the implemented Python contract.
+- [x] Inventory and lock the implemented Python contract.
   - Policy: direct execution after preview; this is the first slice and should not create TypeScript implementation before contract decisions are recorded in tests or notes.
   - Read `.asdl/objectives/vibechk-v1/`, `packages/vibechk/README.md`, `packages/vibechk/MANUAL_E2E.md`, Python source/tests, root workspace wiring, and command examples.
   - Confirm the durable contract seed in `objective.md`: command semantics, store layout, bundle schema v1, report content, git safety, `claude` runner behavior, and accepted Click/Clinkr surface divergences.
-  - Evidence: a short Semantic Update or implementation notes in the first branch explaining preserved contracts and deliberate divergences.
-- [ ] Create `@asdl/vibechk` with read-only CLI, store, models, and reports.
+  - Evidence: the first TypeScript branch codifies schema-version-1 bundle reading, local store precedence, `runs`/`show`/`diff` report behavior, prefix resolution, missing-artifact handling, and the accepted Clinkr collision workaround that preserves `vibechk runs --format table|json` at the invocation boundary while keeping the implementation field named `output_format`.
+- [x] Create `@asdl/vibechk` with read-only CLI, store, models, and reports.
   - Policy: direct execution after preview.
   - Add `ts/packages/vibechk` package wiring, `vibechk` bin, `src/cli.ts`, package-local models/schemas, store loading, report rendering, and tests for `runs`, `show`, and `diff` over fixture bundles.
   - Preserve schema-version-1 bundle reading, snake_case bundle JSON keys, unique-prefix resolution, missing-store behavior, sorted `runs` output, `null` metrics, plan mismatch warning, and Markdown report structure.
-  - Evidence: targeted `@asdl/vibechk` unit/scenario tests pass for read-only commands; package participates in `pnpm --dir ts run check`.
+  - Evidence: targeted `@asdl/vibechk` unit/scenario tests passed; `pnpm --dir ts run check`, `pnpm --dir ts run test`, `just ts-guard`, and `just dprint-check` passed after the read-only package shell was added.
 - [ ] Port `run`, `claude`, fake runner, and git/result-branch behavior.
   - Policy: direct execution after preview, but stop and ask before changing safety semantics or dropping Python parity for bundle writing.
   - Add workflow execution, run-id allocation, injected clock/id generator, runner registry/default `claude`, transcript streaming, bundle writing, diff capture, result branch creation, switch-back behavior, and failure-bundle persistence.
