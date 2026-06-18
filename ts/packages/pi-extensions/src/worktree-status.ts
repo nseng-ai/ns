@@ -22,6 +22,7 @@ import {
 import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphite-metadata";
 
 import { definePiSurfaceParity } from "./parity.ts";
+import { unrefTimer } from "./timers.ts";
 import { renderStatusFooter } from "./worktree-status-footer-format.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
@@ -31,6 +32,7 @@ const GIT_STATUS_WATCH_DEBOUNCE_MS = 100;
 // rate to one per (refresh duration + cooldown) even if a refresh ever re-trips a watched
 // path, so a feedback loop can never storm the host event loop.
 const GIT_STATUS_WATCH_COOLDOWN_MS = 250;
+const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -209,12 +211,19 @@ interface ActiveSession {
 	watcher?: WorktreeStatusWatcher | undefined;
 }
 
+interface RefreshOptions {
+	readonly forceRemote?: boolean;
+}
+
 interface RefreshChannel {
-	run(session: ActiveSession): Promise<void>;
+	run(session: ActiveSession, options?: RefreshOptions): Promise<void>;
 	clearSession(session: ActiveSession): void;
 }
 
-export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: WorktreeStatusExtensionDependencies = {}) {
+export default function worktreeStatusExtension(
+	pi: ExtensionAPI,
+	dependencies: WorktreeStatusExtensionDependencies = {},
+) {
 	pi.registerMessageRenderer?.(WORKTREE_STATUS_UI_KEY, renderWorktreeStatusMessage);
 
 	let nextSessionId = 0;
@@ -312,11 +321,16 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 	async function refreshRemoteNowWithIdentity(
 		session: ActiveSession,
 		identity?: WorktreeStatusIdentity,
+		options: RefreshOptions = {},
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const fetchIdentity = identity ?? session.localStatus?.identity;
 		if (fetchIdentity === undefined) return;
+		if (shouldUseCachedGhStatus(session, fetchIdentity, options)) {
+			renderSessionStatus(session);
+			return;
+		}
 		const status = await loadWorktreeGhStatus(pi, session.cwd, {
 			identity: fetchIdentity,
 			signal: session.abortController.signal,
@@ -335,33 +349,52 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 		renderSessionStatus(session);
 	}
 
-	function makeRefreshChannel(work: (session: ActiveSession) => Promise<void>): RefreshChannel {
+	function shouldUseCachedGhStatus(
+		session: ActiveSession,
+		identity: WorktreeStatusIdentity,
+		options: RefreshOptions,
+	): boolean {
+		if (options.forceRemote === true) return false;
+		const snapshot = session.ghStatusSnapshot;
+		if (snapshot === undefined) return false;
+		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return false;
+		return Date.now() - snapshot.fetchedAtMs < GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS;
+	}
+
+	function makeRefreshChannel(
+		work: (session: ActiveSession, options: RefreshOptions) => Promise<void>,
+	): RefreshChannel {
 		let inFlightSession: ActiveSession | undefined;
 		let inFlight: Promise<void> | undefined;
 		let pendingSession: ActiveSession | undefined;
+		let pendingOptions: RefreshOptions | undefined;
 
-		function run(session: ActiveSession): Promise<void> {
+		function run(session: ActiveSession, options: RefreshOptions = {}): Promise<void> {
 			if (!isActiveSession(session)) return Promise.resolve();
 			if (inFlightSession !== undefined) {
 				pendingSession = session;
+				pendingOptions = combineRefreshOptions(pendingOptions, options);
 				return inFlight ?? Promise.resolve();
 			}
 
 			inFlightSession = session;
-			inFlight = drain(session);
+			inFlight = drain(session, options);
 			return inFlight;
 		}
 
-		async function drain(session: ActiveSession): Promise<void> {
+		async function drain(session: ActiveSession, options: RefreshOptions): Promise<void> {
+			let nextOptions = options;
 			try {
 				for (;;) {
 					pendingSession = undefined;
+					pendingOptions = undefined;
 					try {
-						await work(session);
+						await work(session, nextOptions);
 					} catch {
 						// Background status refresh must never crash pi.
 					}
 					if (pendingSession !== session || !isActiveSession(session)) return;
+					nextOptions = pendingOptions ?? {};
 				}
 			} finally {
 				if (inFlightSession === session) inFlightSession = undefined;
@@ -374,12 +407,25 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 			run,
 			clearSession(session) {
 				if (inFlightSession === session) inFlightSession = undefined;
-				if (pendingSession === session) pendingSession = undefined;
+				if (pendingSession === session) {
+					pendingSession = undefined;
+					pendingOptions = undefined;
+				}
 			},
 		};
 	}
 
-	async function refreshAllImmediately(session: ActiveSession): Promise<void> {
+	function combineRefreshOptions(
+		left: RefreshOptions | undefined,
+		right: RefreshOptions,
+	): RefreshOptions {
+		return left?.forceRemote === true || right.forceRemote === true ? { forceRemote: true } : {};
+	}
+
+	async function refreshAllImmediately(
+		session: ActiveSession,
+		options: RefreshOptions,
+	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
 		const identity = await loadWorktreeStatusIdentity(
@@ -390,7 +436,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 		if (!isActiveSession(session)) return;
 		await Promise.all([
 			refreshLocalNowWithIdentity(session, identity),
-			refreshRemoteNowWithIdentity(session, identity),
+			refreshRemoteNowWithIdentity(session, identity, options),
 		]);
 		if (!isActiveSession(session)) return;
 
@@ -400,7 +446,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 			localIdentity !== undefined &&
 			(remoteIdentity === undefined || !sameWorktreeStatusIdentity(localIdentity, remoteIdentity))
 		) {
-			await refreshRemoteNowWithIdentity(session, localIdentity);
+			await refreshRemoteNowWithIdentity(session, localIdentity, options);
 		}
 	}
 
@@ -451,7 +497,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 		handler: async (_args, _ctx) => {
 			const session = activeSession;
 			if (session === undefined) return;
-			await fullRefreshChannel.run(session);
+			await fullRefreshChannel.run(session, { forceRemote: true });
 		},
 	});
 
@@ -464,7 +510,7 @@ export default function worktreeStatusExtension(pi: ExtensionAPI, dependencies: 
 			clearTimeout: dependencies.clearTimeout ?? clearTimeout,
 			onChange: () => fullRefreshChannel.run(session),
 		});
-		await fullRefreshChannel.run(session);
+		await fullRefreshChannel.run(session, { forceRemote: true });
 	});
 
 	pi.on("session_shutdown", async () => {
@@ -499,15 +545,18 @@ interface StartGitStatusWatcherOptions {
 	onChange(): Promise<void>;
 }
 
-function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWatcherOptions): WorktreeStatusWatcher | undefined {
+function startGitStatusWatcher(
+	session: ActiveSession,
+	options: StartGitStatusWatcherOptions,
+): WorktreeStatusWatcher | undefined {
 	const paths = watchedGitStatusPaths(session.cwd);
 	if (paths.length === 0) return undefined;
 
 	const handles: WatchHandle[] = [];
 	let pending: ReturnType<typeof setTimeout> | undefined;
 	let cooldown: ReturnType<typeof setTimeout> | undefined;
-	let running = false;
-	let rerunRequested = false;
+	let isRunning = false;
+	let shouldRerun = false;
 	let isClosed = false;
 
 	// Watch events that arrive while a refresh is in flight, or during the cooldown that
@@ -517,19 +566,19 @@ function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWa
 	function flush(): void {
 		pending = undefined;
 		if (isClosed || !isActiveSessionForWatcher(session)) return;
-		if (running || cooldown !== undefined) {
-			rerunRequested = true;
+		if (isRunning || cooldown !== undefined) {
+			shouldRerun = true;
 			return;
 		}
 		void runRefresh();
 	}
 
 	async function runRefresh(): Promise<void> {
-		running = true;
+		isRunning = true;
 		try {
 			await options.onChange();
 		} finally {
-			running = false;
+			isRunning = false;
 			if (!isClosed) {
 				cooldown = options.setTimeout(endCooldown, GIT_STATUS_WATCH_COOLDOWN_MS);
 				unrefTimer(cooldown);
@@ -540,8 +589,8 @@ function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWa
 	function endCooldown(): void {
 		cooldown = undefined;
 		if (isClosed || !isActiveSessionForWatcher(session)) return;
-		if (rerunRequested) {
-			rerunRequested = false;
+		if (shouldRerun) {
+			shouldRerun = false;
 			void runRefresh();
 		}
 	}
@@ -561,7 +610,7 @@ function startGitStatusWatcher(session: ActiveSession, options: StartGitStatusWa
 	return {
 		close() {
 			isClosed = true;
-			rerunRequested = false;
+			shouldRerun = false;
 			if (pending !== undefined) {
 				options.clearTimeout(pending);
 				pending = undefined;
@@ -586,6 +635,7 @@ function watchExistingPath(path: string, callback: () => void): WatchHandle | un
 		watcher.on("error", () => watcher.close());
 		return watcher;
 	} catch {
+		// File watching is best-effort: path races or permission failures should not block status rendering.
 		return undefined;
 	}
 }
@@ -599,10 +649,7 @@ function watchedGitStatusPaths(cwd: string): string[] {
 	const gitPaths = findGitPaths(cwd);
 	if (gitPaths === undefined) return [];
 
-	const paths = new Set<string>([
-		gitPaths.headPath,
-		join(gitPaths.commonGitDir, "packed-refs"),
-	]);
+	const paths = new Set<string>([gitPaths.headPath, join(gitPaths.commonGitDir, "packed-refs")]);
 	const currentBranch = currentBranchName(gitPaths);
 	if (currentBranch !== undefined) {
 		const refPath = join(gitPaths.commonGitDir, "refs", "heads", ...currentBranch.split("/"));
@@ -613,12 +660,6 @@ function watchedGitStatusPaths(cwd: string): string[] {
 	}
 
 	return [...paths].filter((path) => existsSync(path));
-}
-
-function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
-	if (typeof timer !== "object" || timer === null || !("unref" in timer)) return;
-	const unref = timer.unref;
-	if (typeof unref === "function") unref.call(timer);
 }
 
 function findGitPaths(cwd: string): GitPaths | undefined {

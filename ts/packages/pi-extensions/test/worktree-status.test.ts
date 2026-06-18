@@ -538,7 +538,6 @@ describe("worktree status extension registration", () => {
 				const emptyBrmem = { stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) };
 				const refreshSteps = (dirtyChecked: () => void): ScriptedExec[] => [
 					brmemListStep(emptyBrmem),
-					...ghNoPrSteps(),
 					revListStep("main", 1),
 					{ ...dirtyStep(), onCall: dirtyChecked },
 					headOidStep(),
@@ -596,6 +595,76 @@ describe("worktree status extension registration", () => {
 
 				expect(pi.errors).toEqual([]);
 				expect(brmemCount()).toBe(3);
+				pi.assertDone();
+				await pi.sessionShutdown?.();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	test("git metadata watcher limits background GitHub refreshes to every fifteen seconds", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const watched: Array<{ path: string; callback: () => void }> = [];
+				const refreshBeforeIntervalDirty = deferred<void>();
+				const refreshAfterIntervalDirty = deferred<void>();
+				const emptyBrmem = { stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) };
+				const localRefreshSteps = (dirtyChecked: () => void): ScriptedExec[] => [
+					brmemListStep(emptyBrmem),
+					revListStep("main", 1),
+					{ ...dirtyStep(), onCall: dirtyChecked },
+					headOidStep(),
+				];
+				const pi = new LifecycleFakePi([
+					// Initial startup refresh fetches GitHub immediately.
+					brmemListStep(emptyBrmem),
+					...ghNoPrSteps(),
+					...basicGitStatusScript(),
+					// Watcher refresh before the throttle interval refreshes local status only.
+					...localRefreshSteps(() => refreshBeforeIntervalDirty.resolve()),
+					// Watcher refresh after the throttle interval may fetch GitHub again.
+					brmemListStep(emptyBrmem),
+					...ghNoPrSteps(),
+					revListStep("main", 1),
+					{ ...dirtyStep(), onCall: () => refreshAfterIntervalDirty.resolve() },
+					headOidStep(),
+				]);
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					ui: {
+						theme: TEST_THEME,
+						setStatus() {},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI, {
+					watchPath(path, callback) {
+						watched.push({ path, callback });
+						return { close() {} };
+					},
+				});
+				await pi.sessionStart?.({}, ctx);
+				const ghCount = (): number => pi.calls.filter((call) => call.command === "gh").length;
+				expect(ghCount()).toBe(1);
+
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100);
+				await refreshBeforeIntervalDirty.promise;
+				await flushPromises();
+				expect(ghCount()).toBe(1);
+
+				await vi.advanceTimersByTimeAsync(250);
+				await vi.advanceTimersByTimeAsync(15_000);
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100);
+				await refreshAfterIntervalDirty.promise;
+				await flushPromises();
+				expect(ghCount()).toBe(2);
+
 				pi.assertDone();
 				await pi.sessionShutdown?.();
 			} finally {
