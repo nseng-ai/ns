@@ -36,7 +36,8 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await accepted.exit).toBe(0);
-		expect(accepted.stderr.join("")).toContain("[Y/n]");
+		expect(accepted.stderr.join("")).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
+		expect(accepted.stderr.join("")).toContain("Free 1 slot(s)? [Y/n]");
 		expect(accepted.git.operations()).toEqual([{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" }]);
 
 		const declined = runScenario(["gc"], {
@@ -45,7 +46,21 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await declined.exit).toBe(0);
-		expect(declined.stdout.join("")).toContain("Cancelled slot gc.");
+		expect(declined.stdout.join("")).toContain("Cancelled — no slots freed.");
+		expect(declined.git.operations()).toEqual([]);
+	});
+
+	it("human --delete-branches prompt previews branch cleanup before confirmation", async () => {
+		const declined = runScenario(["gc", "--delete-branches"], {
+			stdin: "no\n",
+			git: { worktrees: [slotWorktree("slot-01", "feature/closed")], localBranches: ["master", "feature/closed"] },
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await declined.exit).toBe(0);
+		expect(declined.stderr.join("")).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
+		expect(declined.stderr.join("")).toContain("local branch: force-delete feature/closed");
+		expect(declined.stderr.join("")).toContain("Free 1 slot(s) and delete local branches? [Y/n]");
+		expect(declined.stdout.join("")).toContain("Cancelled — no slots freed.");
 		expect(declined.git.operations()).toEqual([]);
 	});
 

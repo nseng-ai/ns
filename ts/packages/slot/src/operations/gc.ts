@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { outcomeFromGcPlan, planGc, planGcCleanup, executeGcPlan, type SlotGcOutcome } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
-import { renderCleanupLines } from "./cleanup-rendering.ts";
+import { cleanupPreviewLine, cleanupResultLine } from "./cleanup-rendering.ts";
 import { cleanupSchema } from "./result-schemas.ts";
 const gcEntrySchema = z.object({
 	slot_name: z.string(),
@@ -52,9 +52,11 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (plan.outcome.would_free_count === 0) return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false })));
 	if (!request.force) {
 		if (!ctx.shouldWriteCdDirective) return failure("confirmation_required", "Destructive gc requires --force in JSON mode (or use --dry-run first).");
-		const accepted = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: `Free ${plan.outcome.would_free_count} completed slot(s)? [Y/n]: `, defaultAnswer: "yes" });
+		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
+		repoCtx.stderr(`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })))}\n`);
+		const accepted = await confirmFromStdin({ stdin: repoCtx.stdin, stderr: repoCtx.stderr, prompt: confirmationPrompt(plan.outcome.would_free_count, { shouldDeleteBranches: request.delete_branches }), defaultAnswer: "yes" });
 		if (typeof accepted !== "string") return accepted;
-		if (accepted === "no") return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false }), { isCancelled: true }));
+		if (accepted === "no") return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false, cleanup }), { isCancelled: true }));
 	}
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
@@ -63,21 +65,41 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 }
 
 export function renderGc(result: GcResult): string {
-	if (result.cancelled === true) return "Cancelled slot gc.";
-	const lines = result.entries.map((entry) => {
-		const pr = entry.pr_number === null ? "" : ` PR #${entry.pr_number}`;
-		const message = entry.message === null ? "" : ` (${entry.message})`;
-		return `${entry.slot_name} -> ${entry.branch_name}: ${entry.action}${pr}${message}`;
-	});
-	lines.push(...renderCleanupLines(result.entries.flatMap((entry) => entry.cleanup)));
-	if (lines.length === 0) return "No assigned slots to garbage collect.";
+	if (result.cancelled === true) return "Cancelled — no slots freed.";
+	if (result.entries.length === 0) return "No assignments to sweep.";
+	const lines: string[] = [];
+	for (const entry of result.entries) {
+		const pr = entry.pr_number === null ? "" : ` PR #${entry.pr_number} ${entry.pr_state}`;
+		lines.push(`${actionLabel(entry.action)} ${entry.slot_name} (${entry.branch_name})${pr}`);
+		if (entry.message !== null) lines.push(`    ${entry.message}`);
+		for (const cleanup of entry.cleanup) lines.push(`    ${result.dry_run ? cleanupPreviewLine(cleanup) : cleanupResultLine(cleanup)}`);
+	}
+	const verb = result.dry_run ? "Would free" : "Freed";
+	let summary = `\n${verb} ${result.freed_count}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
+	if (result.cleanup_error_count > 0) summary = `${summary}; cleanup errors ${result.cleanup_error_count}`;
+	lines.push(summary);
 	return lines.join("\n");
+}
+
+function actionLabel(action: GcResult["entries"][number]["action"]): string {
+	if (action === "freed") return "✓ freed";
+	if (action === "would_free") return "→ would free";
+	if (action === "kept_open_pr") return "• kept (open PR)";
+	if (action === "kept_no_pr") return "• kept (no PR)";
+	if (action === "skipped_dirty") return "! skipped (dirty)";
+	if (action === "skipped_operation") return "! skipped (operation)";
+	return "✗ error";
+}
+
+function confirmationPrompt(count: number, options: { shouldDeleteBranches: boolean }): string {
+	if (options.shouldDeleteBranches) return `Free ${count} slot(s) and delete local branches? [Y/n]: `;
+	return `Free ${count} slot(s)? [Y/n]: `;
 }
 
 function toGcResult(outcome: SlotGcOutcome, options: { isCancelled?: boolean | undefined } = {}): GcResult {
 	return {
 		entries: outcome.entries.map((entry) => ({ ...entry, cleanup: [...entry.cleanup] })),
-		freed_count: outcome.freed_count,
+		freed_count: options.isCancelled === true ? 0 : outcome.freed_count,
 		kept_count: outcome.kept_count,
 		skipped_count: outcome.skipped_count,
 		error_count: outcome.error_count,
