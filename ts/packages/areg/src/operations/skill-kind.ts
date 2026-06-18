@@ -1,4 +1,5 @@
-import { failure, negative, ok, shellNegative, type ClinkrExit, ClinkrGroup } from "@asdl/clinkr";
+import { failure, negative, ok, shellNegative, type ClinkrExit, ClinkrGroup, type RenderCapabilities } from "@asdl/clinkr";
+import { renderTextTable, type TextTableColumn } from "@asdl/core/text-table";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -245,16 +246,28 @@ function skillKindRecordsFailure<T>(error: { code: string; message: string }, sh
 	return failure("skill_records_invalid", error.message);
 }
 
-export function renderSkillKindList(result: SkillKindListResult): string {
+export function renderSkillKindList(result: SkillKindListResult, caps: RenderCapabilities = { color: false }): string {
 	if (result.skills.length === 0) return "No local skills found.";
 	const includeNotes = result.skills.some((record) => record.notes.length > 0);
-	const header = includeNotes ? "Skill\tKind\tModel\tNative\tPi\tNotes" : "Skill\tKind\tModel\tNative\tPi";
-	const rows = result.skills.map((record) => {
-		const base = [record.skill, record.kind, record.model_invocation, record.native_direct, record.pi_extension];
-		if (includeNotes) base.push(record.notes.join("; "));
-		return base.join("\t");
+	const columns: TextTableColumn[] = [
+		{ header: "SKILL", style: "bold-cyan" },
+		{ header: "KIND" },
+		{ header: "MODEL" },
+		{ header: "NATIVE" },
+		{ header: "PI" },
+	];
+	if (includeNotes) columns.push({ header: "NOTES", style: "dim" });
+	return renderTextTable({
+		columns,
+		rows: result.skills.map((record) => {
+			const base = [record.skill, record.kind, record.model_invocation, record.native_direct, record.pi_extension];
+			if (includeNotes) base.push(record.notes.join("; "));
+			return base;
+		}),
+		color: caps.color,
+		rule: true,
+		headerStyle: "bold-cyan",
 	});
-	return [header, ...rows].join("\n");
 }
 
 export function renderSkillKindShow(result: SkillKindShowResult): string {

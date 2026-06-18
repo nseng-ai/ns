@@ -182,8 +182,10 @@ describe("put operation", () => {
 		expect(getB.stdout.join("")).toBe("b1\n");
 		const list = runScenario(["list"], { gateway });
 		expect(await list.exit).toBe(0);
-		expect(list.stdout.join("")).toContain("Entry Key plan/a.md");
-		expect(list.stdout.join("")).toContain("Entry Key plan/b.md");
+		const listOutput = list.stdout.join("");
+		expect(listOutput).toContain("ENTRY KEY");
+		expect(listOutput).toMatch(/^Base Namespace\s+plan\/a\.md\s+feat\/x$/mu);
+		expect(listOutput).toMatch(/^Base Namespace\s+plan\/b\.md\s+feat\/x$/mu);
 	});
 
 	it("enforces size, binary, and UTF-8 guardrails", async () => {
