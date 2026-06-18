@@ -23,7 +23,10 @@ import { shutdownGraphiteMetadataWorker } from "@asdl/ccc/worktree-status/graphi
 
 import { definePiSurfaceParity } from "./parity.ts";
 import { unrefTimer } from "./timers.ts";
-import { renderStatusFooter } from "./worktree-status-footer-format.ts";
+import {
+	formatWorktreeStatusDormantLine,
+	renderStatusFooter,
+} from "./worktree-status-footer-format.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
 
@@ -33,6 +36,24 @@ const GIT_STATUS_WATCH_DEBOUNCE_MS = 100;
 // path, so a feedback loop can never storm the host event loop.
 const GIT_STATUS_WATCH_COOLDOWN_MS = 250;
 const GH_STATUS_BACKGROUND_REFRESH_MIN_INTERVAL_MS = 15_000;
+const WORKTREE_STATUS_DORMANT_AFTER_MS = 120_000;
+
+const WORKTREE_STATUS_ACTIVITY_EVENTS = [
+	"input",
+	"user_bash",
+	"agent_start",
+	"agent_end",
+	"turn_start",
+	"turn_end",
+	"message_start",
+	"message_end",
+	"tool_execution_start",
+	"tool_execution_end",
+	"model_select",
+	"thinking_level_select",
+] as const;
+
+type WorktreeStatusActivityEvent = (typeof WORKTREE_STATUS_ACTIVITY_EVENTS)[number];
 
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
@@ -64,10 +85,13 @@ export interface ExtensionContext {
 		setStatus(key: string, value: string | undefined): void;
 		setWidget(key: string, value: undefined): void;
 		setFooter?(factory: StatusFooterFactory | undefined): void;
+		onTerminalInput?(handler: TerminalInputHandler): () => void;
 	};
 	sessionManager?: StatusSessionManager;
 	modelRegistry?: StatusModelRegistry;
 	model?: StatusModel;
+	isIdle?(): boolean;
+	hasPendingMessages?(): boolean;
 	getContextUsage?(): StatusContextUsage | undefined;
 }
 
@@ -141,6 +165,13 @@ interface CustomMessage {
 	details?: unknown;
 }
 
+interface TerminalInputResult {
+	consume?: boolean;
+	data?: string;
+}
+
+type TerminalInputHandler = (data: string) => TerminalInputResult | undefined;
+
 interface RenderTheme {
 	fg(color: string, text: string): string;
 }
@@ -167,6 +198,10 @@ export interface ExtensionAPI {
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
 	): void;
 	on(event: "session_shutdown", handler: () => Promise<void> | void): void;
+	on(
+		event: WorktreeStatusActivityEvent,
+		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
+	): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerCommand?(name: string, options: RegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
@@ -206,13 +241,25 @@ interface ActiveSession {
 	hasUI: boolean;
 	abortController: AbortController;
 	closed: boolean;
+	lastActivityAtMs: number;
+	isDormant: boolean;
+	activityUnsubscribe?: (() => void) | undefined;
+	dormancyTimer?: ReturnType<typeof setTimeout> | undefined;
 	localStatus?: LocalWorktreeStatus | undefined;
 	ghStatusSnapshot?: GhStatusSnapshot | undefined;
 	watcher?: WorktreeStatusWatcher | undefined;
 }
 
 interface RefreshOptions {
-	readonly forceRemote?: boolean;
+	readonly shouldForceRemote?: boolean;
+}
+
+interface RefreshRemoteOptions extends RefreshOptions {
+	readonly identity?: WorktreeStatusIdentity | undefined;
+}
+
+interface ActivityOptions {
+	readonly shouldRefreshOnWake?: boolean;
 }
 
 interface RefreshChannel {
@@ -240,6 +287,8 @@ export default function worktreeStatusExtension(
 			hasUI: ctx.hasUI,
 			abortController: new AbortController(),
 			closed: false,
+			lastActivityAtMs: Date.now(),
+			isDormant: false,
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
@@ -252,6 +301,10 @@ export default function worktreeStatusExtension(
 			session.closed = true;
 			session.abortController.abort();
 			session.watcher?.close();
+			session.watcher = undefined;
+			session.activityUnsubscribe?.();
+			session.activityUnsubscribe = undefined;
+			clearDormancyTimer(session);
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
 		}
@@ -279,13 +332,19 @@ export default function worktreeStatusExtension(
 	}
 
 	function renderSessionStatus(session: ActiveSession): void {
-		const status = combinedSessionStatus(session);
-		if (status === undefined) return;
+		const lines = formatSessionStatusLines(session);
+		if (lines.length === 0) return;
 
-		const lines = formatWorktreeStatus(status, session.ctx.ui.theme);
 		const linesKey = JSON.stringify(lines);
 		if (linesKey === lastLinesKey) return;
 		if (renderSessionLines(session, lines)) lastLinesKey = linesKey;
+	}
+
+	function formatSessionStatusLines(session: ActiveSession): string[] {
+		const status = combinedSessionStatus(session);
+		const lines = status === undefined ? [] : formatWorktreeStatus(status, session.ctx.ui.theme);
+		if (session.isDormant) lines.push(formatWorktreeStatusDormantLine(session.ctx.ui.theme));
+		return lines;
 	}
 
 	async function refreshLocalNowWithIdentity(
@@ -320,12 +379,11 @@ export default function worktreeStatusExtension(
 
 	async function refreshRemoteNowWithIdentity(
 		session: ActiveSession,
-		identity?: WorktreeStatusIdentity,
-		options: RefreshOptions = {},
+		options: RefreshRemoteOptions = {},
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
 
-		const fetchIdentity = identity ?? session.localStatus?.identity;
+		const fetchIdentity = options.identity ?? session.localStatus?.identity;
 		if (fetchIdentity === undefined) return;
 		if (shouldUseCachedGhStatus(session, fetchIdentity, options)) {
 			renderSessionStatus(session);
@@ -354,7 +412,7 @@ export default function worktreeStatusExtension(
 		identity: WorktreeStatusIdentity,
 		options: RefreshOptions,
 	): boolean {
-		if (options.forceRemote === true) return false;
+		if (options.shouldForceRemote === true) return false;
 		const snapshot = session.ghStatusSnapshot;
 		if (snapshot === undefined) return false;
 		if (!sameWorktreeStatusIdentity(snapshot.identity, identity)) return false;
@@ -419,7 +477,9 @@ export default function worktreeStatusExtension(
 		left: RefreshOptions | undefined,
 		right: RefreshOptions,
 	): RefreshOptions {
-		return left?.forceRemote === true || right.forceRemote === true ? { forceRemote: true } : {};
+		return left?.shouldForceRemote === true || right.shouldForceRemote === true
+			? { shouldForceRemote: true }
+			: {};
 	}
 
 	async function refreshAllImmediately(
@@ -427,6 +487,7 @@ export default function worktreeStatusExtension(
 		options: RefreshOptions,
 	): Promise<void> {
 		if (!session.hasUI || !isActiveSession(session)) return;
+		if (session.isDormant && options.shouldForceRemote !== true) return;
 
 		const identity = await loadWorktreeStatusIdentity(
 			pi,
@@ -436,7 +497,7 @@ export default function worktreeStatusExtension(
 		if (!isActiveSession(session)) return;
 		await Promise.all([
 			refreshLocalNowWithIdentity(session, identity),
-			refreshRemoteNowWithIdentity(session, identity, options),
+			refreshRemoteNowWithIdentity(session, { ...options, identity }),
 		]);
 		if (!isActiveSession(session)) return;
 
@@ -446,7 +507,7 @@ export default function worktreeStatusExtension(
 			localIdentity !== undefined &&
 			(remoteIdentity === undefined || !sameWorktreeStatusIdentity(localIdentity, remoteIdentity))
 		) {
-			await refreshRemoteNowWithIdentity(session, localIdentity, options);
+			await refreshRemoteNowWithIdentity(session, { ...options, identity: localIdentity });
 		}
 	}
 
@@ -485,6 +546,7 @@ export default function worktreeStatusExtension(
 								branch,
 								fallbackRepo: fallbackRepoName(cwd),
 								worktreeStatus: combinedSessionStatus(session),
+								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
 							})
 						: [];
 				},
@@ -492,25 +554,119 @@ export default function worktreeStatusExtension(
 		});
 	}
 
-	pi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
-		description: "Refresh the worktree status footer",
-		handler: async (_args, _ctx) => {
-			const session = activeSession;
-			if (session === undefined) return;
-			await fullRefreshChannel.run(session, { forceRemote: true });
-		},
-	});
-
-	pi.on("session_start", async (_event, ctx) => {
-		const session = activateSession(ctx);
-		installStatusFooter(session);
+	function ensureGitStatusWatcher(session: ActiveSession): void {
+		if (session.watcher !== undefined || session.isDormant) return;
 		session.watcher = startGitStatusWatcher(session, {
 			watchPath: dependencies.watchPath ?? watchExistingPath,
 			setTimeout: dependencies.setTimeout ?? setTimeout,
 			clearTimeout: dependencies.clearTimeout ?? clearTimeout,
 			onChange: () => fullRefreshChannel.run(session),
 		});
-		await fullRefreshChannel.run(session, { forceRemote: true });
+	}
+
+	function installActivityTracking(session: ActiveSession): void {
+		const unsubscribe = session.ctx.ui.onTerminalInput?.(() => {
+			recordSessionActivity(session);
+			return undefined;
+		});
+		session.activityUnsubscribe = unsubscribe;
+	}
+
+	function recordActiveSessionActivity(): void {
+		const session = activeSession;
+		if (session === undefined) return;
+		recordSessionActivity(session);
+	}
+
+	function recordSessionActivity(session: ActiveSession, options: ActivityOptions = {}): void {
+		if (!isActiveSession(session)) return;
+		session.lastActivityAtMs = Date.now();
+		if (session.isDormant) {
+			session.isDormant = false;
+			ensureGitStatusWatcher(session);
+			renderSessionStatus(session);
+			if (options.shouldRefreshOnWake !== false)
+				void fullRefreshChannel.run(session, { shouldForceRemote: true });
+		}
+		scheduleDormancyCheck(session);
+	}
+
+	function scheduleDormancyCheck(session: ActiveSession): void {
+		clearDormancyTimer(session);
+		if (!isActiveSession(session)) return;
+		const delayMs = Math.max(
+			0,
+			session.lastActivityAtMs + WORKTREE_STATUS_DORMANT_AFTER_MS - Date.now(),
+		);
+		session.dormancyTimer = (dependencies.setTimeout ?? setTimeout)(() => {
+			checkSessionDormancy(session);
+		}, delayMs);
+		unrefTimer(session.dormancyTimer);
+	}
+
+	function clearDormancyTimer(session: ActiveSession): void {
+		if (session.dormancyTimer === undefined) return;
+		(dependencies.clearTimeout ?? clearTimeout)(session.dormancyTimer);
+		session.dormancyTimer = undefined;
+	}
+
+	function checkSessionDormancy(session: ActiveSession): void {
+		session.dormancyTimer = undefined;
+		if (!isActiveSession(session)) return;
+		if (isSessionBusy(session)) {
+			session.lastActivityAtMs = Date.now();
+			scheduleDormancyCheck(session);
+			return;
+		}
+
+		const idleMs = Date.now() - session.lastActivityAtMs;
+		if (idleMs < WORKTREE_STATUS_DORMANT_AFTER_MS) {
+			scheduleDormancyCheck(session);
+			return;
+		}
+
+		enterDormantMode(session);
+	}
+
+	function isSessionBusy(session: ActiveSession): boolean {
+		try {
+			if (session.ctx.isIdle?.() === false) return true;
+			if (session.ctx.hasPendingMessages?.() === true) return true;
+		} catch {
+			return false;
+		}
+		return false;
+	}
+
+	function enterDormantMode(session: ActiveSession): void {
+		if (!isActiveSession(session) || session.isDormant) return;
+		session.isDormant = true;
+		session.watcher?.close();
+		session.watcher = undefined;
+		renderSessionStatus(session);
+	}
+
+	pi.registerCommand?.(WORKTREE_STATUS_REFRESH_COMMAND_NAME, {
+		description: "Refresh the worktree status footer",
+		handler: async (_args, _ctx) => {
+			const session = activeSession;
+			if (session === undefined) return;
+			recordSessionActivity(session, { shouldRefreshOnWake: false });
+			await fullRefreshChannel.run(session, { shouldForceRemote: true });
+		},
+	});
+
+	for (const event of WORKTREE_STATUS_ACTIVITY_EVENTS) {
+		pi.on(event, () => recordActiveSessionActivity());
+	}
+
+	pi.on("session_start", async (_event, ctx) => {
+		const session = activateSession(ctx);
+		installStatusFooter(session);
+		installActivityTracking(session);
+		ensureGitStatusWatcher(session);
+		scheduleDormancyCheck(session);
+		await fullRefreshChannel.run(session, { shouldForceRemote: true });
 	});
 
 	pi.on("session_shutdown", async () => {

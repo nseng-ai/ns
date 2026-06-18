@@ -60,7 +60,21 @@ class OrderlessFakePi {
 	}
 }
 
-type RegisteredEventName = "session_start" | "session_shutdown";
+type RegisteredEventName =
+	| "input"
+	| "user_bash"
+	| "agent_start"
+	| "agent_end"
+	| "turn_start"
+	| "turn_end"
+	| "message_start"
+	| "message_end"
+	| "tool_execution_start"
+	| "tool_execution_end"
+	| "model_select"
+	| "thinking_level_select"
+	| "session_start"
+	| "session_shutdown";
 type SessionStartHandler = (event: unknown, ctx: ExtensionContext) => Promise<void> | void;
 type SessionShutdownHandler = () => Promise<void> | void;
 
@@ -213,7 +227,22 @@ describe("worktree status extension registration", () => {
 
 		expect(pi.commands).toEqual([WORKTREE_STATUS_REFRESH_COMMAND_NAME]);
 		expect(pi.renderers).toEqual(["worktree-status"]);
-		expect(pi.events).toEqual(["session_start", "session_shutdown"]);
+		expect(pi.events).toEqual([
+			"input",
+			"user_bash",
+			"agent_start",
+			"agent_end",
+			"turn_start",
+			"turn_end",
+			"message_start",
+			"message_end",
+			"tool_execution_start",
+			"tool_execution_end",
+			"model_select",
+			"thinking_level_select",
+			"session_start",
+			"session_shutdown",
+		]);
 	});
 
 	test("sets brmem and gt footer status on separate lines", async () => {
@@ -666,6 +695,193 @@ describe("worktree status extension registration", () => {
 				expect(ghCount()).toBe(2);
 
 				pi.assertDone();
+				await pi.sessionShutdown?.();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	test("worktree status enters dormant mode after two minutes of idle session time", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const watched: Array<{ path: string; callback: () => void }> = [];
+				const closed: string[] = [];
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript(),
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					isIdle() {
+						return true;
+					},
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI, {
+					watchPath(path, callback) {
+						watched.push({ path, callback });
+						return {
+							close() {
+								closed.push(path);
+							},
+						};
+					},
+				});
+				await pi.sessionStart?.({}, ctx);
+				expect(watched.length).toBeGreaterThan(0);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+					"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR",
+				);
+
+				await vi.advanceTimersByTimeAsync(120_000);
+				await flushPromises();
+
+				expect(closed.length).toBeGreaterThan(0);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+					"[gt] ↓ main · ↑ - · 1 commit\n[gh] no PR\n[wt] dormant after 2m idle",
+				);
+
+				watched[0]?.callback();
+				await vi.advanceTimersByTimeAsync(100);
+				await flushPromises();
+
+				pi.assertDone();
+				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(1);
+				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(1);
+				await pi.sessionShutdown?.();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	test("terminal activity wakes dormant worktree status and forces a refresh", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const watched: Array<{ path: string; callback: () => void }> = [];
+				const wakeDirtyChecked = deferred<void>();
+				let terminalInput: ((data: string) => unknown) | undefined;
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript("main", 1, "", "abc123"),
+					headOidStep("abc123"),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					revListStep("main", 2),
+					{ ...dirtyStep(), onCall: () => wakeDirtyChecked.resolve() },
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					isIdle() {
+						return true;
+					},
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+						onTerminalInput(handler) {
+							terminalInput = handler;
+							return () => {
+								terminalInput = undefined;
+							};
+						},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI, {
+					watchPath(path, callback) {
+						watched.push({ path, callback });
+						return { close() {} };
+					},
+				});
+				await pi.sessionStart?.({}, ctx);
+				await vi.advanceTimersByTimeAsync(120_000);
+				await flushPromises();
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
+					"[wt] dormant after 2m idle",
+				);
+
+				terminalInput?.("a");
+				await wakeDirtyChecked.promise;
+				await flushPromises();
+
+				pi.assertDone();
+				expect(watched.length).toBeGreaterThan(1);
+				expect(pi.calls.filter((call) => call.command === "brmem")).toHaveLength(2);
+				expect(pi.calls.filter((call) => call.command === "gh")).toHaveLength(2);
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+					"[gt] ↓ main · ↑ - · 2 commits\n[gh] no PR",
+				);
+				await pi.sessionShutdown?.();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	test("manual refresh wakes dormant worktree status", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			vi.useFakeTimers();
+			try {
+				const pi = new LifecycleFakePi([
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript(),
+					brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+					...ghNoPrSteps(),
+					...basicGitStatusScript("main", 3),
+				]);
+				const statuses = new Map<string, string | undefined>();
+				const ctx: ExtensionContext = {
+					cwd: root,
+					hasUI: true,
+					isIdle() {
+						return true;
+					},
+					ui: {
+						theme: TEST_THEME,
+						setStatus(key, value) {
+							statuses.set(key, value);
+						},
+						setWidget() {},
+					},
+				};
+
+				worktreeStatusExtension(pi as ExtensionAPI);
+				const command = pi.commands.get(WORKTREE_STATUS_REFRESH_COMMAND_NAME);
+				expect(command).toBeDefined();
+				if (command === undefined) throw new Error("expected manual refresh command");
+				await pi.sessionStart?.({}, ctx);
+				await vi.advanceTimersByTimeAsync(120_000);
+				await flushPromises();
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toContain(
+					"[wt] dormant after 2m idle",
+				);
+
+				await command.handler("", ctx);
+
+				pi.assertDone();
+				expect(stripTerminalEscapes(statuses.get("worktree-status") ?? "")).toBe(
+					"[gt] ↓ main · ↑ - · 3 commits\n[gh] no PR",
+				);
 				await pi.sessionShutdown?.();
 			} finally {
 				vi.useRealTimers();
