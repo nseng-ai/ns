@@ -67,7 +67,10 @@
     confirmation semantics. PR operations run only against fakes during validation.
   - Evidence: `ts/packages/slot` free/gc implementation and tests; PR #1731 (release slice) and
     #1721 (supporting shared confirmation/GitHub runner slice) submitted via Graphite; validation
-    recorded in `updates/20260617T115119Z-slot-release-free-gc.md`.
+    recorded in `updates/20260617T115119Z-slot-release-free-gc.md`. Follow-up work batch-resolved
+    `gc --delete-branches` PR classification and added opt-in gateway command diagnostics without
+    changing the user-facing release contract; validation recorded in
+    `updates/20260618T040838Z-slot-gc-batch-diagnostics.md`.
 
 - [x] Port the Graphite subgroup subset: `slot gt up|down|free-stack` and hidden `slot gt exec
       stack-branches`.

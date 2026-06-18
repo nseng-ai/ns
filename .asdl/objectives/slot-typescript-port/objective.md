@@ -231,7 +231,9 @@ Risks:
 - `git worktree` semantics are load-bearing and easy to approximate incorrectly: detached-worktree
   creation, removal, dirty detection (`has_uncommitted_changes`), and in-progress operation detection
   via branch occupancies (rebasing/bisecting) all drive `assigned`/`available`/`operation` status and
-  the safety refusals in `free`, `gc`, and `resize` shrink.
+  the safety refusals in `free`, `gc`, and `resize` shrink. Follow-up `gc --delete-branches`
+  performance work reduced repeated PR and worktree-marker probes, and slot-local gateway command
+  diagnostics now make future git/gh subprocess fanout observable without polluting JSON stdout.
 - The command surface is the largest ported so far (17 commands, multi-selector `free`, `--current`
   redirect planning with reflog/trunk/detach strategies in `checkout_planning.plan_current_wt_redirect`).
   Each carries exit-code and abort-path contracts that need explicit tests.
