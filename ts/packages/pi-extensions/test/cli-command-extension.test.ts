@@ -12,6 +12,7 @@ import {
 	registerCliCommandExtension,
 	renderCliCommandOutputMessage,
 	type CliCommandInfo,
+	type CliCommandOutputDetails,
 	type CliCommandRunDeps,
 	type CommandContext,
 	type CliCommandExtensionAPI,
@@ -175,6 +176,7 @@ function registerFakeCli(
 	pi: FakePi,
 	options: {
 		runCli?: (args: readonly string[], deps: CliCommandRunDeps) => Promise<number> | number;
+		afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 		env?: Record<string, string | undefined>;
 		commands?: CliCommandInfo[];
 	} = {},
@@ -186,6 +188,7 @@ function registerFakeCli(
 			{ name: "preview-status", description: "Print a preview status." },
 		],
 		runCli: options.runCli ?? (() => 0),
+		...(options.afterCommandComplete === undefined ? {} : { afterCommandComplete: options.afterCommandComplete }),
 		...(options.env === undefined ? {} : { env: options.env }),
 	});
 }
@@ -406,6 +409,48 @@ describe("cli command extension helper", () => {
 				exitCode: 0,
 			},
 		]);
+	});
+
+	test("invokes command completion hook with output details after output emission", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		const hookDetails: CliCommandOutputDetails[] = [];
+		registerFakeCli(pi, {
+			env: { SAMPLE: "1" },
+			afterCommandComplete: (details) => {
+				order.push("hook");
+				hookDetails.push(details);
+				expect(pi.sentMessages).toHaveLength(1);
+			},
+			runCli: (args, deps) => {
+				order.push("run");
+				expect(args).toEqual(["preview-status", "--json"]);
+				deps.stdout("status ok\n");
+				deps.stderr("warning\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext(order);
+
+		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
+
+		expect(order).toEqual(["wait", "run", "hook"]);
+		expect(hookDetails).toEqual([
+			{
+				cliName: "fake-cli",
+				commandName: "preview-status",
+				piCommandName: "dev:preview-status",
+				rawArgs: "--json",
+				args: ["--json"],
+				argv: ["preview-status", "--json"],
+				cwd: "/repo",
+				exitCode: 0,
+				stdout: "status ok\n",
+				stderr: "warning\n",
+				level: "info",
+			},
+		]);
+		expectSingleCliOutputMessage(pi, "stdout:\nstatus ok\n\nstderr:\nwarning\n");
 	});
 
 	test("emits configured start feedback before waiting for idle", async () => {
@@ -653,6 +698,33 @@ describe("cli command extension helper", () => {
 			"error",
 		);
 		expect(editorTexts).toEqual(["/dev:preview-status --json words"]);
+	});
+
+	test("runs command completion hook after restoring CLI usage errors", async () => {
+		const pi = new FakePi();
+		let editorTexts: string[] = [];
+		const editorTextsAtHook: string[][] = [];
+		const hookDetails: CliCommandOutputDetails[] = [];
+		registerFakeCli(pi, {
+			afterCommandComplete: (details) => {
+				hookDetails.push(details);
+				editorTextsAtHook.push([...editorTexts]);
+			},
+			runCli: (_args, deps) => {
+				deps.stderr("Error: Unexpected argument: words\n");
+				return 2;
+			},
+		});
+		const context = createContext();
+		editorTexts = context.editorTexts;
+
+		await commandFor(pi, "dev:preview-status").handler("--json words", context.ctx);
+
+		expectSingleCliOutputMessage(pi, "fake-cli preview-status exited with code 2.\n\nstderr:\nError: Unexpected argument: words\n", "error");
+		expect(editorTexts).toEqual(["/dev:preview-status --json words"]);
+		expect(editorTextsAtHook).toEqual([["/dev:preview-status --json words"]]);
+		expect(hookDetails).toHaveLength(1);
+		expect(hookDetails[0]).toMatchObject({ exitCode: 2, level: "error", stderr: "Error: Unexpected argument: words\n" });
 	});
 
 	test("restores command text after clinkr lowercase error usage errors", async () => {

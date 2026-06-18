@@ -74,6 +74,15 @@ type WorktreeStatusActivityEvent =
 	| "model_select"
 	| "thinking_level_select";
 
+let activeWorktreeStatusRefresh: (() => Promise<void>) | undefined;
+
+// Pi emits tool_execution_end for model tool calls, but extension slash-command
+// handlers complete outside the tool lifecycle. CLI-backed command adapters use
+// this explicit request through their command-completion hook.
+export function requestWorktreeStatusRefresh(): Promise<void> {
+	return activeWorktreeStatusRefresh?.() ?? Promise.resolve();
+}
+
 export const worktreeStatusParity = definePiSurfaceParity([
 	{
 		kind: "command",
