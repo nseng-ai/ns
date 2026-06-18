@@ -104,6 +104,13 @@ interface FooterIdentityParts {
 	relativePath: string;
 }
 
+type FooterIdentityColor = keyof typeof FOOTER_IDENTITY_COLORS;
+
+interface FooterIdentitySegment {
+	text: string;
+	color: FooterIdentityColor;
+}
+
 export function renderStatusFooter(options: StatusFooterRenderOptions): string[] {
 	const { ctx, footerData, theme, width, cwd, branch, fallbackRepo, worktreeStatus } = options;
 	const identity = formatFooterIdentity({
@@ -136,66 +143,60 @@ function formatStructuredFooterWorktreeLines(status: WorktreeStatus | undefined,
 function formatFooterIdentity(options: FormatFooterIdentityOptions): string {
 	const { cwd, branch, fallbackRepo, home, width, gt } = options;
 	const identity = footerIdentityParts(cwd, branch, fallbackRepo, home);
-	const rawLeft = `[wt] repo:${identity.repo} wt:${identity.slot} pwd:${identity.relativePath}${gt?.dirty === "yes" ? " (✗)" : ""}`;
-	const rawRight = `br:${identity.branch}${formatGtBranchSuffix(gt)}`;
-	const rawFullIdentity = `${rawLeft} | ${rawRight}`;
-	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentity(identity, gt);
+	const segments = buildFooterIdentitySegments(identity, gt);
+	const rawFullIdentity = rawFooterIdentity(segments);
+	if (visibleWidth(rawFullIdentity) <= width) return colorFooterIdentitySegments(segments);
 
 	return ansiHex(FOOTER_IDENTITY_COLORS.punctuation, truncateToWidth(rawFullIdentity, width, "..."));
 }
 
-function colorFooterIdentity(identity: FooterIdentityParts, gt: GtStatus | undefined): string {
-	const parts = [
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "[wt]"),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "repo:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.repo, identity.repo),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "wt:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.slot, identity.slot),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "pwd:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.path, identity.relativePath),
+function buildFooterIdentitySegments(identity: FooterIdentityParts, gt: GtStatus | undefined): FooterIdentitySegment[] {
+	const segments: FooterIdentitySegment[] = [
+		{ text: "[wt]", color: "label" },
+		{ text: " ", color: "punctuation" },
+		{ text: "repo:", color: "label" },
+		{ text: identity.repo, color: "repo" },
+		{ text: " ", color: "punctuation" },
+		{ text: "wt:", color: "label" },
+		{ text: identity.slot, color: "slot" },
+		{ text: " ", color: "punctuation" },
+		{ text: "pwd:", color: "label" },
+		{ text: identity.relativePath, color: "path" },
 	];
 	if (gt?.dirty === "yes") {
-		parts.push(
-			ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " ("),
-			ansiHex(FOOTER_IDENTITY_COLORS.dirty, "✗"),
-			ansiHex(FOOTER_IDENTITY_COLORS.punctuation, ")"),
+		segments.push(
+			{ text: " (", color: "punctuation" },
+			{ text: "✗", color: "dirty" },
+			{ text: ")", color: "punctuation" },
 		);
 	}
-	parts.push(
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " | "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "br:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.branch, identity.branch),
-		...colorGtBranchSegments(gt),
+	segments.push(
+		{ text: " | ", color: "punctuation" },
+		{ text: "br:", color: "label" },
+		{ text: identity.branch, color: "branch" },
 	);
-	return parts.join("");
+	if (gt !== undefined) {
+		segments.push(
+			{ text: " ", color: "punctuation" },
+			{ text: "↓:", color: "label" },
+			{ text: gt.down ?? "-", color: "topology" },
+			{ text: " ", color: "punctuation" },
+			{ text: "commits:", color: "label" },
+			{ text: footerCommitCount(gt.commits), color: "commit" },
+			{ text: " ", color: "punctuation" },
+			{ text: "↑:", color: "label" },
+			{ text: gt.up, color: "topology" },
+		);
+	}
+	return segments;
 }
 
-function formatGtBranchSuffix(gt: GtStatus | undefined): string {
-	if (gt === undefined) return "";
-	const commits = formatFooterCommitStatus(gt.commits);
-	return ` ↓:${gt.down ?? "-"} ${commits} ↑:${gt.up}`;
+function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
+	return segments.map((segment) => segment.text).join("");
 }
 
-function colorGtBranchSegments(gt: GtStatus | undefined): string[] {
-	if (gt === undefined) return [];
-	return [
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "↓:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.topology, gt.down ?? "-"),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "commits:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.commit, footerCommitCount(gt.commits)),
-		ansiHex(FOOTER_IDENTITY_COLORS.punctuation, " "),
-		ansiHex(FOOTER_IDENTITY_COLORS.label, "↑:"),
-		ansiHex(FOOTER_IDENTITY_COLORS.topology, gt.up),
-	];
-}
-
-function formatFooterCommitStatus(commits: GtCommitStatus): string {
-	return `commits:${footerCommitCount(commits)}`;
+function colorFooterIdentitySegments(segments: readonly FooterIdentitySegment[]): string {
+	return segments.map((segment) => ansiHex(FOOTER_IDENTITY_COLORS[segment.color], segment.text)).join("");
 }
 
 function footerCommitCount(commits: GtCommitStatus): string {
