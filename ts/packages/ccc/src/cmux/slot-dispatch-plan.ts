@@ -93,7 +93,9 @@ interface FormatFinalSuccessOptions {
 	launchOptions: PiLaunchOptions;
 }
 
-interface FormatSurfaceSuccessOptions extends FormatFinalSuccessOptions {
+interface FormatSurfaceSuccessOptions {
+	operation: Pick<BranchContextCreateOperation, "branch" | "key">;
+	target: SlotCheckoutTarget;
 	launch: Extract<FocusedCmuxTabLaunchResult, { type: "launched" }>;
 }
 
@@ -284,7 +286,6 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		command: formatPiLaunchCommand(operation, launchOptions),
 		tabTitle: operation.branch,
 		operation,
-		launchOptions,
 		config,
 	});
 }
@@ -360,7 +361,7 @@ function formatPiLaunchCommand(operation: Pick<BranchContextCreateOperation, "ke
 }
 
 function formatSurfaceSuccess(options: FormatSurfaceSuccessOptions): string {
-	const { operation, target, launchOptions, launch } = options;
+	const { operation, target, launch } = options;
 	return [
 		"Dispatched plan in cmux surface.",
 		`Branch: ${operation.branch}`,
@@ -369,7 +370,7 @@ function formatSurfaceSuccess(options: FormatSurfaceSuccessOptions): string {
 		`Surface: ${launch.surfaceId}`,
 		`Workspace: ${launch.workspaceId}`,
 		`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${operation.key}`,
-		`Command: ${formatPiLaunchCommand(operation, launchOptions)}`,
+		`Command: ${launch.command}`,
 	].join("\n");
 }
 
@@ -384,11 +385,16 @@ function formatLaunchPreview(options: { destination: DispatchDestination; branch
 		].join(" ");
 	}
 
+	const surfaceLaunchCommand = formatSurfaceLaunchCommand("<slot-worktree-path>", options.launchCommand);
 	return [
 		"cmux new-surface --type terminal --workspace <caller-workspace> --pane <caller-pane> --focus true",
 		`cmux rename-tab --title ${formatShellArg(options.branch)}`,
-		`cmux send -- ${formatShellArg(`${options.launchCommand}\n`)}`,
+		`cmux send -- ${formatShellArg(`${surfaceLaunchCommand}\n`)}`,
 	].join("\n");
+}
+
+function formatSurfaceLaunchCommand(cwd: string, launchCommand: string): string {
+	return `cd ${formatShellArg(cwd)} && ${launchCommand}`;
 }
 
 function formatUsage(config: DispatchPlanConfig): string {
@@ -411,10 +417,9 @@ async function openBranchInCmuxSurface(options: {
 	command: string;
 	tabTitle: string;
 	operation: BranchContextCreateOperation;
-	launchOptions: PiLaunchOptions;
 	config: DispatchPlanConfig;
 }): Promise<void> {
-	const { pi, ctx, cwd, branchName, command, tabTitle, operation, launchOptions, config } = options;
+	const { pi, ctx, cwd, branchName, command, tabTitle, operation, config } = options;
 	const target = await checkoutBranchCmuxSlot({
 		pi,
 		cwd,
@@ -425,11 +430,12 @@ async function openBranchInCmuxSurface(options: {
 	if ("error" in target) return;
 
 	setStatus(ctx, config, "opening cmux surface…");
+	const surfaceLaunchCommand = formatSurfaceLaunchCommand(target.worktreePath, command);
 	const launched = await launchFocusedCmuxTab({
 		host: pi,
 		cwd: target.worktreePath,
 		tabTitle,
-		command,
+		command: surfaceLaunchCommand,
 		signal: undefined,
 		onStage: (stage) => setStatus(ctx, config, formatSurfaceStageStatus(stage)),
 	});
@@ -438,7 +444,7 @@ async function openBranchInCmuxSurface(options: {
 		return;
 	}
 
-	present(ctx, formatSurfaceSuccess({ operation, target, launchOptions, launch: launched }), "info");
+	present(ctx, formatSurfaceSuccess({ operation, target, launch: launched }), "info");
 }
 
 function formatSurfaceStageStatus(stage: "identify" | "create-surface" | "rename" | "send"): string {
