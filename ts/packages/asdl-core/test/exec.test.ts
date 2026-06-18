@@ -12,6 +12,7 @@ import {
 	formatShellArg,
 	isSuccessfulExecResult,
 	normalizeExecResult,
+	piExecApiToCommandExecApi,
 	runCommand,
 	shellQuote,
 	stripTerminalEscapes,
@@ -67,6 +68,21 @@ describe("exec presentation helpers", () => {
 			killed: true,
 			startupError: "spawn missing",
 		});
+	});
+
+	test("adapts pi-like exec APIs to CommandExecApi with normalized results", async () => {
+		const calls: Array<{ readonly command: string; readonly args: readonly string[]; readonly cwd: string | undefined }> = [];
+		const commandExecApi = piExecApiToCommandExecApi({
+			async exec(command, args, options) {
+				calls.push({ command, args: [...args], cwd: options?.cwd });
+				return { stdout: "out", code: 7 };
+			},
+		});
+
+		const result = await commandExecApi.exec("git", ["status"], { cwd: "/repo" });
+
+		expect(result).toEqual({ stdout: "out", stderr: "", code: 7, killed: false });
+		expect(calls).toEqual([{ command: "git", args: ["status"], cwd: "/repo" }]);
 	});
 
 	test("classifies successful exec results", () => {

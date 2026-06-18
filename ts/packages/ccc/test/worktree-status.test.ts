@@ -148,7 +148,7 @@ async function loadComposedWorktreeStatus(
 }
 
 function headOidStep(oid = HEAD_OID): ScriptedExec {
-	return step("git", ["rev-parse", "--verify", "HEAD"], { stdout: `${oid}\n` });
+	return step("git", ["rev-parse", "HEAD"], { stdout: `${oid}\n` });
 }
 
 function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {
@@ -657,6 +657,53 @@ describe("composed local and gh worktree status loading", () => {
 			pi.assertDone();
 			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
 			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+		});
+	});
+
+	test("degrades local identity nonfatally when the head commit lookup fails", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				brmemListStep({ stdout: JSON.stringify({ exit_code: 0, data: { entries: [] } }) }),
+				revListStep("main", 1),
+				dirtyStep(),
+				step("git", ["rev-parse", "HEAD"], { code: 1, stderr: "bad revision" }),
+			]);
+
+			const status = await loadLocalWorktreeStatus(pi, root);
+
+			pi.assertDone();
+			expect(status.identity.headOid).toBeUndefined();
+			expect(status.gt).toEqual({ down: "main", up: "-", commits: { type: "count", count: 1 }, dirty: "no" });
+		});
+	});
+
+	test("degrades gh status nonfatally when the origin URL is missing", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([step("git", ["config", "--get", "remote.origin.url"], { code: 1 })]);
+
+			const status = await loadWorktreeGhStatus(pi, root, {
+				identity: { cwd: root, head: { type: "branch", name: "feature/current" }, headOid: HEAD_OID },
+			});
+
+			pi.assertDone();
+			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
+			expect(status).toEqual({ type: "unavailable", message: "could not identify GitHub repository from origin remote" });
+		});
+	});
+
+	test("degrades gh status nonfatally when the origin URL lookup errors", async () => {
+		await withTempRoot(makeGraphiteRepo(), async (root) => {
+			const pi = new OrderlessFakePi([
+				step("git", ["config", "--get", "remote.origin.url"], { code: 2, stderr: "config failed" }),
+			]);
+
+			const status = await loadWorktreeGhStatus(pi, root, {
+				identity: { cwd: root, head: { type: "branch", name: "feature/current" }, headOid: HEAD_OID },
+			});
+
+			pi.assertDone();
+			expect(pi.calls.some((call) => call.command === "gh")).toBe(false);
+			expect(status).toEqual({ type: "unavailable", message: "could not identify GitHub repository from origin remote" });
 		});
 	});
 

@@ -138,7 +138,7 @@ function dirtyStep(stdout = ""): ScriptedExec {
 }
 
 function headOidStep(oid = "abc123"): ScriptedExec {
-	return step("git", ["rev-parse", "--verify", "HEAD"], { stdout: `${oid}\n` });
+	return step("git", ["rev-parse", "HEAD"], { stdout: `${oid}\n` });
 }
 
 function remoteOriginStep(url = "git@github.com:dagster-io/asdl-tools.git"): ScriptedExec {

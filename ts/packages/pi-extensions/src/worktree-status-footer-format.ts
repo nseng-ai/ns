@@ -85,6 +85,13 @@ export interface WorktreeFooterIdentityOptions {
 	readonly theme: StatusTheme;
 }
 
+interface FooterIdentityPartsOptions {
+	readonly cwd: string;
+	readonly branch: string;
+	readonly fallbackRepo: string;
+	readonly home?: string | undefined;
+}
+
 interface FooterIdentityParts {
 	repo: string;
 	slot: string;
@@ -100,7 +107,12 @@ interface FooterIdentitySegment {
 }
 
 export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOptions): string {
-	const identity = footerIdentityParts(options.cwd, options.branch, options.fallbackRepo, options.home);
+	const identity = footerIdentityParts({
+		cwd: options.cwd,
+		branch: options.branch,
+		fallbackRepo: options.fallbackRepo,
+		home: options.home,
+	});
 	const segments = buildFooterIdentitySegments(identity, options.gt);
 	const rawFullIdentity = rawFooterIdentity(segments);
 	if (visibleWidth(rawFullIdentity) <= options.width) return colorFooterIdentitySegments(segments, options.theme);
@@ -167,13 +179,18 @@ function footerCommitCount(commits: GtCommitStatus): string {
 	}
 }
 
-function footerIdentityParts(cwd: string, branch: string, fallbackRepo: string, home: string | undefined): FooterIdentityParts {
-	const slotInfo = slotInfoFromCwd(cwd);
+function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentityParts {
+	const slotInfo = slotInfoFromCwd(options.cwd);
 	if (slotInfo !== undefined) {
-		const relativePath = relative(slotInfo.worktreeRoot, resolve(cwd));
-		return { repo: slotInfo.repo, slot: slotInfo.slot, branch, relativePath: relativePath.length > 0 ? relativePath : "." };
+		const relativePath = relative(slotInfo.worktreeRoot, resolve(options.cwd));
+		return { repo: slotInfo.repo, slot: slotInfo.slot, branch: options.branch, relativePath: relativePath.length > 0 ? relativePath : "." };
 	}
-	return { repo: fallbackRepo, slot: "no-slot", branch, relativePath: formatFooterCwd(cwd, home) };
+	return {
+		repo: options.fallbackRepo,
+		slot: "no-slot",
+		branch: options.branch,
+		relativePath: formatFooterCwd(options.cwd, options.home),
+	};
 }
 
 function slotInfoFromCwd(cwd: string): { repo: string; slot: string; worktreeRoot: string } | undefined {
