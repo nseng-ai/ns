@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@asdl/core/exec";
+import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotGitGateway } from "../../src/gateways/git.ts";
 
 describe("RealSlotGitGateway", () => {
@@ -20,6 +21,29 @@ describe("RealSlotGitGateway", () => {
 				cwd: "/repo/subdir",
 				timeout: 10_000,
 			},
+		]);
+	});
+
+	it("emits labeled command diagnostics when a sink is injected", async () => {
+		const execApi = new ScriptedExecApi({ stdout: "/repo\n", stderr: "", code: 0, killed: false });
+		const diagnosticSink = new InMemoryDiagnosticSink();
+		const gateway = new RealSlotGitGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi, diagnosticSink });
+
+		await expect(gateway.getRepositoryRoot("/repo/subdir")).resolves.toBe("/repo");
+		expect(diagnosticSink.events()).toEqual([
+			expect.objectContaining({
+				type: "slot.command",
+				operation: "slot.git.get_repository_root",
+				command: "git",
+				args: ["rev-parse", "--show-toplevel"],
+				displayCommand: "git rev-parse --show-toplevel",
+				cwd: "/repo/subdir",
+				timeoutMs: 10_000,
+				exitCode: 0,
+				killed: false,
+				stdoutBytes: 6,
+				stderrBytes: 0,
+			}),
 		]);
 	});
 
@@ -88,6 +112,18 @@ interface ExecCall {
 	args: readonly string[];
 	cwd: string | undefined;
 	timeout: number | undefined;
+}
+
+class InMemoryDiagnosticSink implements SlotDiagnosticSink {
+	private readonly log: SlotCommandDiagnosticEvent[] = [];
+
+	recordCommand(event: SlotCommandDiagnosticEvent): void {
+		this.log.push(event);
+	}
+
+	events(): readonly SlotCommandDiagnosticEvent[] {
+		return this.log.map((event) => ({ ...event, args: [...event.args] }));
+	}
 }
 
 class ScriptedExecApi implements CommandExecApi {

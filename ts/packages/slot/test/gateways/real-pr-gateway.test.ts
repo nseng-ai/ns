@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ScriptedCommandExecApi } from "@asdl/core/testing";
+import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotPrGateway } from "../../src/gateways/pr.ts";
 
 describe("RealSlotPrGateway", () => {
@@ -29,6 +30,40 @@ describe("RealSlotPrGateway", () => {
 		expect(calls[1]?.args[3]).toContain('b1: pullRequests(headRefName: "feature/no-pr"');
 	});
 
+	it("emits labeled gh diagnostics for batch lookup", async () => {
+		const execApi = new ScriptedCommandExecApi([
+			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
+			{ stdout: JSON.stringify({ data: { repository: { b0: { nodes: [] } } } }) },
+		]);
+		const diagnosticSink = new InMemoryDiagnosticSink();
+		const gateway = new RealSlotPrGateway({ cwd: "/repo", env: { PATH: "/fake/bin" }, execApi, diagnosticSink });
+
+		expect(await gateway.getPrsForBranches(["feature/no-pr"])).toMatchObject({ type: "ok" });
+		expect(diagnosticSink.events()).toEqual([
+			expect.objectContaining({
+				type: "slot.command",
+				operation: "slot.pr.resolve_repository",
+				command: "gh",
+				args: ["repo", "view", "--json", "nameWithOwner"],
+				displayCommand: "gh repo view --json nameWithOwner",
+				cwd: "/repo",
+				timeoutMs: 10_000,
+				exitCode: 0,
+				killed: false,
+			}),
+			expect.objectContaining({
+				type: "slot.command",
+				operation: "slot.pr.batch_lookup",
+				command: "gh",
+				args: expect.arrayContaining(["api", "graphql", "-F"]),
+				cwd: "/repo",
+				timeoutMs: 10_000,
+				exitCode: 0,
+				killed: false,
+			}),
+		]);
+	});
+
 	it("returns a batch failure for GraphQL errors", async () => {
 		const execApi = new ScriptedCommandExecApi([
 			{ stdout: JSON.stringify({ nameWithOwner: "dagster-io/asdl-tools" }) },
@@ -39,3 +74,15 @@ describe("RealSlotPrGateway", () => {
 		expect(await gateway.getPrsForBranches(["feature/a"])).toMatchObject({ type: "failure", failure: { message: expect.stringContaining("GitHub GraphQL returned errors") } });
 	});
 });
+
+class InMemoryDiagnosticSink implements SlotDiagnosticSink {
+	private readonly log: SlotCommandDiagnosticEvent[] = [];
+
+	recordCommand(event: SlotCommandDiagnosticEvent): void {
+		this.log.push(event);
+	}
+
+	events(): readonly SlotCommandDiagnosticEvent[] {
+		return this.log.map((event) => ({ ...event, args: [...event.args] }));
+	}
+}

@@ -2,6 +2,8 @@ import { NodeCommandExecApi, type CommandExecApi, type ExecResult } from "@asdl/
 import { runGitHubCliAsExecResult } from "@asdl/core/github-cli";
 import { z } from "zod";
 
+import { createSlotDiagnosticSinkFromEnv, runDiagnosticCommand, type SlotDiagnosticSink } from "../diagnostics.ts";
+
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
 
@@ -62,15 +64,17 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	private readonly cwd: string;
 	private readonly env: NodeJS.ProcessEnv;
 	private readonly execApi: CommandExecApi;
+	private readonly diagnosticSink: SlotDiagnosticSink | undefined;
 
-	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined }) {
+	constructor(options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; execApi?: CommandExecApi | undefined; diagnosticSink?: SlotDiagnosticSink | undefined }) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
+		this.diagnosticSink = options.diagnosticSink ?? createSlotDiagnosticSinkFromEnv(this.env);
 	}
 
 	async getPrForBranch(branch: string): Promise<PrLookupResult> {
-		const result = await this.runGh(["pr", "view", branch, "--json", "number,state,url,headRefName"]);
+		const result = await this.runGh(["pr", "view", branch, "--json", "number,state,url,headRefName"], "slot.pr.view_branch");
 		if (result.code !== 0 || result.killed) {
 			if (isPrLookupMiss(result.stdout, result.stderr)) return { type: "miss" };
 			return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
@@ -89,7 +93,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		if (repo.type === "failure") return { type: "failure", failure: repo.failure };
 		const aliases = uniqueBranches.map((branch, index) => ({ alias: `b${index}`, branch }));
 		const query = buildPrBatchQuery({ owner: repo.owner, name: repo.name, aliases });
-		const result = await this.runGh(["api", "graphql", "-F", `query=${query}`]);
+		const result = await this.runGh(["api", "graphql", "-F", `query=${query}`], "slot.pr.batch_lookup");
 		if (result.code !== 0 || result.killed) return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
 		const parsedJson = parseJsonObject(result.stdout);
 		if (parsedJson.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, parsedJson.message, result.code) };
@@ -110,13 +114,13 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	}
 
 	async closePr(number: number): Promise<PrCloseResult> {
-		const result = await this.runGh(["pr", "close", String(number)]);
+		const result = await this.runGh(["pr", "close", String(number)], "slot.pr.close");
 		if (result.code === 0 && !result.killed) return { type: "ok" };
 		return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
 	}
 
 	private async resolveRepository(): Promise<{ type: "ok"; owner: string; name: string } | { type: "failure"; failure: PrGatewayFailure }> {
-		const result = await this.runGh(["repo", "view", "--json", "nameWithOwner"]);
+		const result = await this.runGh(["repo", "view", "--json", "nameWithOwner"], "slot.pr.resolve_repository");
 		if (result.code !== 0 || result.killed) return { type: "failure", failure: failureFromExec(result.stdout, result.stderr, result.code) };
 		const parsedJson = parseJsonObject(result.stdout);
 		if (parsedJson.type === "failure") return { type: "failure", failure: failureFromExec(result.stdout, parsedJson.message, result.code) };
@@ -130,8 +134,22 @@ export class RealSlotPrGateway implements SlotPrGateway {
 		return { type: "ok", owner, name };
 	}
 
-	private async runGh(args: readonly string[]): Promise<ExecResult> {
-		return await runGitHubCliAsExecResult({ runner: (command, commandArgs, options) => this.execApi.exec(command, [...commandArgs], options), args, cwd: this.cwd, env: this.env, timeoutMs: SLOT_PR_TIMEOUT_MS });
+	private async runGh(args: readonly string[], operation: string): Promise<ExecResult> {
+		return await runGitHubCliAsExecResult({
+			runner: (command, commandArgs, options) =>
+				runDiagnosticCommand({
+					execApi: this.execApi,
+					command,
+					args: commandArgs,
+					execOptions: options ?? {},
+					operation,
+					diagnosticSink: this.diagnosticSink,
+				}),
+			args,
+			cwd: this.cwd,
+			env: this.env,
+			timeoutMs: SLOT_PR_TIMEOUT_MS,
+		});
 	}
 }
 
