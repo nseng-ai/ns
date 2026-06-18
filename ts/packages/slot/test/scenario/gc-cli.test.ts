@@ -1,3 +1,4 @@
+import { stripTerminalEscapes } from "@asdl/core/exec";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
@@ -18,6 +19,19 @@ describe("slot gc CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({ data: { freed_count: 1, kept_count: 2, dry_run: true, entries: [{ action: "would_free" }, { action: "kept_open_pr" }, { action: "kept_no_pr" }] } });
 		expect(run.pr.operations()).toEqual([{ type: "get-prs-for-branches", branches: ["feature/merged", "feature/open", "feature/no-pr"] }]);
 		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("colorizes human dry-run output", async () => {
+		const run = runScenario(["gc", "--dry-run"], {
+			git: { worktrees: [slotWorktree("slot-01", "feature/merged"), slotWorktree("slot-02", "feature/open"), slotWorktree("slot-03", "feature/no-pr")], localBranches: ["master", "feature/merged", "feature/open", "feature/no-pr"] },
+			pr: { prsByBranch: { "feature/merged": { number: 1, state: "MERGED" }, "feature/open": { number: 2, state: "OPEN" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const rendered = run.stdout.join("");
+		expect(rendered).toContain("\u001b[");
+		expect(stripTerminalEscapes(rendered)).toContain("→ would free slot-01 (feature/merged) PR #1 MERGED");
+		expect(stripTerminalEscapes(rendered)).toContain("• kept (open PR) slot-02 (feature/open) PR #2 OPEN");
+		expect(stripTerminalEscapes(rendered)).toContain("• kept (no PR) slot-03 (feature/no-pr)");
 	});
 
 	it("fails the command when batch PR lookup fails", async () => {
@@ -48,7 +62,7 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await accepted.exit).toBe(0);
-		expect(accepted.stderr.join("")).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
+		expect(stripTerminalEscapes(accepted.stderr.join(""))).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
 		expect(accepted.stderr.join("")).toContain("Free 1 slot(s)? [Y/n]");
 		expect(accepted.git.operations()).toEqual([{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" }]);
 
@@ -58,7 +72,7 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await declined.exit).toBe(0);
-		expect(declined.stdout.join("")).toContain("Cancelled — no slots freed.");
+		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled — no slots freed.");
 		expect(declined.git.operations()).toEqual([]);
 	});
 
@@ -69,10 +83,10 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await declined.exit).toBe(0);
-		expect(declined.stderr.join("")).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
+		expect(stripTerminalEscapes(declined.stderr.join(""))).toContain("→ would free slot-01 (feature/closed) PR #1 CLOSED");
 		expect(declined.stderr.join("")).toContain("local branch: force-delete feature/closed");
 		expect(declined.stderr.join("")).toContain("Free 1 slot(s) and delete local branches? [Y/n]");
-		expect(declined.stdout.join("")).toContain("Cancelled — no slots freed.");
+		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled — no slots freed.");
 		expect(declined.git.operations()).toEqual([]);
 	});
 

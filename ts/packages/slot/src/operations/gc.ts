@@ -65,30 +65,46 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 }
 
 export function renderGc(result: GcResult): string {
-	if (result.cancelled === true) return "Cancelled — no slots freed.";
-	if (result.entries.length === 0) return "No assignments to sweep.";
+	if (result.cancelled === true) return ansi("yellow", "Cancelled — no slots freed.");
+	if (result.entries.length === 0) return ansi("dim", "No assignments to sweep.");
 	const lines: string[] = [];
 	for (const entry of result.entries) {
-		const pr = entry.pr_number === null ? "" : ` PR #${entry.pr_number} ${entry.pr_state}`;
-		lines.push(`${actionLabel(entry.action)} ${entry.slot_name} (${entry.branch_name})${pr}`);
-		if (entry.message !== null) lines.push(`    ${entry.message}`);
+		const pr = entry.pr_number === null ? "" : ` ${ansi("dim", `PR #${entry.pr_number} ${entry.pr_state}`)}`;
+		lines.push(`${actionLabel(entry.action)} ${ansi("boldCyan", entry.slot_name)} (${ansi("yellow", entry.branch_name)})${pr}`);
+		if (entry.message !== null) lines.push(`    ${ansi("dim", entry.message)}`);
 		for (const cleanup of entry.cleanup) lines.push(`    ${result.dry_run ? cleanupPreviewLine(cleanup) : cleanupResultLine(cleanup)}`);
 	}
 	const verb = result.dry_run ? "Would free" : "Freed";
-	let summary = `\n${verb} ${result.freed_count}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
+	let summary = `\n${ansi("bold", `${verb} ${result.freed_count}`)}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
 	if (result.cleanup_error_count > 0) summary = `${summary}; cleanup errors ${result.cleanup_error_count}`;
 	lines.push(summary);
 	return lines.join("\n");
 }
 
 function actionLabel(action: GcResult["entries"][number]["action"]): string {
-	if (action === "freed") return "✓ freed";
-	if (action === "would_free") return "→ would free";
-	if (action === "kept_open_pr") return "• kept (open PR)";
-	if (action === "kept_no_pr") return "• kept (no PR)";
-	if (action === "skipped_dirty") return "! skipped (dirty)";
-	if (action === "skipped_operation") return "! skipped (operation)";
-	return "✗ error";
+	if (action === "freed") return ansi("green", "✓ freed");
+	if (action === "would_free") return ansi("yellow", "→ would free");
+	if (action === "kept_open_pr") return ansi("blue", "• kept (open PR)");
+	if (action === "kept_no_pr") return ansi("dim", "• kept (no PR)");
+	if (action === "skipped_dirty") return ansi("yellow", "! skipped (dirty)");
+	if (action === "skipped_operation") return ansi("yellow", "! skipped (operation)");
+	return ansi("red", "✗ error");
+}
+
+type AnsiStyle = "bold" | "dim" | "red" | "green" | "yellow" | "blue" | "boldCyan";
+
+const ANSI_CODES = {
+	bold: "1",
+	dim: "2",
+	red: "31",
+	green: "32",
+	yellow: "33",
+	blue: "34",
+	boldCyan: "1;36",
+} as const satisfies Record<AnsiStyle, string>;
+
+function ansi(style: AnsiStyle, text: string): string {
+	return `\u001b[${ANSI_CODES[style]}m${text}\u001b[0m`;
 }
 
 function confirmationPrompt(count: number, options: { shouldDeleteBranches: boolean }): string {
