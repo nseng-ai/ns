@@ -94,8 +94,8 @@
   - Policy: preview before reviving; ask if a live consumer appears and changes the deferral risk.
   - Evidence: future scenario tests and Semantic Update.
 
-- [~] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
-  parent-shell `cd` directive, and clipboard. (Novel-risk slice.)
+- [x] Port the OS-coupled surfaces: `slot shell show|install`, `slot completion show|install`,
+      parent-shell `cd` directive, and clipboard. (Novel-risk slice.)
   - Preserve the `$SLOT_CD_DIRECTIVE_FILE` protocol and `inactive`/`written`/`failed` states; the
     "never cd in `--format json` / `--json-schema`" rule; zsh/bash detection from `$SHELL`; the
     marker blocks (`# >>> slot shell integration >>>`, `# >>> slot completion >>>`); idempotent
@@ -110,24 +110,30 @@
     marker/idempotency behavior, and clipboard skip/failure coverage are implemented and tested;
     validation recorded in `updates/20260617T142400Z-slot-shell-completion-fake-backed.md`. PR #1756
     also factors the shared marker-block show/install scaffolding while preserving shell/completion
-    marker constants and payload rendering. Keep this row in progress until the deliberate real-shell
-    parity check is documented.
+    marker constants and payload rendering. A deliberate throwaway zsh real-shell parity check, plus
+    best-effort bash smoke, passed and is recorded in
+    `updates/20260618T112132Z-slot-shell-parity-distribution-cutover.md`; the check also hardened the
+    wrapper read path for bare directive files under `set -e`.
 
-- [ ] Cut over public docs, wrapper, and distribution to the TypeScript default.
+- [x] Cut over public docs, wrapper, and distribution to the TypeScript default.
   - Make the standalone TypeScript `slot` CLI the default surface; add `just install-slot`
     (`_install-ts-shim "slot" "ts/packages/slot/src/cli.ts" ...`), route `install-tools` through it,
     and remove the editable-uv-tool install of `packages/asdl-slots`; remove any stale uv tool/script
     as `handoff`/`areg` did. Update the package `README.md` / docs to name the TypeScript path.
   - Policy: docs, wrapper behavior/tests, and local-checkout behavior are directly executable after
     preview. npm/PyPI publishing and checkout-free bundling are out of scope unless newly accepted.
-  - Evidence: shim recipe, wrapper tests (enclosing-checkout/canonical/missing-dep/no-checkout),
-    `install-tools` routing, docs refresh, manual rendered-shim smoke, and a Semantic Update.
+  - Evidence: `just install-slot` and `install-tools` already route through the TypeScript source shim;
+    this slice removed `asdl-slots` from active root Python workspace/source/dev/plugin/lint/test/type
+    surfaces, removed the package-local console script and `asdl.plugins` entry point, removed the
+    package from `publish`, added `ts/packages/slot/README.md`, marked `packages/asdl-slots` dormant,
+    and recorded validation in `updates/20260618T112132Z-slot-shell-parity-distribution-cutover.md`.
 
 - [ ] Retire the Python fallback and delete `packages/asdl-slots` from active paths.
   - Gate on full 17-command parity, worktree-state parity, shell-integration parity (incl. real-shell
     check), run-from-source distribution evidence, and docs naming the TypeScript CLI as the sole
-    surface. Remove the console script + `asdl.plugins` entry wiring, scrub workspace/config/test
-    references, and record the post-deletion rollback reference commit.
+    surface. The console script + `asdl.plugins` entry wiring and active root config references are
+    already removed; the later deletion row should delete the dormant source/tests/docs directory,
+    scrub remaining fallback references, and record the post-deletion rollback reference commit.
   - Policy: the final gated deletion is directly executable once the gates are evidenced; otherwise
     ask before broad deletion. Validate with full `just`, not just the TS package.
   - Evidence: deletion diff, scrubbed references, rollback commit hash, full-repo validation, and a

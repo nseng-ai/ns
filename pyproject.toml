@@ -2,7 +2,6 @@
 members = [
   "packages/asdl-core",
   "packages/aretro",
-  "packages/asdl-slots",
   "packages/packagechk",
   "packages/vibechk",
 ]
@@ -10,7 +9,6 @@ members = [
 [tool.uv.sources]
 asdl-core = { workspace = true }
 aretro = { workspace = true }
-asdl-slots = { workspace = true }
 packagechk = { workspace = true }
 vibechk = { workspace = true }
 
@@ -31,11 +29,6 @@ dependencies = [
 [project.scripts]
 asdl = "asdl_tools.cli.cli:main"
 
-[project.optional-dependencies]
-plugins = [
-  "asdl-slots",
-]
-
 [dependency-groups]
 dev = [
   "ruff>=0.5.0",
@@ -43,7 +36,6 @@ dev = [
   "pytest-xdist>=3.8.0",
   "asdl-core",
   "aretro",
-  "asdl-slots",
   "packagechk",
   "vibechk",
   "ty>=0.0.1a7",
@@ -63,11 +55,10 @@ src = [
   "src",
   "packages/asdl-core/src",
   "packages/aretro/src",
-  "packages/asdl-slots/src",
   "packages/packagechk/src",
   "packages/vibechk/src",
 ]
-exclude = [".git/", ".claude/", ".agents/skills/"]
+exclude = [".git/", ".claude/", ".agents/skills/", "packages/asdl-slots/"]
 force-exclude = true
 
 [tool.ruff.lint]
@@ -84,13 +75,18 @@ known-first-party = [
   "asdl_tools",
   "asdl_core",
   "aretro",
-  "asdl_slots",
   "packagechk",
   "vibechk",
 ]
 
 [tool.ty.src]
-include = ["src", "packages/*/src"]
+include = [
+  "src",
+  "packages/asdl-core/src",
+  "packages/aretro/src",
+  "packages/packagechk/src",
+  "packages/vibechk/src",
+]
 exclude = [".agents/skills/", ".claude/skills/"]
 
 [tool.ty.environment]
@@ -107,7 +103,6 @@ testpaths = [
   "tests",
   "packages/asdl-core/tests",
   "packages/aretro/tests",
-  "packages/asdl-slots/tests",
   "packages/packagechk/tests",
   "packages/vibechk/tests",
 ]
